@@ -1,0 +1,22 @@
+.root {
+    display: grid;
+    height: 100%;
+    grid-template-rows: auto 1fr;
+}
+
+.header {
+    opacity: 0.75;
+    font-size: 14px;
+    flex-grow: 1;
+    margin-left: 16px;
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 12px;
+    grid-row-start: 2;
+    margin: 4px 12px 12px 12px;
+    background-color: var(--panelBackground);
+    border-radius: 8px;
+}

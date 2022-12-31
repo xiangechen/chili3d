@@ -1,0 +1,14 @@
+.panel {
+    height: 32px;
+    border-top: var(--border);
+    border-bottom: var(--border);
+    background-color: var(--contextBackground);
+    display: flex;
+    flex-direction: row;
+}
+
+.itemPanel {
+    display: flex;
+    flex-direction: row;
+    margin-left: 8px;
+}

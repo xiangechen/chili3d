@@ -1,0 +1,49 @@
+html,
+body {
+    margin: 0px;
+    padding: 0px;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+.drawingCursor {
+    cursor: url("./cursors/Drawing.cur"), default;
+}
+
+:root[theme="light"] {
+    --color: #888;
+    --border: solid 1px lightgray;
+    --titlebarBackground: #dddddd;
+    --ribbonHeaderBackgound: #dddddd;
+    --ribbonPanelBackground: #eeeeee;
+    --ribbonGroupBackground: #ffffff;
+    --quickbarIcon: #666;
+    --quickbarIconHover: #444;
+    --contextBackground: #eeeeee;
+    --sidebarBackground: #eeeeee;
+    --viewportBackground: #888;
+    --statusbarBackground: #dddddd;
+    --panelBackground: #ffffff;
+    --hover: rgba(255, 255, 255, 0.35);
+    --hoverBackground: rgba(25, 25, 25, 0.1);
+    --selected: #eeeeee;
+}
+
+:root[theme="dark"] {
+    --color: red;
+    --border: solid 1px lightgray;
+    --titlebarBackground: #dddddd;
+    --ribbonHeaderBackgound: #dddddd;
+    --ribbonPanelBackground: #eeeeee;
+    --ribbonGroupBackground: #ffffff;
+    --quickbarIcon: #666;
+    --quickbarIconHover: #444;
+    --contextBackground: #eeeeee;
+    --sidebarBackground: #eeeeee;
+    --viewportBackground: #888;
+    --statusbarBackground: #dddddd;
+    --hover: rgba(255, 255, 255, 0.35);
+    --hoverBackground: rgba(25, 25, 25, 0.1);
+    --selected: #eeeeee;
+}

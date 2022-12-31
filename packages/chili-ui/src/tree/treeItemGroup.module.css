@@ -1,0 +1,29 @@
+.itemExpanderIcon {
+    width: 10px;
+    height: 10px;
+    margin-right: 4px;
+}
+
+.itemGroupPanel {
+    display: flex;
+    flex-direction: column;
+}
+
+.itemGroupChildPanel {
+    padding-left: 16px;
+}
+
+.itemGroupChildPanelHide {
+    display: none;
+}
+
+.itemPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+}
+
+.itemPanel:hover {
+    background-color: var(--hoverBackground);
+}

@@ -1,0 +1,19 @@
+.tip {
+    font-size: 13px;
+    background-color: var(--panelBackground);
+    opacity: 0.85;
+    border: var(--border);
+    padding: 1px 4px;
+}
+
+.info {
+    color: black;
+}
+
+.warn {
+    color: yellow;
+}
+
+.error {
+    color: red;
+}

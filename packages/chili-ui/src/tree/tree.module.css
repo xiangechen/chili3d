@@ -1,0 +1,19 @@
+.treeRoot {
+    display: grid;
+    height: 100%;
+    grid-template-rows: auto 1fr;
+}
+
+.treePanel {
+    margin: 4px 12px 12px 12px;
+    background-color: var(--panelBackground);
+    grid-row-start: 2;
+    height: 240px;
+    resize: vertical;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+.itemPanelSelected {
+    background-color: var(--selected);
+}

@@ -1,0 +1,10 @@
+.viewport {
+    background: var(--viewportBackground);
+}
+
+@media (max-width: 960px) {
+    .viewport {
+        height: 350px;
+        grid-row-start: 1;
+    }
+}

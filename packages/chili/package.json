@@ -1,0 +1,13 @@
+{
+    "name": "chili",
+    "version": "0.1.0",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-core": "*",
+        "chili-ui": "*",
+        "chili-shared": "*",
+        "chili-three": "*",
+        "chili-occ": "*"
+    }
+}

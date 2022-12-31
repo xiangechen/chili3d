@@ -1,0 +1,26 @@
+.treeTitle {
+    font-size: 14px;
+    flex-grow: 1;
+}
+
+.toolPanel {
+    display: flex;
+    flex-direction: row;
+    width: auto;
+    height: 32px;
+    padding: 0px 16px;
+    grid-row-start: 1;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.treeToolIcon {
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    padding: 8px;
+}
+
+.treeToolIcon:hover {
+    background-color: var(--hoverBackground);
+}

@@ -1,0 +1,19 @@
+.quickbarPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.quickbarIcon {
+    width: 14px;
+    height: 14px;
+    margin-left: 16px;
+    fill: var(--quickbarIcon);
+    overflow: hidden;
+}
+
+.quickbarIcon:hover {
+    fill: var(--quickbarIconHover);
+}

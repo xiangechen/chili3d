@@ -1,0 +1,222 @@
+mainBuild:
+  name: chili_occ.js
+  bindings:
+    - symbol: Adaptor3d_Curve
+    - symbol: Adaptor3d_Surface
+    - symbol: Bnd_Box
+    - symbol: Bnd_OBB
+    - symbol: BOPAlgo_GlueEnum
+    - symbol: BOPAlgo_Options
+    - symbol: BRep_Tool
+    - symbol: BRep_Builder
+    - symbol: BRepAdaptor_CompCurve
+    - symbol: BRepAdaptor_Curve
+    - symbol: BRepAdaptor_Surface
+    - symbol: BRepAlgoAPI_Algo
+    - symbol: BRepAlgoAPI_BooleanOperation
+    - symbol: BRepAlgoAPI_BuilderAlgo
+    - symbol: BRepAlgoAPI_Common
+    - symbol: BRepAlgoAPI_Cut
+    - symbol: BRepAlgoAPI_Fuse
+    - symbol: BRepAlgoAPI_Section
+    - symbol: BRepBndLib
+    - symbol: BRepBuilderAPI_Command
+    - symbol: BRepBuilderAPI_MakeEdge
+    - symbol: BRepBuilderAPI_MakeFace
+    - symbol: BRepBuilderAPI_MakeShape
+    - symbol: BRepBuilderAPI_MakeSolid
+    - symbol: BRepBuilderAPI_MakeVertex
+    - symbol: BRepBuilderAPI_MakeWire
+    - symbol: BRepBuilderAPI_ModifyShape
+    - symbol: BRepBuilderAPI_Sewing
+    - symbol: BRepBuilderAPI_Transform
+    - symbol: BRepBuilderAPI_TransitionMode
+    - symbol: BRepBuilderAPI_WireError
+    - symbol: BRepCheck_Analyzer
+    - symbol: BRepExtrema_ExtCC
+    - symbol: BRepExtrema_DistShapeShape
+    - symbol: BRepFeat_Form
+    - symbol: BRepFeat_MakeDPrism
+    - symbol: BRepFill_TypeOfContact
+    - symbol: BRepFilletAPI_LocalOperation
+    - symbol: BRepFilletAPI_MakeChamfer
+    - symbol: BRepFilletAPI_MakeFillet
+    - symbol: BRepGProp
+    - symbol: BRepGProp_Face
+    - symbol: BRepLib
+    - symbol: BRepMesh_DiscretRoot
+    - symbol: BRepMesh_IncrementalMesh
+    - symbol: BRepOffset_Mode
+    - symbol: BRepOffsetAPI_MakeFilling
+    - symbol: BRepOffsetAPI_MakeOffset
+    - symbol: BRepOffsetAPI_MakeOffsetShape
+    - symbol: BRepOffsetAPI_MakePipe
+    - symbol: BRepOffsetAPI_MakePipeShell
+    - symbol: BRepOffsetAPI_MakeThickSolid
+    - symbol: BRepOffsetAPI_ThruSections
+    - symbol: BRepPrimAPI_MakeBox
+    - symbol: BRepPrimAPI_MakeCylinder
+    - symbol: BRepPrimAPI_MakeOneAxis
+    - symbol: BRepPrimAPI_MakePrism
+    - symbol: BRepPrimAPI_MakeRevol
+    - symbol: BRepPrimAPI_MakeRevolution
+    - symbol: BRepPrimAPI_MakeSphere
+    - symbol: BRepPrimAPI_MakeSweep
+    - symbol: BRepPrimAPI_MakeTorus
+    - symbol: BRepTools
+    - symbol: ChFi3d_FilletShape
+    - symbol: ChFiDS_ChamfMode
+    - symbol: Convert_ParameterisationType
+    - symbol: Extrema_ExtAlgo
+    - symbol: GC_MakeArcOfCircle
+    - symbol: GC_MakeArcOfEllipse
+    - symbol: GC_Root
+    - symbol: GCPnts_AbscissaPoint
+    - symbol: GCPnts_TangentialDeflection
+    - symbol: Geom_BezierCurve
+    - symbol: Geom_BoundedCurve
+    - symbol: Geom_BoundedSurface
+    - symbol: Geom_BSplineCurve
+    - symbol: Geom_BSplineSurface
+    - symbol: Geom_ConicalSurface
+    - symbol: Geom_Curve
+    - symbol: Geom_Circle
+    - symbol: Geom_Conic
+    - symbol: Geom_CylindricalSurface
+    - symbol: Geom_ElementarySurface
+    - symbol: Geom_Geometry
+    - symbol: Geom_Line
+    - symbol: Geom_Surface
+    - symbol: Geom_TrimmedCurve
+    - symbol: GeomAbs_CurveType
+    - symbol: GeomAbs_JoinType
+    - symbol: GeomAbs_Shape
+    - symbol: GeomAbs_SurfaceType
+    - symbol: GeomAPI_Interpolate
+    - symbol: GeomAPI_PointsToBSpline
+    - symbol: GeomAPI_PointsToBSplineSurface
+    - symbol: GeomAPI_ProjectPointOnCurve
+    - symbol: GeomAPI_ProjectPointOnSurf
+    - symbol: GeomLib
+    - symbol: gp_Ax1
+    - symbol: gp_Ax2
+    - symbol: gp_Ax3
+    - symbol: gp_Circ
+    - symbol: gp_Cylinder
+    - symbol: gp_Dir
+    - symbol: gp_Dir2d
+    - symbol: gp_Elips
+    - symbol: gp_GTrsf
+    - symbol: gp_Lin
+    - symbol: gp_Pnt
+    - symbol: gp_Pnt2d
+    - symbol: gp_Quaternion
+    - symbol: gp_Trsf
+    - symbol: gp_Vec
+    - symbol: gp_Vec2d
+    - symbol: gp_XY
+    - symbol: gp_XYZ
+    - symbol: GProp_GProps
+    - symbol: Handle_Geom_BezierCurve
+    - symbol: Handle_Geom_BSplineCurve
+    - symbol: Handle_Geom_BSplineSurface
+    - symbol: Handle_Geom_Curve
+    - symbol: Handle_Geom_Circle
+    - symbol: Handle_Geom_Conic
+    - symbol: Handle_Geom_Line
+    - symbol: Handle_Geom_Surface
+    - symbol: Handle_Geom_TrimmedCurve
+    - symbol: Handle_Law_Function
+    - symbol: Handle_Poly_PolygonOnTriangulation
+    - symbol: Handle_Poly_Triangulation
+    - symbol: IFSelect_ReturnStatus
+    - symbol: Law_BSpFunc
+    - symbol: Law_Composite
+    - symbol: Law_Function
+    - symbol: Law_Interpol
+    - symbol: Law_Linear
+    - symbol: Law_S
+    - symbol: Message_ProgressRange
+    - symbol: NCollection_BaseList
+    - symbol: Poly_Array1OfTriangle
+    - symbol: Poly_Connect
+    - symbol: Poly_PolygonOnTriangulation
+    - symbol: Poly_Triangle
+    - symbol: Poly_Triangulation
+    - symbol: Precision
+    - symbol: ProjLib
+    - symbol: ShapeFix_EdgeConnect
+    - symbol: ShapeFix_Face
+    - symbol: ShapeFix_Root
+    - symbol: ShapeFix_Solid
+    - symbol: ShapeFix_Wire
+    - symbol: ShapeUpgrade_UnifySameDomain
+    - symbol: Standard_Transient
+    - symbol: StdPrs_ToolTriangulatedShape
+    - symbol: STEPControl_Reader
+    - symbol: STEPControl_StepModelType
+    - symbol: STEPControl_Writer
+    - symbol: StlAPI
+    - symbol: StlAPI_Reader
+    - symbol: StlAPI_Writer
+    - symbol: TColgp_Array1OfDir
+    - symbol: TColgp_Array1OfPnt
+    - symbol: TColgp_Array1OfVec
+    - symbol: TColgp_Array2OfPnt
+    - symbol: TColStd_Array1OfBoolean
+    - symbol: TColStd_Array1OfInteger
+    - symbol: TColStd_Array1OfReal 
+    - symbol: TopAbs_Orientation
+    - symbol: TopAbs_ShapeEnum
+    - symbol: TopExp_Explorer
+    - symbol: TopLoc_Location
+    - symbol: TopoDS
+    - symbol: TopoDS_Builder
+    - symbol: TopoDS_Compound
+    - symbol: TopoDS_CompSolid
+    - symbol: TopoDS_Edge
+    - symbol: TopoDS_Face
+    - symbol: TopoDS_Shape
+    - symbol: TopoDS_Shell
+    - symbol: TopoDS_Solid
+    - symbol: TopoDS_Vertex
+    - symbol: TopoDS_Wire
+    - symbol: TopTools_ListOfShape
+    - symbol: XSControl_Reader
+
+    - symbol: OccUtils
+
+  emccFlags:
+    - -sEXPORT_ES6=1
+    - -sUSE_ES6_IMPORT_META=0
+    - -sALLOW_MEMORY_GROWTH=1
+    - -sEXPORTED_RUNTIME_METHODS=["FS"]
+    - -O3
+    - -sDISABLE_EXCEPTION_CATCHING=1
+
+additionalCppCode: |
+  #include <BRep_Builder.hxx>
+  #include <BRepTools.hxx>
+  #include <string>
+  #include <iostream>
+  #include <sstream>
+  
+  class OccUtils {
+    private:
+      OccUtils() {}
+    public:
+      static std::string ShapeToString(const TopoDS_Shape& shape)
+      {
+        std::ostringstream oss(std::ios_base::out);
+        BRepTools::Write(shape, oss);
+        return oss.str();
+      }
+      static TopoDS_Shape ShapeFromString(const std::string& str)
+      {
+        TopoDS_Shape shape;
+        BRep_Builder brepBuilder;
+        std::istringstream iss(str, std::ios_base::in);
+        BRepTools::Read(shape, iss, brepBuilder);
+        return shape;
+      }
+  };

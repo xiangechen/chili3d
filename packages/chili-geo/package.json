@@ -1,0 +1,9 @@
+{
+    "name": "chili-geo",
+    "version": "0.1.0",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-shared": "*"
+    }
+}

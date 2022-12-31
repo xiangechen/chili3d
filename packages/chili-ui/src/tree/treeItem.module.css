@@ -1,0 +1,10 @@
+.itemPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+}
+
+.itemPanel:hover {
+    background-color: var(--hoverBackground);
+}

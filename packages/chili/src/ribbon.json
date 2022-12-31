@@ -1,0 +1,11 @@
+[
+    {
+        "tabName": "开始",
+        "groups": [
+            {
+                "groupName": "绘图",
+                "items": ["Line", "Circle", ["Line", "Circle"]]
+            }
+        ]
+    }
+]

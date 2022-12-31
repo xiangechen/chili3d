@@ -1,0 +1,12 @@
+{
+    "name": "chili-ui",
+    "version": "0.1.0",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-shared": "*",
+        "chili-core": "*",
+        "chili-geo": "*",
+        "chili-vis": "*"
+    }
+}

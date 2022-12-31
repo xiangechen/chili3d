@@ -1,0 +1,20 @@
+.titleBarContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--titlebarBackground);
+    padding: 4px 0px;
+}
+
+.titleText {
+    font-size: 11px;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color);
+}
+
+.titleSplit {
+    margin: 0px 4px;
+}
