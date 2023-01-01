@@ -15,5 +15,6 @@ $ git clone https://github.com/xiangechen/chili3d.git
 $ cd chili3d
 $ npm i
 $ npm run dev 
-# Running on http://localhost:8080/
 ```
+
+Then open http://localhost:8080/ to use Chili3D.
