@@ -1,6 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Div, TextBlock, TextBox } from "../controls";
+import { CommandData, ICommand } from "chili-core";
+import { ContextualCheckControl, ContextualControl, ContextualInputControl } from "chili-core/src/decorators/contextual";
+import { Checkbox, Div, TextBlock, TextBox } from "../controls";
 import style from "./contextual.module.css"
 
 export class Contextual {
@@ -14,6 +16,8 @@ export class Contextual {
     }
 
     private root: Div
+    private currentDiv: Div | undefined
+    private controlMap = new WeakMap<object, Div>
 
     private constructor() {
         this.root = new Div(style.panel);
@@ -21,6 +25,30 @@ export class Contextual {
 
     init(parent: HTMLElement) {
         parent.appendChild(this.root.dom)
+    }
+
+    registerControls(command: ICommand) {
+        this.currentDiv = this.controlMap.get(Object.getPrototypeOf(command))
+        if (this.currentDiv === undefined) {
+            this.currentDiv = new Div(style.itemPanel)
+            let data = CommandData.get(command)
+            if (data === undefined) return;
+            ContextualControl.get(command)?.forEach(control => {
+                this.currentDiv!.add(new TextBlock(`${data!.display}: `))
+                this.currentDiv!.add(new TextBlock(control.header, style.itemHeader))
+                if (control instanceof ContextualCheckControl) {
+                    this.currentDiv!.add(new Checkbox(true))
+                } else if (control instanceof ContextualInputControl) {
+                    this.currentDiv!.add(new TextBox())
+                }
+            })
+            this.controlMap.set(Object.getPrototypeOf(command), this.currentDiv)
+        }
+        this.root.add(this.currentDiv)
+    }
+
+    clearControls() {
+        this.root.clear()
     }
 
     private itemPanel(header: string): Div {

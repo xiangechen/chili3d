@@ -11,4 +11,9 @@
     display: flex;
     flex-direction: row;
     margin-left: 8px;
+    align-items: center;
+}
+
+.itemHeader {
+    margin-left: 8px;
 }

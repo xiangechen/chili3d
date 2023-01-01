@@ -2,10 +2,11 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 import { Token, Logger, Container } from "chili-shared";
-import { Application, ICommand, Hotkey, CommandData } from "chili-core";
+import { ICommand, Hotkey, CommandData } from "chili-core";
 import hotkey from "./hotkeys.json";
 import ribbon from "./ribbon.json";
 import quickbar from "./quickbar.json";
+import { Application } from "./application";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
