@@ -2,7 +2,8 @@
 
 import { ICommand, Id, IDocument, PubSub, Document } from "chili-core";
 import { Container, Token, Logger } from "chili-shared";
-import { Hotkey } from "./hotkey";
+import { Hotkey } from "chili-core/src/hotkey";
+import { Contextual } from "chili-ui";
 
 export class Application {
     static _current: Application | undefined;
@@ -27,7 +28,7 @@ export class Application {
         if (command !== undefined) this.excuteCommand(command);
     };
 
-    excuteCommand = (commandName: string) => {
+    excuteCommand = async (commandName: string) => {
         Logger.info(`excuting command ${commandName}`);
         if (this._activeDocument === undefined) return;
         let command = Container.default.resolve<ICommand>(new Token(commandName));
@@ -35,9 +36,9 @@ export class Application {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
             return;
         }
-        console.log(command);
-        
-        command.excute(this._activeDocument);
+        Contextual.instance.registerControls(command)
+        await command.excute(this._activeDocument);
+        Contextual.instance.clearControls();
     };
 
     getDocument(id: string): IDocument | undefined {

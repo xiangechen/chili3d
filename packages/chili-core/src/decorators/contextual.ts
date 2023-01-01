@@ -19,8 +19,8 @@ export class ContextualComboControl extends ContextualControl {
 }
 
 export namespace ContextualControl {
-    export function get(ctor: new (...args: any[]) => ICommand): ContextualControl[] | undefined {
-        return ctor.prototype.contextual
+    export function get(command: ICommand): ContextualControl[] | undefined {
+        return Object.getPrototypeOf(command).contextual
     }
 }
 
