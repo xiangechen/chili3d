@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, LineBody, Model } from "chili-core";
-import { contextual, ContextualCheckControl } from "chili-core/src/decorators/contextual";
+import { command, ICommand, Id, IDocument, LineBody, Model, contextual, ContextualCheckControl } from "chili-core";
 import { IEdgeFactory } from "chili-geo";
 import { Commands, i18n, inject, injectable, Token, XYZ } from "chili-shared";
-import { Snapper } from "chili-ui";
-import { Dimension } from "chili-ui";
+import { Dimension, Snapper } from "chili-ui";
 
 @injectable()
 @command({
@@ -14,12 +12,13 @@ import { Dimension } from "chili-ui";
     icon: "icon-line",
 })
 @contextual([
-    new ContextualCheckControl("是否继续", "IsContinue"),
+    new ContextualCheckControl("是否继续", "IsContinue")
 ])
 export class Line implements ICommand {
     constructor(@inject(Token.EdgeFactory) private factory: IEdgeFactory) {}
 
     async excute(document: IDocument): Promise<boolean> {
+
         let snap = new Snapper(document);
         let start = await snap.snapPointAsync(Dimension.D1D2D3, "请输入起点");
         if (start === undefined) return false;
