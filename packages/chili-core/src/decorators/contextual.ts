@@ -3,18 +3,16 @@
 import { ICommand } from "../command";
 
 export class ContextualControl {
-    constructor(readonly header: string, readonly key: string) { }
+    constructor(readonly header: string, readonly id: string, readonly tip?: string) { }
 }
 
-export class ContextualInputControl extends ContextualControl {
-    
-}
+export class ContextualInputControl extends ContextualControl { }
 
 export class ContextualCheckControl extends ContextualControl { }
 
 export class ContextualComboControl extends ContextualControl {
-    constructor(header: string, key: string, readonly items: string[]) {
-        super(header, key);
+    constructor(header: string, id: string, readonly items: string[], tip?: string) {
+        super(header, id, tip);
     }
 }
 

@@ -176,6 +176,22 @@ export class Button extends Control {
     }
 }
 
+export class ComboBox extends Control {
+    constructor(items: string[], className?: string) {
+        super(document.createElement("select"), className)
+        items.forEach(x => {
+            let option = document.createElement("option")
+            option.innerText = x
+            this.dom.append(option)
+        })
+    }
+
+    selectedIndex(): number {
+        return (this.dom as HTMLSelectElement).selectedIndex;
+    }
+
+}
+
 export class Svg {
     readonly dom: SVGElement;
     readonly child: SVGUseElement;

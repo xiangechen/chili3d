@@ -5,6 +5,7 @@
     background-color: var(--contextBackground);
     display: flex;
     flex-direction: row;
+    font-size: 14px;
 }
 
 .itemPanel {
@@ -15,5 +16,6 @@
 }
 
 .itemHeader {
+    font-size: 14px;
     margin-left: 8px;
 }
