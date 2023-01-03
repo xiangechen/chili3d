@@ -6,8 +6,8 @@
     "scripts": {
         "build": "webpack --config ./webpack.prod.js",
         "dev": "webpack serve --config ./webpack.dev.js",
-        "test": "set NODE_OPTIONS=--experimental-vm-modules && jest",
-        "testc": "set NODE_OPTIONS=--experimental-vm-modules && jest --coverage",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+        "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "prettier": "npx prettier --write ."
     },
     "workspaces": [
