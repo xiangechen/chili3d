@@ -36,24 +36,27 @@ export class Contextual {
             this.currentDiv = new Div(style.itemPanel)
             this.currentDiv.add(new TextBlock(`${data.display}: `))
             for (let index = 0; index < controls.length; index++) {
-                const control = controls[index];
-                this.currentDiv.add(new TextBlock(control.header, style.itemHeader))
-                let element: Control | undefined = undefined;
-                if (control instanceof ContextualCheckControl) {
-                    element = new Checkbox(false)
-                } else if (control instanceof ContextualInputControl) {
-                    element = new TextBox()
-                } else if (control instanceof ContextualComboControl) {
-                    element = new ComboBox(control.items);
-                }
-                if (element !== undefined) {
-                    element.id = control.id
-                    this.currentDiv.add(element)
-                }
+                this.addControl(this.currentDiv, controls[index]);
             }
             this.controlMap.set(Object.getPrototypeOf(command), this.currentDiv)
         }
         this.root.add(this.currentDiv)
+    }
+
+    private addControl(div: Div, control: ContextualControl) {
+        div.add(new TextBlock(control.header, style.itemHeader));
+        let element: Control | undefined = undefined;
+        if (control instanceof ContextualCheckControl) {
+            element = new Checkbox(false);
+        } else if (control instanceof ContextualInputControl) {
+            element = new TextBox();
+        } else if (control instanceof ContextualComboControl) {
+            element = new ComboBox(control.items);
+        }
+        if (element !== undefined) {
+            element.id = control.id;
+            div.add(element);
+        }
     }
 
     getValue(id: string): boolean | number | string | undefined {
