@@ -6,8 +6,8 @@ import { IViewer } from "chili-core";
 import { CursorType } from "chili-vis";
 import { Document } from "chili-core";
 
-jest.mock("../src/viewControls");
-
 describe("test view", () => {
-    test("test mouse", () => {});
+    test("test mouse", () => {
+        expect(1 + 1).toBe(2)
+    });
 });

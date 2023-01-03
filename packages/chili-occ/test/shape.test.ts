@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from "../occ-wasm/chili_occ";
+import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { expect, jest, test } from "@jest/globals";
 import "reflect-metadata";
 import { CurveType } from "chili-geo";
@@ -18,6 +18,8 @@ const newId = jest.spyOn(Id, "new").mockImplementation(() => {
 let occ: OpenCascadeInstance;
 
 beforeAll(async () => {
+    console.log(initOpenCascade);
+    
     occ = await initOpenCascade();
     global.occ = occ;
 }, 30000);
