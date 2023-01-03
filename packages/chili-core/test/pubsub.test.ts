@@ -15,25 +15,25 @@ describe("test pubsub", () => {
         const addCallback = (s: any, a: any) => {
             testNum += a;
         };
-        pubsub.sub("addModel", callback2);
-        pubsub.sub("addModel", addCallback);
-        pubsub.sub("addModel", callback2);
-        pubsub.pub("addModel")(this as any, 3 as any);
+        pubsub.sub("modelAdded", callback2);
+        pubsub.sub("modelAdded", addCallback);
+        pubsub.sub("modelAdded", callback2);
+        pubsub.pub("modelAdded")(this as any, 3 as any);
         expect(testNum).toEqual(7);
-        pubsub.remove("addModel", addCallback);
-        pubsub.pub("addModel")(this as any, 1 as any);
+        pubsub.remove("modelAdded", addCallback);
+        pubsub.pub("modelAdded")(this as any, 1 as any);
         expect(testNum).toEqual(9);
-        pubsub.remove("addModel", callback2);
-        pubsub.pub("addModel")(this as any, 4 as any);
+        pubsub.remove("modelAdded", callback2);
+        pubsub.pub("modelAdded")(this as any, 4 as any);
         expect(testNum).toEqual(9);
 
-        pubsub.sub("addModel", (s: any, a: any) => {
+        pubsub.sub("modelAdded", (s: any, a: any) => {
             testNum -= 1;
         });
-        pubsub.remove("addModel", (s: any, a: any) => {
+        pubsub.remove("modelAdded", (s: any, a: any) => {
             testNum -= 1;
         });
-        pubsub.pub("addModel")(this as any, 1 as any);
+        pubsub.pub("modelAdded")(this as any, 1 as any);
         expect(testNum).toEqual(8);
     });
 });
