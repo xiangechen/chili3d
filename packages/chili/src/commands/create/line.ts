@@ -11,9 +11,6 @@ import { Dimension, Snapper } from "chili-ui";
     display: i18n.commandLine,
     icon: "icon-line",
 })
-@contextual([
-    new ContextualCheckControl("是否继续", "IsContinue")
-])
 export class Line implements ICommand {
     constructor(@inject(Token.EdgeFactory) private factory: IEdgeFactory) {}
 

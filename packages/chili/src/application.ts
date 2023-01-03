@@ -1,8 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ICommand, Id, IDocument, PubSub, Document } from "chili-core";
+import { ICommand, Id, IDocument, PubSub, Document, Hotkey, ContextualControl } from "chili-core";
 import { Container, Token, Logger } from "chili-shared";
-import { Hotkey } from "chili-core/src/hotkey";
 import { Contextual } from "chili-ui";
 
 export class Application {
@@ -17,18 +16,23 @@ export class Application {
 
     private _documentMap: Map<string, IDocument> = new Map();
     private _activeDocument: IDocument | undefined;
+    private _lastCommand: string | undefined
 
     private constructor() {
         PubSub.default.sub("excuteCommand", this.excuteCommand);
         PubSub.default.sub("keyDown", this.handleKeyDown);
     }
 
-    handleKeyDown = (e: KeyboardEvent) => {
-        let command = Hotkey.instance.getCommand(e);
-        if (command !== undefined) this.excuteCommand(command);
+    private handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+            if (this._lastCommand !== undefined) this.excuteCommand(this._lastCommand)
+        } else {
+            let command = Hotkey.instance.getCommand(e);
+            if (command !== undefined) this.excuteCommand(command);
+        }
     };
 
-    excuteCommand = async (commandName: string) => {
+    private excuteCommand = async (commandName: string) => {
         Logger.info(`excuting command ${commandName}`);
         if (this._activeDocument === undefined) return;
         let command = Container.default.resolve<ICommand>(new Token(commandName));
@@ -39,6 +43,7 @@ export class Application {
         Contextual.instance.registerControls(command)
         await command.excute(this._activeDocument);
         Contextual.instance.clearControls();
+        this._lastCommand = commandName
     };
 
     getDocument(id: string): IDocument | undefined {
