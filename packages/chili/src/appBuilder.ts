@@ -11,11 +11,11 @@ import { Executor } from "./executor";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
-    private _app: Application
+    private _app: Application;
 
     constructor() {
         this._inits = [];
-        this._app = Application.current
+        this._app = Application.current;
         this.registerCommands();
         this.registerHotkeys();
         this.registerExecutor();

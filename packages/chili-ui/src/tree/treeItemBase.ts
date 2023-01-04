@@ -4,22 +4,24 @@ import { IDocument } from "chili-core";
 import { Transaction } from "chili-core/src/transaction";
 import { IModelObject } from "chili-geo";
 import { Constants, IDisposable } from "chili-shared";
-import { Control, Div, Svg, TextBlock } from "../controls";
+import { Control } from "../control";
 import style from "./treeItemBase.module.css";
 
 export const DragIdFormat = "text/id";
 
-export abstract class TreeItemBase extends Control implements IDisposable {
-    readonly text: TextBlock;
-    readonly icon: Svg;
+export abstract class TreeItemBase implements IDisposable {
+    readonly dom: HTMLDivElement;
+    readonly text: HTMLSpanElement;
+    readonly icon: SVGSVGElement;
 
-    constructor(readonly document: IDocument, readonly model: IModelObject, div: Div, className: string) {
-        super(div.dom, className);
+    constructor(readonly document: IDocument, readonly model: IModelObject, div: HTMLDivElement, className: string) {
+        this.dom = div;
+        this.dom.className = className;
         this.dom.draggable = true;
-        this.text = new TextBlock(this.model.name, style.itemText);
-        this.icon = new Svg(this.getVisibleIcon(model.visible), style.itemVisibleIcon);
+        this.text = Control.span(this.model.name, style.itemText);
+        this.icon = Control.svg(this.getVisibleIcon(model.visible), style.itemVisibleIcon);
         this.text.setAttribute(Constants.ModelIdAttribute, this.model.id);
-        this.icon.dom.addEventListener("click", this._handleVisibleClick);
+        this.icon.addEventListener("click", this._handleVisibleClick);
         model.onPropertyChanged(this.propertyChanged);
 
         this.dom.addEventListener("dragstart", this.onDragStart);
@@ -30,7 +32,7 @@ export abstract class TreeItemBase extends Control implements IDisposable {
 
     dispose() {
         this.model.removePropertyChanged(this.propertyChanged);
-        this.icon.dom.removeEventListener("click", this._handleVisibleClick);
+        this.icon.removeEventListener("click", this._handleVisibleClick);
     }
 
     private _handleVisibleClick = () => {
@@ -46,9 +48,9 @@ export abstract class TreeItemBase extends Control implements IDisposable {
 
     private propertyChanged = (source: IModelObject, property: keyof IModelObject, oldValue: any, newValue: any) => {
         if (property === "name") {
-            this.text.text = newValue;
+            this.text.textContent = newValue;
         } else if (property === "visible") {
-            this.icon.setIcon(this.getVisibleIcon(this.model.visible));
+            Control.setSvgIcon(this.icon, this.getVisibleIcon(this.model.visible));
         }
     };
 

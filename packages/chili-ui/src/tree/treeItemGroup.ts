@@ -2,26 +2,26 @@
 
 import { IDocument } from "chili-core";
 import { IModelGroup, IModelObject } from "chili-geo";
-import { Control, Div, Svg } from "../controls";
+import { Control } from "../control";
 import { ModelTree } from "./tree";
 import { TreeItemBase } from "./treeItemBase";
 import style from "./treeItemGroup.module.css";
 
 export class TreeItemGroup extends TreeItemBase {
-    private _root: Div;
-    readonly expander: Svg;
+    private _root: HTMLDivElement;
+    readonly expander: SVGSVGElement;
     private _isExpanded: boolean = false;
-    readonly panel: Div;
-    private _header: Div;
+    readonly panel: HTMLDivElement;
+    private _header: HTMLDivElement;
 
     constructor(document: IDocument, readonly tree: ModelTree, readonly group: IModelGroup, showHeader: boolean) {
-        let root = new Div();
+        let root = Control.div();
         super(document, group, root, style.itemGroupPanel);
-        this.expander = new Svg(this.getExpanderIcon(), style.itemExpanderIcon);
-        this._header = new Div(style.itemPanel);
-        this.panel = new Div(style.itemGroupChildPanel);
+        this.expander = Control.svg(this.getExpanderIcon(), style.itemExpanderIcon);
+        this._header = Control.div(style.itemPanel);
+        this.panel = Control.div(style.itemGroupChildPanel);
         this._root = root;
-        this.expander.dom.addEventListener("click", this._handleExpanderClick);
+        this.expander.addEventListener("click", this._handleExpanderClick);
 
         this.initControls();
     }
@@ -31,20 +31,20 @@ export class TreeItemGroup extends TreeItemBase {
     }
 
     initControls(): void {
-        this._root.add(this._header, this.panel);
-        this._header.dom.appendChild(this.expander.dom);
-        this._header.dom.appendChild(this.text.dom);
-        this._header.dom.appendChild(this.icon.dom);
+        Control.append(this._root, this._header, this.panel);
+        this._header.appendChild(this.expander);
+        this._header.appendChild(this.text);
+        this._header.appendChild(this.icon);
         this.setExpander(false);
     }
 
     setExpander(expand: boolean) {
         this._isExpanded = expand;
-        this.expander.setIcon(this.getExpanderIcon());
+        Control.setSvgIcon(this.expander, this.getExpanderIcon());
         if (this._isExpanded) {
-            this.panel.removeClass(style.itemGroupChildPanelHide);
+            this.panel.classList.remove(style.itemGroupChildPanelHide);
         } else {
-            this.panel.addClass(style.itemGroupChildPanelHide);
+            this.panel.classList.add(style.itemGroupChildPanelHide);
         }
     }
 
@@ -69,12 +69,12 @@ export class TreeItemGroup extends TreeItemBase {
         return this._isExpanded === true ? "icon-angle-down" : "icon-angle-right";
     }
 
-    add(control: Control) {
-        this.panel.add(control);
+    add(control: HTMLElement) {
+        this.panel.appendChild(control);
     }
 
-    remove(control: Control): void {
-        this.panel.remove(control);
+    remove(control: HTMLElement): void {
+        this.panel.removeChild(control);
     }
 
     protected handleDrop(model: IModelObject) {

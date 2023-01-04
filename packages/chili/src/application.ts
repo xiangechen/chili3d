@@ -15,7 +15,7 @@ export class Application {
     private _documentMap: Map<string, IDocument> = new Map();
     private _activeDocument: IDocument | undefined;
 
-    private constructor() { }
+    private constructor() {}
 
     getDocument(id: string): IDocument | undefined {
         return this._documentMap.get(id);

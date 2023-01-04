@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Div } from "../controls";
+import { Control } from "../control";
 import { RibbonTab } from "../ribbon/ribbonTab";
 import style from "./ui.module.css";
 import { Sidebar } from "../sidebar";
@@ -55,15 +55,15 @@ export class UI {
         root.addEventListener("keydown", this.handleKeyDown);
         root.addEventListener("keyup", this.handleKeyUp);
 
-        let div = new Div(style.reactive);
-        div.add(this.sidebar, Viewport.current);
+        let div = Control.div(style.reactive);
+        Control.append(div, this.sidebar.dom, Viewport.current.dom);
         root?.appendChild(this.ribbon.dom);
-        Contextual.instance.init(this.root)
-        root?.appendChild(div.dom);
+        Contextual.instance.init(this.root);
+        root?.appendChild(div);
         root?.appendChild(this.statusbar.dom);
         root.classList.add(style.root);
 
-        this.sidebar.addClass(style.sidebar);
+        this.sidebar.dom.classList.add(style.sidebar);
 
         this.initRibbon(ribbon);
         this.initQuickBar(quickbar);

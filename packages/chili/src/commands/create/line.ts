@@ -15,7 +15,6 @@ export class Line implements ICommand {
     constructor(@inject(Token.EdgeFactory) private factory: IEdgeFactory) {}
 
     async excute(document: IDocument): Promise<boolean> {
-
         let snap = new Snapper(document);
         let start = await snap.snapPointAsync(Dimension.D1D2D3, "请输入起点");
         if (start === undefined) return false;

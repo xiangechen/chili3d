@@ -1,23 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Control, Div, TextBlock } from "../controls";
+import { Control } from "../control";
 import style from "./ribbon.module.css";
 
-export class RibbonGroup extends Div {
-    readonly panel: Div;
-    readonly header: TextBlock;
+export class RibbonGroup {
+    readonly dom: HTMLDivElement;
+    readonly panel: HTMLDivElement;
+    readonly header: HTMLSpanElement;
 
     constructor(name: string) {
-        super(style.group);
-        this.panel = new Div(style.groupPanel);
-        this.header = new TextBlock(name, style.groupHeader);
+        this.dom = Control.div(style.group);
+        this.panel = Control.div(style.groupPanel);
+        this.header = Control.span(name, style.groupHeader);
 
-        super.add(this.panel, this.header);
+        Control.append(this.dom, this.panel, this.header);
     }
 
-    add(...controls: Control[]) {
-        controls.forEach((c) => {
-            this.panel.add(c);
-        });
+    add(...controls: HTMLElement[]) {
+        Control.append(this.panel, ...controls);
     }
 }

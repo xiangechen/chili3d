@@ -2,31 +2,32 @@
 
 import { IDocument, PubSub } from "chili-core";
 import { IModelObject } from "chili-geo";
-import { Div } from "../controls";
 import { ModelTree } from "../tree/tree";
 import style from "./sidebar.module.css";
 import { ISelection } from "chili-vis";
 import { CheckProperty } from "../property/check";
 import { PropertyView } from "../property";
+import { Control } from "../control";
 
-export class Sidebar extends Div {
+export class Sidebar {
+    readonly dom: HTMLDivElement;
     private _activeTree?: ModelTree;
     private readonly _treeMap: WeakMap<IDocument, ModelTree>;
-    readonly modelTreePanel: Div;
-    readonly propertyViewPanel: Div;
+    readonly modelTreePanel: HTMLDivElement;
+    readonly propertyViewPanel: HTMLDivElement;
 
     constructor() {
-        super(style.sidebar);
+        this.dom = Control.div(style.sidebar);
         this._treeMap = new WeakMap<IDocument, ModelTree>();
-        this.modelTreePanel = new Div(style.top);
-        this.propertyViewPanel = new Div(style.bottom);
-        this.add(this.modelTreePanel, this.propertyViewPanel);
-        this.propertyViewPanel.add(new PropertyView());
+        this.modelTreePanel = Control.div(style.top);
+        this.propertyViewPanel = Control.div(style.bottom);
+        Control.append(this.dom, this.modelTreePanel, this.propertyViewPanel);
+        this.propertyViewPanel.appendChild(new PropertyView().dom);
         PubSub.default.sub("activeDocumentChanged", this.activeDocumentChanged);
     }
 
     private activeDocumentChanged = (doc?: IDocument) => {
-        this.modelTreePanel.clear();
+        Control.clear(this.modelTreePanel);
         if (doc === undefined) {
             this._activeTree = undefined;
             return;
@@ -36,6 +37,6 @@ export class Sidebar extends Div {
             this._activeTree = new ModelTree(doc);
             this._treeMap.set(doc, this._activeTree);
         }
-        this.modelTreePanel.add(this._activeTree);
+        this.modelTreePanel.appendChild(this._activeTree.dom);
     };
 }

@@ -8,6 +8,6 @@ import { Document } from "chili-core";
 
 describe("test view", () => {
     test("test mouse", () => {
-        expect(1 + 1).toBe(2)
+        expect(1 + 1).toBe(2);
     });
 });

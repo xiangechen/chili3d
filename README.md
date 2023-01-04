@@ -14,7 +14,7 @@ This project requires Node.js to be installed.
 $ git clone https://github.com/xiangechen/chili3d.git
 $ cd chili3d
 $ npm i
-$ npm run dev 
+$ npm run dev
 ```
 
 Then open http://localhost:8080/ to use Chili3D.

@@ -1,4 +1,4 @@
-import { Hotkey, ICommand, IDocument, PubSub } from "chili-core"
+import { Hotkey, ICommand, IDocument, PubSub } from "chili-core";
 import { Container, Logger, Token } from "chili-shared";
 import { Contextual } from "chili-ui";
 import { Application } from "./application";
@@ -13,11 +13,11 @@ export class Executor {
         return Executor._instance;
     }
 
-    private _lastCommand: string | undefined
-    private _excutingCommand: string | undefined
-    private app: Application | undefined
+    private _lastCommand: string | undefined;
+    private _excutingCommand: string | undefined;
+    private app: Application | undefined;
 
-    private constructor() { }
+    private constructor() {}
 
     register(app: Application) {
         this.app = app;
@@ -27,8 +27,7 @@ export class Executor {
 
     private handleKeyDown = (e: KeyboardEvent) => {
         let command = Hotkey.instance.getCommand(e);
-        if (command === Hotkey.instance.LastCommand) 
-            command = this._lastCommand
+        if (command === Hotkey.instance.LastCommand) command = this._lastCommand;
         if (command !== undefined) this.excuteCommand(command);
     };
 
@@ -45,11 +44,10 @@ export class Executor {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
             return;
         }
-        Contextual.instance.registerControls(command)
+        Contextual.instance.registerControls(command);
         await command.excute(this.app.activeDocument);
         Contextual.instance.clearControls();
-        this._lastCommand = commandName
+        this._lastCommand = commandName;
         this._excutingCommand = undefined;
     };
-
 }

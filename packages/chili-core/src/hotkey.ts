@@ -13,11 +13,11 @@ export interface HotkeyMap {
 
 export class Hotkey {
     private readonly _keyMap = new Map<string, string>();
-    readonly LastCommand = "*LastCommand"
+    readonly LastCommand = "*LastCommand";
 
     private constructor() {
-        this._keyMap.set(" ", this.LastCommand)
-        this._keyMap.set("Enter", this.LastCommand)
+        this._keyMap.set(" ", this.LastCommand);
+        this._keyMap.set("Enter", this.LastCommand);
     }
 
     private static _instance: Hotkey | undefined;

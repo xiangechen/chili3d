@@ -3,12 +3,12 @@
 import { ICommand } from "../command";
 
 export class ContextualControl {
-    constructor(readonly header: string, readonly id: string, readonly tip?: string) { }
+    constructor(readonly header: string, readonly id: string, readonly tip?: string) {}
 }
 
-export class ContextualInputControl extends ContextualControl { }
+export class ContextualInputControl extends ContextualControl {}
 
-export class ContextualCheckControl extends ContextualControl { }
+export class ContextualCheckControl extends ContextualControl {}
 
 export class ContextualComboControl extends ContextualControl {
     constructor(header: string, id: string, readonly items: string[], tip?: string) {
@@ -18,7 +18,7 @@ export class ContextualComboControl extends ContextualControl {
 
 export namespace ContextualControl {
     export function get(command: ICommand): ContextualControl[] | undefined {
-        return Object.getPrototypeOf(command).contextual
+        return Object.getPrototypeOf(command).contextual;
     }
 }
 
