@@ -27,7 +27,7 @@ export class InputProperty extends PropertyBase {
         let span = Control.span(parameter.display, commonStyle.propertyName);
         span.title = parameter.display;
         this.valueBox.addEventListener("keydown", this.handleKeyDown);
-        this.errorLabel = Control.span("", style.error);
+        this.errorLabel = Control.span("error.default", style.error);
         this.errorLabel.classList.add(style.hidden);
         let div = Control.div(style.panel);
         Control.append(div, span, this.valueBox);

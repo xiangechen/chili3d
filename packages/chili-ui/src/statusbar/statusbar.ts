@@ -8,7 +8,7 @@ const DefaultTip = "鼠标中键平移视图，右键旋转视图，中键滚动
 
 export class Statusbar {
     readonly dom: HTMLDivElement;
-    readonly tip = Control.span(DefaultTip, style.tip);
+    readonly tip = Control.span("tip.default", style.tip);
 
     constructor() {
         this.dom = Control.div(style.panel);

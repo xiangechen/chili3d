@@ -46,7 +46,7 @@ export class AppBuilder {
             Logger.info("initializing UI");
 
             let ui = await import("chili-ui");
-            ui.UI.instance.init(document.getElementById("root")!, ribbon, quickbar);
+            ui.UI.instance.init(document.getElementById("root")!, ribbon as any, quickbar);
         });
         return this;
     }

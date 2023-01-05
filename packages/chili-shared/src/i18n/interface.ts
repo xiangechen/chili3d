@@ -1,44 +1,40 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 export interface I18n {
-    name: string;
-    multiValue: string;
-    // ui
-    ribbonStartup: string;
-    modelTree: string;
-    property: string;
-
-    // tip
-    newGroup: string;
-    expandAll: string;
-    unexpandAll: string;
-    delete: string;
-
-    // categorys
-    defaultCategory: string;
-    categoryParemeter: string;
-    // body
-    position: string;
-    rotate: string;
-    visible: string;
-    vertexBodyPoint: string;
-    curveStart: string;
-    curveEnd: string;
-
-    // commands
-    commandRedo: string;
-    commandUndo: string;
-    commandSetProperty: string;
-    commandModifyArray: string;
-    commandAddItemToSet: string;
-    commandAddItemToArray: string;
-
-    commandLine: string;
-
-    // snap
-    snapEndPoint: string;
-    snapMidPoint: string;
-    snapCenter: string;
-    snapIntersection: string;
-    snapPerpendicular: string;
+    "name": string,
+    "value.app.name": string,
+    "value.untitled": string,
+    "ui.ribbon.tab.startup": string,
+    "ui.ribbon.group.drawing": string,
+    "ui.tree.header": string,
+    "ui.tree.tool.newGroup": string,
+    "ui.tree.tool.expandAll": string,
+    "ui.tree.tool.unexpandAll": string,
+    "ui.tree.tool.delete": string,
+    "ui.property.header": string,
+    "ui.property.multivalue": string,
+    "category.default": string,
+    "category.paremeter": string,
+    "body.position": string,
+    "body.rotate": string,
+    "body.visible": string,
+    "body.vertex.point": string,
+    "body.curve.start": string,
+    "body.curve.end": string,
+    "command.delete": string,
+    "command.redo": string,
+    "command.newGroup": string,
+    "command.undo": string,
+    "command.line": string,
+    "snap.end": string,
+    "snap.mid": string,
+    "snap.center": string,
+    "snap.intersection": string,
+    "snap.perpendicular": string,
+    "tip.default": string,
+    "error.default": string,
+    "error.input.maxInput": string,
+    "error.input.numberValid": string,
+    "error.input.whenNullOnlyThreeNumber": string,
+    "error.input.whenOverlapfNotOneNumber": string,
 }

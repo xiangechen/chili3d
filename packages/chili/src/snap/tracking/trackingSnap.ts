@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { LineType, MathUtils, ObjectSnapType, ShapeType, XY, XYZ } from "chili-shared";
+import { I18n, LineType, MathUtils, ObjectSnapType, ShapeType, XY, XYZ } from "chili-shared";
 import { IView } from "chili-vis";
 import { IPointSnap, SnapInfo } from "../";
 import { Ray } from "chili-shared";
@@ -66,7 +66,7 @@ export class TrackingSnap implements IPointSnap {
     }
 
     private showTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
-        let info: string | undefined = undefined;
+        let info: any | undefined = undefined;
         if (trackingDatas.length === 1) {
             let distance = point.distanceTo(trackingDatas[0].axis.location);
             info = `${trackingDatas[0].axis.name}: ${distance.toFixed(2)}`;
@@ -103,7 +103,7 @@ export class TrackingSnap implements IPointSnap {
         let point = points.sort((p) => this.pointDistanceAtScreen(view, x, y, p.intersect))[0];
         this.snaped = {
             point: point.intersect,
-            info: "交点",
+            info: "snap.intersection",
             shapes: [this.detectedShape!],
         };
         let id = this.tempShowLine(view, point.intersect, point.location);

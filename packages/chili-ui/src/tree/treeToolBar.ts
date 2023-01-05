@@ -11,11 +11,11 @@ export class TreeToolBar {
     readonly dom: HTMLDivElement;
     constructor(readonly tree: ModelTree) {
         this.dom = Control.div(style.toolPanel);
-        this.dom.appendChild(Control.span(i18n.modelTree, style.treeTitle));
-        this.newIconButton("icon-folder-plus", i18n.newGroup, this.newGroup);
-        this.newIconButton("icon-unexpand", i18n.unexpandAll, this.unExpandAll);
-        this.newIconButton("icon-expand", i18n.expandAll, this.expandAll);
-        this.newIconButton("icon-delete", i18n.delete, this.deleteModel);
+        this.dom.appendChild(Control.span("ui.tree.header", style.treeTitle));
+        this.newIconButton("icon-folder-plus", "ui.tree.tool.newGroup", this.newGroup);
+        this.newIconButton("icon-unexpand", "ui.tree.tool.unexpandAll", this.unExpandAll);
+        this.newIconButton("icon-expand", "ui.tree.tool.expandAll", this.expandAll);
+        this.newIconButton("icon-delete", "ui.tree.tool.delete", this.deleteModel);
     }
 
     private newIconButton(icon: string, tip: string, command: () => void) {

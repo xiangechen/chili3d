@@ -14,7 +14,7 @@ export class PropertyView {
 
     constructor() {
         this.dom = Control.div(style.root);
-        Control.append(this.dom, Control.span(i18n.property, style.header), this.panel);
+        Control.append(this.dom, Control.span("ui.property.header", style.header), this.panel);
 
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }

@@ -1,9 +1,9 @@
 [
     {
-        "tabName": "ribbon.tab.start",
+        "tabName": "ui.ribbon.tab.startup",
         "groups": [
             {
-                "groupName": "ribbon.group.drawing",
+                "groupName": "ui.ribbon.group.drawing",
                 "items": ["Line", "Circle", ["Line", "Circle"]]
             }
         ]

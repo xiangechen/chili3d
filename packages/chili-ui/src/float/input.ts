@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable } from "chili-shared";
+import { I18n, i18n, IDisposable } from "chili-shared";
 import { IView } from "chili-vis";
 import { Control } from "../control";
 import style from "./input.module.css";
@@ -28,12 +28,12 @@ export class Input implements IDisposable {
         this.textbox.removeEventListener("keydown", this.keyDownHandle);
     }
 
-    showError(error: string) {
+    showError(error: keyof I18n) {
         if (this.span === undefined) {
             this.span = Control.span(error, style.error);
             this.dom.appendChild(this.span);
         } else {
-            this.span.textContent = error;
+            Control.setText(this.span, error)
         }
     }
 

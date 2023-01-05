@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CurveType, ICurve, IEdge, IShape, VertexRenderData } from "chili-geo";
-import { i18n, ShapeType, XYZ, XY, ObjectSnapType } from "chili-shared";
+import { i18n, ShapeType, XYZ, XY, ObjectSnapType, I18n } from "chili-shared";
 import { ISelection, IView } from "chili-vis";
 import { IPointSnap, ISnap, SnapInfo } from "./interfaces";
 
@@ -109,7 +109,7 @@ export class ObjectSnap implements IPointSnap {
                     snaps: [
                         {
                             point: curve.center,
-                            info: i18n.snapCenter,
+                            info: "snap.center",
                             shapes: [shape],
                         },
                     ],
@@ -163,8 +163,8 @@ export class ObjectSnap implements IPointSnap {
             if (!this._intersectionInfos.has(key)) {
                 let intersections = (current as IEdge).intersect(x as IEdge);
                 if (intersections.length > 0) {
-                    let infos = intersections.map((point) => {
-                        return { point, info: i18n.snapIntersection, shapes: [current, x] };
+                    let infos: SnapInfo[] = intersections.map((point) => {
+                        return { point, info: "snap.intersection", shapes: [current, x] };
                     });
                     this._intersectionInfos.set(key, infos);
                 }
@@ -191,15 +191,15 @@ export class ObjectSnap implements IPointSnap {
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());
         let end = curve.point(curve.lastParameter());
-        let addPoint = (point: XYZ, info: string) => infos.push({ point, info, shapes: [shape] });
+        let addPoint = (point: XYZ, info: keyof I18n) => infos.push({ point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
-            addPoint(start, i18n.snapEndPoint);
-            addPoint(end, i18n.snapEndPoint);
+            addPoint(start, "snap.end");
+            addPoint(end, "snap.end");
         }
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) && curve.curveType === CurveType.Line) {
             infos.push({
                 point: XYZ.center(start, end),
-                info: i18n.snapMidPoint,
+                info: "snap.mid",
                 shapes: [shape],
             });
         }

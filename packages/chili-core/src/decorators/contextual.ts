@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { I18n } from "chili-shared";
 import { ICommand } from "../command";
 
 export class ContextualControl {
-    constructor(readonly header: string, readonly id: string, readonly tip?: string) {}
+    constructor(readonly header: keyof I18n, readonly tip?: string) {}
 }
 
 export class ContextualInputControl extends ContextualControl {}
@@ -11,8 +12,8 @@ export class ContextualInputControl extends ContextualControl {}
 export class ContextualCheckControl extends ContextualControl {}
 
 export class ContextualComboControl extends ContextualControl {
-    constructor(header: string, id: string, readonly items: string[], tip?: string) {
-        super(header, id, tip);
+    constructor(header: keyof I18n, readonly items: string[], tip?: string) {
+        super(header, tip);
     }
 }
 

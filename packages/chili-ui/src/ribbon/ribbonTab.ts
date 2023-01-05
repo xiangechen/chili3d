@@ -7,12 +7,13 @@ import { RibbonButtonSize } from "./ribbonButtonSize";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonStack } from "./ribbonStack";
 import { RibbonTabData } from "./ribbonData";
+import { I18n } from "chili-shared";
 
 export class RibbonTab {
     readonly dom: HTMLDivElement;
     readonly header: HTMLSpanElement;
 
-    constructor(name: string) {
+    constructor(name: keyof I18n) {
         this.dom = Control.div(style.contentPanel);
         this.header = Control.span(name, style.tabHeader);
     }

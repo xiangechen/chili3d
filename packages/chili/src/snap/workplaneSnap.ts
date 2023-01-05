@@ -18,7 +18,6 @@ export class WorkplaneSnap implements IPointSnap {
         if (point === undefined) return false;
         this.snaped = {
             point,
-            info: "Workplane",
             shapes: [],
         };
 

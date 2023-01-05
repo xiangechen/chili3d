@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IShape } from "chili-geo";
-import { XYZ, ObjectSnapType } from "chili-shared";
+import { XYZ, ObjectSnapType, I18n } from "chili-shared";
 import { IView } from "chili-vis";
 
 export interface SnapInfo {
     point: XYZ;
-    info?: string;
+    info?: keyof I18n;
     shapes: IShape[];
 }
 

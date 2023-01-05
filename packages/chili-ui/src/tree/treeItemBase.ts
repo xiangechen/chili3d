@@ -18,7 +18,7 @@ export abstract class TreeItemBase implements IDisposable {
         this.dom = div;
         this.dom.className = className;
         this.dom.draggable = true;
-        this.text = Control.span(this.model.name, style.itemText);
+        this.text = Control.textSpan(this.model.name, style.itemText);
         this.icon = Control.svg(this.getVisibleIcon(model.visible), style.itemVisibleIcon);
         this.text.setAttribute(Constants.ModelIdAttribute, this.model.id);
         this.icon.addEventListener("click", this._handleVisibleClick);

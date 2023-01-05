@@ -1,12 +1,14 @@
+import { I18n } from "chili-shared";
+
 export type RibbonCommandData = string | string[];
 
 export interface RibbonGroupData {
-    groupName: string;
+    groupName: keyof I18n;
     items: RibbonCommandData[];
 }
 
 export interface RibbonTabData {
-    tabName: string;
+    tabName: keyof I18n;
     groups: RibbonGroupData[];
 }
 

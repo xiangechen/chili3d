@@ -5,7 +5,7 @@ import { command, ICommand, IDocument } from "chili-core";
 
 @command({
     name: Commands.Delete,
-    display: i18n.delete,
+    display: "command.delete",
     icon: "icon-redo",
 })
 export class Delete implements ICommand {

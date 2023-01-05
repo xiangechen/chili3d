@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType } from "chili-shared";
+import { Result, XYZ, ObjectSnapType, I18n } from "chili-shared";
 import { Input, Tip, TipType, UI } from "chili-ui";
 import { IEventHandler, IView } from "chili-vis";
 import { SnapInfo } from "./interfaces";
@@ -178,7 +178,7 @@ export class SnapPointEventHandler implements IEventHandler {
         }
     };
 
-    private getInput(view: IView, text: string): Result<XYZ, string> {
+    private getInput(view: IView, text: string): Result<XYZ, keyof I18n> {
         let value = this.isValidInput(text);
         if (value.isErr()) return Result.error(value.err!);
         let dims = value.ok()!;
@@ -198,24 +198,24 @@ export class SnapPointEventHandler implements IEventHandler {
         return Result.ok(result);
     }
 
-    private isValidInput(text: string): Result<number[]> {
+    private isValidInput(text: string): Result<number[], keyof I18n> {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.dimension, dimension)) {
-            return Result.error(`输入错误，无法输入 ${dims.length} 个数`);
+            return Result.error("error.input.maxInput");
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Result.error(`输入错误，请输入有效的数字，以,分开`);
+            return Result.error("error.input.numberValid");
         } else {
             if (this.referencePoint === undefined) {
                 if (dims.length !== 3) {
-                    return Result.error(`参照点为空，只能输入 3 个数`);
+                    return Result.error("error.input.whenNullOnlyThreeNumber");
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snapedInfo === undefined || this._snapedInfo.point.isEqualTo(this.referencePoint))
                 ) {
-                    return Result.error(`与参照点重合，无法输入 1 个数`);
+                    return Result.error("error.input.whenOverlapfNotOneNumber");
                 }
             }
         }

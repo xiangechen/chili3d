@@ -8,7 +8,7 @@ import { Dimension, Snapper } from "../../snap";
 @injectable()
 @command({
     name: Commands.Line,
-    display: i18n.commandLine,
+    display: "command.line",
     icon: "icon-line",
 })
 export class Line implements ICommand {

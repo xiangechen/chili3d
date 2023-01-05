@@ -1,5 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { I18n } from "chili-shared";
 import { Control } from "../control";
 import style from "./tip.module.css";
 
@@ -13,7 +14,7 @@ export class Tip {
     private color?: string;
     readonly dom: HTMLSpanElement;
 
-    constructor(msg: string, type: TipType) {
+    constructor(msg: keyof I18n, type: TipType) {
         this.dom = Control.span(msg, style.tip);
         this.set(msg, type);
     }
