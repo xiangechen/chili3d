@@ -38,7 +38,10 @@ let zh: I18n = {
     "error.input.maxInput": "超过最大输入数",
     "error.input.numberValid": "输入错误，请输入有效的数字，以,分开",
     "error.input.whenNullOnlyThreeNumber": "参照点为空，只能输入 3 个数",
-    "error.input.whenOverlapfNotOneNumber": "与参照点重合，无法输入 1 个数"
+    "error.input.whenOverlapfNotOneNumber": "与参照点重合，无法输入 1 个数",
+    "axis.x": "X 轴",
+    "axis.y": "Y 轴",
+    "axis.z": "Z 轴"
 };
 
 export default zh;

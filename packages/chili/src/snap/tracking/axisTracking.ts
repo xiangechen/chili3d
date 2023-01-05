@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { LineType, Plane, XYZ } from "chili-shared";
+import { i18n, LineType, Plane, XYZ } from "chili-shared";
 import { IView } from "chili-vis";
 import { Axis } from "./axis";
 
@@ -27,8 +27,8 @@ export class AxisTrackingSnap {
                 result.push(new Axis(referencePoint, direction, `${testAngle} °`));
                 testAngle += angle;
             }
-            result.push(new Axis(referencePoint, plane.normal, "Z 轴"));
-            result.push(new Axis(referencePoint, plane.normal.reverse(), "Z 轴"));
+            result.push(new Axis(referencePoint, plane.normal, i18n["axis.z"]));
+            result.push(new Axis(referencePoint, plane.normal.reverse(), i18n["axis.z"]));
             return result;
         }
     }

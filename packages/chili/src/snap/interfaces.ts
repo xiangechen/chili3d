@@ -6,7 +6,7 @@ import { IView } from "chili-vis";
 
 export interface SnapInfo {
     point: XYZ;
-    info?: keyof I18n;
+    info?: string;
     shapes: IShape[];
 }
 

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { MathUtils, Plane, Ray, XY, XYZ } from "chili-shared";
+import { i18n, MathUtils, Plane, Ray, XY, XYZ } from "chili-shared";
 import { IView } from "chili-vis";
 
 export class Axis extends Ray {
@@ -10,12 +10,12 @@ export class Axis extends Ray {
 
     static getAxiesAtPlane(location: XYZ, plane: Plane) {
         return [
-            new Axis(location, plane.xDirection, "X 轴"),
-            new Axis(location, plane.yDirection, "Y 轴"),
-            new Axis(location, plane.normal, "Z 轴"),
-            new Axis(location, plane.xDirection.reverse(), "X 轴"),
-            new Axis(location, plane.yDirection.reverse(), "Y 轴"),
-            new Axis(location, plane.normal.reverse(), "Z 轴"),
+            new Axis(location, plane.xDirection, i18n["axis.x"]),
+            new Axis(location, plane.yDirection, i18n["axis.y"]),
+            new Axis(location, plane.normal, i18n["axis.z"]),
+            new Axis(location, plane.xDirection.reverse(), i18n["axis.x"]),
+            new Axis(location, plane.yDirection.reverse(), i18n["axis.y"]),
+            new Axis(location, plane.normal.reverse(), i18n["axis.z"]),
         ];
     }
 

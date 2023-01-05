@@ -109,7 +109,7 @@ export class ObjectSnap implements IPointSnap {
                     snaps: [
                         {
                             point: curve.center,
-                            info: "snap.center",
+                            info: i18n["snap.center"],
                             shapes: [shape],
                         },
                     ],
@@ -164,7 +164,7 @@ export class ObjectSnap implements IPointSnap {
                 let intersections = (current as IEdge).intersect(x as IEdge);
                 if (intersections.length > 0) {
                     let infos: SnapInfo[] = intersections.map((point) => {
-                        return { point, info: "snap.intersection", shapes: [current, x] };
+                        return { point, info: i18n["snap.intersection"], shapes: [current, x] };
                     });
                     this._intersectionInfos.set(key, infos);
                 }
@@ -191,15 +191,15 @@ export class ObjectSnap implements IPointSnap {
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());
         let end = curve.point(curve.lastParameter());
-        let addPoint = (point: XYZ, info: keyof I18n) => infos.push({ point, info, shapes: [shape] });
+        let addPoint = (point: XYZ, info: string) => infos.push({ point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
-            addPoint(start, "snap.end");
-            addPoint(end, "snap.end");
+            addPoint(start, i18n["snap.end"]);
+            addPoint(end, i18n["snap.end"]);
         }
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) && curve.curveType === CurveType.Line) {
             infos.push({
                 point: XYZ.center(start, end),
-                info: "snap.mid",
+                info: i18n["snap.mid"],
                 shapes: [shape],
             });
         }

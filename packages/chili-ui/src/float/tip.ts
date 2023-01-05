@@ -14,8 +14,8 @@ export class Tip {
     private color?: string;
     readonly dom: HTMLSpanElement;
 
-    constructor(msg: keyof I18n, type: TipType) {
-        this.dom = Control.span(msg, style.tip);
+    constructor(msg: string, type: TipType) {
+        this.dom = Control.textSpan(msg, style.tip);
         this.set(msg, type);
     }
 
