@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IModelGroup, IModelObject } from "chili-geo";
-import { Control, Div } from "../controls";
+import { Control } from "../control";
 import { TreeItem } from "./treeItem";
 import style from "./tree.module.css";
 import { Constants, Logger } from "chili-shared";
@@ -11,20 +11,21 @@ import { ISelection } from "chili-vis";
 import { TreeItemBase } from "./treeItemBase";
 import { TreeItemGroup } from "./treeItemGroup";
 
-export class ModelTree extends Div {
+export class ModelTree {
+    readonly dom: HTMLDivElement;
     private _selecteds?: IModelObject[];
-    private _treePanel: Div;
+    private _treePanel: HTMLDivElement;
     readonly toolsPanel: TreeToolBar;
     private readonly _modelMap: Map<string, TreeItemBase>;
 
     constructor(readonly document: IDocument) {
-        super(style.treeRoot);
+        this.dom = Control.div(style.treeRoot);
         this._modelMap = new Map<string, TreeItemBase>();
         this.toolsPanel = new TreeToolBar(this);
-        this._treePanel = new Div(style.treePanel);
-        this.add(this.toolsPanel, this._treePanel);
+        this._treePanel = Control.div(style.treePanel);
+        Control.append(this.dom, this.toolsPanel.dom, this._treePanel);
         this.initTree(document.getModels());
-        this._treePanel.dom.addEventListener("click", this.handleItemClick);
+        this._treePanel.addEventListener("click", this.handleItemClick);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
         PubSub.default.sub("modelAdded", this.handleAddModel);
         PubSub.default.sub("modelRemoved", this.handleRemoveModel);
@@ -36,12 +37,12 @@ export class ModelTree extends Div {
         if (control === undefined) return;
         if (oldParent !== undefined) {
             let oldParentControl = this._modelMap.get(oldParent);
-            oldParentControl?.remove(control);
+            oldParentControl?.dom.removeChild(control.dom);
         }
         if (newParent === undefined) {
-            this._treePanel.add(control);
+            this._treePanel.appendChild(control.dom);
         } else {
-            this._modelMap.get(newParent)?.add(control);
+            this._modelMap.get(newParent)?.dom.appendChild(control.dom);
         }
     };
 
@@ -52,7 +53,7 @@ export class ModelTree extends Div {
     removeItem(model: IModelObject) {
         let item = this._modelMap.get(model.id);
         if (item !== undefined) {
-            this._treePanel.remove(item);
+            this._treePanel.removeChild(item.dom);
             this._modelMap.delete(model.id);
         }
     }
@@ -60,7 +61,7 @@ export class ModelTree extends Div {
     initTree(models: IModelObject[]) {
         let box = document.createDocumentFragment();
         models.forEach((x) => this.addItemToGroup(box, x));
-        this._treePanel.dom.appendChild(box);
+        this._treePanel.appendChild(box);
     }
 
     private addItemToGroup(parent: Node, model: IModelObject) {
@@ -118,17 +119,17 @@ export class ModelTree extends Div {
                 Logger.error(`没有找到 id 为 ${model.parentId} 的控件`);
                 model.parentId = undefined;
             } else {
-                parent = testParent;
+                parent = testParent.dom;
             }
         }
-        parent.add(item);
+        parent.appendChild(item.dom);
         this._modelMap.set(model.id, item);
     };
 
     private handleRemoveModel = (document: IDocument, model: IModelObject) => {
         let li = this._modelMap.get(model.id);
         if (li === undefined) return;
-        this._treePanel.remove(li);
+        this._treePanel.removeChild(li.dom);
         this._modelMap.delete(model.id);
         li.dispose();
     };
@@ -136,7 +137,7 @@ export class ModelTree extends Div {
     private addSelectedStyle(models?: IModelObject[]) {
         models?.forEach((m) => {
             let li = this._modelMap.get(m.id);
-            li?.addClass(style.itemPanelSelected);
+            li?.dom.classList.add(style.itemPanelSelected);
         });
         this._selecteds = models?.map((x) => x);
     }
@@ -144,7 +145,7 @@ export class ModelTree extends Div {
     private clearSelectedStyle() {
         this._selecteds?.forEach((s) => {
             let li = this._modelMap.get(s.id);
-            li?.removeClass(style.itemPanelSelected);
+            li?.dom.classList.remove(style.itemPanelSelected);
         });
         this._selecteds = undefined;
     }

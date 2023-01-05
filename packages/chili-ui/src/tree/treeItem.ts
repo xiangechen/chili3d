@@ -4,7 +4,7 @@ import { IDocument } from "chili-core";
 import { Transaction } from "chili-core/src/transaction";
 import { IModel, IModelGroup, IModelObject } from "chili-geo";
 import { Constants, IDisposable } from "chili-shared";
-import { Control, Div, Svg, TextBlock } from "../controls";
+import { Control } from "../control";
 import { ModelTree } from "./tree";
 import style from "./treeItem.module.css";
 import { TreeItemBase } from "./treeItemBase";
@@ -15,12 +15,12 @@ export class TreeItem extends TreeItemBase {
     }
 
     initControls(): void {
-        this.dom.appendChild(this.text.dom);
-        this.dom.appendChild(this.icon.dom);
+        this.dom.appendChild(this.text);
+        this.dom.appendChild(this.icon);
     }
 
     constructor(document: IDocument, model: IModelObject) {
-        super(document, model, new Div(), style.itemPanel);
+        super(document, model, Control.div(), style.itemPanel);
         this.initControls();
     }
 

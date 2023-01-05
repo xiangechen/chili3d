@@ -1,9 +1,9 @@
 [
     {
-        "tabName": "开始",
+        "tabName": "ribbon.tab.start",
         "groups": [
             {
-                "groupName": "绘图",
+                "groupName": "ribbon.group.drawing",
                 "items": ["Line", "Circle", ["Line", "Circle"]]
             }
         ]

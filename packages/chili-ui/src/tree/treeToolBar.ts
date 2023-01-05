@@ -2,15 +2,16 @@
 
 import { PubSub } from "chili-core";
 import { Commands, i18n } from "chili-shared";
-import { Div, Svg, TextBlock } from "../controls";
+import { Control } from "../control";
 import { ModelTree } from "./tree";
 import { TreeItemGroup } from "./treeItemGroup";
 import style from "./treeToolBar.module.css";
 
-export class TreeToolBar extends Div {
+export class TreeToolBar {
+    readonly dom: HTMLDivElement;
     constructor(readonly tree: ModelTree) {
-        super(style.toolPanel);
-        this.add(new TextBlock(i18n.modelTree, style.treeTitle));
+        this.dom = Control.div(style.toolPanel);
+        this.dom.appendChild(Control.span(i18n.modelTree, style.treeTitle));
         this.newIconButton("icon-folder-plus", i18n.newGroup, this.newGroup);
         this.newIconButton("icon-unexpand", i18n.unexpandAll, this.unExpandAll);
         this.newIconButton("icon-expand", i18n.expandAll, this.expandAll);
@@ -18,11 +19,11 @@ export class TreeToolBar extends Div {
     }
 
     private newIconButton(icon: string, tip: string, command: () => void) {
-        let svg = new Svg(icon, style.treeToolIcon);
-        svg.dom.addEventListener("click", command);
+        let svg = Control.svg(icon, style.treeToolIcon);
+        svg.addEventListener("click", command);
         let text = document.createElement("a");
         text.title = tip;
-        text.appendChild(svg.dom);
+        text.appendChild(svg);
         this.dom.appendChild(text);
     }
 

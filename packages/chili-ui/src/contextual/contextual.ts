@@ -2,97 +2,96 @@
 
 import { CommandData, ContextualComboControl, ICommand, Id } from "chili-core";
 import { ContextualCheckControl, ContextualControl, ContextualInputControl } from "chili-core";
-import { Checkbox, ComboBox, Control, Div, TextBlock, TextBox } from "../controls";
-import style from "./contextual.module.css"
+import { Control } from "../control";
+import style from "./contextual.module.css";
 
 export class Contextual {
-    private static _instance: Contextual | undefined
+    private static _instance: Contextual | undefined;
 
     static get instance() {
         if (Contextual._instance === undefined) {
-            Contextual._instance = new Contextual()
+            Contextual._instance = new Contextual();
         }
-        return Contextual._instance
+        return Contextual._instance;
     }
 
-    private root: Div;
-    private currentDiv: Div | undefined;
-    private controlMap = new WeakMap<object, Div>
+    private root: HTMLDivElement;
+    private currentDiv: HTMLDivElement | undefined;
+    private controlMap = new WeakMap<object, HTMLDivElement>();
 
     private constructor() {
-        this.root = new Div(style.panel);
+        this.root = Control.div(style.panel);
     }
 
     init(parent: HTMLElement) {
-        parent.appendChild(this.root.dom)
+        parent.appendChild(this.root);
     }
 
     registerControls(command: ICommand) {
-        this.currentDiv = this.controlMap.get(Object.getPrototypeOf(command))
+        this.currentDiv = this.controlMap.get(Object.getPrototypeOf(command));
         if (this.currentDiv === undefined) {
-            let data = CommandData.get(command)
-            let controls = ContextualControl.get(command)
+            let data = CommandData.get(command);
+            let controls = ContextualControl.get(command);
             if (data === undefined || controls === undefined) return;
-            this.currentDiv = new Div(style.itemPanel)
-            this.currentDiv.add(new TextBlock(`${data.display}: `))
+            this.currentDiv = Control.div(style.itemPanel);
+            this.currentDiv.appendChild(Control.span(`${data.display}: `));
             for (let index = 0; index < controls.length; index++) {
                 this.addControl(this.currentDiv, controls[index]);
             }
-            this.controlMap.set(Object.getPrototypeOf(command), this.currentDiv)
+            this.controlMap.set(Object.getPrototypeOf(command), this.currentDiv);
         }
-        this.root.add(this.currentDiv)
+        this.root.appendChild(this.currentDiv);
     }
 
-    private addControl(div: Div, control: ContextualControl) {
-        div.add(new TextBlock(control.header, style.itemHeader));
-        let element: Control | undefined = undefined;
+    private addControl(div: HTMLDivElement, control: ContextualControl) {
+        div.appendChild(Control.span(control.header, style.itemHeader));
+        let element: HTMLElement | undefined = undefined;
         if (control instanceof ContextualCheckControl) {
-            element = new Checkbox(false);
+            element = Control.checkBox(false);
         } else if (control instanceof ContextualInputControl) {
-            element = new TextBox();
+            element = Control.textBox();
         } else if (control instanceof ContextualComboControl) {
-            element = new ComboBox(control.items);
+            element = Control.select(control.items);
         }
         if (element !== undefined) {
             element.id = control.id;
-            div.add(element);
+            div.appendChild(element);
         }
     }
 
     getValue(id: string): boolean | number | string | undefined {
         if (this.currentDiv === undefined) return undefined;
-        let element = this.currentDiv.dom.querySelector(`#${id}`)
+        let element = this.currentDiv.querySelector(`#${id}`);
         if (element instanceof HTMLInputElement) {
             if (element.type === "checkbox") {
-                return element.checked
+                return element.checked;
             } else {
-                return element.value
+                return element.value;
             }
         } else if (element instanceof HTMLSelectElement) {
-            return element.selectedIndex
+            return element.selectedIndex;
         }
     }
 
     clearControls() {
-        this.root.clear()
+        Control.clear(this.root);
     }
 
-    private itemPanel(header: string): Div {
-        let panel = new Div(style.itemPanel)
-        panel.add(new TextBlock(`${header}: `))
-        return panel
+    private itemPanel(header: string): HTMLDivElement {
+        let panel = Control.div(style.itemPanel);
+        panel.appendChild(Control.span(`${header}: `));
+        return panel;
     }
 
     private handleTextInput(header: string, callback: (value: string) => boolean) {
-        let panel = this.itemPanel(header)
-        let box = new TextBox();
-        panel.add(box)
+        let panel = this.itemPanel(header);
+        let box = Control.textBox();
+        panel.appendChild(box);
         let keyDown = (e: KeyboardEvent) => {
-            if (callback(box.text)) {
-                box.dom.removeEventListener("keydown", keyDown)
+            if (callback(box.textContent ?? "")) {
+                box.removeEventListener("keydown", keyDown);
             }
-        }
-        box.dom.addEventListener("keydown", keyDown)
+        };
+        box.addEventListener("keydown", keyDown);
     }
-
 }

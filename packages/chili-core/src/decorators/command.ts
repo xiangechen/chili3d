@@ -24,10 +24,10 @@ export namespace CommandData {
         if (typeof command === "string") {
             let c = commandMap.get(command);
             return c?.prototype.data;
-        } else if (typeof command === "function"){
+        } else if (typeof command === "function") {
             return command.prototype.data;
         } else {
-            return Object.getPrototypeOf(command).data
+            return Object.getPrototypeOf(command).data;
         }
     }
 }

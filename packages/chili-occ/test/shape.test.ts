@@ -19,7 +19,7 @@ let occ: OpenCascadeInstance;
 
 beforeAll(async () => {
     console.log(initOpenCascade);
-    
+
     occ = await initOpenCascade();
     global.occ = occ;
 }, 30000);

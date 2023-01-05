@@ -2,44 +2,45 @@
 
 import { IDisposable } from "chili-shared";
 import { IView } from "chili-vis";
-import { Div, TextBlock, TextBox } from "../controls";
+import { Control } from "../control";
 import style from "./input.module.css";
 
-export class Input extends Div implements IDisposable {
-    private readonly textbox: TextBox;
-    private textblock?: TextBlock;
+export class Input implements IDisposable {
+    readonly dom: HTMLDivElement;
+    private readonly textbox: HTMLInputElement;
+    private span?: HTMLSpanElement;
     constructor(readonly view: IView, readonly callback: (view: IView, e: KeyboardEvent) => void) {
-        super(style.panel);
-        this.textbox = new TextBox();
-        this.add(this.textbox);
-        this.textbox.dom.addEventListener("keydown", this.keyDownHandle);
+        this.dom = Control.div(style.panel);
+        this.textbox = Control.textBox();
+        this.dom.appendChild(this.textbox);
+        this.textbox.addEventListener("keydown", this.keyDownHandle);
     }
 
     get text(): string {
-        return this.textbox.text;
+        return this.textbox.textContent ?? "";
     }
 
     focus() {
-        this.textbox.dom.focus();
+        this.textbox.focus();
     }
 
     dispose(): void | Promise<void> {
-        this.textbox.dom.removeEventListener("keydown", this.keyDownHandle);
+        this.textbox.removeEventListener("keydown", this.keyDownHandle);
     }
 
     showError(error: string) {
-        if (this.textblock === undefined) {
-            this.textblock = new TextBlock(error, style.error);
-            this.add(this.textblock);
+        if (this.span === undefined) {
+            this.span = Control.span(error, style.error);
+            this.dom.appendChild(this.span);
         } else {
-            this.textblock.text = error;
+            this.span.textContent = error;
         }
     }
 
     private removeError() {
-        if (this.textblock === undefined) return;
-        this.remove(this.textblock);
-        this.textblock = undefined;
+        if (this.span === undefined) return;
+        this.dom.removeChild(this.span);
+        this.span = undefined;
     }
 
     private keyDownHandle = (e: KeyboardEvent) => {

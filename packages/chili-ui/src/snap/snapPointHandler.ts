@@ -55,7 +55,7 @@ export class SnapPointEventHandler implements IEventHandler {
     private stopSnap(view: IView) {
         this._endSnapCallback();
         if (this._tip !== undefined) {
-            view.float.remove(this._tip);
+            view.float.dom.removeChild(this._tip.dom);
             this._tip = undefined;
         }
 
@@ -72,7 +72,7 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private removeInput(view: IView) {
         if (this._input !== undefined) {
-            view.float.remove(this._input);
+            view.float.dom.removeChild(this._input.dom);
             this._input.dispose();
             this._input = undefined;
             UI.instance.focus();
@@ -105,7 +105,7 @@ export class SnapPointEventHandler implements IEventHandler {
         if (snapedInfo.info !== undefined) {
             if (this._tip === undefined) {
                 this._tip = new Tip(snapedInfo.info, TipType.info);
-                view.float.add(this._tip);
+                view.float.dom.appendChild(this._tip.dom);
             } else {
                 this._tip.set(snapedInfo.info, TipType.info);
             }
@@ -157,7 +157,7 @@ export class SnapPointEventHandler implements IEventHandler {
         }
         if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] && this._input === undefined) {
             this._input = new Input(view, this.handleInput);
-            view.float.add(this._input);
+            view.float.dom.appendChild(this._input.dom);
             this._input.focus();
         }
     }

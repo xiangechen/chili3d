@@ -5,33 +5,33 @@ import { Transaction } from "chili-core/src/transaction";
 import { IConverter, XYZ, XYZConverter } from "chili-shared";
 import { NumberConverter } from "chili-shared/src/converter/numberConverter";
 import { StringConverter } from "chili-shared/src/converter/stringConverter";
-import { Div, TextBlock, TextBox } from "../controls";
 import style from "./input.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
+import { Control } from "../control";
 
 export class InputProperty extends PropertyBase {
-    readonly valueBox: TextBox;
-    readonly errorLabel: TextBlock;
+    readonly valueBox: HTMLInputElement;
+    readonly errorLabel: HTMLSpanElement;
     readonly converter: IConverter | undefined;
 
     constructor(readonly document: IDocument, objects: any[], parameter: Parameter) {
         super(objects, parameter);
         this.converter = parameter.converter ?? this.getConverter();
-        this.valueBox = new TextBox(style.box);
-        this.valueBox.text = this.getDefaultValue();
+        this.valueBox = Control.textBox(style.box);
+        this.valueBox.value = this.getDefaultValue();
         if (this.isReadOnly()) {
-            this.valueBox.dom.readOnly = true;
-            this.valueBox.addClass(style.readonly);
+            this.valueBox.readOnly = true;
+            this.valueBox.classList.add(style.readonly);
         }
-        let textblock = new TextBlock(parameter.display, commonStyle.propertyName);
-        textblock.dom.title = parameter.display;
-        this.valueBox.dom.addEventListener("keydown", this.handleKeyDown);
-        this.errorLabel = new TextBlock("", style.error);
-        this.errorLabel.addClass(style.hidden);
-        let div = new Div(style.panel);
-        div.add(textblock, this.valueBox);
-        this.add(div, this.errorLabel);
+        let span = Control.span(parameter.display, commonStyle.propertyName);
+        span.title = parameter.display;
+        this.valueBox.addEventListener("keydown", this.handleKeyDown);
+        this.errorLabel = Control.span("", style.error);
+        this.errorLabel.classList.add(style.hidden);
+        let div = Control.div(style.panel);
+        Control.append(div, span, this.valueBox);
+        Control.append(this.dom, div, this.errorLabel);
     }
 
     private isReadOnly(): boolean {
@@ -73,10 +73,10 @@ export class InputProperty extends PropertyBase {
     private handleKeyDown = (e: KeyboardEvent) => {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
-            let newValue = this.converter.convertBack(this.valueBox.text);
+            let newValue = this.converter.convertBack(this.valueBox.value);
             if (newValue === undefined) {
-                this.errorLabel.text = this.converter.error ?? "error";
-                this.errorLabel.removeClass(style.hidden);
+                this.errorLabel.textContent = this.converter.error ?? "error";
+                this.errorLabel.classList.remove(style.hidden);
                 return;
             }
             Transaction.excute(this.document, "modify property", () => {
@@ -85,7 +85,7 @@ export class InputProperty extends PropertyBase {
                 });
             });
         } else {
-            this.errorLabel.addClass(style.hidden);
+            this.errorLabel.classList.add(style.hidden);
         }
     };
 }

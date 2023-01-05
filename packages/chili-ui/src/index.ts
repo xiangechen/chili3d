@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export * from "./controls";
-export * from "./contextual"
+export * from "./control";
+export * from "./contextual";
 export * from "./ribbon/ribbonButtonSize";
 export * from "./ribbon";
 export * from "./ribbon/titlebar";

@@ -13,8 +13,12 @@ export interface HotkeyMap {
 
 export class Hotkey {
     private readonly _keyMap = new Map<string, string>();
+    readonly LastCommand = "*LastCommand";
 
-    private constructor() {}
+    private constructor() {
+        this._keyMap.set(" ", this.LastCommand);
+        this._keyMap.set("Enter", this.LastCommand);
+    }
 
     private static _instance: Hotkey | undefined;
 
@@ -25,7 +29,7 @@ export class Hotkey {
         return Hotkey._instance;
     }
 
-    private getKey(keys: Keys): string {
+    getKey(keys: Keys): string {
         let key = keys.key;
         if (keys.ctrlKey) key = "ctrl+" + key;
         if (keys.shiftKey) key = "shift+" + key;

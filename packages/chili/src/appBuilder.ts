@@ -7,14 +7,18 @@ import hotkey from "./hotkeys.json";
 import ribbon from "./ribbon.json";
 import quickbar from "./quickbar.json";
 import { Application } from "./application";
+import { Executor } from "./executor";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
+    private _app: Application;
 
     constructor() {
         this._inits = [];
+        this._app = Application.current;
         this.registerCommands();
         this.registerHotkeys();
+        this.registerExecutor();
     }
 
     useOcc(): AppBuilder {
@@ -71,11 +75,19 @@ export class AppBuilder {
         });
     }
 
+    private registerExecutor() {
+        this._inits.push(async () => {
+            Logger.info("initializing executor");
+
+            Executor.instance.register(this._app);
+        });
+    }
+
     async build(): Promise<Application> {
         for (let index = 0; index < this._inits.length; index++) {
             await this._inits[index]();
         }
 
-        return Application.current;
+        return this._app;
     }
 }

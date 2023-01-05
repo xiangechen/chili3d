@@ -2,7 +2,7 @@
 
 import { CommandData, ICommand } from "chili-core";
 import { Container, Token, Logger } from "chili-shared";
-import { Div, Svg } from "../../controls";
+import { Control } from "../../control";
 import style from "./quickbar.module.css";
 
 export interface QuickbarButton {
@@ -12,8 +12,8 @@ export interface QuickbarButton {
 }
 
 export class QuickToolbar {
-    constructor(readonly container: Div) {
-        container.addClass(style.quickbarPanel);
+    constructor(readonly container: HTMLDivElement) {
+        container.classList.add(style.quickbarPanel);
     }
 
     addButton(commandName: string, handleCommand: (name: string) => void) {
@@ -22,10 +22,10 @@ export class QuickToolbar {
             Logger.warn("commandData is undefined");
             return;
         }
-        let s = new Svg(data.icon);
-        s.addClass(style.quickbarIcon, `${data.icon}`);
-        s.dom.addEventListener("click", () => handleCommand(commandName));
-        this.container.dom.appendChild(s.dom);
+        let s = Control.svg(data.icon);
+        s.classList.add(style.quickbarIcon, `${data.icon}`);
+        s.addEventListener("click", () => handleCommand(commandName));
+        this.container.appendChild(s);
     }
 
     fromConfig(configs: string[], handleCommand: (name: string) => void) {
