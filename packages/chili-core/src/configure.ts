@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { PubSub } from "./pubsub";
-import { ObjectSnapType } from "chili-ui/src/snap";
+import { ObjectSnapType } from "chili-shared";
 
 export class Configure {
     static _configure: Configure | undefined;

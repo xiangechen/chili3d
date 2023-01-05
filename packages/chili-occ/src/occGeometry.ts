@@ -65,7 +65,7 @@ export class OccLine extends OccCurve implements ILine {
         super(CurveType.Line, line, start, end);
     }
 
-    get startPoint(): XYZ {
+    get start(): XYZ {
         return OccHelps.toXYZ(this.curve.StartPoint());
     }
 

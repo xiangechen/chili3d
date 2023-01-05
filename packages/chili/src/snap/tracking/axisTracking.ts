@@ -2,8 +2,6 @@
 
 import { LineType, Plane, XYZ } from "chili-shared";
 import { IView } from "chili-vis";
-import { IPointSnap, ISnap, SnapInfo } from "chili-ui";
-import { ObjectSnapType } from "chili-ui";
 import { Axis } from "./axis";
 
 export class AxisTrackingSnap {

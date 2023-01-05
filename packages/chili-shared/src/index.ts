@@ -14,4 +14,5 @@ export * from "./ioc";
 export * from "./math";
 export * from "./precision";
 export * from "./result";
+export * from "./snapType";
 export * from "./token";

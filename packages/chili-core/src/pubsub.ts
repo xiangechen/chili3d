@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IModel, IModelObject } from "chili-geo";
-import { IDisposable } from "chili-shared";
+import { IDisposable, ObjectSnapType } from "chili-shared";
 import { IDocument } from "./interfaces";
-import { ObjectSnapType } from "chili-ui/src/snap";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;

@@ -4,5 +4,4 @@ export * from "./inputDimension";
 export * from "./interfaces";
 export * from "./objectSnap";
 export * from "./snapPointHandler";
-export * from "./objectSnapType";
 export * from "./snapper";

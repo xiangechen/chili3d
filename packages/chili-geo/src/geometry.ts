@@ -13,19 +13,19 @@ export interface ICurve {
 }
 
 export interface ILine extends ICurve {
-    get startPoint(): XYZ;
-    get endPoint(): XYZ;
-
-    get direction(): XYZ;
-    set direction(value: XYZ);
-
-    get location(): XYZ;
-    set location(value: XYZ);
+    start: XYZ;
+    direction: XYZ;
+    location: XYZ;
 }
 
 export interface ICircle extends ICurve {
-    get center(): XYZ;
-    set center(value: XYZ);
-    get radius(): number;
-    set radius(value: number);
+    center: XYZ;
+    radius: number;
+}
+
+export namespace ICurve {
+    export function isCircle(curve: ICurve): curve is ICircle {
+        let circle = curve as ICircle;
+        return circle.center !== undefined && circle.radius !== undefined;
+    }
 }

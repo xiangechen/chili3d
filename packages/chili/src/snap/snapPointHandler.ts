@@ -1,15 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ } from "chili-shared";
-import { Input, Tip, TipType } from "../float";
+import { Result, XYZ, ObjectSnapType } from "chili-shared";
+import { Input, Tip, TipType, UI } from "chili-ui";
 import { IEventHandler, IView } from "chili-vis";
-import { IPointSnap, ISnap, SnapInfo } from "./interfaces";
+import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { ObjectSnapType } from "./objectSnapType";
 import { WorkplaneSnap } from "./workplaneSnap";
 import { PubSub, IDocument, Configure } from "chili-core";
 import { TrackingSnap } from "./tracking";
-import { UI } from "../ui";
 import { Dimension } from "./inputDimension";
 import { HandleTempShape } from "./shapeHandle";
 import { VertexRenderData } from "chili-geo";

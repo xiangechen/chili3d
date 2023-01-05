@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, IEdge, IShape, VertexRenderData } from "chili-geo";
-import { OccCircle } from "chili-occ/src/occGeometry";
-import { i18n, ShapeType, XYZ, XY } from "chili-shared";
+import { CurveType, ICurve, IEdge, IShape, VertexRenderData } from "chili-geo";
+import { i18n, ShapeType, XYZ, XY, ObjectSnapType } from "chili-shared";
 import { ISelection, IView } from "chili-vis";
 import { IPointSnap, ISnap, SnapInfo } from "./interfaces";
-import { ObjectSnapType } from "./objectSnapType";
 
 const SnapDistance: number = 5;
 
@@ -103,7 +101,7 @@ export class ObjectSnap implements IPointSnap {
         if (shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
             let curve = (shape as IEdge).asCurve();
-            if (curve !== undefined && curve instanceof OccCircle) {
+            if (curve !== undefined && ICurve.isCircle(curve)) {
                 let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
                 let id = view.document.visualization.context.temporaryDisplay(temporary);
                 this._invisibleInfos.set(shape, {

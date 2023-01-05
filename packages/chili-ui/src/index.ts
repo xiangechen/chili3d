@@ -10,5 +10,4 @@ export * from "./float";
 export * from "./property";
 export * from "./viewport";
 export * from "./ui/ui";
-export * from "./snap";
 export * from "./statusbar";

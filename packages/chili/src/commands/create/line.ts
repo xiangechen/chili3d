@@ -3,7 +3,7 @@
 import { command, ICommand, Id, IDocument, LineBody, Model, contextual, ContextualCheckControl } from "chili-core";
 import { IEdgeFactory } from "chili-geo";
 import { Commands, i18n, inject, injectable, Token, XYZ } from "chili-shared";
-import { Dimension, Snapper } from "chili-ui";
+import { Dimension, Snapper } from "../../snap";
 
 @injectable()
 @command({
