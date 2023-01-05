@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, i18n } from "chili-shared";
+import { Constants, I18n, i18n } from "chili-shared";
 
 export namespace Control {
     export function clear(e: HTMLElement) {
@@ -44,7 +44,7 @@ export namespace Control {
 
     export function setText(e: HTMLElement, i18nId: keyof I18n) {
         e.textContent = i18n[i18nId];
-        e.dataset.i18n = i18nId
+        e.dataset[Constants.I18nIdAttribute] = i18nId
     }
 
     export function textBox(className?: string) {

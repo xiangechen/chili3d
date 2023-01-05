@@ -2,6 +2,7 @@
 
 export class Constants {
     static readonly ModelIdAttribute = "data-model-id";
+    static readonly I18nIdAttribute = "i18n";
     static readonly SelectedColor = 0xff0000;
     static readonly SelectedOp = 0.5;
     static readonly ModelKey = "ModelKey";

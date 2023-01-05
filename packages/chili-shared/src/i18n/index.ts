@@ -3,5 +3,5 @@
 import { I18n } from "./interface";
 import zh from "./zh-cn";
 
-let i18n = zh;
+let i18n: I18n = zh;
 export { i18n, I18n };

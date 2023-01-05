@@ -2,7 +2,7 @@
 
 import { AppBuilder } from "chili";
 import { Viewport } from "chili-ui";
-import { Plane } from "chili-shared";
+import { I18n, Plane } from "chili-shared";
 import { addBox } from "./sample";
 
 // prettier-ignore
@@ -16,3 +16,6 @@ let doc = app.newDocument("test");
 doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
 
 addBox(doc, "box1", 5, 5);
+setTimeout(() => {
+    I18n.setLang("en")
+}, 2000);
