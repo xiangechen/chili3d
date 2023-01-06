@@ -91,12 +91,12 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private clearSnap() {
-        PubSub.default.pub("clearFloatTip")();
+        PubSub.default.pub("clearFloatTip");
     }
 
     private showSnaped(snapedInfo: SnapInfo) {
         if (snapedInfo.info !== undefined) {
-            PubSub.default.pub("floatTip")(MessageLevel.info, snapedInfo.info);
+            PubSub.default.pub("floatTip", MessageLevel.info, snapedInfo.info);
         } else {
             this.clearSnap();
         }
@@ -145,7 +145,7 @@ export class SnapPointEventHandler implements IEventHandler {
         if (event.key === "Escape") {
             this.stopSnap(view);
         } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
-            PubSub.default.pub("showInput")(this.handleValid, (text) => this.handleInput(view, text));
+            PubSub.default.pub("showInput", this.handleValid, (text: string) => this.handleInput(view, text));
         }
     }
 

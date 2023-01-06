@@ -83,7 +83,7 @@ export class ThreeSelection extends ObservableBase implements ISelection {
     }
 
     private publishSelection() {
-        PubSub.default.pub("selectionChanged")(this.document, [...this._selectedModels]);
+        PubSub.default.pub("selectionChanged", this.document, [...this._selectedModels]);
     }
 
     private detected(view: IView, x: number, y: number, firstHitOnly: boolean) {

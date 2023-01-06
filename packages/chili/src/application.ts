@@ -27,7 +27,7 @@ export class Application {
 
     set activeDocument(document: IDocument | undefined) {
         this._activeDocument = document;
-        PubSub.default.pub("activeDocumentChanged")(document);
+        PubSub.default.pub("activeDocumentChanged", document);
     }
 
     addDocument(document: IDocument, isActive: boolean = true) {

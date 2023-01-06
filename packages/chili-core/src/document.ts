@@ -133,9 +133,9 @@ export class Document extends ObservableBase implements IDocument {
             item,
         });
         if (action === CollectionAction.add) {
-            PubSub.default.pub("modelAdded")(this, item);
+            PubSub.default.pub("modelAdded", this, item);
         } else if (action === CollectionAction.remove) {
-            PubSub.default.pub("modelRemoved")(this, item);
+            PubSub.default.pub("modelRemoved", this, item);
         }
     };
 

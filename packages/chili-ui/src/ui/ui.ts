@@ -79,11 +79,11 @@ export class UI {
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
-        PubSub.default.pub("keyDown")(e);
+        PubSub.default.pub("keyDown", e);
     };
 
     private handleKeyUp = (e: KeyboardEvent) => {
-        PubSub.default.pub("keyUp")(e);
+        PubSub.default.pub("keyUp", e);
     };
 
     private initRibbon(configs: RibbonData) {
@@ -98,6 +98,6 @@ export class UI {
     }
 
     private handleCommand(commandName: string) {
-        PubSub.default.pub("excuteCommand")(commandName);
+        PubSub.default.pub("excuteCommand", commandName);
     }
 }

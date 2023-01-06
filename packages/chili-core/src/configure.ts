@@ -31,6 +31,6 @@ export class Configure {
     set snapType(snapType: ObjectSnapType) {
         this._snapType = snapType;
 
-        PubSub.default.pub("snapChanged")(snapType);
+        PubSub.default.pub("snapChanged", snapType);
     }
 }

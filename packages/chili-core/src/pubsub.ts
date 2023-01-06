@@ -38,33 +38,36 @@ export class PubSub implements IDisposable {
         this._events.clear();
     }
 
-    sub<T extends PubSubEventMap, K extends keyof T>(event: K, callback: T[K]): void;
-    sub(event: any, callback: (...args: any[]) => void) {
+    sub<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+        event: K, 
+        callback: U
+    ) {
         if (!this._events.has(event)) {
             this._events.set(event, new Set<(...args: any[]) => void>());
         }
-        this._events.get(event)!.add(callback as unknown as any);
+        this._events.get(event)!.add(callback);
     }
 
-    pub<T extends PubSubEventMap, K extends keyof T>(event: K): T[K];
-    pub(event: any): (...args: any[]) => void {
-        return (...args: any[]): void => {
-            this._events.get(event)?.forEach((x) => {
-                x(...args);
-            });
-        };
+    pub<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+        event: K,
+        ...args: Parameters<U>
+    ) {
+        this._events.get(event)?.forEach((x) => {
+            x(...args);
+        });
     }
 
-    remove<T extends PubSubEventMap, K extends keyof T>(event: K, callback: T[K]): void;
-    remove(event: any, callback: any) {
+    remove<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+        event: K,
+        callback: U
+    ) {
         let callbacks = this._events.get(event);
         if (callbacks?.has(callback)) {
             callbacks.delete(callback);
         }
     }
 
-    removeAll<K extends keyof PubSubEventMap>(event: K): void;
-    removeAll(event: string | symbol): void {
+    removeAll<K extends keyof PubSubEventMap>(event: K) {
         this._events.get(event)?.clear();
     }
 }

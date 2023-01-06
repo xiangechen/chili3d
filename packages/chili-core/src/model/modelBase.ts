@@ -75,7 +75,7 @@ export abstract class ModelBase extends ObservableBase {
     set parentId(value: string | undefined) {
         let oldParent = this._parentId;
         if (this.setProperty("parentId", value)) {
-            PubSub.default.pub("parentChanged")(this, oldParent, value);
+            PubSub.default.pub("parentChanged", this, oldParent, value);
         }
     }
 
