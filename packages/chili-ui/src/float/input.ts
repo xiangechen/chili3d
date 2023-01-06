@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n, i18n, IDisposable } from "chili-shared";
-import { IView } from "chili-vis";
 import { Control } from "../control";
 import style from "./input.module.css";
 
@@ -9,7 +8,7 @@ export class Input implements IDisposable {
     readonly dom: HTMLDivElement;
     private readonly textbox: HTMLInputElement;
     private span?: HTMLSpanElement;
-    constructor(readonly view: IView, readonly callback: (view: IView, e: KeyboardEvent) => void) {
+    constructor(readonly callback: (e: KeyboardEvent) => void) {
         this.dom = Control.div(style.panel);
         this.textbox = Control.textBox();
         this.dom.appendChild(this.textbox);
@@ -17,7 +16,7 @@ export class Input implements IDisposable {
     }
 
     get text(): string {
-        return this.textbox.textContent ?? "";
+        return this.textbox.value;
     }
 
     focus() {
@@ -45,6 +44,6 @@ export class Input implements IDisposable {
 
     private keyDownHandle = (e: KeyboardEvent) => {
         this.removeError();
-        this.callback(this.view, e);
+        this.callback(e);
     };
 }

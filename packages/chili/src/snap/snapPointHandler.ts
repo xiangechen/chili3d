@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType, I18n } from "chili-shared";
-import { Input, Tip, TipType, UI } from "chili-ui";
+import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid } from "chili-shared";
 import { IEventHandler, IView } from "chili-vis";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
@@ -26,8 +25,6 @@ export class SnapPointEventHandler implements IEventHandler {
     private _trackingSnap: TrackingSnap;
     private _workplaneSnap: WorkplaneSnap;
     private _snapedInfo?: SnapInfo;
-    private _tip?: Tip;
-    private _input?: Input;
 
     constructor(
         readonly document: IDocument,
@@ -52,12 +49,9 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private stopSnap(view: IView) {
         this._endSnapCallback();
-        if (this._tip !== undefined) {
-            view.float.dom.removeChild(this._tip.dom);
-            this._tip = undefined;
-        }
+        this.clearSnap();
 
-        this.removeInput(view);
+        this.removeInput();
         this.removeTempShapes(view);
         this._objectSnap.clear();
         this._trackingSnap.clear();
@@ -68,13 +62,8 @@ export class SnapPointEventHandler implements IEventHandler {
         view.document.viewer.redraw();
     }
 
-    private removeInput(view: IView) {
-        if (this._input !== undefined) {
-            view.float.dom.removeChild(this._input.dom);
-            this._input.dispose();
-            this._input = undefined;
-            UI.instance.focus();
-        }
+    private removeInput() {
+        PubSub.default.pub("clearInput")
     }
 
     mouseMove(view: IView, event: MouseEvent): void {
@@ -94,19 +83,22 @@ export class SnapPointEventHandler implements IEventHandler {
         }
         if (this._snapedInfo !== undefined) {
             this.showTemp(this._snapedInfo.point, view);
-            this.showSnaped(view, this._snapedInfo);
+            this.showSnaped(this._snapedInfo);
+        } else {
+            this.clearSnap();
         }
         view.document.viewer.redraw();
     }
 
-    private showSnaped(view: IView, snapedInfo: SnapInfo) {
+    private clearSnap() {
+        PubSub.default.pub("clearFloatTip")();
+    }
+
+    private showSnaped(snapedInfo: SnapInfo) {
         if (snapedInfo.info !== undefined) {
-            if (this._tip === undefined) {
-                this._tip = new Tip(snapedInfo.info, TipType.info);
-                view.float.dom.appendChild(this._tip.dom);
-            } else {
-                this._tip.set(snapedInfo.info, TipType.info);
-            }
+            PubSub.default.pub("floatTip")(MessageLevel.info, snapedInfo.info)
+        } else {
+            this.clearSnap();
         }
     }
 
@@ -152,36 +144,24 @@ export class SnapPointEventHandler implements IEventHandler {
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
             this.stopSnap(view);
-        }
-        if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] && this._input === undefined) {
-            this._input = new Input(view, this.handleInput);
-            view.float.dom.appendChild(this._input.dom);
-            this._input.focus();
+        } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
+            PubSub.default.pub("showInput")(this.handleValid, (text) => this.handleInput(view, text))
         }
     }
 
-    private handleInput = (view: IView, e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-            let inputValue = this.getInput(view, this._input!.text);
-            if (inputValue.isErr()) {
-                this._input!.showError(inputValue.err!);
-            } else {
-                this.removeInput(view);
-                this._snapedInfo = {
-                    point: inputValue.value!,
-                    shapes: [],
-                };
-                this.stopSnap(view);
-            }
-        } else if (e.key === "Escape") {
-            this.removeInput(view);
+    private handleInput = (view: IView, text: string) => {
+        let inputValue = this.getInput(view, text);
+        if (inputValue.isOk()) {
+            this._snapedInfo = {
+                point: inputValue.value!,
+                shapes: [],
+            };
+            this.stopSnap(view);
         }
     };
 
     private getInput(view: IView, text: string): Result<XYZ, keyof I18n> {
-        let value = this.isValidInput(text);
-        if (value.isErr()) return Result.error(value.err!);
-        let dims = value.ok()!;
+        let dims = text.split(",").map((x) => Number(x));
         let result = this.referencePoint ?? XYZ.zero;
         let end = this._snapedInfo!.point;
         if (dims.length === 1 && end !== undefined) {
@@ -198,28 +178,28 @@ export class SnapPointEventHandler implements IEventHandler {
         return Result.ok(result);
     }
 
-    private isValidInput(text: string): Result<number[], keyof I18n> {
+    private handleValid = (text: string) => {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.dimension, dimension)) {
-            return Result.error("error.input.maxInput");
+            return Valid.error("error.input.maxInput");
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Result.error("error.input.numberValid");
+            return Valid.error("error.input.numberValid");
         } else {
             if (this.referencePoint === undefined) {
                 if (dims.length !== 3) {
-                    return Result.error("error.input.whenNullOnlyThreeNumber");
+                    return Valid.error("error.input.whenNullOnlyThreeNumber");
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snapedInfo === undefined || this._snapedInfo.point.isEqualTo(this.referencePoint))
                 ) {
-                    return Result.error("error.input.whenOverlapfNotOneNumber");
+                    return Valid.error("error.input.whenOverlapfNotOneNumber");
                 }
             }
         }
-        return Result.ok(dims);
+        return Valid.ok();
     }
 
     keyUp(view: IView, event: KeyboardEvent): void {}

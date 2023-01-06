@@ -13,15 +13,15 @@ export class Statusbar {
     constructor() {
         this.dom = Control.div(style.panel);
         this.dom.appendChild(this.tip);
-        PubSub.default.sub("showTip", this.showTip);
-        PubSub.default.sub("clearTip", this.clearTip);
+        PubSub.default.sub("statusBarTip", this.statusBarTip);
+        PubSub.default.sub("clearStatusBarTip", this.clearStatusBarTip);
     }
 
-    private showTip = (tip: string) => {
+    private statusBarTip = (tip: string) => {
         this.tip.textContent = tip;
     };
 
-    private clearTip = () => {
+    private clearStatusBarTip = () => {
         this.tip.textContent = DefaultTip;
     };
 }

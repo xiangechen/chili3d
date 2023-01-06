@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IModel, IModelObject } from "chili-geo";
-import { IDisposable, ObjectSnapType } from "chili-shared";
+import { I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
 import { IDocument } from "./interfaces";
 
 export interface PubSubEventMap {
@@ -14,8 +14,12 @@ export interface PubSubEventMap {
     parentChanged: (source: IModelObject, oldParent: string | undefined, newParent: string | undefined) => void;
     selectionChanged: (document: IDocument, models: IModelObject[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
-    showTip: (tip: string) => void;
-    clearTip: () => void;
+    statusBarTip: (tip: string) => void;
+    clearStatusBarTip: () => void;
+    floatTip: (level: MessageLevel, msg: string) => void;
+    clearFloatTip: () => void;
+    showInput: (validCallback: (text: string) => Valid, callback: (text: string) => void) => void;
+    clearInput: () => void;
 }
 
 export class PubSub implements IDisposable {
