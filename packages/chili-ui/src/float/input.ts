@@ -32,7 +32,7 @@ export class Input implements IDisposable {
             this.span = Control.span(error, style.error);
             this.dom.appendChild(this.span);
         } else {
-            Control.setText(this.span, error)
+            Control.setText(this.span, error);
         }
     }
 

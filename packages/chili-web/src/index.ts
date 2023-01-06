@@ -17,5 +17,5 @@ doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
 
 addBox(doc, "box1", 5, 5);
 setTimeout(() => {
-    I18n.setLang("en")
+    I18n.setLang("en");
 }, 2000);

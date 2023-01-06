@@ -25,13 +25,13 @@ export namespace Control {
 
     export function span(i18nId: keyof I18n, className?: string) {
         let e = element("span", className);
-        setText(e, i18nId)
+        setText(e, i18nId);
         return e;
     }
 
     export function textSpan(text: string, className?: string) {
         let e = element("span", className);
-        e.textContent = text
+        e.textContent = text;
         return e;
     }
 
@@ -44,7 +44,7 @@ export namespace Control {
 
     export function setText(e: HTMLElement, i18nId: keyof I18n) {
         e.textContent = i18n[i18nId];
-        e.dataset[Constants.I18nIdAttribute] = i18nId
+        e.dataset[Constants.I18nIdAttribute] = i18nId;
     }
 
     export function textBox(className?: string) {

@@ -63,7 +63,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private removeInput() {
-        PubSub.default.pub("clearInput")
+        PubSub.default.pub("clearInput");
     }
 
     mouseMove(view: IView, event: MouseEvent): void {
@@ -96,7 +96,7 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private showSnaped(snapedInfo: SnapInfo) {
         if (snapedInfo.info !== undefined) {
-            PubSub.default.pub("floatTip")(MessageLevel.info, snapedInfo.info)
+            PubSub.default.pub("floatTip")(MessageLevel.info, snapedInfo.info);
         } else {
             this.clearSnap();
         }
@@ -145,7 +145,7 @@ export class SnapPointEventHandler implements IEventHandler {
         if (event.key === "Escape") {
             this.stopSnap(view);
         } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
-            PubSub.default.pub("showInput")(this.handleValid, (text) => this.handleInput(view, text))
+            PubSub.default.pub("showInput")(this.handleValid, (text) => this.handleInput(view, text));
         }
     }
 
@@ -200,7 +200,7 @@ export class SnapPointEventHandler implements IEventHandler {
             }
         }
         return Valid.ok();
-    }
+    };
 
     keyUp(view: IView, event: KeyboardEvent): void {}
     touchStart(view: IView, event: TouchEvent): void {

@@ -14,4 +14,4 @@ export * from "./id";
 export * from "./hotkey";
 export * from "./storage";
 export * from "./transaction";
-export * from "./snap"
+export * from "./snap";

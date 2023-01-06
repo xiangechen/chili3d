@@ -16,5 +16,4 @@ export class Title {
     setTitle(title: string) {
         this._documentName.textContent = title;
     }
-
 }

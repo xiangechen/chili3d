@@ -5,7 +5,7 @@ export * from "./i18n";
 export * from "./constants";
 export * from "./converter";
 export * from "./disposable";
-export * from "./level"
+export * from "./level";
 export * from "./logger";
 export * from "./module";
 export * from "./lineType";

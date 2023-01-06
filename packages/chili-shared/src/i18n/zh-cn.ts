@@ -3,7 +3,7 @@
 import { I18n } from "./interface";
 
 let zh: I18n = {
-    "name": "名称",
+    name: "名称",
     "ui.ribbon.tab.startup": "开始",
     "ui.ribbon.group.drawing": "绘制",
     "ui.tree.header": "模型树",
@@ -41,7 +41,7 @@ let zh: I18n = {
     "error.input.whenOverlapfNotOneNumber": "与参照点重合，无法输入 1 个数",
     "axis.x": "X 轴",
     "axis.y": "Y 轴",
-    "axis.z": "Z 轴"
+    "axis.z": "Z 轴",
 };
 
 export default zh;

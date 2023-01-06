@@ -1,4 +1,3 @@
-
 export enum MessageLevel {
     info,
     warn,

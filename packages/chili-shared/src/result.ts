@@ -31,7 +31,7 @@ export class Result<T, E = string> {
 }
 
 export class Valid<T extends keyof I18n = keyof I18n> {
-    constructor(readonly isOk: boolean, readonly error?: T) { }
+    constructor(readonly isOk: boolean, readonly error?: T) {}
 
     static ok<T extends keyof I18n>() {
         return new Valid<T>(true, undefined);
@@ -40,5 +40,4 @@ export class Valid<T extends keyof I18n = keyof I18n> {
     static error<T extends keyof I18n>(err: T) {
         return new Valid(false, err);
     }
-
 }
