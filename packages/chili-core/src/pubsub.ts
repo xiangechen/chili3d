@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IModel, IModelObject } from "chili-geo";
-import { I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
+import { Commands, I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
 import { IDocument } from "./interfaces";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
     keyUp: (e: KeyboardEvent) => void;
-    excuteCommand: (commandName: string) => void;
+    excuteCommand: (commandName: keyof Commands) => void;
     modelAdded: (source: IDocument, model: IModelObject) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     modelRemoved: (source: IDocument, model: IModelObject) => void;

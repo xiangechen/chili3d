@@ -1,5 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Commands } from "chili-shared";
+
 export interface Keys {
     key: string;
     ctrlKey?: boolean;
@@ -8,12 +10,12 @@ export interface Keys {
 }
 
 export interface HotkeyMap {
-    [key: string]: string;
+    [key: string]: keyof Commands;
 }
 
 export class Hotkey {
-    private readonly _keyMap = new Map<string, string>();
-    readonly LastCommand = "*LastCommand";
+    private readonly _keyMap = new Map<string, keyof Commands>();
+    readonly LastCommand = "LastCommand";
 
     private constructor() {
         this._keyMap.set(" ", this.LastCommand);
@@ -37,12 +39,12 @@ export class Hotkey {
         return key;
     }
 
-    register(command: string, keys: Keys) {
+    register(command: keyof Commands, keys: Keys) {
         let key = this.getKey(keys);
         this._keyMap.set(key, command);
     }
 
-    getCommand(keys: Keys): string | undefined {
+    getCommand(keys: Keys): keyof Commands | undefined {
         let key = this.getKey(keys);
         return this._keyMap.get(key);
     }

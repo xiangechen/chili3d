@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
-import { Token, Logger, Container } from "chili-shared";
-import { ICommand, Hotkey, CommandData } from "chili-core";
+import { Token, Logger, Container, Commands } from "chili-shared";
+import { ICommand, Hotkey, CommandData, HotkeyMap } from "chili-core";
 import hotkey from "./hotkeys.json";
 import ribbon from "./ribbon.json";
 import quickbar from "./quickbar.json";
@@ -61,6 +61,7 @@ export class AppBuilder {
                 let command = commands[keys[index]];
                 let data = CommandData.get(command);
                 if (command.prototype?.excute !== undefined && data !== undefined) {
+                    let name = Commands.instance[data.name]
                     Container.default.register<ICommand>(new Token(data.name), command);
                 }
             }
@@ -71,7 +72,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing hotkeys");
 
-            Hotkey.instance.registerFrom(hotkey);
+            Hotkey.instance.registerFrom(hotkey as HotkeyMap);
         });
     }
 

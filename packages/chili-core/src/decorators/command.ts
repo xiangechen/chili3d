@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "chili-shared";
+import { Commands, I18n } from "chili-shared";
 import { ICommand } from "../command";
 
 let commandMap = new Map<string, new (...args: any[]) => ICommand>();
 
 export interface CommandData {
-    name: string;
+    name: keyof Commands;
     display: keyof I18n;
     icon: string;
     helpText?: string;

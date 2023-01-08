@@ -2,11 +2,11 @@
 
 import { command, ICommand, Id, IDocument, LineBody, Model, Dimension, Snapper } from "chili-core";
 import { IEdgeFactory } from "chili-geo";
-import { Commands, i18n, inject, injectable, Token, XYZ } from "chili-shared";
+import { inject, injectable, Token, XYZ } from "chili-shared";
 
 @injectable()
 @command({
-    name: Commands.Line,
+    name: "Line",
     display: "command.line",
     icon: "icon-line",
 })

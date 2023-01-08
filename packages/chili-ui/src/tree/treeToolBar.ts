@@ -28,7 +28,7 @@ export class TreeToolBar {
     }
 
     private newGroup = () => {
-        PubSub.default.pub("excuteCommand", Commands.NewGroup);
+        PubSub.default.pub("excuteCommand", "NewGroup");
     };
 
     private expandAll = () => {
@@ -48,6 +48,6 @@ export class TreeToolBar {
     }
 
     private deleteModel = () => {
-        PubSub.default.pub("excuteCommand", Commands.Delete);
+        PubSub.default.pub("excuteCommand", "Delete");
     };
 }

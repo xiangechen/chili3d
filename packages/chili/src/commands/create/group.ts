@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands } from "chili-shared";
 import { command, ICommand, Id, IDocument, ModelGroup } from "chili-core";
 
 @command({
-    name: Commands.NewGroup,
+    name: "NewGroup",
     display: "command.newGroup",
     icon: "icon-folder-plus",
 })
