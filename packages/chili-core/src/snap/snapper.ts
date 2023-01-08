@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { XYZ } from "chili-shared";
+import { i18n, I18n, XYZ } from "chili-shared";
 import { CursorType, IEventHandler } from "chili-vis";
 import { SnapPointEventHandler } from "./snapPointHandler";
 import { IDocument, PubSub } from "chili-core";
@@ -14,7 +14,7 @@ export class Snapper {
 
     async snapPointAsync(
         dimension: Dimension,
-        tip: string,
+        tipKey: keyof I18n,
         refPoint?: XYZ,
         handleTempShape?: HandleTempShape
     ): Promise<XYZ | undefined> {
@@ -25,15 +25,15 @@ export class Snapper {
             refPoint,
             handleTempShape
         );
-        await this.handleSnapAsync(eventHandler, tip);
+        await this.handleSnapAsync(eventHandler, tipKey);
         return eventHandler.snapedPoint;
     }
 
-    private async handleSnapAsync(eventHandler: IEventHandler, tip: string, cursor: CursorType = CursorType.Drawing) {
+    private async handleSnapAsync(eventHandler: IEventHandler, tipKey: keyof I18n, cursor: CursorType = CursorType.Drawing) {
         this._stopSnap = false;
         let defaultEventHandler = this.document.visualization.eventHandler;
         this.document.viewer.setCursor(cursor);
-        PubSub.default.pub("statusBarTip", tip);
+        PubSub.default.pub("statusBarTip", i18n[tipKey]);
         this.document.visualization.eventHandler = eventHandler;
         while (!this._stopSnap) {
             await new Promise((r) => setTimeout(r, 10));

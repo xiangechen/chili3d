@@ -15,9 +15,9 @@ export class Line implements ICommand {
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
-        let start = await snap.snapPointAsync(Dimension.D1D2D3, "请输入起点");
+        let start = await snap.snapPointAsync(Dimension.D1D2D3, "command.line.pickStart");
         if (start === undefined) return false;
-        let end = await snap.snapPointAsync(Dimension.D1D2D3, "请输入终点", start, (p) =>
+        let end = await snap.snapPointAsync(Dimension.D1D2D3, "command.line.pickEnd", start, (p) =>
             this.handleTempLine(start!, p)
         );
         if (end === undefined) return false;

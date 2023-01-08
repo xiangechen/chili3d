@@ -182,20 +182,20 @@ export class SnapPointEventHandler implements IEventHandler {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.dimension, dimension)) {
-            return Valid.error("error.input.maxInput");
+            return Valid.error("error.input.unsupportedInputs");
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Valid.error("error.input.numberValid");
+            return Valid.error("error.input.invalidNumber");
         } else {
             if (this.referencePoint === undefined) {
                 if (dims.length !== 3) {
-                    return Valid.error("error.input.whenNullOnlyThreeNumber");
+                    return Valid.error("error.input.threeNumberCanBeInput");
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snapedInfo === undefined || this._snapedInfo.point.isEqualTo(this.referencePoint))
                 ) {
-                    return Valid.error("error.input.whenOverlapfNotOneNumber");
+                    return Valid.error("error.input.cannotInputANumber");
                 }
             }
         }
