@@ -1,20 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n } from ".";
-import { Constants } from "../constants";
-
-export namespace I18n {
-    export function setLang(lang: string) {
-        let elements = document.querySelectorAll("[data-i18n]");
-        elements.forEach((e) => {
-            let html = e as HTMLElement;
-            let id = html?.dataset[Constants.I18nIdAttribute];
-            if (id === undefined) return;
-            html.textContent = (i18n as any)[id];
-        });
-    }
-}
-
 export interface I18n {
     name: string;
     "value.app.name": string;

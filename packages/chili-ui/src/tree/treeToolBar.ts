@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { PubSub } from "chili-core";
-import { Commands, i18n } from "chili-shared";
+import { Commands, I18n, i18n } from "chili-shared";
 import { Control } from "../control";
 import { ModelTree } from "./tree";
 import { TreeItemGroup } from "./treeItemGroup";
@@ -18,11 +18,11 @@ export class TreeToolBar {
         this.newIconButton("icon-delete", "ui.tree.tool.delete", this.deleteModel);
     }
 
-    private newIconButton(icon: string, tip: string, command: () => void) {
+    private newIconButton(icon: string, tip: keyof I18n, command: () => void) {
         let svg = Control.svg(icon, style.treeToolIcon);
         svg.addEventListener("click", command);
         let text = document.createElement("a");
-        text.title = tip;
+        text.title = i18n[tip];
         text.appendChild(svg);
         this.dom.appendChild(text);
     }

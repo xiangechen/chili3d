@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { PubSub } from "chili-core";
+import { i18n } from "chili-shared";
 import { Control } from "../control";
 import style from "./statusbar.module.css";
-
-const DefaultTip = "鼠标中键平移视图，右键旋转视图，中键滚动缩放视图";
 
 export class Statusbar {
     readonly dom: HTMLDivElement;
@@ -22,6 +21,6 @@ export class Statusbar {
     };
 
     private clearStatusBarTip = () => {
-        this.tip.textContent = DefaultTip;
+        this.tip.textContent = i18n["tip.default"];
     };
 }

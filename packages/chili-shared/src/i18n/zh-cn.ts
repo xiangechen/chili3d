@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "./interface";
+import { I18n } from "./i18n";
 
 let zh: I18n = {
     name: "名称",
@@ -31,7 +31,7 @@ let zh: I18n = {
     "snap.center": "圆心",
     "snap.intersection": "交点",
     "snap.perpendicular": "垂点",
-    "value.app.name": "Chili3D 2023",
+    "value.app.name": "Chili 2023",
     "value.untitled": "未命名",
     "tip.default": "鼠标中键平移视图，右键旋转视图，中键滚动缩放视图",
     "error.default": "",

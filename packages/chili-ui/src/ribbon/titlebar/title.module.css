@@ -7,7 +7,7 @@
     padding: 4px 0px;
 }
 
-.titleText {
+.appName, .documentName {
     font-size: 11px;
     max-width: 320px;
     overflow: hidden;
@@ -15,10 +15,30 @@
     color: var(--color);
 }
 
-.titleText::before {
+.appName::before {
     content: " | ";
 }
 
-.titleSplit {
+.savedStatus {
+    font-size: 11px;
+}
+
+.i18n {
+    display: flex;
+    position: absolute;
+    margin: 8px;
+    right: 0px;
+    top: 0px;
+}
+
+.i18nIcon {
+    width: 24px;
+    height: 24px;
+}
+
+.i18nSelect {
+    background-color: transparent;
+    border-width: 0px;
     margin: 0px 4px;
+    font-size: 11px;
 }
