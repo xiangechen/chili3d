@@ -9,7 +9,7 @@ let i18n: I18n = zh;
 export { i18n, I18n };
 
 export namespace Language {
-    export const Languages = ["简体中文", "English"]
+    export const Languages = ["简体中文", "English"];
 
     export function set(idx: number): boolean {
         let newI18n = idx === 0 ? zh : en;
@@ -24,5 +24,4 @@ export namespace Language {
         });
         return true;
     }
-
 }

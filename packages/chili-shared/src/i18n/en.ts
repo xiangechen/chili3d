@@ -35,7 +35,8 @@ let en: I18n = {
     "snap.perpendicular": "Perpendicular",
     "value.app.name": "Chili 2023",
     "value.untitled": "untitled",
-    "tip.default": "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
+    "tip.default":
+        "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
     "error.default": "",
     "error.input.unsupportedInputs": "Exceeds the maximum number of inputs",
     "error.input.invalidNumber": "Please enter a valid number, separated by ,",

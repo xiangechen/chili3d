@@ -61,7 +61,7 @@ export class AppBuilder {
                 let command = commands[keys[index]];
                 let data = CommandData.get(command);
                 if (command.prototype?.excute !== undefined && data !== undefined) {
-                    let name = Commands.instance[data.name]
+                    let name = Commands.instance[data.name];
                     Container.default.register<ICommand>(new Token(data.name), command);
                 }
             }

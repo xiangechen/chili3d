@@ -22,17 +22,17 @@ export class TitleBar {
         this.title = new Title(center);
         Control.append(this.dom, left, center, this.right);
 
-        let i18n = Control.div(style.i18n)
+        let i18n = Control.div(style.i18n);
         let svg = Control.svg("icon-i18n", style.i18nIcon);
-        let select = Control.select(Language.Languages, style.i18nSelect)
-        i18n.appendChild(svg)
-        i18n.appendChild(select)
-        this.right.appendChild(i18n)
+        let select = Control.select(Language.Languages, style.i18nSelect);
+        i18n.appendChild(svg);
+        i18n.appendChild(select);
+        this.right.appendChild(i18n);
         select.addEventListener("change", (e) => {
             if (Language.set(select.selectedIndex)) {
-                PubSub.default.pub("clearStatusBarTip")
+                PubSub.default.pub("clearStatusBarTip");
             }
-        })
+        });
     }
 
     add(...controls: HTMLElement[]) {

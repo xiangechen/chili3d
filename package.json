@@ -10,6 +10,9 @@
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "prettier": "npx prettier --write ."
     },
+    "simple-git-hooks": {
+        "pre-commit": "npx prettier --write ."
+    },
     "workspaces": [
         "packages/*"
     ],
@@ -24,6 +27,7 @@
         "nanoid": "^4.0.0",
         "prettier": "^2.8.1",
         "reflect-metadata": "^0.1.13",
+        "simple-git-hooks": "^2.8.1",
         "style-loader": "^3.3.1",
         "ts-jest": "^29.0.3",
         "ts-loader": "^9.4.2",

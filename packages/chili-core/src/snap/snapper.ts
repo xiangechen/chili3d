@@ -29,7 +29,11 @@ export class Snapper {
         return eventHandler.snapedPoint;
     }
 
-    private async handleSnapAsync(eventHandler: IEventHandler, tipKey: keyof I18n, cursor: CursorType = CursorType.Drawing) {
+    private async handleSnapAsync(
+        eventHandler: IEventHandler,
+        tipKey: keyof I18n,
+        cursor: CursorType = CursorType.Drawing
+    ) {
         this._stopSnap = false;
         let defaultEventHandler = this.document.visualization.eventHandler;
         this.document.viewer.setCursor(cursor);

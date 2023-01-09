@@ -39,7 +39,7 @@ export class PubSub implements IDisposable {
     }
 
     sub<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
-        event: K, 
+        event: K,
         callback: U
     ) {
         if (!this._events.has(event)) {
