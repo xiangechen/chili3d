@@ -15,12 +15,8 @@
         "pre-commit": "npx lint-staged"
     },
     "lint-staged": {
-        "*.{js,json}": [
-            "prettier --write"
-        ],
-        "*.ts?(x)": [
-            "eslint",
-            "prettier --parser=typescript --write"
+        "*": [
+            "prettier --write ."
         ]
     },
     "workspaces": [
