@@ -8,10 +8,20 @@
         "dev": "webpack serve --config ./webpack.dev.js",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-        "prettier": "npx prettier --write ."
+        "prettier": "npx prettier --write .",
+        "hook": "npx simple-git-hooks"
     },
     "simple-git-hooks": {
-        "pre-commit": "npx prettier --write ."
+        "pre-commit": "npx lint-staged"
+    },
+    "lint-staged": {
+        "*.{js,json}": [
+            "prettier --write"
+        ],
+        "*.ts?(x)": [
+            "eslint",
+            "prettier --parser=typescript --write"
+        ]
     },
     "workspaces": [
         "packages/*"
@@ -24,6 +34,7 @@
         "identity-obj-proxy": "^3.0.0",
         "jest": "^29.3.1",
         "jest-environment-jsdom": "^29.3.1",
+        "lint-staged": "^13.1.0",
         "nanoid": "^4.0.0",
         "prettier": "^2.8.1",
         "reflect-metadata": "^0.1.13",
