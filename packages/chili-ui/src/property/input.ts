@@ -35,8 +35,17 @@ export class InputProperty extends PropertyBase {
     }
 
     private isReadOnly(): boolean {
+        let des = Object.getOwnPropertyDescriptor(this.objects[0], this.parameter.property);
+        if (des === undefined) {
+            let proto = Object.getPrototypeOf(this.objects[0]);
+            while (proto.name !== "Object") {
+                des = Object.getOwnPropertyDescriptor(proto, this.parameter.property);
+                if (des !== undefined) break;
+                proto = Object.getPrototypeOf(proto);
+            }
+        }
         return (
-            this.parameter.descriptor.set === undefined ||
+            des?.set === undefined ||
             (this.converter === undefined && typeof this.objects[0][this.parameter.property] !== "string")
         );
     }

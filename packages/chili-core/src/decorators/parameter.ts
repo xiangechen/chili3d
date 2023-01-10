@@ -1,19 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IConverter } from "chili-shared";
+import { I18n, IConverter, ObservableBase } from "chili-shared";
 
 export interface Parameter {
     category: string;
     display: keyof I18n;
     property: string;
-    descriptor: PropertyDescriptor;
     converter?: IConverter;
 }
 
 const PARAMATERS = "PARAMATERS";
 
 export function parameter(category: string, display: keyof I18n, converter?: IConverter) {
-    return (target: any, propertyName: string, descriptor: PropertyDescriptor) => {
+    return (target: any, propertyName: string) => {
         let params: Parameter[] = Reflect.getMetadata(PARAMATERS, target);
         if (params === undefined) {
             params = [];
@@ -24,9 +23,14 @@ export function parameter(category: string, display: keyof I18n, converter?: ICo
             category,
             display,
             property: propertyName,
-            descriptor,
             converter,
         });
+    };
+}
+
+export function notify() {
+    return (target: any, propertyName: string) => {
+        target.createProperty(propertyName);
     };
 }
 
