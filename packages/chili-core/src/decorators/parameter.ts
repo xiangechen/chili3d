@@ -10,10 +10,17 @@ export interface Parameter {
     converter?: IConverter;
 }
 
+const PARAMATERS = "PARAMATERS";
+
 export function parameter(category: string, display: keyof I18n, converter?: IConverter) {
     return (target: any, propertyName: string, descriptor: PropertyDescriptor) => {
-        if (target.parameters === undefined) target.parameters = new Array<Parameter>();
-        target.parameters.push({
+        let params: Parameter[] = Reflect.getMetadata(PARAMATERS, target);
+        if (params === undefined) {
+            params = [];
+            Reflect.defineMetadata(PARAMATERS, params, target);
+        }
+
+        params.push({
             category,
             display,
             property: propertyName,
@@ -25,6 +32,6 @@ export function parameter(category: string, display: keyof I18n, converter?: ICo
 
 export namespace Parameter {
     export function getAll(target: any): Parameter[] {
-        return Object.getPrototypeOf(target).parameters ?? [];
+        return Reflect.getMetadata(PARAMATERS, target) ?? [];
     }
 }
