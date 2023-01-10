@@ -4,6 +4,10 @@ export class Commands {
     LastCommand = "LastCommand";
     NewGroup = "NewGroup";
     Line = "Line";
+    PLine = "PLine";
+    Circle = "Circle";
+    Rect = "Rect";
+    Box = "Box";
     Delete = "Delete";
     Undo = "Undo";
     Redo = "Redo";
