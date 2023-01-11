@@ -11,4 +11,6 @@
 .bottom {
     grid-row-start: 2;
     overflow-y: auto;
+    min-height: 120px;
+    margin: 10px;
 }

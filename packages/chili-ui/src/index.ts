@@ -8,6 +8,7 @@ export * from "./ribbon/titlebar";
 export * from "./sidebar";
 export * from "./float";
 export * from "./property";
+export * from "./tab";
 export * from "./viewport";
 export * from "./ui/ui";
 export * from "./statusbar";

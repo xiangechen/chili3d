@@ -8,6 +8,7 @@ import { ISelection } from "chili-vis";
 import { CheckProperty } from "../property/check";
 import { PropertyView } from "../property";
 import { Control } from "../control";
+import { Tab } from "../tab";
 
 export class Sidebar {
     readonly dom: HTMLDivElement;
@@ -22,7 +23,7 @@ export class Sidebar {
         this.modelTreePanel = Control.div(style.top);
         this.propertyViewPanel = Control.div(style.bottom);
         Control.append(this.dom, this.modelTreePanel, this.propertyViewPanel);
-        this.propertyViewPanel.appendChild(new PropertyView().dom);
+        this.propertyViewPanel.appendChild(new Tab("ui.property.header").dom);
         PubSub.default.sub("activeDocumentChanged", this.activeDocumentChanged);
     }
 

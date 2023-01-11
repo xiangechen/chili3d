@@ -1,0 +1,50 @@
+.panel {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.tabHeaderPanel {
+    height: 28px;
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+}
+
+.tabHeaderTextPanel {
+    background: var(--panelBackground);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+}
+
+.tabHeaderTextPanel::after {
+    content: "";
+    width: 16px;
+    height: 8px;
+    position: absolute;
+    bottom: 0px;
+    right: -16px;
+    background: var(--sidebarBackground);
+    border-bottom-left-radius: 8px;
+    box-shadow: -8px 0 0 0 var(--panelBackground);
+}
+
+.tabHeaderText {
+    font-size: 14px;
+    overflow-x: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 12px;
+    height: 100%;
+    line-height: 28px;
+}
+
+.tabBodyPanel {
+    background: var(--panelBackground);
+    border-radius: 0 8px 8px 8px;
+    min-height: 60px;
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+}
