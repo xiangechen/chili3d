@@ -1,16 +1,18 @@
 .sidebar {
     display: grid;
     height: 100%;
+    padding: 6px 0;
     grid-template-rows: auto 1fr;
 }
 
 .top {
     height: auto;
+    margin: 6px 12px;
 }
 
 .bottom {
     grid-row-start: 2;
     overflow-y: auto;
     min-height: 120px;
-    margin: 10px;
+    margin: 6px 12px;
 }

@@ -53,10 +53,10 @@
 }
 
 .tabBodyPanel {
+    overflow: hidden;
     background: var(--panelBackground);
     border-radius: 0 8px 8px 8px;
     min-height: 60px;
-    padding: 0px 12px 6px 32px;
     display: flex;
     flex: 1 1 100%;
     flex-direction: column;

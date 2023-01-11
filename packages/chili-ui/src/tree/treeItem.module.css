@@ -6,5 +6,6 @@
 }
 
 .itemPanel:hover {
+    border-radius: 4px;
     background-color: var(--hoverBackground);
 }

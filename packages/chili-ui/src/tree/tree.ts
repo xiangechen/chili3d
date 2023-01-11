@@ -41,12 +41,17 @@ export class ModelTree {
         if (control === undefined) return;
         if (oldParent !== undefined) {
             let oldParentControl = this._modelMap.get(oldParent);
-            oldParentControl?.dom.removeChild(control.dom);
+            if (oldParentControl instanceof TreeItemGroup) {
+                oldParentControl?.remove(control.dom);
+            }
         }
         if (newParent === undefined) {
             this._treePanel.appendChild(control.dom);
         } else {
-            this._modelMap.get(newParent)?.dom.appendChild(control.dom);
+            let parent = this._modelMap.get(newParent);
+            if (parent instanceof TreeItemGroup) {
+                parent.add(control.dom);
+            }
         }
     };
 
@@ -56,10 +61,19 @@ export class ModelTree {
 
     removeItem(model: IModelObject) {
         let item = this._modelMap.get(model.id);
-        if (item !== undefined) {
+        if (item === undefined) return;
+        if (model.parentId !== undefined) {
+            let testParent = this._modelMap.get(model.parentId);
+            if (testParent === undefined) {
+                Logger.error(`没有找到 id 为 ${model.parentId} 的控件`);
+            } else if (testParent instanceof TreeItemGroup) {
+                testParent.remove(item.dom);
+            }
+        } else {
             this._treePanel.removeChild(item.dom);
-            this._modelMap.delete(model.id);
         }
+        this._modelMap.delete(model.id);
+        item.dispose();
     }
 
     initTree(models: IModelObject[]) {
@@ -116,26 +130,22 @@ export class ModelTree {
             ? new TreeItemGroup(this.document, this, model, true)
             : new TreeItem(this.document, model);
 
-        let parent = this._treePanel;
         if (model.parentId !== undefined) {
             let testParent = this._modelMap.get(model.parentId);
             if (testParent === undefined) {
                 Logger.error(`没有找到 id 为 ${model.parentId} 的控件`);
                 model.parentId = undefined;
-            } else {
-                parent = testParent.dom;
+            } else if (testParent instanceof TreeItemGroup) {
+                testParent.add(item.dom);
             }
+        } else {
+            this._treePanel.appendChild(item.dom);
         }
-        parent.appendChild(item.dom);
         this._modelMap.set(model.id, item);
     };
 
     private handleRemoveModel = (document: IDocument, model: IModelObject) => {
-        let li = this._modelMap.get(model.id);
-        if (li === undefined) return;
-        this._treePanel.removeChild(li.dom);
-        this._modelMap.delete(model.id);
-        li.dispose();
+        this.removeItem(model);
     };
 
     private addSelectedStyle(models?: IModelObject[]) {
