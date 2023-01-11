@@ -22,7 +22,7 @@ export class Tip {
         this.color = style.info;
         if (type === MessageLevel.error) this.color = style.error;
         else if (type === MessageLevel.warn) this.color = style.warn;
-        if (old !== this.color) {
+        if (old !== this.color && this.color !== undefined) {
             if (old !== undefined) this.dom.classList.remove(old);
             this.dom.classList.add(this.color);
         }
