@@ -3,7 +3,7 @@
 import { I18n, IConverter, ObservableBase } from "chili-shared";
 
 export interface Parameter {
-    category: string;
+    category: keyof I18n;
     display: keyof I18n;
     property: string;
     converter?: IConverter;
@@ -11,7 +11,7 @@ export interface Parameter {
 
 const PARAMATERS = "PARAMATERS";
 
-export function parameter(category: string, display: keyof I18n, converter?: IConverter) {
+export function parameter(category: keyof I18n, display: keyof I18n, converter?: IConverter) {
     return (target: any, propertyName: string) => {
         if (!Reflect.hasMetadata(PARAMATERS, target)) {
             Reflect.defineMetadata(PARAMATERS, [], target);

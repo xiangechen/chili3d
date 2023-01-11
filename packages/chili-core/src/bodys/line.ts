@@ -19,7 +19,7 @@ export class LineBody implements IBody {
         return edge?.ok();
     }
 
-    @parameter("参数", "body.curve.start", new XYZConverter())
+    @parameter("category.paremeter", "body.curve.start", new XYZConverter())
     get start() {
         return this._start;
     }
