@@ -13,24 +13,16 @@ const PARAMATERS = "PARAMATERS";
 
 export function parameter(category: string, display: keyof I18n, converter?: IConverter) {
     return (target: any, propertyName: string) => {
-        let params: Parameter[] = Reflect.getMetadata(PARAMATERS, target);
-        if (params === undefined) {
-            params = [];
-            Reflect.defineMetadata(PARAMATERS, params, target);
+        if (!Reflect.hasMetadata(PARAMATERS, target)) {
+            Reflect.defineMetadata(PARAMATERS, [], target);
         }
-
+        let params: Parameter[] = Reflect.getMetadata(PARAMATERS, target);
         params.push({
             category,
             display,
             property: propertyName,
             converter,
         });
-    };
-}
-
-export function notify() {
-    return (target: any, propertyName: string) => {
-        target.createProperty(propertyName);
     };
 }
 
