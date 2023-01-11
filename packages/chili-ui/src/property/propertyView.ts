@@ -4,23 +4,23 @@ import { IDocument, Parameter, PubSub } from "chili-core";
 import { IModelObject } from "chili-geo";
 import { i18n } from "chili-shared";
 import { Control } from "../control";
+import { Tab } from "../tab";
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
 import style from "./propertyView.module.css";
 
 export class PropertyView {
-    readonly dom: HTMLDivElement;
-    readonly panel = Control.div(style.panel);
+    readonly dom: HTMLElement;
+    private tab: Tab;
 
     constructor() {
-        this.dom = Control.div(style.root);
-        Control.append(this.dom, Control.span("ui.property.header", style.header), this.panel);
-
+        this.tab = new Tab("ui.property.header");
+        this.dom = this.tab.dom;
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 
     private selectionChanged = (document: IDocument, args: IModelObject[]) => {
-        Control.clear(this.panel);
+        this.tab.clearItems();
         if (args.length === 0) return;
         const parameters = Parameter.getAll(args[0]);
         let keys = this.getCommonKeys(args, parameters);
@@ -28,9 +28,9 @@ export class PropertyView {
             if (keys.indexOf(p.property) > -1) {
                 const type = typeof (args[0] as unknown as any)[p.property];
                 if (type === "object" || type === "string") {
-                    this.panel.appendChild(new InputProperty(document, args, p).dom);
+                    this.tab.addItem(new InputProperty(document, args, p).dom);
                 } else if (type === "boolean") {
-                    this.panel.appendChild(new CheckProperty(args, p).dom);
+                    this.tab.addItem(new CheckProperty(args, p).dom);
                 }
             }
         });

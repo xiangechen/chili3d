@@ -8,10 +8,8 @@ import { TreeItemGroup } from "./treeItemGroup";
 import style from "./treeToolBar.module.css";
 
 export class TreeToolBar {
-    readonly dom: HTMLDivElement;
+    readonly tools: HTMLElement[] = [];
     constructor(readonly tree: ModelTree) {
-        this.dom = Control.div(style.toolPanel);
-        this.dom.appendChild(Control.span("ui.tree.header", style.treeTitle));
         this.newIconButton("icon-folder-plus", "ui.tree.tool.newGroup", this.newGroup);
         this.newIconButton("icon-unexpand", "ui.tree.tool.unexpandAll", this.unExpandAll);
         this.newIconButton("icon-expand", "ui.tree.tool.expandAll", this.expandAll);
@@ -24,7 +22,7 @@ export class TreeToolBar {
         let text = document.createElement("a");
         text.title = i18n[tip];
         text.appendChild(svg);
-        this.dom.appendChild(text);
+        this.tools.push(text);
     }
 
     private newGroup = () => {

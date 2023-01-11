@@ -23,7 +23,7 @@ export class Sidebar {
         this.modelTreePanel = Control.div(style.top);
         this.propertyViewPanel = Control.div(style.bottom);
         Control.append(this.dom, this.modelTreePanel, this.propertyViewPanel);
-        this.propertyViewPanel.appendChild(new Tab("ui.property.header").dom);
+        this.propertyViewPanel.appendChild(new PropertyView().dom);
         PubSub.default.sub("activeDocumentChanged", this.activeDocumentChanged);
     }
 

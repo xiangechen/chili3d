@@ -10,20 +10,24 @@ import { TreeToolBar } from "./treeToolBar";
 import { ISelection } from "chili-vis";
 import { TreeItemBase } from "./treeItemBase";
 import { TreeItemGroup } from "./treeItemGroup";
+import { Tab } from "../tab";
 
 export class ModelTree {
-    readonly dom: HTMLDivElement;
+    readonly dom: HTMLElement;
+    private _tab: Tab;
     private _selecteds?: IModelObject[];
     private _treePanel: HTMLDivElement;
     readonly toolsPanel: TreeToolBar;
     private readonly _modelMap: Map<string, TreeItemBase>;
 
     constructor(readonly document: IDocument) {
-        this.dom = Control.div(style.treeRoot);
+        this._tab = new Tab("ui.tree.header");
+        this.dom = this._tab.dom;
         this._modelMap = new Map<string, TreeItemBase>();
         this.toolsPanel = new TreeToolBar(this);
         this._treePanel = Control.div(style.treePanel);
-        Control.append(this.dom, this.toolsPanel.dom, this._treePanel);
+        this._tab.addItem(this._treePanel);
+        this._tab.addTools(...this.toolsPanel.tools);
         this.initTree(document.getModels());
         this._treePanel.addEventListener("click", this.handleItemClick);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);

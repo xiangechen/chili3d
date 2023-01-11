@@ -6,10 +6,16 @@
 }
 
 .tabHeaderPanel {
-    height: 28px;
+    height: 32px;
     display: flex;
     flex-direction: row;
     flex-grow: 1;
+}
+
+.tabHeaderLeft {
+    display: flex;
+    position: relative;
+    flex: 1 1 100%;
 }
 
 .tabHeaderTextPanel {
@@ -37,13 +43,20 @@
     text-overflow: ellipsis;
     padding: 0 12px;
     height: 100%;
-    line-height: 28px;
+    line-height: 32px;
+}
+
+.tabHeaderRight {
+    display: flex;
+    flex-direction: row;
+    flex: 0 0 auto;
 }
 
 .tabBodyPanel {
     background: var(--panelBackground);
     border-radius: 0 8px 8px 8px;
     min-height: 60px;
+    padding: 0px 12px 6px 32px;
     display: flex;
     flex: 1 1 100%;
     flex-direction: column;
