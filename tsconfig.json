@@ -4,6 +4,7 @@
         "allowJs": true,
         "module": "ES2022",
         "moduleResolution": "node",
+        "noImplicitOverride": true,
         "experimentalDecorators": true,
         "forceConsistentCasingInFileNames": true,
         "strict": true,

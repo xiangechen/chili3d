@@ -34,7 +34,7 @@ export class ThreeShape extends Object3D implements IVisualizationShape {
     private _wireMaterial: LineBasicMaterial;
     private _selectedStatus: boolean = false;
 
-    type: "OccShape";
+    override type: "OccShape";
 
     constructor(readonly shape: IShape) {
         super();

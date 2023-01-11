@@ -201,8 +201,6 @@ export default class ThreeView extends ObservableBase implements IView, IDisposa
         this.redraw();
     }
 
-    dispose() {}
-
     get name(): string {
         return this._name;
     }

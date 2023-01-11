@@ -79,8 +79,6 @@ export abstract class ModelBase extends ObservableBase {
         }
     }
 
-    dispose(): void {}
-
     protected abstract handlePositionChanged(): void;
     protected abstract handleRotateChanged(): void;
 }

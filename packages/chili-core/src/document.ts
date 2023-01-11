@@ -87,8 +87,6 @@ export class Document extends ObservableBase implements IDocument {
         });
     }
 
-    dispose() {}
-
     undo() {
         Logger.info("document undo");
         this.undoRedoAction(() => History.get(this).undo());
