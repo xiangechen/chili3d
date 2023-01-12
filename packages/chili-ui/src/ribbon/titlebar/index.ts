@@ -29,9 +29,7 @@ export class TitleBar {
         i18n.appendChild(select);
         this.right.appendChild(i18n);
         select.addEventListener("change", (e) => {
-            if (Language.set(select.selectedIndex)) {
-                PubSub.default.pub("clearStatusBarTip");
-            }
+            Language.set(select.selectedIndex);
         });
     }
 

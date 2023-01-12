@@ -1,0 +1,38 @@
+.rootPanel {
+    display: flex;
+    flex-direction: column;
+    border: var(--border);
+    border-radius: 8px;
+}
+
+.headerPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: var(--sidebarBackground);
+}
+
+.headerPanel:hover {
+    background-color: var(--hoverBackground);
+}
+
+.contextPanel {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px;
+}
+
+.expanderIcon {
+    width: 12px;
+    height: 12px;
+    margin-right: 12px;
+}
+
+.headerText {
+    font-size: 14px;
+}
+
+.hidden {
+    display: none;
+}

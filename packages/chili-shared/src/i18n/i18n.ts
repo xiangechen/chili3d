@@ -11,11 +11,12 @@ export interface I18n {
     "ui.tree.tool.expandAll": string;
     "ui.tree.tool.unexpandAll": string;
     "ui.tree.tool.delete": string;
-    "ui.property.header": string;
-    "ui.property.multivalue": string;
+    "ui.properties.header": string;
+    "ui.properties.multivalue": string;
     "category.default": string;
     "category.paremeter": string;
-    "body.position": string;
+    "category.transform": string;
+    "body.translate": string;
     "body.rotate": string;
     "body.visible": string;
     "body.vertex.point": string;

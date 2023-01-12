@@ -31,7 +31,7 @@
     position: absolute;
     bottom: 0px;
     right: -16px;
-    background: var(--sidebarBackground);
+    background: transparent;
     border-bottom-left-radius: 8px;
     box-shadow: -8px 0 0 0 var(--panelBackground);
 }
@@ -60,4 +60,5 @@
     display: flex;
     flex: 1 1 100%;
     flex-direction: column;
+    overflow-y: auto;
 }

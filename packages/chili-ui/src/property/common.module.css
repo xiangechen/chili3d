@@ -3,5 +3,5 @@
     opacity: 0.75;
     color: var(--color);
     min-width: 56px;
-    grid-column-start: 1;
+    flex: 0 1 auto;
 }

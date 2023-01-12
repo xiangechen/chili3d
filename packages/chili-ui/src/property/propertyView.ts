@@ -2,8 +2,9 @@
 
 import { IDocument, Parameter, PubSub } from "chili-core";
 import { IModelObject } from "chili-geo";
-import { i18n } from "chili-shared";
+import { I18n, i18n } from "chili-shared";
 import { Control } from "../control";
+import { Expander } from "../expander";
 import { Tab } from "../tab";
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
@@ -14,7 +15,7 @@ export class PropertyView {
     private tab: Tab;
 
     constructor() {
-        this.tab = new Tab("ui.property.header");
+        this.tab = new Tab("ui.properties.header");
         this.dom = this.tab.dom;
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
@@ -24,13 +25,21 @@ export class PropertyView {
         if (args.length === 0) return;
         const parameters = Parameter.getAll(args[0]);
         let keys = this.getCommonKeys(args, parameters);
+        let categoryMap = new Map<keyof I18n, Expander>();
         parameters.forEach((p) => {
             if (keys.indexOf(p.property) > -1) {
+                if (!categoryMap.has(p.category)) {
+                    let expander = new Expander(p.category);
+                    categoryMap.set(p.category, expander);
+                    expander.rootPanel.classList.add(style.panel);
+                    this.tab.addItem(expander.rootPanel);
+                }
+                let expand = categoryMap.get(p.category);
                 const type = typeof (args[0] as unknown as any)[p.property];
                 if (type === "object" || type === "string") {
-                    this.tab.addItem(new InputProperty(document, args, p).dom);
+                    expand?.addContext(new InputProperty(document, args, p).dom);
                 } else if (type === "boolean") {
-                    this.tab.addItem(new CheckProperty(args, p).dom);
+                    expand?.addContext(new CheckProperty(args, p).dom);
                 }
             }
         });

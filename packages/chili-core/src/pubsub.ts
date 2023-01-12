@@ -14,7 +14,7 @@ export interface PubSubEventMap {
     parentChanged: (source: IModelObject, oldParent: string | undefined, newParent: string | undefined) => void;
     selectionChanged: (document: IDocument, models: IModelObject[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
-    statusBarTip: (tip: string) => void;
+    statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;
     floatTip: (level: MessageLevel, msg: string) => void;
     clearFloatTip: () => void;

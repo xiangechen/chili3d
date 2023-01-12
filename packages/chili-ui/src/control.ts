@@ -25,24 +25,21 @@ export namespace Control {
 
     export function span(i18nId: keyof I18n, className?: string) {
         let e = element("span", className);
-        setText(e, i18nId);
+        e.style.cursor = "default";
+        e.style.display = "inline-block";
+        setI18nText(e, i18nId);
         return e;
     }
 
     export function textSpan(text: string, className?: string) {
         let e = element("span", className);
+        e.style.cursor = "default";
+        e.style.display = "inline-block";
         e.textContent = text;
         return e;
     }
 
-    export function textblock(className?: string) {
-        let e = element("span", className);
-        e.style.cursor = "default";
-        e.style.display = "inline-block";
-        return e;
-    }
-
-    export function setText(e: HTMLElement, i18nId: keyof I18n) {
+    export function setI18nText(e: HTMLElement, i18nId: keyof I18n) {
         e.textContent = i18n[i18nId];
         e.dataset[Constants.I18nIdAttribute] = i18nId;
     }

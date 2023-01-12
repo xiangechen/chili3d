@@ -32,7 +32,7 @@ export abstract class ModelBase extends ObservableBase {
         this.setProperty("name", value);
     }
 
-    @parameter("category.default", "body.position")
+    @parameter("category.transform", "body.translate")
     get position() {
         return this._position;
     }
@@ -41,7 +41,7 @@ export abstract class ModelBase extends ObservableBase {
         if (this.setProperty("position", value)) this.handlePositionChanged();
     }
 
-    @parameter("category.default", "body.rotate")
+    @parameter("category.transform", "body.rotate")
     get rotate() {
         return this._rotate;
     }
@@ -50,7 +50,6 @@ export abstract class ModelBase extends ObservableBase {
         if (this.setProperty("rotate", value)) this.handleRotateChanged();
     }
 
-    @parameter("category.default", "body.visible")
     get visible() {
         return this._visible;
     }

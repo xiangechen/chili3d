@@ -1,10 +1,11 @@
 .error {
     font-size: x-small;
     color: red;
+    position: absolute;
 }
 
 .hidden {
-    visibility: hidden;
+    display: none;
 }
 
 .readonly {
@@ -12,8 +13,10 @@
 }
 
 .panel {
-    display: grid;
-    grid-template-columns: auto 1fr;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
 }
 
 .box {
@@ -21,6 +24,6 @@
     border: var(--border);
     border-radius: 4px;
     padding: 6px;
-    grid-column-start: 2;
     margin: 0px;
+    flex: 1 1 100%;
 }

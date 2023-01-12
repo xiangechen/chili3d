@@ -2,6 +2,7 @@
 
 export * from "./control";
 export * from "./contextual";
+export * from "./expander";
 export * from "./ribbon/ribbonButtonSize";
 export * from "./ribbon";
 export * from "./ribbon/titlebar";

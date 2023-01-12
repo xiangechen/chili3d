@@ -1,9 +1,6 @@
 .panel {
     display: flex;
     flex-direction: column;
-    padding: 12px 12px;
-    grid-row-start: 2;
-    margin: 0px 12px 12px 12px;
-    background-color: var(--panelBackground);
-    border-radius: 0px 8px 8px 8px;
+    margin: 12px 12px 0 12px;
+    overflow-y: auto;
 }

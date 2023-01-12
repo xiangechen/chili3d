@@ -37,7 +37,7 @@ export class Snapper {
         this._stopSnap = false;
         let defaultEventHandler = this.document.visualization.eventHandler;
         this.document.viewer.setCursor(cursor);
-        PubSub.default.pub("statusBarTip", i18n[tipKey]);
+        PubSub.default.pub("statusBarTip", tipKey);
         this.document.visualization.eventHandler = eventHandler;
         while (!this._stopSnap) {
             await new Promise((r) => setTimeout(r, 10));
