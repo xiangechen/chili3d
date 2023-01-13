@@ -4,8 +4,8 @@ import { Constants, I18n, i18n } from "chili-shared";
 
 export namespace Control {
     export function clear(e: HTMLElement) {
-        while (e.children.length) {
-            e.removeChild(e.lastChild!);
+        while (e.lastElementChild) {
+            e.removeChild(e.lastElementChild!);
         }
     }
 

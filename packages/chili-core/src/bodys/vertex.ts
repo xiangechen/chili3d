@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IBody, IShape, IVertex, IVertexFactory } from "chili-geo";
-import { Container, i18n, Token, Precision, XYZ, XYZConverter } from "chili-shared";
-import { parameter } from "chili-core";
+import { Container, i18n, Token, Precision, XYZ, XYZConverter, I18n } from "chili-shared";
+import { property } from "chili-core";
 
 export class VertexBody implements IBody {
     private _pnt: XYZ;
+    readonly name: keyof I18n = "command.line";
 
     constructor(pnt: XYZ) {
         this._pnt = pnt;

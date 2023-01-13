@@ -9,7 +9,7 @@ export class Expander {
     private svg: SVGSVGElement;
     readonly rootPanel = Control.div(style.rootPanel);
     private readonly headerPanel = Control.div(style.headerPanel);
-    private readonly contenxtPanel = Control.div(style.contextPanel);
+    readonly contenxtPanel = Control.div(style.contextPanel);
 
     constructor(header: keyof I18n) {
         this.svg = Control.svg(this.getExpanderIcon(), style.expanderIcon);

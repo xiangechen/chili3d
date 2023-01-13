@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Parameter } from "chili-core";
+import { Property, IDocument } from "chili-core";
 import { Transaction } from "chili-core/src/transaction";
 import { IConverter, XYZ, XYZConverter } from "chili-shared";
 import { NumberConverter } from "chili-shared/src/converter/numberConverter";
@@ -15,17 +15,17 @@ export class InputProperty extends PropertyBase {
     readonly errorLabel: HTMLSpanElement;
     readonly converter: IConverter | undefined;
 
-    constructor(readonly document: IDocument, objects: any[], parameter: Parameter) {
-        super(objects, parameter);
-        this.converter = parameter.converter ?? this.getConverter();
+    constructor(readonly document: IDocument, objects: any[], readonly property: Property) {
+        super(objects);
+        this.converter = property.converter ?? this.getConverter();
         this.valueBox = Control.textBox(style.box);
         this.valueBox.value = this.getDefaultValue();
         if (this.isReadOnly()) {
             this.valueBox.readOnly = true;
             this.valueBox.classList.add(style.readonly);
         }
-        let span = Control.span(parameter.display, commonStyle.propertyName);
-        span.title = parameter.display;
+        let span = Control.span(property.display, commonStyle.propertyName);
+        span.title = property.display;
         this.valueBox.addEventListener("keydown", this.handleKeyDown);
         this.errorLabel = Control.span("error.default", style.error);
         this.errorLabel.classList.add(style.hidden);
@@ -35,23 +35,23 @@ export class InputProperty extends PropertyBase {
     }
 
     private isReadOnly(): boolean {
-        let des = Object.getOwnPropertyDescriptor(this.objects[0], this.parameter.property);
+        let des = Object.getOwnPropertyDescriptor(this.objects[0], this.property.name);
         if (des === undefined) {
             let proto = Object.getPrototypeOf(this.objects[0]);
             while (proto.name !== "Object") {
-                des = Object.getOwnPropertyDescriptor(proto, this.parameter.property);
+                des = Object.getOwnPropertyDescriptor(proto, this.property.name);
                 if (des !== undefined) break;
                 proto = Object.getPrototypeOf(proto);
             }
         }
         return (
             des?.set === undefined ||
-            (this.converter === undefined && typeof this.objects[0][this.parameter.property] !== "string")
+            (this.converter === undefined && typeof this.objects[0][this.property.name] !== "string")
         );
     }
 
     private getConverter(): IConverter | undefined {
-        let name = this.objects[0][this.parameter.property].constructor.name;
+        let name = this.objects[0][this.property.name].constructor.name;
         if (name === XYZ.name) {
             return new XYZConverter();
         } else if (name === String.name) {
@@ -63,7 +63,7 @@ export class InputProperty extends PropertyBase {
     }
 
     private getValueString(obj: any): string {
-        let value = obj[this.parameter.property];
+        let value = obj[this.property.name];
         return this.converter?.convert(value) ?? String(value);
     }
 
@@ -90,7 +90,7 @@ export class InputProperty extends PropertyBase {
             }
             Transaction.excute(this.document, "modify property", () => {
                 this.objects.forEach((x) => {
-                    x[this.parameter.property] = newValue;
+                    x[this.property.name] = newValue;
                 });
             });
         } else {

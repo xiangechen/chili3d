@@ -1,8 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Parameter, PubSub } from "chili-core";
-import { IModelObject } from "chili-geo";
-import { I18n, i18n } from "chili-shared";
+import { IDocument, Property, PubSub } from "chili-core";
+import { IBody, IModelObject } from "chili-geo";
 import { Control } from "../control";
 import { Expander } from "../expander";
 import { Tab } from "../tab";
@@ -13,49 +12,44 @@ import style from "./propertyView.module.css";
 export class PropertyView {
     readonly dom: HTMLElement;
     private tab: Tab;
+    private panel = Control.div(style.panel);
 
     constructor() {
-        this.tab = new Tab("ui.properties.header");
+        this.tab = new Tab("properties.header");
         this.dom = this.tab.dom;
+        this.tab.addItem(this.panel);
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 
     private selectionChanged = (document: IDocument, args: IModelObject[]) => {
-        this.tab.clearItems();
+        Control.clear(this.panel);
         if (args.length === 0) return;
-        const parameters = Parameter.getAll(args[0]);
-        let keys = this.getCommonKeys(args, parameters);
-        let categoryMap = new Map<keyof I18n, Expander>();
-        parameters.forEach((p) => {
-            if (keys.indexOf(p.property) > -1) {
-                if (!categoryMap.has(p.category)) {
-                    let expander = new Expander(p.category);
-                    categoryMap.set(p.category, expander);
-                    expander.rootPanel.classList.add(style.panel);
-                    this.tab.addItem(expander.rootPanel);
-                }
-                let expand = categoryMap.get(p.category);
-                const type = typeof (args[0] as unknown as any)[p.property];
-                if (type === "object" || type === "string") {
-                    expand?.addContext(new InputProperty(document, args, p).dom);
-                } else if (type === "boolean") {
-                    expand?.addContext(new CheckProperty(args, p).dom);
-                }
-            }
-        });
+        this.appendProperty(this.panel, document, args, Property.get(args.at(0), "name"));
+
+        if (args.length === 1 && IModelObject.isModel(args[0])) {
+            let modelBody: IBody = args[0].body;
+            let body = new Expander(modelBody.name);
+            this.panel.appendChild(body.rootPanel);
+            body.rootPanel.classList.add(style.expander);
+            Property.getAll(modelBody).forEach((x) => {
+                this.appendProperty(body.contenxtPanel, document, [modelBody], x);
+            });
+        }
+
+        let transform = new Expander("properties.group.transform");
+        transform.rootPanel.classList.add(style.expander);
+        this.panel.appendChild(transform.rootPanel);
+        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.location"));
+        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.rotate"));
     };
 
-    private getCommonKeys(args: any[], parameters: Array<Parameter>): Array<string> {
-        let result: string[] = [];
-        if (args.length === 0) return result;
-        for (const p of parameters) {
-            for (let j = 0; j < args.length; j++) {
-                if (p.property in args[j] === false) {
-                    continue;
-                }
-            }
-            result.push(p.property);
+    private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
+        if (prop === undefined) return;
+        const type = typeof (objs[0] as unknown as any)[prop.name];
+        if (type === "object" || type === "string") {
+            container.appendChild(new InputProperty(document, objs, prop).dom);
+        } else if (type === "boolean") {
+            container.appendChild(new CheckProperty(objs, prop).dom);
         }
-        return result;
     }
 }

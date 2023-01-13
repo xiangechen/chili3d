@@ -1,6 +1,10 @@
 .panel {
     display: flex;
     flex-direction: column;
-    margin: 12px 12px 0 12px;
+    margin: 4px 12px;
     overflow-y: auto;
+}
+
+.expander {
+    margin-top: 6px;
 }

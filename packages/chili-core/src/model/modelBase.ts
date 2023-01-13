@@ -1,14 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModelObject } from "chili-geo";
-import { i18n, ObservableBase, Quaternion, XYZ, XYZConverter } from "chili-shared";
-import { parameter } from "chili-core";
+import { ObservableBase, Quaternion, XYZ } from "chili-shared";
+import { property } from "chili-core";
 import { IDocument } from "../interfaces";
 import { PubSub } from "../pubsub";
 
 export abstract class ModelBase extends ObservableBase {
     private _name: string;
-    private _position: XYZ;
+    private _location: XYZ;
     private _rotate: Quaternion;
     private _visible: boolean;
     private _parentId: string | undefined;
@@ -18,12 +17,12 @@ export abstract class ModelBase extends ObservableBase {
         super();
         this._name = name;
         this._visible = true;
-        this._position = XYZ.zero;
+        this._location = XYZ.zero;
         this._rotate = { x: 0, y: 0, z: 0, w: 1 };
         this.createdTime = Date.now();
     }
 
-    @parameter("category.default", "name")
+    @property("name")
     get name() {
         return this._name;
     }
@@ -32,16 +31,16 @@ export abstract class ModelBase extends ObservableBase {
         this.setProperty("name", value);
     }
 
-    @parameter("category.transform", "body.translate")
-    get position() {
-        return this._position;
+    @property("model.location")
+    get location() {
+        return this._location;
     }
 
-    set position(value: XYZ) {
-        if (this.setProperty("position", value)) this.handlePositionChanged();
+    set location(value: XYZ) {
+        if (this.setProperty("location", value)) this.handlePositionChanged();
     }
 
-    @parameter("category.transform", "body.rotate")
+    @property("model.rotate")
     get rotate() {
         return this._rotate;
     }

@@ -21,7 +21,7 @@ export class ModelTree {
     private readonly _modelMap: Map<string, TreeItemBase>;
 
     constructor(readonly document: IDocument) {
-        this._tab = new Tab("ui.tree.header");
+        this._tab = new Tab("tree.header");
         this.dom = this._tab.dom;
         this._modelMap = new Map<string, TreeItemBase>();
         this.toolsPanel = new TreeToolBar(this);

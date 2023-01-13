@@ -3,8 +3,11 @@
 import { Id, IDocument, Model } from "chili-core";
 import { IBody, IShape, ISolid } from "chili-geo";
 import { OccShape } from "chili-occ/src/occShape";
+import { I18n } from "chili-shared";
 
 export class BoxBody implements IBody {
+    readonly name: keyof I18n = "command.line";
+
     constructor(readonly x: number, readonly y: number) {}
 
     body(): IShape | undefined {

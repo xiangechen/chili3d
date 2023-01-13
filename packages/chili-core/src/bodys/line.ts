@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, i18n, Token, Precision, XYZ, XYZConverter } from "chili-shared";
+import { Container, i18n, Token, Precision, XYZ, XYZConverter, I18n } from "chili-shared";
 import { IBody, IEdge, IEdgeFactory, IShape } from "chili-geo";
-import { parameter } from "../decorators";
+import { property } from "../decorators";
 
 export class LineBody implements IBody {
     private _start: XYZ;
     private _end: XYZ;
+    readonly name: keyof I18n = "command.line";
 
     constructor(start: XYZ, end: XYZ) {
         this._start = start;
@@ -19,7 +20,7 @@ export class LineBody implements IBody {
         return edge?.ok();
     }
 
-    @parameter("category.paremeter", "body.curve.start", new XYZConverter())
+    @property("curve.start", new XYZConverter())
     get start() {
         return this._start;
     }
@@ -30,7 +31,7 @@ export class LineBody implements IBody {
         // this.update()
     }
 
-    // @parameter("参数", i18n.curveEnd, new XYZConverter())
+    @property("curve.end")
     get end() {
         return this._end;
     }

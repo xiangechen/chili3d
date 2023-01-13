@@ -12,14 +12,10 @@ export interface IModelObject extends IPropertyChanged {
     readonly createdTime: number;
     parentId: string | undefined;
     getParent(): IModelObject | undefined;
-    get name(): string;
-    set name(value: string);
-    get position(): XYZ;
-    set position(value: XYZ);
-    get visible(): boolean;
-    set visible(value: boolean);
-    get rotate(): Quaternion;
-    set rotate(value: Quaternion);
+    name: string;
+    location: XYZ;
+    visible: boolean;
+    rotate: Quaternion;
 }
 
 export interface ModelEventMap {
