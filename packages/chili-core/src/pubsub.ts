@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModel, IModelObject } from "chili-geo";
+import { IModel, IModelGroup, IModelObject } from "chili-geo";
 import { Commands, I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
 import { IDocument } from "./interfaces";
 
@@ -12,7 +12,11 @@ export interface PubSubEventMap {
     activeDocumentChanged: (document: IDocument | undefined) => void;
     modelRemoved: (source: IDocument, model: IModelObject) => void;
     visibleChanged: (model: IModelObject) => void;
-    parentChanged: (source: IModelObject, oldParent: string | undefined, newParent: string | undefined) => void;
+    parentChanged: (
+        source: IModelObject,
+        oldParent: IModelGroup | undefined,
+        newParent: IModelGroup | undefined
+    ) => void;
     selectionChanged: (document: IDocument, models: IModelObject[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;

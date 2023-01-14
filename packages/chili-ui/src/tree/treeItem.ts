@@ -25,6 +25,6 @@ export class TreeItem extends TreeItemBase {
     }
 
     protected handleDrop(model: IModelObject) {
-        model.parentId = this.model.parentId;
+        model.parent = this.model.parent;
     }
 }

@@ -3,13 +3,14 @@
 import { ObservableBase, Quaternion, XYZ } from "chili-shared";
 import { property } from "chili-core";
 import { PubSub } from "../pubsub";
+import { IModelGroup } from "chili-geo";
 
 export abstract class ModelBase extends ObservableBase {
     private _name: string;
     private _location: XYZ;
     private _rotate: Quaternion;
     private _visible: boolean;
-    private _parentId: string | undefined;
+    private _parent: IModelGroup | undefined;
     readonly createdTime: number;
 
     constructor(readonly id: string, name: string) {
@@ -58,15 +59,17 @@ export abstract class ModelBase extends ObservableBase {
         }
     }
 
-    get parentId() {
-        return this._parentId;
+    get parent() {
+        return this._parent;
     }
 
-    set parentId(value: string | undefined) {
-        let oldParent = this._parentId;
-        if (this.setProperty("parentId", value)) {
-            PubSub.default.pub("parentChanged", this, oldParent, value);
-        }
+    set parent(value: IModelGroup | undefined) {
+        if (this._parent === value) return;
+        this._parent?.removeChild(this);
+        value?.addChild(this);
+        let oldParent = this._parent;
+        this.setProperty("parent", value);
+        PubSub.default.pub("parentChanged", this, oldParent, value);
     }
 
     protected abstract handlePositionChanged(): void;

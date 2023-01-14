@@ -13,9 +13,7 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     get visualization(): IVisualization;
     getModel(id: string): IModelObject | undefined;
     getModels(...ids: string[]): IModelObject[];
-    getChildren(parentId: string): IModelObject[];
     removeModel(...models: IModelObject[]): void;
-    getParent(model: IModelObject): IModelGroup | undefined;
     undo(): void;
     redo(): void;
 }

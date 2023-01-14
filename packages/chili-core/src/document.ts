@@ -40,11 +40,6 @@ export class Document extends ObservableBase implements IDocument {
         return this.models.size();
     }
 
-    getParent(model: IModelObject): IModelGroup | undefined {
-        if (model.parentId === undefined) return undefined;
-        return this.models.get(model.parentId) as IModelGroup;
-    }
-
     getModel(id: string): IModelObject | undefined {
         return this.models.get(id);
     }
@@ -60,14 +55,6 @@ export class Document extends ObservableBase implements IDocument {
         return result;
     }
 
-    getChildren(parentId: string): IModelObject[] {
-        let res: IModelObject[] = [];
-        for (const iterator of this.models.entry()) {
-            if (iterator.parentId === parentId) res.push(iterator);
-        }
-        return res;
-    }
-
     addModel(...models: IModelObject[]) {
         models.forEach((model) => {
             this.models.add(model);
@@ -79,7 +66,7 @@ export class Document extends ObservableBase implements IDocument {
         models.forEach((model) => {
             if (IModelObject.isGroup(model)) {
                 for (const it of this.models.entry()) {
-                    if (it.parentId === model.id) this.removeModel(it);
+                    if (it.parent === model) this.removeModel(it);
                 }
             }
             this.models.remove(model);

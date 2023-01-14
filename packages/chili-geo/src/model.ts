@@ -8,7 +8,7 @@ import { IShape } from "./shape";
 export interface IModelObject extends IPropertyChanged {
     readonly id: string;
     readonly createdTime: number;
-    parentId: string | undefined;
+    parent: IModelGroup | undefined;
     name: string;
     location: XYZ;
     visible: boolean;

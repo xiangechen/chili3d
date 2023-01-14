@@ -90,15 +90,16 @@ export abstract class TreeItemBase implements IDisposable {
         if (id === this.model.id) {
             isDragCurrent = true;
         } else {
-            let parentId = this.model.parentId;
-            while (parentId) {
-                if (id === parentId) {
+            let parent = this.model.parent;
+            while (parent) {
+                if (id === parent.id) {
                     isDragCurrent = true;
                     break;
                 }
-                parentId = this.document.getModel(parentId)?.parentId;
+                parent = parent.parent;
             }
         }
+
         return isDragCurrent;
     }
 }

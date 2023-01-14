@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument } from "chili-core";
+import { IDocument, Transaction } from "chili-core";
 import { IModelGroup, IModelObject } from "chili-geo";
 import { Control } from "../control";
 import { ModelTree } from "./tree";
@@ -49,7 +49,9 @@ export class TreeItemGroup extends TreeItemBase {
     }
 
     protected handleVisibleClick(): void {
-        this.setVisible(!this.group.visible, this.group);
+        Transaction.excute(this.document, "Change visible", () => {
+            this.setVisible(!this.group.visible, this.group);
+        });
     }
 
     private setVisible(visible: boolean, model: IModelObject) {
@@ -78,6 +80,6 @@ export class TreeItemGroup extends TreeItemBase {
     }
 
     protected handleDrop(model: IModelObject) {
-        model.parentId = this.group.id;
+        model.parent = this.group;
     }
 }
