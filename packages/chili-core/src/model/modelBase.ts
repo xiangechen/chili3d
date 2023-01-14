@@ -2,7 +2,6 @@
 
 import { ObservableBase, Quaternion, XYZ } from "chili-shared";
 import { property } from "chili-core";
-import { IDocument } from "../interfaces";
 import { PubSub } from "../pubsub";
 
 export abstract class ModelBase extends ObservableBase {
@@ -13,7 +12,7 @@ export abstract class ModelBase extends ObservableBase {
     private _parentId: string | undefined;
     readonly createdTime: number;
 
-    constructor(readonly document: IDocument, readonly id: string, name: string) {
+    constructor(readonly id: string, name: string) {
         super();
         this._name = name;
         this._visible = true;
@@ -55,15 +54,8 @@ export abstract class ModelBase extends ObservableBase {
 
     set visible(value: boolean) {
         if (this.setProperty("visible", value)) {
-            let shape = this.document.visualization.context.getShape(this);
-            if (shape === undefined || shape.visible === value) return;
-            shape.visible = value;
+            PubSub.default.pub("visibleChanged", this);
         }
-    }
-
-    getParent() {
-        if (this._parentId === undefined) return undefined;
-        return this.document.getModel(this._parentId);
     }
 
     get parentId() {

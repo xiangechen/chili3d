@@ -11,6 +11,7 @@ export interface PubSubEventMap {
     modelAdded: (source: IDocument, model: IModelObject) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     modelRemoved: (source: IDocument, model: IModelObject) => void;
+    visibleChanged: (model: IModelObject) => void;
     parentChanged: (source: IModelObject, oldParent: string | undefined, newParent: string | undefined) => void;
     selectionChanged: (document: IDocument, models: IModelObject[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;

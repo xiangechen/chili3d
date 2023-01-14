@@ -1,56 +1,31 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IEditedResult, IEditor, IModel, IShape } from "chili-geo";
-import { IDocument } from "../interfaces";
+import { IBody, IEditor, IModel, IShape } from "chili-geo";
+import { Result } from "chili-shared";
 import { ModelBase } from "./modelBase";
 
 export class Model extends ModelBase implements IModel {
-    private readonly _body: IBody;
     private readonly _editors: IEditor[];
-    private _shape?: IShape;
-    private _status: IEditedResult;
+    private _shape: Result<IShape>;
 
-    constructor(document: IDocument, name: string, id: string, body: IBody) {
-        super(document, id, name);
-        this._body = body;
-
+    constructor(name: string, id: string, readonly body: IBody) {
+        super(id, name);
+        this.body = body;
         this._editors = new Array<IEditor>();
-        this._status = { success: false };
-        this.generate();
-
-        document.addModel(this);
+        this._shape = this.generate();
     }
 
-    generate(): boolean {
-        this._shape = this._body?.body();
-        if (this._shape === undefined) {
-            this.status = { success: false };
-            return false;
-        }
+    generate(): Result<IShape> {
+        let shape = this.body.body();
+        if (shape.isErr()) return shape;
         for (const editor of this._editors) {
-            this.status = editor.edit(this._shape!);
-            this._shape = editor.shape();
-            if (!this._status.success) {
-                return false;
-            }
+            shape = editor.edit(shape.ok()!);
+            if (shape.isErr()) break;
         }
-        this.status = { success: true };
-        return true;
+        return shape;
     }
 
-    get status(): IEditedResult {
-        return this._status;
-    }
-
-    set status(status: IEditedResult) {
-        this.setProperty("status", status);
-    }
-
-    get body() {
-        return this._body;
-    }
-
-    getShape(): IShape | undefined {
+    getShape(): Result<IShape> {
         return this._shape;
     }
 
@@ -64,7 +39,7 @@ export class Model extends ModelBase implements IModel {
 
     addEditor(editor: IEditor) {
         this._editors.push(editor);
-        if (this._shape !== undefined) this.status = editor.edit(this._shape);
+        if (this._shape.isOk()) this._shape = editor.edit(this._shape.ok()!);
     }
 
     getEditor(index: number) {

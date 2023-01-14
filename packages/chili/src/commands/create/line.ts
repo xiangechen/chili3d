@@ -21,7 +21,7 @@ export class Line implements ICommand {
             this.handleTempLine(start!, p)
         );
         if (end === undefined) return false;
-        document.addModel(new Model(document, `Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
+        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
         document.viewer.redraw();
         return true;
     }
