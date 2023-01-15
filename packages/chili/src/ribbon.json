@@ -4,7 +4,7 @@
         "groups": [
             {
                 "groupName": "ribbon.group.drawing",
-                "items": ["Line", "PLine", "Circle", "Box", ["Rect", "Circle"]]
+                "items": ["Line", "Rect", "Circle", "Box", ["PLine", "Circle"]]
             }
         ]
     }

@@ -100,7 +100,7 @@ export class ObjectSnap implements IPointSnap {
     private showInvisibleSnaps(view: IView, shape: IShape) {
         if (shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape as IEdge).asCurve();
+            let curve = (shape as IEdge).asCurve().ok();
             if (curve !== undefined && ICurve.isCircle(curve)) {
                 let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
                 let id = view.document.visualization.context.temporaryDisplay(temporary);
@@ -187,7 +187,7 @@ export class ObjectSnap implements IPointSnap {
     }
 
     private getEdgeFeaturePoints(shape: IShape, infos: SnapInfo[]) {
-        let curve = (shape as IEdge).asCurve();
+        let curve = (shape as IEdge).asCurve().ok();
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());
         let end = curve.point(curve.lastParameter());

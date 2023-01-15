@@ -2,8 +2,7 @@
 
 export class Token {
     static readonly VisulizationFactory = new Token("VisulizationFactory");
-    static readonly EdgeFactory = new Token("EdgeFactory");
-    static readonly VertexFactory = new Token("VertexFactory");
+    static readonly ShapeFactory = new Token("ShapeFactory");
 
     static set(token: Token) {
         return (ctor: new (...args: any[]) => any) => {

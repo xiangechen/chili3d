@@ -11,7 +11,7 @@ export class OccModule implements IModule {
         const m = await import("./occ");
         await m.initMyOcc();
 
-        let factorys: any = await import("./factory");
+        let factorys: any = await import("./shapeFactory");
         let keys = Object.keys(factorys);
         keys.forEach((key) => {
             let factory = factorys[key];

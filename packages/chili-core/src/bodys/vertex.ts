@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IShape, IVertex, IVertexFactory } from "chili-geo";
+import { IBody, IShape, IShapeFactory, IVertex } from "chili-geo";
 import { Container, i18n, Token, Precision, XYZ, XYZConverter, I18n, Result } from "chili-shared";
 import { property } from "chili-core";
 
@@ -13,8 +13,8 @@ export class VertexBody implements IBody {
     }
 
     body(): Result<IShape> {
-        let vertexFactory = Container.default.resolve<IVertexFactory>(Token.VertexFactory);
-        return vertexFactory!.byXYZ(this._pnt);
+        let vertexFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
+        return vertexFactory!.point(this._pnt);
     }
 
     // @parameter("坐标", i18n.vertexBodyPoint, new XYZConverter())

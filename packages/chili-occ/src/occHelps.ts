@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CurveType, IShape } from "chili-geo";
-import { ShapeType, XYZ } from "chili-shared";
-import { BRepAdaptor_Curve, gp_Dir, gp_Pnt, gp_Vec, TopoDS_Shape } from "opencascade.js";
+import { Plane, ShapeType, XYZ } from "chili-shared";
+import { BRepAdaptor_Curve, gp_Ax2, gp_Ax3, gp_Dir, gp_Pln, gp_Pnt, gp_Vec, TopoDS_Shape } from "opencascade.js";
 import {
     OccCompound,
     OccCompoundSolid,
@@ -30,6 +30,26 @@ export class OccHelps {
 
     static toVec(value: XYZ) {
         return new occ.gp_Vec_4(value.x, value.y, value.z);
+    }
+
+    static toAx2(plane: Plane): gp_Ax2 {
+        return new occ.gp_Ax2_2(
+            OccHelps.toPnt(plane.location),
+            OccHelps.toDir(plane.normal),
+            OccHelps.toDir(plane.xDirection)
+        );
+    }
+
+    static toAx3(plane: Plane): gp_Ax3 {
+        return new occ.gp_Ax3_3(
+            OccHelps.toPnt(plane.location),
+            OccHelps.toDir(plane.normal),
+            OccHelps.toDir(plane.xDirection)
+        );
+    }
+
+    static toPln(plane: Plane): gp_Pln {
+        return new occ.gp_Pln_2(OccHelps.toAx3(plane));
     }
 
     static getCurveType(adaptorCurve: BRepAdaptor_Curve): CurveType {

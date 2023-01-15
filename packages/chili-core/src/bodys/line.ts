@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Container, i18n, Token, Precision, XYZ, XYZConverter, I18n, Result } from "chili-shared";
-import { IBody, IEdge, IEdgeFactory, IShape } from "chili-geo";
+import { IBody, IEdge, IShapeFactory, IShape } from "chili-geo";
 import { property } from "../decorators";
 import { BodyBase } from "./base";
 
@@ -17,8 +17,8 @@ export class LineBody extends BodyBase {
     }
 
     body(): Result<IShape> {
-        let edgeFactory = Container.default.resolve<IEdgeFactory>(Token.EdgeFactory);
-        return edgeFactory!.byStartAndEnd(this._start, this._end);
+        let edgeFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
+        return edgeFactory!.line(this._start, this._end);
     }
 
     @property("curve.start")

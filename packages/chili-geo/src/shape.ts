@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Ray, ShapeType, XYZ } from "chili-shared";
+import { Ray, Result, ShapeType, XYZ } from "chili-shared";
 import { ICurve } from "./geometry";
 import { IShapeMesh } from "./shapeMesh";
 
@@ -44,10 +44,12 @@ export interface IVertex extends IShape {
 export interface IEdge extends IShape {
     intersect(other: IEdge | Ray): XYZ[];
     length(): number;
-    asCurve(): ICurve | undefined;
+    asCurve(): Result<ICurve>;
 }
 
-export interface IWire extends IShape {}
+export interface IWire extends IShape {
+    toFace(): Result<IFace>;
+}
 
 export interface IFace extends IShape {}
 

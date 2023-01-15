@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export * from "./factory";
+export * from "./shapeFactory";
 export * from "./body";
 export * from "./editor";
 export * from "./renderData";

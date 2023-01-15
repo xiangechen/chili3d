@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { command, ICommand, Id, IDocument, LineBody, Model, Dimension, Snapper } from "chili-core";
-import { IEdgeFactory } from "chili-geo";
+import { IShapeFactory } from "chili-geo";
 import { inject, injectable, Token, XYZ } from "chili-shared";
 
 @injectable()
@@ -11,7 +11,7 @@ import { inject, injectable, Token, XYZ } from "chili-shared";
     icon: "icon-rect",
 })
 export class Rect implements ICommand {
-    constructor(@inject(Token.EdgeFactory) private factory: IEdgeFactory) {}
+    constructor(@inject(Token.ShapeFactory) private factory: IShapeFactory) {}
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
@@ -28,6 +28,6 @@ export class Rect implements ICommand {
 
     private handleTempLine = (start: XYZ, end: XYZ) => {
         if (start.isEqualTo(end)) return undefined;
-        return this.factory.byStartAndEnd(start, end).ok();
+        return this.factory.line(start, end).ok();
     };
 }

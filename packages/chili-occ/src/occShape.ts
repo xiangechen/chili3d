@@ -14,7 +14,7 @@ import {
     IVertex,
     IWire,
 } from "chili-geo";
-import { Ray, ShapeType, XYZ } from "chili-shared";
+import { Ray, Result, ShapeType, XYZ } from "chili-shared";
 import {
     Geom_Circle,
     Geom_Line,
@@ -112,24 +112,32 @@ export class OccEdge extends OccShapeBase implements IEdge {
         return occ.GCPnts_AbscissaPoint.Length_3(curve, occ.Precision.Confusion());
     }
 
-    asCurve(): ICurve | undefined {
+    asCurve(): Result<ICurve> {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
         let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
         let isType = (type: string) => curve.get().IsInstance_2(type);
         if (isType("Geom_Line")) {
-            return new OccLine(curve.get() as Geom_Line, s.current, e.current);
+            return Result.ok(new OccLine(curve.get() as Geom_Line, s.current, e.current));
         } else if (isType("Geom_Circle")) {
-            return new OccCircle(curve.get() as Geom_Circle, s.current, e.current);
+            return Result.ok(new OccCircle(curve.get() as Geom_Circle, s.current, e.current));
         }
 
-        return undefined;
+        return Result.error("Unsupported curve type");
     }
 }
 
 export class OccWire extends OccShapeBase implements IWire {
     constructor(shape: TopoDS_Wire) {
         super(shape);
+    }
+
+    toFace(): Result<IFace> {
+        let make = new occ.BRepLib_MakeFace_15(this.shape, true);
+        if (make.IsDone()) {
+            return Result.ok(new OccFace(make.Face()));
+        }
+        return Result.error("Wire to face error");
     }
 }
 
