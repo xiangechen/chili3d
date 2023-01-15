@@ -26,7 +26,7 @@ export class ObjectSnap implements IPointSnap {
     private _hilightedShapes?: Hilighted;
     private _detectedShape: IShape | undefined;
 
-    constructor(readonly selection: ISelection, private _snapType: ObjectSnapType, readonly referencePoint?: XYZ) {
+    constructor(private _snapType: ObjectSnapType, readonly referencePoint?: XYZ) {
         this._featureInfos = new Map();
         this._intersectionInfos = new Map();
         this._invisibleInfos = new Map();
@@ -56,8 +56,8 @@ export class ObjectSnap implements IPointSnap {
 
     snap(view: IView, x: number, y: number): boolean {
         this._snapedPoint = undefined;
-        this.selection.setSelectionType(ShapeType.Edge);
-        let shapes = this.selection.detectedShapes(view, x, y);
+        view.document.selection.setSelectionType(ShapeType.Edge);
+        let shapes = view.document.selection.detectedShapes(view, x, y);
         if (shapes !== undefined && shapes.length > 0) {
             this._detectedShape = shapes[0];
             this.showInvisibleSnaps(view, shapes[0]);

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid } from "chili-shared";
+import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken } from "chili-shared";
 import { IEventHandler, IView } from "chili-vis";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
@@ -18,6 +18,8 @@ export enum SnapState {
     Fail,
 }
 
+export interface SnapData {}
+
 export class SnapPointEventHandler implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
@@ -27,13 +29,12 @@ export class SnapPointEventHandler implements IEventHandler {
     private _snapedInfo?: SnapInfo;
 
     constructor(
-        readonly document: IDocument,
-        private _endSnapCallback: () => void,
+        private _cancellationToken: CancellationToken,
         readonly dimension: Dimension,
         readonly referencePoint?: XYZ,
         private _createTempShape?: HandleTempShape
     ) {
-        this._objectSnap = new ObjectSnap(this.document.selection, Configure.current.snapType);
+        this._objectSnap = new ObjectSnap(Configure.current.snapType);
         this._workplaneSnap = new WorkplaneSnap();
         this._trackingSnap = new TrackingSnap(referencePoint);
         PubSub.default.sub("snapChanged", this.onSnapChanged);
@@ -48,7 +49,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private stopSnap(view: IView) {
-        this._endSnapCallback();
+        this._cancellationToken.cancel();
         this.clearSnap();
 
         this.removeInput();
