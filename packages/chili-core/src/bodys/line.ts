@@ -8,7 +8,7 @@ import { BodyBase } from "./base";
 export class LineBody extends BodyBase {
     private _start: XYZ;
     private _end: XYZ;
-    readonly name: keyof I18n = "command.line";
+    readonly name: keyof I18n = "body.line";
 
     constructor(start: XYZ, end: XYZ) {
         super();
@@ -21,7 +21,7 @@ export class LineBody extends BodyBase {
         return edgeFactory!.line(this._start, this._end);
     }
 
-    @property("curve.start")
+    @property("line.start")
     get start() {
         return this._start;
     }
@@ -31,7 +31,7 @@ export class LineBody extends BodyBase {
         this.setProperty("start", pnt);
     }
 
-    @property("curve.end")
+    @property("line.end")
     get end() {
         return this._end;
     }

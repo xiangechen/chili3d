@@ -1,6 +1,7 @@
 import { IShape } from "chili-geo";
 import { XYZ } from "chili-shared";
+import { IView } from "chili-vis";
 
 export interface HandleTempShape {
-    (point: XYZ): IShape | undefined;
+    (view: IView, point: XYZ): IShape | undefined;
 }

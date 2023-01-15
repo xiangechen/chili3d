@@ -2,3 +2,7 @@
 
 export * from "./line";
 export * from "./vertex";
+export * from "./box";
+export * from "./circle";
+export * from "./polygon";
+export * from "./rect";

@@ -2,6 +2,12 @@
 
 export interface I18n {
     name: string;
+    normal: string;
+    "body.line": string;
+    "body.rect": string;
+    "body.circle": string;
+    "body.box": string;
+    "body.polygon": string;
     "value.app.name": string;
     "value.untitled": string;
     "ribbon.tab.startup": string;
@@ -18,15 +24,28 @@ export interface I18n {
     "model.rotate": string;
     "model.visible": string;
     "vertex.point": string;
-    "curve.start": string;
-    "curve.end": string;
+    "line.start": string;
+    "line.end": string;
+    "circle.center": string;
+    "circle.radius": string;
+    "box.dx": string;
+    "box.dy": string;
+    "box.dz": string;
+    "rect.dx": string;
+    "rect.dy": string;
     "command.delete": string;
     "command.redo": string;
     "command.newGroup": string;
     "command.undo": string;
     "command.line": string;
-    "command.line.pickStart": string;
-    "command.line.pickEnd": string;
+    "command.box": string;
+    "command.circle": string;
+    "command.rect": string;
+    "command.polygon": string;
+    "operate.pickFistPoint": string;
+    "operate.pickNextPoint": string;
+    "operate.pickCircleCenter": string;
+    "operate.pickRadius": string;
     "snap.end": string;
     "snap.mid": string;
     "snap.center": string;

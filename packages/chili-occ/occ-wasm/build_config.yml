@@ -52,6 +52,7 @@ mainBuild:
     - symbol: BRepOffsetAPI_MakeOffsetShape
     - symbol: BRepOffsetAPI_MakePipe
     - symbol: BRepOffsetAPI_MakePipeShell
+    - symbol: BRepBuilderAPI_MakePolygon
     - symbol: BRepOffsetAPI_MakeThickSolid
     - symbol: BRepOffsetAPI_ThruSections
     - symbol: BRepPrimAPI_MakeBox
@@ -108,6 +109,7 @@ mainBuild:
     - symbol: gp_Elips
     - symbol: gp_GTrsf
     - symbol: gp_Lin
+    - symbol: gp_Pln
     - symbol: gp_Pnt
     - symbol: gp_Pnt2d
     - symbol: gp_Quaternion

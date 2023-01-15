@@ -113,7 +113,7 @@ export class SnapPointEventHandler implements IEventHandler {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
         if (this._createTempShape !== undefined) {
-            let shape = this._createTempShape(point)
+            let shape = this._createTempShape(view, point)
                 ?.mesh()
                 .edges.map((x) => x.renderData);
             if (shape !== undefined) this._tempShapeId = view.document.visualization.context.temporaryDisplay(...shape);
