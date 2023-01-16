@@ -32,7 +32,7 @@ describe("shape test", () => {
         expect(make1.IsDone()).toBeTruthy();
         let edge1 = new OccEdge(make1.Edge());
         expect(edge1.shapeType).toBe(ShapeType.Edge);
-        let ps = edge1.asCurve()!.project(new XYZ(5, 0, 0));
+        let ps = edge1.asCurve().ok()!.project(new XYZ(5, 0, 0));
         expect(ps.length).toBe(1);
         expect(ps[0].x).toBe(5);
 
@@ -56,7 +56,7 @@ describe("geometry test", () => {
         let make = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
         expect(make.IsDone()).toBeTruthy();
         let edge = new OccEdge(make.Edge());
-        let curve = edge.asCurve()!;
+        let curve = edge.asCurve().ok()!;
         expect(curve instanceof OccCurve).toBe(true);
         expect(edge.length()).toBe(20);
         expect(curve.point(curve.firstParameter()).x).toBe(-10);

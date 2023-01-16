@@ -56,7 +56,7 @@ export class PropertyView {
     private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
         if (prop === undefined) return;
         const type = typeof (objs[0] as unknown as any)[prop.name];
-        if (type === "object" || type === "string") {
+        if (type === "object" || type === "string" || type === "number") {
             container.appendChild(new InputProperty(document, objs, prop).dom);
         } else if (type === "boolean") {
             container.appendChild(new CheckProperty(objs, prop).dom);

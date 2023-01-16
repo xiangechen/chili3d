@@ -133,7 +133,7 @@ export class OccWire extends OccShapeBase implements IWire {
     }
 
     toFace(): Result<IFace> {
-        let make = new occ.BRepLib_MakeFace_15(this.shape, true);
+        let make = new occ.BRepBuilderAPI_MakeFace_15(this.shape, true);
         if (make.IsDone()) {
             return Result.ok(new OccFace(make.Face()));
         }

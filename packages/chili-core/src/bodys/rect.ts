@@ -21,7 +21,7 @@ export class RectBody extends BodyBase {
         return factory!.rect(this.plane, this._dx, this._dy);
     }
 
-    @property("box.dx")
+    @property("rect.dx")
     get dx() {
         return this._dx;
     }
@@ -30,7 +30,7 @@ export class RectBody extends BodyBase {
         this.setProperty("dx", dx);
     }
 
-    @property("box.dy")
+    @property("rect.dy")
     get dy() {
         return this._dy;
     }

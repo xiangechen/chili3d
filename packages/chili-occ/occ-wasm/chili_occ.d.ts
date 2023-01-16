@@ -1581,6 +1581,63 @@ export declare class gp_XY {
     constructor(theX: Standard_Real, theY: Standard_Real);
   }
 
+export declare class gp_Pln {
+  Coefficients(theA: Standard_Real, theB: Standard_Real, theC: Standard_Real, theD: Standard_Real): void;
+  SetAxis(theA1: gp_Ax1): void;
+  SetLocation(theLoc: gp_Pnt): void;
+  SetPosition(theA3: gp_Ax3): void;
+  UReverse(): void;
+  VReverse(): void;
+  Direct(): Standard_Boolean;
+  Axis(): gp_Ax1;
+  Location(): gp_Pnt;
+  Position(): gp_Ax3;
+  Distance_1(theP: gp_Pnt): Standard_Real;
+  Distance_2(theL: gp_Lin): Standard_Real;
+  Distance_3(theOther: gp_Pln): Standard_Real;
+  SquareDistance_1(theP: gp_Pnt): Standard_Real;
+  SquareDistance_2(theL: gp_Lin): Standard_Real;
+  SquareDistance_3(theOther: gp_Pln): Standard_Real;
+  XAxis(): gp_Ax1;
+  YAxis(): gp_Ax1;
+  Contains_1(theP: gp_Pnt, theLinearTolerance: Standard_Real): Standard_Boolean;
+  Contains_2(theL: gp_Lin, theLinearTolerance: Standard_Real, theAngularTolerance: Standard_Real): Standard_Boolean;
+  Mirror_1(theP: gp_Pnt): void;
+  Mirrored_1(theP: gp_Pnt): gp_Pln;
+  Mirror_2(theA1: gp_Ax1): void;
+  Mirrored_2(theA1: gp_Ax1): gp_Pln;
+  Mirror_3(theA2: gp_Ax2): void;
+  Mirrored_3(theA2: gp_Ax2): gp_Pln;
+  Rotate(theA1: gp_Ax1, theAng: Standard_Real): void;
+  Rotated(theA1: gp_Ax1, theAng: Standard_Real): gp_Pln;
+  Scale(theP: gp_Pnt, theS: Standard_Real): void;
+  Scaled(theP: gp_Pnt, theS: Standard_Real): gp_Pln;
+  Transform(theT: gp_Trsf): void;
+  Transformed(theT: gp_Trsf): gp_Pln;
+  Translate_1(theV: gp_Vec): void;
+  Translated_1(theV: gp_Vec): gp_Pln;
+  Translate_2(theP1: gp_Pnt, theP2: gp_Pnt): void;
+  Translated_2(theP1: gp_Pnt, theP2: gp_Pnt): gp_Pln;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  delete(): void;
+}
+
+  export declare class gp_Pln_1 extends gp_Pln {
+    constructor();
+  }
+
+  export declare class gp_Pln_2 extends gp_Pln {
+    constructor(theA3: gp_Ax3);
+  }
+
+  export declare class gp_Pln_3 extends gp_Pln {
+    constructor(theP: gp_Pnt, theV: gp_Dir);
+  }
+
+  export declare class gp_Pln_4 extends gp_Pln {
+    constructor(theA: Standard_Real, theB: Standard_Real, theC: Standard_Real, theD: Standard_Real);
+  }
+
 export declare class GProp_GProps {
   Add(Item: GProp_GProps, Density: Standard_Real): void;
   Mass(): Standard_Real;
@@ -2228,6 +2285,47 @@ export declare class BRepBuilderAPI_Command {
   Check(): void;
   delete(): void;
 }
+
+export declare class BRepBuilderAPI_MakePolygon extends BRepBuilderAPI_MakeShape {
+  Add_1(P: gp_Pnt): void;
+  Add_2(V: TopoDS_Vertex): void;
+  Added(): Standard_Boolean;
+  Close(): void;
+  FirstVertex(): TopoDS_Vertex;
+  LastVertex(): TopoDS_Vertex;
+  IsDone(): Standard_Boolean;
+  Edge(): TopoDS_Edge;
+  Wire(): TopoDS_Wire;
+  delete(): void;
+}
+
+  export declare class BRepBuilderAPI_MakePolygon_1 extends BRepBuilderAPI_MakePolygon {
+    constructor();
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_2 extends BRepBuilderAPI_MakePolygon {
+    constructor(P1: gp_Pnt, P2: gp_Pnt);
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_3 extends BRepBuilderAPI_MakePolygon {
+    constructor(P1: gp_Pnt, P2: gp_Pnt, P3: gp_Pnt, Close: Standard_Boolean);
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_4 extends BRepBuilderAPI_MakePolygon {
+    constructor(P1: gp_Pnt, P2: gp_Pnt, P3: gp_Pnt, P4: gp_Pnt, Close: Standard_Boolean);
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_5 extends BRepBuilderAPI_MakePolygon {
+    constructor(V1: TopoDS_Vertex, V2: TopoDS_Vertex);
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_6 extends BRepBuilderAPI_MakePolygon {
+    constructor(V1: TopoDS_Vertex, V2: TopoDS_Vertex, V3: TopoDS_Vertex, Close: Standard_Boolean);
+  }
+
+  export declare class BRepBuilderAPI_MakePolygon_7 extends BRepBuilderAPI_MakePolygon {
+    constructor(V1: TopoDS_Vertex, V2: TopoDS_Vertex, V3: TopoDS_Vertex, V4: TopoDS_Vertex, Close: Standard_Boolean);
+  }
 
 export declare class BRepBuilderAPI_Sewing extends Standard_Transient {
   constructor(tolerance: Standard_Real, option1: Standard_Boolean, option2: Standard_Boolean, option3: Standard_Boolean, option4: Standard_Boolean)
@@ -5833,6 +5931,11 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   gp_XY: typeof gp_XY;
   gp_XY_1: typeof gp_XY_1;
   gp_XY_2: typeof gp_XY_2;
+  gp_Pln: typeof gp_Pln;
+  gp_Pln_1: typeof gp_Pln_1;
+  gp_Pln_2: typeof gp_Pln_2;
+  gp_Pln_3: typeof gp_Pln_3;
+  gp_Pln_4: typeof gp_Pln_4;
   GProp_GProps: typeof GProp_GProps;
   GProp_GProps_1: typeof GProp_GProps_1;
   GProp_GProps_2: typeof GProp_GProps_2;
@@ -5916,6 +6019,14 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   BRepBuilderAPI_MakeEdge_35: typeof BRepBuilderAPI_MakeEdge_35;
   BRepBuilderAPI_ModifyShape: typeof BRepBuilderAPI_ModifyShape;
   BRepBuilderAPI_Command: typeof BRepBuilderAPI_Command;
+  BRepBuilderAPI_MakePolygon: typeof BRepBuilderAPI_MakePolygon;
+  BRepBuilderAPI_MakePolygon_1: typeof BRepBuilderAPI_MakePolygon_1;
+  BRepBuilderAPI_MakePolygon_2: typeof BRepBuilderAPI_MakePolygon_2;
+  BRepBuilderAPI_MakePolygon_3: typeof BRepBuilderAPI_MakePolygon_3;
+  BRepBuilderAPI_MakePolygon_4: typeof BRepBuilderAPI_MakePolygon_4;
+  BRepBuilderAPI_MakePolygon_5: typeof BRepBuilderAPI_MakePolygon_5;
+  BRepBuilderAPI_MakePolygon_6: typeof BRepBuilderAPI_MakePolygon_6;
+  BRepBuilderAPI_MakePolygon_7: typeof BRepBuilderAPI_MakePolygon_7;
   BRepBuilderAPI_Sewing: typeof BRepBuilderAPI_Sewing;
   BRepBuilderAPI_WireError: BRepBuilderAPI_WireError;
   BRepBuilderAPI_MakeShape: typeof BRepBuilderAPI_MakeShape;

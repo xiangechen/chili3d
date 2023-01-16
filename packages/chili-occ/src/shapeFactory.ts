@@ -36,7 +36,7 @@ export class ShapeFactory implements IShapeFactory {
             return Result.error("Length cannot be 0");
         }
         let pln = OccHelps.toPln(plane);
-        let make = new occ.BRepLib_MakeFace_9(pln, 0, dx, 0, dy);
+        let make = new occ.BRepBuilderAPI_MakeFace_9(pln, 0, dx, 0, dy);
         if (make.IsDone()) {
             return Result.ok(new OccFace(make.Face()));
         }
