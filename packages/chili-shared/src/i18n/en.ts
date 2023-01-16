@@ -59,10 +59,10 @@ let en: I18n = {
     "command.circle": "Circle",
     "command.rect": "Rectangle",
     "command.polygon": "Polygon",
-    "operate.pickFistPoint": "Pick first point",
-    "operate.pickNextPoint": "pick next point",
-    "operate.pickCircleCenter": "pick center",
-    "operate.pickRadius": "input radius",
+    "operate.pickFistPoint": "Pick first point, ESC key to cancel",
+    "operate.pickNextPoint": "pick next point, ESC key to cancel",
+    "operate.pickCircleCenter": "pick center, ESC key to cancel",
+    "operate.pickRadius": "input radius, ESC key to cancel",
 };
 
 export default en;

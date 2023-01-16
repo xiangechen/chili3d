@@ -1,35 +1,36 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, LineBody, Model, Dimension, Snapper } from "chili-core";
+import { command, ICommand, Id, IDocument, LineBody, Model, Dimension } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { inject, injectable, Token, XYZ } from "chili-shared";
+import { Container, Token, XYZ } from "chili-shared";
+import { AnyPointStep, PointStep } from "../step";
 
-@injectable()
 @command({
     name: "Line",
     display: "command.line",
     icon: "icon-line",
 })
 export class Line implements ICommand {
-    constructor(@inject(Token.ShapeFactory) private factory: IShapeFactory) {}
+    constructor() {}
 
     async excute(document: IDocument): Promise<boolean> {
-        let snap = new Snapper(document);
-        let start = await snap.snapPointAsync("operate.pickFistPoint", { dimension: Dimension.D1D2D3 });
-        if (start === undefined) return false;
-        let end = await snap.snapPointAsync("operate.pickNextPoint", {
-            dimension: Dimension.D1D2D3,
-            refPoint: start,
-            creator: (view, p) => this.handleTempLine(start!, p),
-        });
-        if (end === undefined) return false;
-        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
-        document.viewer.redraw();
+        let start = await new AnyPointStep().perform(document, "operate.pickFistPoint");
+        while (true) {
+            if (start === undefined) break;
+            let end = await new PointStep(start, Dimension.D1D2D3, (v, p) => this.handleTempLine(start!, p)).perform(
+                document,
+                "operate.pickNextPoint"
+            );
+            if (end === undefined) break;
+            document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end!)));
+            document.viewer.redraw();
+            start = end;
+        }
         return true;
     }
 
     private handleTempLine = (start: XYZ, end: XYZ) => {
-        if (start.isEqualTo(end)) return undefined;
-        return this.factory.line(start, end).ok();
+        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
+        return factory!.line(start, end).ok();
     };
 }

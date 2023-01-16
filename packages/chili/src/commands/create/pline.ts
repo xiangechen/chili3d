@@ -20,7 +20,7 @@ export class PLine implements ICommand {
         let end = await snap.snapPointAsync("operate.pickNextPoint", {
             dimension: Dimension.D1D2D3,
             refPoint: start,
-            creator: (view, p) => this.handleTempLine(start!, p),
+            tempShape: (view, p) => this.handleTempLine(start!, p),
         });
         if (end === undefined) return false;
         document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));

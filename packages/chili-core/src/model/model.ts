@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IBody, IEditor, IModel, IShape } from "chili-geo";
-import { Result } from "chili-shared";
+import { Logger, Result } from "chili-shared";
 import { ModelBase } from "./modelBase";
 
 export class Model extends ModelBase implements IModel {
@@ -17,7 +17,10 @@ export class Model extends ModelBase implements IModel {
 
     generate(): Result<IShape> {
         let shape = this.body.body();
-        if (shape.isErr()) return shape;
+        if (shape.isErr()) {
+            Logger.error(`Body of ${this.name} is null: ${shape.err}`);
+            return shape;
+        }
         for (const editor of this._editors) {
             shape = editor.edit(shape.ok()!);
             if (shape.isErr()) break;

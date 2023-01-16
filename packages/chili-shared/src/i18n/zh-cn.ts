@@ -58,10 +58,10 @@ let zh: I18n = {
     "command.circle": "圆",
     "command.rect": "矩形",
     "command.polygon": "多边形",
-    "operate.pickFistPoint": "请选择第一个点",
-    "operate.pickNextPoint": "请选择下一个点",
-    "operate.pickCircleCenter": "请选择圆心",
-    "operate.pickRadius": "请选择半径",
+    "operate.pickFistPoint": "请选择第一个点, 按 ESC 键取消",
+    "operate.pickNextPoint": "请选择下一个点， 按 ESC 键取消",
+    "operate.pickCircleCenter": "请选择圆心  按 ESC 键取消",
+    "operate.pickRadius": "请选择半径， 按 ESC 键取消",
 };
 
 export default zh;

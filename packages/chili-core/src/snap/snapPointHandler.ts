@@ -22,7 +22,7 @@ export interface SnapData {
     dimension: Dimension;
     refPoint?: XYZ;
     valid?: (view: IView, point: XYZ) => boolean;
-    creator?: ShapeCreator;
+    tempShape?: ShapeCreator;
 }
 
 export class SnapPointEventHandler implements IEventHandler {
@@ -93,7 +93,7 @@ export class SnapPointEventHandler implements IEventHandler {
                 snaped = this._workplaneSnap.point();
             }
         }
-        if (snaped !== undefined && this.data.valid && !this.data.valid(view, snaped?.point)) {
+        if (snaped !== undefined && this.data.valid && !this.data.valid(view, snaped.point)) {
             return undefined;
         }
         return snaped;
@@ -121,9 +121,9 @@ export class SnapPointEventHandler implements IEventHandler {
     private showTemp(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        if (this.data.creator !== undefined) {
+        if (this.data.tempShape !== undefined) {
             let shape = this.data
-                .creator(view, point)
+                .tempShape(view, point)
                 ?.mesh()
                 .edges.map((x) => x.renderData);
             if (shape !== undefined) this._tempShapeId = view.document.visualization.context.temporaryDisplay(...shape);
@@ -153,6 +153,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
+            this._snapedInfo = undefined;
             this.stopSnap(view);
         } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
             PubSub.default.pub("showInput", this.handleValid, (text: string) => this.handleInput(view, text));

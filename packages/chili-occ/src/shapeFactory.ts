@@ -54,6 +54,7 @@ export class ShapeFactory implements IShapeFactory {
         }
         return Result.error("Create box error");
     }
+
     point(point: XYZ): Result<IVertex, string> {
         let build = new occ.BRepBuilderAPI_MakeVertex(OccHelps.toPnt(point));
         if (build.IsDone()) {
