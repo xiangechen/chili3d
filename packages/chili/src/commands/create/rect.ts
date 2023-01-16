@@ -22,12 +22,16 @@ export class Rect implements ICommand {
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
-        let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickFistPoint");
+        let start = await snap.snapPointAsync("operate.pickFistPoint", { dimension: Dimension.D1D2D3 });
         if (start === undefined) return false;
         let lastView: IView | undefined = undefined;
-        let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickNextPoint", start, (view, p) => {
-            lastView = view;
-            return this.handleTempRect(view, start!, p);
+        let end = await snap.snapPointAsync("operate.pickNextPoint", {
+            dimension: Dimension.D1D2,
+            refPoint: start,
+            creator: (view, p) => {
+                lastView = view;
+                return this.handleTempRect(view, start!, p);
+            },
         });
         if (end === undefined || lastView === undefined) return false;
         let { plane, dx, dy } = this.getRectData(lastView, start, end);
@@ -43,10 +47,10 @@ export class Rect implements ICommand {
     };
 
     private getRectData(view: IView, start: XYZ, end: XYZ): RectData {
-        let plane = new Plane(start, view.workplane.normal, view.workplane.xDirection);
+        let plane = new Plane(start, view.workplane.normal, view.workplane.x);
         let vector = end.sub(start);
-        let dx = vector.dot(plane.xDirection);
-        let dy = vector.dot(plane.yDirection);
+        let dx = vector.dot(plane.x);
+        let dy = vector.dot(plane.y);
         return { plane, dx, dy };
     }
 }

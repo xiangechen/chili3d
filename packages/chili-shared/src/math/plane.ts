@@ -13,8 +13,8 @@ export class Plane {
      * unit vector
      */
     readonly normal: XYZ;
-    readonly xDirection: XYZ;
-    readonly yDirection: XYZ;
+    readonly x: XYZ;
+    readonly y: XYZ;
     constructor(readonly location: XYZ, normal: XYZ, xDirection: XYZ) {
         let n = normal.normalize(),
             x = xDirection.normalize();
@@ -25,8 +25,8 @@ export class Plane {
             throw new Error("xDirector can not be zero");
         }
         this.normal = n;
-        this.xDirection = x;
-        this.yDirection = n.cross(x).normalize()!;
+        this.x = x;
+        this.y = n.cross(x).normalize()!;
     }
 
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {

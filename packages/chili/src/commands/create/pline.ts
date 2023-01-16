@@ -15,11 +15,13 @@ export class PLine implements ICommand {
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
-        let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickFistPoint");
+        let start = await snap.snapPointAsync("operate.pickFistPoint", { dimension: Dimension.D1D2D3 });
         if (start === undefined) return false;
-        let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickNextPoint", start, (view, p) =>
-            this.handleTempLine(start!, p)
-        );
+        let end = await snap.snapPointAsync("operate.pickNextPoint", {
+            dimension: Dimension.D1D2D3,
+            refPoint: start,
+            creator: (view, p) => this.handleTempLine(start!, p),
+        });
         if (end === undefined) return false;
         document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
         document.viewer.redraw();

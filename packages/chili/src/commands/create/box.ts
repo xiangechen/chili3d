@@ -7,7 +7,7 @@ import { inject, injectable, Token, XYZ } from "chili-shared";
 @injectable()
 @command({
     name: "Box",
-    display: "command.line",
+    display: "command.box",
     icon: "icon-box",
 })
 export class Box implements ICommand {
@@ -15,13 +15,13 @@ export class Box implements ICommand {
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
-        let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickFistPoint");
-        if (start === undefined) return false;
-        let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickNextPoint", start, (view, p) =>
-            this.handleTempLine(start!, p)
-        );
-        if (end === undefined) return false;
-        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
+        // let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickFistPoint");
+        // if (start === undefined) return false;
+        // let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickNextPoint", start, (view, p) =>
+        //     this.handleTempLine(start!, p)
+        // );
+        // if (end === undefined) return false;
+        // document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
         document.viewer.redraw();
         return true;
     }

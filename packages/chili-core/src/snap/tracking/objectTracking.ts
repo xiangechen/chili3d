@@ -16,7 +16,7 @@ export class ObjectTracking {
     private snapping?: SnapInfo;
     private trackings: Map<IView, { snap: SnapInfo; shapeId: number; axies: Axis[] }[]>;
 
-    constructor() {
+    constructor(readonly trackingZ: boolean) {
         this.trackings = new Map();
     }
 
@@ -51,7 +51,8 @@ export class ObjectTracking {
             } else {
                 let data = VertexRenderData.from(snap.point, 0xf00, 5);
                 let pointId = view.document.visualization.context.temporaryDisplay(data);
-                snaps.push({ shapeId: pointId, snap, axies: Axis.getAxiesAtPlane(snap.point, view.workplane) });
+                let axies = Axis.getAxiesAtPlane(snap.point, view.workplane, this.trackingZ);
+                snaps.push({ shapeId: pointId, snap, axies });
             }
             view.document.viewer.redraw();
         }, 600);

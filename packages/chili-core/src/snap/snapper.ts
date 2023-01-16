@@ -1,23 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CancellationToken, i18n, I18n, XYZ } from "chili-shared";
+import { CancellationToken, I18n, XYZ } from "chili-shared";
 import { CursorType, IEventHandler } from "chili-vis";
-import { SnapPointEventHandler } from "./snapPointHandler";
+import { SnapData, SnapPointEventHandler } from "./snapPointHandler";
 import { IDocument, PubSub } from "chili-core";
-import { Dimension } from "./inputDimension";
-import { HandleTempShape } from "./shapeHandle";
 
 export class Snapper {
     constructor(readonly document: IDocument) {}
 
-    async snapPointAsync(
-        dimension: Dimension,
-        tipKey: keyof I18n,
-        refPoint?: XYZ,
-        handleTempShape?: HandleTempShape
-    ): Promise<XYZ | undefined> {
+    async snapPointAsync(tipKey: keyof I18n, data: SnapData): Promise<XYZ | undefined> {
         let cancellationToken = new CancellationToken();
-        let eventHandler = new SnapPointEventHandler(cancellationToken, dimension, refPoint, handleTempShape);
+        let eventHandler = new SnapPointEventHandler(cancellationToken, data);
         await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
         return eventHandler.snapedPoint;
     }

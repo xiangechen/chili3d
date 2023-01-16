@@ -2,7 +2,7 @@
 
 import { i18n, Ray, LineType, MathUtils, ObjectSnapType, ShapeType, XY, XYZ } from "chili-shared";
 import { IView } from "chili-vis";
-import { IPointSnap, SnapInfo } from "../";
+import { Dimension, IPointSnap, SnapInfo } from "../";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
 import { Axis } from "./axis";
@@ -23,9 +23,10 @@ export class TrackingSnap implements IPointSnap {
     private detectedShape: IShape | undefined;
     private readonly _tempLines: Map<IView, number[]> = new Map();
 
-    constructor(readonly referencePoint: XYZ | undefined) {
-        this._axisTrackings = new AxisTrackingSnap();
-        this.objectTracking = new ObjectTracking();
+    constructor(dimension: Dimension, readonly referencePoint: XYZ | undefined) {
+        let trackingZ = Dimension.contains(dimension, Dimension.D3);
+        this._axisTrackings = new AxisTrackingSnap(trackingZ);
+        this.objectTracking = new ObjectTracking(trackingZ);
     }
 
     setDetectedShape(shape: IShape | undefined) {

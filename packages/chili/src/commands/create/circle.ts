@@ -15,13 +15,13 @@ export class Circle implements ICommand {
 
     async excute(document: IDocument): Promise<boolean> {
         let snap = new Snapper(document);
-        let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickCircleCenter");
-        if (start === undefined) return false;
-        let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickRadius", start, (view, p) =>
-            this.handleTempLine(start!, p)
-        );
-        if (end === undefined) return false;
-        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
+        // let start = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickCircleCenter");
+        // if (start === undefined) return false;
+        // let end = await snap.snapPointAsync(Dimension.D1D2D3, "operate.pickRadius", start, (view, p) =>
+        //     this.handleTempLine(start!, p)
+        // );
+        // if (end === undefined) return false;
+        // document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
         document.viewer.redraw();
         return true;
     }

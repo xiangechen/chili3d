@@ -33,19 +33,11 @@ export class OccHelps {
     }
 
     static toAx2(plane: Plane): gp_Ax2 {
-        return new occ.gp_Ax2_2(
-            OccHelps.toPnt(plane.location),
-            OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xDirection)
-        );
+        return new occ.gp_Ax2_2(OccHelps.toPnt(plane.location), OccHelps.toDir(plane.normal), OccHelps.toDir(plane.x));
     }
 
     static toAx3(plane: Plane): gp_Ax3 {
-        return new occ.gp_Ax3_3(
-            OccHelps.toPnt(plane.location),
-            OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xDirection)
-        );
+        return new occ.gp_Ax3_3(OccHelps.toPnt(plane.location), OccHelps.toDir(plane.normal), OccHelps.toDir(plane.x));
     }
 
     static toPln(plane: Plane): gp_Pln {

@@ -7,7 +7,7 @@ import { Axis } from "./axis";
 export class AxisTrackingSnap {
     private axies: Map<IView, Axis[]> = new Map();
 
-    constructor() {}
+    constructor(readonly trackingZ: boolean) {}
 
     getAxies(view: IView, referencePoint: XYZ, angle: number | undefined = undefined) {
         if (!this.axies.has(view)) {
@@ -18,12 +18,12 @@ export class AxisTrackingSnap {
 
     private initAxes(plane: Plane, referencePoint: XYZ, angle: number | undefined): Axis[] {
         if (angle === undefined) {
-            return Axis.getAxiesAtPlane(referencePoint, plane);
+            return Axis.getAxiesAtPlane(referencePoint, plane, this.trackingZ);
         } else {
             let result: Axis[] = [];
             let testAngle = 0;
             while (testAngle < 360) {
-                let direction = plane.xDirection.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
+                let direction = plane.x.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
                 result.push(new Axis(referencePoint, direction, `${testAngle} °`));
                 testAngle += angle;
             }
