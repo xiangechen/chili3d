@@ -47,10 +47,15 @@ export class ShapeFactory implements IShapeFactory {
         if (MathUtils.almostEqual(dx, 0) || MathUtils.almostEqual(dy, 0) || MathUtils.almostEqual(dz, 0)) {
             return Result.error("Length cannot be 0");
         }
-        let ax2 = OccHelps.toAx2(plane);
-        let make = new occ.BRepPrimAPI_MakeBox_5(ax2, dx, dy, dz);
-        if (make.IsDone()) {
-            return Result.ok(new OccSolid(make.Solid()));
+        let pln = OccHelps.toPln(plane);
+        let faceMake = new occ.BRepBuilderAPI_MakeFace_9(pln, 0, dx, 0, dy);
+        if (faceMake.IsDone()) {
+            let vec = new occ.gp_Vec_2(OccHelps.toDir(plane.normal));
+            vec.Scale(dz);
+            let prismMake = new occ.BRepPrimAPI_MakePrism_1(faceMake.Face(), vec, false, false);
+            if (prismMake.IsDone()) {
+                return Result.ok(new OccSolid(prismMake.Shape()));
+            }
         }
         return Result.error("Create box error");
     }

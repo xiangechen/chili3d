@@ -3,7 +3,6 @@
 import { AppBuilder } from "chili";
 import { Viewport } from "chili-ui";
 import { I18n, Plane } from "chili-shared";
-import { addBox } from "./sample";
 
 // prettier-ignore
 let builder = new AppBuilder()
@@ -14,5 +13,3 @@ let builder = new AppBuilder()
 let app = await builder.build();
 let doc = app.newDocument("test");
 doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
-
-addBox(doc, "box1", 5, 5);
