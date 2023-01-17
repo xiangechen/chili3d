@@ -68,7 +68,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     mouseMove(view: IView, event: MouseEvent): void {
-        this.removeDynamicObject(view);
+        this.removeTempObject(view);
         this._snapedInfo = this.getSnaped(view, event);
         if (this._snapedInfo !== undefined) {
             this.showTemp(this._snapedInfo.point, view);
@@ -84,7 +84,7 @@ export class SnapPointEventHandler implements IEventHandler {
         if (this._objectSnap.snap(view, event.offsetX, event.offsetY)) {
             snaped = this._objectSnap.point();
         }
-        this._trackingSnap.objectTracking.handleSnapForTracking(view, snaped);
+        this._trackingSnap.showObjectTracking(view, snaped);
         if (snaped === undefined) {
             this._trackingSnap.setDetectedShape(this._objectSnap.getDetectedShape());
             if (this._trackingSnap.snap(view, event.offsetX, event.offsetY)) {
@@ -111,7 +111,7 @@ export class SnapPointEventHandler implements IEventHandler {
         }
     }
 
-    private removeDynamicObject(view: IView) {
+    private removeTempObject(view: IView) {
         this.removeTempShapes(view);
         this._objectSnap.removeDynamicObject();
         this._trackingSnap.removeDynamicObject();

@@ -15,6 +15,13 @@ export class Snapper {
         return eventHandler.snapedPoint;
     }
 
+    async snapLengthAsync(tipKey: keyof I18n, data: SnapData): Promise<XYZ | undefined> {
+        let cancellationToken = new CancellationToken();
+        let eventHandler = new SnapPointEventHandler(cancellationToken, data);
+        await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
+        return eventHandler.snapedPoint;
+    }
+
     private async handleSnapAsync(
         eventHandler: IEventHandler,
         tipKey: keyof I18n,

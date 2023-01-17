@@ -37,35 +37,39 @@ export class TrackingSnap implements IPointSnap {
         return this.snaped;
     }
 
+    showObjectTracking(view: IView, snaped?: SnapInfo) {
+        this.objectTracking.showTrackingAtTimeout(view, snaped);
+    }
+
     snap(view: IView, x: number, y: number): boolean {
         let trackingDatas = this.getTrackingDatas(view, x, y);
         if (trackingDatas.length === 0) return false;
         if (this.showIntersect(view, x, y, trackingDatas)) return true;
         if (trackingDatas.length === 1) {
-            this.showTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
+            this.setSnapedAndShowTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
         } else {
             trackingDatas = trackingDatas.sort((x) => x.distance);
             if (trackingDatas[0].axis.direction.isParallelTo(trackingDatas[1].axis.direction)) {
                 let i =
-                    Math.abs(trackingDatas[0].distance - trackingDatas[1].distance) < 0.000001 &&
+                    MathUtils.almostEqual(trackingDatas[0].distance, trackingDatas[1].distance) &&
                     trackingDatas[0].isObjectTracking &&
                     !trackingDatas[1].isObjectTracking
                         ? 1
                         : 0;
-                this.showTracking(view, trackingDatas[i].point, [trackingDatas[i]]);
+                this.setSnapedAndShowTracking(view, trackingDatas[i].point, [trackingDatas[i]]);
             } else {
                 let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
                 if (point !== undefined) {
-                    this.showTracking(view, point, [trackingDatas[0], trackingDatas[1]]);
+                    this.setSnapedAndShowTracking(view, point, [trackingDatas[0], trackingDatas[1]]);
                 } else {
-                    this.showTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
+                    this.setSnapedAndShowTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
                 }
             }
         }
         return true;
     }
 
-    private showTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
+    private setSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
         let info: string | undefined = undefined;
         if (trackingDatas.length === 1) {
             let distance = point.distanceTo(trackingDatas[0].axis.location);

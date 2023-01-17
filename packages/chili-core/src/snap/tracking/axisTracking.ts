@@ -27,8 +27,10 @@ export class AxisTrackingSnap {
                 result.push(new Axis(referencePoint, direction, `${testAngle} °`));
                 testAngle += angle;
             }
-            result.push(new Axis(referencePoint, plane.normal, i18n["axis.z"]));
-            result.push(new Axis(referencePoint, plane.normal.reverse(), i18n["axis.z"]));
+            if (this.trackingZ) {
+                result.push(new Axis(referencePoint, plane.normal, i18n["axis.z"]));
+                result.push(new Axis(referencePoint, plane.normal.reverse(), i18n["axis.z"]));
+            }
             return result;
         }
     }

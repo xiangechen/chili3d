@@ -26,14 +26,13 @@ export class ObjectTracking {
         return result;
     }
 
-    handleSnapForTracking(view: IView, snap?: SnapInfo) {
+    showTrackingAtTimeout(view: IView, snap?: SnapInfo) {
         if (snap !== undefined && this.snapping === snap) return;
-        this.snapping = snap;
         if (this.timer !== undefined) {
             clearTimeout(this.timer);
             this.timer = undefined;
         }
-
+        this.snapping = snap;
         if (snap === undefined) return;
         this.timer = setTimeout(() => {
             if (this.isCleared) return;
