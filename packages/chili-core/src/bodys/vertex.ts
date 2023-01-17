@@ -3,16 +3,18 @@
 import { IBody, IShape, IShapeFactory, IVertex } from "chili-geo";
 import { Container, i18n, Token, Precision, XYZ, XYZConverter, I18n, Result } from "chili-shared";
 import { property } from "chili-core";
+import { BodyBase } from "./base";
 
-export class VertexBody implements IBody {
+export class VertexBody extends BodyBase {
     private _pnt: XYZ;
     readonly name: keyof I18n = "command.line";
 
     constructor(pnt: XYZ) {
+        super();
         this._pnt = pnt;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let vertexFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return vertexFactory!.point(this._pnt);
     }

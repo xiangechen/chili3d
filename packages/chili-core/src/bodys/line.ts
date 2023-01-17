@@ -16,7 +16,7 @@ export class LineBody extends BodyBase {
         this._end = end;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let edgeFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return edgeFactory!.line(this._start, this._end);
     }
@@ -28,7 +28,7 @@ export class LineBody extends BodyBase {
 
     set start(pnt: XYZ) {
         if (this._start.isEqualTo(pnt, Precision.confusion)) return;
-        this.setProperty("start", pnt);
+        this.setPropertyAndUpdateBody("start", pnt);
     }
 
     @property("line.end")
@@ -38,6 +38,6 @@ export class LineBody extends BodyBase {
 
     set end(pnt: XYZ) {
         if (this._end.isEqualTo(pnt, Precision.confusion)) return;
-        this.setProperty("end", pnt);
+        this.setPropertyAndUpdateBody("end", pnt);
     }
 }

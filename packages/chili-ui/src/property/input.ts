@@ -92,6 +92,7 @@ export class InputProperty extends PropertyBase {
                 this.objects.forEach((x) => {
                     x[this.property.name] = newValue;
                 });
+                this.document.viewer.redraw();
             });
         } else {
             this.errorLabel.classList.add(style.hidden);

@@ -13,7 +13,7 @@ export class PolygonBody extends BodyBase {
         this._points = points;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.polygon(...this._points);
     }

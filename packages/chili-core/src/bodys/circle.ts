@@ -16,7 +16,7 @@ export class CircleBody extends BodyBase {
         this._radius = radius;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.circle(this.normal, this._center, this._radius);
     }
@@ -27,7 +27,7 @@ export class CircleBody extends BodyBase {
     }
 
     set center(center: XYZ) {
-        this.setProperty("center", center);
+        this.setPropertyAndUpdateBody("center", center);
     }
 
     @property("circle.radius")
@@ -36,6 +36,6 @@ export class CircleBody extends BodyBase {
     }
 
     set radius(radius: number) {
-        this.setProperty("radius", radius);
+        this.setPropertyAndUpdateBody("radius", radius);
     }
 }

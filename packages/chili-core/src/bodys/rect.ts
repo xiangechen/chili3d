@@ -16,7 +16,7 @@ export class RectBody extends BodyBase {
         this._dy = dy;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.rect(this.plane, this._dx, this._dy);
     }
@@ -27,7 +27,7 @@ export class RectBody extends BodyBase {
     }
 
     set dx(dx: number) {
-        this.setProperty("dx", dx);
+        this.setPropertyAndUpdateBody("dx", dx);
     }
 
     @property("rect.dy")
@@ -36,6 +36,6 @@ export class RectBody extends BodyBase {
     }
 
     set dy(dy: number) {
-        this.setProperty("dy", dy);
+        this.setPropertyAndUpdateBody("dy", dy);
     }
 }

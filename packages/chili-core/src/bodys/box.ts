@@ -18,7 +18,7 @@ export class BoxBody extends BodyBase {
         this._dz = dz;
     }
 
-    body(): Result<IShape> {
+    protected generateBody(): Result<IShape> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.box(this.plane, this._dx, this._dy, this._dz);
     }
@@ -29,7 +29,7 @@ export class BoxBody extends BodyBase {
     }
 
     set dx(dx: number) {
-        this.setProperty("dx", dx);
+        this.setPropertyAndUpdateBody("dx", dx);
     }
 
     @property("box.dy")
@@ -38,7 +38,7 @@ export class BoxBody extends BodyBase {
     }
 
     set dy(dy: number) {
-        this.setProperty("dy", dy);
+        this.setPropertyAndUpdateBody("dy", dy);
     }
 
     @property("box.dz")
@@ -47,6 +47,6 @@ export class BoxBody extends BodyBase {
     }
 
     set dz(dz: number) {
-        this.setProperty("dz", dz);
+        this.setPropertyAndUpdateBody("dz", dz);
     }
 }

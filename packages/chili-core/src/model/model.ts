@@ -2,6 +2,7 @@
 
 import { IBody, IEditor, IModel, IShape } from "chili-geo";
 import { Logger, Result } from "chili-shared";
+import { PubSub } from "../pubsub";
 import { ModelBase } from "./modelBase";
 
 export class Model extends ModelBase implements IModel {
@@ -13,19 +14,27 @@ export class Model extends ModelBase implements IModel {
         this.body = body;
         this._editors = new Array<IEditor>();
         this._shape = this.generate();
+        body.onPropertyChanged(this.bodyChanged);
     }
 
+    private bodyChanged = (body: IBody, property: keyof IBody) => {
+        if (property === "body") {
+            this.generate();
+        }
+    };
+
     generate(): Result<IShape> {
-        let shape = this.body.body();
-        if (shape.isErr()) {
-            Logger.error(`Body of ${this.name} is null: ${shape.err}`);
-            return shape;
+        this._shape = this.body.body;
+        if (this._shape.isErr()) {
+            Logger.error(`Body of ${this.name} is null: ${this._shape.err}`);
+            return this._shape;
         }
         for (const editor of this._editors) {
-            shape = editor.edit(shape.ok()!);
-            if (shape.isErr()) break;
+            this._shape = editor.edit(this._shape.ok()!);
+            if (this._shape.isErr()) break;
         }
-        return shape;
+        PubSub.default.pub("modelUpdate", this);
+        return this._shape;
     }
 
     getShape(): Result<IShape> {

@@ -11,6 +11,7 @@ export interface PubSubEventMap {
     modelAdded: (source: IDocument, model: IModelObject) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     modelRemoved: (source: IDocument, model: IModelObject) => void;
+    modelUpdate: (model: IModelObject) => void;
     visibleChanged: (model: IModelObject) => void;
     parentChanged: (
         source: IModelObject,
@@ -43,9 +44,9 @@ export class PubSub implements IDisposable {
         this._events.clear();
     }
 
-    sub<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+    sub<T extends PubSubEventMap, K extends keyof T>(
         event: K,
-        callback: U
+        callback: T[K] extends (...args: any[]) => any ? T[K] : never
     ) {
         if (!this._events.has(event)) {
             this._events.set(event, new Set<(...args: any[]) => void>());
@@ -53,18 +54,18 @@ export class PubSub implements IDisposable {
         this._events.get(event)!.add(callback);
     }
 
-    pub<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+    pub<T extends PubSubEventMap, K extends keyof T>(
         event: K,
-        ...args: Parameters<U>
+        ...args: Parameters<T[K] extends (...args: any[]) => any ? T[K] : never>
     ) {
         this._events.get(event)?.forEach((x) => {
             x(...args);
         });
     }
 
-    remove<T extends PubSubEventMap, K extends keyof T, U extends T[K] & ((...args: any[]) => any)>(
+    remove<T extends PubSubEventMap, K extends keyof T>(
         event: K,
-        callback: U
+        callback: T[K] extends (...args: any[]) => any ? T[K] : never
     ) {
         let callbacks = this._events.get(event);
         if (callbacks?.has(callback)) {

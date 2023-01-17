@@ -37,10 +37,16 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         this.tempShapes = new Group();
         this.hilightedShapes = new Group();
         scene.add(this.modelShapes, this.tempShapes, this.hilightedShapes);
-        PubSub.default.sub("modelAdded", this.addModel);
+        PubSub.default.sub("modelAdded", this.handleAddModel);
         PubSub.default.sub("modelRemoved", this.handleRemoveModel);
+        PubSub.default.sub("modelUpdate", this.handleModelUpdate);
         PubSub.default.sub("visibleChanged", this.handleVisibleChanged);
     }
+
+    handleModelUpdate = (model: IModelObject) => {
+        this.removeModel(model);
+        this.addModel(model);
+    };
 
     hilighted(shape: IShape) {
         let threeShape = new ThreeShape(shape);
@@ -109,8 +115,8 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         this.tempShapes.remove(shape);
     }
 
-    addModel = (document: IDocument, model: IModelObject) => {
-        this.addModelToGroup(this.modelShapes, model);
+    handleAddModel = (document: IDocument, model: IModelObject) => {
+        this.addModel(model);
     };
 
     handleRemoveModel = (document: IDocument, ...models: IModelObject[]) => {
@@ -138,6 +144,10 @@ export class ThreeVisulizationContext implements IVisualizationContext {
             threeShape.name = model.id;
             group.add(threeShape);
         }
+    }
+
+    addModel(...models: IModelObject[]) {
+        models.forEach((model) => this.addModelToGroup(this.modelShapes, model));
     }
 
     removeModel(...models: IModelObject[]) {

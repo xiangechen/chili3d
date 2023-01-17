@@ -98,6 +98,6 @@ export class UI {
     }
 
     private handleCommand(commandName: string) {
-        PubSub.default.pub("excuteCommand", commandName);
+        PubSub.default.pub("excuteCommand", commandName as any);
     }
 }

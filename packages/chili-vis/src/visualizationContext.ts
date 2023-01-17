@@ -6,7 +6,7 @@ import { IVisualizationShape } from "./visualizationShape";
 
 export interface IVisualizationContext {
     get shapeCount(): number;
-    addModel(document: IDocument, model: IModelObject): void;
+    handleAddModel(document: IDocument, model: IModelObject): void;
     removeModel(...models: IModelObject[]): void;
     getShape(model: IModelObject): IVisualizationShape | undefined;
 
