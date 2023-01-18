@@ -20,6 +20,7 @@ export class Model extends ModelObject implements IModel {
     }
 
     override setDocument(document?: IDocument | undefined): void {
+        super.setDocument(document);
         let base = this.body as BodyBase;
         base?.setDocument(document);
     }
