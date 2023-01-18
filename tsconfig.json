@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-        "target": "es2022",
+        "target": "ESNext",
         "allowJs": true,
-        "module": "ES2022",
-        "moduleResolution": "node",
+        "module": "ESNext",
+        "moduleResolution": "Node",
         "noImplicitOverride": true,
         "noPropertyAccessFromIndexSignature": true,
         "experimentalDecorators": true,
@@ -13,5 +13,6 @@
         "resolveJsonModule": true,
         "plugins": [{ "name": "typescript-plugin-css-modules" }]
     },
-    "include": ["packages/*/src", "packages/*/tests"]
+    "include": ["packages/*/src", "packages/*/tests"],
+    "exclude": ["packages/chili-occ/occ-wasm/*"]
 }
