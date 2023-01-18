@@ -59,6 +59,12 @@ export class Viewer implements IViewer {
         });
     }
 
+    update(): void {
+        this._views.forEach((v) => {
+            v.update();
+        });
+    }
+
     dispose(): void {
         this._views.forEach((v) => {
             this.removeEvents(v);

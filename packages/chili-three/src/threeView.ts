@@ -171,10 +171,14 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         if (CursorType.Drawing === cursorType) this.container.classList.add("drawingCursor");
     }
 
-    redraw() {
+    update() {
         let now = this.getTime();
         if (now - this._lastRedrawTime < 50) return;
         this._lastRedrawTime = now;
+        this._renderer.render(this._scene, this._camera);
+    }
+
+    redraw() {
         this._renderer.render(this._scene, this._camera);
     }
 
@@ -198,7 +202,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
             this._camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
-        this.redraw();
+        this.update();
     }
 
     get name(): string {

@@ -34,6 +34,7 @@ export interface IViewer extends IDisposable {
     readonly document: IDocument;
     views(): IView[];
     redraw(): void;
+    update(): void;
     setCursor(cursor: CursorType): void;
     createView(dom: HTMLElement, name: string, workplane: Plane): IView;
 }

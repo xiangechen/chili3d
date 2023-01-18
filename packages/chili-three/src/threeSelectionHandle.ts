@@ -15,7 +15,7 @@ export class ThreeSelectHandler implements IEventHandler {
     mouseOut(view: IView, event: MouseEvent): void {}
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.redraw();
+        view.update();
     }
 
     keyUp(view: IView, event: KeyboardEvent): void {}
@@ -30,7 +30,7 @@ export class ThreeSelectHandler implements IEventHandler {
         }
         this._lastDetected = view.document.selection.detectedModel(view, event.offsetX, event.offsetY);
         this._lastDetected?.hilightedState();
-        view.redraw();
+        view.update();
     }
 
     mouseDown(view: IView, event: MouseEvent): void {

@@ -11,6 +11,7 @@ export interface IView extends IPropertyChanged {
     get container(): HTMLElement;
     get scale(): number;
     workplane: Plane;
+    update(): void;
     redraw(): void;
     direction(): XYZ;
     rayAt(mx: number, my: number): Ray;

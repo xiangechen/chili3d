@@ -77,7 +77,7 @@ export class SnapPointEventHandler implements IEventHandler {
         } else {
             this.clearSnap();
         }
-        view.document.viewer.redraw();
+        view.document.viewer.update();
     }
 
     private getSnaped(view: IView, event: MouseEvent) {
@@ -150,7 +150,7 @@ export class SnapPointEventHandler implements IEventHandler {
     mouseUp(view: IView, event: MouseEvent): void {}
     mouseOut(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.document.viewer.redraw();
+        view.document.viewer.update();
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
