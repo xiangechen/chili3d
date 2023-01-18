@@ -2,27 +2,29 @@
 
 import { IModelObject } from "chili-geo";
 import { CollectionAction, CollectionChangedBase, ICollection } from "chili-shared";
+import { IDocument } from "../interfaces";
+import { ModelObject } from "./modelObject";
 
 export class ModelCollection extends CollectionChangedBase<IModelObject> implements ICollection<IModelObject> {
-    private readonly _map: Map<string, IModelObject>;
+    private readonly _map: Map<string, ModelObject>;
 
     constructor() {
         super();
         this._map = new Map();
     }
 
-    get(id: string): IModelObject | undefined {
+    get(id: string): ModelObject | undefined {
         return this._map.get(id);
     }
 
-    add(item: IModelObject): boolean {
+    add(item: ModelObject): boolean {
         if (this._map.has(item.id)) return false;
         this._map.set(item.id, item);
         this.emitCollectionChanged(CollectionAction.add, item);
         return true;
     }
 
-    remove(item: IModelObject): boolean {
+    remove(item: ModelObject): boolean {
         if (this._map.has(item.id)) {
             this._map.delete(item.id);
             this.emitCollectionChanged(CollectionAction.remove, item);

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, ObservableBase, ShapeType } from "chili-shared";
+import { Constants, Observable, ShapeType } from "chili-shared";
 import { IVisualizationShape, ISelection, IView } from "chili-vis";
 import { Line, Mesh, Object3D, Raycaster, Vector3 } from "three";
 import { IDocument, PubSub } from "chili-core";
@@ -9,7 +9,7 @@ import { ThreeShape } from "./threeShape";
 import { IEdge, IModel, IModelObject, IShape } from "chili-geo";
 import { ThreeUtils } from "./threeUtils";
 
-export class ThreeSelection extends ObservableBase implements ISelection {
+export class ThreeSelection extends Observable implements ISelection {
     private readonly _selectedModels: Set<IModelObject>;
     private _shapeType: ShapeType;
 

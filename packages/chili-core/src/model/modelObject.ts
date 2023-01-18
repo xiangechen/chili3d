@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ObservableBase, Quaternion, XYZ } from "chili-shared";
+import { Quaternion, XYZ } from "chili-shared";
 import { property } from "chili-core";
 import { PubSub } from "../pubsub";
-import { IModelGroup } from "chili-geo";
+import { IModelGroup, IModelObject } from "chili-geo";
+import { DocumentObject } from "../documentObject";
 
-export abstract class ModelBase extends ObservableBase {
+export abstract class ModelObject extends DocumentObject implements IModelObject {
     private _name: string;
     private _location: XYZ;
     private _rotate: Quaternion;

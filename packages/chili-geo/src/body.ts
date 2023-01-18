@@ -6,4 +6,5 @@ import { IShape } from "./shape";
 export interface IBody extends IPropertyChanged {
     readonly name: keyof I18n;
     get body(): Result<IShape>;
+    onUpdate(callback: () => void): void;
 }

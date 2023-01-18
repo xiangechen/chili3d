@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IModelGroup, IModelObject } from "chili-geo";
-import { ModelBase } from "./modelBase";
+import { ModelObject } from "./modelObject";
 
-export class ModelGroup extends ModelBase implements IModelGroup {
+export class ModelGroup extends ModelObject implements IModelGroup {
     readonly _children: IModelObject[] = [];
 
     constructor(name: string, id: string) {

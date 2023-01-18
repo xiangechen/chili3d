@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IViewer, PubSub, History, Viewer, ModelCollection } from "chili-core";
+import { IDocument, IViewer, PubSub, History, Viewer, ModelCollection, ModelObject } from "chili-core";
 import { IModelGroup, IModelObject } from "chili-geo";
-import { CollectionAction, ICollection, Logger, ObservableBase, Token, Container } from "chili-shared";
+import { CollectionAction, ICollection, Logger, Observable, Token, Container } from "chili-shared";
 import { IVisualization, ISelection, IVisualizationFactory } from "chili-vis";
 import { Transaction } from "./transaction";
 
-export class Document extends ObservableBase implements IDocument {
+export class Document extends Observable implements IDocument {
     private _name: string;
     readonly models: ModelCollection;
     readonly viewer: IViewer;
@@ -55,22 +55,22 @@ export class Document extends ObservableBase implements IDocument {
         return result;
     }
 
-    addModel(...models: IModelObject[]) {
+    addModel(...models: ModelObject[]) {
         models.forEach((model) => {
+            model.setDocument(this);
             this.models.add(model);
-            model.onPropertyChanged(this.handleModelPropertyChanged);
         });
     }
 
-    removeModel(...models: IModelObject[]) {
+    removeModel(...models: ModelObject[]) {
         models.forEach((model) => {
             if (IModelObject.isGroup(model)) {
                 for (const it of this.models.entry()) {
-                    if (it.parent === model) this.removeModel(it);
+                    if (it.parent === model && it instanceof ModelObject) this.removeModel(it);
                 }
             }
             this.models.remove(model);
-            model.removePropertyChanged(this.handleModelPropertyChanged);
+            model.setDocument(undefined);
         });
     }
 
@@ -122,15 +122,5 @@ export class Document extends ObservableBase implements IDocument {
         } else if (action === CollectionAction.remove) {
             PubSub.default.pub("modelRemoved", this, item);
         }
-    };
-
-    private handleModelPropertyChanged = (source: IModelObject, property: string, oldValue: any, newValue: any) => {
-        Transaction.add(this, {
-            name: `modify ${String(property)}`,
-            object: source,
-            property,
-            oldValue,
-            newValue,
-        });
     };
 }

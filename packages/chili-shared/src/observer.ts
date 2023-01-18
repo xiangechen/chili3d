@@ -29,7 +29,7 @@ export interface ICollectionChanged<T> {
     removeCollectionChanged<T>(handler: CollectionChangedHandler<T>): void;
 }
 
-export class ObservableBase implements IPropertyChanged, IDisposable {
+export class Observable implements IPropertyChanged, IDisposable {
     protected readonly eventEmitter: EventEmitter;
 
     constructor() {

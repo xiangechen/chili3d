@@ -2,10 +2,12 @@
 
 import { IBody, IEditor, IModel, IShape } from "chili-geo";
 import { Logger, Result } from "chili-shared";
+import { BodyBase } from "../bodys/base";
+import { IDocument } from "../interfaces";
 import { PubSub } from "../pubsub";
-import { ModelBase } from "./modelBase";
+import { ModelObject } from "./modelObject";
 
-export class Model extends ModelBase implements IModel {
+export class Model extends ModelObject implements IModel {
     private readonly _editors: IEditor[];
     private _shape: Result<IShape>;
 
@@ -14,13 +16,16 @@ export class Model extends ModelBase implements IModel {
         this.body = body;
         this._editors = new Array<IEditor>();
         this._shape = this.generate();
-        body.onPropertyChanged(this.bodyChanged);
+        body.onUpdate(this.onUpdate);
     }
 
-    private bodyChanged = (body: IBody, property: keyof IBody) => {
-        if (property === "body") {
-            this.generate();
-        }
+    override setDocument(document?: IDocument | undefined): void {
+        let base = this.body as BodyBase;
+        base?.setDocument(document);
+    }
+
+    private onUpdate = () => {
+        this.generate();
     };
 
     generate(): Result<IShape> {
