@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken } from "chili-shared";
+import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken, ShapeType } from "chili-shared";
 import { IEventHandler, IView } from "chili-vis";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
 import { WorkplaneSnap } from "./workplaneSnap";
 import { PubSub, IDocument, Configure } from "chili-core";
 import { TrackingSnap } from "./tracking";
-import { Dimension } from "./inputDimension";
+import { Dimension } from "./dimension";
 import { ShapeCreator } from "./shapeHandle";
 import { VertexRenderData } from "chili-geo";
 
@@ -58,6 +58,7 @@ export class SnapPointEventHandler implements IEventHandler {
         this._trackingSnap.clear();
         this._workplaneSnap.clear();
 
+        view.document.selection.setSelectionType(ShapeType.Shape);
         PubSub.default.sub("snapChanged", this.onSnapChanged);
 
         view.document.viewer.redraw();

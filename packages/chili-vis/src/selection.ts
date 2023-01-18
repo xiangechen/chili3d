@@ -9,7 +9,7 @@ export interface ISelection extends IPropertyChanged {
     setSelectionType(type: ShapeType): void;
     select(view: IView, x: number, y: number, shiftDown: boolean): void;
     detectedShape(view: IView, x: number, y: number): IShape | undefined;
-    detectedShapes(view: IView, x: number, y: number): IShape[] | undefined;
+    detectedShapes(view: IView, x: number, y: number): IShape[];
     detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined;
     getSelectedModels(): IModelObject[];
     setSelected(shift: boolean, ...models: IModelObject[]): void;

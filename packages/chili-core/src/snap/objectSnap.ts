@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, ICurve, IEdge, IShape, VertexRenderData } from "chili-geo";
+import { CurveType, ICircle, ICurve, IEdge, IShape, VertexRenderData } from "chili-geo";
 import { i18n, ShapeType, XYZ, XY, ObjectSnapType, I18n } from "chili-shared";
 import { ISelection, IView } from "chili-vis";
 import { IPointSnap, ISnap, SnapInfo } from "./interfaces";
@@ -32,6 +32,13 @@ export class ObjectSnap implements IPointSnap {
         this._invisibleInfos = new Map();
     }
 
+    clear() {
+        this.unHilited();
+        this._invisibleInfos.forEach((info) => {
+            info.displays.forEach((x) => info.view.document.visualization.context.temporaryRemove(x));
+        });
+    }
+
     getDetectedShape(): IShape | undefined {
         return this._detectedShape;
     }
@@ -56,27 +63,45 @@ export class ObjectSnap implements IPointSnap {
 
     snap(view: IView, x: number, y: number): boolean {
         this._snapedPoint = undefined;
-        view.document.selection.setSelectionType(ShapeType.Edge);
-        let shapes = view.document.selection.detectedShapes(view, x, y);
-        if (shapes !== undefined && shapes.length > 0) {
-            this._detectedShape = shapes[0];
+        let shapes = this.getDetectedShapes(view, x, y);
+        if (shapes.length > 0) {
             this.showInvisibleSnaps(view, shapes[0]);
-            let featurePoints = this.getFeaturePoints(shapes[0]);
-            let intersections = this.getIntersections(shapes[0], shapes);
-            let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
-            if (ordered.length !== 0 && this.distanceToMouse(view, x, y, ordered[0].point) < SnapDistance) {
-                this._snapedPoint = ordered[0];
-                this.hilited(view, this._snapedPoint.shapes);
-                return true;
-            }
-        } else {
-            this._detectedShape = undefined;
+            if (this.snapOnShape(view, x, y, shapes)) return true;
         }
-
-        return this.getInvisibleSnape(view, x, y);
+        return this.snapeInvisible(view, x, y);
     }
 
-    private getInvisibleSnape(view: IView, x: number, y: number): boolean {
+    private getDetectedShapes(view: IView, x: number, y: number) {
+        view.document.selection.setSelectionType(ShapeType.Edge);
+        let shapes = view.document.selection.detectedShapes(view, x, y);
+        this._detectedShape = shapes.at(0);
+        return shapes;
+    }
+
+    private snapOnShape(view: IView, x: number, y: number, shapes: IShape[]): boolean {
+        let featurePoints = this.getFeaturePoints(shapes[0]);
+        let intersections = this.getIntersections(shapes[0], shapes);
+        let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
+        if (ordered.length !== 0 && this.distanceToMouse(view, x, y, ordered[0].point) < SnapDistance) {
+            this._snapedPoint = ordered[0];
+            this.hilited(view, this._snapedPoint.shapes);
+            return true;
+        }
+        return false;
+    }
+
+    private snapeInvisible(view: IView, x: number, y: number): boolean {
+        let { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
+        if (minDistance < SnapDistance) {
+            this._snapedPoint = snap;
+            this.hilited(view, snap!.shapes);
+            return true;
+        }
+
+        return false;
+    }
+
+    private getNearestInvisibleSnap(view: IView, x: number, y: number): { minDistance: number; snap?: SnapInfo } {
         let snap: SnapInfo | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
         this._invisibleInfos.forEach((info) => {
@@ -88,50 +113,42 @@ export class ObjectSnap implements IPointSnap {
                 }
             });
         });
-        if (minDistance < SnapDistance) {
-            this._snapedPoint = snap;
-            this.hilited(view, snap!.shapes);
-            return true;
-        }
-
-        return false;
+        return { minDistance, snap };
     }
 
     private showInvisibleSnaps(view: IView, shape: IShape) {
         if (shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
             let curve = (shape as IEdge).asCurve().ok();
-            if (curve !== undefined && ICurve.isCircle(curve)) {
-                let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
-                let id = view.document.visualization.context.temporaryDisplay(temporary);
-                this._invisibleInfos.set(shape, {
-                    view,
-                    snaps: [
-                        {
-                            point: curve.center,
-                            info: i18n["snap.center"],
-                            shapes: [shape],
-                        },
-                    ],
-                    displays: [id],
-                });
+            if (curve === undefined) return;
+            if (ICurve.isCircle(curve)) {
+                this.showCircleCenter(curve, view, shape);
             }
         }
+    }
+
+    private showCircleCenter(curve: ICircle, view: IView, shape: IShape) {
+        let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
+        let id = view.document.visualization.context.temporaryDisplay(temporary);
+        this._invisibleInfos.set(shape, {
+            view,
+            snaps: [
+                {
+                    point: curve.center,
+                    info: i18n["snap.center"],
+                    shapes: [shape],
+                },
+            ],
+            displays: [id],
+        });
     }
 
     private hilited(view: IView, shapes: IShape[]) {
         this._hilightedShapes = {
             view,
-            shapes: shapes,
+            shapes,
         };
         shapes.map((x) => view.document.visualization.context.hilighted(x));
-    }
-
-    clear() {
-        this.unHilited();
-        this._invisibleInfos.forEach((info) => {
-            info.displays.forEach((x) => info.view.document.visualization.context.temporaryRemove(x));
-        });
     }
 
     private unHilited() {
@@ -154,7 +171,7 @@ export class ObjectSnap implements IPointSnap {
         return this.distanceToMouse(view, x, y, a.point) - this.distanceToMouse(view, x, y, b.point);
     }
 
-    getIntersections(current: IShape, shapes: IShape[]) {
+    private getIntersections(current: IShape, shapes: IShape[]) {
         let result = new Array<SnapInfo>();
         if (current.shapeType !== ShapeType.Edge) return result;
         shapes.forEach((x) => {

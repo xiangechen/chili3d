@@ -33,9 +33,9 @@ export class ThreeSelection extends Observable implements ISelection {
         return obj.userData[Constants.ShapeKey];
     }
 
-    detectedShapes(view: IView, x: number, y: number): IShape[] | undefined {
+    detectedShapes(view: IView, x: number, y: number): IShape[] {
         let objs = this.detected(view, x, y, false);
-        return objs?.map((x) => x.userData[Constants.ShapeKey]);
+        return objs.map((x) => x.userData[Constants.ShapeKey]);
     }
 
     getSelectedModels(): IModelObject[] {

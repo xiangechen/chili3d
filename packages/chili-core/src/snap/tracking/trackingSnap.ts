@@ -44,26 +44,16 @@ export class TrackingSnap implements IPointSnap {
     snap(view: IView, x: number, y: number): boolean {
         let trackingDatas = this.getTrackingDatas(view, x, y);
         if (trackingDatas.length === 0) return false;
-        if (this.showIntersect(view, x, y, trackingDatas)) return true;
+        if (this.setSnapToIntersect(view, x, y, trackingDatas)) return true;
         if (trackingDatas.length === 1) {
             this.setSnapedAndShowTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
         } else {
             trackingDatas = trackingDatas.sort((x) => x.distance);
-            if (trackingDatas[0].axis.direction.isParallelTo(trackingDatas[1].axis.direction)) {
-                let i =
-                    MathUtils.almostEqual(trackingDatas[0].distance, trackingDatas[1].distance) &&
-                    trackingDatas[0].isObjectTracking &&
-                    !trackingDatas[1].isObjectTracking
-                        ? 1
-                        : 0;
-                this.setSnapedAndShowTracking(view, trackingDatas[i].point, [trackingDatas[i]]);
+            let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
+            if (point !== undefined) {
+                this.setSnapedAndShowTracking(view, point, [trackingDatas[0], trackingDatas[1]]);
             } else {
-                let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
-                if (point !== undefined) {
-                    this.setSnapedAndShowTracking(view, point, [trackingDatas[0], trackingDatas[1]]);
-                } else {
-                    this.setSnapedAndShowTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
-                }
+                this.setSnapedAndShowTracking(view, trackingDatas[0].point, [trackingDatas[0]]);
             }
         }
         return true;
@@ -94,7 +84,7 @@ export class TrackingSnap implements IPointSnap {
         return view.document.visualization.context.temporaryDisplay(lineDats);
     }
 
-    private showIntersect(view: IView, x: number, y: number, trackingDatas: TrackingData[]): boolean {
+    private setSnapToIntersect(view: IView, x: number, y: number, trackingDatas: TrackingData[]): boolean {
         if (this.detectedShape === undefined || this.detectedShape.shapeType !== ShapeType.Edge) return false;
         let edge = this.detectedShape as IEdge;
         let points: { intersect: XYZ; location: XYZ }[] = [];
