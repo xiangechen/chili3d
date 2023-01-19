@@ -5,9 +5,9 @@ import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
 export class Plane {
-    static XY: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX));
-    static YZ: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY));
-    static ZX: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ));
+    static readonly XY: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX));
+    static readonly YZ: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY));
+    static readonly ZX: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ));
 
     /**
      * unit vector
@@ -23,6 +23,9 @@ export class Plane {
         }
         if (x === undefined || x.isEqualTo(XYZ.zero)) {
             throw new Error("xDirector can not be zero");
+        }
+        if (n.isParallelTo(x)) {
+            throw new Error("xDirector can not parallel normal");
         }
         this.normal = n;
         this.x = x;

@@ -1,14 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { XYZ } from "chili-shared";
-import { IConverter } from "chili-shared";
+import { ConverterBase, XYZ } from "chili-shared";
 
-export class XYZConverter implements IConverter<XYZ> {
-    private _error: string | undefined;
-    get error(): string | undefined {
-        return this._error;
-    }
-
+export class XYZConverter extends ConverterBase<XYZ> {
     convert(value: XYZ): string | undefined {
         return `${value.x},${value.y},${value.z}`;
     }

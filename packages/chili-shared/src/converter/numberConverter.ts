@@ -4,6 +4,7 @@ import { ConverterBase } from "./converter";
 
 export class NumberConverter extends ConverterBase<number> {
     convert(value: number): string | undefined {
+        if (Number.isNaN(value)) return undefined;
         return String(value);
     }
     convertBack(value: string): number | undefined {
