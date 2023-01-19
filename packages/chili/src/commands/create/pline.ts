@@ -30,6 +30,6 @@ export class PLine implements ICommand {
 
     private handleTempLine = (start: XYZ, end: XYZ) => {
         if (start.isEqualTo(end)) return undefined;
-        return this.factory.line(start, end).ok();
+        return this.factory.line(start, end).value;
     };
 }

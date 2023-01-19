@@ -43,7 +43,7 @@ export class RectStep implements IStep<RectData> {
     private handleTempRect = (view: IView, start: XYZ, end: XYZ) => {
         let data = this.getRectData(view, start, end)!;
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory?.rect(data.plane, data.dx, data.dy).ok();
+        return factory?.rect(data.plane, data.dx, data.dy).value;
     };
 
     private getRectData(view: IView, start: XYZ, end: XYZ) {

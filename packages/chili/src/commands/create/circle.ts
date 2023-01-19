@@ -32,6 +32,6 @@ export class Circle implements ICommand {
 
     private handleTemp = (view: IView, start: XYZ, end: XYZ) => {
         if (start.isEqualTo(end)) return undefined;
-        return this.factory.circle(view.workplane.normal, start, end.distanceTo(start)).ok();
+        return this.factory.circle(view.workplane.normal, start, end.distanceTo(start)).value;
     };
 }

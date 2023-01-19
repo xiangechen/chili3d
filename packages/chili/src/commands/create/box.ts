@@ -19,7 +19,7 @@ export class Box implements ICommand {
         if (rect === undefined) return false;
         let handleTempLine = (view: IView, point: XYZ) => {
             let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-            return factory!.box(rect!.plane, rect!.dx, rect!.dy, point.distanceTo(rect!.p2)).ok();
+            return factory!.box(rect!.plane, rect!.dx, rect!.dy, point.distanceTo(rect!.p2)).value;
         };
         let p3 = await new PointStep(rect.p2, Dimension.D1D2D3, handleTempLine).perform(
             document,

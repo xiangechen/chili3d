@@ -119,7 +119,7 @@ export class ObjectSnap implements IPointSnap {
     private showInvisibleSnaps(view: IView, shape: IShape) {
         if (shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape as IEdge).asCurve().ok();
+            let curve = (shape as IEdge).asCurve().value;
             if (curve === undefined) return;
             if (ICurve.isCircle(curve)) {
                 this.showCircleCenter(curve, view, shape);
@@ -204,7 +204,7 @@ export class ObjectSnap implements IPointSnap {
     }
 
     private getEdgeFeaturePoints(shape: IShape, infos: SnapInfo[]) {
-        let curve = (shape as IEdge).asCurve().ok();
+        let curve = (shape as IEdge).asCurve().value;
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());
         let end = curve.point(curve.lastParameter());

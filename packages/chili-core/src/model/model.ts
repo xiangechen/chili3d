@@ -36,7 +36,7 @@ export class Model extends ModelObject implements IModel {
             return this._shape;
         }
         for (const editor of this._editors) {
-            this._shape = editor.edit(this._shape.ok()!);
+            this._shape = editor.edit(this._shape.value!);
             if (this._shape.isErr()) break;
         }
         PubSub.default.pub("modelUpdate", this);
@@ -57,7 +57,7 @@ export class Model extends ModelObject implements IModel {
 
     addEditor(editor: IEditor) {
         this._editors.push(editor);
-        if (this._shape.isOk()) this._shape = editor.edit(this._shape.ok()!);
+        if (this._shape.isOk()) this._shape = editor.edit(this._shape.value!);
     }
 
     getEditor(index: number) {

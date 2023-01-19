@@ -31,6 +31,6 @@ export class Line implements ICommand {
 
     private handleTempLine = (start: XYZ, end: XYZ) => {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.line(start, end).ok();
+        return factory!.line(start, end).value;
     };
 }
