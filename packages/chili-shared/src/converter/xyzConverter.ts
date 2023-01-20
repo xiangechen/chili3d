@@ -1,11 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ConverterBase, XYZ } from "chili-shared";
+import { XYZ } from "../math";
+import { ConverterBase } from "./converter";
 
 export class XYZConverter extends ConverterBase<XYZ> {
     convert(value: XYZ): string | undefined {
         return `${value.x},${value.y},${value.z}`;
     }
+
     convertBack(value: string): XYZ | undefined {
         let vs = value
             .split(",")
