@@ -2,7 +2,7 @@
 
 import { Observable } from "chili-shared";
 import { HistoryObject } from "./history";
-import { IDocument } from "./interfaces";
+import { IDocument } from "./document";
 import { Transaction } from "./transaction";
 
 export interface IDocumentObject {

@@ -2,7 +2,7 @@
 
 import { Logger } from "chili-shared";
 import { HistoryObject, History } from "./history";
-import { IDocument } from "./interfaces";
+import { IDocument } from "./document";
 
 export class TransactionItem {
     readonly records: Array<HistoryObject>;

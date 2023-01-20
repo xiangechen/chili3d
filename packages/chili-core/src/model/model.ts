@@ -3,7 +3,7 @@
 import { IBody, IEditor, IModel, IShape } from "chili-geo";
 import { Logger, Result } from "chili-shared";
 import { BodyBase } from "../bodys/base";
-import { IDocument } from "../interfaces";
+import { IDocument } from "../document";
 import { PubSub } from "../pubsub";
 import { ModelObject } from "./modelObject";
 

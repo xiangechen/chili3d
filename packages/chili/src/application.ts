@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Id, IDocument, PubSub, Document } from "chili-core";
+import { Id, IDocument, PubSub } from "chili-core";
+import { Document } from "./document";
 
 export class Application {
     static _current: Application | undefined;

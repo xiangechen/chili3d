@@ -2,7 +2,7 @@
 
 import { IModelObject } from "chili-geo";
 import { CollectionAction, CollectionChangedBase, ICollection } from "chili-shared";
-import { IDocument } from "../interfaces";
+import { IDocument } from "../document";
 import { ModelObject } from "./modelObject";
 
 export class ModelCollection extends CollectionChangedBase<IModelObject> implements ICollection<IModelObject> {

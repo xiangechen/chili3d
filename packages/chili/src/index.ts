@@ -2,3 +2,4 @@
 
 export * from "./appBuilder";
 export * from "./application";
+export * from "./document";

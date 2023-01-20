@@ -2,7 +2,7 @@
 
 import { IModel, IModelGroup, IModelObject } from "chili-geo";
 import { Commands, I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
-import { IDocument } from "./interfaces";
+import { IDocument } from "./document";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
