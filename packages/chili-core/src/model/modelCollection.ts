@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModelObject } from "chili-geo";
 import { CollectionAction, CollectionChangedBase, ICollection } from "chili-shared";
-import { IDocument } from "../document";
 import { ModelObject } from "./modelObject";
 
-export class ModelCollection extends CollectionChangedBase<IModelObject> implements ICollection<IModelObject> {
+export class ModelCollection extends CollectionChangedBase<ModelObject> implements ICollection<ModelObject> {
     private readonly _map: Map<string, ModelObject>;
 
     constructor() {
@@ -33,14 +31,14 @@ export class ModelCollection extends CollectionChangedBase<IModelObject> impleme
         return false;
     }
 
-    find(predicate: (item: IModelObject) => boolean): IModelObject | undefined {
+    find(predicate: (item: ModelObject) => boolean): ModelObject | undefined {
         for (let item of this._map.values()) {
             if (predicate(item)) return item;
         }
         return undefined;
     }
 
-    entry(): IterableIterator<IModelObject> {
+    entry(): IterableIterator<ModelObject> {
         return this._map.values();
     }
 

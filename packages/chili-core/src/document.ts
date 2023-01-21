@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModelObject } from "chili-geo";
 import { IDisposable, IPropertyChanged } from "chili-shared";
+import { ModelObject } from "./model";
 import { ISelection } from "./selection";
 import { IViewer } from "./viewer";
 import { IVisualization } from "./visualization";
@@ -11,11 +11,11 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly viewer: IViewer;
     readonly selection: ISelection;
     get modelCount(): number;
-    addModel(...models: IModelObject[]): void;
+    addModel(...models: ModelObject[]): void;
     get visualization(): IVisualization;
-    getModel(id: string): IModelObject | undefined;
-    getModels(...ids: string[]): IModelObject[];
-    removeModel(...models: IModelObject[]): void;
+    getModel(id: string): ModelObject | undefined;
+    getModels(...ids: string[]): ModelObject[];
+    removeModel(...models: ModelObject[]): void;
     undo(): void;
     redo(): void;
 }

@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IShapeFactory, IEdge, IVertex, IFace, ISolid, IWire } from "chili-geo";
+import { IEdge, IFace, ISolid, IVertex, IWire } from "chili-core";
+import { IShapeFactory } from "chili-geo";
 import { Token, Result, XYZ, Plane, MathUtils } from "chili-shared";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccSolid, OccVertex, OccWire } from "./occShape";

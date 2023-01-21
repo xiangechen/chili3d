@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Id } from "chili-core";
 import {
+    Id,
     ICompound,
     ICompoundSolid,
     ICurve,
@@ -13,7 +13,7 @@ import {
     ISolid,
     IVertex,
     IWire,
-} from "chili-geo";
+} from "chili-core";
 import { Ray, Result, ShapeType, XYZ } from "chili-shared";
 import {
     Geom_Circle,

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken, ShapeType } from "chili-shared";
-import { IEventHandler, IView } from "chili-core";
+import { IEventHandler, IView, VertexRenderData } from "chili-core";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
 import { WorkplaneSnap } from "./workplaneSnap";
@@ -9,7 +9,6 @@ import { PubSub, IDocument, Configure } from "chili-core";
 import { TrackingSnap } from "./tracking";
 import { Dimension } from "./dimension";
 import { ShapeCreator } from "./shapeHandle";
-import { VertexRenderData } from "chili-geo";
 
 export enum SnapState {
     Snaping,

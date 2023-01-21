@@ -1,24 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModelGroup, IModelObject } from "chili-geo";
 import { ModelObject } from "./modelObject";
 
-export class ModelGroup extends ModelObject implements IModelGroup {
-    readonly _children: IModelObject[] = [];
+export class ModelGroup extends ModelObject {
+    readonly _children: ModelObject[] = [];
 
     constructor(name: string, id: string) {
         super(id, name);
     }
-    children(): IModelObject[] {
+    children(): ModelObject[] {
         return this._children;
     }
 
-    addChild(model: IModelObject) {
+    addChild(model: ModelObject) {
         if (this._children.indexOf(model) > -1) return;
         this._children.push(model);
     }
 
-    removeChild(model: IModelObject) {
+    removeChild(model: ModelObject) {
         let index = this._children.indexOf(model);
         if (index === -1) return;
         this._children.splice(index, 1);

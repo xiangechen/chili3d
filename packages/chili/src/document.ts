@@ -6,12 +6,11 @@ import {
     PubSub,
     History,
     ModelCollection,
-    ModelObject,
     Transaction,
     IVisualization,
     ISelection,
+    ModelObject,
 } from "chili-core";
-import { IModelObject } from "chili-geo";
 import { CollectionAction, ICollection, Logger, Observable, Token, Container } from "chili-shared";
 import { IVisualizationFactory } from "chili-vis";
 import { Viewer } from "./viewer";
@@ -50,12 +49,12 @@ export class Document extends Observable implements IDocument {
         return this.models.size();
     }
 
-    getModel(id: string): IModelObject | undefined {
+    getModel(id: string): ModelObject | undefined {
         return this.models.get(id);
     }
 
-    getModels(...ids: string[]): IModelObject[] {
-        let result: IModelObject[] = [];
+    getModels(...ids: string[]): ModelObject[] {
+        let result: ModelObject[] = [];
         for (const id of ids) {
             let model = this.models.get(id);
             if (model !== undefined) {
@@ -74,7 +73,7 @@ export class Document extends Observable implements IDocument {
 
     removeModel(...models: ModelObject[]) {
         models.forEach((model) => {
-            if (IModelObject.isGroup(model)) {
+            if (ModelObject.isGroup(model)) {
                 for (const it of this.models.entry()) {
                     if (it.parent === model && it instanceof ModelObject) this.removeModel(it);
                 }
@@ -117,9 +116,9 @@ export class Document extends Observable implements IDocument {
     }
 
     private handleModelCollectionChanged = (
-        source: ICollection<IModelObject>,
+        source: ICollection<ModelObject>,
         action: CollectionAction,
-        item: IModelObject
+        item: ModelObject
     ) => {
         Transaction.add(this, {
             name: `collection ${String(action)}`,

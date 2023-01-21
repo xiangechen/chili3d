@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { EdgeRenderData, FaceRenderData, RenderDataBuilder, VertexRenderData } from "./renderData";
+import { EdgeRenderData, FaceRenderData, VertexRenderData } from "./renderData";
 import { IEdge, IFace, IVertex } from "./shape";
 
 export interface VertexMesh {

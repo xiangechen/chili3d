@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, Token, I18n, Result, Plane, XYZ } from "chili-shared";
-import { IShapeFactory, IShape } from "chili-geo";
+import { Container, Token, I18n, Result, XYZ } from "chili-shared";
+import { IShapeFactory } from "chili-geo";
 import { property } from "../decorators";
 import { BodyBase } from "./base";
+import { IShape } from "../shape";
 
 export class CircleBody extends BodyBase {
     private _center: XYZ;

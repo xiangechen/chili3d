@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IModel, IModelGroup, IModelObject } from "chili-geo";
+import { Model, ModelGroup, ModelObject } from "chili-core";
 import { Commands, I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
 import { IDocument } from "./document";
 
@@ -8,17 +8,13 @@ export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
     keyUp: (e: KeyboardEvent) => void;
     excuteCommand: (commandName: keyof Commands) => void;
-    modelAdded: (source: IDocument, model: IModelObject) => void;
+    modelAdded: (source: IDocument, model: ModelObject) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
-    modelRemoved: (source: IDocument, model: IModelObject) => void;
-    modelUpdate: (model: IModelObject) => void;
-    visibleChanged: (model: IModelObject) => void;
-    parentChanged: (
-        source: IModelObject,
-        oldParent: IModelGroup | undefined,
-        newParent: IModelGroup | undefined
-    ) => void;
-    selectionChanged: (document: IDocument, models: IModelObject[]) => void;
+    modelRemoved: (source: IDocument, model: ModelObject) => void;
+    modelUpdate: (model: ModelObject) => void;
+    visibleChanged: (model: ModelObject) => void;
+    parentChanged: (source: ModelObject, oldParent: ModelGroup | undefined, newParent: ModelGroup | undefined) => void;
+    selectionChanged: (document: IDocument, models: ModelObject[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;

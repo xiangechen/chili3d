@@ -4,7 +4,6 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
-        "chili-shared": "*",
-        "chili-geo": "*"
+        "chili-shared": "*"
     }
 }

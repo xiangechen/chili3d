@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument } from "chili-core";
-import { Transaction } from "chili-core/src/transaction";
-import { IModel, IModelGroup, IModelObject } from "chili-geo";
+import { IDocument, Model, ModelGroup, ModelObject } from "chili-core";
 import { Constants, IDisposable } from "chili-shared";
 import { Control } from "../control";
 import { ModelTree } from "./tree";
@@ -19,12 +17,12 @@ export class TreeItem extends TreeItemBase {
         this.dom.appendChild(this.icon);
     }
 
-    constructor(document: IDocument, model: IModelObject) {
+    constructor(document: IDocument, model: ModelObject) {
         super(document, model, Control.div(), style.itemPanel);
         this.initControls();
     }
 
-    protected handleDrop(model: IModelObject) {
+    protected handleDrop(model: ModelObject) {
         model.parent = this.model.parent;
     }
 }

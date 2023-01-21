@@ -1,13 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IEditor, IModel, IShape } from "chili-geo";
 import { Logger, Result } from "chili-shared";
+import { IBody } from "../body";
 import { BodyBase } from "../bodys/base";
 import { IDocument } from "../document";
+import { IEditor } from "../editor";
 import { PubSub } from "../pubsub";
+import { IShape } from "../shape";
 import { ModelObject } from "./modelObject";
 
-export class Model extends ModelObject implements IModel {
+export class Model extends ModelObject {
     private readonly _editors: IEditor[];
     private _shape: Result<IShape>;
 

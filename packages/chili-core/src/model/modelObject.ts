@@ -1,17 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Quaternion, XYZ } from "chili-shared";
-import { property } from "chili-core";
+import { Model, ModelGroup, property } from "chili-core";
 import { PubSub } from "../pubsub";
-import { IModelGroup, IModelObject } from "chili-geo";
 import { DocumentObject } from "../documentObject";
 
-export abstract class ModelObject extends DocumentObject implements IModelObject {
+export abstract class ModelObject extends DocumentObject {
     private _name: string;
     private _location: XYZ;
     private _rotate: Quaternion;
     private _visible: boolean;
-    private _parent: IModelGroup | undefined;
+    private _parent: ModelGroup | undefined;
     readonly createdTime: number;
 
     constructor(readonly id: string, name: string) {
@@ -64,7 +63,7 @@ export abstract class ModelObject extends DocumentObject implements IModelObject
         return this._parent;
     }
 
-    set parent(value: IModelGroup | undefined) {
+    set parent(value: ModelGroup | undefined) {
         if (this._parent === value) return;
         this._parent?.removeChild(this);
         value?.addChild(this);
@@ -75,4 +74,13 @@ export abstract class ModelObject extends DocumentObject implements IModelObject
 
     protected abstract handlePositionChanged(): void;
     protected abstract handleRotateChanged(): void;
+}
+
+export namespace ModelObject {
+    export function isGroup(model: ModelObject): model is ModelGroup {
+        return (model as ModelGroup).children !== undefined;
+    }
+    export function isModel(model: ModelObject): model is Model {
+        return (model as Model).body !== undefined;
+    }
 }

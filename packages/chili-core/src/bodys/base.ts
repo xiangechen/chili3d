@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IShape } from "chili-geo";
+import { IBody, IShape } from "chili-core";
 import { I18n, Result } from "chili-shared";
 import { DocumentObject } from "../documentObject";
 

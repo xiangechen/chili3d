@@ -3,7 +3,7 @@
 import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { expect, jest, test } from "@jest/globals";
 import "reflect-metadata";
-import { CurveType } from "chili-geo";
+import { CurveType } from "chili-core";
 import { Ray, ShapeType, XYZ } from "chili-shared";
 import { Id } from "chili-core";
 import { OccEdge } from "../src/occShape";

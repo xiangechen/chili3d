@@ -1,7 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub, IVisualizationContext, IVisualizationShape } from "chili-core";
-import { IModel, IModelObject, IShape, RenderData } from "chili-geo";
+import {
+    IDocument,
+    PubSub,
+    IVisualizationContext,
+    IVisualizationShape,
+    ModelObject,
+    IShape,
+    RenderData,
+    Model,
+} from "chili-core";
 import { LineType, ShapeType, XYZ } from "chili-shared";
 import {
     BufferGeometry,
@@ -22,8 +30,8 @@ import {
 import { ThreeShape } from "./threeShape";
 
 export interface ModelInfo {
-    model: IModelObject;
-    parent: IModelObject | IDocument | undefined;
+    model: ModelObject;
+    parent: ModelObject | IDocument | undefined;
 }
 
 export class ThreeVisulizationContext implements IVisualizationContext {
@@ -42,7 +50,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         PubSub.default.sub("visibleChanged", this.handleVisibleChanged);
     }
 
-    handleModelUpdate = (model: IModelObject) => {
+    handleModelUpdate = (model: ModelObject) => {
         this.removeModel(model);
         this.addModel(model);
     };
@@ -64,7 +72,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         return this.modelShapes.children.length;
     }
 
-    getShape(model: IModelObject): IVisualizationShape | undefined {
+    getShape(model: ModelObject): IVisualizationShape | undefined {
         return this.modelShapes.getObjectByName(model.id) as ThreeShape;
     }
 
@@ -114,27 +122,27 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         this.tempShapes.remove(shape);
     }
 
-    handleAddModel = (document: IDocument, model: IModelObject) => {
+    handleAddModel = (document: IDocument, model: ModelObject) => {
         this.addModel(model);
     };
 
-    handleRemoveModel = (document: IDocument, ...models: IModelObject[]) => {
+    handleRemoveModel = (document: IDocument, ...models: ModelObject[]) => {
         this.removeModel(...models);
     };
 
-    private handleVisibleChanged = (model: IModelObject) => {
+    private handleVisibleChanged = (model: ModelObject) => {
         let shape = this.getShape(model);
         if (shape === undefined || shape.visible === model.visible) return;
         shape.visible = model.visible;
     };
 
-    private addModelToGroup(group: Group, modelObject: IModelObject) {
-        if (IModelObject.isGroup(modelObject)) {
+    private addModelToGroup(group: Group, modelObject: ModelObject) {
+        if (ModelObject.isGroup(modelObject)) {
             let childGroup = new Group();
             childGroup.name = modelObject.id;
             group.add(childGroup);
         } else {
-            let model = modelObject as IModel;
+            let model = modelObject as Model;
             let shape = this.getShape(model);
             if (shape !== undefined) return shape;
             let modelShape = model.getShape();
@@ -145,11 +153,11 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         }
     }
 
-    addModel(...models: IModelObject[]) {
+    addModel(...models: ModelObject[]) {
         models.forEach((model) => this.addModelToGroup(this.modelShapes, model));
     }
 
-    removeModel(...models: IModelObject[]) {
+    removeModel(...models: ModelObject[]) {
         models.forEach((model) => {
             let obj = this.modelShapes.getObjectByName(model.id);
             if (obj === undefined) return;

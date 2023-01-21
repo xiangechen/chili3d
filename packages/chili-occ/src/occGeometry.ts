@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, ICircle, ICurve } from "chili-geo";
-import { ILine } from "chili-geo";
+import { CurveType, ICircle, ICurve, ILine } from "chili-core";
 import { IDisposable, XYZ } from "chili-shared";
 import {
     GeomPlate_Aij,
