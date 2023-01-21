@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Constants, Observable, ShapeType } from "chili-shared";
-import { IVisualizationShape, ISelection, IView } from "chili-vis";
-import { Line, Mesh, Object3D, Raycaster, Vector3 } from "three";
-import { IDocument, PubSub } from "chili-core";
+import { Object3D, Raycaster } from "three";
+import { IDocument, PubSub, IVisualizationShape, ISelection, IView } from "chili-core";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
 import { ThreeShape } from "./threeShape";
 import { IEdge, IModel, IModelObject, IShape } from "chili-geo";

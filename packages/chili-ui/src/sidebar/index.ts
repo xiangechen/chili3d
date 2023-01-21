@@ -4,7 +4,6 @@ import { IDocument, PubSub } from "chili-core";
 import { IModelObject } from "chili-geo";
 import { ModelTree } from "../tree/tree";
 import style from "./sidebar.module.css";
-import { ISelection } from "chili-vis";
 import { CheckProperty } from "../property/check";
 import { PropertyView } from "../property";
 import { Control } from "../control";

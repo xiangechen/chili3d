@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, LineBody, Model, Dimension, Snapper, BoxBody } from "chili-core";
+import { command, ICommand, Id, IDocument, IView, Model, Dimension, BoxBody } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, inject, injectable, Token, XYZ } from "chili-shared";
-import { IView } from "chili-vis";
+import { Container, Token, XYZ } from "chili-shared";
 import { AnyPointStep, PointStep, RectStep } from "../step";
 
 @command({

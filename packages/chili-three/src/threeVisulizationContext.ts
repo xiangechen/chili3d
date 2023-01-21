@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub } from "chili-core";
+import { IDocument, PubSub, IVisualizationContext, IVisualizationShape } from "chili-core";
 import { IModel, IModelObject, IShape, RenderData } from "chili-geo";
-import { Constants, LineType, ShapeType, XYZ } from "chili-shared";
-import { IVisualizationContext, IVisualizationShape } from "chili-vis";
+import { LineType, ShapeType, XYZ } from "chili-shared";
 import {
     BufferGeometry,
     EdgesGeometry,

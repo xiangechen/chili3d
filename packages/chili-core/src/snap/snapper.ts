@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CancellationToken, I18n, XYZ } from "chili-shared";
-import { CursorType, IEventHandler } from "chili-vis";
 import { SnapData, SnapPointEventHandler } from "./snapPointHandler";
-import { IDocument, PubSub } from "chili-core";
+import { CursorType, IEventHandler, IDocument, PubSub } from "chili-core";
 
 export class Snapper {
     constructor(readonly document: IDocument) {}

@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CurveType, ICircle, ICurve, IEdge, IShape, VertexRenderData } from "chili-geo";
-import { i18n, ShapeType, XYZ, XY, ObjectSnapType, I18n } from "chili-shared";
-import { ISelection, IView } from "chili-vis";
-import { IPointSnap, ISnap, SnapInfo } from "./interfaces";
+import { i18n, ShapeType, XYZ, ObjectSnapType } from "chili-shared";
+import { IView } from "../view";
+import { IPointSnap, SnapInfo } from "./interfaces";
 
 const SnapDistance: number = 5;
 

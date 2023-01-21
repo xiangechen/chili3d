@@ -7,7 +7,6 @@ import style from "./tree.module.css";
 import { Constants, Logger } from "chili-shared";
 import { IDocument, ModelGroup, PubSub } from "chili-core";
 import { TreeToolBar } from "./treeToolBar";
-import { ISelection } from "chili-vis";
 import { TreeItemBase } from "./treeItemBase";
 import { TreeItemGroup } from "./treeItemGroup";
 import { Tab } from "../tab";

@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { i18n, Ray, LineType, MathUtils, ObjectSnapType, ShapeType, XY, XYZ } from "chili-shared";
-import { IView } from "chili-vis";
 import { Dimension, IPointSnap, SnapInfo } from "../";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
 import { Axis } from "./axis";
 import { EdgeRenderData, IEdge, IShape } from "chili-geo";
+import { IView } from "../../view";
 
 export interface TrackingData {
     axis: Axis;

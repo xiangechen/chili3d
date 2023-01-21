@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IView } from "chili-vis";
 import { IPointSnap, SnapInfo } from "./interfaces";
 import { ObjectSnapType } from "chili-shared";
+import { IView } from "../view";
 
 export class WorkplaneSnap implements IPointSnap {
     snaped?: SnapInfo;

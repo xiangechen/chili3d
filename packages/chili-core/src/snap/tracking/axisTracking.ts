@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { i18n, LineType, Plane, XYZ } from "chili-shared";
-import { IView } from "chili-vis";
+import { IView } from "../../view";
 import { Axis } from "./axis";
 
 export class AxisTrackingSnap {

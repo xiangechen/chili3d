@@ -1,8 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IViewer, PubSub, PubSubEventMap } from "chili-core";
+import { IDocument, IViewer, PubSub, PubSubEventMap, CursorType, IView } from "chili-core";
 import { Plane } from "chili-shared";
-import { CursorType, IView } from "chili-vis";
 
 interface EventData {
     container: HTMLElement | Window;

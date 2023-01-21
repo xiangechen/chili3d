@@ -1,9 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEventHandler, IVisualizationShape, IView } from "chili-vis";
-import { Object3D } from "three";
-import { ThreeShape } from "./threeShape";
-import ThreeView from "./threeView";
+import { IEventHandler, IView } from "chili-core";
 
 document.oncontextmenu = (e) => e.preventDefault();
 

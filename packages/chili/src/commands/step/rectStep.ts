@@ -2,8 +2,8 @@
 
 import { Dimension, IDocument, Snapper } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, I18n, MathUtils, Plane, Result, Token, XYZ } from "chili-shared";
-import { IView } from "chili-vis";
+import { Container, I18n, MathUtils, Plane, Token, XYZ } from "chili-shared";
+import { IView } from "chili-core";
 import { IStep } from "./step";
 
 export interface RectData {

@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDisposable, Plane } from "chili-shared";
-import { CursorType, IView } from "chili-vis";
+import { CursorType } from "./cursorType";
 import { IDocument } from "./document";
+import { IView } from "./view";
 
 export interface IViewer extends IDisposable {
     readonly document: IDocument;

@@ -2,7 +2,7 @@
 
 import { IShapeMesh, IShape } from "chili-geo";
 import { Constants } from "chili-shared";
-import { IVisualizationShape } from "chili-vis";
+import { IVisualizationShape } from "chili-core";
 import {
     Object3D,
     Group,

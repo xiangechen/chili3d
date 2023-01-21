@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IModel, IModelGroup, IModelObject } from "chili-geo";
-import { IDisposable, IPropertyChanged, Plane } from "chili-shared";
-import { CursorType, IVisualization, IVisualizationShape, ISelection, IView } from "chili-vis";
+import { IModelObject } from "chili-geo";
+import { IDisposable, IPropertyChanged } from "chili-shared";
+import { ISelection } from "./selection";
 import { IViewer } from "./viewer";
+import { IVisualization } from "./visualization";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
     readonly id: string;
