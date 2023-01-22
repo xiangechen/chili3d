@@ -2,4 +2,6 @@
 
 export * from "./appBuilder";
 export * from "./application";
+export * from "./bodys";
 export * from "./document";
+export * from "./snap";

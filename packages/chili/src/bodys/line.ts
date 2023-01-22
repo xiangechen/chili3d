@@ -2,8 +2,8 @@
 
 import { IShapeFactory } from "chili-geo";
 import { Container, Token, Precision, XYZ, I18n, Result } from "chili-shared";
-import { property } from "../decorators";
-import { IShape } from "../shape";
+import { property } from "chili-core/src/decorators";
+import { IShape } from "chili-core/src/shape";
 import { BodyBase } from "./base";
 
 export class LineBody extends BodyBase {

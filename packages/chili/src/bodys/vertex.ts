@@ -2,7 +2,7 @@
 
 import { IShapeFactory } from "chili-geo";
 import { Container, i18n, Token, Precision, XYZ, I18n, Result } from "chili-shared";
-import { IShape } from "../shape";
+import { IShape } from "chili-core/src/shape";
 import { BodyBase } from "./base";
 
 export class VertexBody extends BodyBase {

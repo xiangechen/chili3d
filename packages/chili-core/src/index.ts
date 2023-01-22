@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 export * from "./body";
-export * from "./bodys";
 export * from "./command";
 export * from "./configure";
 export * from "./cursorType";
@@ -22,7 +21,6 @@ export * from "./shape";
 export * from "./shapeMesh";
 export * from "./storage";
 export * from "./transaction";
-export * from "./snap";
 export * from "./view";
 export * from "./viewer";
 export * from "./visualization";

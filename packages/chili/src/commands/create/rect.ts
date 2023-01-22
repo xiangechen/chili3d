@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, Model, RectBody } from "chili-core";
+import { command, ICommand, Id, IDocument, Model } from "chili-core";
+import { RectBody } from "../../bodys";
 import { AnyPointStep } from "../step/pointStep";
 import { RectStep } from "../step/rectStep";
 

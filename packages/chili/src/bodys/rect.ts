@@ -2,29 +2,27 @@
 
 import { Container, Token, I18n, Result, Plane } from "chili-shared";
 import { IShapeFactory } from "chili-geo";
-import { property } from "../decorators";
+import { property } from "chili-core/src/decorators";
 import { BodyBase } from "./base";
-import { IShape } from "../shape";
+import { IShape } from "chili-core/src/shape";
 
-export class BoxBody extends BodyBase {
+export class RectBody extends BodyBase {
     private _dx: number;
     private _dy: number;
-    private _dz: number;
-    readonly name: keyof I18n = "body.box";
+    readonly name: keyof I18n = "body.rect";
 
-    constructor(readonly plane: Plane, dx: number, dy: number, dz: number) {
+    constructor(readonly plane: Plane, dx: number, dy: number) {
         super();
         this._dx = dx;
         this._dy = dy;
-        this._dz = dz;
     }
 
-    protected generateBody(): Result<IShape> {
+    protected generateBody(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.box(this.plane, this._dx, this._dy, this._dz);
+        return factory!.rect(this.plane, this._dx, this._dy);
     }
 
-    @property("box.dx")
+    @property("rect.dx")
     get dx() {
         return this._dx;
     }
@@ -33,21 +31,12 @@ export class BoxBody extends BodyBase {
         this.setPropertyAndUpdateBody("dx", dx);
     }
 
-    @property("box.dy")
+    @property("rect.dy")
     get dy() {
         return this._dy;
     }
 
     set dy(dy: number) {
         this.setPropertyAndUpdateBody("dy", dy);
-    }
-
-    @property("box.dz")
-    get dz() {
-        return this._dz;
-    }
-
-    set dz(dz: number) {
-        this.setPropertyAndUpdateBody("dz", dz);
     }
 }

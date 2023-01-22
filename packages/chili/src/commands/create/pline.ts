@@ -1,8 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, LineBody, Model, Dimension, Snapper } from "chili-core";
+import { command, ICommand, Id, IDocument, Model } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { inject, injectable, Token, XYZ } from "chili-shared";
+import { LineBody } from "../../bodys";
+import { Dimension, Snapper } from "../../snap";
 
 @injectable()
 @command({

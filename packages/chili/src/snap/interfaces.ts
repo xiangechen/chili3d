@@ -2,7 +2,7 @@
 
 import { IShape } from "chili-core";
 import { XYZ, ObjectSnapType, I18n } from "chili-shared";
-import { IView } from "../view";
+import { IView } from "chili-core";
 
 export interface SnapInfo {
     point: XYZ;

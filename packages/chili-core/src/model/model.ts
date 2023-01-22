@@ -2,7 +2,7 @@
 
 import { Logger, Result } from "chili-shared";
 import { IBody } from "../body";
-import { BodyBase } from "../bodys/base";
+import { BodyBase } from "chili/src/bodys/base";
 import { IDocument } from "../document";
 import { IEditor } from "../editor";
 import { PubSub } from "../pubsub";

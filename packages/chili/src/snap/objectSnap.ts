@@ -2,7 +2,7 @@
 
 import { CurveType, ICircle, ICurve, IEdge, IShape, VertexRenderData } from "chili-core";
 import { i18n, ShapeType, XYZ, ObjectSnapType } from "chili-shared";
-import { IView } from "../view";
+import { IView } from "chili-core";
 import { IPointSnap, SnapInfo } from "./interfaces";
 
 const SnapDistance: number = 5;

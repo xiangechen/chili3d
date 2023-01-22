@@ -2,7 +2,7 @@
 
 import { IPointSnap, SnapInfo } from "./interfaces";
 import { ObjectSnapType } from "chili-shared";
-import { IView } from "../view";
+import { IView } from "chili-core";
 
 export class WorkplaneSnap implements IPointSnap {
     snaped?: SnapInfo;

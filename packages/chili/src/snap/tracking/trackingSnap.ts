@@ -5,8 +5,7 @@ import { Dimension, IPointSnap, SnapInfo } from "../";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
 import { Axis } from "./axis";
-import { EdgeRenderData, IEdge, IShape } from "chili-core";
-import { IView } from "../../view";
+import { EdgeRenderData, IEdge, IShape, IView } from "chili-core";
 
 export interface TrackingData {
     axis: Axis;

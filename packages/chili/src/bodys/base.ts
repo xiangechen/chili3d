@@ -2,7 +2,7 @@
 
 import { IBody, IShape } from "chili-core";
 import { I18n, Result } from "chili-shared";
-import { DocumentObject } from "../documentObject";
+import { DocumentObject } from "chili-core/src/documentObject";
 
 export abstract class BodyBase extends DocumentObject implements IBody {
     private callbacks: Set<() => void> = new Set();
