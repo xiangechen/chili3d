@@ -2,9 +2,8 @@
 
 import { Container, Token, I18n, Result, Plane } from "chili-shared";
 import { IShapeFactory } from "chili-geo";
-import { property } from "chili-core/src/decorators";
+import { property, IShape } from "chili-core";
 import { BodyBase } from "./base";
-import { IShape } from "chili-core/src/shape";
 
 export class BoxBody extends BodyBase {
     private _dx: number;

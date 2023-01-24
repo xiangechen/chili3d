@@ -3,7 +3,7 @@
 import { Container, Token, I18n, Result, XYZ } from "chili-shared";
 import { IShapeFactory } from "chili-geo";
 import { BodyBase } from "./base";
-import { IShape } from "chili-core/src/shape";
+import { IShape } from "chili-core";
 
 export class PolygonBody extends BodyBase {
     private _points: XYZ[];

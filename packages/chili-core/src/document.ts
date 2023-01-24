@@ -2,8 +2,8 @@
 
 import { IDisposable, IPropertyChanged } from "chili-shared";
 import { ModelObject } from "./model";
-import { ISelection } from "./selection";
-import { IViewer } from "./viewer";
+import { ISelection } from "./visualization/selection";
+import { IViewer } from "./visualization/viewer";
 import { IVisualization } from "./visualization";
 
 export interface IDocument extends IPropertyChanged, IDisposable {

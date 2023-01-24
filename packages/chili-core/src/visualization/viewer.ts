@@ -2,7 +2,7 @@
 
 import { IDisposable, Plane } from "chili-shared";
 import { CursorType } from "./cursorType";
-import { IDocument } from "./document";
+import { IDocument } from "../document";
 import { IView } from "./view";
 
 export interface IViewer extends IDisposable {

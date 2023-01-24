@@ -2,9 +2,8 @@
 
 import { Container, Token, I18n, Result, XYZ } from "chili-shared";
 import { IShapeFactory } from "chili-geo";
-import { property } from "chili-core/src/decorators";
+import { IShape, property } from "chili-core";
 import { BodyBase } from "./base";
-import { IShape } from "chili-core/src/shape";
 
 export class CircleBody extends BodyBase {
     private _center: XYZ;

@@ -2,12 +2,11 @@
 
 import { Logger, Result } from "chili-shared";
 import { IBody } from "../body";
-import { BodyBase } from "chili/src/bodys/base";
 import { IDocument } from "../document";
 import { IEditor } from "../editor";
 import { PubSub } from "../pubsub";
-import { IShape } from "../shape";
 import { ModelObject } from "./modelObject";
+import { IShape } from "../geometry";
 
 export class Model extends ModelObject {
     private readonly _editors: IEditor[];
@@ -23,8 +22,7 @@ export class Model extends ModelObject {
 
     override setDocument(document?: IDocument | undefined): void {
         super.setDocument(document);
-        let base = this.body as BodyBase;
-        base?.setDocument(document);
+        this.body?.setDocument(document);
     }
 
     private onUpdate = () => {
