@@ -10,10 +10,10 @@ import style from "./treeToolBar.module.css";
 export class TreeToolBar {
     readonly tools: HTMLElement[] = [];
     constructor(readonly tree: ModelTree) {
-        this.newIconButton("icon-folder-plus", "tree.tool.newGroup", this.newGroup);
-        this.newIconButton("icon-unexpand", "tree.tool.unexpandAll", this.unExpandAll);
-        this.newIconButton("icon-expand", "tree.tool.expandAll", this.expandAll);
-        this.newIconButton("icon-delete", "tree.tool.delete", this.deleteModel);
+        this.newIconButton("icon-folder-plus", "items.tool.newFolder", this.newGroup);
+        this.newIconButton("icon-unexpand", "items.tool.unexpandAll", this.unExpandAll);
+        this.newIconButton("icon-expand", "items.tool.expandAll", this.expandAll);
+        this.newIconButton("icon-delete", "items.tool.delete", this.deleteModel);
     }
 
     private newIconButton(icon: string, tip: keyof I18n, command: () => void) {

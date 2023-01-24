@@ -19,7 +19,7 @@ export class ModelTree {
     private readonly _modelMap: Map<ModelObject, TreeItemBase>;
 
     constructor(readonly document: IDocument) {
-        this._tab = new Tab("tree.header");
+        this._tab = new Tab("items.header");
         this.dom = this._tab.dom;
         this._modelMap = new Map<ModelObject, TreeItemBase>();
         this.toolsPanel = new TreeToolBar(this);

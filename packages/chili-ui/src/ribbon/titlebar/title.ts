@@ -3,14 +3,16 @@
 import { Control } from "../../control";
 import style from "./title.module.css";
 
+const AppName = "Chili 2023";
+
 export class Title {
     private readonly _documentName: HTMLSpanElement;
     private readonly _appName: HTMLSpanElement;
     private readonly _saveState: HTMLSpanElement;
 
     constructor(readonly container: HTMLDivElement) {
-        this._documentName = Control.span("value.untitled", style.documentName);
-        this._appName = Control.span("value.app.name", style.appName);
+        this._documentName = Control.textSpan("untitled", style.documentName);
+        this._appName = Control.textSpan(AppName, style.appName);
         this._saveState = Control.textSpan("*", style.savedStatus);
         Control.append(container, this._documentName, this._saveState, this._appName);
         this.setSaveStatus(true);
