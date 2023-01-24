@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CollectionHistory, History, PropertyHistory } from "../src/history";
-import { Transaction } from "../src/transaction";
+import "reflect-metadata";
+import { History, PropertyHistory } from "../src/history";
+import { TransactionItem } from "../src/transaction";
 
 describe("test history", () => {
     class TestClass {
@@ -17,32 +18,32 @@ describe("test history", () => {
     }
 
     test("test modify history", () => {
-        // let obj = new TestClass()
-        // let history = new History()
-        // let h: PropertyHistory = {
-        //     name: "test",
-        //     object: obj,
-        //     property: "property",
-        //     oldValue: "p1",
-        //     newValue: "p2"
-        // }
-        // let action = new Transaction(history as any, "test")
-        // action.records.push(h)
-        // history.add(action)
-        // expect(history.undoCount()).toBe(1)
-        // expect(history.redoCount()).toBe(0)
-        // history.undo()
-        // expect(obj.property).toBe("p1")
-        // expect(history.undoCount()).toBe(0)
-        // expect(history.redoCount()).toBe(1)
-        // history.redo()
-        // expect(obj.property).toBe("p2")
-        // expect(history.undoCount()).toBe(1)
-        // expect(history.redoCount()).toBe(0)
-        // history.undo()
-        // expect(history.redoCount()).toBe(1)
-        // history.add(action)
-        // expect(history.undoCount()).toBe(1)
-        // expect(history.redoCount()).toBe(0)
+        let obj = new TestClass();
+        let history = new History();
+        let h: PropertyHistory = {
+            name: "test",
+            object: obj,
+            property: "property",
+            oldValue: "p1",
+            newValue: "p2",
+        };
+        let action = new TransactionItem("test");
+        action.records.push(h);
+        history.add(action);
+        expect(history.undoCount()).toBe(1);
+        expect(history.redoCount()).toBe(0);
+        history.undo();
+        expect(obj.property).toBe("p1");
+        expect(history.undoCount()).toBe(0);
+        expect(history.redoCount()).toBe(1);
+        history.redo();
+        expect(obj.property).toBe("p2");
+        expect(history.undoCount()).toBe(1);
+        expect(history.redoCount()).toBe(0);
+        history.undo();
+        expect(history.redoCount()).toBe(1);
+        history.add(action);
+        expect(history.undoCount()).toBe(1);
+        expect(history.redoCount()).toBe(0);
     });
 });
