@@ -1,20 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    Id,
     ICompound,
     ICompoundSolid,
     ICurve,
+    Id,
     IEdge,
     IFace,
-    IShapeMesh,
     IShape,
+    IShapeMesh,
     IShell,
     ISolid,
     IVertex,
     IWire,
+    Ray,
+    Result,
+    ShapeType,
+    XYZ,
 } from "chili-core";
-import { Ray, Result, ShapeType, XYZ } from "chili-core";
 import {
     Geom_Circle,
     Geom_Line,
@@ -28,9 +31,10 @@ import {
     TopoDS_Vertex,
     TopoDS_Wire,
 } from "opencascade.js";
+
 import { OccCircle, OccCurve, OccLine } from "./occGeometry";
-import { OccMesh } from "./occMesh";
 import { OccHelps } from "./occHelps";
+import { OccMesh } from "./occMesh";
 
 export class OccShapeBase {
     readonly id: string;

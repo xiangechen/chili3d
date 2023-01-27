@@ -1,18 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, ICircle, ICurve, ILine } from "chili-core";
-import { IDisposable, XYZ } from "chili-core";
+import { CurveType, ICircle, ICurve, IDisposable, ILine, XYZ } from "chili-core";
 import {
-    GeomPlate_Aij,
     Geom_Circle,
     Geom_Curve,
     Geom_Line,
     Geom_TrimmedCurve,
+    GeomPlate_Aij,
     Handle_Geom_Curve,
     Handle_Geom_Curve_1,
     Handle_Geom_Curve_2,
     Handle_Geom_Line,
 } from "opencascade.js";
+
 import { OccHelps } from "./occHelps";
 
 export abstract class OccCurve implements ICurve, IDisposable {

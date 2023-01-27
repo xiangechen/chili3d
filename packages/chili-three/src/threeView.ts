@@ -1,9 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, IDocument, IView, IViewer } from "chili-core";
-import { IDisposable, Ray, Plane as Workplane, XY, XYZ, Observable, injectable, inject, Token } from "chili-core";
+import {
+    CursorType,
+    IDisposable,
+    IDocument,
+    inject,
+    injectable,
+    IView,
+    IViewer,
+    Observable,
+    Plane as Workplane,
+    Ray,
+    Token,
+    XY,
+    XYZ,
+} from "chili-core";
 import { FloatContainer } from "chili-ui";
 import { Camera, OrthographicCamera, PerspectiveCamera, Plane, Scene, Spherical, Vector3, WebGLRenderer } from "three";
+
 import { ThreeUtils } from "./threeUtils";
 
 export default class ThreeView extends Observable implements IView, IDisposable {

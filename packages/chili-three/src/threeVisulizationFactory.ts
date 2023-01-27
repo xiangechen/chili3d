@@ -2,6 +2,7 @@
 
 import { IDocument, IVisualization } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
+
 import { ThreeVisulization } from "./threeVisualization";
 
 export class ThreeVisulizationFactory implements IVisualizationFactory {

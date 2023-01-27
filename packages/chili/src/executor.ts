@@ -1,6 +1,6 @@
-import { Hotkey, ICommand, PubSub } from "chili-core";
-import { Commands, Container, Logger, Token } from "chili-core";
+import { Commands, Container, Hotkey, ICommand, Logger, PubSub, Token } from "chili-core";
 import { Contextual } from "chili-ui";
+
 import { Application } from "./application";
 
 export class Executor {

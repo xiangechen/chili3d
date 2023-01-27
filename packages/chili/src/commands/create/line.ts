@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, Model } from "chili-core";
+import { command, Container, ICommand, Id, IDocument, Model, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, Token, XYZ } from "chili-core";
+
 import { LineBody } from "../../bodys";
 import { Dimension } from "../../snap";
 import { AnyPointStep, PointStep } from "../step";

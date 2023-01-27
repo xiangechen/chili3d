@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ThreeVisulizationContext } from "./threeVisulizationContext";
-import ThreeView from "./threeView";
+import { IDocument, IEventHandler, ISelection, IView, IVisualization, IVisualizationContext, Plane } from "chili-core";
 import { AxesHelper, DirectionalLight, Mesh, Scene } from "three";
+
 import { ThreeSelection } from "./threeSelection";
-import { IDocument, IEventHandler, IVisualization, IVisualizationContext, ISelection, IView } from "chili-core";
 import { ThreeSelectHandler } from "./threeSelectionHandle";
-import { Plane } from "chili-core";
+import ThreeView from "./threeView";
 import { ThreeViewHandler } from "./threeViewHandle";
+import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeVisulization implements IVisualization {
     private _renderContext: ThreeVisulizationContext;

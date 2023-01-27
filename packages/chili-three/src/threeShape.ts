@@ -1,20 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants } from "chili-core";
-import { IShape, IShapeMesh, IVisualizationShape } from "chili-core";
+import { Constants, IShape, IShapeMesh, IVisualizationShape } from "chili-core";
 import {
-    Object3D,
+    BufferAttribute,
+    BufferGeometry,
+    Color,
+    Float32BufferAttribute,
     Group,
-    MeshBasicMaterial,
+    Line,
     LineBasicMaterial,
     Mesh,
-    Line,
-    Color,
-    BufferGeometry,
-    Float32BufferAttribute,
-    BufferAttribute,
+    MeshBasicMaterial,
+    Object3D,
 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
+
 import { ThreeUtils } from "./threeUtils";
 
 let edgeMaterial = new LineBasicMaterial();

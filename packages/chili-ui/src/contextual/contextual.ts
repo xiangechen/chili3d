@@ -1,8 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, ContextualComboControl, ICommand, Id } from "chili-core";
-import { ContextualCheckControl, ContextualControl, ContextualInputControl } from "chili-core";
-import { I18n } from "chili-core";
+import {
+    CommandData,
+    ContextualCheckControl,
+    ContextualComboControl,
+    ContextualControl,
+    ContextualInputControl,
+    I18n,
+    ICommand,
+    Id,
+} from "chili-core";
+
 import { Control } from "../control";
 import style from "./contextual.module.css";
 

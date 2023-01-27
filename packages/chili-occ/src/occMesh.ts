@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IShapeMesh, VertexMesh, EdgeMesh, FaceMesh, VertexRenderData, RenderDataBuilder } from "chili-core";
+import { EdgeMesh, FaceMesh, IShapeMesh, RenderDataBuilder, VertexMesh, VertexRenderData } from "chili-core";
 import {
     gp_Trsf,
     Handle_Poly_Triangulation,
@@ -11,6 +11,7 @@ import {
     TopoDS_Face,
     TopoDS_Shape,
 } from "opencascade.js";
+
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccVertex } from "./occShape";
 

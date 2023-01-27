@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Model, ModelGroup, ModelObject } from "chili-core";
-import { Constants, IDisposable } from "chili-core";
+import { Constants, IDisposable, IDocument, Model, ModelGroup, ModelObject } from "chili-core";
+
 import { Control } from "../control";
 import { ModelTree } from "./tree";
 import style from "./treeItem.module.css";

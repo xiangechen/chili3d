@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Container, I18n, IShape, Precision, property, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, Token, Precision, XYZ, I18n, Result } from "chili-core";
-import { property, IShape } from "chili-core";
+
 import { BodyBase } from "./base";
 
 export class LineBody extends BodyBase {

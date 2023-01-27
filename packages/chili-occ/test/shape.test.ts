@@ -1,15 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from "opencascade.js/dist/node.js";
-import { expect, jest, test } from "@jest/globals";
 import "reflect-metadata";
-import { CurveType } from "chili-core";
-import { Ray, ShapeType, XYZ } from "chili-core";
-import { Id } from "chili-core";
-import { OccEdge } from "../src/occShape";
+
+import { CurveType, Id, Ray, ShapeType, XYZ } from "chili-core";
+import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from "opencascade.js/dist/node.js";
+
+import { expect, jest, test } from "@jest/globals";
+
 import { OccCurve } from "../src/occGeometry";
-import { OccMesh } from "../src/occMesh";
 import { OccHelps } from "../src/occHelps";
+import { OccMesh } from "../src/occMesh";
+import { OccEdge } from "../src/occShape";
 
 const newId = jest.spyOn(Id, "new").mockImplementation(() => {
     return "asfas";

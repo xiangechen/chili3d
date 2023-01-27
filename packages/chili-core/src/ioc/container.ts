@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IRegister, IResolve } from "./";
 import { container as tsContainer, DependencyContainer as TsDependencyContainer, Lifecycle } from "tsyringe";
+
 import { Token } from "../token";
+import { IRegister, IResolve } from "./";
 
 export class Container implements IRegister, IResolve {
     private static _container: Container | undefined;

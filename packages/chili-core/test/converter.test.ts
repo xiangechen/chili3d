@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import "reflect-metadata";
+
 import { XYZ } from "../src";
-import { XYZConverter, NumberConverter, ConverterBase, StringConverter } from "../src/converter";
+import { ConverterBase, NumberConverter, StringConverter, XYZConverter } from "../src/converter";
 
 describe("converter test", () => {
     test("test type", () => {

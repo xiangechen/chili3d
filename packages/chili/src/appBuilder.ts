@@ -1,13 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
-import { Token, Logger, Container, Commands } from "chili-core";
-import { ICommand, Hotkey, CommandData, HotkeyMap } from "chili-core";
-import hotkey from "./hotkeys.json";
-import ribbon from "./ribbon.json";
-import quickbar from "./quickbar.json";
+
+import { CommandData, Commands, Container, Hotkey, HotkeyMap, ICommand, Logger, Token } from "chili-core";
+
 import { Application } from "./application";
 import { Executor } from "./executor";
+import hotkey from "./hotkeys.json";
+import quickbar from "./quickbar.json";
+import ribbon from "./ribbon.json";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];

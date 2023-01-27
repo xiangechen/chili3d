@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Constants, IDocument, Logger, ModelGroup, ModelObject, PubSub } from "chili-core";
+
 import { Control } from "../control";
-import { TreeItem } from "./treeItem";
+import { Tab } from "../tab";
 import style from "./tree.module.css";
-import { Constants, Logger } from "chili-core";
-import { IDocument, ModelGroup, ModelObject, PubSub } from "chili-core";
-import { TreeToolBar } from "./treeToolBar";
+import { TreeItem } from "./treeItem";
 import { TreeItemBase } from "./treeItemBase";
 import { TreeItemGroup } from "./treeItemGroup";
-import { Tab } from "../tab";
+import { TreeToolBar } from "./treeToolBar";
 
 export class ModelTree {
     readonly dom: HTMLElement;

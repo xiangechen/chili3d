@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType } from "./cursorType";
-import { IDocument } from "../document";
-import { IView } from "./view";
 import { IDisposable } from "../disposable";
+import { IDocument } from "../document";
 import { Plane } from "../math";
+import { CursorType } from "./cursorType";
+import { IView } from "./view";
 
 export interface IViewer extends IDisposable {
     readonly document: IDocument;

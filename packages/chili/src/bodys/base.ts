@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody, IShape } from "chili-core";
-import { I18n, Result } from "chili-core";
-import { DocumentObject } from "chili-core/src/documentObject";
+import { DocumentObject, I18n, IBody, IShape, Result } from "chili-core";
 
 export abstract class BodyBase extends DocumentObject implements IBody {
     private callbacks: Set<() => void> = new Set();

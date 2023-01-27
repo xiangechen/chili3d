@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { PubSub } from "../pubsub";
+import { property } from "../decorators";
 import { DocumentObject } from "../documentObject";
 import { Quaternion, XYZ } from "../math";
-import { ModelGroup } from "./modelGroup";
-import { property } from "../decorators";
+import { PubSub } from "../pubsub";
 import { Model } from "./model";
+import { ModelGroup } from "./modelGroup";
 
 export abstract class ModelObject extends DocumentObject {
     private _name: string;

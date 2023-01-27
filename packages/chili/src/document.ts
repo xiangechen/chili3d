@@ -1,18 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    IDocument,
-    IViewer,
-    PubSub,
+    CollectionAction,
+    Container,
     History,
-    ModelCollection,
-    Transaction,
-    IVisualization,
+    ICollection,
+    IDocument,
     ISelection,
+    IViewer,
+    IVisualization,
+    Logger,
+    ModelCollection,
     ModelObject,
+    Observable,
+    PubSub,
+    Token,
+    Transaction,
 } from "chili-core";
-import { CollectionAction, ICollection, Logger, Observable, Token, Container } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
+
 import { Viewer } from "./viewer";
 
 export class Document extends Observable implements IDocument {

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { PubSub } from "chili-core";
-import { i18n, I18n, MessageLevel, Result, Valid, XYZ } from "chili-core";
+import { i18n, I18n, MessageLevel, PubSub, Result, Valid, XYZ } from "chili-core";
+
 import { Control } from "../control";
 import { UI } from "../ui";
 import style from "./float.module.css";

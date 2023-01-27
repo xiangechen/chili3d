@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, PubSub } from "chili-core";
+
+import { Control } from "../control";
+import { PropertyView } from "../property";
+import { CheckProperty } from "../property/check";
+import { Tab } from "../tab";
 import { ModelTree } from "../tree/tree";
 import style from "./sidebar.module.css";
-import { CheckProperty } from "../property/check";
-import { PropertyView } from "../property";
-import { Control } from "../control";
-import { Tab } from "../tab";
 
 export class Sidebar {
     readonly dom: HTMLDivElement;

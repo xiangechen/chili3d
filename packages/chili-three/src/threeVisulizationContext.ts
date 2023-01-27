@@ -2,15 +2,17 @@
 
 import {
     IDocument,
-    PubSub,
+    IShape,
     IVisualizationContext,
     IVisualizationShape,
-    ModelObject,
-    IShape,
-    RenderData,
+    LineType,
     Model,
+    ModelObject,
+    PubSub,
+    RenderData,
+    ShapeType,
+    XYZ,
 } from "chili-core";
-import { LineType, ShapeType, XYZ } from "chili-core";
 import {
     BufferGeometry,
     EdgesGeometry,
@@ -27,6 +29,7 @@ import {
     PointsMaterial,
     Scene,
 } from "three";
+
 import { ThreeShape } from "./threeShape";
 
 export interface ModelInfo {

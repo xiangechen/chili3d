@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Property, PubSub, Model, ModelObject } from "chili-core";
+import { IDocument, Model, ModelObject, Property, PubSub } from "chili-core";
+
 import { Control } from "../control";
 import { Expander } from "../expander";
 import { Tab } from "../tab";

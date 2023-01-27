@@ -2,6 +2,7 @@
 
 import { ShapeAlgo_ToolContainer } from "opencascade.js";
 import { Object3D } from "three";
+
 import { ThreeShape } from "./threeShape";
 
 export class GroupShape extends Object3D {

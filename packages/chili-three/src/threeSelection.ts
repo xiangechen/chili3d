@@ -1,11 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, Observable, ShapeType } from "chili-core";
+import {
+    Constants,
+    IDocument,
+    ISelection,
+    IShape,
+    IView,
+    IVisualizationShape,
+    ModelObject,
+    Observable,
+    PubSub,
+    ShapeType,
+} from "chili-core";
 import { Object3D, Raycaster } from "three";
-import { IDocument, PubSub, IVisualizationShape, ISelection, IView, ModelObject, IShape } from "chili-core";
-import { ThreeVisulizationContext } from "./threeVisulizationContext";
+
 import { ThreeShape } from "./threeShape";
 import { ThreeUtils } from "./threeUtils";
+import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeSelection extends Observable implements ISelection {
     private readonly _selectedModels: Set<ModelObject>;

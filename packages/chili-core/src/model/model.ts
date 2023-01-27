@@ -3,11 +3,11 @@
 import { IBody } from "../body";
 import { IDocument } from "../document";
 import { IEditor } from "../editor";
-import { PubSub } from "../pubsub";
-import { ModelObject } from "./modelObject";
 import { IShape } from "../geometry";
-import { Result } from "../result";
 import { Logger } from "../logger";
+import { PubSub } from "../pubsub";
+import { Result } from "../result";
+import { ModelObject } from "./modelObject";
 
 export class Model extends ModelObject {
     private readonly _editors: IEditor[];

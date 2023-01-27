@@ -1,11 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, Ray, LineType, MathUtils, ObjectSnapType, ShapeType, XY, XYZ } from "chili-core";
+import {
+    EdgeRenderData,
+    i18n,
+    IEdge,
+    IShape,
+    IView,
+    LineType,
+    MathUtils,
+    ObjectSnapType,
+    Ray,
+    ShapeType,
+    XY,
+    XYZ,
+} from "chili-core";
+
 import { Dimension, IPointSnap, SnapInfo } from "../";
+import { Axis } from "./axis";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
-import { Axis } from "./axis";
-import { EdgeRenderData, IEdge, IShape, IView } from "chili-core";
 
 export interface TrackingData {
     axis: Axis;

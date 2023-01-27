@@ -1,14 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken, ShapeType } from "chili-core";
-import { IEventHandler, IView, VertexRenderData } from "chili-core";
+import {
+    CancellationToken,
+    Configure,
+    I18n,
+    IDocument,
+    IEventHandler,
+    IView,
+    MessageLevel,
+    ObjectSnapType,
+    PubSub,
+    Result,
+    ShapeType,
+    Valid,
+    VertexRenderData,
+    XYZ,
+} from "chili-core";
+
+import { Dimension } from "./dimension";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { WorkplaneSnap } from "./workplaneSnap";
-import { PubSub, IDocument, Configure } from "chili-core";
-import { TrackingSnap } from "./tracking";
-import { Dimension } from "./dimension";
 import { ShapeCreator } from "./shapeHandle";
+import { TrackingSnap } from "./tracking";
+import { WorkplaneSnap } from "./workplaneSnap";
 
 export enum SnapState {
     Snaping,

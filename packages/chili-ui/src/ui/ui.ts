@@ -1,15 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Control } from "../control";
-import { RibbonTab } from "../ribbon/ribbonTab";
-import style from "./ui.module.css";
-import { Sidebar } from "../sidebar";
-import { Viewport } from "../viewport";
 import { PubSub } from "chili-core";
-import { Ribbon } from "../ribbon";
-import { Statusbar } from "../statusbar";
-import { RibbonData } from "../ribbon/ribbonData";
+
 import { Contextual } from "../contextual";
+import { Control } from "../control";
+import { Ribbon } from "../ribbon";
+import { RibbonData } from "../ribbon/ribbonData";
+import { RibbonTab } from "../ribbon/ribbonTab";
+import { Sidebar } from "../sidebar";
+import { Statusbar } from "../statusbar";
+import { Viewport } from "../viewport";
+import style from "./ui.module.css";
 
 /**
  * ______________________________

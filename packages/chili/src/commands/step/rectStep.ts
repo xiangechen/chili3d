@@ -1,11 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument } from "chili-core";
+import { Container, I18n, IDocument, IView, MathUtils, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, I18n, MathUtils, Plane, Token, XYZ } from "chili-core";
-import { IView } from "chili-core";
-import { IStep } from "./step";
+
 import { Dimension, Snapper } from "../../snap";
+import { IStep } from "./step";
 
 export interface RectData {
     plane: Plane;

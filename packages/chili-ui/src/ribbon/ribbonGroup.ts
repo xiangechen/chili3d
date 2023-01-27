@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n } from "chili-core";
+
 import { Control } from "../control";
 import style from "./ribbon.module.css";
 

@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObject } from "./history";
 import { IDocument } from "./document";
-import { Transaction } from "./transaction";
+import { HistoryObject } from "./history";
 import { Observable } from "./observer";
+import { Transaction } from "./transaction";
 
 export interface IDocumentObject {
     setDocument(document?: IDocument): void;

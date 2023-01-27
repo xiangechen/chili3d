@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, ICommand } from "chili-core";
-import { Container, Logger, Token } from "chili-core";
-import { RibbonButtonSize } from "./ribbonButtonSize";
-import style from "./ribbon.module.css";
+import { CommandData, Container, ICommand, Logger, Token } from "chili-core";
+
 import { Control } from "../control";
+import style from "./ribbon.module.css";
+import { RibbonButtonSize } from "./ribbonButtonSize";
 
 export class RibbonButton {
     readonly dom: HTMLDivElement;
