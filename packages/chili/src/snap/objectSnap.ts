@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CurveType, ICircle, ICurve, IEdge, IShape, VertexRenderData } from "chili-core";
-import { i18n, ShapeType, XYZ, ObjectSnapType } from "chili-shared";
+import { i18n, ShapeType, XYZ, ObjectSnapType } from "chili-core";
 import { IView } from "chili-core";
 import { IPointSnap, SnapInfo } from "./interfaces";
 

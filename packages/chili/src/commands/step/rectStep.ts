@@ -2,7 +2,7 @@
 
 import { IDocument } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Container, I18n, MathUtils, Plane, Token, XYZ } from "chili-shared";
+import { Container, I18n, MathUtils, Plane, Token, XYZ } from "chili-core";
 import { IView } from "chili-core";
 import { IStep } from "./step";
 import { Dimension, Snapper } from "../../snap";

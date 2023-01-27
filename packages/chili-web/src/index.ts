@@ -2,7 +2,7 @@
 
 import { AppBuilder } from "chili";
 import { Viewport } from "chili-ui";
-import { I18n, Plane } from "chili-shared";
+import { I18n, Plane } from "chili-core";
 
 // prettier-ignore
 let builder = new AppBuilder()

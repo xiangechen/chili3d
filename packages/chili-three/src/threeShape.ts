@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants } from "chili-shared";
+import { Constants } from "chili-core";
 import { IShape, IShapeMesh, IVisualizationShape } from "chili-core";
 import {
     Object3D,

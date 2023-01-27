@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument } from "chili-core";
-import { IPropertyChanged, Plane, Ray, XY, XYZ } from "chili-shared";
 import { FloatContainer } from "chili-ui";
+import { IDocument } from "../document";
+import { Plane, Ray, XY, XYZ } from "../math";
+import { IPropertyChanged } from "../observer";
 import { CursorType } from "./cursorType";
 
 export interface IView extends IPropertyChanged {

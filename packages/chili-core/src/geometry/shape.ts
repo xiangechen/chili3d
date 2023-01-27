@@ -1,6 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Ray, Result, ShapeType, XYZ } from "chili-shared";
+import { Ray, XYZ } from "../math";
+import { Result } from "../result";
+import { ShapeType } from "../shapeType";
 import { ICurve } from "./geometry";
 import { IShapeMesh } from "./shapeMesh";
 

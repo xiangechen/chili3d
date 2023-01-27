@@ -4,7 +4,7 @@ import initOpenCascade, { BRepBuilderAPI_MakeVertex, OpenCascadeInstance } from 
 import { expect, jest, test } from "@jest/globals";
 import "reflect-metadata";
 import { CurveType } from "chili-core";
-import { Ray, ShapeType, XYZ } from "chili-shared";
+import { Ray, ShapeType, XYZ } from "chili-core";
 import { Id } from "chili-core";
 import { OccEdge } from "../src/occShape";
 import { OccCurve } from "../src/occGeometry";

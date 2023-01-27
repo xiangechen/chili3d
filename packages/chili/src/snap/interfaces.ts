@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IShape } from "chili-core";
-import { XYZ, ObjectSnapType, I18n } from "chili-shared";
+import { XYZ, ObjectSnapType, I18n } from "chili-core";
 import { IView } from "chili-core";
 
 export interface SnapInfo {

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, IView } from "chili-core";
-import { I18n, XYZ } from "chili-shared";
+import { I18n, XYZ } from "chili-core";
 import { Dimension, Snapper } from "../../snap";
 import { ShapeCreator } from "../../snap/shapeHandle";
 import { IStep } from "./step";

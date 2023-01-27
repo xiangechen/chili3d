@@ -1,4 +1,4 @@
-import { XYZ } from "chili-shared";
+import { XYZ } from "chili-core";
 import { IShape, IView } from "chili-core";
 
 export interface ShapeCreator {

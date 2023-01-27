@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CollectionAction, CollectionChangedBase, ICollection } from "chili-shared";
+import { CollectionAction, CollectionChangedBase, ICollection } from "../observer";
 import { ModelObject } from "./modelObject";
 
 export class ModelCollection extends CollectionChangedBase<ModelObject> implements ICollection<ModelObject> {

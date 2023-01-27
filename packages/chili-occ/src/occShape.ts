@@ -14,7 +14,7 @@ import {
     IVertex,
     IWire,
 } from "chili-core";
-import { Ray, Result, ShapeType, XYZ } from "chili-shared";
+import { Ray, Result, ShapeType, XYZ } from "chili-core";
 import {
     Geom_Circle,
     Geom_Line,

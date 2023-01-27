@@ -1,8 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Model, ModelGroup, ModelObject } from "chili-core";
-import { Commands, I18n, IDisposable, MessageLevel, ObjectSnapType, Valid } from "chili-shared";
+import { Commands } from "./commands";
+import { IDisposable } from "./disposable";
 import { IDocument } from "./document";
+import { I18n } from "./i18n";
+import { MessageLevel } from "./level";
+import { ModelGroup, ModelObject } from "./model";
+import { ObjectSnapType } from "./snapType";
+import { Valid } from "./valid";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;

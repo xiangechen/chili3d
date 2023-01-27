@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result } from "chili-shared";
+import { Result } from "./result";
 import { IShape } from "./geometry";
 
 export interface IEditor {

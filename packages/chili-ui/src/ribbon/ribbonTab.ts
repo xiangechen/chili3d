@@ -7,7 +7,7 @@ import { RibbonButtonSize } from "./ribbonButtonSize";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonStack } from "./ribbonStack";
 import { RibbonTabData } from "./ribbonData";
-import { I18n } from "chili-shared";
+import { I18n } from "chili-core";
 
 export class RibbonTab {
     readonly dom: HTMLDivElement;

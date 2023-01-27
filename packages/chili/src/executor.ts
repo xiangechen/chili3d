@@ -1,5 +1,5 @@
 import { Hotkey, ICommand, PubSub } from "chili-core";
-import { Commands, Container, Logger, Token } from "chili-shared";
+import { Commands, Container, Logger, Token } from "chili-core";
 import { Contextual } from "chili-ui";
 import { Application } from "./application";
 

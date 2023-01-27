@@ -2,7 +2,7 @@
 
 import { command, ICommand, Id, IDocument, Model, IView } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { inject, injectable, Token, XYZ } from "chili-shared";
+import { inject, injectable, Token, XYZ } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { Dimension } from "../../snap";
 import { AnyPointStep, PointStep } from "../step";

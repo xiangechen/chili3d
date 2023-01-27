@@ -11,7 +11,7 @@ import {
     ISelection,
     ModelObject,
 } from "chili-core";
-import { CollectionAction, ICollection, Logger, Observable, Token, Container } from "chili-shared";
+import { CollectionAction, ICollection, Logger, Observable, Token, Container } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
 import { Viewer } from "./viewer";
 

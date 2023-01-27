@@ -10,7 +10,7 @@ import {
     RenderData,
     Model,
 } from "chili-core";
-import { LineType, ShapeType, XYZ } from "chili-shared";
+import { LineType, ShapeType, XYZ } from "chili-core";
 import {
     BufferGeometry,
     EdgesGeometry,

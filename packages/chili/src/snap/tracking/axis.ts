@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, Plane, Ray, XYZ } from "chili-shared";
+import { i18n, Plane, Ray, XYZ } from "chili-core";
 
 export class Axis extends Ray {
     constructor(location: XYZ, direction: XYZ, readonly name: string) {

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, Observable, ShapeType } from "chili-shared";
+import { Constants, Observable, ShapeType } from "chili-core";
 import { Object3D, Raycaster } from "three";
 import { IDocument, PubSub, IVisualizationShape, ISelection, IView, ModelObject, IShape } from "chili-core";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";

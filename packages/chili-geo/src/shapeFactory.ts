@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Plane, Result, XYZ } from "chili-shared";
-import { IEdge, IFace, ISolid, IVertex, IWire } from "chili-core";
+import { IEdge, IFace, ISolid, IVertex, IWire, Plane, Result, XYZ } from "chili-core";
 
 export interface IShapeFactory {
     point(point: XYZ): Result<IVertex>;

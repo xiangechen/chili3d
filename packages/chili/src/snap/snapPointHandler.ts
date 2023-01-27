@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken, ShapeType } from "chili-shared";
+import { Result, XYZ, ObjectSnapType, I18n, MessageLevel, Valid, CancellationToken, ShapeType } from "chili-core";
 import { IEventHandler, IView, VertexRenderData } from "chili-core";
 import { SnapInfo } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";

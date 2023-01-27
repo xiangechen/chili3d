@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable, IPropertyChanged } from "chili-shared";
 import { ModelObject } from "./model";
 import { ISelection } from "./visualization/selection";
 import { IViewer } from "./visualization/viewer";
 import { IVisualization } from "./visualization";
+import { IPropertyChanged } from "./observer";
+import { IDisposable } from "./disposable";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
     readonly id: string;

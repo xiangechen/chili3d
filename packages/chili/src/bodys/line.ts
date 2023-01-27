@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IShapeFactory } from "chili-geo";
-import { Container, Token, Precision, XYZ, I18n, Result } from "chili-shared";
+import { Container, Token, Precision, XYZ, I18n, Result } from "chili-core";
 import { property, IShape } from "chili-core";
 import { BodyBase } from "./base";
 

@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Result } from "chili-shared";
 import { IBody } from "../body";
 import { IDocument } from "../document";
 import { IEditor } from "../editor";
 import { PubSub } from "../pubsub";
 import { ModelObject } from "./modelObject";
 import { IShape } from "../geometry";
+import { Result } from "../result";
+import { Logger } from "../logger";
 
 export class Model extends ModelObject {
     private readonly _editors: IEditor[];

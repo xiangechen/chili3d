@@ -2,7 +2,7 @@
 
 import { IEdge, IFace, ISolid, IVertex, IWire } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Token, Result, XYZ, Plane, MathUtils } from "chili-shared";
+import { Token, Result, XYZ, Plane, MathUtils } from "chili-core";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccSolid, OccVertex, OccWire } from "./occShape";
 

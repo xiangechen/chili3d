@@ -3,7 +3,7 @@
 import { Control } from "../control";
 import { TreeItem } from "./treeItem";
 import style from "./tree.module.css";
-import { Constants, Logger } from "chili-shared";
+import { Constants, Logger } from "chili-core";
 import { IDocument, ModelGroup, ModelObject, PubSub } from "chili-core";
 import { TreeToolBar } from "./treeToolBar";
 import { TreeItemBase } from "./treeItemBase";

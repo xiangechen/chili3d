@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Property, IDocument, Transaction } from "chili-core";
-import { IConverter, XYZ, XYZConverter, NumberConverter, StringConverter } from "chili-shared";
+import { IConverter, XYZ, XYZConverter, NumberConverter, StringConverter } from "chili-core";
 import style from "./input.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";

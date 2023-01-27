@@ -2,7 +2,7 @@
 
 import { CommandData, ContextualComboControl, ICommand, Id } from "chili-core";
 import { ContextualCheckControl, ContextualControl, ContextualInputControl } from "chili-core";
-import { I18n } from "chili-shared";
+import { I18n } from "chili-core";
 import { Control } from "../control";
 import style from "./contextual.module.css";
 

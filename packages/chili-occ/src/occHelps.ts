@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CurveType, IShape } from "chili-core";
-import { Plane, ShapeType, XYZ } from "chili-shared";
+import { Plane, ShapeType, XYZ } from "chili-core";
 import { BRepAdaptor_Curve, gp_Ax2, gp_Ax3, gp_Dir, gp_Pln, gp_Pnt, gp_Vec, TopoDS_Shape } from "opencascade.js";
 import {
     OccCompound,

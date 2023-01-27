@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger } from "chili-shared";
+import { Logger } from "./logger";
 
 export class Storage {
     open(dbName: string, storeName: string, options?: IDBObjectStoreParameters): Promise<IDBDatabase> {

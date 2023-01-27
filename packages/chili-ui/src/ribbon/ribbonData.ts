@@ -1,4 +1,4 @@
-import { I18n } from "chili-shared";
+import { I18n } from "chili-core";
 
 export type RibbonCommandData = string | string[];
 

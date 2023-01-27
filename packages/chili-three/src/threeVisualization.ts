@@ -6,7 +6,7 @@ import { AxesHelper, DirectionalLight, Mesh, Scene } from "three";
 import { ThreeSelection } from "./threeSelection";
 import { IDocument, IEventHandler, IVisualization, IVisualizationContext, ISelection, IView } from "chili-core";
 import { ThreeSelectHandler } from "./threeSelectionHandle";
-import { Plane } from "chili-shared";
+import { Plane } from "chili-core";
 import { ThreeViewHandler } from "./threeViewHandle";
 
 export class ThreeVisulization implements IVisualization {

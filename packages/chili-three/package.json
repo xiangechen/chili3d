@@ -4,7 +4,6 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
-        "chili-shared": "*",
         "chili-core": "*",
         "chili-vis": "*",
         "@types/three": "^0.144.0",

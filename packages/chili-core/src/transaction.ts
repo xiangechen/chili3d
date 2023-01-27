@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger } from "chili-shared";
-import { HistoryObject, History } from "./history";
 import { IDocument } from "./document";
+import { History, HistoryObject } from "./history";
+import { Logger } from "./logger";
 
 export class TransactionItem {
     readonly records: Array<HistoryObject>;

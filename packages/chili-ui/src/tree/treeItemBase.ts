@@ -2,7 +2,7 @@
 
 import { IDocument, ModelObject } from "chili-core";
 import { Transaction } from "chili-core/src/transaction";
-import { Constants, IDisposable } from "chili-shared";
+import { Constants, IDisposable } from "chili-core";
 import { Control } from "../control";
 import style from "./treeItemBase.module.css";
 
