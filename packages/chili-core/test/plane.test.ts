@@ -5,12 +5,6 @@ import "reflect-metadata";
 import { Plane, Ray, XYZ } from "../src";
 
 describe("test plane", () => {
-    test("test freeze", () => {
-        Plane.XY.x.x = 4; // Frozen objects are modified ???
-        console.log("Frozen objects are modified");
-        expect(Plane.XY.x.x).toBe(4);
-    });
-
     test("test constructor", () => {
         expect(() => new Plane(XYZ.zero, XYZ.unitX, XYZ.unitX)).toThrow();
         expect(() => new Plane(XYZ.zero, XYZ.zero, XYZ.unitY)).toThrow();

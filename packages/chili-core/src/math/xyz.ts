@@ -3,12 +3,12 @@
 import { MathUtils } from "./mathUtils";
 
 export class XYZ {
-    static readonly zero = Object.freeze(new XYZ(0, 0, 0));
-    static readonly unitX = Object.freeze(new XYZ(1, 0, 0));
-    static readonly unitY = Object.freeze(new XYZ(0, 1, 0));
-    static readonly unitZ = Object.freeze(new XYZ(0, 0, 1));
+    static readonly zero = new XYZ(0, 0, 0);
+    static readonly unitX = new XYZ(1, 0, 0);
+    static readonly unitY = new XYZ(0, 1, 0);
+    static readonly unitZ = new XYZ(0, 0, 1);
 
-    constructor(public x: number, public y: number, public z: number) {}
+    constructor(readonly x: number, readonly y: number, readonly z: number) {}
 
     cross(right: XYZ): XYZ {
         return new XYZ(

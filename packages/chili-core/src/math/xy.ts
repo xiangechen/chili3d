@@ -3,11 +3,11 @@
 import { MathUtils } from "./mathUtils";
 
 export class XY {
-    static readonly zero = Object.freeze(new XY(0, 0));
-    static readonly unitX = Object.freeze(new XY(1, 0));
-    static readonly unitY = Object.freeze(new XY(0, 1));
+    static readonly zero = new XY(0, 0);
+    static readonly unitX = new XY(1, 0);
+    static readonly unitY = new XY(0, 1);
 
-    constructor(public x: number, public y: number) {}
+    constructor(readonly x: number, readonly y: number) {}
 
     cross(right: XY): number {
         return this.x * right.y - this.y * right.x;

@@ -5,9 +5,9 @@ import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
 export class Plane {
-    static readonly XY: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX));
-    static readonly YZ: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY));
-    static readonly ZX: Plane = Object.freeze(new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ));
+    static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
+    static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
+    static readonly ZX: Plane = new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ);
 
     /**
      * unit vector
