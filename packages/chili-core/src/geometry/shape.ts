@@ -2,7 +2,7 @@
 
 import { Ray, XYZ } from "../math";
 import { Result } from "../result";
-import { ShapeType } from "../shapeType";
+import { ShapeType } from "./shapeType";
 import { ICurve } from "./geometry";
 import { IShapeMesh } from "./shapeMesh";
 

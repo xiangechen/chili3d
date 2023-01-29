@@ -7,7 +7,7 @@ import {
     IDocument,
     IEventHandler,
     IView,
-    MessageLevel,
+    MessageType,
     ObjectSnapType,
     PubSub,
     Result,
@@ -119,7 +119,7 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private showSnaped(snapedInfo: SnapInfo) {
         if (snapedInfo.info !== undefined) {
-            PubSub.default.pub("floatTip", MessageLevel.info, snapedInfo.info);
+            PubSub.default.pub("floatTip", MessageType.info, snapedInfo.info);
         } else {
             this.clearSnap();
         }

@@ -3,7 +3,7 @@
 import { IShape } from "../geometry";
 import { ModelObject } from "../model";
 import { IPropertyChanged } from "../observer";
-import { ShapeType } from "../shapeType";
+import { ShapeType } from "../geometry/shapeType";
 import { IView } from "./view";
 import { IVisualizationShape } from "./visualizationShape";
 

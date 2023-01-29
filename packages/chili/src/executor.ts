@@ -1,7 +1,8 @@
-import { Commands, Container, Hotkey, ICommand, Logger, PubSub, Token } from "chili-core";
+import { Commands, Container, ICommand, Logger, PubSub, Token } from "chili-core";
 import { Contextual } from "chili-ui";
 
 import { Application } from "./application";
+import { Hotkey } from "./hotkey";
 
 export class Executor {
     static _instance: Executor | undefined;

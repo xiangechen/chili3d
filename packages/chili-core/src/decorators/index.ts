@@ -3,3 +3,4 @@
 export * from "./command";
 export * from "./contextual";
 export * from "./parameter";
+export * from "./token";

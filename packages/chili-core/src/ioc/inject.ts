@@ -2,7 +2,7 @@
 
 import { inject as tsyringeInject, injectable as tsyringeInjectable } from "tsyringe";
 
-import { Token } from "../token";
+import { Token } from "../decorators/token";
 
 export function injectable<T>(): (target: new (...args: any[]) => T) => void {
     return tsyringeInjectable<T>();

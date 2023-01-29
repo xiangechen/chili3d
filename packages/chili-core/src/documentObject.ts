@@ -5,11 +5,7 @@ import { HistoryObject } from "./history";
 import { Observable } from "./observer";
 import { Transaction } from "./transaction";
 
-export interface IDocumentObject {
-    setDocument(document?: IDocument): void;
-}
-
-export abstract class DocumentObject extends Observable implements IDocumentObject {
+export abstract class DocumentObject extends Observable {
     protected _document: IDocument | undefined;
 
     constructor(document?: IDocument) {

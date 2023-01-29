@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, I18n, MessageLevel, PubSub, Result, Valid, XYZ } from "chili-core";
+import { i18n, I18n, MessageType, PubSub, Result, Valid, XYZ } from "chili-core";
 
 import { Control } from "../control";
 import { UI } from "../ui";
@@ -22,7 +22,7 @@ export class FloatContainer {
         PubSub.default.sub("clearInput", this.clearInput);
     }
 
-    private showTip = (level: MessageLevel, msg: string) => {
+    private showTip = (level: MessageType, msg: string) => {
         if (this._tip === undefined) {
             this._tip = new Tip(msg, level);
             this.dom.appendChild(this._tip.dom);

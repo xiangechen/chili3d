@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IBody } from "../body";
+import { IBody } from "./body";
 import { IDocument } from "../document";
-import { IEditor } from "../editor";
+import { IEditor } from "./editor";
 import { IShape } from "../geometry";
 import { Logger } from "../logger";
 import { PubSub } from "../pubsub";

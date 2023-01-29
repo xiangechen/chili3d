@@ -4,7 +4,7 @@ import { Commands } from "./commands";
 import { IDisposable } from "./disposable";
 import { IDocument } from "./document";
 import { I18n } from "./i18n";
-import { MessageLevel } from "./level";
+import { MessageType } from "./messageType";
 import { ModelGroup, ModelObject } from "./model";
 import { ObjectSnapType } from "./snapType";
 import { Valid } from "./valid";
@@ -23,7 +23,7 @@ export interface PubSubEventMap {
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;
-    floatTip: (level: MessageLevel, msg: string) => void;
+    floatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
     showInput: (validCallback: (text: string) => Valid, callback: (text: string) => void) => void;
     clearInput: () => void;

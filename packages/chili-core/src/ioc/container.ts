@@ -2,7 +2,7 @@
 
 import { container as tsContainer, DependencyContainer as TsDependencyContainer, Lifecycle } from "tsyringe";
 
-import { Token } from "../token";
+import { Token } from "../decorators/token";
 import { IRegister, IResolve } from "./";
 
 export class Container implements IRegister, IResolve {
