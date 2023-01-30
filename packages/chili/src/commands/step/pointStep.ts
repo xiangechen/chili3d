@@ -3,7 +3,7 @@
 import { I18n, IDocument, IView, XYZ } from "chili-core";
 
 import { Dimension, Snapper } from "../../snap";
-import { ShapeCreator } from "../../snap/shapeHandle";
+import { PointToShape } from "../../snap/pointToShape";
 import { IStep } from "./step";
 
 export class AnyPointStep implements IStep<XYZ> {
@@ -14,7 +14,7 @@ export class AnyPointStep implements IStep<XYZ> {
 }
 
 export class PointStep implements IStep<XYZ> {
-    constructor(readonly first: XYZ, readonly dimension: Dimension, readonly handleTemp: ShapeCreator) {}
+    constructor(readonly first: XYZ, readonly dimension: Dimension, readonly handleTemp: PointToShape) {}
 
     async perform(document: IDocument, tip: keyof I18n): Promise<XYZ | undefined> {
         let snap = new Snapper(document);

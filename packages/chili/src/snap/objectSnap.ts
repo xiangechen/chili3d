@@ -14,7 +14,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { IPointSnap, SnapInfo } from "./interfaces";
+import { IPointSnap, DetectedData, SnapedData } from "./interfaces";
 
 const SnapDistance: number = 5;
 
@@ -25,14 +25,14 @@ interface Hilighted {
 
 interface InvisibleSnapInfo {
     view: IView;
-    snaps: SnapInfo[];
+    snaps: SnapedData[];
     displays: number[];
 }
 
 export class ObjectSnap implements IPointSnap {
-    private _snapedPoint?: SnapInfo;
-    private _featureInfos: Map<IShape, SnapInfo[]>;
-    private _intersectionInfos: Map<string, SnapInfo[]>;
+    private _snapedPoint?: SnapedData;
+    private _featureInfos: Map<IShape, SnapedData[]>;
+    private _intersectionInfos: Map<string, SnapedData[]>;
     private _invisibleInfos: Map<IShape, InvisibleSnapInfo>;
     private _hilightedShapes?: Hilighted;
     private _detectedShape: IShape | undefined;
@@ -64,7 +64,7 @@ export class ObjectSnap implements IPointSnap {
         throw new Error("Method not implemented.");
     }
 
-    point(): SnapInfo | undefined {
+    point(): SnapedData | undefined {
         return this._snapedPoint;
     }
 
@@ -72,21 +72,13 @@ export class ObjectSnap implements IPointSnap {
         this.unHilited();
     }
 
-    snap(view: IView, x: number, y: number): boolean {
+    snap(data: DetectedData): boolean {
         this._snapedPoint = undefined;
-        let shapes = this.getDetectedShapes(view, x, y);
-        if (shapes.length > 0) {
-            this.showInvisibleSnaps(view, shapes[0]);
-            if (this.snapOnShape(view, x, y, shapes)) return true;
+        if (data.shapes.length > 0) {
+            this.showInvisibleSnaps(data.view, data.shapes[0]);
+            if (this.snapOnShape(data.view, data.mx, data.my, data.shapes)) return true;
         }
-        return this.snapeInvisible(view, x, y);
-    }
-
-    private getDetectedShapes(view: IView, x: number, y: number) {
-        view.document.selection.setSelectionType(ShapeType.Edge);
-        let shapes = view.document.selection.detectedShapes(view, x, y);
-        this._detectedShape = shapes.at(0);
-        return shapes;
+        return this.snapeInvisible(data.view, data.mx, data.my);
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: IShape[]): boolean {
@@ -112,8 +104,8 @@ export class ObjectSnap implements IPointSnap {
         return false;
     }
 
-    private getNearestInvisibleSnap(view: IView, x: number, y: number): { minDistance: number; snap?: SnapInfo } {
-        let snap: SnapInfo | undefined = undefined;
+    private getNearestInvisibleSnap(view: IView, x: number, y: number): { minDistance: number; snap?: SnapedData } {
+        let snap: SnapedData | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
         this._invisibleInfos.forEach((info) => {
             info.snaps.forEach((s) => {
@@ -178,12 +170,12 @@ export class ObjectSnap implements IPointSnap {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    private sortSnaps(view: IView, x: number, y: number, a: SnapInfo, b: SnapInfo): number {
+    private sortSnaps(view: IView, x: number, y: number, a: SnapedData, b: SnapedData): number {
         return this.distanceToMouse(view, x, y, a.point) - this.distanceToMouse(view, x, y, b.point);
     }
 
     private getIntersections(current: IShape, shapes: IShape[]) {
-        let result = new Array<SnapInfo>();
+        let result = new Array<SnapedData>();
         if (current.shapeType !== ShapeType.Edge) return result;
         shapes.forEach((x) => {
             if (x === current || x.shapeType !== ShapeType.Edge) return;
@@ -191,7 +183,7 @@ export class ObjectSnap implements IPointSnap {
             if (!this._intersectionInfos.has(key)) {
                 let intersections = (current as IEdge).intersect(x as IEdge);
                 if (intersections.length > 0) {
-                    let infos: SnapInfo[] = intersections.map((point) => {
+                    let infos: SnapedData[] = intersections.map((point) => {
                         return { point, info: i18n["snap.intersection"], shapes: [current, x] };
                     });
                     this._intersectionInfos.set(key, infos);
@@ -206,7 +198,7 @@ export class ObjectSnap implements IPointSnap {
         if (this._featureInfos.has(shape)) {
             return this._featureInfos.get(shape)!;
         }
-        let infos = new Array<SnapInfo>();
+        let infos = new Array<SnapedData>();
         if (shape.shapeType === ShapeType.Edge) {
             this.getEdgeFeaturePoints(shape, infos);
         }
@@ -214,7 +206,7 @@ export class ObjectSnap implements IPointSnap {
         return infos;
     }
 
-    private getEdgeFeaturePoints(shape: IShape, infos: SnapInfo[]) {
+    private getEdgeFeaturePoints(shape: IShape, infos: SnapedData[]) {
         let curve = (shape as IEdge).asCurve().value;
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());

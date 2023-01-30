@@ -2,9 +2,16 @@
 
 import { I18n, IShape, IView, ObjectSnapType, XYZ } from "chili-core";
 
-export interface SnapInfo {
+export interface SnapedData {
     point: XYZ;
     info?: string;
+    shapes: IShape[];
+}
+
+export interface DetectedData {
+    view: IView;
+    mx: number;
+    my: number;
     shapes: IShape[];
 }
 
@@ -14,14 +21,14 @@ export interface IKeyHandler {
 }
 
 export interface ISnap {
-    snap(view: IView, x: number, y: number): boolean;
+    snap(data: DetectedData): boolean;
     onSnapTypeChanged(snapType: ObjectSnapType): void;
     removeDynamicObject(): void;
     clear(): void;
 }
 
 export interface IPointSnap extends ISnap {
-    point(): SnapInfo | undefined;
+    point(): SnapedData | undefined;
 }
 
 export class ISnap {

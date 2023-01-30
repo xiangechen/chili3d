@@ -2,7 +2,7 @@
 
 import { IView, VertexRenderData } from "chili-core";
 
-import { SnapInfo } from "../";
+import { SnapedData } from "../";
 import { Axis } from "./axis";
 
 export interface ObjectTrackingAxis {
@@ -11,7 +11,7 @@ export interface ObjectTrackingAxis {
 }
 
 interface SnapeInfo {
-    snap: SnapInfo;
+    snap: SnapedData;
     shapeId: number;
     axies: Axis[];
 }
@@ -19,7 +19,7 @@ interface SnapeInfo {
 export class ObjectTracking {
     private timer?: any;
     private isCleared: boolean = false;
-    private snapping?: SnapInfo;
+    private snapping?: SnapedData;
     private trackings: Map<IView, SnapeInfo[]>;
 
     constructor(readonly trackingZ: boolean) {
@@ -42,7 +42,7 @@ export class ObjectTracking {
         return result;
     }
 
-    showTrackingAtTimeout(view: IView, snap?: SnapInfo) {
+    showTrackingAtTimeout(view: IView, snap?: SnapedData) {
         if (snap !== undefined && this.snapping === snap) return;
         this.snapping = snap;
         if (this.timer !== undefined) {
@@ -53,8 +53,8 @@ export class ObjectTracking {
         this.timer = setTimeout(() => this.showTracking(view, snap), 600);
     }
 
-    private showTracking(view: IView, snap: SnapInfo) {
-        if (this.isCleared) return;
+    private showTracking(view: IView, snap: SnapedData) {
+        if (this.isCleared || snap.shapes.length === 0) return;
         if (!this.trackings.has(view)) {
             this.trackings.set(view, []);
         }
@@ -76,7 +76,7 @@ export class ObjectTracking {
         );
     }
 
-    private addSnapToTracking(snap: SnapInfo, view: IView, snaps: SnapeInfo[]) {
+    private addSnapToTracking(snap: SnapedData, view: IView, snaps: SnapeInfo[]) {
         let data = VertexRenderData.from(snap.point, 0xf00, 5);
         let pointId = view.document.visualization.context.temporaryDisplay(data);
         let axies = Axis.getAxiesAtPlane(snap.point, view.workplane, this.trackingZ);

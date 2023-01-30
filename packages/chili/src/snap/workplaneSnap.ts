@@ -1,20 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IView, ObjectSnapType } from "chili-core";
-
-import { IPointSnap, SnapInfo } from "./interfaces";
+import { ObjectSnapType } from "chili-core";
+import { DetectedData, IPointSnap, SnapedData } from "./interfaces";
 
 export class WorkplaneSnap implements IPointSnap {
-    snaped?: SnapInfo;
+    onSnapTypeChanged(snapType: ObjectSnapType): void {}
+    removeDynamicObject(): void {}
+    clear(): void {}
+    snaped?: SnapedData;
 
-    constructor() {}
-
-    point(): SnapInfo | undefined {
+    point(): SnapedData | undefined {
         return this.snaped;
     }
-    snap(view: IView, x: number, y: number): boolean {
-        let ray = view.rayAt(x, y);
-        let point = view.workplane.intersect(ray);
+    snap(data: DetectedData): boolean {
+        let ray = data.view.rayAt(data.mx, data.my);
+        let point = data.view.workplane.intersect(ray);
         if (point === undefined) return false;
         this.snaped = {
             point,
@@ -23,9 +23,4 @@ export class WorkplaneSnap implements IPointSnap {
 
         return true;
     }
-
-    removeDynamicObject(): void {}
-
-    onSnapTypeChanged(snapType: ObjectSnapType): void {}
-    clear(): void {}
 }

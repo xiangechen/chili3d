@@ -18,9 +18,9 @@ import {
 } from "chili-core";
 
 import { Dimension } from "./dimension";
-import { SnapInfo } from "./interfaces";
+import { DetectedData, IPointSnap, ISnap, SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { ShapeCreator } from "./shapeHandle";
+import { PointToShape } from "./pointToShape";
 import { TrackingSnap } from "./tracking";
 import { WorkplaneSnap } from "./workplaneSnap";
 
@@ -35,45 +35,39 @@ export interface SnapData {
     dimension: Dimension;
     refPoint?: XYZ;
     valid?: (view: IView, point: XYZ) => boolean;
-    tempShape?: ShapeCreator;
+    tempShape?: PointToShape;
 }
 
 export class SnapPointEventHandler implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
-    private _objectSnap: ObjectSnap;
     private _trackingSnap: TrackingSnap;
-    private _workplaneSnap: WorkplaneSnap;
-    private _snapedInfo?: SnapInfo;
+    private _snaped?: SnapedData;
+    private _snaps: IPointSnap[];
 
     constructor(private _cancellationToken: CancellationToken, readonly data: SnapData) {
-        this._objectSnap = new ObjectSnap(Configure.current.snapType);
-        this._workplaneSnap = new WorkplaneSnap();
+        let objectSnap = new ObjectSnap(Configure.current.snapType);
+        let workplaneSnap = new WorkplaneSnap();
         this._trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
+        this._snaps = [objectSnap, this._trackingSnap, workplaneSnap];
         PubSub.default.sub("snapChanged", this.onSnapChanged);
     }
 
     private onSnapChanged = (snapType: ObjectSnapType) => {
-        this._objectSnap.onSnapTypeChanged(snapType);
+        this._snaps.forEach((x) => x.onSnapTypeChanged(snapType));
     };
 
     get snapedPoint() {
-        return this._snapedInfo?.point;
+        return this._snaped?.point;
     }
 
     private stopSnap(view: IView) {
         this._cancellationToken.cancel();
         this.clearSnap();
-
         this.removeInput();
         this.removeTempShapes(view);
-        this._objectSnap.clear();
-        this._trackingSnap.clear();
-        this._workplaneSnap.clear();
-
+        this._snaps.forEach((x) => x.clear());
         view.document.selection.setSelectionType(ShapeType.Shape);
-        PubSub.default.sub("snapChanged", this.onSnapChanged);
-
         view.document.viewer.redraw();
     }
 
@@ -83,10 +77,11 @@ export class SnapPointEventHandler implements IEventHandler {
 
     mouseMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
-        this._snapedInfo = this.getSnaped(view, event);
-        if (this._snapedInfo !== undefined) {
-            this.showTemp(this._snapedInfo.point, view);
-            this.showSnaped(this._snapedInfo);
+        this._snaped = this.getSnaped(view, event);
+        this._trackingSnap.switchObjectTracking(view, this._snaped);
+        if (this._snaped !== undefined) {
+            this.showTemp(this._snaped.point, view);
+            this.showSnaped();
         } else {
             this.clearSnap();
         }
@@ -94,32 +89,39 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private getSnaped(view: IView, event: MouseEvent) {
-        let snaped: SnapInfo | undefined = undefined;
-        if (this._objectSnap.snap(view, event.offsetX, event.offsetY)) {
-            snaped = this._objectSnap.point();
-        }
-        this._trackingSnap.showObjectTracking(view, snaped);
-        if (snaped === undefined) {
-            this._trackingSnap.setDetectedShape(this._objectSnap.getDetectedShape());
-            if (this._trackingSnap.snap(view, event.offsetX, event.offsetY)) {
-                snaped = this._trackingSnap.point();
-            } else if (this._workplaneSnap.snap(view, event.offsetX, event.offsetY)) {
-                snaped = this._workplaneSnap.point();
+        let data = this.getDetectedData(view, event);
+        for (const snap of this._snaps) {
+            if (snap.snap(data)) {
+                let snaped = snap.point()!;
+                if (this.data.valid === undefined) return snaped;
+                if (this.data.valid(view, snaped.point)) {
+                    return snaped;
+                }
             }
         }
-        if (snaped !== undefined && this.data.valid && !this.data.valid(view, snaped.point)) {
-            return undefined;
-        }
-        return snaped;
+
+        return undefined;
+    }
+
+    private getDetectedData(view: IView, event: MouseEvent) {
+        view.document.selection.setSelectionType(ShapeType.Edge);
+        let shapes = view.document.selection.detectedShapes(view, event.offsetX, event.offsetY);
+        let data: DetectedData = {
+            view,
+            mx: event.offsetX,
+            my: event.offsetY,
+            shapes,
+        };
+        return data;
     }
 
     private clearSnap() {
         PubSub.default.pub("clearFloatTip");
     }
 
-    private showSnaped(snapedInfo: SnapInfo) {
-        if (snapedInfo.info !== undefined) {
-            PubSub.default.pub("floatTip", MessageType.info, snapedInfo.info);
+    private showSnaped() {
+        if (this._snaped?.info !== undefined) {
+            PubSub.default.pub("floatTip", MessageType.info, this._snaped.info);
         } else {
             this.clearSnap();
         }
@@ -127,9 +129,7 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private removeTempObject(view: IView) {
         this.removeTempShapes(view);
-        this._objectSnap.removeDynamicObject();
-        this._trackingSnap.removeDynamicObject();
-        this._workplaneSnap.removeDynamicObject();
+        this._snaps.forEach((x) => x.removeDynamicObject());
     }
 
     private showTemp(point: XYZ, view: IView) {
@@ -167,7 +167,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            this._snapedInfo = undefined;
+            this._snaped = undefined;
             this.stopSnap(view);
         } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
             PubSub.default.pub("showInput", this.handleValid, (text: string) => this.handleInput(view, text));
@@ -177,7 +177,7 @@ export class SnapPointEventHandler implements IEventHandler {
     private handleInput = (view: IView, text: string) => {
         let inputValue = this.getInput(view, text);
         if (inputValue.isOk()) {
-            this._snapedInfo = {
+            this._snaped = {
                 point: inputValue.value!,
                 shapes: [],
             };
@@ -188,7 +188,7 @@ export class SnapPointEventHandler implements IEventHandler {
     private getInput(view: IView, text: string): Result<XYZ, keyof I18n> {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.data.refPoint ?? XYZ.zero;
-        let end = this._snapedInfo!.point;
+        let end = this._snaped!.point;
         if (dims.length === 1 && end !== undefined) {
             let vector = end.sub(this.data.refPoint!).normalize()!;
             result = result.add(vector.multiply(dims[0]));
@@ -216,7 +216,7 @@ export class SnapPointEventHandler implements IEventHandler {
             } else {
                 if (
                     dims.length === 1 &&
-                    (this._snapedInfo === undefined || this._snapedInfo.point.isEqualTo(this.data.refPoint))
+                    (this._snaped === undefined || this._snaped.point.isEqualTo(this.data.refPoint))
                 ) {
                     return Valid.error("error.input.cannotInputANumber");
                 }
