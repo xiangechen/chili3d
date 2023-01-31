@@ -15,7 +15,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { DetectedData, Dimension, ISnap, SnapedData } from "../";
+import { DetectedData, Dimension, ISnap, SnapChangedHandler, SnapedData } from "../";
 import { Axis } from "./axis";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
@@ -28,7 +28,7 @@ export interface TrackingData {
     info: string;
 }
 
-export class TrackingSnap implements ISnap {
+export class TrackingSnap implements ISnap, SnapChangedHandler {
     private _axisTrackings: AxisTrackingSnap;
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
@@ -39,7 +39,7 @@ export class TrackingSnap implements ISnap {
         this.objectTracking = new ObjectTracking(trackingZ);
     }
 
-    switchTrackingWithSnaped(view: IView, snaped?: SnapedData) {
+    onSnapChanged(view: IView, snaped?: SnapedData) {
         this.objectTracking.showTrackingAtTimeout(view, snaped);
     }
 

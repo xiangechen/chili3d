@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IShape, IView, ObjectSnapType, XYZ } from "chili-core";
+import { IShape, IView, ObjectSnapType, XYZ } from "chili-core";
 
 export interface SnapedData {
     point: XYZ;
@@ -15,9 +15,8 @@ export interface DetectedData {
     shapes: IShape[];
 }
 
-export interface IKeyHandler {
-    keyDown(view: IView, event: KeyboardEvent): void;
-    keyUp(view: IView, event: KeyboardEvent): void;
+export interface SnapChangedHandler {
+    onSnapChanged(view: IView, snaped: SnapedData | undefined): void;
 }
 
 export interface ISnap {

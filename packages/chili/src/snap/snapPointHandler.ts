@@ -15,7 +15,7 @@ import {
 } from "chili-core";
 
 import { Dimension } from "./dimension";
-import { DetectedData, ISnap, SnapedData } from "./interfaces";
+import { DetectedData, ISnap, SnapChangedHandler, SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
 import { ShapeFromPoint } from "./shapeFromPoint";
 import { TrackingSnap } from "./tracking";
@@ -29,17 +29,18 @@ export interface SnapPointData {
 }
 
 export class SnapPointEventHandler implements IEventHandler {
+    private readonly _snaps: ISnap[];
+    private readonly _snapedChangedHandlers: Set<SnapChangedHandler> = new Set();
     private _tempPointId?: number;
     private _tempShapeId?: number;
-    private _trackingSnap: TrackingSnap;
     private _snaped?: SnapedData;
-    private _snaps: ISnap[];
 
     constructor(private _cancellationToken: CancellationToken, readonly data: SnapPointData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let workplaneSnap = new WorkplaneSnap();
-        this._trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
-        this._snaps = [objectSnap, this._trackingSnap, workplaneSnap];
+        let trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
+        this._snaps = [objectSnap, trackingSnap, workplaneSnap];
+        this._snapedChangedHandlers.add(trackingSnap);
         PubSub.default.sub("snapChanged", this.onSnapChanged);
     }
 
@@ -52,6 +53,7 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private stopSnap(view: IView) {
+        this._snapedChangedHandlers.clear();
         this._cancellationToken.cancel();
         this.clearSnapTip();
         this.removeInput();
@@ -68,7 +70,7 @@ export class SnapPointEventHandler implements IEventHandler {
     mouseMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
         this._snaped = this.getSnaped(view, event);
-        this._trackingSnap.switchTrackingWithSnaped(view, this._snaped);
+        this._snapedChangedHandlers.forEach((x) => x.onSnapChanged(view, this._snaped));
         if (this._snaped !== undefined) {
             this.showTempShape(this._snaped.point, view);
             this.switchSnapedTip(this._snaped.info);

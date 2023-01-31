@@ -43,7 +43,7 @@ export class ObjectSnap implements ISnap {
     }
 
     clear() {
-        this.unHilited();
+        this.unHilighted();
         this._invisibleInfos.forEach((info) => {
             info.displays.forEach((x) => info.view.document.visualization.context.temporaryRemove(x));
         });
@@ -64,7 +64,7 @@ export class ObjectSnap implements ISnap {
     }
 
     removeDynamicObject(): void {
-        this.unHilited();
+        this.unHilighted();
     }
 
     snap(data: DetectedData): SnapedData | undefined {
@@ -80,7 +80,7 @@ export class ObjectSnap implements ISnap {
         let intersections = this.getIntersections(shapes[0], shapes);
         let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length !== 0 && this.distanceToMouse(view, x, y, ordered[0].point) < SnapDistance) {
-            this.hilited(view, ordered[0].shapes);
+            this.hilighted(view, ordered[0].shapes);
             return ordered[0];
         }
         return undefined;
@@ -89,7 +89,7 @@ export class ObjectSnap implements ISnap {
     private snapeInvisible(view: IView, x: number, y: number): SnapedData | undefined {
         let { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
         if (minDistance < SnapDistance) {
-            this.hilited(view, snap!.shapes);
+            this.hilighted(view, snap!.shapes);
             return snap;
         }
 
@@ -138,7 +138,7 @@ export class ObjectSnap implements ISnap {
         });
     }
 
-    private hilited(view: IView, shapes: IShape[]) {
+    private hilighted(view: IView, shapes: IShape[]) {
         this._hilightedShapes = {
             view,
             shapes,
@@ -146,7 +146,7 @@ export class ObjectSnap implements ISnap {
         shapes.map((x) => view.document.visualization.context.hilighted(x));
     }
 
-    private unHilited() {
+    private unHilighted() {
         if (this._hilightedShapes !== undefined) {
             this._hilightedShapes.shapes.forEach((x) =>
                 this._hilightedShapes?.view.document.visualization.context.unHilighted(x)
