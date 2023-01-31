@@ -23,7 +23,7 @@ export interface PubSubEventMap {
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;
-    floatTip: (level: MessageType, msg: string) => void;
+    showFloatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
     showInput: (validCallback: (text: string) => Validation, callback: (text: string) => void) => void;
     clearInput: () => void;

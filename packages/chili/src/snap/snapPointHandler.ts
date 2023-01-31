@@ -3,14 +3,11 @@
 import {
     CancellationToken,
     Configure,
-    I18n,
-    IDocument,
     IEventHandler,
     IView,
     MessageType,
     ObjectSnapType,
     PubSub,
-    Result,
     ShapeType,
     Validation,
     VertexRenderData,
@@ -23,13 +20,6 @@ import { ObjectSnap } from "./objectSnap";
 import { ShapeFromPoint } from "./shapeFromPoint";
 import { TrackingSnap } from "./tracking";
 import { WorkplaneSnap } from "./workplaneSnap";
-
-export enum SnapState {
-    Snaping,
-    Cancel,
-    Success,
-    Fail,
-}
 
 export interface SnapPointData {
     dimension: Dimension;
@@ -63,7 +53,7 @@ export class SnapPointEventHandler implements IEventHandler {
 
     private stopSnap(view: IView) {
         this._cancellationToken.cancel();
-        this.clearSnap();
+        this.clearSnapTip();
         this.removeInput();
         this.removeTempShapes(view);
         this._snaps.forEach((x) => x.clear());
@@ -78,12 +68,12 @@ export class SnapPointEventHandler implements IEventHandler {
     mouseMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
         this._snaped = this.getSnaped(view, event);
-        this._trackingSnap.switchObjectTracking(view, this._snaped);
+        this._trackingSnap.switchTrackingWithSnaped(view, this._snaped);
         if (this._snaped !== undefined) {
-            this.showTemp(this._snaped.point, view);
-            this.showSnaped();
+            this.showTempShape(this._snaped.point, view);
+            this.switchSnapedTip(this._snaped.info);
         } else {
-            this.clearSnap();
+            this.clearSnapTip();
         }
         view.document.viewer.update();
     }
@@ -113,16 +103,16 @@ export class SnapPointEventHandler implements IEventHandler {
         return data;
     }
 
-    private clearSnap() {
+    private clearSnapTip() {
         PubSub.default.pub("clearFloatTip");
     }
 
-    private showSnaped() {
-        if (this._snaped?.info !== undefined) {
-            PubSub.default.pub("floatTip", MessageType.info, this._snaped.info);
-        } else {
-            this.clearSnap();
+    private switchSnapedTip(msg: string | undefined) {
+        if (msg === undefined) {
+            this.clearSnapTip();
+            return;
         }
+        PubSub.default.pub("showFloatTip", MessageType.info, msg);
     }
 
     private removeTempObject(view: IView) {
@@ -130,7 +120,7 @@ export class SnapPointEventHandler implements IEventHandler {
         this._snaps.forEach((x) => x.removeDynamicObject());
     }
 
-    private showTemp(point: XYZ, view: IView) {
+    private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
         if (this.data.shapeCreator !== undefined) {

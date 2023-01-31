@@ -39,7 +39,7 @@ export class TrackingSnap implements ISnap {
         this.objectTracking = new ObjectTracking(trackingZ);
     }
 
-    switchObjectTracking(view: IView, snaped?: SnapedData) {
+    switchTrackingWithSnaped(view: IView, snaped?: SnapedData) {
         this.objectTracking.showTrackingAtTimeout(view, snaped);
     }
 

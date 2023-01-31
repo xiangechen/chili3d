@@ -16,7 +16,7 @@ export class FloatContainer {
     constructor() {
         this.dom = Control.div(style.floatContainer);
 
-        PubSub.default.sub("floatTip", this.showTip);
+        PubSub.default.sub("showFloatTip", this.showTip);
         PubSub.default.sub("clearFloatTip", this.clearTip);
         PubSub.default.sub("showInput", this.showInput);
         PubSub.default.sub("clearInput", this.clearInput);
