@@ -27,5 +27,5 @@ export * from "./result";
 export * from "./snapType";
 export * from "./storage";
 export * from "./transaction";
-export * from "./valid";
+export * from "./validation";
 export * from "./visualization";

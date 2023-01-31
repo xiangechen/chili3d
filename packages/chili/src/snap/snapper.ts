@@ -2,19 +2,19 @@
 
 import { CancellationToken, CursorType, I18n, IDocument, IEventHandler, PubSub, XYZ } from "chili-core";
 
-import { SnapData, SnapPointEventHandler } from "./snapPointHandler";
+import { SnapPointData, SnapPointEventHandler } from "./snapPointHandler";
 
 export class Snapper {
     constructor(readonly document: IDocument) {}
 
-    async snapPointAsync(tipKey: keyof I18n, data: SnapData): Promise<XYZ | undefined> {
+    async snapPointAsync(tipKey: keyof I18n, data: SnapPointData): Promise<XYZ | undefined> {
         let cancellationToken = new CancellationToken();
         let eventHandler = new SnapPointEventHandler(cancellationToken, data);
         await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
         return eventHandler.snapedPoint;
     }
 
-    async snapLengthAsync(tipKey: keyof I18n, data: SnapData): Promise<XYZ | undefined> {
+    async snapLengthAsync(tipKey: keyof I18n, data: SnapPointData): Promise<XYZ | undefined> {
         let cancellationToken = new CancellationToken();
         let eventHandler = new SnapPointEventHandler(cancellationToken, data);
         await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);

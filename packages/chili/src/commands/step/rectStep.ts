@@ -23,8 +23,8 @@ export class RectStep implements IStep<RectData> {
         let point = await snap.snapPointAsync(tip, {
             dimension: Dimension.D1D2,
             refPoint: this.first,
-            valid: (v, p) => this.handleValid(v, this.first, p),
-            tempShape: (v, p) => {
+            validator: (v, p) => this.handleValid(v, this.first, p),
+            shapeCreator: (v, p) => {
                 view = v;
                 return this.handleTempRect(v, this.first, p);
             },

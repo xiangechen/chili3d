@@ -21,20 +21,10 @@ export interface IKeyHandler {
 }
 
 export interface ISnap {
-    snap(data: DetectedData): boolean;
+    snap(data: DetectedData): SnapedData | undefined;
     onSnapTypeChanged(snapType: ObjectSnapType): void;
     removeDynamicObject(): void;
     clear(): void;
-}
-
-export interface IPointSnap extends ISnap {
-    point(): SnapedData | undefined;
-}
-
-export class ISnap {
-    static isPointSnap(snap: ISnap): snap is IPointSnap {
-        return (<IPointSnap>snap).point !== undefined;
-    }
 }
 
 export interface IAngleSnap extends ISnap {

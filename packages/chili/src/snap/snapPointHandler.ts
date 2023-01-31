@@ -12,15 +12,15 @@ import {
     PubSub,
     Result,
     ShapeType,
-    Valid,
+    Validation,
     VertexRenderData,
     XYZ,
 } from "chili-core";
 
 import { Dimension } from "./dimension";
-import { DetectedData, IPointSnap, ISnap, SnapedData } from "./interfaces";
+import { DetectedData, ISnap, SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { PointToShape } from "./pointToShape";
+import { ShapeFromPoint } from "./shapeFromPoint";
 import { TrackingSnap } from "./tracking";
 import { WorkplaneSnap } from "./workplaneSnap";
 
@@ -31,11 +31,11 @@ export enum SnapState {
     Fail,
 }
 
-export interface SnapData {
+export interface SnapPointData {
     dimension: Dimension;
     refPoint?: XYZ;
-    valid?: (view: IView, point: XYZ) => boolean;
-    tempShape?: PointToShape;
+    validator?: (view: IView, point: XYZ) => boolean;
+    shapeCreator?: ShapeFromPoint;
 }
 
 export class SnapPointEventHandler implements IEventHandler {
@@ -43,9 +43,9 @@ export class SnapPointEventHandler implements IEventHandler {
     private _tempShapeId?: number;
     private _trackingSnap: TrackingSnap;
     private _snaped?: SnapedData;
-    private _snaps: IPointSnap[];
+    private _snaps: ISnap[];
 
-    constructor(private _cancellationToken: CancellationToken, readonly data: SnapData) {
+    constructor(private _cancellationToken: CancellationToken, readonly data: SnapPointData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let workplaneSnap = new WorkplaneSnap();
         this._trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
@@ -91,12 +91,10 @@ export class SnapPointEventHandler implements IEventHandler {
     private getSnaped(view: IView, event: MouseEvent) {
         let data = this.getDetectedData(view, event);
         for (const snap of this._snaps) {
-            if (snap.snap(data)) {
-                let snaped = snap.point()!;
-                if (this.data.valid === undefined) return snaped;
-                if (this.data.valid(view, snaped.point)) {
-                    return snaped;
-                }
+            let snaped = snap.snap(data);
+            if (snaped === undefined) continue;
+            if (this.data.validator === undefined || this.data.validator(view, snaped.point)) {
+                return snaped;
             }
         }
 
@@ -135,9 +133,9 @@ export class SnapPointEventHandler implements IEventHandler {
     private showTemp(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        if (this.data.tempShape !== undefined) {
+        if (this.data.shapeCreator !== undefined) {
             let shape = this.data
-                .tempShape(view, point)
+                .shapeCreator(view, point)
                 ?.mesh()
                 .edges.map((x) => x.renderData);
             if (shape !== undefined) this._tempShapeId = view.document.visualization.context.temporaryDisplay(...shape);
@@ -175,17 +173,14 @@ export class SnapPointEventHandler implements IEventHandler {
     }
 
     private handleInput = (view: IView, text: string) => {
-        let inputValue = this.getInput(view, text);
-        if (inputValue.isOk()) {
-            this._snaped = {
-                point: inputValue.value!,
-                shapes: [],
-            };
-            this.stopSnap(view);
-        }
+        this._snaped = {
+            point: this.getInput(view, text),
+            shapes: [],
+        };
+        this.stopSnap(view);
     };
 
-    private getInput(view: IView, text: string): Result<XYZ, keyof I18n> {
+    private getInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.data.refPoint ?? XYZ.zero;
         let end = this._snaped!.point;
@@ -198,31 +193,31 @@ export class SnapPointEventHandler implements IEventHandler {
                 result = result.add(view.workplane.normal.multiply(dims[2]));
             }
         }
-        return Result.ok(result);
+        return result;
     }
 
     private handleValid = (text: string) => {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.data.dimension, dimension)) {
-            return Valid.error("error.input.unsupportedInputs");
+            return Validation.error("error.input.unsupportedInputs");
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Valid.error("error.input.invalidNumber");
+            return Validation.error("error.input.invalidNumber");
         } else {
             if (this.data.refPoint === undefined) {
                 if (dims.length !== 3) {
-                    return Valid.error("error.input.threeNumberCanBeInput");
+                    return Validation.error("error.input.threeNumberCanBeInput");
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snaped === undefined || this._snaped.point.isEqualTo(this.data.refPoint))
                 ) {
-                    return Valid.error("error.input.cannotInputANumber");
+                    return Validation.error("error.input.cannotInputANumber");
                 }
             }
         }
-        return Valid.ok();
+        return Validation.ok();
     };
 
     keyUp(view: IView, event: KeyboardEvent): void {}

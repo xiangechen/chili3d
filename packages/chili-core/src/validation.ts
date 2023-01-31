@@ -2,14 +2,14 @@
 
 import { I18n } from "./i18n";
 
-export class Valid<T extends keyof I18n = keyof I18n> {
+export class Validation<T extends keyof I18n = keyof I18n> {
     constructor(readonly isOk: boolean, readonly error?: T) {}
 
     static ok<T extends keyof I18n>() {
-        return new Valid<T>(true, undefined);
+        return new Validation<T>(true, undefined);
     }
 
     static error<T extends keyof I18n>(err: T) {
-        return new Valid(false, err);
+        return new Validation(false, err);
     }
 }

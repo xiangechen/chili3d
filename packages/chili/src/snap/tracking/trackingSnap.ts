@@ -15,7 +15,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { DetectedData, Dimension, IPointSnap, SnapedData } from "../";
+import { DetectedData, Dimension, ISnap, SnapedData } from "../";
 import { Axis } from "./axis";
 import { AxisTrackingSnap } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
@@ -28,8 +28,7 @@ export interface TrackingData {
     info: string;
 }
 
-export class TrackingSnap implements IPointSnap {
-    snaped?: SnapedData;
+export class TrackingSnap implements ISnap {
     private _axisTrackings: AxisTrackingSnap;
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
@@ -40,45 +39,42 @@ export class TrackingSnap implements IPointSnap {
         this.objectTracking = new ObjectTracking(trackingZ);
     }
 
-    point(): SnapedData | undefined {
-        return this.snaped;
-    }
-
     switchObjectTracking(view: IView, snaped?: SnapedData) {
         this.objectTracking.showTrackingAtTimeout(view, snaped);
     }
 
-    snap(data: DetectedData): boolean {
+    snap(data: DetectedData): SnapedData | undefined {
         let trackingDatas = this.getTrackingDatas(data.view, data.mx, data.my);
-        if (trackingDatas.length === 0) return false;
-        if (this.setSnapToIntersect(data, trackingDatas)) return true;
+        if (trackingDatas.length === 0) return undefined;
+        let snaped = this.snapToIntersect(data, trackingDatas);
+        if (snaped !== undefined) return snaped;
         if (trackingDatas.length === 1) {
-            this.setSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
+            snaped = this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
         } else {
             trackingDatas = trackingDatas.sort((x) => x.distance);
             let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
             if (point !== undefined) {
-                this.setSnapedAndShowTracking(data.view, point, [trackingDatas[0], trackingDatas[1]]);
+                snaped = this.getSnapedAndShowTracking(data.view, point, [trackingDatas[0], trackingDatas[1]]);
             } else {
-                this.setSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
+                snaped = this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
             }
         }
-        return true;
+        return snaped;
     }
 
-    private setSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
+    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
         let info: string | undefined = undefined;
         if (trackingDatas.length === 1) {
             let distance = point.distanceTo(trackingDatas[0].axis.location);
             info = `${trackingDatas[0].axis.name}: ${distance.toFixed(2)}`;
         }
-        this.snaped = { point, info, shapes: [] };
         let lines: number[] = [];
         trackingDatas.forEach((x) => {
             let id = this.tempShowLine(view, x.axis.location, point);
             if (id !== undefined) lines.push(id);
         });
         this._tempLines.set(view, lines);
+        return { point, info, shapes: [] };
     }
 
     private tempShowLine(view: IView, start: XYZ, end: XYZ): number | undefined {
@@ -91,8 +87,8 @@ export class TrackingSnap implements IPointSnap {
         return view.document.visualization.context.temporaryDisplay(lineDats);
     }
 
-    private setSnapToIntersect(data: DetectedData, trackingDatas: TrackingData[]): boolean {
-        if (data.shapes.length === 0 || data.shapes[0].shapeType !== ShapeType.Edge) return false;
+    private snapToIntersect(data: DetectedData, trackingDatas: TrackingData[]): SnapedData | undefined {
+        if (data.shapes.length === 0 || data.shapes[0].shapeType !== ShapeType.Edge) return undefined;
         let edge = data.shapes[0] as IEdge;
         let points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
@@ -100,17 +96,16 @@ export class TrackingSnap implements IPointSnap {
                 points.push({ intersect: p, location: x.axis.location });
             });
         });
-        if (points.length === 0) return false;
+        if (points.length === 0) return undefined;
         let point = points.sort((p) => this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect))[0];
-        this.snaped = {
+        let id = this.tempShowLine(data.view, point.intersect, point.location);
+        if (id === undefined) return undefined;
+        this._tempLines.set(data.view, [id]);
+        return {
             point: point.intersect,
             info: i18n["snap.intersection"],
             shapes: [data.shapes[0]],
         };
-        let id = this.tempShowLine(data.view, point.intersect, point.location);
-        if (id === undefined) return false;
-        this._tempLines.set(data.view, [id]);
-        return true;
     }
 
     private getTrackingDatas(view: IView, x: number, y: number) {

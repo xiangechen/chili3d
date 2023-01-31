@@ -7,7 +7,7 @@ import { I18n } from "./i18n";
 import { MessageType } from "./messageType";
 import { ModelGroup, ModelObject } from "./model";
 import { ObjectSnapType } from "./snapType";
-import { Valid } from "./valid";
+import { Validation } from "./validation";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
@@ -25,7 +25,7 @@ export interface PubSubEventMap {
     clearStatusBarTip: () => void;
     floatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
-    showInput: (validCallback: (text: string) => Valid, callback: (text: string) => void) => void;
+    showInput: (validCallback: (text: string) => Validation, callback: (text: string) => void) => void;
     clearInput: () => void;
 }
 

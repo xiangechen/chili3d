@@ -14,7 +14,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { IPointSnap, DetectedData, SnapedData } from "./interfaces";
+import { ISnap, DetectedData, SnapedData } from "./interfaces";
 
 const SnapDistance: number = 5;
 
@@ -29,8 +29,7 @@ interface InvisibleSnapInfo {
     displays: number[];
 }
 
-export class ObjectSnap implements IPointSnap {
-    private _snapedPoint?: SnapedData;
+export class ObjectSnap implements ISnap {
     private _featureInfos: Map<IShape, SnapedData[]>;
     private _intersectionInfos: Map<string, SnapedData[]>;
     private _invisibleInfos: Map<IShape, InvisibleSnapInfo>;
@@ -64,44 +63,37 @@ export class ObjectSnap implements IPointSnap {
         throw new Error("Method not implemented.");
     }
 
-    point(): SnapedData | undefined {
-        return this._snapedPoint;
-    }
-
     removeDynamicObject(): void {
         this.unHilited();
     }
 
-    snap(data: DetectedData): boolean {
-        this._snapedPoint = undefined;
+    snap(data: DetectedData): SnapedData | undefined {
         if (data.shapes.length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
-            if (this.snapOnShape(data.view, data.mx, data.my, data.shapes)) return true;
+            return this.snapOnShape(data.view, data.mx, data.my, data.shapes);
         }
         return this.snapeInvisible(data.view, data.mx, data.my);
     }
 
-    private snapOnShape(view: IView, x: number, y: number, shapes: IShape[]): boolean {
+    private snapOnShape(view: IView, x: number, y: number, shapes: IShape[]) {
         let featurePoints = this.getFeaturePoints(shapes[0]);
         let intersections = this.getIntersections(shapes[0], shapes);
         let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length !== 0 && this.distanceToMouse(view, x, y, ordered[0].point) < SnapDistance) {
-            this._snapedPoint = ordered[0];
-            this.hilited(view, this._snapedPoint.shapes);
-            return true;
+            this.hilited(view, ordered[0].shapes);
+            return ordered[0];
         }
-        return false;
+        return undefined;
     }
 
-    private snapeInvisible(view: IView, x: number, y: number): boolean {
+    private snapeInvisible(view: IView, x: number, y: number): SnapedData | undefined {
         let { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
         if (minDistance < SnapDistance) {
-            this._snapedPoint = snap;
             this.hilited(view, snap!.shapes);
-            return true;
+            return snap;
         }
 
-        return false;
+        return undefined;
     }
 
     private getNearestInvisibleSnap(view: IView, x: number, y: number): { minDistance: number; snap?: SnapedData } {

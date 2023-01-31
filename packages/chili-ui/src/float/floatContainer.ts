@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, I18n, MessageType, PubSub, Result, Valid, XYZ } from "chili-core";
+import { i18n, I18n, MessageType, PubSub, Result, Validation, XYZ } from "chili-core";
 
 import { Control } from "../control";
 import { UI } from "../ui";
@@ -38,7 +38,7 @@ export class FloatContainer {
         }
     };
 
-    private showInput = (validCallback: (text: string) => Valid, callback: (text: string) => void) => {
+    private showInput = (validCallback: (text: string) => Validation, callback: (text: string) => void) => {
         if (this._input === undefined) {
             this._input = new Input((e) => this.handleInput(e, validCallback, callback));
             this.dom.appendChild(this._input.dom);
@@ -48,7 +48,7 @@ export class FloatContainer {
 
     private handleInput = (
         e: KeyboardEvent,
-        validCallback: (text: string) => Valid,
+        validCallback: (text: string) => Validation,
         callback: (text: string) => void
     ) => {
         if (e.key === "Enter") {
