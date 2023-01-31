@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CancellationToken, CursorType, I18n, IDocument, IEventHandler, PubSub, XYZ } from "chili-core";
+import { SnapLengthData, SnapLengthEventHandler } from "./snapLengthHandler";
 
 import { SnapPointData, SnapPointEventHandler } from "./snapPointHandler";
 
@@ -14,11 +15,11 @@ export class Snapper {
         return eventHandler.snapedPoint;
     }
 
-    async snapLengthAsync(tipKey: keyof I18n, data: SnapPointData): Promise<XYZ | undefined> {
+    async snapLengthAsync(tipKey: keyof I18n, data: SnapLengthData): Promise<number | undefined> {
         let cancellationToken = new CancellationToken();
-        let eventHandler = new SnapPointEventHandler(cancellationToken, data);
+        let eventHandler = new SnapLengthEventHandler(cancellationToken, data);
         await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
-        return eventHandler.snapedPoint;
+        return eventHandler.snapedPoint?.sub(data.point).dot(data.direction);
     }
 
     private async handleSnapAsync(

@@ -1,41 +1,38 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, IView, LineType, Plane, XYZ } from "chili-core";
+import { IView, ObjectSnapType, Plane, Ray, XYZ } from "chili-core";
 
-import { Axis } from "./axis";
+import { MouseAndDetected, ISnap, SnapedData } from "../";
 
-export class AxisTrackingSnap {
-    private axies: Map<IView, Axis[]> = new Map();
+export class AxisTracking implements ISnap {
+    constructor(readonly point: XYZ, readonly direction: XYZ) {}
 
-    constructor(readonly trackingZ: boolean) {}
+    onSnapChanged(view: IView, snaped?: SnapedData) {}
 
-    getAxies(view: IView, referencePoint: XYZ, angle: number | undefined = undefined) {
-        if (!this.axies.has(view)) {
-            this.axies.set(view, this.initAxes(view.workplane, referencePoint, angle));
-        }
-        return this.axies.get(view)!;
+    snap(data: MouseAndDetected): SnapedData | undefined {
+        let right = data.view.up().cross(data.view.direction()).normalize();
+        let normal = right?.cross(this.direction).normalize();
+        if (normal === undefined) return undefined;
+        let plane = new Plane(this.point, normal, right!);
+        let ray = data.view.rayAt(data.mx, data.my);
+        let intersect = plane.intersect(ray, true);
+        if (intersect === undefined) return undefined;
+        let vector = intersect.sub(this.point);
+        let dot = vector.dot(this.direction);
+        let point = this.point.add(this.direction.multiply(dot));
+        return {
+            point,
+            shapes: [],
+        };
     }
 
-    private initAxes(plane: Plane, referencePoint: XYZ, angle: number | undefined): Axis[] {
-        if (angle === undefined) {
-            return Axis.getAxiesAtPlane(referencePoint, plane, this.trackingZ);
-        } else {
-            let result: Axis[] = [];
-            let testAngle = 0;
-            while (testAngle < 360) {
-                let direction = plane.x.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
-                result.push(new Axis(referencePoint, direction, `${testAngle} °`));
-                testAngle += angle;
-            }
-            if (this.trackingZ) {
-                result.push(new Axis(referencePoint, plane.normal, i18n["axis.z"]));
-                result.push(new Axis(referencePoint, plane.normal.reverse(), i18n["axis.z"]));
-            }
-            return result;
-        }
+    removeDynamicObject(): void {}
+
+    onSnapTypeChanged(snapType: ObjectSnapType): void {
+        this.removeDynamicObject();
     }
 
     clear(): void {
-        this.axies.clear();
+        this.removeDynamicObject();
     }
 }

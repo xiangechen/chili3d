@@ -5,7 +5,7 @@ import { IShapeFactory } from "chili-geo";
 
 import { BoxBody } from "../../bodys";
 import { Dimension } from "../../snap";
-import { AnyPointStep, PointStep, RectStep } from "../step";
+import { AnyPointStep, LengthStep, PointStep, RectStep } from "../step";
 
 @command({
     name: "Box",
@@ -18,16 +18,16 @@ export class Box implements ICommand {
         if (point === undefined) return false;
         let rect = await new RectStep(point).perform(document, "operate.pickNextPoint");
         if (rect === undefined) return false;
-        let handleTempLine = (view: IView, point: XYZ) => {
+        let handleTempBox = (view: IView, z: number) => {
             let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-            return factory!.box(rect!.plane, rect!.dx, rect!.dy, point.distanceTo(rect!.p2)).value;
+            return factory!.box(rect!.plane, rect!.dx, rect!.dy, z).value;
         };
-        let p3 = await new PointStep(rect.p2, Dimension.D1D2D3, handleTempLine).perform(
+        let p3 = await new LengthStep(rect.p2, rect.plane.normal, handleTempBox).perform(
             document,
             "operate.pickNextPoint"
         );
         if (p3 === undefined) return false;
-        let body = new BoxBody(rect.plane, rect.dx, rect.dy, p3.distanceTo(rect.p2));
+        let body = new BoxBody(rect.plane, rect.dx, rect.dy, p3);
         document.addModel(new Model(`Box ${document.modelCount + 1}`, Id.new(), body));
         document.viewer.redraw();
         return true;

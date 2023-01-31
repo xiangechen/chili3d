@@ -267,6 +267,10 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         return ThreeUtils.toXYZ(vec);
     }
 
+    up(): XYZ {
+        return ThreeUtils.toXYZ(this._camera.up);
+    }
+
     private mouseToWorld(mx: number, my: number) {
         let { x, y } = this.screenToCameraRect(mx, my);
         var vec = new Vector3(x, y, 0).unproject(this._camera);

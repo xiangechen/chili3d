@@ -15,6 +15,7 @@ export interface IView extends IPropertyChanged {
     workplane: Plane;
     update(): void;
     redraw(): void;
+    up(): XYZ;
     direction(): XYZ;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;

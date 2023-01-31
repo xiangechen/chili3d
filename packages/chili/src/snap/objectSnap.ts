@@ -14,7 +14,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { ISnap, DetectedData, SnapedData } from "./interfaces";
+import { ISnap, MouseAndDetected, SnapedData } from "./interfaces";
 
 const SnapDistance: number = 5;
 
@@ -67,7 +67,7 @@ export class ObjectSnap implements ISnap {
         this.unHilighted();
     }
 
-    snap(data: DetectedData): SnapedData | undefined {
+    snap(data: MouseAndDetected): SnapedData | undefined {
         if (data.shapes.length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
             return this.snapOnShape(data.view, data.mx, data.my, data.shapes);

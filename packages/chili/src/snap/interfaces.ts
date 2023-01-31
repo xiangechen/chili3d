@@ -8,7 +8,7 @@ export interface SnapedData {
     shapes: IShape[];
 }
 
-export interface DetectedData {
+export interface MouseAndDetected {
     view: IView;
     mx: number;
     my: number;
@@ -20,7 +20,7 @@ export interface SnapChangedHandler {
 }
 
 export interface ISnap {
-    snap(data: DetectedData): SnapedData | undefined;
+    snap(data: MouseAndDetected): SnapedData | undefined;
     onSnapTypeChanged(snapType: ObjectSnapType): void;
     removeDynamicObject(): void;
     clear(): void;

@@ -4,7 +4,6 @@ import {
     EdgeRenderData,
     i18n,
     IEdge,
-    IShape,
     IView,
     LineType,
     MathUtils,
@@ -15,9 +14,9 @@ import {
     XYZ,
 } from "chili-core";
 
-import { DetectedData, Dimension, ISnap, SnapChangedHandler, SnapedData } from "../";
+import { MouseAndDetected, Dimension, ISnap, SnapChangedHandler, SnapedData } from "../";
 import { Axis } from "./axis";
-import { AxisTrackingSnap } from "./axisTracking";
+import { SnapAxies } from "./snapAxies";
 import { ObjectTracking } from "./objectTracking";
 
 export interface TrackingData {
@@ -29,13 +28,13 @@ export interface TrackingData {
 }
 
 export class TrackingSnap implements ISnap, SnapChangedHandler {
-    private _axisTrackings: AxisTrackingSnap;
+    private _axisTrackings: SnapAxies;
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
 
     constructor(dimension: Dimension, readonly referencePoint: XYZ | undefined) {
         let trackingZ = Dimension.contains(dimension, Dimension.D3);
-        this._axisTrackings = new AxisTrackingSnap(trackingZ);
+        this._axisTrackings = new SnapAxies(trackingZ);
         this.objectTracking = new ObjectTracking(trackingZ);
     }
 
@@ -43,7 +42,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         this.objectTracking.showTrackingAtTimeout(view, snaped);
     }
 
-    snap(data: DetectedData): SnapedData | undefined {
+    snap(data: MouseAndDetected): SnapedData | undefined {
         let trackingDatas = this.getTrackingDatas(data.view, data.mx, data.my);
         if (trackingDatas.length === 0) return undefined;
         let snaped = this.snapToIntersect(data, trackingDatas);
@@ -87,7 +86,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         return view.document.visualization.context.temporaryDisplay(lineDats);
     }
 
-    private snapToIntersect(data: DetectedData, trackingDatas: TrackingData[]): SnapedData | undefined {
+    private snapToIntersect(data: MouseAndDetected, trackingDatas: TrackingData[]): SnapedData | undefined {
         if (data.shapes.length === 0 || data.shapes[0].shapeType !== ShapeType.Edge) return undefined;
         let edge = data.shapes[0] as IEdge;
         let points: { intersect: XYZ; location: XYZ }[] = [];
