@@ -32,6 +32,12 @@ export class Plane {
         this.y = n.cross(x).normalize()!;
     }
 
+    project(point: XYZ): XYZ {
+        let vector = point.sub(this.location);
+        let dot = vector.dot(this.normal);
+        return point.add(vector.sub(this.normal.multiply(dot)));
+    }
+
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {
         let vec = this.location.sub(ray.location);
         if (vec.isEqualTo(XYZ.zero)) return this.location;

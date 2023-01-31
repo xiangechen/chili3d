@@ -5,7 +5,7 @@ import { IShapeFactory } from "chili-geo";
 
 import { BoxBody } from "../../bodys";
 import { Dimension } from "../../snap";
-import { AnyPointStep, LengthStep, PointStep, RectStep } from "../step";
+import { AnyPointStep, LengthAtAxisStep, PointStep, RectStep } from "../step";
 
 @command({
     name: "Box",
@@ -22,7 +22,7 @@ export class Box implements ICommand {
             let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
             return factory!.box(rect!.plane, rect!.dx, rect!.dy, z).value;
         };
-        let p3 = await new LengthStep(rect.p2, rect.plane.normal, handleTempBox).perform(
+        let p3 = await new LengthAtAxisStep(rect.p2, rect.plane.normal, handleTempBox).perform(
             document,
             "operate.pickNextPoint"
         );

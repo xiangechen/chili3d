@@ -8,7 +8,7 @@ import { ObjectSnap } from "./objectSnap";
 import { ShapeFromPoint } from "./shapeFromPoint";
 import { SnapEventHandlerBase } from "./snapEventHandlerBase";
 import { TrackingSnap } from "./tracking";
-import { WorkplaneSnap } from "./workplaneSnap";
+import { WorkplaneSnap } from "./planeSnap";
 
 export interface SnapPointData {
     dimension: Dimension;
@@ -26,7 +26,7 @@ export class SnapPointEventHandler extends SnapEventHandlerBase {
         super(cancellationToken, snaps, [trackingSnap]);
     }
 
-    protected isValid(view: IView, snaped: SnapedData): boolean {
+    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
         return this.data.validator === undefined || this.data.validator(view, snaped.point);
     }
 
@@ -40,7 +40,7 @@ export class SnapPointEventHandler extends SnapEventHandlerBase {
         return view.document.visualization.context.temporaryDisplay(...shape);
     }
 
-    protected getInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.data.refPoint ?? XYZ.zero;
         let end = this._snaped!.point;
@@ -56,7 +56,7 @@ export class SnapPointEventHandler extends SnapEventHandlerBase {
         return result;
     }
 
-    protected handleValid(text: string) {
+    protected isValidInput(text: string) {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.data.dimension, dimension)) {

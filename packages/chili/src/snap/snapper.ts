@@ -1,7 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CancellationToken, CursorType, I18n, IDocument, IEventHandler, PubSub, XYZ } from "chili-core";
-import { SnapLengthData, SnapLengthEventHandler } from "./snapLengthHandler";
+import {
+    SnapLengthAtAxisData,
+    SnapLengthAtAxisHandler,
+    SnapLengthAtPlaneData,
+    SnapLengthAtPlaneHandler,
+} from "./snapLengthEventHandler";
 
 import { SnapPointData, SnapPointEventHandler } from "./snapPointHandler";
 
@@ -15,11 +20,20 @@ export class Snapper {
         return eventHandler.snapedPoint;
     }
 
-    async snapLengthAsync(tipKey: keyof I18n, data: SnapLengthData): Promise<number | undefined> {
+    async snapLengthAtAxisAsync(tipKey: keyof I18n, data: SnapLengthAtAxisData): Promise<number | undefined> {
         let cancellationToken = new CancellationToken();
-        let eventHandler = new SnapLengthEventHandler(cancellationToken, data);
+        let eventHandler = new SnapLengthAtAxisHandler(cancellationToken, data);
         await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
         return eventHandler.snapedPoint?.sub(data.point).dot(data.direction);
+    }
+
+    async snapLengthAtPlaneAsync(tipKey: keyof I18n, data: SnapLengthAtPlaneData): Promise<number | undefined> {
+        let cancellationToken = new CancellationToken();
+        let eventHandler = new SnapLengthAtPlaneHandler(cancellationToken, data);
+        await this.handleSnapAsync(eventHandler, tipKey, cancellationToken);
+        if (eventHandler.snapedPoint === undefined) return undefined;
+        let point = data.plane.project(eventHandler.snapedPoint);
+        return point.distanceTo(data.point);
     }
 
     private async handleSnapAsync(

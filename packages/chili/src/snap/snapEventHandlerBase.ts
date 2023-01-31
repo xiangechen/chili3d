@@ -73,7 +73,7 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.isValid(view, snaped)) {
+            if (this.isValidSnap(view, snaped)) {
                 return snaped;
             }
         }
@@ -81,7 +81,7 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         return undefined;
     }
 
-    protected abstract isValid(view: IView, snaped: SnapedData): boolean;
+    protected abstract isValidSnap(view: IView, snaped: SnapedData): boolean;
 
     private getDetectedData(view: IView, event: MouseEvent) {
         view.document.selection.setSelectionType(ShapeType.Edge);
@@ -148,7 +148,7 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
             PubSub.default.pub(
                 "showInput",
-                (t) => this.handleValid(t),
+                (t) => this.isValidInput(t),
                 (text: string) => this.handleInput(view, text)
             );
         }
@@ -156,15 +156,15 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
 
     private handleInput = (view: IView, text: string) => {
         this._snaped = {
-            point: this.getInput(view, text),
+            point: this.getPointFromInput(view, text),
             shapes: [],
         };
         this.stopSnap(view);
     };
 
-    protected abstract getInput(view: IView, text: string): XYZ;
+    protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
-    protected abstract handleValid(text: string): Validation;
+    protected abstract isValidInput(text: string): Validation;
 
     keyUp(view: IView, event: KeyboardEvent): void {}
     touchStart(view: IView, event: TouchEvent): void {
