@@ -5,7 +5,7 @@ import { CancellationToken, Configure, IView, Validation, XYZ } from "chili-core
 import { Dimension } from "./dimension";
 import { SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { ShapeFromPoint } from "./shapeFromPoint";
+import { ShapeFromPoint } from "./shapeCreator";
 import { SnapEventHandlerBase } from "./snapEventHandlerBase";
 import { TrackingSnap } from "./tracking";
 import { WorkplaneSnap } from "./planeSnap";
@@ -23,21 +23,12 @@ export class SnapPointEventHandler extends SnapEventHandlerBase {
         let workplaneSnap = new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(cancellationToken, snaps, [trackingSnap]);
+        super(cancellationToken, snaps, [trackingSnap], data.validator);
     }
 
-    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
-        return this.data.validator === undefined || this.data.validator(view, snaped.point);
-    }
-
-    protected createTempShape(view: IView, point: XYZ): number | undefined {
+    protected createTempShape(view: IView, point: XYZ) {
         if (this.data.shapeCreator == undefined) return undefined;
-        let shape = this.data
-            .shapeCreator(view, point)
-            ?.mesh()
-            .edges.map((x) => x.renderData);
-        if (shape === undefined) return undefined;
-        return view.document.visualization.context.temporaryDisplay(...shape);
+        return this.data.shapeCreator(view, point);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

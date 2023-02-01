@@ -2,10 +2,9 @@
 
 import { CancellationToken, Configure, IView, Plane, Validation, XYZ } from "chili-core";
 
-import { SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
 import { PlaneSnap } from "./planeSnap";
-import { ShapeFromLength } from "./shapeFromPoint";
+import { ShapeFromLength } from "./shapeCreator";
 import { SnapEventHandlerBase } from "./snapEventHandlerBase";
 import { AxisTracking } from "./tracking";
 
@@ -27,22 +26,13 @@ export class SnapLengthAtAxisHandler extends SnapEventHandlerBase {
     constructor(cancellationToken: CancellationToken, readonly data: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let axisTracking = new AxisTracking(data.point, data.direction);
-        super(cancellationToken, [objectSnap, axisTracking], []);
+        super(cancellationToken, [objectSnap, axisTracking], [], data.validator);
     }
 
-    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
-        return this.data.validator === undefined || this.data.validator(view, snaped.point);
-    }
-
-    protected createTempShape(view: IView, point: XYZ): number | undefined {
+    protected createTempShape(view: IView, point: XYZ) {
         if (this.data.shapeCreator === undefined) return undefined;
         let length = point.sub(this.data.point).dot(this.data.direction);
-        let shape = this.data
-            .shapeCreator(view, length)
-            ?.mesh()
-            .edges.map((x) => x.renderData);
-        if (shape === undefined) return undefined;
-        return view.document.visualization.context.temporaryDisplay(...shape);
+        return this.data.shapeCreator(view, length);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -60,22 +50,13 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandlerBase {
     constructor(cancellationToken: CancellationToken, readonly data: SnapLengthAtPlaneData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let planeSnap = new PlaneSnap(data.plane);
-        super(cancellationToken, [objectSnap, planeSnap], []);
+        super(cancellationToken, [objectSnap, planeSnap], [], data.validator);
     }
 
-    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
-        return this.data.validator === undefined || this.data.validator(view, snaped.point);
-    }
-
-    protected createTempShape(view: IView, point: XYZ): number | undefined {
+    protected createTempShape(view: IView, point: XYZ) {
         if (this.data.shapeCreator === undefined) return undefined;
         let length = this.data.point.distanceTo(point);
-        let shape = this.data
-            .shapeCreator(view, length)
-            ?.mesh()
-            .edges.map((x) => x.renderData);
-        if (shape === undefined) return undefined;
-        return view.document.visualization.context.temporaryDisplay(...shape);
+        return this.data.shapeCreator(view, length);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

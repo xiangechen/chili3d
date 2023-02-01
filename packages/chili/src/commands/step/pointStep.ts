@@ -3,7 +3,7 @@
 import { I18n, IDocument, IView, XYZ } from "chili-core";
 
 import { Dimension, Snapper } from "../../snap";
-import { ShapeFromPoint } from "../../snap/shapeFromPoint";
+import { ShapeFromPoint } from "../../snap/shapeCreator";
 import { IStep } from "./step";
 
 export class AnyPointStep implements IStep<XYZ> {

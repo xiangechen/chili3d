@@ -3,7 +3,7 @@
 import { I18n, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
 
 import { Snapper } from "../../snap";
-import { ShapeFromLength } from "../../snap/shapeFromPoint";
+import { ShapeFromLength } from "../../snap/shapeCreator";
 import { IStep } from "./step";
 
 export class LengthAtAxisStep implements IStep<number> {

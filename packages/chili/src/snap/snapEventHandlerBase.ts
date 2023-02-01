@@ -2,7 +2,9 @@
 
 import {
     CancellationToken,
+    EdgeRenderData,
     IEventHandler,
+    IShape,
     IView,
     MessageType,
     ObjectSnapType,
@@ -19,16 +21,17 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
     protected _snaped?: SnapedData;
-    private _snaps: ISnap[];
-    private _snapedChangedHandlers: SnapChangedHandler[];
+    private readonly _snaps: ISnap[];
+    private readonly _snapedChangedHandlers: SnapChangedHandler[];
 
     constructor(
-        private _cancellationToken: CancellationToken,
+        private readonly _cancellationToken: CancellationToken,
         snaps: ISnap[],
-        snapedChangedHandlers: SnapChangedHandler[]
+        snapedChangedHandlers: SnapChangedHandler[],
+        private readonly validator?: (view: IView, point: XYZ) => boolean
     ) {
         this._snaps = [...snaps];
-        this._snapedChangedHandlers = [...snapedChangedHandlers];
+        this._snapedChangedHandlers = snapedChangedHandlers === undefined ? [] : [...snapedChangedHandlers];
         PubSub.default.sub("snapChanged", this.onSnapChanged);
     }
 
@@ -81,7 +84,9 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         return undefined;
     }
 
-    protected abstract isValidSnap(view: IView, snaped: SnapedData): boolean;
+    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
+        return this.validator === undefined || this.validator(view, snaped.point);
+    }
 
     private getDetectedData(view: IView, event: MouseEvent) {
         view.document.selection.setSelectionType(ShapeType.Edge);
@@ -115,10 +120,14 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
     private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        this._tempShapeId = this.createTempShape(view, point);
+        let shape = this.createTempShape(view, point);
+        if (shape !== undefined) {
+            let renderDatas = shape.mesh().edges.map((x) => x.renderData);
+            this._tempShapeId = view.document.visualization.context.temporaryDisplay(...renderDatas);
+        }
     }
 
-    protected abstract createTempShape(view: IView, point: XYZ): number | undefined;
+    protected abstract createTempShape(view: IView, point: XYZ): IShape | undefined;
 
     private removeTempShapes(view: IView) {
         if (this._tempPointId !== undefined) {
