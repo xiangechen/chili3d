@@ -209,11 +209,7 @@ export class ObjectSnap implements ISnap {
             addPoint(end, i18n["snap.end"]);
         }
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) && curve.curveType === CurveType.Line) {
-            infos.push({
-                point: XYZ.center(start, end),
-                info: i18n["snap.mid"],
-                shapes: [shape],
-            });
+            addPoint(XYZ.center(start, end), i18n["snap.mid"]);
         }
     }
 }
