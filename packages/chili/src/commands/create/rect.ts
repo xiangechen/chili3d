@@ -17,7 +17,7 @@ export class Rect implements ICommand {
     async excute(document: IDocument): Promise<boolean> {
         let point = await new AnyPointStep().perform(document, "operate.pickFistPoint");
         if (point === undefined) return false;
-        let rect = await new RectStep(point).perform(document, "operate.pickNextPoint");
+        let rect = await new RectStep(point.point).perform(document, "operate.pickNextPoint");
         if (rect === undefined) return false;
         let body = new RectBody(rect.plane, rect.dx, rect.dy);
         document.addModel(new Model(`Rect ${document.modelCount + 1}`, Id.new(), body));

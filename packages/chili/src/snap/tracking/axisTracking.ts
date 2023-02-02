@@ -21,6 +21,7 @@ export class AxisTracking implements ISnap {
         let dot = vector.dot(this.direction);
         let point = this.point.add(this.direction.multiply(dot));
         return {
+            view: data.view,
             point,
             shapes: [],
         };

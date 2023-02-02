@@ -3,9 +3,14 @@
 import { IShape, IView, ObjectSnapType, XYZ } from "chili-core";
 
 export interface SnapedData {
+    view: IView;
     point: XYZ;
     info?: string;
     shapes: IShape[];
+}
+
+export interface SnapedLengthData extends SnapedData {
+    length: number;
 }
 
 export interface MouseAndDetected {

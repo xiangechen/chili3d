@@ -16,7 +16,7 @@ export class Line implements ICommand {
     constructor() {}
 
     async excute(document: IDocument): Promise<boolean> {
-        let start = await new AnyPointStep().perform(document, "operate.pickFistPoint");
+        let start = await new AnyPointStep().perform(document, "operate.pickFistPoint").then((x) => x?.point);
         while (true) {
             if (start === undefined) break;
             let end = await new PointStep(start, Dimension.D1D2D3, (v, p) => this.handleTempLine(start!, p)).perform(

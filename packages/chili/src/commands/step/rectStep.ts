@@ -30,7 +30,7 @@ export class RectStep implements IStep<RectData> {
             },
         });
         if (point === undefined || view === undefined) return undefined;
-        let data = this.getRectData(view, this.first, point)!;
+        let data = this.getRectData(view, this.first, point.point)!;
         return data;
     }
 

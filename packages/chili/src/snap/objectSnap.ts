@@ -76,8 +76,8 @@ export class ObjectSnap implements ISnap {
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: IShape[]) {
-        let featurePoints = this.getFeaturePoints(shapes[0]);
-        let intersections = this.getIntersections(shapes[0], shapes);
+        let featurePoints = this.getFeaturePoints(view, shapes[0]);
+        let intersections = this.getIntersections(view, shapes[0], shapes);
         let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length !== 0 && this.distanceToMouse(view, x, y, ordered[0].point) < SnapDistance) {
             this.hilighted(view, ordered[0].shapes);
@@ -129,6 +129,7 @@ export class ObjectSnap implements ISnap {
             view,
             snaps: [
                 {
+                    view,
                     point: curve.center,
                     info: i18n["snap.center"],
                     shapes: [shape],
@@ -166,7 +167,7 @@ export class ObjectSnap implements ISnap {
         return this.distanceToMouse(view, x, y, a.point) - this.distanceToMouse(view, x, y, b.point);
     }
 
-    private getIntersections(current: IShape, shapes: IShape[]) {
+    private getIntersections(view: IView, current: IShape, shapes: IShape[]) {
         let result = new Array<SnapedData>();
         if (current.shapeType !== ShapeType.Edge) return result;
         shapes.forEach((x) => {
@@ -176,7 +177,7 @@ export class ObjectSnap implements ISnap {
                 let intersections = (current as IEdge).intersect(x as IEdge);
                 if (intersections.length > 0) {
                     let infos: SnapedData[] = intersections.map((point) => {
-                        return { point, info: i18n["snap.intersection"], shapes: [current, x] };
+                        return { view, point, info: i18n["snap.intersection"], shapes: [current, x] };
                     });
                     this._intersectionInfos.set(key, infos);
                 }
@@ -186,24 +187,24 @@ export class ObjectSnap implements ISnap {
         return result;
     }
 
-    private getFeaturePoints(shape: IShape) {
+    private getFeaturePoints(view: IView, shape: IShape) {
         if (this._featureInfos.has(shape)) {
             return this._featureInfos.get(shape)!;
         }
         let infos = new Array<SnapedData>();
         if (shape.shapeType === ShapeType.Edge) {
-            this.getEdgeFeaturePoints(shape, infos);
+            this.getEdgeFeaturePoints(view, shape, infos);
         }
         this._featureInfos.set(shape, infos);
         return infos;
     }
 
-    private getEdgeFeaturePoints(shape: IShape, infos: SnapedData[]) {
+    private getEdgeFeaturePoints(view: IView, shape: IShape, infos: SnapedData[]) {
         let curve = (shape as IEdge).asCurve().value;
         if (curve === undefined) return;
         let start = curve.point(curve.firstParameter());
         let end = curve.point(curve.lastParameter());
-        let addPoint = (point: XYZ, info: string) => infos.push({ point, info, shapes: [shape] });
+        let addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, i18n["snap.end"]);
             addPoint(end, i18n["snap.end"]);

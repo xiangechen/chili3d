@@ -73,7 +73,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
             if (id !== undefined) lines.push(id);
         });
         this._tempLines.set(view, lines);
-        return { point, info, shapes: [] };
+        return { view, point, info, shapes: [] };
     }
 
     private tempShowLine(view: IView, start: XYZ, end: XYZ): number | undefined {
@@ -101,6 +101,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         if (id === undefined) return undefined;
         this._tempLines.set(data.view, [id]);
         return {
+            view: data.view,
             point: point.intersect,
             info: i18n["snap.intersection"],
             shapes: [data.shapes[0]],

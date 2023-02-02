@@ -11,12 +11,13 @@ export class LengthAtAxisStep implements IStep<number> {
 
     async perform(document: IDocument, tip: keyof I18n): Promise<number | undefined> {
         let snap = new Snapper(document);
-        return await snap.snapLengthAtAxisAsync(tip, {
+        let data = await snap.snapLengthAtAxisAsync(tip, {
             point: this.point,
             direction: this.direnction,
             validator: this.handleValid,
             shapeCreator: this.handleTemp,
         });
+        return data?.length;
     }
 
     private handleValid = (view: IView, end: XYZ) => {
@@ -29,12 +30,13 @@ export class LengthAtPlaneStep implements IStep<number> {
 
     async perform(document: IDocument, tip: keyof I18n): Promise<number | undefined> {
         let snap = new Snapper(document);
-        return await snap.snapLengthAtPlaneAsync(tip, {
+        let data = await snap.snapLengthAtPlaneAsync(tip, {
             point: this.point,
             plane: this.plane,
             validator: this.handleValid,
             shapeCreator: this.handleTemp,
         });
+        return data?.length;
     }
 
     private handleValid = (view: IView, end: XYZ) => {

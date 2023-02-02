@@ -21,11 +21,11 @@ export class PLine implements ICommand {
         if (start === undefined) return false;
         let end = await snap.snapPointAsync("operate.pickNextPoint", {
             dimension: Dimension.D1D2D3,
-            refPoint: start,
-            shapeCreator: (view, p) => this.handleTempLine(start!, p),
+            refPoint: start.point,
+            shapeCreator: (view, p) => this.handleTempLine(start!.point, p),
         });
         if (end === undefined) return false;
-        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end)));
+        document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start.point, end.point)));
         document.viewer.redraw();
         return true;
     }

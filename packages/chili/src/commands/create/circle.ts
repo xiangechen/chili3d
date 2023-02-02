@@ -19,13 +19,11 @@ export class Circle implements ICommand {
     async excute(document: IDocument): Promise<boolean> {
         let start = await new AnyPointStep().perform(document, "operate.pickFistPoint");
         if (start === undefined) return false;
-        let normal: XYZ | undefined = undefined;
-        let end = await new PointStep(start, Dimension.D1D2D3, (v, p) => {
-            normal = v.workplane.normal;
-            return this.handleTemp(v, start!, p);
+        let end = await new PointStep(start.point, Dimension.D1D2D3, (v, p) => {
+            return this.handleTemp(v, start!.point, p);
         }).perform(document, "operate.pickRadius");
         if (end === undefined) return false;
-        let body = new CircleBody(normal!, start, end.distanceTo(start));
+        let body = new CircleBody(start.view.workplane.normal!, start.point, end.distanceTo(start.point));
         document.addModel(new Model(`Circle ${document.modelCount + 1}`, Id.new(), body));
         document.viewer.redraw();
         return true;

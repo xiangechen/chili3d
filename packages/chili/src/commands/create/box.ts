@@ -16,7 +16,7 @@ export class Box implements ICommand {
     async excute(document: IDocument): Promise<boolean> {
         let point = await new AnyPointStep().perform(document, "operate.pickFistPoint");
         if (point === undefined) return false;
-        let rect = await new RectStep(point).perform(document, "operate.pickNextPoint");
+        let rect = await new RectStep(point.point).perform(document, "operate.pickNextPoint");
         if (rect === undefined) return false;
         let handleTempBox = (view: IView, z: number) => {
             let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);

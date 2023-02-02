@@ -39,8 +39,8 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         this._snaps.forEach((x) => x.onSnapTypeChanged(snapType));
     };
 
-    get snapedPoint() {
-        return this._snaped?.point;
+    get snaped() {
+        return this._snaped;
     }
 
     private stopSnap(view: IView) {
@@ -165,6 +165,7 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
 
     private handleInput = (view: IView, text: string) => {
         this._snaped = {
+            view,
             point: this.getPointFromInput(view, text),
             shapes: [],
         };

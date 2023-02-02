@@ -14,6 +14,7 @@ export abstract class PlaneSnapBase implements ISnap {
         let point = plane.intersect(ray);
         if (point === undefined) return undefined;
         return {
+            view: data.view,
             point,
             shapes: [],
         };
