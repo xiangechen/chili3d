@@ -1,36 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IDocument, IView, XYZ } from "chili-core";
-
-import { Dimension, SnapedData, Snapper } from "../../snap";
-import { ShapeFromPoint } from "../../snap/shapeCreator";
+import { IDocument } from "chili-core";
+import { PointSnapper, SnapedData, SnapPointData } from "../../snap";
 import { IStep } from "./step";
 
-export class AnyPointStep implements IStep<SnapedData> {
-    constructor(readonly handleTempShape?: ShapeFromPoint) {}
+export class PointStep implements IStep {
+    constructor(readonly handleData: () => SnapPointData, readonly disableDefaultValidator = false) {}
 
-    async perform(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
-        let snap = new Snapper(document);
-        return await snap.snapPointAsync(tip, { dimension: Dimension.D1D2D3, shapeCreator: this.handleTempShape });
+    async perform(document: IDocument): Promise<SnapedData | undefined> {
+        let data = this.handleData();
+        if (!this.disableDefaultValidator && data.validator === undefined && data.refPoint !== undefined) {
+            data.validator = (v, p) => data.refPoint!.distanceTo(p) > 0;
+        }
+        let snapper = new PointSnapper(data);
+        return await snapper.snap(document, data.tip);
     }
-}
-
-export class PointStep implements IStep<XYZ> {
-    constructor(readonly first: XYZ, readonly dimension: Dimension, readonly handleTemp: ShapeFromPoint) {}
-
-    async perform(document: IDocument, tip: keyof I18n): Promise<XYZ | undefined> {
-        let snap = new Snapper(document);
-        return await snap
-            .snapPointAsync(tip, {
-                dimension: this.dimension,
-                refPoint: this.first,
-                validator: this.handleValid,
-                shapeCreator: this.handleTemp,
-            })
-            .then((x) => x?.point);
-    }
-
-    private handleValid = (view: IView, end: XYZ) => {
-        return !this.first.isEqualTo(end);
-    };
 }

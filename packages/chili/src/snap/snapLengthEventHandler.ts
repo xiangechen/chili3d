@@ -1,38 +1,38 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CancellationToken, Configure, IView, Plane, Validation, XYZ } from "chili-core";
+import { CancellationToken, Configure, I18n, IDocument, IView, Plane, Validation, XYZ } from "chili-core";
 
 import { ObjectSnap } from "./objectSnap";
 import { PlaneSnap } from "./planeSnap";
-import { ShapeFromLength } from "./shapeCreator";
-import { SnapEventHandlerBase } from "./snapEventHandlerBase";
+import { PreviewFromPoint } from "./shapePreview";
+import { SnapEventHandler } from "./snapEventHandler";
 import { AxisTracking } from "./tracking";
 
 export interface SnapLengthAtAxisData {
+    tip: keyof I18n;
     point: XYZ;
     direction: XYZ;
     validator?: (view: IView, point: XYZ) => boolean;
-    shapeCreator?: ShapeFromLength;
+    preview: PreviewFromPoint;
 }
 
 export interface SnapLengthAtPlaneData {
+    tip: keyof I18n;
     point: XYZ;
     plane: Plane;
     validator?: (view: IView, point: XYZ) => boolean;
-    shapeCreator?: ShapeFromLength;
+    preview: PreviewFromPoint;
 }
 
-export class SnapLengthAtAxisHandler extends SnapEventHandlerBase {
+export class SnapLengthAtAxisHandler extends SnapEventHandler {
     constructor(cancellationToken: CancellationToken, readonly data: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let axisTracking = new AxisTracking(data.point, data.direction);
         super(cancellationToken, [objectSnap, axisTracking], [], data.validator);
     }
 
-    protected createTempShape(view: IView, point: XYZ) {
-        if (this.data.shapeCreator === undefined) return undefined;
-        let length = point.sub(this.data.point).dot(this.data.direction);
-        return this.data.shapeCreator(view, length);
+    protected preview(view: IView, point: XYZ) {
+        return this.data?.preview(view, point);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -46,17 +46,15 @@ export class SnapLengthAtAxisHandler extends SnapEventHandlerBase {
     }
 }
 
-export class SnapLengthAtPlaneHandler extends SnapEventHandlerBase {
+export class SnapLengthAtPlaneHandler extends SnapEventHandler {
     constructor(cancellationToken: CancellationToken, readonly data: SnapLengthAtPlaneData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
         let planeSnap = new PlaneSnap(data.plane);
         super(cancellationToken, [objectSnap, planeSnap], [], data.validator);
     }
 
-    protected createTempShape(view: IView, point: XYZ) {
-        if (this.data.shapeCreator === undefined) return undefined;
-        let length = this.data.point.distanceTo(point);
-        return this.data.shapeCreator(view, length);
+    protected preview(view: IView, point: XYZ) {
+        return this.data?.preview(view, point);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

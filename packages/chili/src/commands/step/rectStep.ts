@@ -3,7 +3,7 @@
 import { Container, I18n, IDocument, IView, MathUtils, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Dimension, Snapper } from "../../snap";
+import { Dimension, PointSnapper, SnapedData, SnapPointData } from "../../snap";
 import { IStep } from "./step";
 
 export interface RectData {
@@ -14,44 +14,49 @@ export interface RectData {
     p2: XYZ;
 }
 
-export class RectStep implements IStep<RectData> {
-    constructor(readonly first: XYZ) {}
-
-    async perform(document: IDocument, tip: keyof I18n): Promise<RectData | undefined> {
-        let view: IView | undefined = undefined;
-        let snap = new Snapper(document);
-        let point = await snap.snapPointAsync(tip, {
-            dimension: Dimension.D1D2,
-            refPoint: this.first,
-            validator: (v, p) => this.handleValid(v, this.first, p),
-            shapeCreator: (v, p) => {
-                view = v;
-                return this.handleTempRect(v, this.first, p);
-            },
-        });
-        if (point === undefined || view === undefined) return undefined;
-        let data = this.getRectData(view, this.first, point.point)!;
-        return data;
-    }
-
-    private handleValid = (view: IView, start: XYZ, end: XYZ) => {
-        let data = this.getRectData(view, start, end);
-        if (data === undefined) return false;
-        return !MathUtils.anyEqualZero(data.dx, data.dy);
-    };
-
-    private handleTempRect = (view: IView, start: XYZ, end: XYZ) => {
-        let data = this.getRectData(view, start, end)!;
-        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory?.rect(data.plane, data.dx, data.dy).value;
-    };
-
-    private getRectData(view: IView, start: XYZ, end: XYZ) {
-        if (start.isEqualTo(end)) return undefined;
-        let plane = new Plane(start, view.workplane.normal, view.workplane.x);
+export namespace RectData {
+    export function get(atPlane: Plane, start: XYZ, end: XYZ): RectData {
+        let plane = new Plane(start, atPlane.normal, atPlane.x);
         let vector = end.sub(start);
         let dx = vector.dot(plane.x);
         let dy = vector.dot(plane.y);
         return { plane, dx, dy, p1: start, p2: end };
     }
+}
+
+export interface RectStepData {
+    tip: keyof I18n;
+    getFirstPoint: () => XYZ;
+    plane: Plane;
+}
+
+export class RectStep implements IStep {
+    constructor(readonly handleData: () => RectStepData) {}
+
+    async perform(document: IDocument): Promise<SnapedData | undefined> {
+        let data = this.handleData();
+        let snapper = new PointSnapper({
+            tip: data.tip,
+            dimension: Dimension.D1D2,
+            refPoint: data.getFirstPoint(),
+            validator: (v, p) => this.handleValid(data, p),
+            preview: (v, p) => this.previewRect(data, p),
+            plane: data.plane,
+        });
+        return await snapper.snap(document, data.tip);
+    }
+
+    private handleValid = (stepData: RectStepData, end: XYZ) => {
+        let start = stepData.getFirstPoint();
+        let data = RectData.get(stepData.plane, start, end);
+        if (data === undefined) return false;
+        return !MathUtils.anyEqualZero(data.dx, data.dy);
+    };
+
+    private previewRect = (stepData: RectStepData, end: XYZ) => {
+        let start = stepData.getFirstPoint();
+        let data = RectData.get(stepData.plane, start, end)!;
+        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
+        return factory?.rect(data.plane, data.dx, data.dy).value;
+    };
 }

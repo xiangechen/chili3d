@@ -8,8 +8,7 @@ import { command, ICommand, IDocument } from "chili-core";
     icon: "icon-undo",
 })
 export class Undo implements ICommand {
-    async excute(document: IDocument): Promise<boolean> {
+    async excute(document: IDocument): Promise<void> {
         document.undo();
-        return true;
     }
 }

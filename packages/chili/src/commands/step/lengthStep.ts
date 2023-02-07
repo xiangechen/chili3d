@@ -1,46 +1,37 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
-
-import { Snapper } from "../../snap";
-import { ShapeFromLength } from "../../snap/shapeCreator";
+import { IDocument, Plane, Precision, XYZ } from "chili-core";
+import { LengthAtAxisSnapper, LengthAtPlaneSnapper, SnapedData } from "../../snap";
+import { SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
 import { IStep } from "./step";
 
-export class LengthAtAxisStep implements IStep<number> {
-    constructor(readonly point: XYZ, readonly direnction: XYZ, readonly handleTemp: ShapeFromLength) {}
+export class LengthAtAxisStep implements IStep {
+    constructor(readonly handleData: () => SnapLengthAtAxisData, readonly disableDefaultValidator = false) {}
 
-    async perform(document: IDocument, tip: keyof I18n): Promise<number | undefined> {
-        let snap = new Snapper(document);
-        let data = await snap.snapLengthAtAxisAsync(tip, {
-            point: this.point,
-            direction: this.direnction,
-            validator: this.handleValid,
-            shapeCreator: this.handleTemp,
-        });
-        return data?.length;
+    async perform(document: IDocument): Promise<SnapedData | undefined> {
+        let data = this.handleData();
+        if (!this.disableDefaultValidator && data.validator === undefined) {
+            data.validator = (v, p) => Math.abs(p.sub(data.point).dot(data.direction)) > Precision.confusion;
+        }
+        let snapper = new LengthAtAxisSnapper(data);
+        return await snapper.snap(document, data.tip);
     }
-
-    private handleValid = (view: IView, end: XYZ) => {
-        return Math.abs(end.sub(this.point).dot(this.direnction)) > Precision.confusion;
-    };
 }
 
-export class LengthAtPlaneStep implements IStep<number> {
-    constructor(readonly point: XYZ, readonly plane: Plane, readonly handleTemp: ShapeFromLength) {}
+export class LengthAtPlaneStep implements IStep {
+    constructor(readonly handleData: () => SnapLengthAtPlaneData, readonly disableDefaultValidator = false) {}
 
-    async perform(document: IDocument, tip: keyof I18n): Promise<number | undefined> {
-        let snap = new Snapper(document);
-        let data = await snap.snapLengthAtPlaneAsync(tip, {
-            point: this.point,
-            plane: this.plane,
-            validator: this.handleValid,
-            shapeCreator: this.handleTemp,
-        });
-        return data?.length;
+    async perform(document: IDocument): Promise<SnapedData | undefined> {
+        let data = this.handleData();
+        if (!this.disableDefaultValidator && data.validator === undefined) {
+            data.validator = (v, p) => this.handleValid(data.plane, data.point, p);
+        }
+        let snapper = new LengthAtPlaneSnapper(data);
+        return await snapper.snap(document, data.tip);
     }
 
-    private handleValid = (view: IView, end: XYZ) => {
-        let point = this.plane.project(end);
-        return point.distanceTo(this.point) > 0;
+    private handleValid = (plane: Plane, start: XYZ, end: XYZ) => {
+        let point = plane.project(end);
+        return point.distanceTo(start) > 0;
     };
 }

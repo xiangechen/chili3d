@@ -1,34 +1,33 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CancellationToken, Configure, IView, Validation, XYZ } from "chili-core";
-
+import { CancellationToken, Configure, I18n, IView, Plane, Validation, XYZ } from "chili-core";
 import { Dimension } from "./dimension";
-import { SnapedData } from "./interfaces";
 import { ObjectSnap } from "./objectSnap";
-import { ShapeFromPoint } from "./shapeCreator";
-import { SnapEventHandlerBase } from "./snapEventHandlerBase";
+import { PreviewFromPoint } from "./shapePreview";
+import { SnapEventHandler } from "./snapEventHandler";
 import { TrackingSnap } from "./tracking";
-import { WorkplaneSnap } from "./planeSnap";
+import { PlaneSnap, WorkplaneSnap } from "./planeSnap";
 
 export interface SnapPointData {
+    tip: keyof I18n;
     dimension: Dimension;
     refPoint?: XYZ;
     validator?: (view: IView, point: XYZ) => boolean;
-    shapeCreator?: ShapeFromPoint;
+    preview?: PreviewFromPoint;
+    plane?: Plane;
 }
 
-export class SnapPointEventHandler extends SnapEventHandlerBase {
+export class SnapPointEventHandler extends SnapEventHandler {
     constructor(cancellationToken: CancellationToken, readonly data: SnapPointData) {
         let objectSnap = new ObjectSnap(Configure.current.snapType);
-        let workplaneSnap = new WorkplaneSnap();
+        let workplaneSnap = data.plane ? new PlaneSnap(data.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(data.dimension, data.refPoint);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
         super(cancellationToken, snaps, [trackingSnap], data.validator);
     }
 
-    protected createTempShape(view: IView, point: XYZ) {
-        if (this.data.shapeCreator == undefined) return undefined;
-        return this.data.shapeCreator(view, point);
+    protected preview(view: IView, point: XYZ) {
+        return this.data.preview?.(view, point);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

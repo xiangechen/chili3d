@@ -8,9 +8,8 @@ import { command, ICommand, Id, IDocument, ModelGroup } from "chili-core";
     icon: "icon-folder-plus",
 })
 export class NewGroup implements ICommand {
-    async excute(document: IDocument): Promise<boolean> {
+    async excute(document: IDocument): Promise<void> {
         let group = new ModelGroup(`Group ${document.modelCount}`, Id.new());
         document.addModel(group);
-        return true;
     }
 }

@@ -1,27 +1,58 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, Model } from "chili-core";
-
+import { command, Id, IDocument, Model, Plane } from "chili-core";
 import { RectBody } from "../../bodys";
-import { AnyPointStep } from "../step/pointStep";
-import { RectStep } from "../step/rectStep";
+import { Dimension, SnapPointData } from "../../snap";
+import { PointStep } from "../step/pointStep";
+import { RectData, RectStep, RectStepData } from "../step/rectStep";
+import { IStep } from "../step/step";
+import { CreateCommand } from "./createCommand";
+
+export abstract class RectCommandBase extends CreateCommand {
+    protected getSteps(): IStep[] {
+        let first = new PointStep(this.getFirstStepData);
+        let second = new RectStep(this.getRectStepData);
+        return [first, second];
+    }
+
+    private getFirstStepData = (): SnapPointData => {
+        return {
+            tip: "operate.pickFistPoint",
+            dimension: Dimension.D1D2D3,
+        };
+    };
+
+    private getRectStepData = (): RectStepData => {
+        return {
+            tip: "operate.pickNextPoint",
+            getFirstPoint: () => this.snapedDatas[0].point,
+            plane: new Plane(
+                this.snapedDatas[0].point,
+                this.snapedDatas[0].view.workplane.normal,
+                this.snapedDatas[0].view.workplane.x
+            ),
+        };
+    };
+
+    protected getRectData(): RectData {
+        let [p1, p2] = [this.snapedDatas[0].point, this.snapedDatas[1].point];
+        return RectData.get(this.snapedDatas[0].view.workplane, p1, p2);
+    }
+}
 
 @command({
     name: "Rect",
     display: "command.rect",
     icon: "icon-rect",
 })
-export class Rect implements ICommand {
-    constructor() {}
-
-    async excute(document: IDocument): Promise<boolean> {
-        let point = await new AnyPointStep().perform(document, "operate.pickFistPoint");
-        if (point === undefined) return false;
-        let rect = await new RectStep(point.point).perform(document, "operate.pickNextPoint");
-        if (rect === undefined) return false;
+export class Rect extends RectCommandBase {
+    protected create(document: IDocument): Model {
+        let rect = this.getRectData();
         let body = new RectBody(rect.plane, rect.dx, rect.dy);
-        document.addModel(new Model(`Rect ${document.modelCount + 1}`, Id.new(), body));
-        document.viewer.redraw();
-        return true;
+        return new Model(`Rect ${document.modelCount + 1}`, Id.new(), body);
+    }
+
+    constructor() {
+        super();
     }
 }

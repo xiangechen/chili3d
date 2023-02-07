@@ -8,10 +8,9 @@ import { command, ICommand, IDocument } from "chili-core";
     icon: "icon-redo",
 })
 export class Delete implements ICommand {
-    async excute(document: IDocument): Promise<boolean> {
+    async excute(document: IDocument): Promise<void> {
         let models = document.visualization.selection.getSelectedModels();
         document.removeModel(...models);
         document.viewer.redraw();
-        return true;
     }
 }

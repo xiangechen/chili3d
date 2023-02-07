@@ -35,7 +35,7 @@ export class Plane {
     project(point: XYZ): XYZ {
         let vector = point.sub(this.location);
         let dot = vector.dot(this.normal);
-        return point.add(vector.sub(this.normal.multiply(dot)));
+        return this.location.add(vector.sub(this.normal.multiply(dot)));
     }
 
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {

@@ -2,7 +2,6 @@
 
 import {
     CancellationToken,
-    EdgeRenderData,
     IEventHandler,
     IShape,
     IView,
@@ -14,10 +13,9 @@ import {
     VertexRenderData,
     XYZ,
 } from "chili-core";
-
 import { MouseAndDetected, ISnap, SnapChangedHandler, SnapedData } from "./interfaces";
 
-export abstract class SnapEventHandlerBase implements IEventHandler {
+export abstract class SnapEventHandler implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
     protected _snaped?: SnapedData;
@@ -76,16 +74,12 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.isValidSnap(view, snaped)) {
+            if (this.validator === undefined || this.validator(view, snaped.point)) {
                 return snaped;
             }
         }
 
         return undefined;
-    }
-
-    protected isValidSnap(view: IView, snaped: SnapedData): boolean {
-        return this.validator === undefined || this.validator(view, snaped.point);
     }
 
     private getDetectedData(view: IView, event: MouseEvent) {
@@ -120,14 +114,14 @@ export abstract class SnapEventHandlerBase implements IEventHandler {
     private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        let shape = this.createTempShape(view, point);
+        let shape = this.preview(view, point);
         if (shape !== undefined) {
             let renderDatas = shape.mesh().edges.map((x) => x.renderData);
             this._tempShapeId = view.document.visualization.context.temporaryDisplay(...renderDatas);
         }
     }
 
-    protected abstract createTempShape(view: IView, point: XYZ): IShape | undefined;
+    protected abstract preview(view: IView, point: XYZ): IShape | undefined;
 
     private removeTempShapes(view: IView) {
         if (this._tempPointId !== undefined) {

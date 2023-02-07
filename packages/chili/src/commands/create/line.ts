@@ -1,38 +1,56 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, ICommand, Id, IDocument, Model, Token, XYZ } from "chili-core";
+import { command, Container, ICommand, Id, IDocument, IView, Model, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { LineBody } from "../../bodys";
-import { Dimension } from "../../snap";
-import { AnyPointStep, PointStep } from "../step";
+import { Dimension, SnapedData, SnapPointData } from "../../snap";
+import { PointStep } from "../step";
+import { IStep } from "../step/step";
+import { CreateCommand } from "./createCommand";
 
 @command({
     name: "Line",
     display: "command.line",
     icon: "icon-line",
 })
-export class Line implements ICommand {
-    constructor() {}
+export class Line extends CreateCommand {
+    create(document: IDocument): Model {
+        let body = new LineBody(this.snapedDatas[0].point, this.snapedDatas[1].point);
+        return new Model(`Line ${document.modelCount + 1}`, Id.new(), body);
+    }
 
-    async excute(document: IDocument): Promise<boolean> {
-        let start = await new AnyPointStep().perform(document, "operate.pickFistPoint").then((x) => x?.point);
-        while (true) {
-            if (start === undefined) break;
-            let end = await new PointStep(start, Dimension.D1D2D3, (v, p) => this.handleTempLine(start!, p)).perform(
-                document,
-                "operate.pickNextPoint"
-            );
-            if (end === undefined) break;
-            document.addModel(new Model(`Line ${document.modelCount + 1}`, Id.new(), new LineBody(start, end!)));
-            document.viewer.redraw();
-            start = end;
-        }
+    override afterExcute(document: IDocument): boolean {
+        this.snapedDatas[0] = this.snapedDatas[1];
+        this.snapedDatas.length = 1;
+        this.excuteFromStep(document, 1);
         return true;
     }
 
-    private handleTempLine = (start: XYZ, end: XYZ) => {
+    getSteps(): IStep[] {
+        let firstStep = new PointStep(this.getFirstPointData);
+        let secondStep = new PointStep(this.getSecondPointData);
+        return [firstStep, secondStep];
+    }
+
+    private getFirstPointData = (): SnapPointData => {
+        return {
+            tip: "operate.pickFistPoint",
+            dimension: Dimension.D1D2D3,
+        };
+    };
+
+    private getSecondPointData = (): SnapPointData => {
+        return {
+            tip: "operate.pickNextPoint",
+            refPoint: this.snapedDatas[0].point,
+            dimension: Dimension.D1D2D3,
+            preview: this.linePreview,
+        };
+    };
+
+    private linePreview = (view: IView, point: XYZ) => {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.line(start, end).value;
+        return factory!.line(this.snapedDatas[0].point, point).value;
     };
 }

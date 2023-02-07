@@ -3,5 +3,5 @@
 import { IDocument } from "./document";
 
 export interface ICommand {
-    excute(document: IDocument): Promise<boolean>;
+    excute(document: IDocument): Promise<void>;
 }
