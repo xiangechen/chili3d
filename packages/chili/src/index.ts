@@ -4,5 +4,6 @@ export * from "./appBuilder";
 export * from "./application";
 export * from "./bodys";
 export * from "./document";
+export * from "./history";
 export * from "./hotkey";
 export * from "./snap";

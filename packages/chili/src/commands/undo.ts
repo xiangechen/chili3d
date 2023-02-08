@@ -9,6 +9,7 @@ import { command, ICommand, IDocument } from "chili-core";
 })
 export class Undo implements ICommand {
     async excute(document: IDocument): Promise<void> {
-        document.undo();
+        document.history.undo();
+        document.viewer.redraw();
     }
 }

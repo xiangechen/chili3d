@@ -20,4 +20,9 @@ describe("test plane", () => {
         expect(plane.intersect(new Ray(new XYZ(1, 1, 1), new XYZ(1, 0, 1)))).toStrictEqual(new XYZ(0, 1, 0));
         expect(plane.intersect(new Ray(new XYZ(1, 1, 1), new XYZ(1, 0, 1)), false)).toBeUndefined();
     });
+
+    test("test project", () => {
+        expect(Plane.XY.project(new XYZ(0, 0, 0))).toStrictEqual(new XYZ(0, 0, 0));
+        expect(Plane.XY.project(new XYZ(100, 100, 100))).toStrictEqual(new XYZ(100, 100, 0));
+    });
 });

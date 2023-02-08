@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import "reflect-metadata";
-
-import { History, PropertyHistory } from "../src/history";
-import { TransactionItem } from "../src/transaction";
+import { HistoryOperation, PropertyHistoryRecord } from "chili-core";
+import { History } from "../src";
 
 describe("test history", () => {
     class TestClass {
@@ -21,14 +20,14 @@ describe("test history", () => {
     test("test modify history", () => {
         let obj = new TestClass();
         let history = new History();
-        let h: PropertyHistory = {
+        let h: PropertyHistoryRecord = {
             name: "test",
             object: obj,
             property: "property",
             oldValue: "p1",
             newValue: "p2",
         };
-        let action = new TransactionItem("test");
+        let action = new HistoryOperation("test");
         action.records.push(h);
         history.add(action);
         expect(history.undoCount()).toBe(1);

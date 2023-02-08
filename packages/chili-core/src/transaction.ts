@@ -1,32 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument } from "./document";
-import { History, HistoryObject } from "./history";
-import { Logger } from "./logger";
-
-export class TransactionItem {
-    readonly records: Array<HistoryObject>;
-
-    constructor(readonly name: string) {
-        this.records = [];
-    }
-}
+import { HistoryOperation, HistoryRecord } from "./history";
 
 export class Transaction {
-    private static readonly _transactionMap: WeakMap<IDocument, TransactionItem> = new WeakMap();
+    private static readonly _transactionMap: WeakMap<IDocument, HistoryOperation> = new WeakMap();
 
     constructor(readonly document: IDocument, readonly name: string) {}
 
-    static add(document: IDocument, historyObject: HistoryObject) {
-        let history = History.get(document);
-        if (history.isPerforming) return;
-        let transaction = Transaction._transactionMap.get(document);
-        if (transaction !== undefined) {
-            transaction.records.push(historyObject);
+    static add(document: IDocument, HistoryRecord: HistoryRecord) {
+        if (document.history.isDisabled) return;
+        let operation = Transaction._transactionMap.get(document);
+        if (operation !== undefined) {
+            operation.records.push(HistoryRecord);
         } else {
-            transaction = new TransactionItem(historyObject.name);
-            transaction.records.push(historyObject);
-            history.add(transaction);
+            operation = new HistoryOperation(HistoryRecord.name);
+            operation.records.push(HistoryRecord);
+            document.history.add(operation);
         }
     }
 
@@ -37,37 +27,32 @@ export class Transaction {
             action();
             trans.commit();
         } catch (e) {
-            Logger.error(e);
             trans.rollback();
+            throw e;
         }
     }
 
     start(name?: string) {
         let transactionName = name ?? this.name;
         if (Transaction._transactionMap.get(this.document) !== undefined) {
-            Logger.error("在 Transaction commit 之前无法开启另一个 Transaction");
-            return;
+            throw "The document has started a transaction";
         }
-        Transaction._transactionMap.set(this.document, new TransactionItem(transactionName));
+        Transaction._transactionMap.set(this.document, new HistoryOperation(transactionName));
     }
 
     commit() {
-        let transaction = Transaction._transactionMap.get(this.document);
-        if (transaction === undefined) {
-            Logger.error("请先调用 start");
-            return;
+        let operation = Transaction._transactionMap.get(this.document);
+        if (operation === undefined) {
+            throw "Transaction has not started";
         }
-        if (transaction.records.length > 0) History.get(this.document).add(transaction);
+        if (operation.records.length > 0) this.document.history.add(operation);
         Transaction._transactionMap.delete(this.document);
     }
 
     rollback() {
-        let transaction = Transaction._transactionMap.get(this.document);
-        if (transaction == undefined) return;
-        for (let index = transaction.records.length - 1; index >= 0; index--) {
-            const element = transaction.records[index];
-            HistoryObject.undo(element);
-        }
+        let operation = Transaction._transactionMap.get(this.document);
+        if (operation == undefined) return;
+        operation.undo();
         Transaction._transactionMap.delete(this.document);
     }
 }

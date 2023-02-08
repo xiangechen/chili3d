@@ -3,13 +3,12 @@
 import {
     CollectionAction,
     Container,
-    History,
     ICollection,
     IDocument,
+    IHistory,
     ISelection,
     IViewer,
     IVisualization,
-    Logger,
     ModelCollection,
     ModelObject,
     Observable,
@@ -18,6 +17,7 @@ import {
     Transaction,
 } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
+import { History } from "./history";
 
 import { Viewer } from "./viewer";
 
@@ -27,11 +27,13 @@ export class Document extends Observable implements IDocument {
     readonly viewer: IViewer;
     readonly selection: ISelection;
     readonly visualization: IVisualization;
+    readonly history: IHistory;
 
     constructor(name: string, readonly id: string) {
         super();
         this._name = name;
         this.models = new ModelCollection();
+        this.history = new History();
         this.viewer = new Viewer(this);
         this.visualization = this.getRender();
         this.selection = this.visualization.selection;
@@ -89,16 +91,6 @@ export class Document extends Observable implements IDocument {
         });
     }
 
-    undo() {
-        Logger.info("document undo");
-        this.undoRedoAction(() => History.get(this).undo());
-    }
-
-    redo() {
-        Logger.info("document redo");
-        this.undoRedoAction(() => History.get(this).redo());
-    }
-
     toJson() {
         return {
             id: this.id,
@@ -111,14 +103,6 @@ export class Document extends Observable implements IDocument {
         let document = new Document(data.name, data.id);
         // data.models.forEach(x => document.addModel(x))
         return document;
-    }
-
-    private undoRedoAction(action: () => void) {
-        let models = this.selection.getSelectedModels();
-        this.selection.unSelected(...models);
-        action();
-        this.selection.setSelected(false, ...models);
-        this.viewer.redraw();
     }
 
     private handleModelCollectionChanged = (

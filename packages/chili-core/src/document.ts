@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDisposable } from "./disposable";
+import { IHistory } from "./history";
 import { ModelObject } from "./model";
 import { IPropertyChanged } from "./observer";
 import { IVisualization } from "./visualization";
@@ -11,14 +12,13 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly id: string;
     readonly viewer: IViewer;
     readonly selection: ISelection;
+    readonly history: IHistory;
     get modelCount(): number;
     addModel(...models: ModelObject[]): void;
     get visualization(): IVisualization;
     getModel(id: string): ModelObject | undefined;
     getModels(...ids: string[]): ModelObject[];
     removeModel(...models: ModelObject[]): void;
-    undo(): void;
-    redo(): void;
 }
 
 export namespace IDocument {

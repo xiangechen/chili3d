@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument } from "./document";
-import { HistoryObject } from "./history";
+import { HistoryRecord } from "./history";
 import { Observable } from "./observer";
 import { Transaction } from "./transaction";
 
@@ -22,7 +22,7 @@ export abstract class DocumentObject extends Observable {
         newValue: this[K],
         onPropertyChanged?: ((oldValue: this[K], newValue: this[K]) => void) | undefined
     ): boolean {
-        let h: HistoryObject = {
+        let h: HistoryRecord = {
             name: `modify ${String(property)}`,
             object: this,
             property,
