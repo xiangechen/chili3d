@@ -17,13 +17,12 @@ import { RectCommandBase } from "./rect";
 export class Box extends RectCommandBase {
     protected override getSteps(): IStep[] {
         let steps = super.getSteps();
-        let third = new LengthAtAxisStep(this.getHeightStepData);
+        let third = new LengthAtAxisStep("operate.pickNextPoint", this.getHeightStepData);
         return [...steps, third];
     }
 
     private getHeightStepData = (): SnapLengthAtAxisData => {
         return {
-            tip: "operate.pickNextPoint",
             point: this.snapedDatas[1].point,
             direction: this.snapedDatas[0].view.workplane.normal,
             preview: this.previewBox,

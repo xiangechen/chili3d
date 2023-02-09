@@ -10,21 +10,19 @@ import { CreateCommand } from "./createCommand";
 
 export abstract class RectCommandBase extends CreateCommand {
     protected getSteps(): IStep[] {
-        let first = new PointStep(this.getFirstStepData);
-        let second = new RectStep(this.getRectStepData);
+        let first = new PointStep("operate.pickFistPoint", this.getFirstStepData);
+        let second = new RectStep("operate.pickNextPoint", this.getRectStepData);
         return [first, second];
     }
 
     private getFirstStepData = (): SnapPointData => {
         return {
-            tip: "operate.pickFistPoint",
             dimension: Dimension.D1D2D3,
         };
     };
 
     private getRectStepData = (): RectStepData => {
         return {
-            tip: "operate.pickNextPoint",
             getFirstPoint: () => this.snapedDatas[0].point,
             plane: new Plane(
                 this.snapedDatas[0].point,

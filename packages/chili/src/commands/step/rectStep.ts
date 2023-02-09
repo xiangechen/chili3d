@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IDocument, IView, MathUtils, Plane, Token, XYZ } from "chili-core";
+import { Container, I18n, IDocument, MathUtils, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Dimension, PointSnapper, SnapedData, SnapPointData } from "../../snap";
+import { Dimension, PointSnapper, SnapedData } from "../../snap";
 import { IStep } from "./step";
 
 export interface RectData {
@@ -25,25 +25,23 @@ export namespace RectData {
 }
 
 export interface RectStepData {
-    tip: keyof I18n;
     getFirstPoint: () => XYZ;
     plane: Plane;
 }
 
 export class RectStep implements IStep {
-    constructor(readonly handleData: () => RectStepData) {}
+    constructor(readonly tip: keyof I18n, readonly handleData: () => RectStepData) {}
 
     async perform(document: IDocument): Promise<SnapedData | undefined> {
         let data = this.handleData();
         let snapper = new PointSnapper({
-            tip: data.tip,
             dimension: Dimension.D1D2,
             refPoint: data.getFirstPoint(),
             validator: (v, p) => this.handleValid(data, p),
             preview: (v, p) => this.previewRect(data, p),
             plane: data.plane,
         });
-        return await snapper.snap(document, data.tip);
+        return await snapper.snap(document, this.tip);
     }
 
     private handleValid = (stepData: RectStepData, end: XYZ) => {

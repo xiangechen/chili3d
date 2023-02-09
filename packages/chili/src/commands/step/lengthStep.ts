@@ -1,37 +1,27 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Plane, Precision, XYZ } from "chili-core";
-import { LengthAtAxisSnapper, LengthAtPlaneSnapper, SnapedData } from "../../snap";
+import { I18n, IView, Precision, XYZ } from "chili-core";
+import { LengthAtAxisSnapper, LengthAtPlaneSnapper } from "../../snap";
 import { SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
-import { IStep } from "./step";
+import { StepBase } from "./step";
 
-export class LengthAtAxisStep implements IStep {
-    constructor(readonly handleData: () => SnapLengthAtAxisData, readonly disableDefaultValidator = false) {}
+export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
+    constructor(tip: keyof I18n, handleData: () => SnapLengthAtAxisData, disableDefaultValidator = false) {
+        super(LengthAtAxisSnapper, tip, handleData, disableDefaultValidator);
+    }
 
-    async perform(document: IDocument): Promise<SnapedData | undefined> {
-        let data = this.handleData();
-        if (!this.disableDefaultValidator && data.validator === undefined) {
-            data.validator = (v, p) => Math.abs(p.sub(data.point).dot(data.direction)) > Precision.confusion;
-        }
-        let snapper = new LengthAtAxisSnapper(data);
-        return await snapper.snap(document, data.tip);
+    protected validator(view: IView, data: SnapLengthAtAxisData, point: XYZ): boolean {
+        return Math.abs(point.sub(data.point).dot(data.direction)) > Precision.confusion;
     }
 }
 
-export class LengthAtPlaneStep implements IStep {
-    constructor(readonly handleData: () => SnapLengthAtPlaneData, readonly disableDefaultValidator = false) {}
-
-    async perform(document: IDocument): Promise<SnapedData | undefined> {
-        let data = this.handleData();
-        if (!this.disableDefaultValidator && data.validator === undefined) {
-            data.validator = (v, p) => this.handleValid(data.plane, data.point, p);
-        }
-        let snapper = new LengthAtPlaneSnapper(data);
-        return await snapper.snap(document, data.tip);
+export class LengthAtPlaneStep extends StepBase<SnapLengthAtPlaneData> {
+    constructor(tip: keyof I18n, handleData: () => SnapLengthAtPlaneData, disableDefaultValidator = false) {
+        super(LengthAtPlaneSnapper, tip, handleData, disableDefaultValidator);
     }
 
-    private handleValid = (plane: Plane, start: XYZ, end: XYZ) => {
-        let point = plane.project(end);
-        return point.distanceTo(start) > 0;
-    };
+    protected validator(view: IView, data: SnapLengthAtPlaneData, point: XYZ): boolean {
+        let pointAtPlane = data.plane.project(point);
+        return pointAtPlane.distanceTo(data.point) > 0;
+    }
 }

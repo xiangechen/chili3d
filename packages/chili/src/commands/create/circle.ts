@@ -22,14 +22,13 @@ export class Circle extends CreateCommand {
     }
 
     getSteps(): IStep[] {
-        let centerStep = new PointStep(this.getCenterPointData);
-        let radiusStep = new LengthAtPlaneStep(this.getRadiusPointData);
+        let centerStep = new PointStep("operate.pickCircleCenter", this.getCenterPointData);
+        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusPointData);
         return [centerStep, radiusStep];
     }
 
     private getCenterPointData = (): SnapPointData => {
         return {
-            tip: "operate.pickCircleCenter",
             dimension: Dimension.D1D2D3,
         };
     };
@@ -37,7 +36,6 @@ export class Circle extends CreateCommand {
     private getRadiusPointData = (): SnapLengthAtPlaneData => {
         let plane = this.snapedDatas[0].view.workplane;
         return {
-            tip: "operate.pickRadius",
             point: this.snapedDatas[0].point,
             preview: this.circlePreview,
             plane: new Plane(this.snapedDatas[0].point, plane.normal, plane.x),

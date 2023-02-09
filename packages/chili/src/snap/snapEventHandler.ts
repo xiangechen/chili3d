@@ -15,6 +15,14 @@ import {
 } from "chili-core";
 import { MouseAndDetected, ISnap, SnapChangedHandler, SnapedData } from "./interfaces";
 
+export interface SnapEventData {
+    cancellationToken: CancellationToken;
+    snaps: ISnap[];
+    snapChangedHandlers?: SnapChangedHandler[];
+    validator?: (view: IView, point: XYZ) => boolean;
+    preview?: (view: IView, point: XYZ) => IShape | undefined;
+}
+
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
@@ -22,14 +30,9 @@ export abstract class SnapEventHandler implements IEventHandler {
     private readonly _snaps: ISnap[];
     private readonly _snapedChangedHandlers: SnapChangedHandler[];
 
-    constructor(
-        private readonly _cancellationToken: CancellationToken,
-        snaps: ISnap[],
-        snapedChangedHandlers: SnapChangedHandler[],
-        private readonly validator?: (view: IView, point: XYZ) => boolean
-    ) {
-        this._snaps = [...snaps];
-        this._snapedChangedHandlers = snapedChangedHandlers === undefined ? [] : [...snapedChangedHandlers];
+    constructor(private readonly data: SnapEventData) {
+        this._snaps = [...data.snaps];
+        this._snapedChangedHandlers = data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
         PubSub.default.sub("snapChanged", this.onSnapChanged);
     }
 
@@ -43,7 +46,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     private stopSnap(view: IView) {
         this._snapedChangedHandlers.length = 0;
-        this._cancellationToken.cancel();
+        this.data.cancellationToken.cancel();
         this.clearSnapTip();
         this.removeInput();
         this.removeTempShapes(view);
@@ -74,7 +77,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.validator === undefined || this.validator(view, snaped.point)) {
+            if (this.data.validator === undefined || this.data.validator(view, snaped.point)) {
                 return snaped;
             }
         }
@@ -114,14 +117,12 @@ export abstract class SnapEventHandler implements IEventHandler {
     private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        let shape = this.preview(view, point);
+        let shape = this.data.preview?.(view, point);
         if (shape !== undefined) {
             let renderDatas = shape.mesh().edges.map((x) => x.renderData);
             this._tempShapeId = view.document.visualization.context.temporaryDisplay(...renderDatas);
         }
     }
-
-    protected abstract preview(view: IView, point: XYZ): IShape | undefined;
 
     private removeTempShapes(view: IView) {
         if (this._tempPointId !== undefined) {
