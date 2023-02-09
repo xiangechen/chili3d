@@ -2,7 +2,6 @@
 
 import { command, Id, IDocument, Model, Plane } from "chili-core";
 import { RectBody } from "../../bodys";
-import { Dimension, SnapPointData } from "../../snap";
 import { PointStep } from "../step/pointStep";
 import { RectData, RectStep, RectStepData } from "../step/rectStep";
 import { IStep } from "../step/step";
@@ -10,16 +9,10 @@ import { CreateCommand } from "./createCommand";
 
 export abstract class RectCommandBase extends CreateCommand {
     protected getSteps(): IStep[] {
-        let first = new PointStep("operate.pickFistPoint", this.getFirstStepData);
+        let first = new PointStep("operate.pickFistPoint");
         let second = new RectStep("operate.pickNextPoint", this.getRectStepData);
         return [first, second];
     }
-
-    private getFirstStepData = (): SnapPointData => {
-        return {
-            dimension: Dimension.D1D2D3,
-        };
-    };
 
     private getRectStepData = (): RectStepData => {
         return {

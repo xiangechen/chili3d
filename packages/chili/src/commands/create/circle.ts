@@ -4,7 +4,6 @@ import { command, Id, IDocument, inject, injectable, IView, Model, Plane, Token,
 import { IShapeFactory } from "chili-geo";
 
 import { CircleBody } from "../../bodys";
-import { Dimension, LengthAtPlaneSnapper, SnapedData, SnapPointData } from "../../snap";
 import { SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
 import { LengthAtPlaneStep, PointStep } from "../step";
 import { IStep } from "../step/step";
@@ -22,17 +21,10 @@ export class Circle extends CreateCommand {
     }
 
     getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter", this.getCenterPointData);
+        let centerStep = new PointStep("operate.pickCircleCenter");
         let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusPointData);
         return [centerStep, radiusStep];
     }
-
-    private getCenterPointData = (): SnapPointData => {
-        return {
-            dimension: Dimension.D1D2D3,
-        };
-    };
-
     private getRadiusPointData = (): SnapLengthAtPlaneData => {
         let plane = this.snapedDatas[0].view.workplane;
         return {

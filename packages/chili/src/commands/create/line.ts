@@ -28,16 +28,10 @@ export class Line extends CreateCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint", this.getFirstPointData);
+        let firstStep = new PointStep("operate.pickFistPoint");
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
         return [firstStep, secondStep];
     }
-
-    private getFirstPointData = (): SnapPointData => {
-        return {
-            dimension: Dimension.D1D2D3,
-        };
-    };
 
     private getSecondPointData = (): SnapPointData => {
         return {
