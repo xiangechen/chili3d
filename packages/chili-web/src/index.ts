@@ -12,4 +12,5 @@ let builder = new AppBuilder()
 
 let app = await builder.build();
 let doc = app.newDocument("test");
-doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
+let view = doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
+view.redraw();
