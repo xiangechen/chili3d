@@ -5,38 +5,22 @@ import { SnapedData } from "../../snap";
 import { IStep } from "../step/step";
 
 export abstract class CreateCommand implements ICommand {
-    protected snapedDatas: SnapedData[];
-
-    constructor() {
-        this.snapedDatas = [];
-    }
-
-    protected abstract getSteps(): IStep[];
-
-    protected abstract create(document: IDocument): Model;
+    protected snapedDatas: SnapedData[] = [];
 
     async excute(document: IDocument): Promise<void> {
         this.excuteFromStep(document, 0);
     }
 
     protected async excuteFromStep(document: IDocument, step: number): Promise<void> {
-        let isSuccess = await this.performSteps(document, step);
-        if (!isSuccess) return;
-        let model = this.create(document);
-        Transaction.excute(document, `add model ${model.name}`, () => {
-            document.addModel(model);
-            document.viewer.redraw();
-        });
+        if (!(await this.performSteps(document, step))) return;
+        this.createModel(document);
         this.afterExcute(document);
     }
 
-    protected afterExcute(document: IDocument) {}
-
-    private async performSteps(document: IDocument, startStep: number): Promise<boolean> {
+    private async performSteps(document: IDocument, startIndex: number): Promise<boolean> {
         let steps = this.getSteps();
-        for (let index = startStep; index < steps.length; index++) {
-            const step = steps[index];
-            let snaped = await step.perform(document);
+        for (let i = startIndex; i < steps.length; i++) {
+            let snaped = await steps[i].perform(document);
             if (snaped === undefined) {
                 this.snapedDatas.length = 0;
                 return false;
@@ -46,4 +30,18 @@ export abstract class CreateCommand implements ICommand {
         }
         return true;
     }
+
+    protected abstract getSteps(): IStep[];
+
+    private createModel(document: IDocument) {
+        Transaction.excute(document, `add model`, () => {
+            let model = this.create(document);
+            document.addModel(model);
+            document.viewer.redraw();
+        });
+    }
+
+    protected abstract create(document: IDocument): Model;
+
+    protected afterExcute(document: IDocument) {}
 }
