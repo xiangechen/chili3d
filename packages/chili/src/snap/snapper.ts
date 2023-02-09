@@ -1,16 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CancellationToken, CursorType, I18n, IDocument, Plane, PubSub } from "chili-core";
+import { CancellationToken, CursorType, I18n, IDocument, PubSub } from "chili-core";
 
-import { SnapedData } from "./interfaces";
-import { SnapEventHandler } from "./snapEventHandler";
 import {
     SnapLengthAtAxisData,
     SnapLengthAtAxisHandler,
     SnapLengthAtPlaneData,
     SnapLengthAtPlaneHandler,
-} from "./snapLengthEventHandler";
-import { SnapPointData, SnapPointEventHandler } from "./snapPointHandler";
+    SnapPointData,
+    SnapPointEventHandler,
+} from "./snapEventHandler";
+import { SnapEventHandler } from "./snapEventHandler/snapEventHandler";
+import { SnapedData } from "./interfaces";
 
 export abstract class Snapper {
     protected eventHandler?: SnapEventHandler;

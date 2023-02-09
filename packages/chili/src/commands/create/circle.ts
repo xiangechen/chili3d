@@ -4,7 +4,7 @@ import { command, Id, IDocument, inject, injectable, IView, Model, Plane, Token,
 import { IShapeFactory } from "chili-geo";
 
 import { CircleBody } from "../../bodys";
-import { SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
+import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 

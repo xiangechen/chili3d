@@ -2,8 +2,7 @@
 
 import { I18n, IView, Precision, XYZ } from "chili-core";
 
-import { LengthAtAxisSnapper, LengthAtPlaneSnapper } from "../snap";
-import { SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../snap/snapLengthEventHandler";
+import { LengthAtAxisSnapper, LengthAtPlaneSnapper, SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../snap";
 import { StepBase } from "./step";
 
 export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {

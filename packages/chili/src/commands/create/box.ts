@@ -4,7 +4,7 @@ import { command, Container, Id, IDocument, IView, Model, Plane, Token, XYZ } fr
 import { IShapeFactory } from "chili-geo";
 
 import { BoxBody } from "../../bodys";
-import { SnapLengthAtAxisData } from "../../snap/snapLengthEventHandler";
+import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
