@@ -7,11 +7,11 @@ export interface IStep {
     perform(document: IDocument): Promise<SnapedData | undefined>;
 }
 
-export interface IValidator {
+export interface Validator {
     validator?: (view: IView, point: XYZ) => boolean;
 }
 
-export abstract class StepBase<D extends IValidator> implements IStep {
+export abstract class StepBase<D extends Validator> implements IStep {
     constructor(
         readonly S: new (data: D) => Snapper,
         readonly tip: keyof I18n,
