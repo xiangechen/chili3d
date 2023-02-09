@@ -16,13 +16,13 @@ import { CreateCommand } from "./createCommand";
 })
 export class Line extends CreateCommand {
     create(document: IDocument): Model {
-        let body = new LineBody(this.snapedDatas[0].point, this.snapedDatas[1].point);
+        let body = new LineBody(this.stepDatas[0].point, this.stepDatas[1].point);
         return new Model(`Line ${document.modelCount + 1}`, Id.new(), body);
     }
 
     override afterExcute(document: IDocument): boolean {
-        this.snapedDatas[0] = this.snapedDatas[1];
-        this.snapedDatas.length = 1;
+        this.stepDatas[0] = this.stepDatas[1];
+        this.stepDatas.length = 1;
         this.excuteFromStep(document, 1);
         return true;
     }
@@ -35,7 +35,7 @@ export class Line extends CreateCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.snapedDatas[0].point,
+            refPoint: this.stepDatas[0].point,
             dimension: Dimension.D1D2D3,
             preview: this.linePreview,
         };
@@ -43,6 +43,6 @@ export class Line extends CreateCommand {
 
     private linePreview = (view: IView, point: XYZ) => {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.line(this.snapedDatas[0].point, point).value;
+        return factory!.line(this.stepDatas[0].point, point).value;
     };
 }

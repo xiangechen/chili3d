@@ -26,24 +26,24 @@ export class Circle extends CreateCommand {
         return [centerStep, radiusStep];
     }
     private getRadiusPointData = (): SnapLengthAtPlaneData => {
-        let point = this.snapedDatas[0].point;
+        let point = this.stepDatas[0].point;
         return {
             point,
             preview: this.circlePreview,
-            plane: this.snapedDatas[0].view.workplane.copyTo(point),
+            plane: this.stepDatas[0].view.workplane.copyTo(point),
         };
     };
 
     create(document: IDocument): Model {
-        let [p1, p2] = [this.snapedDatas[0].point, this.snapedDatas[1].point];
-        let plane = this.snapedDatas[0].view.workplane;
+        let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
+        let plane = this.stepDatas[0].view.workplane;
         let body = new CircleBody(plane.normal!, p1, this.getDistanceAtPlane(plane, p1, p2));
         return new Model(`Circle ${document.modelCount + 1}`, Id.new(), body);
     }
 
     private circlePreview = (view: IView, point: XYZ) => {
-        let start = this.snapedDatas[0].point;
-        let plane = this.snapedDatas[0].view.workplane;
+        let start = this.stepDatas[0].point;
+        let plane = this.stepDatas[0].view.workplane;
         return this.factory.circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point)).value;
     };
 

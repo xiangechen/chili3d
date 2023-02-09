@@ -5,7 +5,7 @@ import { SnapedData } from "../../snap";
 import { IStep } from "../step/step";
 
 export abstract class CreateCommand implements ICommand {
-    protected snapedDatas: SnapedData[] = [];
+    protected stepDatas: SnapedData[] = [];
 
     async excute(document: IDocument): Promise<void> {
         this.excuteFromStep(document, 0);
@@ -20,12 +20,12 @@ export abstract class CreateCommand implements ICommand {
     private async performSteps(document: IDocument, startIndex: number): Promise<boolean> {
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
-            let snaped = await steps[i].perform(document);
-            if (snaped === undefined) {
-                this.snapedDatas.length = 0;
+            let data = await steps[i].perform(document);
+            if (data === undefined) {
+                this.stepDatas.length = 0;
                 return false;
             } else {
-                this.snapedDatas.push(snaped);
+                this.stepDatas.push(data);
             }
         }
         return true;

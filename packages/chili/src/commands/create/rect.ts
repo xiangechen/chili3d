@@ -15,16 +15,16 @@ export abstract class RectCommandBase extends CreateCommand {
     }
 
     private getRectStepData = (): RectStepData => {
-        let firstPoint = this.snapedDatas[0].point;
+        let firstPoint = this.stepDatas[0].point;
         return {
             firstPoint,
-            plane: this.snapedDatas[0].view.workplane.copyTo(firstPoint),
+            plane: this.stepDatas[0].view.workplane.copyTo(firstPoint),
         };
     };
 
     protected getRectData(): RectData {
-        let [p1, p2] = [this.snapedDatas[0].point, this.snapedDatas[1].point];
-        return RectData.get(this.snapedDatas[0].view.workplane, p1, p2);
+        let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
+        return RectData.get(this.stepDatas[0].view.workplane, p1, p2);
     }
 }
 

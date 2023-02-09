@@ -23,8 +23,8 @@ export class Box extends RectCommandBase {
 
     private getHeightStepData = (): SnapLengthAtAxisData => {
         return {
-            point: this.snapedDatas[1].point,
-            direction: this.snapedDatas[0].view.workplane.normal,
+            point: this.stepDatas[1].point,
+            direction: this.stepDatas[0].view.workplane.normal,
             preview: this.previewBox,
         };
     };
@@ -37,11 +37,11 @@ export class Box extends RectCommandBase {
 
     protected create(document: IDocument): Model {
         let rect = this.getRectData();
-        let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.snapedDatas[2].point));
+        let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.stepDatas[2].point));
         return new Model(`Box ${document.modelCount + 1}`, Id.new(), body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {
-        return point.sub(this.snapedDatas[1].point).dot(plane.normal);
+        return point.sub(this.stepDatas[1].point).dot(plane.normal);
     }
 }
