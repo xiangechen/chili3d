@@ -21,10 +21,11 @@ export class Circle extends CreateCommand {
 
     getSteps(): IStep[] {
         let centerStep = new PointStep("operate.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusPointData);
+        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
         return [centerStep, radiusStep];
     }
-    private getRadiusPointData = (): SnapLengthAtPlaneData => {
+
+    private getRadiusData = (): SnapLengthAtPlaneData => {
         let point = this.stepDatas[0].point;
         return {
             point,

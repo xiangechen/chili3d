@@ -29,13 +29,13 @@ export class Box extends RectCommandBase {
     };
 
     private previewBox = (_view: IView, end: XYZ) => {
-        let data = this.getRectData();
+        let data = this.getRectData(end);
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory?.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end)).value;
     };
 
     protected create(document: IDocument): Model {
-        let rect = this.getRectData();
+        let rect = this.getRectData(this.stepDatas[1].point);
         let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.stepDatas[2].point));
         return new Model(`Box ${document.modelCount + 1}`, Id.new(), body);
     }

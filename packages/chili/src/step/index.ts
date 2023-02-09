@@ -2,5 +2,4 @@
 
 export * from "./lengthStep";
 export * from "./pointStep";
-export * from "./rectStep";
 export * from "./step";

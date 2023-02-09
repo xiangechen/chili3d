@@ -1,28 +1,62 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Id, IDocument, Model } from "chili-core";
+import { command, Container, Id, IDocument, IView, MathUtils, Model, Plane, Token, XYZ } from "chili-core";
+import { IShapeFactory } from "chili-geo";
 
 import { RectBody } from "../../bodys";
-import { IStep, PointStep, RectData, RectStep, RectStepData } from "../../step";
+import { SnapLengthAtPlaneData } from "../../snap";
+import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
+
+export interface RectData {
+    plane: Plane;
+    dx: number;
+    dy: number;
+    p1: XYZ;
+    p2: XYZ;
+}
+
+export namespace RectData {
+    export function get(atPlane: Plane, start: XYZ, end: XYZ): RectData {
+        let plane = new Plane(start, atPlane.normal, atPlane.x);
+        let vector = end.sub(start);
+        let dx = vector.dot(plane.x);
+        let dy = vector.dot(plane.y);
+        return { plane, dx, dy, p1: start, p2: end };
+    }
+}
 
 export abstract class RectCommandBase extends CreateCommand {
     protected getSteps(): IStep[] {
         let first = new PointStep("operate.pickFistPoint");
-        let second = new RectStep("operate.pickNextPoint", this.getRectStepData);
+        let second = new LengthAtPlaneStep("operate.pickNextPoint", this.nextSnapData);
         return [first, second];
     }
 
-    private getRectStepData = (): RectStepData => {
-        let firstPoint = this.stepDatas[0].point;
+    private nextSnapData = (): SnapLengthAtPlaneData => {
+        let point = this.stepDatas[0].point;
         return {
-            firstPoint,
-            plane: this.stepDatas[0].view.workplane.copyTo(firstPoint),
+            point,
+            preview: this.previewRect,
+            plane: this.stepDatas[0].view.workplane.copyTo(point),
+            validator: this.handleValid,
         };
     };
 
-    protected getRectData(): RectData {
-        let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
+    private handleValid = (view: IView, end: XYZ) => {
+        let data = this.getRectData(end);
+        if (data === undefined) return false;
+        return !MathUtils.anyEqualZero(data.dx, data.dy);
+    };
+
+    private previewRect = (view: IView, end: XYZ) => {
+        let data = this.getRectData(end);
+        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
+        return factory?.rect(data.plane, data.dx, data.dy).value;
+    };
+
+    protected getRectData(point: XYZ): RectData {
+        let [p1, p2] = [this.stepDatas[0].point, point];
         return RectData.get(this.stepDatas[0].view.workplane, p1, p2);
     }
 }
@@ -34,7 +68,7 @@ export abstract class RectCommandBase extends CreateCommand {
 })
 export class Rect extends RectCommandBase {
     protected create(document: IDocument): Model {
-        let rect = this.getRectData();
+        let rect = this.getRectData(this.stepDatas[1].point);
         let body = new RectBody(rect.plane, rect.dx, rect.dy);
         return new Model(`Rect ${document.modelCount + 1}`, Id.new(), body);
     }
