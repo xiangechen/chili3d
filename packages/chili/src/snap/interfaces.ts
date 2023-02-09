@@ -9,10 +9,6 @@ export interface SnapedData {
     shapes: IShape[];
 }
 
-export interface SnapedLengthData extends SnapedData {
-    length: number;
-}
-
 export interface MouseAndDetected {
     view: IView;
     mx: number;
@@ -29,12 +25,4 @@ export interface ISnap {
     onSnapTypeChanged(snapType: ObjectSnapType): void;
     removeDynamicObject(): void;
     clear(): void;
-}
-
-export interface IAngleSnap extends ISnap {
-    angle(): number | undefined;
-}
-
-export interface LengthSnap extends ISnap {
-    length(): number | undefined;
 }
