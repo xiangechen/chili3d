@@ -40,7 +40,7 @@ export class Line extends CreateCommand {
         };
     };
 
-    private linePreview = (view: IView, point: XYZ) => {
+    private linePreview = (point: XYZ) => {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.line(this.stepDatas[0].point, point).value;
     };

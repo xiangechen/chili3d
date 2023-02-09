@@ -43,13 +43,13 @@ export abstract class RectCommandBase extends CreateCommand {
         };
     };
 
-    private handleValid = (view: IView, end: XYZ) => {
+    private handleValid = (end: XYZ) => {
         let data = this.getRectData(end);
         if (data === undefined) return false;
         return !MathUtils.anyEqualZero(data.dx, data.dy);
     };
 
-    private previewRect = (view: IView, end: XYZ) => {
+    private previewRect = (end: XYZ) => {
         let data = this.getRectData(end);
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory?.rect(data.plane, data.dx, data.dy).value;

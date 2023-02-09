@@ -41,7 +41,7 @@ export class Circle extends CreateCommand {
         return new Model(`Circle ${document.modelCount + 1}`, Id.new(), body);
     }
 
-    private circlePreview = (view: IView, point: XYZ) => {
+    private circlePreview = (point: XYZ) => {
         let start = this.stepDatas[0].point;
         let plane = this.stepDatas[0].view.workplane;
         return this.factory.circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point)).value;

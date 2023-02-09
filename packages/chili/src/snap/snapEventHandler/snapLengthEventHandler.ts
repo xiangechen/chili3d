@@ -5,20 +5,21 @@ import { CancellationToken, Configure, IShape, IView, Plane, Validation, XYZ } f
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
 import { AxisTracking } from "../tracking";
+import { ShapePreviewer, Validator } from "./interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapLengthAtAxisData {
     point: XYZ;
     direction: XYZ;
-    validator?: (view: IView, point: XYZ) => boolean;
-    preview: (view: IView, point: XYZ) => IShape | undefined;
+    validator?: Validator;
+    preview: ShapePreviewer;
 }
 
 export interface SnapLengthAtPlaneData {
     point: XYZ;
     plane: Plane;
-    validator?: (view: IView, point: XYZ) => boolean;
-    preview: (view: IView, point: XYZ) => IShape | undefined;
+    validator?: Validator;
+    preview: ShapePreviewer;
 }
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {

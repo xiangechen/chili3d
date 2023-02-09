@@ -15,13 +15,14 @@ import {
 } from "chili-core";
 
 import { ISnap, MouseAndDetected, SnapChangedHandler, SnapedData } from "../interfaces";
+import { ShapePreviewer, Validator } from "./interfaces";
 
 export interface SnapEventData {
     cancellationToken: CancellationToken;
     snaps: ISnap[];
     snapChangedHandlers?: SnapChangedHandler[];
-    validator?: (view: IView, point: XYZ) => boolean;
-    preview?: (view: IView, point: XYZ) => IShape | undefined;
+    validator?: Validator;
+    preview?: ShapePreviewer;
 }
 
 export abstract class SnapEventHandler implements IEventHandler {
@@ -78,7 +79,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.data.validator === undefined || this.data.validator(view, snaped.point)) {
+            if (this.data.validator === undefined || this.data.validator(snaped.point)) {
                 return snaped;
             }
         }
@@ -118,7 +119,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
         this._tempPointId = view.document.visualization.context.temporaryDisplay(data);
-        let shape = this.data.preview?.(view, point);
+        let shape = this.data.preview?.(point);
         if (shape !== undefined) {
             let renderDatas = shape.mesh().edges.map((x) => x.renderData);
             this._tempShapeId = view.document.visualization.context.temporaryDisplay(...renderDatas);

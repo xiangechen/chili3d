@@ -6,13 +6,14 @@ import { Dimension } from "../dimension";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
+import { ShapePreviewer, Validator } from "./interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapPointData {
     dimension: Dimension;
     refPoint?: XYZ;
-    validator?: (view: IView, point: XYZ) => boolean;
-    preview?: (view: IView, point: XYZ) => IShape | undefined;
+    validator?: Validator;
+    preview?: ShapePreviewer;
     plane?: Plane;
 }
 
