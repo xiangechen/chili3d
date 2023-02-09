@@ -1,12 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, ICommand, Id, IDocument, IView, Model, Token, XYZ } from "chili-core";
+import { command, Container, Id, IDocument, IView, Model, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { LineBody } from "../../bodys";
-import { Dimension, SnapedData, SnapPointData } from "../../snap";
-import { PointStep } from "../../step";
-import { IStep } from "../../step/step";
+import { Dimension, SnapPointData } from "../../snap";
+import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 
 @command({

@@ -17,8 +17,8 @@ import {
     Transaction,
 } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
-import { History } from "./history";
 
+import { History } from "./history";
 import { Viewer } from "./viewer";
 
 export class Document extends Observable implements IDocument {

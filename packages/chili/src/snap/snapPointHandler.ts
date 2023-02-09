@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CancellationToken, Configure, I18n, IView, Plane, Validation, XYZ } from "chili-core";
+
 import { Dimension } from "./dimension";
 import { ObjectSnap } from "./objectSnap";
+import { PlaneSnap, WorkplaneSnap } from "./planeSnap";
 import { PreviewFromPoint } from "./shapePreview";
 import { SnapEventHandler } from "./snapEventHandler";
 import { TrackingSnap } from "./tracking";
-import { PlaneSnap, WorkplaneSnap } from "./planeSnap";
 
 export interface SnapPointData {
     dimension: Dimension;

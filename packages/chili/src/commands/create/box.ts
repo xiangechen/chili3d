@@ -5,8 +5,7 @@ import { IShapeFactory } from "chili-geo";
 
 import { BoxBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap/snapLengthEventHandler";
-import { LengthAtAxisStep } from "../../step";
-import { IStep } from "../../step/step";
+import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
 @command({

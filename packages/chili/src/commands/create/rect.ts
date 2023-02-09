@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Id, IDocument, Model, Plane } from "chili-core";
+import { command, Id, IDocument, Model } from "chili-core";
+
 import { RectBody } from "../../bodys";
+import { IStep } from "../../step";
 import { PointStep } from "../../step/pointStep";
 import { RectData, RectStep, RectStepData } from "../../step/rectStep";
-import { IStep } from "../../step/step";
 import { CreateCommand } from "./createCommand";
 
 export abstract class RectCommandBase extends CreateCommand {

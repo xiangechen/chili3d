@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CancellationToken, CursorType, I18n, IDocument, Plane, PubSub } from "chili-core";
+
 import { SnapedData } from "./interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
 import {
@@ -9,7 +10,6 @@ import {
     SnapLengthAtPlaneData,
     SnapLengthAtPlaneHandler,
 } from "./snapLengthEventHandler";
-
 import { SnapPointData, SnapPointEventHandler } from "./snapPointHandler";
 
 export abstract class Snapper {

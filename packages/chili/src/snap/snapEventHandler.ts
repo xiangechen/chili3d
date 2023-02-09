@@ -13,7 +13,8 @@ import {
     VertexRenderData,
     XYZ,
 } from "chili-core";
-import { MouseAndDetected, ISnap, SnapChangedHandler, SnapedData } from "./interfaces";
+
+import { ISnap, MouseAndDetected, SnapChangedHandler, SnapedData } from "./interfaces";
 
 export interface SnapEventData {
     cancellationToken: CancellationToken;

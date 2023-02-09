@@ -6,10 +6,10 @@ import { CommandData, Commands, Container, ICommand, Logger, Token } from "chili
 
 import { Application } from "./application";
 import { Executor } from "./executor";
+import { Hotkey, HotkeyMap } from "./hotkey";
 import hotkey from "./hotkeys.json";
 import quickbar from "./quickbar.json";
 import ribbon from "./ribbon.json";
-import { Hotkey, HotkeyMap } from "./hotkey";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];

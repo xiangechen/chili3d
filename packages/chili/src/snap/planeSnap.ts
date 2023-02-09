@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { ObjectSnapType, Plane } from "chili-core";
-import { MouseAndDetected, ISnap, SnapedData } from "./interfaces";
+
+import { ISnap, MouseAndDetected, SnapedData } from "./interfaces";
 
 export abstract class PlaneSnapBase implements ISnap {
     onSnapTypeChanged(snapType: ObjectSnapType): void {}

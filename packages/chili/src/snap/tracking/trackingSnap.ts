@@ -14,10 +14,10 @@ import {
     XYZ,
 } from "chili-core";
 
-import { MouseAndDetected, Dimension, ISnap, SnapChangedHandler, SnapedData } from "../";
+import { Dimension, ISnap, MouseAndDetected, SnapChangedHandler, SnapedData } from "../";
 import { Axis } from "./axis";
-import { SnapAxies } from "./snapAxies";
 import { ObjectTracking } from "./objectTracking";
+import { SnapAxies } from "./snapAxies";
 
 export interface TrackingData {
     axis: Axis;
