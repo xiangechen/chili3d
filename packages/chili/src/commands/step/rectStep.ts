@@ -25,7 +25,7 @@ export namespace RectData {
 }
 
 export interface RectStepData {
-    getFirstPoint: () => XYZ;
+    firstPoint: XYZ;
     plane: Plane;
 }
 
@@ -36,7 +36,7 @@ export class RectStep implements IStep {
         let data = this.handleData();
         let snapper = new PointSnapper({
             dimension: Dimension.D1D2,
-            refPoint: data.getFirstPoint(),
+            refPoint: data.firstPoint,
             validator: (v, p) => this.handleValid(data, p),
             preview: (v, p) => this.previewRect(data, p),
             plane: data.plane,
@@ -45,14 +45,14 @@ export class RectStep implements IStep {
     }
 
     private handleValid = (stepData: RectStepData, end: XYZ) => {
-        let start = stepData.getFirstPoint();
+        let start = stepData.firstPoint;
         let data = RectData.get(stepData.plane, start, end);
         if (data === undefined) return false;
         return !MathUtils.anyEqualZero(data.dx, data.dy);
     };
 
     private previewRect = (stepData: RectStepData, end: XYZ) => {
-        let start = stepData.getFirstPoint();
+        let start = stepData.firstPoint;
         let data = RectData.get(stepData.plane, start, end)!;
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory?.rect(data.plane, data.dx, data.dy).value;

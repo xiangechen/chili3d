@@ -15,13 +15,10 @@ export abstract class RectCommandBase extends CreateCommand {
     }
 
     private getRectStepData = (): RectStepData => {
+        let firstPoint = this.snapedDatas[0].point;
         return {
-            getFirstPoint: () => this.snapedDatas[0].point,
-            plane: new Plane(
-                this.snapedDatas[0].point,
-                this.snapedDatas[0].view.workplane.normal,
-                this.snapedDatas[0].view.workplane.x
-            ),
+            firstPoint,
+            plane: this.snapedDatas[0].view.workplane.copyTo(firstPoint),
         };
     };
 

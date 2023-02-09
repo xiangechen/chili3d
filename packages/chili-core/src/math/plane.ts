@@ -32,6 +32,10 @@ export class Plane {
         this.y = n.cross(x).normalize()!;
     }
 
+    copyTo(location: XYZ) {
+        return new Plane(location, this.normal, this.x);
+    }
+
     project(point: XYZ): XYZ {
         let vector = point.sub(this.location);
         let dot = vector.dot(this.normal);

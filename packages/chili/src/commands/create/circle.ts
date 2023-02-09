@@ -26,11 +26,11 @@ export class Circle extends CreateCommand {
         return [centerStep, radiusStep];
     }
     private getRadiusPointData = (): SnapLengthAtPlaneData => {
-        let plane = this.snapedDatas[0].view.workplane;
+        let point = this.snapedDatas[0].point;
         return {
-            point: this.snapedDatas[0].point,
+            point,
             preview: this.circlePreview,
-            plane: new Plane(this.snapedDatas[0].point, plane.normal, plane.x),
+            plane: this.snapedDatas[0].view.workplane.copyTo(point),
         };
     };
 
