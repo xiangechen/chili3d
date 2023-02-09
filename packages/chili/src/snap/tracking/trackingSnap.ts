@@ -32,10 +32,9 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
 
-    constructor(dimension: Dimension, readonly referencePoint: XYZ | undefined) {
-        let trackingZ = Dimension.contains(dimension, Dimension.D3);
-        this._axisTrackings = new SnapAxies(trackingZ);
-        this.objectTracking = new ObjectTracking(trackingZ);
+    constructor(readonly referencePoint: XYZ | undefined, trackingAxisZ: boolean) {
+        this._axisTrackings = new SnapAxies(trackingAxisZ);
+        this.objectTracking = new ObjectTracking(trackingAxisZ);
     }
 
     onSnapChanged(view: IView, snaped?: SnapedData) {
