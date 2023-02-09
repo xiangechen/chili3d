@@ -2,7 +2,7 @@
 
 import { ICommand, IDocument, Model, Transaction } from "chili-core";
 import { SnapedData } from "../../snap";
-import { IStep } from "../step/step";
+import { IStep } from "../../step/step";
 
 export abstract class CreateCommand implements ICommand {
     protected stepDatas: SnapedData[] = [];

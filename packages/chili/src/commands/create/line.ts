@@ -5,8 +5,8 @@ import { IShapeFactory } from "chili-geo";
 
 import { LineBody } from "../../bodys";
 import { Dimension, SnapedData, SnapPointData } from "../../snap";
-import { PointStep } from "../step";
-import { IStep } from "../step/step";
+import { PointStep } from "../../step";
+import { IStep } from "../../step/step";
 import { CreateCommand } from "./createCommand";
 
 @command({

@@ -3,7 +3,7 @@
 import { Container, I18n, IDocument, MathUtils, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Dimension, PointSnapper, SnapedData } from "../../snap";
+import { Dimension, PointSnapper, SnapedData } from "../snap";
 import { IStep } from "./step";
 
 export interface RectData {

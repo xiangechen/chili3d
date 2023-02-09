@@ -2,9 +2,9 @@
 
 import { command, Id, IDocument, Model, Plane } from "chili-core";
 import { RectBody } from "../../bodys";
-import { PointStep } from "../step/pointStep";
-import { RectData, RectStep, RectStepData } from "../step/rectStep";
-import { IStep } from "../step/step";
+import { PointStep } from "../../step/pointStep";
+import { RectData, RectStep, RectStepData } from "../../step/rectStep";
+import { IStep } from "../../step/step";
 import { CreateCommand } from "./createCommand";
 
 export abstract class RectCommandBase extends CreateCommand {

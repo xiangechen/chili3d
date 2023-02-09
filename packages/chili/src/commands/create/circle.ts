@@ -5,8 +5,8 @@ import { IShapeFactory } from "chili-geo";
 
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
-import { LengthAtPlaneStep, PointStep } from "../step";
-import { IStep } from "../step/step";
+import { LengthAtPlaneStep, PointStep } from "../../step";
+import { IStep } from "../../step/step";
 import { CreateCommand } from "./createCommand";
 
 @injectable()

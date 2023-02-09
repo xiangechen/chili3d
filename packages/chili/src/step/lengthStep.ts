@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n, IView, Precision, XYZ } from "chili-core";
-import { LengthAtAxisSnapper, LengthAtPlaneSnapper } from "../../snap";
-import { SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../../snap/snapLengthEventHandler";
+import { LengthAtAxisSnapper, LengthAtPlaneSnapper } from "../snap";
+import { SnapLengthAtAxisData, SnapLengthAtPlaneData } from "../snap/snapLengthEventHandler";
 import { StepBase } from "./step";
 
 export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
