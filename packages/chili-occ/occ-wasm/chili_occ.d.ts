@@ -1885,6 +1885,32 @@ export declare class BRepOffsetAPI_MakePipe extends BRepPrimAPI_MakeSweep {
     constructor(Spine: TopoDS_Wire, Profile: TopoDS_Shape, aMode: GeomFill_Trihedron, ForceApproxC1: Standard_Boolean);
   }
 
+export declare class BRepOffsetAPI_DraftAngle extends BRepBuilderAPI_ModifyShape {
+  Clear(): void;
+  Init(S: TopoDS_Shape): void;
+  Add(F: TopoDS_Face, Direction: gp_Dir, Angle: Standard_Real, NeutralPlane: gp_Pln, Flag: Standard_Boolean): void;
+  AddDone(): Standard_Boolean;
+  Remove(F: TopoDS_Face): void;
+  ProblematicShape(): TopoDS_Shape;
+  Status(): Draft_ErrorStatus;
+  ConnectedFaces(F: TopoDS_Face): TopTools_ListOfShape;
+  ModifiedFaces(): TopTools_ListOfShape;
+  Build(theRange: Message_ProgressRange): void;
+  CorrectWires(): void;
+  Generated(S: TopoDS_Shape): TopTools_ListOfShape;
+  Modified(S: TopoDS_Shape): TopTools_ListOfShape;
+  ModifiedShape(S: TopoDS_Shape): TopoDS_Shape;
+  delete(): void;
+}
+
+  export declare class BRepOffsetAPI_DraftAngle_1 extends BRepOffsetAPI_DraftAngle {
+    constructor();
+  }
+
+  export declare class BRepOffsetAPI_DraftAngle_2 extends BRepOffsetAPI_DraftAngle {
+    constructor(S: TopoDS_Shape);
+  }
+
 export declare class BRepOffsetAPI_ThruSections extends BRepBuilderAPI_MakeShape {
   constructor(isSolid: Standard_Boolean, ruled: Standard_Boolean, pres3d: Standard_Real)
   Init(isSolid: Standard_Boolean, ruled: Standard_Boolean, pres3d: Standard_Real): void;
@@ -2768,6 +2794,109 @@ export declare class TopoDS_Shape {
   delete(): void;
 }
 
+export declare class BRepFeat_MakeRevol extends BRepFeat_Form {
+  Init(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Axis: gp_Ax1, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean): void;
+  Add(E: TopoDS_Edge, OnFace: TopoDS_Face): void;
+  Perform_1(Angle: Standard_Real): void;
+  Perform_2(Until: TopoDS_Shape): void;
+  Perform_3(From: TopoDS_Shape, Until: TopoDS_Shape): void;
+  PerformThruAll(): void;
+  PerformUntilAngle(Until: TopoDS_Shape, Angle: Standard_Real): void;
+  Curves(S: TColGeom_SequenceOfCurve): void;
+  BarycCurve(): Handle_Geom_Curve;
+  delete(): void;
+}
+
+  export declare class BRepFeat_MakeRevol_1 extends BRepFeat_MakeRevol {
+    constructor();
+  }
+
+  export declare class BRepFeat_MakeRevol_2 extends BRepFeat_MakeRevol {
+    constructor(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Axis: gp_Ax1, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean);
+  }
+
+export declare class BRepFeat_MakePipe extends BRepFeat_Form {
+  Init(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Spine: TopoDS_Wire, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean): void;
+  Add(E: TopoDS_Edge, OnFace: TopoDS_Face): void;
+  Perform_1(): void;
+  Perform_2(Until: TopoDS_Shape): void;
+  Perform_3(From: TopoDS_Shape, Until: TopoDS_Shape): void;
+  Curves(S: TColGeom_SequenceOfCurve): void;
+  BarycCurve(): Handle_Geom_Curve;
+  delete(): void;
+}
+
+  export declare class BRepFeat_MakePipe_1 extends BRepFeat_MakePipe {
+    constructor();
+  }
+
+  export declare class BRepFeat_MakePipe_2 extends BRepFeat_MakePipe {
+    constructor(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Spine: TopoDS_Wire, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean);
+  }
+
+export declare class BRepFeat_SplitShape extends BRepBuilderAPI_MakeShape {
+  Add_1(theEdges: TopTools_SequenceOfShape): Standard_Boolean;
+  Init(S: TopoDS_Shape): void;
+  SetCheckInterior(ToCheckInterior: Standard_Boolean): void;
+  Add_2(W: TopoDS_Wire, F: TopoDS_Face): void;
+  Add_3(E: TopoDS_Edge, F: TopoDS_Face): void;
+  Add_4(Comp: TopoDS_Compound, F: TopoDS_Face): void;
+  Add_5(E: TopoDS_Edge, EOn: TopoDS_Edge): void;
+  DirectLeft(): TopTools_ListOfShape;
+  Left(): TopTools_ListOfShape;
+  Right(): TopTools_ListOfShape;
+  Build(theRange: Message_ProgressRange): void;
+  IsDeleted(S: TopoDS_Shape): Standard_Boolean;
+  Modified(F: TopoDS_Shape): TopTools_ListOfShape;
+  delete(): void;
+}
+
+  export declare class BRepFeat_SplitShape_1 extends BRepFeat_SplitShape {
+    constructor();
+  }
+
+  export declare class BRepFeat_SplitShape_2 extends BRepFeat_SplitShape {
+    constructor(S: TopoDS_Shape);
+  }
+
+export declare class BRepFeat_MakePrism extends BRepFeat_Form {
+  Init(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Direction: gp_Dir, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean): void;
+  Add(E: TopoDS_Edge, OnFace: TopoDS_Face): void;
+  Perform_1(Length: Standard_Real): void;
+  Perform_2(Until: TopoDS_Shape): void;
+  Perform_3(From: TopoDS_Shape, Until: TopoDS_Shape): void;
+  PerformUntilEnd(): void;
+  PerformFromEnd(FUntil: TopoDS_Shape): void;
+  PerformThruAll(): void;
+  PerformUntilHeight(Until: TopoDS_Shape, Length: Standard_Real): void;
+  Curves(S: TColGeom_SequenceOfCurve): void;
+  BarycCurve(): Handle_Geom_Curve;
+  delete(): void;
+}
+
+  export declare class BRepFeat_MakePrism_1 extends BRepFeat_MakePrism {
+    constructor();
+  }
+
+  export declare class BRepFeat_MakePrism_2 extends BRepFeat_MakePrism {
+    constructor(Sbase: TopoDS_Shape, Pbase: TopoDS_Shape, Skface: TopoDS_Face, Direction: gp_Dir, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean);
+  }
+
+export declare class BRepFeat_RibSlot extends BRepBuilderAPI_MakeShape {
+  IsDeleted(F: TopoDS_Shape): Standard_Boolean;
+  Modified(F: TopoDS_Shape): TopTools_ListOfShape;
+  Generated(S: TopoDS_Shape): TopTools_ListOfShape;
+  FirstShape(): TopTools_ListOfShape;
+  LastShape(): TopTools_ListOfShape;
+  FacesForDraft(): TopTools_ListOfShape;
+  NewEdges(): TopTools_ListOfShape;
+  TgtEdges(): TopTools_ListOfShape;
+  static IntPar(C: Handle_Geom_Curve, P: gp_Pnt): Standard_Real;
+  static ChoiceOfFaces(faces: TopTools_ListOfShape, cc: Handle_Geom_Curve, par: Standard_Real, bnd: Standard_Real, Pln: Handle_Geom_Plane): TopoDS_Face;
+  CurrentStatusError(): BRepFeat_StatusError;
+  delete(): void;
+}
+
 export declare class BRepFeat_MakeDPrism extends BRepFeat_Form {
   Init(Sbase: TopoDS_Shape, Pbase: TopoDS_Face, Skface: TopoDS_Face, Angle: Standard_Real, Fuse: Graphic3d_ZLayerId, Modify: Standard_Boolean): void;
   Add(E: TopoDS_Edge, OnFace: TopoDS_Face): void;
@@ -2792,6 +2921,43 @@ export declare class BRepFeat_MakeDPrism extends BRepFeat_Form {
 
   export declare class BRepFeat_MakeDPrism_2 extends BRepFeat_MakeDPrism {
     constructor();
+  }
+
+export declare class BRepFeat_Gluer extends BRepBuilderAPI_MakeShape {
+  Init(Snew: TopoDS_Shape, Sbase: TopoDS_Shape): void;
+  Bind_1(Fnew: TopoDS_Face, Fbase: TopoDS_Face): void;
+  Bind_2(Enew: TopoDS_Edge, Ebase: TopoDS_Edge): void;
+  OpeType(): LocOpe_Operation;
+  BasisShape(): TopoDS_Shape;
+  GluedShape(): TopoDS_Shape;
+  Build(theRange: Message_ProgressRange): void;
+  IsDeleted(F: TopoDS_Shape): Standard_Boolean;
+  Modified(F: TopoDS_Shape): TopTools_ListOfShape;
+  delete(): void;
+}
+
+  export declare class BRepFeat_Gluer_1 extends BRepFeat_Gluer {
+    constructor();
+  }
+
+  export declare class BRepFeat_Gluer_2 extends BRepFeat_Gluer {
+    constructor(Snew: TopoDS_Shape, Sbase: TopoDS_Shape);
+  }
+
+export declare class BRepFeat_MakeRevolutionForm extends BRepFeat_RibSlot {
+  Init(Sbase: TopoDS_Shape, W: TopoDS_Wire, Plane: Handle_Geom_Plane, Axis: gp_Ax1, Height1: Standard_Real, Height2: Standard_Real, Fuse: Graphic3d_ZLayerId, Sliding: Standard_Boolean): void;
+  Add(E: TopoDS_Edge, OnFace: TopoDS_Face): void;
+  Perform(): void;
+  Propagate(L: TopTools_ListOfShape, F: TopoDS_Face, FPoint: gp_Pnt, LPoint: gp_Pnt, falseside: Standard_Boolean): Standard_Boolean;
+  delete(): void;
+}
+
+  export declare class BRepFeat_MakeRevolutionForm_1 extends BRepFeat_MakeRevolutionForm {
+    constructor();
+  }
+
+  export declare class BRepFeat_MakeRevolutionForm_2 extends BRepFeat_MakeRevolutionForm {
+    constructor(Sbase: TopoDS_Shape, W: TopoDS_Wire, Plane: Handle_Geom_Plane, Axis: gp_Ax1, Height1: Standard_Real, Height2: Standard_Real, Fuse: Graphic3d_ZLayerId, Sliding: Standard_Boolean);
   }
 
 export declare class BRepFeat_Form extends BRepBuilderAPI_MakeShape {
@@ -5956,6 +6122,9 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   BRepOffsetAPI_MakePipe: typeof BRepOffsetAPI_MakePipe;
   BRepOffsetAPI_MakePipe_1: typeof BRepOffsetAPI_MakePipe_1;
   BRepOffsetAPI_MakePipe_2: typeof BRepOffsetAPI_MakePipe_2;
+  BRepOffsetAPI_DraftAngle: typeof BRepOffsetAPI_DraftAngle;
+  BRepOffsetAPI_DraftAngle_1: typeof BRepOffsetAPI_DraftAngle_1;
+  BRepOffsetAPI_DraftAngle_2: typeof BRepOffsetAPI_DraftAngle_2;
   BRepOffsetAPI_ThruSections: typeof BRepOffsetAPI_ThruSections;
   BRepOffsetAPI_MakeThickSolid: typeof BRepOffsetAPI_MakeThickSolid;
   BRepOffsetAPI_MakeOffsetShape: typeof BRepOffsetAPI_MakeOffsetShape;
@@ -6093,9 +6262,28 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   TopoDS_Builder: typeof TopoDS_Builder;
   TopoDS_Face: typeof TopoDS_Face;
   TopoDS_Shape: typeof TopoDS_Shape;
+  BRepFeat_MakeRevol: typeof BRepFeat_MakeRevol;
+  BRepFeat_MakeRevol_1: typeof BRepFeat_MakeRevol_1;
+  BRepFeat_MakeRevol_2: typeof BRepFeat_MakeRevol_2;
+  BRepFeat_MakePipe: typeof BRepFeat_MakePipe;
+  BRepFeat_MakePipe_1: typeof BRepFeat_MakePipe_1;
+  BRepFeat_MakePipe_2: typeof BRepFeat_MakePipe_2;
+  BRepFeat_SplitShape: typeof BRepFeat_SplitShape;
+  BRepFeat_SplitShape_1: typeof BRepFeat_SplitShape_1;
+  BRepFeat_SplitShape_2: typeof BRepFeat_SplitShape_2;
+  BRepFeat_MakePrism: typeof BRepFeat_MakePrism;
+  BRepFeat_MakePrism_1: typeof BRepFeat_MakePrism_1;
+  BRepFeat_MakePrism_2: typeof BRepFeat_MakePrism_2;
+  BRepFeat_RibSlot: typeof BRepFeat_RibSlot;
   BRepFeat_MakeDPrism: typeof BRepFeat_MakeDPrism;
   BRepFeat_MakeDPrism_1: typeof BRepFeat_MakeDPrism_1;
   BRepFeat_MakeDPrism_2: typeof BRepFeat_MakeDPrism_2;
+  BRepFeat_Gluer: typeof BRepFeat_Gluer;
+  BRepFeat_Gluer_1: typeof BRepFeat_Gluer_1;
+  BRepFeat_Gluer_2: typeof BRepFeat_Gluer_2;
+  BRepFeat_MakeRevolutionForm: typeof BRepFeat_MakeRevolutionForm;
+  BRepFeat_MakeRevolutionForm_1: typeof BRepFeat_MakeRevolutionForm_1;
+  BRepFeat_MakeRevolutionForm_2: typeof BRepFeat_MakeRevolutionForm_2;
   BRepFeat_Form: typeof BRepFeat_Form;
   Extrema_ExtAlgo: Extrema_ExtAlgo;
   BRepFill_TypeOfContact: BRepFill_TypeOfContact;

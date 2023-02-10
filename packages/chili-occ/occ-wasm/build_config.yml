@@ -36,7 +36,15 @@ mainBuild:
     - symbol: BRepExtrema_ExtCC
     - symbol: BRepExtrema_DistShapeShape
     - symbol: BRepFeat_Form
+    - symbol: BRepFeat_Gluer
     - symbol: BRepFeat_MakeDPrism
+    # - symbol: BRepFeat_MakeLinearForm
+    - symbol: BRepFeat_MakePipe
+    - symbol: BRepFeat_MakePrism
+    - symbol: BRepFeat_MakeRevol
+    - symbol: BRepFeat_MakeRevolutionForm
+    - symbol: BRepFeat_RibSlot
+    - symbol: BRepFeat_SplitShape
     - symbol: BRepFill_TypeOfContact
     - symbol: BRepFilletAPI_LocalOperation
     - symbol: BRepFilletAPI_MakeChamfer
@@ -47,6 +55,7 @@ mainBuild:
     - symbol: BRepMesh_DiscretRoot
     - symbol: BRepMesh_IncrementalMesh
     - symbol: BRepOffset_Mode
+    - symbol: BRepOffsetAPI_DraftAngle
     - symbol: BRepOffsetAPI_MakeFilling
     - symbol: BRepOffsetAPI_MakeOffset
     - symbol: BRepOffsetAPI_MakeOffsetShape
