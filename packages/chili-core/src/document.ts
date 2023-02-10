@@ -16,15 +16,3 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly visualization: IVisualization;
     readonly models: IModelManager;
 }
-
-export namespace IDocument {
-    let documentMap = new Map<string, IDocument>();
-
-    export function get(id: string): IDocument | undefined {
-        return documentMap.get(id);
-    }
-
-    export function set(document: IDocument) {
-        return documentMap.set(document.id, document);
-    }
-}

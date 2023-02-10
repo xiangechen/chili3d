@@ -57,7 +57,7 @@ export class History implements IHistory {
         try {
             action();
         } catch (e) {
-            Logger.error(e);
+            throw e;
         } finally {
             this._isDisabled = isDisabled;
         }

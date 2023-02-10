@@ -2,6 +2,7 @@
 
 import {
     Container,
+    Id,
     IDocument,
     IHistory,
     IModelManager,
@@ -12,20 +13,22 @@ import {
     Token,
 } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
+import { Application } from "./application";
 
 import { History } from "./history";
 import { ModelManager } from "./modelManager";
 import { Viewer } from "./viewer";
 
 export class Document extends Observable implements IDocument {
-    private _name: string;
+    private static readonly _documentMap: Map<string, IDocument> = new Map();
+
     readonly models: IModelManager;
     readonly viewer: IViewer;
     readonly selection: ISelection;
     readonly visualization: IVisualization;
     readonly history: IHistory;
 
-    constructor(name: string, readonly id: string) {
+    private constructor(name: string, readonly id: string) {
         super();
         this._name = name;
         this.models = new ModelManager(this);
@@ -35,10 +38,28 @@ export class Document extends Observable implements IDocument {
         this.selection = this.visualization.selection;
     }
 
+    static create(app: Application, name: string) {
+        let doc = new Document(name, Id.new());
+        this.cacheDocument(doc);
+        app.activeDocument = doc;
+        return doc;
+    }
+
+    static get(id: string): IDocument | undefined {
+        return this._documentMap.get(id);
+    }
+
+    private static cacheDocument(document: IDocument) {
+        if (this._documentMap.has(document.id)) return;
+        this._documentMap.set(document.id, document);
+    }
+
     private getRender(): IVisualization {
         let renderFactory = Container.default.resolve<IVisualizationFactory>(Token.VisulizationFactory);
         return renderFactory!.create(this);
     }
+
+    private _name: string;
 
     get name(): string {
         return this._name;
