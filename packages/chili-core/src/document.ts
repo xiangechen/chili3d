@@ -2,7 +2,7 @@
 
 import { IDisposable } from "./disposable";
 import { IHistory } from "./history";
-import { ModelObject } from "./model";
+import { IModelManager } from "./model";
 import { IPropertyChanged } from "./observer";
 import { IVisualization } from "./visualization";
 import { ISelection } from "./visualization/selection";
@@ -13,12 +13,8 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly viewer: IViewer;
     readonly selection: ISelection;
     readonly history: IHistory;
-    get modelCount(): number;
-    addModel(...models: ModelObject[]): void;
-    get visualization(): IVisualization;
-    getModel(id: string): ModelObject | undefined;
-    getModels(...ids: string[]): ModelObject[];
-    removeModel(...models: ModelObject[]): void;
+    readonly visualization: IVisualization;
+    readonly models: IModelManager;
 }
 
 export namespace IDocument {

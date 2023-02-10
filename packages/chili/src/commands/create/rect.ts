@@ -70,7 +70,7 @@ export class Rect extends RectCommandBase {
     protected create(document: IDocument): Model {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new RectBody(rect.plane, rect.dx, rect.dy);
-        return new Model(`Rect ${document.modelCount + 1}`, Id.new(), body);
+        return new Model(`Rect ${document.models.count + 1}`, Id.new(), body);
     }
 
     constructor() {

@@ -69,7 +69,7 @@ export abstract class TreeItemBase implements IDisposable {
         event.stopPropagation();
         let modelId = event.dataTransfer?.getData(DragIdFormat);
         if (modelId === undefined) return;
-        let model = this.document.getModel(modelId);
+        let model = this.document.models.get(modelId);
         if (model === undefined) return;
         Transaction.excute(this.document, "set parent", () => {
             this.handleDrop(model!);

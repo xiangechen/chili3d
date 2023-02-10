@@ -37,7 +37,7 @@ export class Box extends RectCommandBase {
     protected create(document: IDocument): Model {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.stepDatas[2].point));
-        return new Model(`Box ${document.modelCount + 1}`, Id.new(), body);
+        return new Model(`Box ${document.models.count + 1}`, Id.new(), body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

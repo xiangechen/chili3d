@@ -26,7 +26,7 @@ export class ModelTree {
         this._treePanel = Control.div(style.treePanel);
         this._tab.addItem(this._treePanel);
         this._tab.addTools(...this.toolsPanel.tools);
-        this.initTree(document.getModels());
+        this.initTree(document.models.getMany());
         this._treePanel.addEventListener("click", this.handleItemClick);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
         PubSub.default.sub("modelAdded", this.handleAddModel);
@@ -100,7 +100,7 @@ export class ModelTree {
             let modelId = e.target.getAttribute(Constants.ModelIdAttribute);
             if (modelId === null) return;
             if (e.shiftKey === false) {
-                let model = this.document.getModel(modelId);
+                let model = this.document.models.get(modelId);
                 if (model === undefined) return;
                 if (ModelObject.isModel(model)) {
                     this.document.selection.setSelected(false, model);

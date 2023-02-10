@@ -2,6 +2,7 @@
 
 export * from "./body";
 export * from "./editor";
+export * from "./manager";
 export * from "./modelObject";
 export * from "./model";
 export * from "./modelGroup";

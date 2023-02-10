@@ -16,7 +16,7 @@ import { CreateCommand } from "./createCommand";
 export class Line extends CreateCommand {
     create(document: IDocument): Model {
         let body = new LineBody(this.stepDatas[0].point, this.stepDatas[1].point);
-        return new Model(`Line ${document.modelCount + 1}`, Id.new(), body);
+        return new Model(`Line ${document.models.count + 1}`, Id.new(), body);
     }
 
     override afterExcute(document: IDocument): boolean {

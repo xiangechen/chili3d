@@ -9,7 +9,7 @@ import { command, ICommand, Id, IDocument, ModelGroup } from "chili-core";
 })
 export class NewGroup implements ICommand {
     async excute(document: IDocument): Promise<void> {
-        let group = new ModelGroup(`Group ${document.modelCount}`, Id.new());
-        document.addModel(group);
+        let group = new ModelGroup(`Group ${document.models.count}`, Id.new());
+        document.models.add(group);
     }
 }
