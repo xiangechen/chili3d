@@ -2,6 +2,7 @@
 
 import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { XYZEqualityComparer } from "../comparers";
 
 import { BodyBase } from "./base";
 

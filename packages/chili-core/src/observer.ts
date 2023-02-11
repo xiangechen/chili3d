@@ -2,6 +2,7 @@
 
 import { IDisposable } from "chili-core";
 import { EventEmitter } from "events";
+import { IEqualityComparer } from "./equalityComparer";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 const CollectionChangedEvent = "CollectionChangedEvent";
@@ -46,16 +47,29 @@ export class Observable implements IPropertyChanged, IDisposable {
     protected setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
+        equals?: IEqualityComparer<this[K]>,
         onPropertyChanged?: (oldValue: this[K], newValue: this[K]) => void
     ): boolean {
         let priKey = this.privateKeyMap(String(property));
         let obj = this as unknown as any;
         let oldValue = obj[priKey];
-        if (oldValue === newValue) return false;
+        if (this.isEuqals(oldValue, newValue, equals)) return false;
         obj[priKey] = newValue;
         if (onPropertyChanged) onPropertyChanged(oldValue, newValue);
         this.emitPropertyChanged(property as any, oldValue, newValue);
         return true;
+    }
+
+    private isEuqals<K extends keyof this>(
+        oldValue: this[K],
+        newValue: this[K],
+        equals?: IEqualityComparer<this[K]>
+    ): boolean {
+        if (equals !== undefined) {
+            return equals.equals(oldValue, newValue);
+        } else {
+            return oldValue === newValue;
+        }
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K], newValue: this[K]) {

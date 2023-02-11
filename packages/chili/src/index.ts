@@ -3,6 +3,7 @@
 export * from "./appBuilder";
 export * from "./application";
 export * from "./bodys";
+export * from "./comparers";
 export * from "./document";
 export * from "./history";
 export * from "./hotkey";

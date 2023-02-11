@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { DocumentObject, I18n, IBody, IShape, Result } from "chili-core";
+import { DocumentObject, I18n, IBody, IEqualityComparer, IShape, Result } from "chili-core";
 
 export abstract class BodyBase extends DocumentObject implements IBody {
     private callbacks: Set<() => void> = new Set();
@@ -20,8 +20,12 @@ export abstract class BodyBase extends DocumentObject implements IBody {
         return this._body;
     }
 
-    protected setPropertyAndUpdateBody<k extends keyof this>(property: k, newValue: this[k]) {
-        this.setProperty(property, newValue);
+    protected setPropertyAndUpdateBody<k extends keyof this>(
+        property: k,
+        newValue: this[k],
+        equals?: IEqualityComparer<this[k]>
+    ) {
+        this.setProperty(property, newValue, equals);
         this._body = this.generateBody();
         this.callbacks.forEach((x) => x());
     }

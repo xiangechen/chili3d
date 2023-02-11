@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, Precision, property, Result, Token, XYZ } from "chili-core";
+import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
+import { XYZEqualityComparer } from "../comparers";
 import { BodyBase } from "./base";
 
 export class LineBody extends BodyBase {
@@ -27,8 +28,7 @@ export class LineBody extends BodyBase {
     }
 
     set start(pnt: XYZ) {
-        if (this._start.isEqualTo(pnt, Precision.confusion)) return;
-        this.setPropertyAndUpdateBody("start", pnt);
+        this.setPropertyAndUpdateBody("start", pnt, new XYZEqualityComparer());
     }
 
     @property("line.end")
@@ -37,7 +37,6 @@ export class LineBody extends BodyBase {
     }
 
     set end(pnt: XYZ) {
-        if (this._end.isEqualTo(pnt, Precision.confusion)) return;
-        this.setPropertyAndUpdateBody("end", pnt);
+        this.setPropertyAndUpdateBody("end", pnt, new XYZEqualityComparer());
     }
 }

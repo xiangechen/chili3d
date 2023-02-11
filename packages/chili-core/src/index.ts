@@ -10,6 +10,7 @@ export * from "./decorators";
 export * from "./disposable";
 export * from "./document";
 export * from "./documentObject";
+export * from "./equalityComparer";
 export * from "./geometry";
 export * from "./history";
 export * from "./i18n";

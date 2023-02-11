@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument } from "./document";
+import { IEqualityComparer } from "./equalityComparer";
 import { HistoryRecord } from "./history";
 import { Observable } from "./observer";
 import { Transaction } from "./transaction";
@@ -20,6 +21,7 @@ export abstract class DocumentObject extends Observable {
     protected override setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
+        equals?: IEqualityComparer<this[K]>,
         onPropertyChanged?: ((oldValue: this[K], newValue: this[K]) => void) | undefined
     ): boolean {
         let h: HistoryRecord = {
@@ -29,7 +31,7 @@ export abstract class DocumentObject extends Observable {
             oldValue: this[property],
             newValue,
         };
-        let success = super.setProperty(property, newValue, onPropertyChanged);
+        let success = super.setProperty(property, newValue, equals, onPropertyChanged);
         if (success && this._document !== undefined) {
             Transaction.add(this._document, h);
         }
