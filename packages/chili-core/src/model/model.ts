@@ -1,34 +1,41 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument } from "../document";
 import { IShape } from "../geometry";
+import { HistoryRecord } from "../history";
 import { Logger } from "../logger";
 import { PubSub } from "../pubsub";
 import { Result } from "../result";
 import { IBody } from "./body";
 import { IEditor } from "./editor";
 import { ModelObject } from "./modelObject";
+import { IUpdateHandler } from "./updateHandler";
 
 export class Model extends ModelObject {
-    private readonly _editors: IEditor[];
+    private readonly _editors: IEditor[] = [];
     private _shape: Result<IShape>;
 
     constructor(name: string, id: string, readonly body: IBody) {
         super(id, name);
         this.body = body;
-        this._editors = new Array<IEditor>();
         this._shape = this.generate();
-        body.onUpdate(this.onUpdate);
+        body.updateHandler = this.updateHandler;
     }
 
-    override setDocument(document?: IDocument | undefined): void {
-        super.setDocument(document);
-        this.body?.setDocument(document);
-    }
-
-    private onUpdate = () => {
-        this.generate();
+    private updateHandler = (updater: IUpdateHandler) => {
+        if (updater === this.body) {
+            this.generate();
+        } else {
+            let editor = updater as IEditor;
+            let i = this._editors.indexOf(editor);
+            this.applyFeatures(i);
+        }
     };
+
+    override setHistoryHandler(handler: ((record: HistoryRecord) => void) | undefined) {
+        this._historyHandler = handler;
+        this.body.setHistoryHandler(handler);
+        this._editors.forEach((x) => x.setHistoryHandler(handler));
+    }
 
     generate(): Result<IShape> {
         this._shape = this.body.body;
@@ -36,12 +43,17 @@ export class Model extends ModelObject {
             Logger.error(`Body of ${this.name} is null: ${this._shape.err}`);
             return this._shape;
         }
-        for (const editor of this._editors) {
-            this._shape = editor.edit(this._shape.value!);
-            if (this._shape.isErr()) break;
-        }
+        if (!this.applyFeatures(0)) return this._shape;
         PubSub.default.pub("modelUpdate", this);
         return this._shape;
+    }
+
+    private applyFeatures(startIndex: number): boolean {
+        for (let i = startIndex; i < this._editors.length; i++) {
+            this._shape = this._editors[i].edit(this._shape.value!);
+            if (this._shape.isErr()) return false;
+        }
+        return true;
     }
 
     getShape(): Result<IShape> {
@@ -53,10 +65,13 @@ export class Model extends ModelObject {
         if (index > -1) {
             this._editors.splice(index, 1);
             this.generate();
+            editor.setHistoryHandler(undefined);
         }
     }
 
     addEditor(editor: IEditor) {
+        if (this._editors.indexOf(editor) > -1) return;
+        editor.setHistoryHandler(this._historyHandler);
         this._editors.push(editor);
         if (this._shape.isOk()) this._shape = editor.edit(this._shape.value!);
     }

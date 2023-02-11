@@ -19,6 +19,10 @@ export interface CollectionHistoryRecord {
     item: any;
 }
 
+export interface IHistoryHandler {
+    setHistoryHandler: (handler: ((record: HistoryRecord) => void) | undefined) => void;
+}
+
 export namespace HistoryRecord {
     export function isPropertyRecord(obj: HistoryRecord): obj is PropertyHistoryRecord {
         return (obj as PropertyHistoryRecord).newValue !== undefined;

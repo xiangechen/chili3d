@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { property } from "../decorators";
-import { DocumentObject } from "../documentObject";
 import { Quaternion, XYZ } from "../math";
+import { HistoryObservable } from "../observer";
 import { PubSub } from "../pubsub";
 import { Model } from "./model";
 import { ModelGroup } from "./modelGroup";
 
-export abstract class ModelObject extends DocumentObject {
+export abstract class ModelObject extends HistoryObservable {
     private _name: string;
     private _location: XYZ;
     private _rotate: Quaternion;

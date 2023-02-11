@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable } from "chili-core";
 import { EventEmitter } from "events";
+import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
+import { HistoryRecord, IHistoryHandler, PropertyHistoryRecord } from "./history";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 const CollectionChangedEvent = "CollectionChangedEvent";
@@ -47,15 +48,13 @@ export class Observable implements IPropertyChanged, IDisposable {
     protected setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
-        equals?: IEqualityComparer<this[K]>,
-        onPropertyChanged?: (oldValue: this[K], newValue: this[K]) => void
+        equals?: IEqualityComparer<this[K]>
     ): boolean {
         let priKey = this.privateKeyMap(String(property));
         let obj = this as unknown as any;
         let oldValue = obj[priKey];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
         obj[priKey] = newValue;
-        if (onPropertyChanged) onPropertyChanged(oldValue, newValue);
         this.emitPropertyChanged(property as any, oldValue, newValue);
         return true;
     }
@@ -88,6 +87,34 @@ export class Observable implements IPropertyChanged, IDisposable {
         this.eventEmitter.eventNames().forEach((x) => {
             this.eventEmitter.removeAllListeners(x);
         });
+    }
+}
+
+export abstract class HistoryObservable extends Observable implements IHistoryHandler {
+    protected _historyHandler: ((record: HistoryRecord) => void) | undefined;
+
+    protected override setProperty<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        equals?: IEqualityComparer<this[K]> | undefined
+    ): boolean {
+        let oldValue = this[property];
+        if (super.setProperty(property, newValue, equals)) {
+            let record: PropertyHistoryRecord = {
+                name: `modify ${String(property)}`,
+                object: this,
+                oldValue,
+                newValue,
+                property,
+            };
+            this._historyHandler?.(record);
+            return true;
+        }
+        return false;
+    }
+
+    setHistoryHandler(handler: ((record: HistoryRecord) => void) | undefined) {
+        this._historyHandler = handler;
     }
 }
 

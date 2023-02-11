@@ -2,6 +2,7 @@
 
 import {
     CollectionAction,
+    HistoryRecord,
     ICollection,
     IDocument,
     IModelManager,
@@ -42,8 +43,8 @@ export class ModelManager extends Observable implements IModelManager {
 
     add(...models: ModelObject[]) {
         models.forEach((model) => {
-            model.setDocument(this.document);
             this.models.add(model);
+            model.setHistoryHandler(this.handleRecord);
         });
     }
 
@@ -55,9 +56,13 @@ export class ModelManager extends Observable implements IModelManager {
                 }
             }
             this.models.remove(model);
-            model.setDocument(undefined);
+            model.setHistoryHandler(undefined);
         });
     }
+
+    private handleRecord = (record: HistoryRecord) => {
+        Transaction.add(this.document, record);
+    };
 
     private handleModelCollectionChanged = (
         source: ICollection<ModelObject>,
