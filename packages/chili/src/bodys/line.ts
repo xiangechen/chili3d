@@ -1,12 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
+import { Entity, Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { XYZEqualityComparer } from "../comparers";
-import { Body } from "./body";
 
-export class LineBody extends Body {
+export class LineBody extends Entity {
     private _start: XYZ;
     private _end: XYZ;
     readonly name: keyof I18n = "body.line";

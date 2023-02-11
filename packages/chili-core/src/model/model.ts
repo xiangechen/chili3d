@@ -5,16 +5,16 @@ import { HistoryRecord } from "../history";
 import { Logger } from "../logger";
 import { PubSub } from "../pubsub";
 import { Result } from "../result";
-import { IBody } from "./body";
-import { IEditor } from "./editor";
+import { Entity } from "./entity";
+import { Editor } from "./editor";
 import { ModelObject } from "./modelObject";
 import { IUpdateHandler } from "./updateHandler";
 
 export class Model extends ModelObject {
-    private readonly _editors: IEditor[] = [];
+    private readonly _editors: Editor[] = [];
     private _shape: Result<IShape>;
 
-    constructor(name: string, id: string, readonly body: IBody) {
+    constructor(name: string, id: string, readonly body: Entity) {
         super(id, name);
         this.body = body;
         this._shape = this.generate();
@@ -25,7 +25,7 @@ export class Model extends ModelObject {
         if (updater === this.body) {
             this.generate();
         } else {
-            let editor = updater as IEditor;
+            let editor = updater as Editor;
             let i = this._editors.indexOf(editor);
             this.applyFeatures(i);
         }
@@ -49,8 +49,11 @@ export class Model extends ModelObject {
     }
 
     private applyFeatures(startIndex: number): boolean {
+        if (startIndex >= this._editors.length) return false;
+        this._shape = startIndex === 0 ? this.body.shape! : this._editors[startIndex - 1].shape;
         for (let i = startIndex; i < this._editors.length; i++) {
-            this._shape = this._editors[i].edit(this._shape.value!);
+            this._editors[i].origin = this._shape.value;
+            this._shape = this._editors[i].generate();
             if (this._shape.isErr()) return false;
         }
         return true;
@@ -60,7 +63,7 @@ export class Model extends ModelObject {
         return this._shape;
     }
 
-    removeEditor(editor: IEditor) {
+    removeEditor(editor: Editor) {
         const index = this._editors.indexOf(editor, 0);
         if (index > -1) {
             this._editors.splice(index, 1);
@@ -69,11 +72,14 @@ export class Model extends ModelObject {
         }
     }
 
-    addEditor(editor: IEditor) {
+    addEditor(editor: Editor) {
         if (this._editors.indexOf(editor) > -1) return;
         editor.setHistoryHandler(this._historyHandler);
         this._editors.push(editor);
-        if (this._shape.isOk()) this._shape = editor.edit(this._shape.value!);
+        if (this._shape.isOk()) {
+            editor.origin = this._shape.value;
+            this._shape = editor.generate();
+        }
     }
 
     getEditor(index: number) {

@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, Result, Token, XYZ } from "chili-core";
+import { Entity, Container, I18n, IShape, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Body } from "./body";
-
-export class PolygonBody extends Body {
+export class PolygonBody extends Entity {
     private _points: XYZ[];
     readonly name: keyof I18n = "body.polygon";
 

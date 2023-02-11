@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, Precision, Result, Token, XYZ } from "chili-core";
+import { Entity, Container, I18n, IShape, Precision, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Body } from "./body";
-
-export class VertexBody extends Body {
+export class VertexBody extends Entity {
     private _pnt: XYZ;
     readonly name: keyof I18n = "command.line";
 

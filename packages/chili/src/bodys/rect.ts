@@ -1,11 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
+import { Entity, Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { Body } from "./body";
-
-export class RectBody extends Body {
+export class RectBody extends Entity {
     private _dx: number;
     private _dy: number;
     readonly name: keyof I18n = "body.rect";

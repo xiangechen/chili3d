@@ -1,12 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
+import { Entity, Container, I18n, IShape, property, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { XYZEqualityComparer } from "../comparers";
 
-import { Body } from "./body";
-
-export class CircleBody extends Body {
+export class CircleBody extends Entity {
     private _center: XYZ;
     private _radius: number;
     readonly name: keyof I18n = "body.circle";

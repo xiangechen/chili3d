@@ -1,9 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObservable, I18n, IBody, IEqualityComparer, IShape, Result } from "chili-core";
-import { IUpdateHandler } from "chili-core/src/model/updateHandler";
+import { IEqualityComparer } from "../equalityComparer";
+import { IShape } from "../geometry";
+import { I18n } from "../i18n";
+import { HistoryObservable } from "../observer";
+import { Result } from "../result";
+import { IUpdateHandler } from "./updateHandler";
 
-export abstract class Body extends HistoryObservable implements IBody {
+export abstract class Entity extends HistoryObservable implements IUpdateHandler {
     updateHandler: ((handler: IUpdateHandler) => void) | undefined;
     abstract name: keyof I18n;
 
@@ -13,9 +17,9 @@ export abstract class Body extends HistoryObservable implements IBody {
         return this._shape;
     }
 
-    generate(): boolean {
+    generate(): Result<IShape> {
         this._shape = this.generateShape();
-        return this._shape.isOk();
+        return this._shape;
     }
 
     protected setPropertyAndUpdate<k extends keyof this>(
