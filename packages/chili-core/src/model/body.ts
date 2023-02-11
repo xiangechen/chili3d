@@ -9,5 +9,6 @@ import { IUpdateHandler } from "./updateHandler";
 
 export interface IBody extends IPropertyChanged, IHistoryHandler, IUpdateHandler {
     readonly name: keyof I18n;
-    get body(): Result<IShape>;
+    get shape(): Result<IShape>;
+    generate(): boolean;
 }

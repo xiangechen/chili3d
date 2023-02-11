@@ -4,9 +4,9 @@ import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-cor
 import { IShapeFactory } from "chili-geo";
 import { XYZEqualityComparer } from "../comparers";
 
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class CircleBody extends BodyBase {
+export class CircleBody extends Body {
     private _center: XYZ;
     private _radius: number;
     readonly name: keyof I18n = "body.circle";
@@ -17,7 +17,7 @@ export class CircleBody extends BodyBase {
         this._radius = radius;
     }
 
-    protected generateBody(): Result<IShape, string> {
+    protected generateShape(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.circle(this.normal, this._center, this._radius);
     }
@@ -28,7 +28,7 @@ export class CircleBody extends BodyBase {
     }
 
     set center(center: XYZ) {
-        this.setPropertyAndUpdateBody("center", center);
+        this.setPropertyAndUpdate("center", center);
     }
 
     @property("circle.radius")
@@ -37,6 +37,6 @@ export class CircleBody extends BodyBase {
     }
 
     set radius(radius: number) {
-        this.setPropertyAndUpdateBody("radius", radius);
+        this.setPropertyAndUpdate("radius", radius);
     }
 }

@@ -3,9 +3,9 @@
 import { Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class BoxBody extends BodyBase {
+export class BoxBody extends Body {
     private _dx: number;
     private _dy: number;
     private _dz: number;
@@ -18,7 +18,7 @@ export class BoxBody extends BodyBase {
         this._dz = dz;
     }
 
-    protected generateBody(): Result<IShape> {
+    protected generateShape(): Result<IShape> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.box(this.plane, this._dx, this._dy, this._dz);
     }
@@ -29,7 +29,7 @@ export class BoxBody extends BodyBase {
     }
 
     set dx(dx: number) {
-        this.setPropertyAndUpdateBody("dx", dx);
+        this.setPropertyAndUpdate("dx", dx);
     }
 
     @property("box.dy")
@@ -38,7 +38,7 @@ export class BoxBody extends BodyBase {
     }
 
     set dy(dy: number) {
-        this.setPropertyAndUpdateBody("dy", dy);
+        this.setPropertyAndUpdate("dy", dy);
     }
 
     @property("box.dz")
@@ -47,6 +47,6 @@ export class BoxBody extends BodyBase {
     }
 
     set dz(dz: number) {
-        this.setPropertyAndUpdateBody("dz", dz);
+        this.setPropertyAndUpdate("dz", dz);
     }
 }

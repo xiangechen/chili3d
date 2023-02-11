@@ -4,9 +4,9 @@ import { Container, I18n, IShape, property, Result, Token, XYZ } from "chili-cor
 import { IShapeFactory } from "chili-geo";
 
 import { XYZEqualityComparer } from "../comparers";
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class LineBody extends BodyBase {
+export class LineBody extends Body {
     private _start: XYZ;
     private _end: XYZ;
     readonly name: keyof I18n = "body.line";
@@ -17,7 +17,7 @@ export class LineBody extends BodyBase {
         this._end = end;
     }
 
-    protected generateBody(): Result<IShape, string> {
+    protected generateShape(): Result<IShape, string> {
         let edgeFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return edgeFactory!.line(this._start, this._end);
     }
@@ -28,7 +28,7 @@ export class LineBody extends BodyBase {
     }
 
     set start(pnt: XYZ) {
-        this.setPropertyAndUpdateBody("start", pnt, new XYZEqualityComparer());
+        this.setPropertyAndUpdate("start", pnt, new XYZEqualityComparer());
     }
 
     @property("line.end")
@@ -37,6 +37,6 @@ export class LineBody extends BodyBase {
     }
 
     set end(pnt: XYZ) {
-        this.setPropertyAndUpdateBody("end", pnt, new XYZEqualityComparer());
+        this.setPropertyAndUpdate("end", pnt, new XYZEqualityComparer());
     }
 }

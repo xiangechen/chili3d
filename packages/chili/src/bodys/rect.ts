@@ -3,9 +3,9 @@
 import { Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class RectBody extends BodyBase {
+export class RectBody extends Body {
     private _dx: number;
     private _dy: number;
     readonly name: keyof I18n = "body.rect";
@@ -16,7 +16,7 @@ export class RectBody extends BodyBase {
         this._dy = dy;
     }
 
-    protected generateBody(): Result<IShape, string> {
+    protected generateShape(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.rect(this.plane, this._dx, this._dy);
     }
@@ -27,7 +27,7 @@ export class RectBody extends BodyBase {
     }
 
     set dx(dx: number) {
-        this.setPropertyAndUpdateBody("dx", dx);
+        this.setPropertyAndUpdate("dx", dx);
     }
 
     @property("rect.dy")
@@ -36,6 +36,6 @@ export class RectBody extends BodyBase {
     }
 
     set dy(dy: number) {
-        this.setPropertyAndUpdateBody("dy", dy);
+        this.setPropertyAndUpdate("dy", dy);
     }
 }

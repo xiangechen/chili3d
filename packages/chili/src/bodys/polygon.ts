@@ -3,9 +3,9 @@
 import { Container, I18n, IShape, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class PolygonBody extends BodyBase {
+export class PolygonBody extends Body {
     private _points: XYZ[];
     readonly name: keyof I18n = "body.polygon";
 
@@ -14,7 +14,7 @@ export class PolygonBody extends BodyBase {
         this._points = points;
     }
 
-    protected generateBody(): Result<IShape, string> {
+    protected generateShape(): Result<IShape, string> {
         let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return factory!.polygon(...this._points);
     }

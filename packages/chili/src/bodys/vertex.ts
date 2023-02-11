@@ -3,9 +3,9 @@
 import { Container, I18n, IShape, Precision, Result, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { BodyBase } from "./base";
+import { Body } from "./body";
 
-export class VertexBody extends BodyBase {
+export class VertexBody extends Body {
     private _pnt: XYZ;
     readonly name: keyof I18n = "command.line";
 
@@ -14,7 +14,7 @@ export class VertexBody extends BodyBase {
         this._pnt = pnt;
     }
 
-    protected generateBody(): Result<IShape, string> {
+    protected generateShape(): Result<IShape, string> {
         let vertexFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
         return vertexFactory!.point(this._pnt);
     }

@@ -38,11 +38,11 @@ export class Model extends ModelObject {
     }
 
     generate(): Result<IShape> {
-        this._shape = this.body.body;
-        if (this._shape.isErr()) {
+        if (!this.body.generate()) {
             Logger.error(`Body of ${this.name} is null: ${this._shape.err}`);
             return this._shape;
         }
+        this._shape = this.body.shape;
         if (!this.applyFeatures(0)) return this._shape;
         PubSub.default.pub("modelUpdate", this);
         return this._shape;
