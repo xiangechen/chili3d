@@ -1,10 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, Container, I18n, IShape, Plane, property, Result, Token, editor } from "chili-core";
+import { Entity, Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { DefaultEditor } from "../editors";
 
-@editor(DefaultEditor)
 export class BoxBody extends Entity {
     private _dx: number;
     private _dy: number;
