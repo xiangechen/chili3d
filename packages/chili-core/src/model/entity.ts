@@ -5,10 +5,10 @@ import { IShape } from "../geometry";
 import { I18n } from "../i18n";
 import { HistoryObservable } from "../observer";
 import { Result } from "../result";
-import { IUpdateHandler } from "./updateHandler";
+import { IUpdater } from "./updater";
 
-export abstract class Entity extends HistoryObservable implements IUpdateHandler {
-    updateHandler: ((handler: IUpdateHandler) => void) | undefined;
+export abstract class Entity extends HistoryObservable implements IUpdater {
+    updater: ((handler: IUpdater) => void) | undefined;
     abstract name: keyof I18n;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
@@ -17,9 +17,9 @@ export abstract class Entity extends HistoryObservable implements IUpdateHandler
         return this._shape;
     }
 
-    generate(): Result<IShape> {
+    generate(): boolean {
         this._shape = this.generateShape();
-        return this._shape;
+        return this._shape.isOk();
     }
 
     protected setPropertyAndUpdate<k extends keyof this>(
@@ -29,7 +29,7 @@ export abstract class Entity extends HistoryObservable implements IUpdateHandler
     ) {
         if (this.setProperty(property, newValue, equals)) {
             this._shape = this.generateShape();
-            this.updateHandler?.(this);
+            this.updater?.(this);
         }
     }
 

@@ -6,26 +6,26 @@ import { Logger } from "../logger";
 import { PubSub } from "../pubsub";
 import { Result } from "../result";
 import { Entity } from "./entity";
-import { Editor } from "./editor";
+import { Feature } from "./feature";
 import { ModelObject } from "./modelObject";
-import { IUpdateHandler } from "./updateHandler";
+import { IUpdater } from "./updater";
 
 export class Model extends ModelObject {
-    private readonly _editors: Editor[] = [];
+    private readonly _editors: Feature[] = [];
     private _shape: Result<IShape>;
 
     constructor(name: string, id: string, readonly body: Entity) {
         super(id, name);
         this.body = body;
         this._shape = this.generate();
-        body.updateHandler = this.updateHandler;
+        body.updater = this.updateHandler;
     }
 
-    private updateHandler = (updater: IUpdateHandler) => {
+    private updateHandler = (updater: IUpdater) => {
         if (updater === this.body) {
             this.generate();
         } else {
-            let editor = updater as Editor;
+            let editor = updater as Feature;
             let i = this._editors.indexOf(editor);
             this.applyFeatures(i);
         }
@@ -53,7 +53,8 @@ export class Model extends ModelObject {
         this._shape = startIndex === 0 ? this.body.shape! : this._editors[startIndex - 1].shape;
         for (let i = startIndex; i < this._editors.length; i++) {
             this._editors[i].origin = this._shape.value;
-            this._shape = this._editors[i].generate();
+            this._editors[i].generate();
+            this._shape = this._editors[i].shape;
             if (this._shape.isErr()) return false;
         }
         return true;
@@ -63,7 +64,7 @@ export class Model extends ModelObject {
         return this._shape;
     }
 
-    removeEditor(editor: Editor) {
+    removeEditor(editor: Feature) {
         const index = this._editors.indexOf(editor, 0);
         if (index > -1) {
             this._editors.splice(index, 1);
@@ -72,13 +73,14 @@ export class Model extends ModelObject {
         }
     }
 
-    addEditor(editor: Editor) {
+    addEditor(editor: Feature) {
         if (this._editors.indexOf(editor) > -1) return;
         editor.setHistoryHandler(this._historyHandler);
         this._editors.push(editor);
         if (this._shape.isOk()) {
             editor.origin = this._shape.value;
-            this._shape = editor.generate();
+            editor.generate();
+            this._shape = editor.shape;
         }
     }
 

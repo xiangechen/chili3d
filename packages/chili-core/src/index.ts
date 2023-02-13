@@ -9,6 +9,7 @@ export * from "./converter";
 export * from "./decorators";
 export * from "./disposable";
 export * from "./document";
+export * from "./editor";
 export * from "./equalityComparer";
 export * from "./geometry";
 export * from "./history";

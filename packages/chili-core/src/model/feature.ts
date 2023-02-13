@@ -3,6 +3,6 @@
 import { IShape } from "../geometry";
 import { Entity } from "./entity";
 
-export abstract class Editor extends Entity {
+export abstract class Feature extends Entity {
     origin: IShape | undefined;
 }

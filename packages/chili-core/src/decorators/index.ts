@@ -2,5 +2,6 @@
 
 export * from "./command";
 export * from "./contextual";
+export * from "./editor";
 export * from "./parameter";
 export * from "./token";
