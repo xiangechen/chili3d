@@ -43,7 +43,7 @@ export class Model extends ModelObject {
             return this._shape;
         }
         this._shape = this.body.shape;
-        if (!this.applyFeatures(0)) return this._shape;
+        this.applyFeatures(0);
         PubSub.default.pub("modelUpdate", this);
         return this._shape;
     }
