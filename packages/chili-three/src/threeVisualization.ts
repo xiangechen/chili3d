@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IEventHandler, ISelection, IView, IVisualization, IVisualizationContext, Plane } from "chili-core";
-import { AxesHelper, DirectionalLight, Mesh, Scene } from "three";
+import { IDocument, IEventHandler, ISelection, IViewFactory, IVisualization, IVisualizationContext } from "chili-core";
+import { AxesHelper, DirectionalLight, Scene } from "three";
 
 import { ThreeSelection } from "./threeSelection";
-import { ThreeSelectHandler } from "./threeSelectionHandle";
-import ThreeView from "./threeView";
-import { ThreeViewHandler } from "./threeViewHandle";
+import { ThreeSelectHandler } from "./threeSelectionEventHandler";
+import { ThreeViewFactory } from "./threeViewFactory";
+import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeVisulization implements IVisualization {
@@ -14,15 +14,21 @@ export class ThreeVisulization implements IVisualization {
     private _scene: Scene;
     private _selection: ThreeSelection;
     private _eventHandler: IEventHandler;
+    private _viewFactory: IViewFactory;
     readonly viewHandler: IEventHandler;
 
     constructor(readonly document: IDocument) {
         this._scene = new Scene();
         this._eventHandler = new ThreeSelectHandler();
         this._renderContext = new ThreeVisulizationContext(this._scene);
+        this._viewFactory = new ThreeViewFactory(this._scene);
         this._selection = new ThreeSelection(document, this._renderContext);
         this.viewHandler = new ThreeViewHandler();
         this.init();
+    }
+
+    get viewFactory(): IViewFactory {
+        return this._viewFactory;
     }
 
     get eventHandler(): IEventHandler {
@@ -46,9 +52,5 @@ export class ThreeVisulization implements IVisualization {
 
     get context(): IVisualizationContext {
         return this._renderContext;
-    }
-
-    createView(name: string, container: HTMLElement, workplane: Plane): IView {
-        return new ThreeView(this.document, name, workplane, container, this._scene);
     }
 }

@@ -53,7 +53,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeInput();
         this.removeTempShapes(view);
         this._snaps.forEach((x) => x.clear());
-        view.document.selection.setSelectionType(ShapeType.Shape);
+        view.document.visualization.selection.setSelectionType(ShapeType.Shape);
         view.document.viewer.redraw();
     }
 
@@ -88,8 +88,8 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private getDetectedData(view: IView, event: MouseEvent) {
-        view.document.selection.setSelectionType(ShapeType.Edge);
-        let shapes = view.document.selection.detectedShapes(view, event.offsetX, event.offsetY);
+        view.document.visualization.selection.setSelectionType(ShapeType.Edge);
+        let shapes = view.document.visualization.selection.detectedShapes(view, event.offsetX, event.offsetY);
         let data: MouseAndDetected = {
             view,
             mx: event.offsetX,

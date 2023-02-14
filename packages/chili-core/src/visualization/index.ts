@@ -5,6 +5,7 @@ export * from "./eventHandler";
 export * from "./selection";
 export * from "./view";
 export * from "./viewer";
+export * from "./viewFactory";
 export * from "./visualization";
 export * from "./visualizationContext";
 export * from "./visualizationShape";

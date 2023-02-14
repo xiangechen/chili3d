@@ -24,7 +24,6 @@ export class Document extends Observable implements IDocument {
 
     readonly models: IModelManager;
     readonly viewer: IViewer;
-    readonly selection: ISelection;
     readonly visualization: IVisualization;
     readonly history: IHistory;
 
@@ -35,7 +34,6 @@ export class Document extends Observable implements IDocument {
         this.history = new History();
         this.viewer = new Viewer(this);
         this.visualization = this.getRender();
-        this.selection = this.visualization.selection;
     }
 
     static create(app: Application, name: string) {

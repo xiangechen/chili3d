@@ -103,7 +103,7 @@ export class ModelTree {
                 let model = this.document.models.get(modelId);
                 if (model === undefined) return;
                 if (ModelObject.isModel(model)) {
-                    this.document.selection.setSelected(false, model);
+                    this.document.visualization.selection.setSelected(false, model);
                 } else if (ModelObject.isGroup(model)) {
                     let group = this._modelMap.get(model) as TreeItemGroup;
                     group?.setExpander(!group.isExpanded);

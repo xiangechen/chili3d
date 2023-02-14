@@ -37,7 +37,7 @@ export class Viewer implements IViewer {
     }
 
     createView(container: HTMLElement, name: string, workplane: Plane): IView {
-        let view = this.document.visualization.createView(name, container, workplane);
+        let view = this.document.visualization.viewFactory.createView(this.document, name, workplane, container);
         this.addView(view);
         return view;
     }

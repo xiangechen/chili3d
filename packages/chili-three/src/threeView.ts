@@ -1,22 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    CursorType,
-    IDisposable,
-    IDocument,
-    inject,
-    injectable,
-    IView,
-    IViewer,
-    Observable,
-    Plane as Workplane,
-    Ray,
-    Token,
-    XY,
-    XYZ,
-} from "chili-core";
+import { CursorType, IDisposable, IDocument, IView, Observable, Plane, Ray, XY, XYZ } from "chili-core";
 import { FloatContainer } from "chili-ui";
-import { Camera, OrthographicCamera, PerspectiveCamera, Plane, Scene, Spherical, Vector3, WebGLRenderer } from "three";
+import { Camera, OrthographicCamera, PerspectiveCamera, Scene, Spherical, Vector3, WebGLRenderer } from "three";
 
 import { ThreeUtils } from "./threeUtils";
 
@@ -24,7 +10,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     private _name: string;
     private _scene: Scene;
     private _renderer: WebGLRenderer;
-    private _workplane: Workplane;
+    private _workplane: Plane;
     private _camera: Camera;
     private _lastRedrawTime: number;
     private _floatTip: FloatContainer;
@@ -39,7 +25,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     constructor(
         readonly document: IDocument,
         name: string,
-        workplane: Workplane,
+        workplane: Plane,
         readonly container: HTMLElement,
         scene: Scene
     ) {
@@ -163,11 +149,11 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         }
     }
 
-    get workplane(): Workplane {
+    get workplane(): Plane {
         return this._workplane;
     }
 
-    set workplane(value: Workplane) {
+    set workplane(value: Plane) {
         this.setProperty("workplane", value);
     }
 
