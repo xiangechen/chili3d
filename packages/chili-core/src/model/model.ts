@@ -32,6 +32,7 @@ export class Model extends ModelObject {
             let i = this._editors.indexOf(editor);
             this.applyFeatures(i);
         }
+        this.update();
     };
 
     override setHistoryHandler(handler: ((record: HistoryRecord) => void) | undefined) {
