@@ -2,6 +2,7 @@
 
 import { IShape } from "../geometry";
 import { HistoryRecord } from "../history";
+import { Id } from "../id";
 import { Logger } from "../logger";
 import { PubSub } from "../pubsub";
 import { Result } from "../result";
@@ -14,8 +15,8 @@ export class Model extends ModelObject {
     private readonly _editors: Feature[] = [];
     private _shape: Result<IShape>;
 
-    constructor(name: string, id: string, readonly body: Entity) {
-        super(id, name);
+    constructor(name: string, readonly body: Entity, id: string = Id.new()) {
+        super(name, id);
         this.body = body;
         this._shape = this.generate();
         body.updater = this.updateHandler;

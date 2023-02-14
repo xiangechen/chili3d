@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Id } from "../id";
 import { ModelObject } from "./modelObject";
 
 export class ModelGroup extends ModelObject {
     readonly _children: ModelObject[] = [];
 
-    constructor(name: string, id: string) {
-        super(id, name);
+    constructor(name: string, id: string = Id.new()) {
+        super(name, id);
     }
     children(): ModelObject[] {
         return this._children;

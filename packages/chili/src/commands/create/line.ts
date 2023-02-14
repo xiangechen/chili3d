@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, Id, IDocument, IView, Model, Token, XYZ } from "chili-core";
+import { command, Container, IDocument, Model, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { LineBody } from "../../bodys";
@@ -16,7 +16,7 @@ import { CreateCommand } from "./createCommand";
 export class Line extends CreateCommand {
     create(document: IDocument): Model {
         let body = new LineBody(this.stepDatas[0].point, this.stepDatas[1].point);
-        return new Model(`Line ${document.models.count + 1}`, Id.new(), body);
+        return new Model(`Line ${document.models.count + 1}`, body);
     }
 
     override afterExcute(document: IDocument): boolean {

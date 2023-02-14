@@ -15,7 +15,7 @@ export abstract class ModelObject extends HistoryObservable {
     private _parent: ModelGroup | undefined;
     readonly createdTime: number;
 
-    constructor(readonly id: string, name: string) {
+    constructor(name: string, readonly id: string) {
         super();
         this._name = name;
         this._visible = true;

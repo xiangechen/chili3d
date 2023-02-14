@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, Id, IDocument, IView, MathUtils, Model, Plane, Token, XYZ } from "chili-core";
+import { command, Container, IDocument, MathUtils, Model, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { RectBody } from "../../bodys";
@@ -70,7 +70,7 @@ export class Rect extends RectCommandBase {
     protected create(document: IDocument): Model {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new RectBody(rect.plane, rect.dx, rect.dy);
-        return new Model(`Rect ${document.models.count + 1}`, Id.new(), body);
+        return new Model(`Rect ${document.models.count + 1}`, body);
     }
 
     constructor() {

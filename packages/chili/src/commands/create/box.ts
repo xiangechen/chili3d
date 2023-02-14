@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, Id, IDocument, IView, Model, Plane, Token, XYZ } from "chili-core";
+import { command, Container, IDocument, Model, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { BoxBody } from "../../bodys";
@@ -37,7 +37,7 @@ export class Box extends RectCommandBase {
     protected create(document: IDocument): Model {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.stepDatas[2].point));
-        return new Model(`Box ${document.models.count + 1}`, Id.new(), body);
+        return new Model(`Box ${document.models.count + 1}`, body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {
