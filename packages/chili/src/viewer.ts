@@ -36,12 +36,6 @@ export class Viewer implements IViewer {
         this._views.delete(view);
     }
 
-    createView(container: HTMLElement, name: string, workplane: Plane): IView {
-        let view = this.document.visualization.viewFactory.createView(this.document, name, workplane, container);
-        this.addView(view);
-        return view;
-    }
-
     views(): IView[] {
         return [...this._views];
     }

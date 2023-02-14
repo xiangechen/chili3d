@@ -38,6 +38,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this._floatTip = new FloatContainer();
+        document.viewer.addView(this);
 
         container.appendChild(this._floatTip.dom);
         container.addEventListener("mousemove", this.onMouseMove);
