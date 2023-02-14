@@ -2,7 +2,7 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { CommandData, Commands, Container, ICommand, Logger, Token } from "chili-core";
+import { CommandData, Commands, Container, ICommand, IRegister, IResolve, Logger, Token } from "chili-core";
 
 import { Application } from "./application";
 import { Executor } from "./executor";
@@ -13,14 +13,12 @@ import ribbon from "./ribbon.json";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
-    private _app: Application;
+    private _register: IRegister = new Container();
 
     constructor() {
         this._inits = [];
-        this._app = Application.current;
         this.registerCommands();
         this.registerHotkeys();
-        this.registerExecutor();
     }
 
     useOcc(): AppBuilder {
@@ -28,7 +26,7 @@ export class AppBuilder {
             Logger.info("initializing occ");
 
             let occ = await import("chili-occ");
-            await new occ.OccModule().init(Container.default);
+            await new occ.OccModule().init(this._register);
         });
         return this;
     }
@@ -38,7 +36,7 @@ export class AppBuilder {
             Logger.info("initializing three");
 
             let three = await import("chili-three");
-            await new three.ThreeModule().init(Container.default);
+            await new three.ThreeModule().init(this._register);
         });
         return this;
     }
@@ -63,8 +61,7 @@ export class AppBuilder {
                 let command = commands[keys[index]];
                 let data = CommandData.get(command);
                 if (command.prototype?.excute !== undefined && data !== undefined) {
-                    let name = Commands.instance[data.name];
-                    Container.default.register<ICommand>(new Token(data.name), command);
+                    this._register.register<ICommand>(new Token(data.name), command);
                 }
             }
         });
@@ -78,19 +75,11 @@ export class AppBuilder {
         });
     }
 
-    private registerExecutor() {
-        this._inits.push(async () => {
-            Logger.info("initializing executor");
-
-            Executor.instance.register(this._app);
-        });
-    }
-
-    async build(): Promise<Application> {
+    async build(): Promise<void> {
         for (let index = 0; index < this._inits.length; index++) {
             await this._inits[index]();
         }
-
-        return this._app;
+        Application.init(this._register.createResolve());
+        Executor.instance.register(Application.instance);
     }
 }

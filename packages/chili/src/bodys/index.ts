@@ -5,4 +5,3 @@ export * from "./circle";
 export * from "./line";
 export * from "./polygon";
 export * from "./rect";
-export * from "./vertex";

@@ -18,12 +18,13 @@ export class Executor {
     private _excutingCommand: keyof Commands | undefined;
     private app: Application | undefined;
 
-    private constructor() {}
+    private constructor() {
+        PubSub.default.sub("excuteCommand", this.excuteCommand);
+        PubSub.default.sub("keyDown", this.handleKeyDown);
+    }
 
     register(app: Application) {
         this.app = app;
-        PubSub.default.sub("excuteCommand", this.excuteCommand);
-        PubSub.default.sub("keyDown", this.handleKeyDown);
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
@@ -34,13 +35,12 @@ export class Executor {
 
     private excuteCommand = async (commandName: keyof Commands) => {
         if (this.app === undefined) {
-            Logger.error("Executor is not initialized");
-            return;
+            throw "Executor is not initialized";
         }
         if (this.app.activeDocument === undefined || this._excutingCommand !== undefined) return;
         this._excutingCommand = commandName;
         Logger.info(`excuting command ${commandName}`);
-        let command = Container.default.resolve<ICommand>(new Token(Commands.instance[commandName]));
+        let command = Application.instance.resolve.resolve<ICommand>(new Token(Commands.instance[commandName]));
         if (command === undefined || command.excute === undefined) {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
             return;

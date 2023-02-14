@@ -9,7 +9,7 @@ class TestClass {
 }
 
 test("test service", () => {
-    let collection = Container.default;
+    let collection = new Container();
     let t1 = new Token("t1");
     let t2 = new Token("t2");
     collection.register(t1, TestClass);

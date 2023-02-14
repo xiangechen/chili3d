@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AppBuilder, Document } from "chili";
+import { AppBuilder, Application, Document } from "chili";
 import { I18n, Plane } from "chili-core";
 import { Viewport } from "chili-ui";
 
@@ -10,7 +10,7 @@ let builder = new AppBuilder()
     .useThree()
     .useUI();
 
-let app = await builder.build();
-let doc = Document.create(app, "test");
+await builder.build();
+let doc = Document.create("test");
 let view = doc.viewer.createView(Viewport.current.dom, "view", Plane.XY);
 view.redraw();

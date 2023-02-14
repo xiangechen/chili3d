@@ -2,6 +2,7 @@
 
 import { Entity, Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { Application } from "../application";
 
 export class RectBody extends Entity {
     private _dx: number;
@@ -15,8 +16,7 @@ export class RectBody extends Entity {
     }
 
     protected generateShape(): Result<IShape, string> {
-        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.rect(this.plane, this._dx, this._dy);
+        return Application.instance.shapeFactory.rect(this.plane, this._dx, this._dy);
     }
 
     @property("rect.dx")

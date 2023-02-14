@@ -2,6 +2,7 @@
 
 import { command, Container, IDocument, MathUtils, Model, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { Application } from "../../application";
 
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
@@ -51,8 +52,7 @@ export abstract class RectCommandBase extends CreateCommand {
 
     private previewRect = (end: XYZ) => {
         let data = this.getRectData(end);
-        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory?.rect(data.plane, data.dx, data.dy).value;
+        return Application.instance.shapeFactory.rect(data.plane, data.dx, data.dy).value;
     };
 
     protected getRectData(point: XYZ): RectData {

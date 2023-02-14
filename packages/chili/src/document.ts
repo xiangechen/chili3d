@@ -27,19 +27,19 @@ export class Document extends Observable implements IDocument {
     readonly visualization: IVisualization;
     readonly history: IHistory;
 
-    private constructor(name: string, readonly id: string) {
+    private constructor(name: string, factory: IVisualizationFactory, readonly id: string = Id.new()) {
         super();
         this._name = name;
         this.models = new ModelManager(this);
         this.history = new History();
         this.viewer = new Viewer(this);
-        this.visualization = this.getRender();
+        this.visualization = factory.create(this);
     }
 
-    static create(app: Application, name: string) {
-        let doc = new Document(name, Id.new());
+    static create(name: string) {
+        let doc = new Document(name, Application.instance.visualizationFactory);
         this.cacheDocument(doc);
-        app.activeDocument = doc;
+        Application.instance.activeDocument = doc;
         return doc;
     }
 
@@ -50,11 +50,6 @@ export class Document extends Observable implements IDocument {
     private static cacheDocument(document: IDocument) {
         if (this._documentMap.has(document.id)) return;
         this._documentMap.set(document.id, document);
-    }
-
-    private getRender(): IVisualization {
-        let renderFactory = Container.default.resolve<IVisualizationFactory>(Token.VisulizationFactory);
-        return renderFactory!.create(this);
     }
 
     private _name: string;

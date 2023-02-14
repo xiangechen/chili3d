@@ -6,16 +6,15 @@ import { Token } from "../decorators/token";
 import { IRegister, IResolve } from "./";
 
 export class Container implements IRegister, IResolve {
-    private static _container: Container | undefined;
+    private container: TsDependencyContainer;
 
-    static get default(): Container {
-        if (Container._container === undefined) {
-            Container._container = new Container(tsContainer);
-        }
-        return Container._container;
+    constructor() {
+        this.container = tsContainer.createChildContainer();
     }
 
-    constructor(readonly container: TsDependencyContainer) {}
+    createResolve(): IResolve {
+        return this;
+    }
 
     register<T>(token: Token, ctor: new (...args: any[]) => T): void {
         this.container.register<T>(token.token, {

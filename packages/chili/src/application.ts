@@ -1,18 +1,30 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub } from "chili-core";
+import { IDocument, IResolve, PubSub, Token } from "chili-core";
+import { IShapeFactory } from "chili-geo";
+import { IVisualizationFactory } from "chili-vis";
 
 export class Application {
-    static _current: Application | undefined;
+    private static _instance: Application | undefined;
 
-    static get current() {
-        if (Application._current === undefined) {
-            Application._current = new Application();
+    static get instance() {
+        if (Application._instance === undefined) {
+            throw "Application is not initialized";
         }
-        return Application._current;
+        return Application._instance;
     }
 
-    private constructor() {}
+    static init(resolve: IResolve) {
+        this._instance = new Application(resolve);
+    }
+
+    readonly visualizationFactory: IVisualizationFactory;
+    readonly shapeFactory: IShapeFactory;
+
+    private constructor(readonly resolve: IResolve) {
+        this.visualizationFactory = resolve.resolve<IVisualizationFactory>(Token.VisulizationFactory)!;
+        this.shapeFactory = resolve.resolve<IShapeFactory>(Token.ShapeFactory)!;
+    }
 
     private _activeDocument: IDocument | undefined;
 

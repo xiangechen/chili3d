@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, Container, I18n, IShape, property, Result, Token, XYZ, editor } from "chili-core";
-import { IShapeFactory } from "chili-geo";
+import { Entity, I18n, IShape, property, Result, XYZ, editor } from "chili-core";
+import { Application } from "../application";
 
 import { XYZEqualityComparer } from "../comparers";
 import { LineEditor } from "../editors";
@@ -23,8 +23,7 @@ export class LineBody extends Entity {
     }
 
     create(start: XYZ, end: XYZ) {
-        let edgeFactory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return edgeFactory!.line(start, end);
+        return Application.instance.shapeFactory.line(start, end);
     }
 
     @property("line.start")

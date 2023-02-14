@@ -2,6 +2,7 @@
 
 import { command, Container, IDocument, Model, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { Application } from "../../application";
 
 import { BoxBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
@@ -30,8 +31,8 @@ export class Box extends RectCommandBase {
 
     private previewBox = (end: XYZ) => {
         let data = this.getRectData(end);
-        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory?.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end)).value;
+        return Application.instance.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
+            .value;
     };
 
     protected create(document: IDocument): Model {

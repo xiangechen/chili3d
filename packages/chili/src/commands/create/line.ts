@@ -2,6 +2,7 @@
 
 import { command, Container, IDocument, Model, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { Application } from "../../application";
 
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
@@ -41,7 +42,6 @@ export class Line extends CreateCommand {
     };
 
     private linePreview = (point: XYZ) => {
-        let factory = Container.default.resolve<IShapeFactory>(Token.ShapeFactory);
-        return factory!.line(this.stepDatas[0].point, point).value;
+        return Application.instance.shapeFactory.line(this.stepDatas[0].point, point).value;
     };
 }
