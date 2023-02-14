@@ -148,9 +148,9 @@ export class ThreeVisulizationContext implements IVisualizationContext {
             let model = modelObject as Model;
             let shape = this.getShape(model);
             if (shape !== undefined) return shape;
-            let modelShape = model.getShape();
-            if (modelShape.isErr()) return;
-            let threeShape = new ThreeShape(modelShape.value!);
+            if (model.error !== undefined) return;
+            let modelShape = model.shape()!;
+            let threeShape = new ThreeShape(modelShape);
             threeShape.name = model.id;
             group.add(threeShape);
         }

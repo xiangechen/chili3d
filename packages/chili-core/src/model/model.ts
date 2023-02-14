@@ -13,13 +13,15 @@ import { IUpdater } from "./updater";
 
 export class Model extends ModelObject {
     private readonly _editors: Feature[] = [];
-    private _shape: Result<IShape>;
+    private _shape: IShape | undefined;
+    private _error: string | undefined;
 
     constructor(name: string, readonly body: Entity, id: string = Id.new()) {
         super(name, id);
         this.body = body;
-        this._shape = this.generate();
+        this.generate();
         body.updater = this.updateHandler;
+        this.update();
     }
 
     private updateHandler = (updater: IUpdater) => {
@@ -38,39 +40,61 @@ export class Model extends ModelObject {
         this._editors.forEach((x) => x.setHistoryHandler(handler));
     }
 
-    generate(): Result<IShape> {
+    generate() {
         if (!this.body.generate()) {
-            Logger.error(`Body of ${this.name} is null: ${this._shape.err}`);
-            return this._shape;
+            Logger.error(`Body of ${this.name} is null: ${this.body.shape.err}`);
+            return;
         }
-        this._shape = this.body.shape;
+        this._shape = this.body.shape.value;
         this.applyFeatures(0);
+    }
+
+    private update() {
         PubSub.default.pub("modelUpdate", this);
-        return this._shape;
     }
 
-    private applyFeatures(startIndex: number): boolean {
-        if (startIndex >= this._editors.length) return false;
-        this._shape = startIndex === 0 ? this.body.shape! : this._editors[startIndex - 1].shape;
-        for (let i = startIndex; i < this._editors.length; i++) {
-            this._editors[i].origin = this._shape.value;
-            this._editors[i].generate();
-            this._shape = this._editors[i].shape;
-            if (this._shape.isErr()) return false;
+    private applyFeatures(startIndex: number) {
+        if (this._editors.length === 0 || startIndex < 0) return;
+        let shape: Result<IShape>;
+        if (startIndex >= this._editors.length) {
+            shape = this._editors.at(-1)!.shape;
+        } else {
+            shape = startIndex === 0 ? this.body.shape : this._editors[startIndex - 1].shape;
         }
-        return true;
+        this.setShape(shape);
+
+        if (this._shape === undefined) return;
+        for (let i = startIndex; i < this._editors.length; i++) {
+            this._editors[i].origin = this._shape;
+            this._editors[i].generate();
+            if (this._editors[i].shape.isErr()) {
+                this._error = this._editors[i].shape.err;
+                return;
+            }
+            this._shape = this._editors[i].shape.value;
+        }
     }
 
-    getShape(): Result<IShape> {
+    private setShape(shape: Result<IShape>) {
+        this._shape = shape.value;
+        this._error = shape.err;
+    }
+
+    shape(): IShape | undefined {
         return this._shape;
+    }
+
+    error() {
+        return this._error;
     }
 
     removeEditor(editor: Feature) {
         const index = this._editors.indexOf(editor, 0);
         if (index > -1) {
             this._editors.splice(index, 1);
-            this.generate();
+            this.applyFeatures(index);
             editor.setHistoryHandler(undefined);
+            this.update();
         }
     }
 
@@ -78,10 +102,14 @@ export class Model extends ModelObject {
         if (this._editors.indexOf(editor) > -1) return;
         editor.setHistoryHandler(this._historyHandler);
         this._editors.push(editor);
-        if (this._shape.isOk()) {
-            editor.origin = this._shape.value;
+        if (this._shape !== undefined) {
+            editor.origin = this._shape;
             editor.generate();
-            this._shape = editor.shape;
+            this._error = editor.shape.err;
+            if (this._error === undefined) {
+                this._shape = editor.shape.value;
+            }
+            this.update();
         }
     }
 
