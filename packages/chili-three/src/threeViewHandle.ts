@@ -11,18 +11,13 @@ export class ThreeViewHandler implements IEventHandler {
         this.mouse = { isDown: false, x: 0, y: 0 };
     }
 
-    mouseOut(view: IView, event: MouseEvent): void {}
-
     mouseWheel(view: IView, event: WheelEvent): void {
         view.zoom(event.offsetX, event.offsetY, event.deltaY);
     }
 
     keyUp(view: IView, event: KeyboardEvent): void {}
-    touchStart(view: IView, event: TouchEvent): void {}
-    touchMove(view: IView, event: TouchEvent): void {}
-    touchEnd(view: IView, event: TouchEvent): void {}
 
-    mouseMove(view: IView, event: MouseEvent): void {
+    pointerMove(view: IView, event: PointerEvent): void {
         event.preventDefault();
         if (this.mouse.isDown) {
             let dx = this.mouse.x - event.offsetX;
@@ -38,7 +33,7 @@ export class ThreeViewHandler implements IEventHandler {
         view.update();
     }
 
-    mouseDown(view: IView, event: MouseEvent): void {
+    pointerDown(view: IView, event: PointerEvent): void {
         if (event.button === 1 || event.button === 2) {
             this.mouse = {
                 isDown: true,
@@ -48,7 +43,7 @@ export class ThreeViewHandler implements IEventHandler {
         }
     }
 
-    mouseUp(view: IView, event: MouseEvent): void {
+    pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 1) {
             this.mouse.isDown = false;
         }

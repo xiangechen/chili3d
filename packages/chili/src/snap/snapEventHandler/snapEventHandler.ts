@@ -61,7 +61,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         PubSub.default.pub("clearInput");
     }
 
-    mouseMove(view: IView, event: MouseEvent): void {
+    pointerMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
         this._snaped = this.getSnaped(view, event);
         this._snapedChangedHandlers.forEach((x) => x.onSnapChanged(view, this._snaped));
@@ -137,12 +137,12 @@ export abstract class SnapEventHandler implements IEventHandler {
         }
     }
 
-    mouseDown(view: IView, event: MouseEvent): void {
+    pointerDown(view: IView, event: MouseEvent): void {
         if (event.button === 0) {
             this.stopSnap(view);
         }
     }
-    mouseUp(view: IView, event: MouseEvent): void {}
+    pointerUp(view: IView, event: MouseEvent): void {}
     mouseOut(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
         view.document.viewer.update();

@@ -10,18 +10,13 @@ export class ThreeSelectHandler implements IEventHandler {
         this.mouse = { isDown: false, x: 0, y: 0 };
     }
 
-    mouseOut(view: IView, event: MouseEvent): void {}
-
     mouseWheel(view: IView, event: WheelEvent): void {
         view.update();
     }
 
     keyUp(view: IView, event: KeyboardEvent): void {}
-    touchStart(view: IView, event: TouchEvent): void {}
-    touchMove(view: IView, event: TouchEvent): void {}
-    touchEnd(view: IView, event: TouchEvent): void {}
 
-    mouseMove(view: IView, event: MouseEvent): void {
+    pointerMove(view: IView, event: PointerEvent): void {
         if (this._lastDetected !== undefined) {
             this._lastDetected.unHilightedState();
             this._lastDetected = undefined;
@@ -31,7 +26,7 @@ export class ThreeSelectHandler implements IEventHandler {
         view.update();
     }
 
-    mouseDown(view: IView, event: MouseEvent): void {
+    pointerDown(view: IView, event: PointerEvent): void {
         if (event.button === 0) {
             this.mouse = {
                 isDown: true,
@@ -41,7 +36,7 @@ export class ThreeSelectHandler implements IEventHandler {
         }
     }
 
-    mouseUp(view: IView, event: MouseEvent): void {
+    pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 0) {
             view.document.selection.select(view, this.mouse.x, this.mouse.y, event.shiftKey);
             this.mouse.isDown = false;

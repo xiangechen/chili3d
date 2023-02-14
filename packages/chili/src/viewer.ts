@@ -74,14 +74,10 @@ export class Viewer implements IViewer {
         });
         resizeObserver.observe(container);
 
-        this.addEventListener(container, view, "mousedown", (e) => this.mouseDown(view, e));
-        this.addEventListener(container, view, "mousemove", (e) => this.mouseMove(view, e));
-        this.addEventListener(container, view, "mouseup", (e) => this.mouseUp(view, e));
-        this.addEventListener(container, view, "mouseout", (e) => this.mouseOut(view, e));
+        this.addEventListener(container, view, "pointerdown", (e) => this.pointerDown(view, e));
+        this.addEventListener(container, view, "pointermove", (e) => this.pointerMove(view, e));
+        this.addEventListener(container, view, "pointerup", (e) => this.pointerUp(view, e));
         this.addEventListener(container, view, "wheel", (e) => this.mouseWheel(view, e));
-        this.addEventListener(container, view, "touchstart", (e) => this.touchStart(view, e));
-        this.addEventListener(container, view, "touchmove", (e) => this.touchMove(view, e));
-        this.addEventListener(container, view, "touchend", (e) => this.touchEnd(view, e));
 
         this.subEvents("keyDown", view, (e) => this.keyDown(view, e));
         this.subEvents("keyUp", view, (e) => this.keyUp(view, e));
@@ -99,14 +95,19 @@ export class Viewer implements IViewer {
         });
     }
 
-    private addEventListener(container: HTMLElement | Window, view: IView, type: string, callback: (e: any) => void) {
-        container.addEventListener(type, callback);
+    private addEventListener(
+        container: HTMLElement | Window,
+        view: IView,
+        type: keyof HTMLElementEventMap,
+        listener: (this: HTMLElement, e: any) => any
+    ) {
+        container.addEventListener(type, listener);
         if (this._eventCaches.get(view) === undefined) {
             this._eventCaches.set(view, []);
         }
         this._eventCaches.get(view)?.push({
             container,
-            callback,
+            callback: listener,
             type,
         });
     }
@@ -125,25 +126,20 @@ export class Viewer implements IViewer {
         this._subCaches.delete(view);
     }
 
-    private mouseMove(view: IView, event: MouseEvent): void {
-        this.document.visualization.eventHandler.mouseMove(view, event);
-        this.document.visualization.viewHandler.mouseMove(view, event);
+    private pointerMove(view: IView, event: PointerEvent): void {
+        this.document.visualization.eventHandler.pointerMove(view, event);
+        this.document.visualization.viewHandler.pointerMove(view, event);
     }
 
-    private mouseDown(view: IView, event: MouseEvent): void {
+    private pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        this.document.visualization.eventHandler.mouseDown(view, event);
-        this.document.visualization.viewHandler.mouseDown(view, event);
+        this.document.visualization.eventHandler.pointerDown(view, event);
+        this.document.visualization.viewHandler.pointerDown(view, event);
     }
 
-    private mouseUp(view: IView, event: MouseEvent): void {
-        this.document.visualization.eventHandler.mouseUp(view, event);
-        this.document.visualization.viewHandler.mouseUp(view, event);
-    }
-
-    private mouseOut(view: IView, event: MouseEvent): void {
-        this.document.visualization.eventHandler.mouseOut(view, event);
-        this.document.visualization.viewHandler.mouseOut(view, event);
+    private pointerUp(view: IView, event: PointerEvent): void {
+        this.document.visualization.eventHandler.pointerUp(view, event);
+        this.document.visualization.viewHandler.pointerUp(view, event);
     }
 
     private mouseWheel(view: IView, event: WheelEvent): void {
@@ -158,17 +154,6 @@ export class Viewer implements IViewer {
 
     private keyUp(view: IView, event: KeyboardEvent): void {
         this.document.visualization.eventHandler.keyUp(view, event);
-    }
-
-    private touchStart(view: IView, event: TouchEvent): void {
-        this.document.visualization.eventHandler.touchStart(view, event);
-    }
-
-    private touchMove(view: IView, event: TouchEvent): void {
-        this.document.visualization.eventHandler.touchMove(view, event);
-    }
-
-    private touchEnd(view: IView, event: TouchEvent): void {
-        this.document.visualization.eventHandler.touchEnd(view, event);
+        this.document.visualization.viewHandler.keyUp(view, event);
     }
 }
