@@ -14,17 +14,17 @@ import {
 import { SnapedData } from "./interfaces";
 
 export abstract class Snapper {
-    protected readonly eventHandler: SnapEventHandler;
+    protected eventHandler?: SnapEventHandler;
     protected readonly cancellationToken: CancellationToken;
 
     constructor() {
         this.cancellationToken = new CancellationToken();
-        this.eventHandler = this.getEventHandler();
     }
 
     protected abstract getEventHandler(): SnapEventHandler;
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
+        if (this.eventHandler === undefined) this.eventHandler = this.getEventHandler();
         document.viewer.setCursor(CursorType.Drawing);
         PubSub.default.pub("statusBarTip", tip);
         await this.waitEventHandlerFinished(document);
@@ -35,7 +35,7 @@ export abstract class Snapper {
 
     protected async waitEventHandlerFinished(document: IDocument) {
         let handler = document.visualization.eventHandler;
-        document.visualization.eventHandler = this.eventHandler;
+        document.visualization.eventHandler = this.eventHandler!;
         while (!this.cancellationToken.isCanceled) {
             await new Promise((r) => setTimeout(r, 30));
         }

@@ -143,7 +143,6 @@ export abstract class SnapEventHandler implements IEventHandler {
         }
     }
     pointerUp(view: IView, event: MouseEvent): void {}
-    mouseOut(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
         view.document.viewer.update();
     }
@@ -174,13 +173,4 @@ export abstract class SnapEventHandler implements IEventHandler {
     protected abstract isValidInput(text: string): Validation;
 
     keyUp(view: IView, event: KeyboardEvent): void {}
-    touchStart(view: IView, event: TouchEvent): void {
-        throw new Error("Method not implemented.");
-    }
-    touchMove(view: IView, event: TouchEvent): void {
-        throw new Error("Method not implemented.");
-    }
-    touchEnd(view: IView, event: TouchEvent): void {
-        throw new Error("Method not implemented.");
-    }
 }
