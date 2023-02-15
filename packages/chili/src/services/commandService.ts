@@ -1,9 +1,8 @@
-import { Commands, Container, ICommand, Logger, PubSub, Token } from "chili-core";
+import { Commands, ICommand, Logger, PubSub, Token } from "chili-core";
 import { Contextual } from "chili-ui";
 
 import { Application } from "../application";
 import { IApplicationService } from "./applicationService";
-import { HotkeyService } from "./hotkeyService";
 
 export class CommandService implements IApplicationService {
     static _instance: CommandService | undefined;
