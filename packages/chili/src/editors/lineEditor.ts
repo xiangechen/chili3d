@@ -1,26 +1,33 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEditor, IView } from "chili-core";
+import { IDocument, IShape, XYZ } from "chili-core";
+import { Application } from "../application";
 import { LineBody } from "../bodys";
+import { EditorEventHandler, FeaturePoint } from "./eventHandler";
 
-export class LineEditor implements IEditor {
-    constructor(readonly entity: LineBody) {}
-    onPointerMove(view: IView, e: PointerEvent): void {
-        view.document.visualization.selection;
-        throw new Error("Method not implemented.");
-    }
-    onPointerDown(view: IView, e: PointerEvent): void {
-        throw new Error("Method not implemented.");
-    }
-    onPointerUp(view: IView, e: PointerEvent): void {
-        throw new Error("Method not implemented.");
+export class LineEditorEventHandler extends EditorEventHandler {
+    constructor(document: IDocument, readonly line: LineBody) {
+        super(document);
     }
 
-    deactive(): boolean {
-        throw new Error("Method not implemented.");
+    featurePoints(): FeaturePoint[] {
+        return [
+            {
+                point: this.line.start,
+                tip: "line.start",
+                preview: (x) => this.linePreview(x, this.line.end),
+                setter: (p) => (this.line.start = p),
+            },
+            {
+                point: this.line.end,
+                tip: "line.end",
+                preview: (x) => this.linePreview(this.line.start, x),
+                setter: (p) => (this.line.end = p),
+            },
+        ];
     }
 
-    active(): boolean {
-        return true;
-    }
+    private linePreview = (s: XYZ, e: XYZ): IShape => {
+        return Application.instance.shapeFactory.line(s, e).value!;
+    };
 }

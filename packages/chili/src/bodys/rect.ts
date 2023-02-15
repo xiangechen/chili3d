@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, Container, I18n, IShape, Plane, property, Result, Token } from "chili-core";
-import { IShapeFactory } from "chili-geo";
+import { Entity, I18n, IShape, Plane, property, Result } from "chili-core";
 import { Application } from "../application";
 
 export class RectBody extends Entity {
