@@ -5,9 +5,9 @@ import { Scene } from "three";
 import ThreeView from "./threeView";
 
 export class ThreeViewFactory implements IViewFactory {
-    constructor(readonly scene: Scene) {}
+    constructor(readonly document: IDocument, readonly scene: Scene) {}
 
-    createView(document: IDocument, name: string, workplane: Plane, container: HTMLElement): IView {
-        return new ThreeView(document, name, workplane, container, this.scene);
+    create(name: string, workplane: Plane, container: HTMLElement): IView {
+        return new ThreeView(this.document, name, workplane, container, this.scene);
     }
 }

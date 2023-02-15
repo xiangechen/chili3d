@@ -21,7 +21,7 @@ export class ThreeVisulization implements IVisualization {
         this._scene = new Scene();
         this._eventHandler = new ThreeSelectHandler();
         this._renderContext = new ThreeVisulizationContext(this._scene);
-        this._viewFactory = new ThreeViewFactory(this._scene);
+        this._viewFactory = new ThreeViewFactory(document, this._scene);
         this._selection = new ThreeSelection(document, this._renderContext);
         this.viewHandler = new ThreeViewHandler();
         this.init();
