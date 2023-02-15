@@ -43,8 +43,7 @@ export class CommandService implements IApplicationService {
         if (this.app.activeDocument === undefined || this._excutingCommand !== undefined) return;
         this._excutingCommand = commandName;
         Logger.info(`excuting command ${commandName}`);
-        let commandToken =
-            commandName === HotkeyService.instance.LastCommand ? this._lastCommand : Commands.instance[commandName];
+        let commandToken = commandName === "LastCommand" ? this._lastCommand : commandName;
         let command = Application.instance.resolve.resolve<ICommand>(new Token(commandToken!));
         if (command === undefined || command.excute === undefined) {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
@@ -53,7 +52,7 @@ export class CommandService implements IApplicationService {
         Contextual.instance.registerControls(command);
         await command.excute(this.app.activeDocument);
         Contextual.instance.clearControls();
-        this._lastCommand = commandName;
+        this._lastCommand = commandToken;
         this._excutingCommand = undefined;
     };
 }

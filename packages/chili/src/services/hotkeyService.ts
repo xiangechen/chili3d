@@ -18,8 +18,6 @@ export interface HotkeyMap {
 
 export class HotkeyService implements IApplicationService {
     private readonly _keyMap = new Map<string, keyof Commands>();
-    readonly LastCommand = "LastCommand";
-
     private static _instance: HotkeyService | undefined;
 
     public static get instance() {
@@ -30,8 +28,8 @@ export class HotkeyService implements IApplicationService {
     }
 
     private constructor() {
-        this._keyMap.set(" ", this.LastCommand);
-        this._keyMap.set("Enter", this.LastCommand);
+        this._keyMap.set(" ", "LastCommand");
+        this._keyMap.set("Enter", "LastCommand");
     }
 
     register(app: Application): void {
