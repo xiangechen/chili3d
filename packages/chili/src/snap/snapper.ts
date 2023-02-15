@@ -25,14 +25,13 @@ export abstract class Snapper {
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
         if (this.eventHandler === undefined) this.eventHandler = this.getEventHandler();
-        let defaultEventHandler = document.visualization.eventHandler;
         document.viewer.setCursor(CursorType.Drawing);
         PubSub.default.pub("statusBarTip", tip);
         document.visualization.eventHandler = this.eventHandler;
         while (!this.cancellationToken.isCanceled) {
             await new Promise((r) => setTimeout(r, 30));
         }
-        document.visualization.eventHandler = defaultEventHandler;
+        document.visualization.clearEventHandler();
         document.viewer.setCursor(CursorType.Default);
         PubSub.default.pub("clearStatusBarTip");
         return this.eventHandler.snaped;

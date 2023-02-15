@@ -11,4 +11,5 @@ export interface IVisualization {
     get viewHandler(): IEventHandler;
     eventHandler: IEventHandler;
     get viewFactory(): IViewFactory;
+    clearEventHandler(): void;
 }
