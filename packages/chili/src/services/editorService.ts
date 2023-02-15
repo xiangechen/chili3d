@@ -12,10 +12,13 @@ import {
     IEventHandler,
     IDisposable,
     VertexRenderData,
+    Model,
+    CursorType,
+    IShape,
 } from "chili-core";
 import { Application } from "../application";
 import { LineBody } from "../bodys";
-import { SnapEventHandler } from "../snap";
+import { Dimension, PointSnapper, ShapePreviewer, SnapEventHandler } from "../snap";
 import { IApplicationService } from "./applicationService";
 
 export class EditorService implements IApplicationService {
@@ -50,41 +53,100 @@ export class EditorService implements IApplicationService {
             this.handler = undefined;
         }
         if (models.length > 0) {
-            this.handler = new EditorEventHandler(document, models);
-            document.visualization.eventHandler = this.handler;
+            this.handler = this.getEventHandler(document, models);
+            if (this.handler !== undefined) {
+                this.handler.showEditorPoints();
+                document.visualization.eventHandler = this.handler;
+            }
         } else {
             document.visualization.clearEventHandler();
         }
+        document.viewer.redraw();
     };
+
+    private getEventHandler(document: IDocument, models: ModelObject[]): EditorEventHandler | undefined {
+        if (models.length > 1) return undefined;
+        if (ModelObject.isModel(models[0])) {
+            let body = models[0].body;
+            if (body instanceof LineBody) {
+                return new LineEditorEventHandler(document, body);
+            }
+        }
+        return undefined;
+    }
 }
 
-export class EditorEventHandler implements IEventHandler, IDisposable {
-    private editorPoints: number[] = [];
+export interface FeaturePoint {
+    point: XYZ;
+    preview: ShapePreviewer;
+    tip: keyof I18n;
+    setter: (newPoint: XYZ) => void;
+}
 
-    constructor(readonly document: IDocument, readonly models: ModelObject[]) {
-        this.showEditorPoints();
-    }
+export abstract class EditorEventHandler implements IEventHandler, IDisposable {
+    private snapedIndex?: number;
+    protected points: FeaturePoint[] = [];
+    protected shapes: number[] = [];
 
-    private showEditorPoints() {
-        if (this.models.length === 1 && ModelObject.isModel(this.models[0])) {
-            let body = this.models[0].body as LineBody;
-            let start = VertexRenderData.from(body.start, 0xffff00, 5);
-            let end = VertexRenderData.from(body.end, 0xffff00, 5);
-            let startId = this.document.visualization.context.temporaryDisplay(start);
-            let endId = this.document.visualization.context.temporaryDisplay(end);
-            this.editorPoints.push(startId, endId);
+    constructor(readonly document: IDocument) {}
+
+    showEditorPoints() {
+        for (const x of this.featurePoints()) {
+            this.points.push(x);
+            this.shapes.push(this.showPoint(x.point));
         }
     }
 
+    abstract featurePoints(): FeaturePoint[];
+
+    private showPoint(point: XYZ): number {
+        let start = VertexRenderData.from(point, 0xffff00, 5);
+        return this.document.visualization.context.temporaryDisplay(start);
+    }
+
     dispose(): void | Promise<void> {
-        this.editorPoints.forEach((x) => {
+        this.shapes.forEach((x) => {
             this.document.visualization.context.temporaryRemove(x);
         });
-        this.editorPoints.length = 0;
+        this.shapes.length = 0;
+        this.points.length = 0;
     }
-    pointerMove(view: IView, event: PointerEvent): void {}
+    pointerMove(view: IView, event: PointerEvent): void {
+        for (let i = 0; i < this.points.length; i++) {
+            const point = this.points[i];
+            if (this.distanceToMouse(view, event.offsetX, event.offsetY, point.point) < 4) {
+                view.document.viewer.setCursor(CursorType.Drawing);
+                this.snapedIndex = i;
+                return;
+            }
+        }
+        this.snapedIndex = undefined;
+        view.document.viewer.setCursor(CursorType.Default);
+    }
     pointerDown(view: IView, event: PointerEvent): void {}
-    pointerUp(view: IView, event: PointerEvent): void {}
+    async pointerUp(view: IView, event: PointerEvent) {
+        if (this.snapedIndex === undefined) return;
+        let snapper = new PointSnapper({
+            dimension: Dimension.D1D2D3,
+            refPoint: this.points[this.snapedIndex].point,
+            preview: this.points[this.snapedIndex].preview,
+        });
+        let data = await snapper.snap(this.document, this.points[this.snapedIndex].tip);
+        if (data?.point === undefined) return;
+        this.points[this.snapedIndex].setter(data.point);
+        this.document.visualization.context.temporaryRemove(this.shapes[this.snapedIndex]);
+        this.shapes[this.snapedIndex] = this.showPoint(data.point);
+        view.document.viewer.redraw();
+        this.snapedIndex = undefined;
+    }
+
+    private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
+        let xy = view.worldToScreen(point);
+        let dx = xy.x - x;
+        let dy = xy.y - y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
     mouseWheel(view: IView, event: WheelEvent): void {}
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
@@ -92,4 +154,31 @@ export class EditorEventHandler implements IEventHandler, IDisposable {
         }
     }
     keyUp(view: IView, event: KeyboardEvent): void {}
+}
+
+export class LineEditorEventHandler extends EditorEventHandler {
+    constructor(document: IDocument, readonly line: LineBody) {
+        super(document);
+    }
+
+    featurePoints(): FeaturePoint[] {
+        return [
+            {
+                point: this.line.start,
+                tip: "line.start",
+                preview: (x) => this.linePreview(x, this.line.end),
+                setter: (p) => (this.line.start = p),
+            },
+            {
+                point: this.line.end,
+                tip: "line.end",
+                preview: (x) => this.linePreview(this.line.start, x),
+                setter: (p) => (this.line.end = p),
+            },
+        ];
+    }
+
+    private linePreview = (s: XYZ, e: XYZ): IShape => {
+        return Application.instance.shapeFactory.line(s, e).value!;
+    };
 }
