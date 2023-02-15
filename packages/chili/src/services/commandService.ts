@@ -1,37 +1,40 @@
 import { Commands, Container, ICommand, Logger, PubSub, Token } from "chili-core";
 import { Contextual } from "chili-ui";
 
-import { Application } from "./application";
-import { Hotkey } from "./hotkey";
+import { Application } from "../application";
+import { IApplicationService } from "./applicationService";
+import { HotkeyService } from "./hotkeyService";
 
-export class Executor {
-    static _instance: Executor | undefined;
+export class CommandService implements IApplicationService {
+    static _instance: CommandService | undefined;
 
     static get instance() {
-        if (Executor._instance === undefined) {
-            Executor._instance = new Executor();
+        if (CommandService._instance === undefined) {
+            CommandService._instance = new CommandService();
         }
-        return Executor._instance;
+        return CommandService._instance;
     }
 
     private _lastCommand: keyof Commands | undefined;
     private _excutingCommand: keyof Commands | undefined;
     private app: Application | undefined;
 
-    private constructor() {
+    private constructor() {}
+
+    start(): void {
         PubSub.default.sub("excuteCommand", this.excuteCommand);
-        PubSub.default.sub("keyDown", this.handleKeyDown);
+        Logger.info(`${CommandService.name} started`);
+    }
+
+    stop(): void {
+        PubSub.default.remove("excuteCommand", this.excuteCommand);
+        Logger.info(`${CommandService.name} stoped`);
     }
 
     register(app: Application) {
         this.app = app;
+        Logger.info(`${CommandService.name} registed`);
     }
-
-    private handleKeyDown = (e: KeyboardEvent) => {
-        let command = Hotkey.instance.getCommand(e);
-        if (command === Hotkey.instance.LastCommand) command = this._lastCommand;
-        if (command !== undefined) this.excuteCommand(command);
-    };
 
     private excuteCommand = async (commandName: keyof Commands) => {
         if (this.app === undefined) {
@@ -40,7 +43,9 @@ export class Executor {
         if (this.app.activeDocument === undefined || this._excutingCommand !== undefined) return;
         this._excutingCommand = commandName;
         Logger.info(`excuting command ${commandName}`);
-        let command = Application.instance.resolve.resolve<ICommand>(new Token(Commands.instance[commandName]));
+        let commandToken =
+            commandName === HotkeyService.instance.LastCommand ? this._lastCommand : Commands.instance[commandName];
+        let command = Application.instance.resolve.resolve<ICommand>(new Token(commandToken!));
         if (command === undefined || command.excute === undefined) {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
             return;

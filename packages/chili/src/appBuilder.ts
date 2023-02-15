@@ -2,14 +2,16 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { CommandData, Commands, Container, ICommand, IRegister, IResolve, Logger, Token } from "chili-core";
+import { CommandData, Container, ICommand, IRegister, Logger, Token } from "chili-core";
 
 import { Application } from "./application";
-import { Executor } from "./executor";
-import { Hotkey, HotkeyMap } from "./hotkey";
-import hotkey from "./hotkeys.json";
-import quickbar from "./quickbar.json";
-import ribbon from "./ribbon.json";
+import { HotkeyMap, HotkeyService } from "./services/hotkeyService";
+import hotkey from "./profile/hotkeys.json";
+import quickbar from "./profile/quickbar.json";
+import ribbon from "./profile/ribbon.json";
+import { CommandService } from "./services/commandService";
+import { EditorService } from "./services/editorService";
+import { IApplicationService } from "./services";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -18,7 +20,6 @@ export class AppBuilder {
     constructor() {
         this._inits = [];
         this.registerCommands();
-        this.registerHotkeys();
     }
 
     useOcc(): AppBuilder {
@@ -67,19 +68,18 @@ export class AppBuilder {
         });
     }
 
-    private registerHotkeys() {
-        this._inits.push(async () => {
-            Logger.info("initializing hotkeys");
-
-            Hotkey.instance.registerFrom(hotkey as HotkeyMap);
-        });
-    }
-
     async build(): Promise<void> {
         for (let index = 0; index < this._inits.length; index++) {
             await this._inits[index]();
         }
-        Application.init(this._register.createResolve());
-        Executor.instance.register(Application.instance);
+        let services = this.getServices();
+        Application.build(this._register.createResolve(), services);
+
+        Logger.info("Application build completed");
+    }
+
+    private getServices(): IApplicationService[] {
+        HotkeyService.instance.addMap(hotkey as HotkeyMap);
+        return [CommandService.instance, HotkeyService.instance, EditorService.instance];
     }
 }

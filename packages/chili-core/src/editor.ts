@@ -5,7 +5,7 @@ import { IView } from "./visualization";
 export interface IEditor {
     active(): boolean;
     deactive(): boolean;
-    onMouseMove(view: IView, e: MouseEvent): void;
-    onMouseDown(view: IView, e: MouseEvent): void;
-    onMouseUp(view: IView, e: MouseEvent): void;
+    onPointerMove(view: IView, e: PointerEvent): void;
+    onPointerDown(view: IView, e: PointerEvent): void;
+    onPointerUp(view: IView, e: PointerEvent): void;
 }

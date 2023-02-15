@@ -4,9 +4,9 @@ import { Entity, IEditor, IView } from "chili-core";
 
 export class DefaultEditor implements IEditor {
     constructor(readonly entity: Entity) {}
-    onMouseMove(view: IView, e: MouseEvent): void {}
-    onMouseDown(view: IView, e: MouseEvent): void {}
-    onMouseUp(view: IView, e: MouseEvent): void {}
+    onPointerMove(view: IView, e: PointerEvent): void {}
+    onPointerDown(view: IView, e: PointerEvent): void {}
+    onPointerUp(view: IView, e: PointerEvent): void {}
     deactive(): boolean {
         return true;
     }

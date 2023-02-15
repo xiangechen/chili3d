@@ -1,6 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Logger, PubSub } from "chili-core";
 import { Commands } from "chili-core/src/commands";
+import { Application } from "../application";
+import { IApplicationService } from "./applicationService";
 
 export interface Keys {
     key: string;
@@ -13,23 +16,43 @@ export interface HotkeyMap {
     [key: string]: keyof Commands;
 }
 
-export class Hotkey {
+export class HotkeyService implements IApplicationService {
     private readonly _keyMap = new Map<string, keyof Commands>();
     readonly LastCommand = "LastCommand";
+
+    private static _instance: HotkeyService | undefined;
+
+    public static get instance() {
+        if (HotkeyService._instance === undefined) {
+            HotkeyService._instance = new HotkeyService();
+        }
+        return HotkeyService._instance;
+    }
 
     private constructor() {
         this._keyMap.set(" ", this.LastCommand);
         this._keyMap.set("Enter", this.LastCommand);
     }
 
-    private static _instance: Hotkey | undefined;
-
-    public static get instance() {
-        if (Hotkey._instance === undefined) {
-            Hotkey._instance = new Hotkey();
-        }
-        return Hotkey._instance;
+    register(app: Application): void {
+        Logger.info(`${HotkeyService.name} registed`);
     }
+
+    start(): void {
+        PubSub.default.sub("keyDown", this.handleKeyDown);
+        Logger.info(`${HotkeyService.name} started`);
+    }
+
+    stop(): void {
+        PubSub.default.remove("keyDown", this.handleKeyDown);
+        Logger.info(`${HotkeyService.name} stoped`);
+    }
+
+    private handleKeyDown = (e: KeyboardEvent) => {
+        let command = HotkeyService.instance.getCommand(e);
+        if (command === undefined) return;
+        PubSub.default.pub("excuteCommand", command);
+    };
 
     getKey(keys: Keys): string {
         let key = keys.key;
@@ -39,7 +62,7 @@ export class Hotkey {
         return key;
     }
 
-    register(command: keyof Commands, keys: Keys) {
+    map(command: keyof Commands, keys: Keys) {
         let key = this.getKey(keys);
         this._keyMap.set(key, command);
     }
@@ -49,7 +72,7 @@ export class Hotkey {
         return this._keyMap.get(key);
     }
 
-    registerFrom(map: HotkeyMap) {
+    addMap(map: HotkeyMap) {
         let keys = Object.keys(map);
         keys.forEach((key) => {
             this._keyMap.set(key, map[key]);

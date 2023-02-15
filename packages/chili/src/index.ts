@@ -6,5 +6,5 @@ export * from "./bodys";
 export * from "./comparers";
 export * from "./document";
 export * from "./history";
-export * from "./hotkey";
+export * from "./services/hotkeyService";
 export * from "./snap";

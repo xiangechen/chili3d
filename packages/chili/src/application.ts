@@ -3,6 +3,10 @@
 import { IDocument, IResolve, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualizationFactory } from "chili-vis";
+import { IApplicationService } from "./services";
+import { CommandService } from "./services/commandService";
+import { EditorService } from "./services/editorService";
+import { HotkeyMap, HotkeyService } from "./services/hotkeyService";
 
 export class Application {
     private static _instance: Application | undefined;
@@ -14,16 +18,19 @@ export class Application {
         return Application._instance;
     }
 
-    static init(resolve: IResolve) {
-        this._instance = new Application(resolve);
+    static build(resolve: IResolve, services: IApplicationService[]): Application {
+        this._instance = new Application(resolve, services);
+        return this._instance;
     }
 
     readonly visualizationFactory: IVisualizationFactory;
     readonly shapeFactory: IShapeFactory;
 
-    private constructor(readonly resolve: IResolve) {
+    private constructor(readonly resolve: IResolve, readonly services: IApplicationService[]) {
         this.visualizationFactory = resolve.resolve<IVisualizationFactory>(Token.VisulizationFactory)!;
         this.shapeFactory = resolve.resolve<IShapeFactory>(Token.ShapeFactory)!;
+        services.map((x) => x.register(this));
+        services.map((x) => x.start());
     }
 
     private _activeDocument: IDocument | undefined;

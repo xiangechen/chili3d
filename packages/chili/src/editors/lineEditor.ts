@@ -5,14 +5,14 @@ import { LineBody } from "../bodys";
 
 export class LineEditor implements IEditor {
     constructor(readonly entity: LineBody) {}
-    onMouseMove(view: IView, e: MouseEvent): void {
+    onPointerMove(view: IView, e: PointerEvent): void {
         view.document.visualization.selection;
         throw new Error("Method not implemented.");
     }
-    onMouseDown(view: IView, e: MouseEvent): void {
+    onPointerDown(view: IView, e: PointerEvent): void {
         throw new Error("Method not implemented.");
     }
-    onMouseUp(view: IView, e: MouseEvent): void {
+    onPointerUp(view: IView, e: PointerEvent): void {
         throw new Error("Method not implemented.");
     }
 
