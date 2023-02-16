@@ -1,72 +1,63 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CursorType, I18n, IDisposable, IDocument, IEventHandler, IView, VertexRenderData, XYZ } from "chili-core";
-import { Dimension, PointSnapper, ShapePreviewer } from "../snap";
+import { ShapePreviewer, Snapper } from "../snap";
 
 export interface FeaturePoint {
     point: XYZ;
     preview: ShapePreviewer;
+    displayed: number;
     tip: keyof I18n;
     setter: (newPoint: XYZ) => void;
 }
 
 export abstract class EditorEventHandler implements IEventHandler, IDisposable {
-    private snapedIndex?: number;
-    protected points: FeaturePoint[] = [];
-    protected shapes: number[] = [];
+    private snaped?: FeaturePoint;
+    protected abstract points: FeaturePoint[];
 
     constructor(readonly document: IDocument) {}
 
-    showEditorPoints() {
-        for (const x of this.featurePoints()) {
-            this.points.push(x);
-            this.shapes.push(this.showPoint(x.point));
-        }
-    }
-
-    abstract featurePoints(): FeaturePoint[];
-
-    private showPoint(point: XYZ): number {
+    protected showPoint(point: XYZ): number {
         let start = VertexRenderData.from(point, 0xffff00, 5);
         return this.document.visualization.context.temporaryDisplay(start);
     }
 
     dispose(): void | Promise<void> {
-        this.shapes.forEach((x) => {
-            this.document.visualization.context.temporaryRemove(x);
+        this.points.forEach((x) => {
+            this.document.visualization.context.temporaryRemove(x.displayed);
         });
-        this.shapes.length = 0;
         this.points.length = 0;
     }
     pointerMove(view: IView, event: PointerEvent): void {
-        for (let i = 0; i < this.points.length; i++) {
-            const point = this.points[i];
+        for (let point of this.points) {
             if (this.distanceToMouse(view, event.offsetX, event.offsetY, point.point) < 4) {
                 view.document.viewer.setCursor(CursorType.Drawing);
-                this.snapedIndex = i;
+                this.snaped = point;
                 return;
             }
         }
-        this.snapedIndex = undefined;
+        this.snaped = undefined;
         view.document.viewer.setCursor(CursorType.Default);
     }
     pointerDown(view: IView, event: PointerEvent): void {}
     async pointerUp(view: IView, event: PointerEvent) {
-        if (this.snapedIndex === undefined) return;
-        let snapper = new PointSnapper({
-            dimension: Dimension.D1D2D3,
-            refPoint: this.points[this.snapedIndex].point,
-            preview: this.points[this.snapedIndex].preview,
-        });
-        let data = await snapper.snap(this.document, this.points[this.snapedIndex].tip);
+        if (this.snaped === undefined) return;
+        let snapper = this.getSnapper(this.snaped);
+        let data = await snapper?.snap(this.document, this.snaped.tip);
         if (data?.point === undefined) return;
-        this.points[this.snapedIndex].point = data.point;
-        this.points[this.snapedIndex].setter(data.point);
-        this.document.visualization.context.temporaryRemove(this.shapes[this.snapedIndex]);
-        this.shapes[this.snapedIndex] = this.showPoint(data.point);
+        this.setNewPoint(this.snaped, data.point);
         view.document.viewer.redraw();
-        this.snapedIndex = undefined;
+        this.snaped = undefined;
     }
+
+    protected setNewPoint(snaped: FeaturePoint, point: XYZ) {
+        this.document.visualization.context.temporaryRemove(snaped.displayed);
+        snaped.point = point;
+        snaped.displayed = this.showPoint(point);
+        snaped.setter(point);
+    }
+
+    protected abstract getSnapper(point: FeaturePoint): Snapper | undefined;
 
     private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
         let xy = view.worldToScreen(point);

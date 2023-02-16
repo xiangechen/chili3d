@@ -41,7 +41,6 @@ export class EditorService implements IApplicationService {
         if (models.length > 0) {
             this.handler = this.getEventHandler(document, models);
             if (this.handler !== undefined) {
-                this.handler.showEditorPoints();
                 document.visualization.eventHandler = this.handler;
             }
         } else {

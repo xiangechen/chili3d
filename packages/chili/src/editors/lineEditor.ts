@@ -3,26 +3,40 @@
 import { IDocument, IShape, XYZ } from "chili-core";
 import { Application } from "../application";
 import { LineBody } from "../bodys";
+import { Dimension, PointSnapper, Snapper } from "../snap";
 import { EditorEventHandler, FeaturePoint } from "./eventHandler";
 
 export class LineEditorEventHandler extends EditorEventHandler {
+    protected points: FeaturePoint[];
+
     constructor(document: IDocument, readonly line: LineBody) {
         super(document);
+        this.points = this.getFeaturePoints();
     }
 
-    featurePoints(): FeaturePoint[] {
+    protected getSnapper(point: FeaturePoint): Snapper {
+        return new PointSnapper({
+            dimension: Dimension.D1D2D3,
+            refPoint: point.point,
+            preview: point.preview,
+        });
+    }
+
+    private getFeaturePoints(): FeaturePoint[] {
         return [
             {
                 point: this.line.start,
                 tip: "line.start",
                 preview: (x) => this.linePreview(x, this.line.end),
-                setter: (p) => (this.line.start = p),
+                setter: (point) => (this.line.start = point),
+                displayed: this.showPoint(this.line.start),
             },
             {
                 point: this.line.end,
                 tip: "line.end",
                 preview: (x) => this.linePreview(this.line.start, x),
                 setter: (p) => (this.line.end = p),
+                displayed: this.showPoint(this.line.end),
             },
         ];
     }
