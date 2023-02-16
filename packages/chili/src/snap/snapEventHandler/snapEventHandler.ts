@@ -150,7 +150,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         if (event.key === "Escape") {
             this._snaped = undefined;
             this.stopSnap(view);
-        } else if (event.key in ["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) {
+        } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub(
                 "showInput",
                 (t) => this.isValidInput(t),

@@ -4,9 +4,6 @@ import { IDocument, IResolve, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualizationFactory } from "chili-vis";
 import { IApplicationService } from "./services";
-import { CommandService } from "./services/commandService";
-import { EditorService } from "./services/editorService";
-import { HotkeyMap, HotkeyService } from "./services/hotkeyService";
 
 export class Application {
     private static _instance: Application | undefined;
@@ -27,10 +24,16 @@ export class Application {
     readonly shapeFactory: IShapeFactory;
 
     private constructor(readonly resolve: IResolve, readonly services: IApplicationService[]) {
-        this.visualizationFactory = resolve.resolve<IVisualizationFactory>(Token.VisulizationFactory)!;
-        this.shapeFactory = resolve.resolve<IShapeFactory>(Token.ShapeFactory)!;
-        services.map((x) => x.register(this));
-        services.map((x) => x.start());
+        this.visualizationFactory = this.resolveOrThrow<IVisualizationFactory>(Token.VisulizationFactory);
+        this.shapeFactory = this.resolveOrThrow<IShapeFactory>(Token.ShapeFactory);
+        services.forEach((x) => x.register(this));
+        services.forEach((x) => x.start());
+    }
+
+    private resolveOrThrow<T>(token: Token): T {
+        let v = this.resolve.resolve<T>(token);
+        if (v === undefined) throw `can not resolve ${token}`;
+        return v;
     }
 
     private _activeDocument: IDocument | undefined;

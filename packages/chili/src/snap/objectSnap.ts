@@ -144,7 +144,7 @@ export class ObjectSnap implements ISnap {
             view,
             shapes,
         };
-        shapes.map((x) => view.document.visualization.context.hilighted(x));
+        shapes.forEach((x) => view.document.visualization.context.hilighted(x));
     }
 
     private unHilighted() {

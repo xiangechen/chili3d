@@ -99,17 +99,16 @@ export class RenderDataBuilder {
     }
 
     buildVertex(): VertexRenderData {
-        return {
-            type: "vertex",
-            vertexs: this._vertexs,
-            color: this._color,
-            vertexColors: this._vertexColors,
-        };
+        return this.buildVertexOrEdge("vertex");
     }
 
     buildEdge(): EdgeRenderData {
+        return this.buildVertexOrEdge("edge");
+    }
+
+    private buildVertexOrEdge(type: "vertex" | "edge") {
         return {
-            type: "edge",
+            type,
             vertexs: this._vertexs,
             color: this._color,
             vertexColors: this._vertexColors,

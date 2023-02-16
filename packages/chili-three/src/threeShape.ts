@@ -129,7 +129,7 @@ export class ThreeShape extends Object3D implements IVisualizationShape {
     }
 
     private updateEdgeMaterial(material: LineBasicMaterial) {
-        this.wireframe()?.map((x) => (x.material = material));
+        this.wireframe()?.forEach((x) => (x.material = material));
     }
 
     set color(color: Color) {

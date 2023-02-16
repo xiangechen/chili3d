@@ -49,7 +49,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         if (trackingDatas.length === 1) {
             snaped = this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
         } else {
-            trackingDatas = trackingDatas.sort((x) => x.distance);
+            trackingDatas.sort((x) => x.distance);
             let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
             if (point !== undefined) {
                 snaped = this.getSnapedAndShowTracking(data.view, point, [trackingDatas[0], trackingDatas[1]]);
