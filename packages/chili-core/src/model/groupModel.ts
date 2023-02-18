@@ -1,24 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Id } from "../id";
-import { ModelObject } from "./modelObject";
+import { Model } from "./model";
 
-export class ModelGroup extends ModelObject {
-    readonly _children: ModelObject[] = [];
+export class GroupModel extends Model {
+    readonly _children: Model[] = [];
 
     constructor(name: string, id: string = Id.new()) {
         super(name, id);
     }
-    children(): ModelObject[] {
+    children(): Model[] {
         return this._children;
     }
 
-    addChild(model: ModelObject) {
+    addChild(model: Model) {
         if (this._children.indexOf(model) > -1) return;
         this._children.push(model);
     }
 
-    removeChild(model: ModelObject) {
+    removeChild(model: Model) {
         let index = this._children.indexOf(model);
         if (index === -1) return;
         this._children.splice(index, 1);

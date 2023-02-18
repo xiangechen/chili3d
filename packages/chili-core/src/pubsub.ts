@@ -5,7 +5,7 @@ import { IDisposable } from "./disposable";
 import { IDocument } from "./document";
 import { I18n } from "./i18n";
 import { MessageType } from "./messageType";
-import { ModelGroup, ModelObject } from "./model";
+import { GroupModel, Model } from "./model";
 import { ObjectSnapType } from "./snapType";
 import { Validation } from "./validation";
 
@@ -13,13 +13,13 @@ export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
     keyUp: (e: KeyboardEvent) => void;
     excuteCommand: (commandName: keyof Commands) => void;
-    modelAdded: (source: IDocument, model: ModelObject) => void;
+    modelAdded: (source: IDocument, model: Model) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
-    modelRemoved: (source: IDocument, model: ModelObject) => void;
-    modelUpdate: (model: ModelObject) => void;
-    visibleChanged: (model: ModelObject) => void;
-    parentChanged: (source: ModelObject, oldParent: ModelGroup | undefined, newParent: ModelGroup | undefined) => void;
-    selectionChanged: (document: IDocument, models: ModelObject[]) => void;
+    modelRemoved: (source: IDocument, model: Model) => void;
+    modelUpdate: (model: Model) => void;
+    visibleChanged: (model: Model) => void;
+    parentChanged: (source: Model, oldParent: GroupModel | undefined, newParent: GroupModel | undefined) => void;
+    selectionChanged: (document: IDocument, models: Model[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;

@@ -1,135 +1,88 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IShape } from "../geometry";
-import { HistoryRecord } from "../history";
-import { Id } from "../id";
-import { Logger } from "../logger";
+import { property } from "../decorators";
+import { Quaternion, XYZ } from "../math";
+import { HistoryObservable } from "../observer";
 import { PubSub } from "../pubsub";
-import { Result } from "../result";
-import { Entity } from "./entity";
-import { Feature } from "./feature";
-import { ModelObject } from "./modelObject";
-import { IUpdater } from "./updater";
+import { GeometryModel } from "./geometryModel";
+import { GroupModel } from "./groupModel";
 
-export class Model extends ModelObject {
-    private readonly _editors: Feature[] = [];
-    private _shape: IShape | undefined;
-    private _error: string | undefined;
+export abstract class Model extends HistoryObservable {
+    private _name: string;
+    private _location: XYZ;
+    private _rotate: Quaternion;
+    private _visible: boolean;
+    private _parent: GroupModel | undefined;
+    readonly createdTime: number;
 
-    constructor(name: string, readonly body: Entity, id: string = Id.new()) {
-        super(name, id);
-        this.body = body;
-        this.generate();
-        body.updater = this.updateHandler;
-        this.update();
+    constructor(name: string, readonly id: string) {
+        super();
+        this._name = name;
+        this._visible = true;
+        this._location = XYZ.zero;
+        this._rotate = { x: 0, y: 0, z: 0, w: 1 };
+        this.createdTime = Date.now();
     }
 
-    private updateHandler = (updater: IUpdater) => {
-        if (updater === this.body) {
-            this.generate();
-        } else {
-            let editor = updater as Feature;
-            let i = this._editors.indexOf(editor);
-            this.applyFeatures(i);
-        }
-        this.update();
-    };
-
-    override setHistoryHandler(handler: ((record: HistoryRecord) => void) | undefined) {
-        this._historyHandler = handler;
-        this.body.setHistoryHandler(handler);
-        this._editors.forEach((x) => x.setHistoryHandler(handler));
+    @property("name")
+    get name() {
+        return this._name;
     }
 
-    generate() {
-        if (!this.body.generate()) {
-            Logger.error(`Body of ${this.name} is null: ${this.body.shape.err}`);
-            return;
-        }
-        this._shape = this.body.shape.value;
-        this.applyFeatures(0);
+    set name(value: string) {
+        this.setProperty("name", value);
     }
 
-    private update() {
-        PubSub.default.pub("modelUpdate", this);
+    @property("model.location")
+    get location() {
+        return this._location;
     }
 
-    private applyFeatures(startIndex: number) {
-        if (this._editors.length === 0 || startIndex < 0) return;
-        let shape: Result<IShape>;
-        if (startIndex >= this._editors.length) {
-            shape = this._editors.at(-1)!.shape;
-        } else {
-            shape = startIndex === 0 ? this.body.shape : this._editors[startIndex - 1].shape;
-        }
-        this.setShape(shape);
+    set location(value: XYZ) {
+        if (this.setProperty("location", value)) this.handlePositionChanged();
+    }
 
-        if (this._shape === undefined) return;
-        for (let i = startIndex; i < this._editors.length; i++) {
-            this._editors[i].origin = this._shape;
-            this._editors[i].generate();
-            if (this._editors[i].shape.isErr()) {
-                this._error = this._editors[i].shape.err;
-                return;
-            }
-            this._shape = this._editors[i].shape.value;
+    @property("model.rotate")
+    get rotate() {
+        return this._rotate;
+    }
+
+    set rotate(value: Quaternion) {
+        if (this.setProperty("rotate", value)) this.handleRotateChanged();
+    }
+
+    get visible() {
+        return this._visible;
+    }
+
+    set visible(value: boolean) {
+        if (this.setProperty("visible", value)) {
+            PubSub.default.pub("visibleChanged", this);
         }
     }
 
-    private setShape(shape: Result<IShape>) {
-        this._shape = shape.value;
-        this._error = shape.err;
+    get parent() {
+        return this._parent;
     }
 
-    shape(): IShape | undefined {
-        return this._shape;
+    set parent(value: GroupModel | undefined) {
+        if (this._parent === value) return;
+        this._parent?.removeChild(this);
+        value?.addChild(this);
+        let oldParent = this._parent;
+        this.setProperty("parent", value);
+        PubSub.default.pub("parentChanged", this, oldParent, value);
     }
 
-    error() {
-        return this._error;
-    }
+    protected abstract handlePositionChanged(): void;
+    protected abstract handleRotateChanged(): void;
+}
 
-    removeEditor(editor: Feature) {
-        const index = this._editors.indexOf(editor, 0);
-        if (index > -1) {
-            this._editors.splice(index, 1);
-            this.applyFeatures(index);
-            editor.setHistoryHandler(undefined);
-            this.update();
-        }
+export namespace Model {
+    export function isGroup(model: Model): model is GroupModel {
+        return (model as GroupModel).children !== undefined;
     }
-
-    addEditor(editor: Feature) {
-        if (this._editors.indexOf(editor) > -1) return;
-        editor.setHistoryHandler(this._historyHandler);
-        this._editors.push(editor);
-        if (this._shape !== undefined) {
-            editor.origin = this._shape;
-            editor.generate();
-            this._error = editor.shape.err;
-            if (this._error === undefined) {
-                this._shape = editor.shape.value;
-            }
-            this.update();
-        }
-    }
-
-    getEditor(index: number) {
-        if (index < this._editors.length) {
-            return this._editors[index];
-        }
-        return undefined;
-    }
-
-    editors() {
-        return [...this._editors];
-    }
-
-    protected handlePositionChanged() {
-        this.generate();
-    }
-
-    protected handleRotateChanged() {
-        this.generate();
+    export function isGeometry(model: Model): model is GeometryModel {
+        return (model as GeometryModel).body !== undefined;
     }
 }

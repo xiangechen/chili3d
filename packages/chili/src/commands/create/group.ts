@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, Id, IDocument, ModelGroup } from "chili-core";
+import { command, ICommand, Id, IDocument, GroupModel } from "chili-core";
 
 @command({
     name: "NewGroup",
@@ -9,7 +9,7 @@ import { command, ICommand, Id, IDocument, ModelGroup } from "chili-core";
 })
 export class NewGroup implements ICommand {
     async excute(document: IDocument): Promise<void> {
-        let group = new ModelGroup(`Group ${document.models.count}`, Id.new());
+        let group = new GroupModel(`Group ${document.models.count}`, Id.new());
         document.models.add(group);
     }
 }

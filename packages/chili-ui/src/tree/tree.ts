@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IDocument, Logger, ModelGroup, ModelObject, PubSub } from "chili-core";
+import { Constants, IDocument, Logger, GroupModel, Model, PubSub } from "chili-core";
 
 import { Control } from "../control";
 import { Tab } from "../tab";
@@ -13,15 +13,15 @@ import { TreeToolBar } from "./treeToolBar";
 export class ModelTree {
     readonly dom: HTMLElement;
     private _tab: Tab;
-    private _selecteds?: ModelObject[];
+    private _selecteds?: Model[];
     private _treePanel: HTMLDivElement;
     readonly toolsPanel: TreeToolBar;
-    private readonly _modelMap: Map<ModelObject, TreeItemBase>;
+    private readonly _modelMap: Map<Model, TreeItemBase>;
 
     constructor(readonly document: IDocument) {
         this._tab = new Tab("items.header");
         this.dom = this._tab.dom;
-        this._modelMap = new Map<ModelObject, TreeItemBase>();
+        this._modelMap = new Map<Model, TreeItemBase>();
         this.toolsPanel = new TreeToolBar(this);
         this._treePanel = Control.div(style.treePanel);
         this._tab.addItem(this._treePanel);
@@ -34,11 +34,7 @@ export class ModelTree {
         PubSub.default.sub("parentChanged", this.handleParentChanged);
     }
 
-    handleParentChanged = (
-        model: ModelObject,
-        oldParent: ModelGroup | undefined,
-        newParent: ModelGroup | undefined
-    ) => {
+    handleParentChanged = (model: Model, oldParent: GroupModel | undefined, newParent: GroupModel | undefined) => {
         let control = this._modelMap.get(model);
         if (control === undefined) return;
         if (oldParent !== undefined) {
@@ -57,11 +53,11 @@ export class ModelTree {
         }
     };
 
-    getTreeItem(model: ModelObject) {
+    getTreeItem(model: Model) {
         return this._modelMap.get(model);
     }
 
-    removeItem(model: ModelObject) {
+    removeItem(model: Model) {
         let item = this._modelMap.get(model);
         if (item === undefined) return;
         if (model.parent !== undefined) {
@@ -78,14 +74,14 @@ export class ModelTree {
         item.dispose();
     }
 
-    initTree(models: ModelObject[]) {
+    initTree(models: Model[]) {
         let box = document.createDocumentFragment();
         models.forEach((x) => this.addItemToGroup(box, x));
         this._treePanel.appendChild(box);
     }
 
-    private addItemToGroup(parent: Node, model: ModelObject) {
-        let item = ModelObject.isGroup(model)
+    private addItemToGroup(parent: Node, model: Model) {
+        let item = Model.isGroup(model)
             ? new TreeItemGroup(this.document, this, model, true)
             : new TreeItem(this.document, model);
 
@@ -102,9 +98,9 @@ export class ModelTree {
             if (e.shiftKey === false) {
                 let model = this.document.models.get(modelId);
                 if (model === undefined) return;
-                if (ModelObject.isModel(model)) {
+                if (Model.isGeometry(model)) {
                     this.document.visualization.selection.setSelected(false, model);
-                } else if (ModelObject.isGroup(model)) {
+                } else if (Model.isGroup(model)) {
                     let group = this._modelMap.get(model) as TreeItemGroup;
                     group?.setExpander(!group.isExpanded);
                 }
@@ -122,13 +118,13 @@ export class ModelTree {
         return [...this._selecteds];
     }
 
-    private handleSelectionChanged = (document: IDocument, models: ModelObject[]) => {
+    private handleSelectionChanged = (document: IDocument, models: Model[]) => {
         this.clearSelectedStyle();
         this.addSelectedStyle(models);
     };
 
-    private handleAddModel = (document: IDocument, model: ModelObject) => {
-        let item = ModelObject.isGroup(model)
+    private handleAddModel = (document: IDocument, model: Model) => {
+        let item = Model.isGroup(model)
             ? new TreeItemGroup(this.document, this, model, true)
             : new TreeItem(this.document, model);
 
@@ -146,11 +142,11 @@ export class ModelTree {
         this._modelMap.set(model, item);
     };
 
-    private handleRemoveModel = (document: IDocument, model: ModelObject) => {
+    private handleRemoveModel = (document: IDocument, model: Model) => {
         this.removeItem(model);
     };
 
-    private addSelectedStyle(models?: ModelObject[]) {
+    private addSelectedStyle(models?: Model[]) {
         models?.forEach((m) => {
             let li = this._modelMap.get(m);
             li?.dom.classList.add(style.itemPanelSelected);

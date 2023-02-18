@@ -1,28 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CollectionAction, CollectionChangedBase, ICollection } from "../observer";
-import { ModelObject } from "./modelObject";
+import { Model } from "./model";
 
-export class ModelCollection extends CollectionChangedBase<ModelObject> implements ICollection<ModelObject> {
-    private readonly _map: Map<string, ModelObject>;
+export class ModelCollection extends CollectionChangedBase<Model> implements ICollection<Model> {
+    private readonly _map: Map<string, Model>;
 
     constructor() {
         super();
         this._map = new Map();
     }
 
-    get(id: string): ModelObject | undefined {
+    get(id: string): Model | undefined {
         return this._map.get(id);
     }
 
-    add(item: ModelObject): boolean {
+    add(item: Model): boolean {
         if (this._map.has(item.id)) return false;
         this._map.set(item.id, item);
         this.emitCollectionChanged(CollectionAction.add, item);
         return true;
     }
 
-    remove(item: ModelObject): boolean {
+    remove(item: Model): boolean {
         if (this._map.has(item.id)) {
             this._map.delete(item.id);
             this.emitCollectionChanged(CollectionAction.remove, item);
@@ -31,14 +31,14 @@ export class ModelCollection extends CollectionChangedBase<ModelObject> implemen
         return false;
     }
 
-    find(predicate: (item: ModelObject) => boolean): ModelObject | undefined {
+    find(predicate: (item: Model) => boolean): Model | undefined {
         for (let item of this._map.values()) {
             if (predicate(item)) return item;
         }
         return undefined;
     }
 
-    entry(): IterableIterator<ModelObject> {
+    entry(): IterableIterator<Model> {
         return this._map.values();
     }
 

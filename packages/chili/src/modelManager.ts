@@ -7,7 +7,7 @@ import {
     IDocument,
     IModelManager,
     ModelCollection,
-    ModelObject,
+    Model,
     Observable,
     PubSub,
     Transaction,
@@ -26,12 +26,12 @@ export class ModelManager extends Observable implements IModelManager {
         return this.models.size();
     }
 
-    get(id: string): ModelObject | undefined {
+    get(id: string): Model | undefined {
         return this.models.get(id);
     }
 
-    getMany(...ids: string[]): ModelObject[] {
-        let result: ModelObject[] = [];
+    getMany(...ids: string[]): Model[] {
+        let result: Model[] = [];
         for (const id of ids) {
             let model = this.models.get(id);
             if (model !== undefined) {
@@ -41,18 +41,18 @@ export class ModelManager extends Observable implements IModelManager {
         return result;
     }
 
-    add(...models: ModelObject[]) {
+    add(...models: Model[]) {
         models.forEach((model) => {
             this.models.add(model);
             model.setHistoryHandler(this.handleRecord);
         });
     }
 
-    remove(...models: ModelObject[]) {
+    remove(...models: Model[]) {
         models.forEach((model) => {
-            if (ModelObject.isGroup(model)) {
+            if (Model.isGroup(model)) {
                 for (const it of this.models.entry()) {
-                    if (it.parent === model && it instanceof ModelObject) this.remove(it);
+                    if (it.parent === model && it instanceof Model) this.remove(it);
                 }
             }
             this.models.remove(model);
@@ -64,11 +64,7 @@ export class ModelManager extends Observable implements IModelManager {
         Transaction.add(this.document, record);
     };
 
-    private handleModelCollectionChanged = (
-        source: ICollection<ModelObject>,
-        action: CollectionAction,
-        item: ModelObject
-    ) => {
+    private handleModelCollectionChanged = (source: ICollection<Model>, action: CollectionAction, item: Model) => {
         Transaction.add(this.document, {
             name: `collection ${String(action)}`,
             action,

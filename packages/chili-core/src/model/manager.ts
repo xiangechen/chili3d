@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ModelObject } from "./modelObject";
+import { Model } from "./model";
 
 export interface IModelManager {
     get count(): number;
-    add(...models: ModelObject[]): void;
-    get(id: string): ModelObject | undefined;
-    getMany(...ids: string[]): ModelObject[];
-    remove(...models: ModelObject[]): void;
+    add(...models: Model[]): void;
+    get(id: string): Model | undefined;
+    getMany(...ids: string[]): Model[];
+    remove(...models: Model[]): void;
 }

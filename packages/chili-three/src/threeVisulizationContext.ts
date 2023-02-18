@@ -6,8 +6,8 @@ import {
     IVisualizationContext,
     IVisualizationShape,
     LineType,
+    GeometryModel,
     Model,
-    ModelObject,
     PubSub,
     RenderData,
     ShapeType,
@@ -33,8 +33,8 @@ import {
 import { ThreeShape } from "./threeShape";
 
 export interface ModelInfo {
-    model: ModelObject;
-    parent: ModelObject | IDocument | undefined;
+    model: Model;
+    parent: Model | IDocument | undefined;
 }
 
 export class ThreeVisulizationContext implements IVisualizationContext {
@@ -53,7 +53,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         PubSub.default.sub("visibleChanged", this.handleVisibleChanged);
     }
 
-    handleModelUpdate = (model: ModelObject) => {
+    handleModelUpdate = (model: Model) => {
         this.removeModel(model);
         this.addModel(model);
     };
@@ -75,7 +75,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         return this.modelShapes.children.length;
     }
 
-    getShape(model: ModelObject): IVisualizationShape | undefined {
+    getShape(model: Model): IVisualizationShape | undefined {
         return this.modelShapes.getObjectByName(model.id) as ThreeShape;
     }
 
@@ -125,27 +125,27 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         this.tempShapes.remove(shape);
     }
 
-    handleAddModel = (document: IDocument, model: ModelObject) => {
+    handleAddModel = (document: IDocument, model: Model) => {
         this.addModel(model);
     };
 
-    handleRemoveModel = (document: IDocument, ...models: ModelObject[]) => {
+    handleRemoveModel = (document: IDocument, ...models: Model[]) => {
         this.removeModel(...models);
     };
 
-    private handleVisibleChanged = (model: ModelObject) => {
+    private handleVisibleChanged = (model: Model) => {
         let shape = this.getShape(model);
         if (shape === undefined || shape.visible === model.visible) return;
         shape.visible = model.visible;
     };
 
-    private addModelToGroup(group: Group, modelObject: ModelObject) {
-        if (ModelObject.isGroup(modelObject)) {
+    private addModelToGroup(group: Group, modelObject: Model) {
+        if (Model.isGroup(modelObject)) {
             let childGroup = new Group();
             childGroup.name = modelObject.id;
             group.add(childGroup);
         } else {
-            let model = modelObject as Model;
+            let model = modelObject as GeometryModel;
             let shape = this.getShape(model);
             if (shape !== undefined) return shape;
             if (model.error === undefined) return;
@@ -156,11 +156,11 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         }
     }
 
-    addModel(...models: ModelObject[]) {
+    addModel(...models: Model[]) {
         models.forEach((model) => this.addModelToGroup(this.modelShapes, model));
     }
 
-    removeModel(...models: ModelObject[]) {
+    removeModel(...models: Model[]) {
         models.forEach((model) => {
             let obj = this.modelShapes.getObjectByName(model.id);
             if (obj === undefined) return;

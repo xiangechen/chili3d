@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Model, ModelObject, Property, PubSub } from "chili-core";
+import { IDocument, GeometryModel, Model, Property, PubSub } from "chili-core";
 
 import { Control } from "../control";
 import { Expander } from "../expander";
@@ -21,7 +21,7 @@ export class PropertyView {
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 
-    private selectionChanged = (document: IDocument, args: ModelObject[]) => {
+    private selectionChanged = (document: IDocument, args: Model[]) => {
         Control.clear(this.panel);
         if (args.length === 0) return;
         this.addDefault(document, args);
@@ -29,13 +29,13 @@ export class PropertyView {
         this.addBody(args, document);
     };
 
-    private addDefault(document: IDocument, args: ModelObject[]) {
+    private addDefault(document: IDocument, args: Model[]) {
         this.appendProperty(this.panel, document, args, Property.get(args.at(0), "name"));
     }
 
-    private addBody(args: ModelObject[], document: IDocument) {
-        if (!args.some((x) => ModelObject.isGroup(x))) {
-            let bodies = args.map((x) => (x as Model).body);
+    private addBody(args: Model[], document: IDocument) {
+        if (!args.some((x) => Model.isGroup(x))) {
+            let bodies = args.map((x) => (x as GeometryModel).body);
             let body = new Expander(bodies[0].name);
             this.panel.appendChild(body.rootPanel);
             body.rootPanel.classList.add(style.expander);
@@ -45,7 +45,7 @@ export class PropertyView {
         }
     }
 
-    private addTransform(document: IDocument, args: ModelObject[]) {
+    private addTransform(document: IDocument, args: Model[]) {
         let transform = new Expander("properties.group.transform");
         transform.rootPanel.classList.add(style.expander);
         this.panel.appendChild(transform.rootPanel);

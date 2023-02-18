@@ -7,7 +7,7 @@ import {
     IShape,
     IView,
     IVisualizationShape,
-    ModelObject,
+    Model,
     Observable,
     PubSub,
     ShapeType,
@@ -19,13 +19,13 @@ import { ThreeUtils } from "./threeUtils";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeSelection extends Observable implements ISelection {
-    private readonly _selectedModels: Set<ModelObject>;
+    private readonly _selectedModels: Set<Model>;
     private _shapeType: ShapeType;
 
     constructor(readonly document: IDocument, readonly context: ThreeVisulizationContext) {
         super();
         this._shapeType = ShapeType.Shape;
-        this._selectedModels = new Set<ModelObject>();
+        this._selectedModels = new Set<Model>();
     }
 
     detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined {
@@ -47,7 +47,7 @@ export class ThreeSelection extends Observable implements ISelection {
         return objs.map((x) => x.userData[Constants.ShapeKey]);
     }
 
-    getSelectedModels(): ModelObject[] {
+    getSelectedModels(): Model[] {
         return [...this._selectedModels];
     }
 
@@ -61,11 +61,11 @@ export class ThreeSelection extends Observable implements ISelection {
         if (model !== undefined) this.setSelectedObserver(shiftDown, true, model);
     }
 
-    setSelected(shift: boolean, ...models: ModelObject[]) {
+    setSelected(shift: boolean, ...models: Model[]) {
         this.setSelectedObserver(shift, true, ...models);
     }
 
-    private setSelectedObserver(shift: boolean, publish: boolean, ...models: ModelObject[]) {
+    private setSelectedObserver(shift: boolean, publish: boolean, ...models: Model[]) {
         if (shift) {
             this.shiftSelect(models);
         } else {
@@ -75,7 +75,7 @@ export class ThreeSelection extends Observable implements ISelection {
         if (publish) this.publishSelection();
     }
 
-    unSelected(...models: ModelObject[]) {
+    unSelected(...models: Model[]) {
         this.unSelectedObserver(true, models);
     }
 
@@ -83,7 +83,7 @@ export class ThreeSelection extends Observable implements ISelection {
         this.unSelectedObserver(true, this._selectedModels);
     }
 
-    private unSelectedObserver(publish: boolean, models: Set<ModelObject> | ModelObject[]) {
+    private unSelectedObserver(publish: boolean, models: Set<Model> | Model[]) {
         models.forEach((m) => {
             this.removeSelectedStatus(m);
             this._selectedModels.delete(m);
@@ -117,7 +117,7 @@ export class ThreeSelection extends Observable implements ISelection {
         return raycaster.intersectObjects(shapes, false).map((x) => x.object);
     }
 
-    private shiftSelect(models: ModelObject[]) {
+    private shiftSelect(models: Model[]) {
         models.forEach((m) => {
             if (this._selectedModels.has(m)) {
                 this._selectedModels.delete(m);
@@ -128,7 +128,7 @@ export class ThreeSelection extends Observable implements ISelection {
         });
     }
 
-    private setToSelected(...models: ModelObject[]) {
+    private setToSelected(...models: Model[]) {
         models.forEach((m) => {
             let shape = this.context.getShape(m);
             if (shape !== undefined) {
@@ -138,7 +138,7 @@ export class ThreeSelection extends Observable implements ISelection {
         });
     }
 
-    private removeSelectedStatus(model: ModelObject) {
+    private removeSelectedStatus(model: Model) {
         let shape = this.context.getShape(model);
         if (shape !== undefined) shape.unSelectedState();
     }

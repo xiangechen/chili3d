@@ -2,7 +2,7 @@
 
 import { IShape } from "../geometry";
 import { ShapeType } from "../geometry/shapeType";
-import { ModelObject } from "../model";
+import { Model } from "../model";
 import { IPropertyChanged } from "../observer";
 import { IView } from "./view";
 import { IVisualizationShape } from "./visualizationShape";
@@ -13,8 +13,8 @@ export interface ISelection extends IPropertyChanged {
     detectedShape(view: IView, x: number, y: number): IShape | undefined;
     detectedShapes(view: IView, x: number, y: number): IShape[];
     detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined;
-    getSelectedModels(): ModelObject[];
-    setSelected(shift: boolean, ...models: ModelObject[]): void;
+    getSelectedModels(): Model[];
+    setSelected(shift: boolean, ...models: Model[]): void;
     clearSelected(): void;
-    unSelected(...models: ModelObject[]): void;
+    unSelected(...models: Model[]): void;
 }

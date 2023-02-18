@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IDisposable, IDocument, ModelObject } from "chili-core";
+import { Constants, IDisposable, IDocument, Model } from "chili-core";
 import { Transaction } from "chili-core/src/transaction";
 
 import { Control } from "../control";
@@ -13,7 +13,7 @@ export abstract class TreeItemBase implements IDisposable {
     readonly text: HTMLSpanElement;
     readonly icon: SVGSVGElement;
 
-    constructor(readonly document: IDocument, readonly model: ModelObject, div: HTMLDivElement, className: string) {
+    constructor(readonly document: IDocument, readonly model: Model, div: HTMLDivElement, className: string) {
         this.dom = div;
         this.dom.className = className;
         this.dom.draggable = true;
@@ -45,7 +45,7 @@ export abstract class TreeItemBase implements IDisposable {
         return visible === true ? "icon-eye" : "icon-eye-slash";
     }
 
-    private propertyChanged = (source: ModelObject, property: keyof ModelObject, oldValue: any, newValue: any) => {
+    private propertyChanged = (source: Model, property: keyof Model, oldValue: any, newValue: any) => {
         if (property === "name") {
             this.text.textContent = newValue;
         } else if (property === "visible") {
@@ -76,7 +76,7 @@ export abstract class TreeItemBase implements IDisposable {
         });
     };
 
-    protected abstract handleDrop(model: ModelObject): void;
+    protected abstract handleDrop(model: Model): void;
 
     private onDragStart = (event: DragEvent) => {
         event.stopPropagation();

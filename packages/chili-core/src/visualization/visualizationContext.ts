@@ -2,13 +2,13 @@
 
 import { RenderData } from "../geometry/renderData";
 import { IShape } from "../geometry/shape";
-import { ModelObject } from "../model";
+import { Model } from "../model";
 import { IVisualizationShape } from "./visualizationShape";
 
 export interface IVisualizationContext {
     get shapeCount(): number;
-    removeModel(...models: ModelObject[]): void;
-    getShape(model: ModelObject): IVisualizationShape | undefined;
+    removeModel(...models: Model[]): void;
+    getShape(model: Model): IVisualizationShape | undefined;
 
     hilighted(shape: IShape): void;
     unHilighted(shape: IShape): void;

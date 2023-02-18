@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, ModelGroup, ModelObject, Transaction } from "chili-core";
+import { IDocument, GroupModel, Model, Transaction } from "chili-core";
 
 import { Control } from "../control";
 import { ModelTree } from "./tree";
@@ -14,7 +14,7 @@ export class TreeItemGroup extends TreeItemBase {
     readonly panel: HTMLDivElement;
     private _header: HTMLDivElement;
 
-    constructor(document: IDocument, readonly tree: ModelTree, readonly group: ModelGroup, showHeader: boolean) {
+    constructor(document: IDocument, readonly tree: ModelTree, readonly group: GroupModel, showHeader: boolean) {
         let root = Control.div();
         super(document, group, root, style.itemGroupPanel);
         this.expander = Control.svg(this.getExpanderIcon(), style.itemExpanderIcon);
@@ -54,9 +54,9 @@ export class TreeItemGroup extends TreeItemBase {
         });
     }
 
-    private setVisible(visible: boolean, model: ModelObject) {
+    private setVisible(visible: boolean, model: Model) {
         model.visible = visible;
-        if (ModelObject.isGroup(model)) {
+        if (Model.isGroup(model)) {
             model.children().forEach((x) => {
                 this.setVisible(visible, x);
             });
@@ -79,7 +79,7 @@ export class TreeItemGroup extends TreeItemBase {
         this.panel.removeChild(control);
     }
 
-    protected handleDrop(model: ModelObject) {
+    protected handleDrop(model: Model) {
         model.parent = this.group;
     }
 }
