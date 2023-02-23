@@ -4,6 +4,8 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
-        "chili": "*"
+        "chili": "*",
+        "chili-three": "*",
+        "chili-occ": "*"
     }
 }

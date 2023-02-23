@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AppBuilder, Document } from "chili";
+import { Document } from "chili";
 import { Plane } from "chili-core";
 import { Viewport } from "chili-ui";
+import { AppBuilder } from "./appBuilder";
 
 // prettier-ignore
 let builder = new AppBuilder()

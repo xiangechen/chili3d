@@ -5,8 +5,7 @@
     "main": "src/index.ts",
     "devDependencies": {
         "chili-core": "*",
-        "chili-ui": "*",
-        "chili-three": "*",
-        "chili-occ": "*"
+        "chili-geo": "*",
+        "chili-vis": "*"
     }
 }

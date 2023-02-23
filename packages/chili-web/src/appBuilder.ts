@@ -4,14 +4,14 @@ import "reflect-metadata"; // 使用依赖注入时，必须导入
 
 import { CommandData, Container, ICommand, IRegister, Logger, Token } from "chili-core";
 
-import { Application } from "./application";
-import { HotkeyMap, HotkeyService } from "./services/hotkeyService";
-import hotkey from "./profile/hotkeys.json";
-import quickbar from "./profile/quickbar.json";
-import ribbon from "./profile/ribbon.json";
-import { CommandService } from "./services/commandService";
-import { EditorService } from "./services/editorService";
-import { IApplicationService } from "./services";
+import { Application } from "chili/src/application";
+import { HotkeyMap, HotkeyService } from "chili/src/services/hotkeyService";
+import hotkey from "chili/src/profile/hotkeys.json";
+import quickbar from "chili/src/profile/quickbar.json";
+import ribbon from "chili/src/profile/ribbon.json";
+import { CommandService } from "chili/src/services/commandService";
+import { EditorService } from "chili/src/services/editorService";
+import { IApplicationService } from "chili/src/services";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -56,7 +56,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing commands");
 
-            let commands: any = await import("./commands");
+            let commands: any = await import("chili/src/commands");
             let keys = Object.keys(commands);
             for (let index = 0; index < keys.length; index++) {
                 let command = commands[keys[index]];

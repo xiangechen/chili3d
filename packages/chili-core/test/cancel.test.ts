@@ -6,12 +6,12 @@ import { CancellationToken } from "../src";
 
 test("test CancellationToken", async () => {
     let token = new CancellationToken();
-    expect(token.isCanceled).toBeFalsy();
+    expect(token.isCancellationRequested).toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
             token.cancel();
             r("resolved");
         }, 30);
     });
-    expect(token.isCanceled).toBeTruthy();
+    expect(token.isCancellationRequested).toBeTruthy();
 });

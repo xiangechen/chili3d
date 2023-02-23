@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands, ICommand, Lazy, Logger, PubSub, Token } from "chili-core";
-import { Contextual } from "chili-ui";
 
 import { Application } from "../application";
 import { IApplicationService } from "./applicationService";
@@ -47,9 +46,7 @@ export class CommandService implements IApplicationService {
             Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
             return;
         }
-        Contextual.instance.registerControls(command);
         await command.excute(this.app.activeDocument);
-        Contextual.instance.clearControls();
         this._lastCommand = commandToken;
         this._excutingCommand = undefined;
     };
