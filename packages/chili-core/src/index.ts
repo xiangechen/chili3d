@@ -15,6 +15,7 @@ export * from "./geometry";
 export * from "./history";
 export * from "./i18n";
 export * from "./id";
+export * from "./lazy";
 export * from "./ioc";
 export * from "./messageType";
 export * from "./logger";

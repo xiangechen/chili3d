@@ -1,19 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, ICommand, Logger, PubSub, Token } from "chili-core";
+import { Commands, ICommand, Lazy, Logger, PubSub, Token } from "chili-core";
 import { Contextual } from "chili-ui";
 
 import { Application } from "../application";
 import { IApplicationService } from "./applicationService";
 
 export class CommandService implements IApplicationService {
-    static _instance: CommandService | undefined;
+    private static readonly _lazy = new Lazy(() => new CommandService());
 
     static get instance() {
-        if (CommandService._instance === undefined) {
-            CommandService._instance = new CommandService();
-        }
-        return CommandService._instance;
+        return this._lazy.value;
     }
 
     private _lastCommand: keyof Commands | undefined;

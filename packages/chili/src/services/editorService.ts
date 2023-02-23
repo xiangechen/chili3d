@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub, Model, Logger } from "chili-core";
+import { IDocument, PubSub, Model, Logger, Lazy } from "chili-core";
 import { Application } from "../application";
 import { CircleBody, LineBody } from "../bodys";
 import { EditorEventHandler, LineEditorEventHandler } from "../editors";
@@ -8,13 +8,10 @@ import { CircleEditorEventHandler } from "../editors/circleEditor";
 import { IApplicationService } from "./applicationService";
 
 export class EditorService implements IApplicationService {
-    private static _instance: EditorService | undefined;
+    private static readonly _lazy = new Lazy(() => new EditorService());
 
-    public static get instance() {
-        if (EditorService._instance === undefined) {
-            EditorService._instance = new EditorService();
-        }
-        return EditorService._instance;
+    static get instance() {
+        return this._lazy.value;
     }
 
     private handler?: EditorEventHandler;

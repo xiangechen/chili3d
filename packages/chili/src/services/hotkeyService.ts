@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, PubSub } from "chili-core";
+import { Lazy, Logger, PubSub } from "chili-core";
 import { Commands } from "chili-core/src/commands";
 import { Application } from "../application";
 import { IApplicationService } from "./applicationService";
@@ -17,15 +17,13 @@ export interface HotkeyMap {
 }
 
 export class HotkeyService implements IApplicationService {
-    private readonly _keyMap = new Map<string, keyof Commands>();
-    private static _instance: HotkeyService | undefined;
+    private static readonly _lazy = new Lazy(() => new HotkeyService());
 
-    public static get instance() {
-        if (HotkeyService._instance === undefined) {
-            HotkeyService._instance = new HotkeyService();
-        }
-        return HotkeyService._instance;
+    static get instance() {
+        return this._lazy.value;
     }
+
+    private readonly _keyMap = new Map<string, keyof Commands>();
 
     private constructor() {
         this._keyMap.set(" ", "LastCommand");
