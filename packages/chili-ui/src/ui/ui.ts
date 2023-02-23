@@ -4,6 +4,7 @@ import { PubSub } from "chili-core";
 
 import { Contextual } from "../contextual";
 import { Control } from "../control";
+import { DefaultRibbon } from "../profile/ribbon";
 import { Ribbon } from "../ribbon";
 import { RibbonData } from "../ribbon/ribbonData";
 import { RibbonTab } from "../ribbon/ribbonTab";
@@ -49,7 +50,7 @@ export class UI {
         this.statusbar = new Statusbar();
     }
 
-    init(root: HTMLElement, ribbon: RibbonData, quickbar: string[]) {
+    init(root: HTMLElement) {
         this.setTheme("light");
         this.root = root;
         root.focus();
@@ -66,8 +67,8 @@ export class UI {
 
         this.sidebar.dom.classList.add(style.sidebar);
 
-        this.initRibbon(ribbon);
-        this.initQuickBar(quickbar);
+        this.initRibbon(DefaultRibbon);
+        this.initQuickBar(["Save", "Undo", "Redo"]);
     }
 
     focus() {

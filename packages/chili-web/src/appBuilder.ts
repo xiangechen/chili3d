@@ -1,17 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata"; // 使用依赖注入时，必须导入
-
 import { CommandData, Container, ICommand, IRegister, Logger, Token } from "chili-core";
 
-import { Application } from "chili/src/application";
-import { HotkeyMap, HotkeyService } from "chili/src/services/hotkeyService";
-import hotkey from "chili/src/profile/hotkeys.json";
-import quickbar from "chili/src/profile/quickbar.json";
-import ribbon from "chili/src/profile/ribbon.json";
-import { CommandService } from "chili/src/services/commandService";
-import { EditorService } from "chili/src/services/editorService";
-import { IApplicationService } from "chili/src/services";
+import { Application, CommandService, EditorService, HotkeyService, IApplicationService } from "chili";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -47,7 +38,7 @@ export class AppBuilder {
             Logger.info("initializing UI");
 
             let ui = await import("chili-ui");
-            ui.UI.instance.init(document.getElementById("root")!, ribbon as any, quickbar);
+            ui.UI.instance.init(document.getElementById("root")!);
         });
         return this;
     }
@@ -56,7 +47,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing commands");
 
-            let commands: any = await import("chili/src/commands");
+            let commands: any = await import("chili");
             let keys = Object.keys(commands);
             for (let index = 0; index < keys.length; index++) {
                 let command = commands[keys[index]];
@@ -79,7 +70,6 @@ export class AppBuilder {
     }
 
     private getServices(): IApplicationService[] {
-        HotkeyService.instance.addMap(hotkey as HotkeyMap);
         return [CommandService.instance, HotkeyService.instance, EditorService.instance];
     }
 }

@@ -15,6 +15,12 @@ export interface HotkeyMap {
     [key: string]: keyof Commands;
 }
 
+const DefaultKeyMap: HotkeyMap = {
+    Delete: "Delete",
+    "ctrl+z": "Undo",
+    "ctrl+y": "Redo",
+};
+
 export class HotkeyService implements IApplicationService {
     private static readonly _lazy = new Lazy(() => new HotkeyService());
 
@@ -27,6 +33,7 @@ export class HotkeyService implements IApplicationService {
     private constructor() {
         this._keyMap.set(" ", "LastCommand");
         this._keyMap.set("Enter", "LastCommand");
+        this.addMap(DefaultKeyMap);
     }
 
     register(app: Application): void {

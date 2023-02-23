@@ -1,5 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import "reflect-metadata"; // 使用依赖注入时，必须导入
+
 import { Document } from "chili";
 import { Plane } from "chili-core";
 import { Viewport } from "chili-ui";
