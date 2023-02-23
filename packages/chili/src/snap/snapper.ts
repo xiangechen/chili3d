@@ -36,9 +36,9 @@ export abstract class Snapper {
     protected async waitEventHandlerFinished(document: IDocument) {
         let handler = document.visualization.eventHandler;
         document.visualization.eventHandler = this.eventHandler!;
-        while (!this.cancellationToken.isCanceled) {
-            await new Promise((r) => setTimeout(r, 30));
-        }
+        await new Promise((resolve, reject) => {
+            this.cancellationToken.onCancellationRequested(resolve);
+        });
         document.visualization.eventHandler = handler;
     }
 }

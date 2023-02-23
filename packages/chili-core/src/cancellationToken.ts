@@ -1,13 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export class CancellationToken {
-    private _isCanceled: boolean = false;
+import { IDisposable } from "./disposable";
 
-    get isCanceled() {
-        return this._isCanceled;
+export class CancellationToken implements IDisposable {
+    private readonly _events: ((arg: any) => void)[] = [];
+    private _isCancellationRequested: boolean = false;
+
+    get isCancellationRequested() {
+        return this._isCancellationRequested;
     }
 
     cancel() {
-        this._isCanceled = true;
+        if (!this._isCancellationRequested) {
+            this._isCancellationRequested = true;
+            this._events.forEach((x) => x(true));
+            this.dispose();
+        }
+    }
+
+    onCancellationRequested(listener: (arg: boolean) => void): void {
+        this._events.push(listener);
+    }
+
+    dispose(): void | Promise<void> {
+        this._events.length = 0;
     }
 }
