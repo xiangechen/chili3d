@@ -3,5 +3,6 @@
 export * from "./mathUtils";
 export * from "./plane";
 export * from "./ray";
+export * from "./transform";
 export * from "./xy";
 export * from "./xyz";
