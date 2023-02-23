@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CollectionAction, CollectionChangedBase, ICollection } from "../observer";
+import { CollectionAction, CollectionChangedBase, ICollection } from "../base";
 import { Model } from "./model";
 
 export class ModelCollection extends CollectionChangedBase<Model> implements ICollection<Model> {

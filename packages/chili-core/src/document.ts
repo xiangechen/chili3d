@@ -1,9 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable } from "./disposable";
-import { IHistory } from "./history";
+import { IDisposable, IHistory, IPropertyChanged } from "./base";
 import { IModelManager } from "./model";
-import { IPropertyChanged } from "./observer";
 import { IVisualization } from "./visualization";
 import { IViewer } from "./visualization/viewer";
 

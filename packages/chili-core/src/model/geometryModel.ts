@@ -1,11 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IShape } from "../geometry";
-import { HistoryRecord } from "../history";
+import { HistoryRecord, Logger, PubSub, Result } from "../base";
 import { Id } from "../id";
-import { Logger } from "../logger";
-import { PubSub } from "../pubsub";
-import { Result } from "../result";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
 import { Model } from "./model";

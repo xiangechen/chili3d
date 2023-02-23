@@ -4,7 +4,7 @@ import { FloatContainer } from "chili-ui";
 
 import { IDocument } from "../document";
 import { Plane, Ray, XY, XYZ } from "../math";
-import { IPropertyChanged } from "../observer";
+import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
 
 export interface IView extends IPropertyChanged {

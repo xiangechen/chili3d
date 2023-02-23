@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IShape } from "../geometry";
-import { ShapeType } from "../geometry/shapeType";
+import { IPropertyChanged } from "../base";
+import { IShape, ShapeType } from "../geometry";
 import { Model } from "../model";
-import { IPropertyChanged } from "../observer";
 import { IView } from "./view";
 import { IVisualizationShape } from "./visualizationShape";
 

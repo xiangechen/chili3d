@@ -1,10 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEqualityComparer } from "../equalityComparer";
+import { IEqualityComparer, HistoryObservable, Result } from "../base";
 import { IShape } from "../geometry";
 import { I18n } from "../i18n";
-import { HistoryObservable } from "../observer";
-import { Result } from "../result";
 import { IUpdater } from "./updater";
 
 export abstract class Entity extends HistoryObservable implements IUpdater {

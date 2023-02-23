@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "./i18n";
+import { I18n } from "../i18n";
 
 export class Validation<T extends keyof I18n = keyof I18n> {
     constructor(readonly isOk: boolean, readonly error?: T) {}

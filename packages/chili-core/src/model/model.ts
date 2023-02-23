@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { HistoryObservable, PubSub } from "../base";
 import { property } from "../decorators";
 import { Quaternion, XYZ } from "../math";
-import { HistoryObservable } from "../observer";
-import { PubSub } from "../pubsub";
 import { GeometryModel } from "./geometryModel";
 import { GroupModel } from "./groupModel";
 

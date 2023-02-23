@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands } from "./commands";
+import { Commands } from "../commands";
 import { IDisposable } from "./disposable";
-import { IDocument } from "./document";
-import { I18n } from "./i18n";
+import { IDocument } from "../document";
+import { I18n } from "../i18n";
 import { MessageType } from "./messageType";
-import { GroupModel, Model } from "./model";
-import { ObjectSnapType } from "./snapType";
+import { GroupModel, Model } from "../model";
+import { ObjectSnapType } from "../snapType";
 import { Validation } from "./validation";
 
 export interface PubSubEventMap {
