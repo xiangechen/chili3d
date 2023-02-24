@@ -2,6 +2,7 @@
 
 export * from "./mathUtils";
 export * from "./plane";
+export * from "./quaternion";
 export * from "./ray";
 export * from "./transform";
 export * from "./xy";

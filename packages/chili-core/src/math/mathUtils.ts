@@ -1,19 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { XYZ } from "./xyz";
-
-export interface Axis {
-    location: XYZ;
-    direction: XYZ;
-}
-
-export interface Quaternion {
-    x: number;
-    y: number;
-    z: number;
-    w: number;
-}
-
 export class MathUtils {
     static readonly Resolution = 1e-8;
 

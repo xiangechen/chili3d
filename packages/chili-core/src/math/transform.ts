@@ -1,5 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
 export class Transform {
@@ -79,20 +80,68 @@ export class Transform {
         ]);
     }
 
-    public setTranslation(vector: XYZ): Transform {
+    setTranslation(vector: XYZ): Transform {
         let transform = this.clone();
-        transform.setTranslationInplace(vector);
+        transform.arr[12] = vector.x;
+        transform.arr[13] = vector.y;
+        transform.arr[14] = vector.z;
         return transform;
     }
 
-    public setTranslationInplace(vector: XYZ) {
-        this.arr[12] = vector.x;
-        this.arr[13] = vector.y;
-        this.arr[14] = vector.z;
+    getTranslation(): XYZ {
+        return new XYZ(this.arr[12], this.arr[13], this.arr[14]);
     }
 
-    public getTranslation(): XYZ {
-        return new XYZ(this.arr[12], this.arr[13], this.arr[14]);
+    getScaling(): XYZ {
+        let m11 = this.arr[0];
+        let m12 = this.arr[1];
+        let m13 = this.arr[2];
+        let m21 = this.arr[4];
+        let m22 = this.arr[5];
+        let m23 = this.arr[6];
+        let m31 = this.arr[8];
+        let m32 = this.arr[9];
+        let m33 = this.arr[10];
+
+        return new XYZ(
+            Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13),
+            Math.sqrt(m21 * m21 + m22 * m22 + m23 * m23),
+            Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33)
+        );
+    }
+
+    getRotation() {
+        const [m11, m12, m13] = [this.arr[0], this.arr[4], this.arr[8]];
+        const [m21, m22, m23] = [this.arr[1], this.arr[5], this.arr[9]];
+        const [m31, m32, m33] = [this.arr[2], this.arr[6], this.arr[10]];
+        const trace = m11 + m22 + m33;
+        let s, x, y, z, w;
+        if (trace > 0) {
+            s = 0.5 / Math.sqrt(trace + 1.0);
+            w = 0.25 / s;
+            x = (m32 - m23) * s;
+            y = (m13 - m31) * s;
+            z = (m21 - m12) * s;
+        } else if (m11 > m22 && m11 > m33) {
+            s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33);
+            w = (m32 - m23) / s;
+            x = 0.25 * s;
+            y = (m12 + m21) / s;
+            z = (m13 + m31) / s;
+        } else if (m22 > m33) {
+            s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33);
+            w = (m13 - m31) / s;
+            x = (m12 + m21) / s;
+            y = 0.25 * s;
+            z = (m23 + m32) / s;
+        } else {
+            s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
+            w = (m21 - m12) / s;
+            x = (m13 + m31) / s;
+            y = (m23 + m32) / s;
+            z = 0.25 * s;
+        }
+        return new Quaternion(x, y, z, w);
     }
 
     public multiply(other: Transform): Transform {
