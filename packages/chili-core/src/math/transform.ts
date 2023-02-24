@@ -30,8 +30,8 @@ export class Transform {
     }
 
     public add(other: Transform): Transform {
-        var result = new Transform();
-        for (var index = 0; index < 16; index++) {
+        let result = new Transform();
+        for (let index = 0; index < 16; index++) {
             result.arr[index] = this.arr[index] + other.arr[index];
         }
         return result;
@@ -59,7 +59,7 @@ export class Transform {
         if (det === 0) return undefined;
         det = 1.0 / det;
 
-        return Transform.fromValues(
+        return Transform.fromArray([
             (a11 * b11 - a12 * b10 + a13 * b09) * det,
             (a02 * b10 - a01 * b11 - a03 * b09) * det,
             (a31 * b05 - a32 * b04 + a33 * b03) * det,
@@ -75,8 +75,8 @@ export class Transform {
             (a11 * b07 - a10 * b09 - a12 * b06) * det,
             (a00 * b09 - a01 * b07 + a02 * b06) * det,
             (a31 * b01 - a30 * b03 - a32 * b00) * det,
-            (a20 * b03 - a21 * b01 + a22 * b00) * det
-        );
+            (a20 * b03 - a21 * b01 + a22 * b00) * det,
+        ]);
     }
 
     public setTranslation(vector: XYZ): Transform {
@@ -142,65 +142,25 @@ export class Transform {
     }
 
     public static fromArray(array: ArrayLike<number>): Transform {
-        var result = new Transform();
-        for (var index = 0; index < 16; index++) {
+        let result = new Transform();
+        for (let index = 0; index < 16; index++) {
             result.arr[index] = array[index];
         }
         return result;
     }
 
-    public static fromValues(
-        m11: number,
-        m12: number,
-        m13: number,
-        m14: number,
-        m21: number,
-        m22: number,
-        m23: number,
-        m24: number,
-        m31: number,
-        m32: number,
-        m33: number,
-        m34: number,
-        m41: number,
-        m42: number,
-        m43: number,
-        m44: number
-    ): Transform {
-        var result = new Transform();
-
-        result.arr[0] = m11;
-        result.arr[1] = m12;
-        result.arr[2] = m13;
-        result.arr[3] = m14;
-        result.arr[4] = m21;
-        result.arr[5] = m22;
-        result.arr[6] = m23;
-        result.arr[7] = m24;
-        result.arr[8] = m31;
-        result.arr[9] = m32;
-        result.arr[10] = m33;
-        result.arr[11] = m34;
-        result.arr[12] = m41;
-        result.arr[13] = m42;
-        result.arr[14] = m43;
-        result.arr[15] = m44;
-
-        return result;
-    }
-
     public static identity(): Transform {
-        return Transform.fromValues(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+        return Transform.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
     }
 
     public static zero(): Transform {
-        return Transform.fromValues(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        return Transform.fromArray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
 
     public static rotationXTransform(angle: number): Transform {
-        var result = new Transform();
-        var s = Math.sin(angle);
-        var c = Math.cos(angle);
+        let result = new Transform();
+        let s = Math.sin(angle);
+        let c = Math.cos(angle);
         result.arr[0] = 1.0;
         result.arr[15] = 1.0;
         result.arr[5] = c;
@@ -211,9 +171,9 @@ export class Transform {
     }
 
     public static rotationYTransform(angle: number): Transform {
-        var result = new Transform();
-        var s = Math.sin(angle);
-        var c = Math.cos(angle);
+        let result = new Transform();
+        let s = Math.sin(angle);
+        let c = Math.cos(angle);
         result.arr[5] = 1.0;
         result.arr[15] = 1.0;
         result.arr[0] = c;
@@ -224,9 +184,9 @@ export class Transform {
     }
 
     public static rotationZTransform(angle: number): Transform {
-        var result = new Transform();
-        var s = Math.sin(angle);
-        var c = Math.cos(angle);
+        let result = new Transform();
+        let s = Math.sin(angle);
+        let c = Math.cos(angle);
         result.arr[10] = 1.0;
         result.arr[15] = 1.0;
         result.arr[0] = c;
@@ -238,12 +198,12 @@ export class Transform {
 
     public static rotationAxis(vector: XYZ, angle: number): Transform {
         let axis = vector.normalize();
-        if (axis === undefined) throw "invalid vector";
+        if (axis === undefined) throw new TypeError("invalid vector");
 
-        var result = Transform.zero();
-        var s = Math.sin(-angle);
-        var c = Math.cos(-angle);
-        var c1 = 1 - c;
+        let result = Transform.zero();
+        let s = Math.sin(-angle);
+        let c = Math.cos(-angle);
+        let c1 = 1 - c;
 
         result.arr[0] = axis.x * axis.x * c1 + c;
         result.arr[1] = axis.x * axis.y * c1 - axis.z * s;
@@ -265,15 +225,15 @@ export class Transform {
     }
 
     public static scalingTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromValues(x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0);
+        return Transform.fromArray([x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0]);
     }
 
     public static translationTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromValues(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0);
+        return Transform.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0]);
     }
 
     public transpose(): Transform {
-        var result = new Transform();
+        let result = new Transform();
         result.arr[0] = this.arr[0];
         result.arr[1] = this.arr[4];
         result.arr[2] = this.arr[8];
@@ -298,18 +258,18 @@ export class Transform {
     }
 
     public ofPoint(point: XYZ): XYZ {
-        var x = point.x * this.arr[0] + point.y * this.arr[4] + point.z * this.arr[8] + this.arr[12];
-        var y = point.x * this.arr[1] + point.y * this.arr[5] + point.z * this.arr[9] + this.arr[13];
-        var z = point.x * this.arr[2] + point.y * this.arr[6] + point.z * this.arr[10] + this.arr[14];
-        var w = point.x * this.arr[3] + point.y * this.arr[7] + point.z * this.arr[11] + this.arr[15];
+        let x = point.x * this.arr[0] + point.y * this.arr[4] + point.z * this.arr[8] + this.arr[12];
+        let y = point.x * this.arr[1] + point.y * this.arr[5] + point.z * this.arr[9] + this.arr[13];
+        let z = point.x * this.arr[2] + point.y * this.arr[6] + point.z * this.arr[10] + this.arr[14];
+        let w = point.x * this.arr[3] + point.y * this.arr[7] + point.z * this.arr[11] + this.arr[15];
 
         return new XYZ(x / w, y / w, z / w);
     }
 
     public ofVector(vector: XYZ): XYZ {
-        var x = vector.x * this.arr[0] + vector.y * this.arr[4] + vector.z * this.arr[8];
-        var y = vector.x * this.arr[1] + vector.y * this.arr[5] + vector.z * this.arr[9];
-        var z = vector.x * this.arr[2] + vector.y * this.arr[6] + vector.z * this.arr[10];
+        let x = vector.x * this.arr[0] + vector.y * this.arr[4] + vector.z * this.arr[8];
+        let y = vector.x * this.arr[1] + vector.y * this.arr[5] + vector.z * this.arr[9];
+        let z = vector.x * this.arr[2] + vector.y * this.arr[6] + vector.z * this.arr[10];
         return new XYZ(x, y, z);
     }
 }

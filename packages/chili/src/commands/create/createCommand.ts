@@ -44,5 +44,7 @@ export abstract class CreateCommand implements ICommand {
 
     protected abstract create(document: IDocument): GeometryModel;
 
-    protected afterExcute(document: IDocument) {}
+    protected afterExcute(document: IDocument) {
+        /* 空 */
+    }
 }

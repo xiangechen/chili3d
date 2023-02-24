@@ -1,17 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Container,
-    Id,
-    IDocument,
-    IHistory,
-    IModelManager,
-    ISelection,
-    IViewer,
-    IVisualization,
-    Observable,
-    Token,
-} from "chili-core";
+import { Id, IDocument, IHistory, IModelManager, IViewer, IVisualization, Observable } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
 import { Application } from "./application";
 

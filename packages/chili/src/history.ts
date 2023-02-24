@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryOperation, IHistory, Logger } from "chili-core";
+import { HistoryOperation, IHistory } from "chili-core";
 
 export class History implements IHistory {
     private _isDisabled: boolean = false;
@@ -56,8 +56,6 @@ export class History implements IHistory {
         if (!isDisabled) this._isDisabled = true;
         try {
             action();
-        } catch (e) {
-            throw e;
         } finally {
             this._isDisabled = isDisabled;
         }

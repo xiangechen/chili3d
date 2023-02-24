@@ -71,8 +71,8 @@ export class HistoryOperation {
     }
 
     redo() {
-        for (let index = 0; index < this.records.length; index++) {
-            HistoryRecord.redo(this.records[index]);
+        for (const record of this.records) {
+            HistoryRecord.redo(record);
         }
     }
 }

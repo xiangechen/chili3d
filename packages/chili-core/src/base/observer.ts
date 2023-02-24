@@ -178,8 +178,8 @@ export class ObservableCollection<T> extends CollectionChangedBase<T> implements
     }
 
     find(predicate: (item: T) => boolean): T | undefined {
-        for (let index = 0; index < this._array.length; index++) {
-            if (predicate(this._array[index])) return this._array[index];
+        for (const element of this._array) {
+            if (predicate(element)) return element;
         }
         return undefined;
     }
