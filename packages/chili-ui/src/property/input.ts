@@ -5,6 +5,8 @@ import {
     IDocument,
     NumberConverter,
     Property,
+    Quaternion,
+    QuaternionConverter,
     StringConverter,
     Transaction,
     XYZ,
@@ -60,6 +62,8 @@ export class InputProperty extends PropertyBase {
         let name = this.objects[0][this.property.name].constructor.name;
         if (name === XYZ.name) {
             return new XYZConverter();
+        } else if (name === Quaternion.name) {
+            return new QuaternionConverter();
         } else if (name === String.name) {
             return new StringConverter();
         } else if (name === Number.name) {

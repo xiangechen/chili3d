@@ -24,10 +24,7 @@ export class GroupModel extends Model {
         this._children.splice(index, 1);
     }
 
-    protected handlePositionChanged(): void {
-        throw new Error("Method not implemented.");
-    }
-    protected handleRotateChanged(): void {
+    protected handleTransformChanged(): void {
         throw new Error("Method not implemented.");
     }
 }

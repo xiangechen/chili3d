@@ -2,14 +2,13 @@
 
 import { HistoryObservable, PubSub } from "../base";
 import { property } from "../decorators";
-import { Quaternion, XYZ } from "../math";
+import { Quaternion, Transform, XYZ } from "../math";
 import { GeometryModel } from "./geometryModel";
 import { GroupModel } from "./groupModel";
 
 export abstract class Model extends HistoryObservable {
     private _name: string;
-    private _location: XYZ;
-    private _rotate: Quaternion;
+    protected _transform: Transform;
     private _visible: boolean;
     private _parent: GroupModel | undefined;
     readonly createdTime: number;
@@ -18,8 +17,7 @@ export abstract class Model extends HistoryObservable {
         super();
         this._name = name;
         this._visible = true;
-        this._location = XYZ.zero;
-        this._rotate = { x: 0, y: 0, z: 0, w: 1 };
+        this._transform = Transform.identity();
         this.createdTime = Date.now();
     }
 
@@ -32,22 +30,33 @@ export abstract class Model extends HistoryObservable {
         this.setProperty("name", value);
     }
 
+    get transform() {
+        return this._transform;
+    }
+
+    set transform(transform: Transform) {
+        if (this.setProperty("transform", transform)) this.handleTransformChanged();
+    }
+
     @property("model.location")
     get location() {
-        return this._location;
+        return this._transform.getTranslation();
     }
 
     set location(value: XYZ) {
-        if (this.setProperty("location", value)) this.handlePositionChanged();
+        let vector = value.sub(this.location);
+        if (vector.isEqualTo(XYZ.zero)) return;
+        let transform = Transform.translationTransform(vector.x, vector.y, vector.z);
+        this.transform = this._transform.multiply(transform);
     }
 
     @property("model.rotate")
     get rotate() {
-        return this._rotate;
+        return this._transform.getRotation();
     }
 
     set rotate(value: Quaternion) {
-        if (this.setProperty("rotate", value)) this.handleRotateChanged();
+        // todo
     }
 
     get visible() {
@@ -73,8 +82,7 @@ export abstract class Model extends HistoryObservable {
         PubSub.default.pub("parentChanged", this, oldParent, value);
     }
 
-    protected abstract handlePositionChanged(): void;
-    protected abstract handleRotateChanged(): void;
+    protected abstract handleTransformChanged(): void;
 }
 
 export namespace Model {

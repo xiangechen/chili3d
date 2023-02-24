@@ -122,11 +122,7 @@ export class GeometryModel extends Model {
         return [...this._editors];
     }
 
-    protected handlePositionChanged() {
-        this.generate();
-    }
-
-    protected handleRotateChanged() {
+    protected handleTransformChanged() {
         this.generate();
     }
 }

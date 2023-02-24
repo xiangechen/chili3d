@@ -4,3 +4,4 @@ export * from "./converter";
 export * from "./xyzConverter";
 export * from "./numberConverter";
 export * from "./stringConverter";
+export * from "./quaternionConverter";
