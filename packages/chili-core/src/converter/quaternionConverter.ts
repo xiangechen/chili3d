@@ -17,6 +17,6 @@ export class QuaternionConverter extends ConverterBase<Quaternion> {
             this._error = `${value} convert to Quaternion error`;
             return undefined;
         }
-        return new Quaternion(vs[0], vs[1], vs[2], vs[4]);
+        return new Quaternion(vs[0], vs[1], vs[2], vs[3]);
     }
 }

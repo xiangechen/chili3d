@@ -8,10 +8,9 @@ import { GroupModel } from "./groupModel";
 
 export abstract class Model extends HistoryObservable {
     private _name: string;
-    private _transform: Transform;
-    private _translation: XYZ;
+    private _position: XYZ;
     private _rotation: Quaternion;
-    private _scaling: XYZ;
+    private _scale: XYZ;
     private _visible: boolean;
     private _parent: GroupModel | undefined;
     readonly createdTime: number;
@@ -20,10 +19,9 @@ export abstract class Model extends HistoryObservable {
         super();
         this._name = name;
         this._visible = true;
-        this._translation = XYZ.zero;
-        this._scaling = XYZ.one;
+        this._position = XYZ.zero;
+        this._scale = XYZ.one;
         this._rotation = new Quaternion(0, 0, 0, 0);
-        this._transform = this.composeTransform();
         this.createdTime = Date.now();
     }
 
@@ -36,34 +34,39 @@ export abstract class Model extends HistoryObservable {
         this.setProperty("name", value);
     }
 
-    get transform(): Transform {
-        return this._transform;
+    transform(): Transform {
+        return Transform.compose(this._position, this._rotation, this._scale);
     }
 
-    private composeTransform() {
-        return Transform.compose(this._translation, this._rotation, this._scaling);
+    @property("model.position")
+    get position() {
+        return this._position;
     }
 
-    @property("model.location")
-    get translation() {
-        return this._translation;
-    }
-
-    set translation(value: XYZ) {
-        this.setProperty("translation", value, () => {
-            this._transform = this._transform.translation(value);
+    set position(value: XYZ) {
+        this.setProperty("position", value, () => {
             this.handleTransformChanged();
         });
     }
 
-    @property("model.rotate")
+    @property("model.rotation")
     get rotation() {
         return this._rotation;
     }
 
     set rotation(value: Quaternion) {
         this.setProperty("rotation", value, () => {
-            this._transform = this.composeTransform();
+            this.handleTransformChanged();
+        });
+    }
+
+    @property("model.scale")
+    get scale() {
+        return this._scale;
+    }
+
+    set scale(value: XYZ) {
+        this.setProperty("scale", value, () => {
             this.handleTransformChanged();
         });
     }

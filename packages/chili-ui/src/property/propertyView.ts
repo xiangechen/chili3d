@@ -49,8 +49,9 @@ export class PropertyView {
         let transform = new Expander("properties.group.transform");
         transform.rootPanel.classList.add(style.expander);
         this.panel.appendChild(transform.rootPanel);
-        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.location"));
-        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.rotate"));
+        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.position"));
+        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.rotation"));
+        this.appendProperty(transform.contenxtPanel, document, args, Property.get(args.at(0), "model.scale"));
     }
 
     private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {

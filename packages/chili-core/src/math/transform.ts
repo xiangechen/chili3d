@@ -80,7 +80,7 @@ export class Transform {
         ]);
     }
 
-    translation(vector: XYZ): Transform {
+    position(vector: XYZ): Transform {
         let transform = this.clone();
         transform.array[12] = vector.x;
         transform.array[13] = vector.y;
@@ -141,6 +141,8 @@ export class Transform {
             y = (m23 + m32) / s;
             z = 0.25 * s;
         }
+        console.log(w);
+
         return new Quaternion(x, y, z, w);
     }
 

@@ -154,7 +154,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
                 let modelShape = geometryModel.shape()!;
                 let threeShape = new ThreeShape(modelShape);
                 threeShape.name = geometryModel.id;
-                threeShape.applyMatrix4(this.convertMatrix(model.transform));
+                threeShape.applyMatrix4(this.convertMatrix(model.transform()));
                 model.onPropertyChanged(this.handleTransformChanged);
                 this.modelShapes.add(threeShape);
             }
@@ -166,9 +166,17 @@ export class ThreeVisulizationContext implements IVisualizationContext {
     }
 
     private handleTransformChanged = (model: Model, property: keyof Model) => {
-        if (property === "translation" || property === "rotation") {
-            let obj = this.modelShapes.getObjectByName(model.id);
-            obj?.applyMatrix4(this.convertMatrix(model.transform));
+        let shape = this.modelShapes.getObjectByName(model.id);
+        if (shape === undefined) return;
+        if (property === "position") {
+            shape?.position.set(model.position.x, model.position.y, model.position.z);
+            shape?.updateMatrix();
+        } else if (property === "rotation") {
+            shape?.rotation.set(model.rotation.x, model.rotation.y, model.rotation.z);
+            shape?.updateMatrix();
+        } else if (property === "scale") {
+            shape?.scale.set(model.scale.x, model.scale.y, model.scale.z);
+            shape?.updateMatrix();
         }
     };
 

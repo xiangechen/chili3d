@@ -123,6 +123,6 @@ export class GeometryModel extends Model {
     }
 
     protected handleTransformChanged() {
-        this.generate();
+        // this.generate();
     }
 }
