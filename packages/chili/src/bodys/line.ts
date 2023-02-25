@@ -26,7 +26,7 @@ export class LineBody extends Entity {
     }
 
     set start(pnt: XYZ) {
-        this.setPropertyAndUpdate("start", pnt, new XYZEqualityComparer());
+        this.setPropertyAndUpdate("start", pnt);
     }
 
     @property("line.end")
@@ -35,6 +35,6 @@ export class LineBody extends Entity {
     }
 
     set end(pnt: XYZ) {
-        this.setPropertyAndUpdate("end", pnt, new XYZEqualityComparer());
+        this.setPropertyAndUpdate("end", pnt);
     }
 }

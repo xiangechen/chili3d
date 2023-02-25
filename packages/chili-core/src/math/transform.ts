@@ -4,13 +4,13 @@ import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
 export class Transform {
-    private readonly arr: Float32Array = new Float32Array(16);
+    private readonly array: Float32Array = new Float32Array(16);
 
     public determinant(): number {
-        let [a00, a01, a02, a03] = [this.arr[0], this.arr[1], this.arr[2], this.arr[3]];
-        let [a10, a11, a12, a13] = [this.arr[4], this.arr[5], this.arr[6], this.arr[7]];
-        let [a20, a21, a22, a23] = [this.arr[8], this.arr[9], this.arr[10], this.arr[11]];
-        let [a30, a31, a32, a33] = [this.arr[12], this.arr[13], this.arr[14], this.arr[15]];
+        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
+        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
+        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
+        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
 
         let b0 = a00 * a11 - a01 * a10;
         let b1 = a00 * a12 - a02 * a10;
@@ -27,22 +27,22 @@ export class Transform {
     }
 
     public toArray(): number[] {
-        return [...this.arr];
+        return [...this.array];
     }
 
     public add(other: Transform): Transform {
         let result = new Transform();
         for (let index = 0; index < 16; index++) {
-            result.arr[index] = this.arr[index] + other.arr[index];
+            result.array[index] = this.array[index] + other.array[index];
         }
         return result;
     }
 
     public invert(): Transform | undefined {
-        let [a00, a01, a02, a03] = [this.arr[0], this.arr[1], this.arr[2], this.arr[3]];
-        let [a10, a11, a12, a13] = [this.arr[4], this.arr[5], this.arr[6], this.arr[7]];
-        let [a20, a21, a22, a23] = [this.arr[8], this.arr[9], this.arr[10], this.arr[11]];
-        let [a30, a31, a32, a33] = [this.arr[12], this.arr[13], this.arr[14], this.arr[15]];
+        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
+        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
+        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
+        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
         let b00 = a00 * a11 - a01 * a10;
         let b01 = a00 * a12 - a02 * a10;
         let b02 = a00 * a13 - a03 * a10;
@@ -80,28 +80,28 @@ export class Transform {
         ]);
     }
 
-    setTranslation(vector: XYZ): Transform {
+    translation(vector: XYZ): Transform {
         let transform = this.clone();
-        transform.arr[12] = vector.x;
-        transform.arr[13] = vector.y;
-        transform.arr[14] = vector.z;
+        transform.array[12] = vector.x;
+        transform.array[13] = vector.y;
+        transform.array[14] = vector.z;
         return transform;
     }
 
     getTranslation(): XYZ {
-        return new XYZ(this.arr[12], this.arr[13], this.arr[14]);
+        return new XYZ(this.array[12], this.array[13], this.array[14]);
     }
 
     getScaling(): XYZ {
-        let m11 = this.arr[0];
-        let m12 = this.arr[1];
-        let m13 = this.arr[2];
-        let m21 = this.arr[4];
-        let m22 = this.arr[5];
-        let m23 = this.arr[6];
-        let m31 = this.arr[8];
-        let m32 = this.arr[9];
-        let m33 = this.arr[10];
+        let m11 = this.array[0];
+        let m12 = this.array[1];
+        let m13 = this.array[2];
+        let m21 = this.array[4];
+        let m22 = this.array[5];
+        let m23 = this.array[6];
+        let m31 = this.array[8];
+        let m32 = this.array[9];
+        let m33 = this.array[10];
 
         return new XYZ(
             Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13),
@@ -111,9 +111,9 @@ export class Transform {
     }
 
     getRotation() {
-        const [m11, m12, m13] = [this.arr[0], this.arr[4], this.arr[8]];
-        const [m21, m22, m23] = [this.arr[1], this.arr[5], this.arr[9]];
-        const [m31, m32, m33] = [this.arr[2], this.arr[6], this.arr[10]];
+        const [m11, m12, m13] = [this.array[0], this.array[4], this.array[8]];
+        const [m21, m22, m23] = [this.array[1], this.array[5], this.array[9]];
+        const [m31, m32, m33] = [this.array[2], this.array[6], this.array[10]];
         const trace = m11 + m22 + m33;
         let s, x, y, z, w;
         if (trace > 0) {
@@ -147,41 +147,41 @@ export class Transform {
     public multiply(other: Transform): Transform {
         let result = new Transform();
 
-        let [a00, a01, a02, a03] = [this.arr[0], this.arr[1], this.arr[2], this.arr[3]];
-        let [a10, a11, a12, a13] = [this.arr[4], this.arr[5], this.arr[6], this.arr[7]];
-        let [a20, a21, a22, a23] = [this.arr[8], this.arr[9], this.arr[10], this.arr[11]];
-        let [a30, a31, a32, a33] = [this.arr[12], this.arr[13], this.arr[14], this.arr[15]];
+        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
+        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
+        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
+        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
 
-        let [b0, b1, b2, b3] = [other.arr[0], other.arr[1], other.arr[2], other.arr[3]];
-        result.arr[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.arr[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.arr[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.arr[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        let [b0, b1, b2, b3] = [other.array[0], other.array[1], other.array[2], other.array[3]];
+        result.array[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        result.array[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        result.array[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        result.array[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 
-        [b0, b1, b2, b3] = [other.arr[4], other.arr[5], other.arr[6], other.arr[7]];
-        result.arr[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.arr[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.arr[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.arr[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        [b0, b1, b2, b3] = [other.array[4], other.array[5], other.array[6], other.array[7]];
+        result.array[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        result.array[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        result.array[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        result.array[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 
-        [b0, b1, b2, b3] = [other.arr[8], other.arr[9], other.arr[10], other.arr[11]];
-        result.arr[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.arr[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.arr[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.arr[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        [b0, b1, b2, b3] = [other.array[8], other.array[9], other.array[10], other.array[11]];
+        result.array[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        result.array[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        result.array[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        result.array[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 
-        [b0, b1, b2, b3] = [other.arr[12], other.arr[13], other.arr[14], other.arr[15]];
-        result.arr[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.arr[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.arr[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.arr[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        [b0, b1, b2, b3] = [other.array[12], other.array[13], other.array[14], other.array[15]];
+        result.array[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        result.array[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        result.array[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        result.array[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
 
         return result;
     }
 
     public equals(value: Transform): boolean {
         for (let i = 0; i < 16; i++) {
-            if (this.arr[i] !== value.arr[i]) return false;
+            if (this.array[i] !== value.array[i]) return false;
         }
         return true;
     }
@@ -193,7 +193,7 @@ export class Transform {
     public static fromArray(array: ArrayLike<number>): Transform {
         let result = new Transform();
         for (let index = 0; index < 16; index++) {
-            result.arr[index] = array[index];
+            result.array[index] = array[index];
         }
         return result;
     }
@@ -206,16 +206,58 @@ export class Transform {
         return Transform.fromArray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
 
+    static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Transform {
+        let transform = new Transform();
+        const x = rotation.x,
+            y = rotation.y,
+            z = rotation.z,
+            w = rotation.w;
+        const x2 = x + x,
+            y2 = y + y,
+            z2 = z + z;
+        const xx = x * x2,
+            xy = x * y2,
+            xz = x * z2;
+        const yy = y * y2,
+            yz = y * z2,
+            zz = z * z2;
+        const wx = w * x2,
+            wy = w * y2,
+            wz = w * z2;
+        const sx = scale.x,
+            sy = scale.y,
+            sz = scale.z;
+
+        transform.array[0] = (1 - (yy + zz)) * sx;
+        transform.array[1] = (xy + wz) * sx;
+        transform.array[2] = (xz - wy) * sx;
+
+        transform.array[4] = (xy - wz) * sy;
+        transform.array[5] = (1 - (xx + zz)) * sy;
+        transform.array[6] = (yz + wx) * sy;
+
+        transform.array[8] = (xz + wy) * sz;
+        transform.array[9] = (yz - wx) * sz;
+        transform.array[10] = (1 - (xx + yy)) * sz;
+
+        transform.array[12] = translation.x;
+        transform.array[13] = translation.y;
+        transform.array[14] = translation.z;
+        transform.array[15] = 1;
+
+        return transform;
+    }
+
     public static rotationXTransform(angle: number): Transform {
         let result = new Transform();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
-        result.arr[0] = 1.0;
-        result.arr[15] = 1.0;
-        result.arr[5] = c;
-        result.arr[10] = c;
-        result.arr[9] = -s;
-        result.arr[6] = s;
+        result.array[0] = 1.0;
+        result.array[15] = 1.0;
+        result.array[5] = c;
+        result.array[10] = c;
+        result.array[9] = -s;
+        result.array[6] = s;
         return result;
     }
 
@@ -223,12 +265,12 @@ export class Transform {
         let result = new Transform();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
-        result.arr[5] = 1.0;
-        result.arr[15] = 1.0;
-        result.arr[0] = c;
-        result.arr[2] = -s;
-        result.arr[8] = s;
-        result.arr[10] = c;
+        result.array[5] = 1.0;
+        result.array[15] = 1.0;
+        result.array[0] = c;
+        result.array[2] = -s;
+        result.array[8] = s;
+        result.array[10] = c;
         return result;
     }
 
@@ -236,12 +278,12 @@ export class Transform {
         let result = new Transform();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
-        result.arr[10] = 1.0;
-        result.arr[15] = 1.0;
-        result.arr[0] = c;
-        result.arr[1] = s;
-        result.arr[4] = -s;
-        result.arr[5] = c;
+        result.array[10] = 1.0;
+        result.array[15] = 1.0;
+        result.array[0] = c;
+        result.array[1] = s;
+        result.array[4] = -s;
+        result.array[5] = c;
         return result;
     }
 
@@ -254,22 +296,22 @@ export class Transform {
         let c = Math.cos(-angle);
         let c1 = 1 - c;
 
-        result.arr[0] = axis.x * axis.x * c1 + c;
-        result.arr[1] = axis.x * axis.y * c1 - axis.z * s;
-        result.arr[2] = axis.x * axis.z * c1 + axis.y * s;
-        result.arr[3] = 0.0;
+        result.array[0] = axis.x * axis.x * c1 + c;
+        result.array[1] = axis.x * axis.y * c1 - axis.z * s;
+        result.array[2] = axis.x * axis.z * c1 + axis.y * s;
+        result.array[3] = 0.0;
 
-        result.arr[4] = axis.y * axis.x * c1 + axis.z * s;
-        result.arr[5] = axis.y * axis.y * c1 + c;
-        result.arr[6] = axis.y * axis.z * c1 - axis.x * s;
-        result.arr[7] = 0.0;
+        result.array[4] = axis.y * axis.x * c1 + axis.z * s;
+        result.array[5] = axis.y * axis.y * c1 + c;
+        result.array[6] = axis.y * axis.z * c1 - axis.x * s;
+        result.array[7] = 0.0;
 
-        result.arr[8] = axis.z * axis.x * c1 - axis.y * s;
-        result.arr[9] = axis.z * axis.y * c1 + axis.x * s;
-        result.arr[10] = axis.z * axis.z * c1 + c;
-        result.arr[11] = 0.0;
+        result.array[8] = axis.z * axis.x * c1 - axis.y * s;
+        result.array[9] = axis.z * axis.y * c1 + axis.x * s;
+        result.array[10] = axis.z * axis.z * c1 + c;
+        result.array[11] = 0.0;
 
-        result.arr[15] = 1.0;
+        result.array[15] = 1.0;
         return result;
     }
 
@@ -283,42 +325,42 @@ export class Transform {
 
     public transpose(): Transform {
         let result = new Transform();
-        result.arr[0] = this.arr[0];
-        result.arr[1] = this.arr[4];
-        result.arr[2] = this.arr[8];
-        result.arr[3] = this.arr[12];
+        result.array[0] = this.array[0];
+        result.array[1] = this.array[4];
+        result.array[2] = this.array[8];
+        result.array[3] = this.array[12];
 
-        result.arr[4] = this.arr[1];
-        result.arr[5] = this.arr[5];
-        result.arr[6] = this.arr[9];
-        result.arr[7] = this.arr[13];
+        result.array[4] = this.array[1];
+        result.array[5] = this.array[5];
+        result.array[6] = this.array[9];
+        result.array[7] = this.array[13];
 
-        result.arr[8] = this.arr[2];
-        result.arr[9] = this.arr[6];
-        result.arr[10] = this.arr[10];
-        result.arr[11] = this.arr[14];
+        result.array[8] = this.array[2];
+        result.array[9] = this.array[6];
+        result.array[10] = this.array[10];
+        result.array[11] = this.array[14];
 
-        result.arr[12] = this.arr[3];
-        result.arr[13] = this.arr[7];
-        result.arr[14] = this.arr[11];
-        result.arr[15] = this.arr[15];
+        result.array[12] = this.array[3];
+        result.array[13] = this.array[7];
+        result.array[14] = this.array[11];
+        result.array[15] = this.array[15];
 
         return result;
     }
 
     public ofPoint(point: XYZ): XYZ {
-        let x = point.x * this.arr[0] + point.y * this.arr[4] + point.z * this.arr[8] + this.arr[12];
-        let y = point.x * this.arr[1] + point.y * this.arr[5] + point.z * this.arr[9] + this.arr[13];
-        let z = point.x * this.arr[2] + point.y * this.arr[6] + point.z * this.arr[10] + this.arr[14];
-        let w = point.x * this.arr[3] + point.y * this.arr[7] + point.z * this.arr[11] + this.arr[15];
+        let x = point.x * this.array[0] + point.y * this.array[4] + point.z * this.array[8] + this.array[12];
+        let y = point.x * this.array[1] + point.y * this.array[5] + point.z * this.array[9] + this.array[13];
+        let z = point.x * this.array[2] + point.y * this.array[6] + point.z * this.array[10] + this.array[14];
+        let w = point.x * this.array[3] + point.y * this.array[7] + point.z * this.array[11] + this.array[15];
 
         return new XYZ(x / w, y / w, z / w);
     }
 
     public ofVector(vector: XYZ): XYZ {
-        let x = vector.x * this.arr[0] + vector.y * this.arr[4] + vector.z * this.arr[8];
-        let y = vector.x * this.arr[1] + vector.y * this.arr[5] + vector.z * this.arr[9];
-        let z = vector.x * this.arr[2] + vector.y * this.arr[6] + vector.z * this.arr[10];
+        let x = vector.x * this.array[0] + vector.y * this.array[4] + vector.z * this.array[8];
+        let y = vector.x * this.array[1] + vector.y * this.array[5] + vector.z * this.array[9];
+        let z = vector.x * this.array[2] + vector.y * this.array[6] + vector.z * this.array[10];
         return new XYZ(x, y, z);
     }
 }

@@ -20,12 +20,13 @@ export abstract class Entity extends HistoryObservable implements IUpdater {
         return this._shape.isOk();
     }
 
-    protected setPropertyAndUpdate<k extends keyof this>(
-        property: k,
-        newValue: this[k],
-        equals?: IEqualityComparer<this[k]>
+    protected setPropertyAndUpdate<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
+        equals?: IEqualityComparer<this[K]>
     ) {
-        if (this.setProperty(property, newValue, equals)) {
+        if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
             this._shape = this.generateShape();
             this.updater?.(this);
         }

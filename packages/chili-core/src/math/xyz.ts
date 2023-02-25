@@ -7,6 +7,7 @@ export class XYZ {
     static readonly unitX = new XYZ(1, 0, 0);
     static readonly unitY = new XYZ(0, 1, 0);
     static readonly unitZ = new XYZ(0, 0, 1);
+    static readonly one = new XYZ(1, 1, 1);
 
     constructor(readonly x: number, readonly y: number, readonly z: number) {}
 

@@ -11,7 +11,7 @@ import {
     PubSub,
     RenderData,
     ShapeType,
-    XYZ,
+    Transform,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -22,6 +22,7 @@ import {
     LineBasicMaterial,
     LineDashedMaterial,
     Material,
+    Matrix4,
     Mesh,
     MeshBasicMaterial,
     Object3D,
@@ -139,26 +140,37 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         shape.visible = model.visible;
     };
 
-    private addModelToGroup(group: Group, modelObject: Model) {
-        if (Model.isGroup(modelObject)) {
-            let childGroup = new Group();
-            childGroup.name = modelObject.id;
-            group.add(childGroup);
-        } else {
-            let model = modelObject as GeometryModel;
-            let shape = this.getShape(model);
-            if (shape !== undefined) return shape;
-            if (model.error === undefined) return;
-            let modelShape = model.shape()!;
-            let threeShape = new ThreeShape(modelShape);
-            threeShape.name = model.id;
-            group.add(threeShape);
-        }
+    addModel(...models: Model[]) {
+        models.forEach((model) => {
+            if (Model.isGroup(model)) {
+                let childGroup = new Group();
+                childGroup.name = model.id;
+                this.modelShapes.add(childGroup);
+            } else {
+                let geometryModel = model as GeometryModel;
+                let shape = this.getShape(geometryModel);
+                if (shape !== undefined) return shape;
+                if (geometryModel.error === undefined) return;
+                let modelShape = geometryModel.shape()!;
+                let threeShape = new ThreeShape(modelShape);
+                threeShape.name = geometryModel.id;
+                threeShape.applyMatrix4(this.convertMatrix(model.transform));
+                model.onPropertyChanged(this.handleTransformChanged);
+                this.modelShapes.add(threeShape);
+            }
+        });
     }
 
-    addModel(...models: Model[]) {
-        models.forEach((model) => this.addModelToGroup(this.modelShapes, model));
+    private convertMatrix(transform: Transform) {
+        return new Matrix4().fromArray(transform.toArray());
     }
+
+    private handleTransformChanged = (model: Model, property: keyof Model) => {
+        if (property === "translation" || property === "rotation") {
+            let obj = this.modelShapes.getObjectByName(model.id);
+            obj?.applyMatrix4(this.convertMatrix(model.transform));
+        }
+    };
 
     removeModel(...models: Model[]) {
         models.forEach((model) => {

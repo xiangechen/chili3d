@@ -8,7 +8,10 @@ import { GroupModel } from "./groupModel";
 
 export abstract class Model extends HistoryObservable {
     private _name: string;
-    protected _transform: Transform;
+    private _transform: Transform;
+    private _translation: XYZ;
+    private _rotation: Quaternion;
+    private _scaling: XYZ;
     private _visible: boolean;
     private _parent: GroupModel | undefined;
     readonly createdTime: number;
@@ -17,7 +20,10 @@ export abstract class Model extends HistoryObservable {
         super();
         this._name = name;
         this._visible = true;
-        this._transform = Transform.identity();
+        this._translation = XYZ.zero;
+        this._scaling = XYZ.one;
+        this._rotation = new Quaternion(0, 0, 0, 0);
+        this._transform = this.composeTransform();
         this.createdTime = Date.now();
     }
 
@@ -30,33 +36,36 @@ export abstract class Model extends HistoryObservable {
         this.setProperty("name", value);
     }
 
-    get transform() {
+    get transform(): Transform {
         return this._transform;
     }
 
-    set transform(transform: Transform) {
-        if (this.setProperty("transform", transform)) this.handleTransformChanged();
+    private composeTransform() {
+        return Transform.compose(this._translation, this._rotation, this._scaling);
     }
 
     @property("model.location")
-    get location() {
-        return this._transform.getTranslation();
+    get translation() {
+        return this._translation;
     }
 
-    set location(value: XYZ) {
-        let vector = value.sub(this.location);
-        if (vector.isEqualTo(XYZ.zero)) return;
-        let transform = Transform.translationTransform(vector.x, vector.y, vector.z);
-        this.transform = this._transform.multiply(transform);
+    set translation(value: XYZ) {
+        this.setProperty("translation", value, () => {
+            this._transform = this._transform.translation(value);
+            this.handleTransformChanged();
+        });
     }
 
     @property("model.rotate")
-    get rotate() {
-        return this._transform.getRotation();
+    get rotation() {
+        return this._rotation;
     }
 
-    set rotate(value: Quaternion) {
-        // todo
+    set rotation(value: Quaternion) {
+        this.setProperty("rotation", value, () => {
+            this._transform = this.composeTransform();
+            this.handleTransformChanged();
+        });
     }
 
     get visible() {

@@ -48,6 +48,7 @@ export class Observable implements IPropertyChanged, IDisposable {
     protected setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]>
     ): boolean {
         let priKey = this.privateKeyMap(String(property));
@@ -55,6 +56,7 @@ export class Observable implements IPropertyChanged, IDisposable {
         let oldValue = obj[priKey];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
         obj[priKey] = newValue;
+        onPropertyChanged?.(property, oldValue, newValue);
         this.emitPropertyChanged(property as any, oldValue, newValue);
         return true;
     }
@@ -96,10 +98,11 @@ export abstract class HistoryObservable extends Observable implements IHistoryHa
     protected override setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]> | undefined
     ): boolean {
         let oldValue = this[property];
-        if (super.setProperty(property, newValue, equals)) {
+        if (super.setProperty(property, newValue, onPropertyChanged, equals)) {
             let record: PropertyHistoryRecord = {
                 name: `modify ${String(property)}`,
                 object: this,
