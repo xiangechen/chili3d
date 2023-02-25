@@ -5,7 +5,9 @@ import { ConverterBase } from "./converter";
 
 export class QuaternionConverter extends ConverterBase<Quaternion> {
     convert(value: Quaternion): string | undefined {
-        return `${value.x},${value.y},${value.z},${value.w}`;
+        let s = 180 / Math.PI;
+        let fixed = (n: number) => Math.round(n * s * 10000) / 10000;
+        return `${fixed(value.x)},${fixed(value.y)},${fixed(value.z)},${fixed(value.w)}`;
     }
 
     convertBack(value: string): Quaternion | undefined {
@@ -17,6 +19,7 @@ export class QuaternionConverter extends ConverterBase<Quaternion> {
             this._error = `${value} convert to Quaternion error`;
             return undefined;
         }
-        return new Quaternion(vs[0], vs[1], vs[2], vs[3]);
+        let s = Math.PI / 180;
+        return new Quaternion(vs[0] * s, vs[1] * s, vs[2] * s, vs[3] * s);
     }
 }

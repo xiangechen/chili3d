@@ -141,7 +141,6 @@ export class Transform {
             y = (m23 + m32) / s;
             z = 0.25 * s;
         }
-        console.log(w);
 
         return new Quaternion(x, y, z, w);
     }
@@ -210,10 +209,7 @@ export class Transform {
 
     static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Transform {
         let transform = new Transform();
-        const x = rotation.x,
-            y = rotation.y,
-            z = rotation.z,
-            w = rotation.w;
+        const { x, y, z, w } = rotation;
         const x2 = x + x,
             y2 = y + y,
             z2 = z + z;
