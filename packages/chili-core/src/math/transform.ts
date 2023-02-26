@@ -88,7 +88,7 @@ export class Transform {
         return transform;
     }
 
-    getTranslation(): XYZ {
+    getPosition(): XYZ {
         return new XYZ(this.array[12], this.array[13], this.array[14]);
     }
 
