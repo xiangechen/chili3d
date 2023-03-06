@@ -1,6 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IDocument, Logger, GroupModel, Model, PubSub } from "chili-core";
+import {
+    Constants,
+    IDocument,
+    Logger,
+    GroupModel,
+    Model,
+    PubSub,
+    FlolderEntry,
+    CollectionAction,
+    IFolder,
+    ICollection,
+} from "chili-core";
+import { customElement } from "../components";
 
 import { Control } from "../control";
 import { Tab } from "../tab";
@@ -9,6 +21,46 @@ import { TreeItem } from "./treeItem";
 import { TreeItemBase } from "./treeItemBase";
 import { TreeItemGroup } from "./treeItemGroup";
 import { TreeToolBar } from "./treeToolBar";
+
+@customElement("model-tree")
+export class Tree extends HTMLElement {
+    readonly folder: FlolderEntry;
+
+    constructor(readonly document: IDocument) {
+        super();
+        this.folder = document.folder;
+        this.appendChild(new TreeGroup(document.folder));
+    }
+}
+
+@customElement("model-group")
+export class TreeGroup extends HTMLElement {
+    readonly text: HTMLSpanElement;
+    constructor(readonly folder: FlolderEntry) {
+        super();
+        this.text = document.createElement("span");
+        this.text.innerText = folder.name;
+        this.appendChild(this.text);
+    }
+
+    connectedCallback() {
+        this.folder.onPropertyChanged(this.onPropertyChanged);
+        this.folder.onCollectionChanged(this.onCollectionChanged);
+    }
+
+    disconnectedCallback() {
+        this.folder.removePropertyChanged(this.onPropertyChanged);
+        this.folder.removeCollectionChanged(this.onCollectionChanged);
+    }
+
+    private onPropertyChanged = (source: FlolderEntry, property: keyof FlolderEntry, oldValue: any, newValue: any) => {
+        if (property === "name") {
+            this.text.innerText = newValue;
+        }
+    };
+
+    private onCollectionChanged = (source: ICollection<IFolder>, action: CollectionAction, item: IFolder) => {};
+}
 
 export class ModelTree {
     readonly dom: HTMLElement;

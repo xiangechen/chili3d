@@ -11,6 +11,7 @@ export * from "./document";
 export * from "./editor";
 export * from "./geometry";
 export * from "./i18n";
+export * from "./folder";
 export * from "./id";
 export * from "./ioc";
 export * from "./math";

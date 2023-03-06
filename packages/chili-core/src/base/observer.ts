@@ -129,6 +129,20 @@ export interface ICollection<T> {
     find(predicate: (item: T) => boolean): T | undefined;
 }
 
+export abstract class CollectionPropertyObservable<T> extends Observable implements ICollectionChanged<T> {
+    onCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
+        this.eventEmitter.on(CollectionChangedEvent, handler);
+    }
+
+    removeCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
+        this.eventEmitter.off(CollectionChangedEvent, handler);
+    }
+
+    protected emitCollectionChanged<T>(action: CollectionAction, item: T) {
+        this.eventEmitter.emit(CollectionChangedEvent, this, action, item);
+    }
+}
+
 export abstract class CollectionChangedBase<T> implements ICollectionChanged<T>, IDisposable {
     protected readonly _eventEmitter: EventEmitter;
 

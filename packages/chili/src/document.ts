@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Id, IDocument, IHistory, IModelManager, IViewer, IVisualization, Observable } from "chili-core";
+import { FlolderEntry, Id, IDocument, IHistory, IModelManager, IViewer, IVisualization, Observable } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
 import { Application } from "./application";
 
@@ -15,6 +15,7 @@ export class Document extends Observable implements IDocument {
     readonly viewer: IViewer;
     readonly visualization: IVisualization;
     readonly history: IHistory;
+    readonly folder: FlolderEntry;
 
     private constructor(name: string, factory: IVisualizationFactory, readonly id: string = Id.new()) {
         super();
@@ -22,6 +23,7 @@ export class Document extends Observable implements IDocument {
         this.models = new ModelManager(this);
         this.history = new History();
         this.viewer = new Viewer(this);
+        this.folder = new FlolderEntry(undefined, "root");
         this.visualization = factory.create(this);
     }
 
