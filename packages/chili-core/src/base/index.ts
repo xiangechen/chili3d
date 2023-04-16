@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 export * from "./cancellationToken";
+export * from "./collection";
 export * from "./disposable";
 export * from "./equalityComparer";
 export * from "./history";

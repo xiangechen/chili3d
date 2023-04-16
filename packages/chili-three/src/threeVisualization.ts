@@ -1,6 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IEventHandler, ISelection, IViewFactory, IVisualization, IVisualizationContext } from "chili-core";
+import {
+    IDocument,
+    IEventHandler,
+    ISelection,
+    IViewFactory,
+    IVisualization,
+    IVisualizationContext,
+} from "chili-core";
 import { AxesHelper, DirectionalLight, Scene } from "three";
 
 import { ThreeSelection } from "./threeSelection";

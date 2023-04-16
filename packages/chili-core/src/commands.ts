@@ -2,6 +2,7 @@
 
 export class Commands {
     LastCommand = "LastCommand";
+    NewFolder = "NewFolder";
     NewGroup = "NewGroup";
     Line = "Line";
     PLine = "PLine";

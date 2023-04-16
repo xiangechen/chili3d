@@ -1,29 +1,48 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Control } from "../../control";
+import { IDocument, PubSub } from "chili-core";
+import { Control, Label } from "../../components";
 import style from "./title.module.css";
 
 const AppName = "Chili 2023";
 
-export class Title {
-    private readonly _documentName: HTMLSpanElement;
+export class Title extends Control {
+    private readonly _documentName: Label;
     private readonly _appName: HTMLSpanElement;
     private readonly _saveState: HTMLSpanElement;
 
-    constructor(readonly container: HTMLDivElement) {
-        this._documentName = Control.textSpan("untitled", style.documentName);
-        this._appName = Control.textSpan(AppName, style.appName);
-        this._saveState = Control.textSpan("*", style.savedStatus);
-        Control.append(container, this._documentName, this._saveState, this._appName);
+    private currentDocument: IDocument | undefined;
+
+    constructor() {
+        super();
+        this._documentName = new Label().addClass(style.documentName);
+        this._appName = new Label().text(AppName).addClass(style.appName);
+        this._saveState = new Label().text("*").addClass(style.savedStatus);
+        this.append(this._documentName, this._saveState, this._appName);
         this.setSaveStatus(true);
+
+        PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
     }
 
-    setTitle(title: string) {
-        this._documentName.textContent = title;
-    }
+    private handleActiveDocumentChanged = (d: IDocument | undefined) => {
+        if (this.currentDocument !== undefined) {
+            this.currentDocument.removePropertyChanged(this.handleNameChanged);
+        }
+        this._documentName.text(d?.name ?? "");
+        this.currentDocument = d;
+        this.currentDocument?.onPropertyChanged(this.handleNameChanged);
+    };
+
+    private handleNameChanged = (d: IDocument, property: keyof IDocument, oldValue: any, newValue: any) => {
+        if (property === "name") {
+            this._documentName.text(newValue);
+        }
+    };
 
     setSaveStatus(saved: boolean) {
         if (saved) this._saveState.style.visibility = "hidden";
         else this._saveState.style.visibility = "visible";
     }
 }
+
+customElements.define("chili-title", Title);

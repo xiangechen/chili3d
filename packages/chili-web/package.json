@@ -6,6 +6,7 @@
     "devDependencies": {
         "chili": "*",
         "chili-three": "*",
-        "chili-occ": "*"
+        "chili-occ": "*",
+        "chili-ui": "*"
     }
 }

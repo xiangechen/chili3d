@@ -16,8 +16,8 @@ import { CreateCommand } from "./createCommand";
 })
 export class Line extends CreateCommand {
     create(document: IDocument): GeometryModel {
-        let body = new LineBody(this.stepDatas[0].point, this.stepDatas[1].point);
-        return new GeometryModel(`Line ${document.models.count + 1}`, body);
+        let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
+        return GeometryModel.create(document, `Line ${document.nodes.size() + 1}`, body);
     }
 
     override afterExcute(document: IDocument): boolean {

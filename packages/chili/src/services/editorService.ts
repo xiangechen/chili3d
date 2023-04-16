@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub, Model, Logger, Lazy } from "chili-core";
+import { IDocument, PubSub, IModel, Logger, Lazy, INode } from "chili-core";
 import { Application } from "../application";
 import { CircleBody, LineBody } from "../bodys";
 import { EditorEventHandler, LineEditorEventHandler } from "../editors";
@@ -30,7 +30,7 @@ export class EditorService implements IApplicationService {
         Logger.info(`${EditorService.name} stoped`);
     }
 
-    private handleSelectionChanged = (document: IDocument, models: Model[]) => {
+    private handleSelectionChanged = (document: IDocument, models: INode[]) => {
         if (this.handler !== undefined) {
             this.handler.dispose();
             this.handler = undefined;
@@ -46,9 +46,9 @@ export class EditorService implements IApplicationService {
         document.viewer.redraw();
     };
 
-    private getEventHandler(document: IDocument, models: Model[]): EditorEventHandler | undefined {
+    private getEventHandler(document: IDocument, models: INode[]): EditorEventHandler | undefined {
         if (models.length > 1) return undefined;
-        if (Model.isGeometry(models[0])) {
+        if (INode.isModelNode(models[0])) {
             let body = models[0].body;
             if (body instanceof LineBody) {
                 return new LineEditorEventHandler(document, body);

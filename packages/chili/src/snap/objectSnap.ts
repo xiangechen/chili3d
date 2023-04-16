@@ -96,7 +96,11 @@ export class ObjectSnap implements ISnap {
         return undefined;
     }
 
-    private getNearestInvisibleSnap(view: IView, x: number, y: number): { minDistance: number; snap?: SnapedData } {
+    private getNearestInvisibleSnap(
+        view: IView,
+        x: number,
+        y: number
+    ): { minDistance: number; snap?: SnapedData } {
         let snap: SnapedData | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
         this._invisibleInfos.forEach((info) => {
@@ -177,7 +181,12 @@ export class ObjectSnap implements ISnap {
                 let intersections = (current as IEdge).intersect(x as IEdge);
                 if (intersections.length > 0) {
                     let infos: SnapedData[] = intersections.map((point) => {
-                        return { view, point, info: i18n["snap.intersection"], shapes: [current, x] };
+                        return {
+                            view,
+                            point,
+                            info: i18n["snap.intersection"],
+                            shapes: [current, x],
+                        };
                     });
                     this._intersectionInfos.set(key, infos);
                 }
@@ -209,7 +218,10 @@ export class ObjectSnap implements ISnap {
             addPoint(start, i18n["snap.end"]);
             addPoint(end, i18n["snap.end"]);
         }
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) && curve.curveType === CurveType.Line) {
+        if (
+            ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) &&
+            curve.curveType === CurveType.Line
+        ) {
             addPoint(XYZ.center(start, end), i18n["snap.mid"]);
         }
     }

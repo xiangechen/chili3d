@@ -21,7 +21,11 @@ export class ThreeSelectHandler implements IEventHandler {
             this._lastDetected.unHilightedState();
             this._lastDetected = undefined;
         }
-        this._lastDetected = view.document.visualization.selection.detectedModel(view, event.offsetX, event.offsetY);
+        this._lastDetected = view.document.visualization.selection.detectedModel(
+            view,
+            event.offsetX,
+            event.offsetY
+        );
         this._lastDetected?.hilightedState();
         view.update();
     }

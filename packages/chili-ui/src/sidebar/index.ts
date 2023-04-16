@@ -1,42 +1,27 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub } from "chili-core";
+import { Constants } from "chili-core";
+import { Control, Panel } from "../components";
 
-import { Control } from "../control";
 import { PropertyView } from "../property";
-import { CheckProperty } from "../property/check";
 import { Tab } from "../tab";
-import { ModelTree } from "../tree/tree";
+import { TreeToolBar } from "../tree/treeToolBar";
 import style from "./sidebar.module.css";
 
-export class Sidebar {
-    readonly dom: HTMLDivElement;
-    private _activeTree?: ModelTree;
-    private readonly _treeMap: WeakMap<IDocument, ModelTree>;
-    readonly modelTreePanel: HTMLDivElement;
-    readonly propertyViewPanel: HTMLDivElement;
+export class Sidebar extends Control {
+    readonly tree: HTMLElement;
+    readonly property: HTMLElement;
 
     constructor() {
-        this.dom = Control.div(style.sidebar);
-        this._treeMap = new WeakMap<IDocument, ModelTree>();
-        this.modelTreePanel = Control.div(style.top);
-        this.propertyViewPanel = Control.div(style.bottom);
-        Control.append(this.dom, this.modelTreePanel, this.propertyViewPanel);
-        this.propertyViewPanel.appendChild(new PropertyView().dom);
-        PubSub.default.sub("activeDocumentChanged", this.activeDocumentChanged);
-    }
+        super(style.sidebar);
+        let tab = new Tab("items.header");
+        tab.addTools(...new TreeToolBar().tools);
+        tab.itemsPanel.id = Constants.TreeContainerId;
 
-    private activeDocumentChanged = (doc?: IDocument) => {
-        Control.clear(this.modelTreePanel);
-        if (doc === undefined) {
-            this._activeTree = undefined;
-            return;
-        }
-        this._activeTree = this._treeMap.get(doc);
-        if (this._activeTree === undefined) {
-            this._activeTree = new ModelTree(doc);
-            this._treeMap.set(doc, this._activeTree);
-        }
-        this.modelTreePanel.appendChild(this._activeTree.dom);
-    };
+        this.tree = new Panel().addClass(style.top).addItem(tab);
+        this.property = new Panel().addClass(style.bottom).addItem(new PropertyView());
+        this.append(this.tree, this.property);
+    }
 }
+
+customElements.define("chili-sidebar", Sidebar);

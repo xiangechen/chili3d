@@ -2,36 +2,32 @@
 
 import { I18n } from "chili-core";
 
-import { Control } from "../control";
+import { Control, Label, Row, Panel } from "../components";
 import style from "./tab.module.css";
 
-export class Tab {
-    readonly dom: HTMLDivElement;
-    readonly panel: HTMLDivElement;
-    readonly tool: HTMLDivElement;
+export class Tab extends Control {
+    readonly itemsPanel: HTMLElement;
+    readonly toolsPanel: HTMLElement;
 
     constructor(name: keyof I18n) {
-        this.dom = Control.div(style.panel);
-        let headerPanel = Control.div(style.tabHeaderPanel);
-        this.panel = Control.div(style.tabBodyPanel);
-        let left = Control.div(style.tabHeaderLeft);
-        let textPanel = Control.div(style.tabHeaderTextPanel);
-        this.tool = Control.div(style.tabHeaderRight);
-        left.appendChild(textPanel);
-        textPanel.appendChild(Control.span(name, style.tabHeaderText));
-        Control.append(headerPanel, left, this.tool);
-        Control.append(this.dom, headerPanel, this.panel);
+        super(style.root);
+        let text = new Label().addClass(style.headerText).i18nText(name);
+        this.toolsPanel = new Panel().addClass(style.headerTools);
+        this.itemsPanel = new Panel().addClass(style.itemsContainer);
+        this.append(new Row(text, this.toolsPanel), this.itemsPanel);
     }
 
     addTools(...items: HTMLElement[]) {
-        items.forEach((x) => this.tool.appendChild(x));
+        this.toolsPanel.append(...items);
     }
 
     addItem(...items: HTMLElement[]) {
-        items.forEach((x) => this.panel.appendChild(x));
+        this.itemsPanel.append(...items);
     }
 
     clearItems() {
-        Control.clear(this.panel);
+        this.clearChildren(this.itemsPanel);
     }
 }
+
+customElements.define("chili-tab", Tab);

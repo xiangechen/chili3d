@@ -1,30 +1,23 @@
-.panel {
+.root {
     overflow: hidden;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
 }
 
-.tabHeaderPanel {
-    height: 32px;
-    display: flex;
-    flex-direction: row;
-    flex-grow: 1;
-}
-
-.tabHeaderLeft {
-    display: flex;
-    position: relative;
-    flex: 1 1 100%;
-}
-
-.tabHeaderTextPanel {
+.headerText {
+    flex: 0 1 auto;
     background: var(--panelBackground);
     border-radius: 6px 6px 0 0;
     position: relative;
+    line-height: 32px;
+    font-size: 1rem;
+    padding: 0 12px;
+    text-align: center;
+    vertical-align: center;
 }
 
-.tabHeaderTextPanel::after {
+.headerText::after {
     content: "";
     width: 16px;
     height: 8px;
@@ -36,23 +29,14 @@
     box-shadow: -8px 0 0 0 var(--panelBackground);
 }
 
-.tabHeaderText {
-    font-size: 14px;
-    overflow-x: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    padding: 0 12px;
-    height: 100%;
-    line-height: 32px;
-}
-
-.tabHeaderRight {
+.headerTools {
     display: flex;
     flex-direction: row;
-    flex: 0 0 auto;
+    justify-content: flex-end;
+    flex: 1 0 auto;
 }
 
-.tabBodyPanel {
+.itemsContainer {
     overflow: hidden;
     background: var(--panelBackground);
     border-radius: 0 8px 8px 8px;

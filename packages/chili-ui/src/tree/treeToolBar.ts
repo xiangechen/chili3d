@@ -1,15 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands, I18n, i18n, PubSub } from "chili-core";
+import { Svg } from "../components";
 
-import { Control } from "../control";
-import { ModelTree } from "./tree";
-import { TreeItemGroup } from "./treeItemGroup";
 import style from "./treeToolBar.module.css";
 
 export class TreeToolBar {
     readonly tools: HTMLElement[] = [];
-    constructor(readonly tree: ModelTree) {
+    constructor() {
         this.newIconButton("icon-folder-plus", "items.tool.newFolder", this.newGroup);
         this.newIconButton("icon-unexpand", "items.tool.unexpandAll", this.unExpandAll);
         this.newIconButton("icon-expand", "items.tool.expandAll", this.expandAll);
@@ -17,16 +15,17 @@ export class TreeToolBar {
     }
 
     private newIconButton(icon: string, tip: keyof I18n, command: () => void) {
-        let svg = Control.svg(icon, style.treeToolIcon);
+        let svg = new Svg(icon).addClass(style.treeToolIcon);
         svg.addEventListener("click", command);
         let text = document.createElement("a");
         text.title = i18n[tip];
-        text.appendChild(svg);
+        text.append(svg);
+
         this.tools.push(text);
     }
 
     private newGroup = () => {
-        PubSub.default.pub("excuteCommand", "NewGroup");
+        PubSub.default.pub("excuteCommand", "NewFolder");
     };
 
     private expandAll = () => {
@@ -38,11 +37,7 @@ export class TreeToolBar {
     };
 
     private setExpand(expand: boolean) {
-        for (let model of this.tree.treeItems()) {
-            if (model instanceof TreeItemGroup) {
-                model.setExpander(expand);
-            }
-        }
+        console.log("todo");
     }
 
     private deleteModel = () => {

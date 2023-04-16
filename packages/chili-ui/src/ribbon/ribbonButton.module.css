@@ -1,0 +1,39 @@
+.normal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px;
+}
+
+.normal:hover {
+    background-color: var(--hoverBackground);
+}
+
+.small {
+    display: flex;
+    flex-direction: row;
+    justify-items: center;
+    padding: 2px;
+}
+
+.small:hover {
+    background-color: var(--hoverBackground);
+}
+
+.buttonText {
+    color: var(--color);
+    font-size: 11px;
+}
+
+.icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 8px;
+}
+
+.smallIcon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+}

@@ -1,29 +1,22 @@
-.itemExpanderIcon {
-    width: 10px;
-    height: 10px;
-    margin-right: 4px;
+.expanderIcon {
+    width: 12px;
+    height: 12px;
+    padding: 2px 4px;
 }
 
-.itemGroupPanel {
-    display: flex;
-    flex-direction: column;
-}
-
-.itemGroupChildPanel {
+.container {
     padding-left: 16px;
 }
 
-.itemGroupChildPanelHide {
+.hide {
     display: none;
 }
 
-.itemPanel {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding: 6px 12px;
+.header {
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
-.itemPanel:hover {
+.header:hover {
     background-color: var(--hoverBackground);
 }

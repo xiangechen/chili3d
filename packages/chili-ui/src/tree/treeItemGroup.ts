@@ -1,85 +1,71 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, GroupModel, Model, Transaction } from "chili-core";
-
-import { Control } from "../control";
-import { ModelTree } from "./tree";
-import { TreeItemBase } from "./treeItemBase";
+import { ICollectionNode, IDocument, INode } from "chili-core";
+import { Svg, Column, Row } from "../components";
+import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 
-export class TreeItemGroup extends TreeItemBase {
-    private _root: HTMLDivElement;
-    readonly expander: SVGSVGElement;
-    private _isExpanded: boolean = false;
-    readonly panel: HTMLDivElement;
-    private _header: HTMLDivElement;
+export class TreeGroup extends TreeItem {
+    private _isExpanded: boolean = true;
+    readonly header: Row;
+    readonly items: Column = new Column().addClass(style.container);
+    readonly expanderIcon: Svg;
 
-    constructor(document: IDocument, readonly tree: ModelTree, readonly group: GroupModel, showHeader: boolean) {
-        let root = Control.div();
-        super(document, group, root, style.itemGroupPanel);
-        this.expander = Control.svg(this.getExpanderIcon(), style.itemExpanderIcon);
-        this._header = Control.div(style.itemPanel);
-        this.panel = Control.div(style.itemGroupChildPanel);
-        this._root = root;
-        this.expander.addEventListener("click", this._handleExpanderClick);
-
-        this.initControls();
+    constructor(document: IDocument, node: ICollectionNode) {
+        super(document, node);
+        this.expanderIcon = new Svg(this.getExpanderIcon())
+            .addClass(style.expanderIcon)
+            .onClick(this.handleExpanderClick);
+        this.header = new Row(this.expanderIcon, this.name, this.visibleIcon).addClass(style.header);
+        super.append(new Column(this.header, this.items));
     }
 
-    get isExpanded() {
-        return this._isExpanded;
+    getSelectedHandler(): HTMLElement {
+        return this.header;
     }
 
-    initControls(): void {
-        Control.append(this._root, this._header, this.panel);
-        this._header.appendChild(this.expander);
-        this._header.appendChild(this.text);
-        this._header.appendChild(this.icon);
-        this.setExpander(false);
+    override dispose(): void | Promise<void> {
+        super.dispose();
+        this.expanderIcon.removeEventListener("click", this.handleExpanderClick);
     }
 
-    setExpander(expand: boolean) {
-        this._isExpanded = expand;
-        Control.setSvgIcon(this.expander, this.getExpanderIcon());
+    private handleExpanderClick = (e: MouseEvent) => {
+        e.stopPropagation();
+        this._isExpanded = !this._isExpanded;
+        this.expanderIcon.setIcon(this.getExpanderIcon());
         if (this._isExpanded) {
-            this.panel.classList.remove(style.itemGroupChildPanelHide);
+            this.items.classList.remove(style.hide);
         } else {
-            this.panel.classList.add(style.itemGroupChildPanelHide);
+            this.items.classList.add(style.hide);
         }
-    }
-
-    protected handleVisibleClick(): void {
-        Transaction.excute(this.document, "Change visible", () => {
-            this.setVisible(!this.group.visible, this.group);
-        });
-    }
-
-    private setVisible(visible: boolean, model: Model) {
-        model.visible = visible;
-        if (Model.isGroup(model)) {
-            model.children().forEach((x) => {
-                this.setVisible(visible, x);
-            });
-        }
-    }
-
-    private _handleExpanderClick = () => {
-        this.setExpander(!this._isExpanded);
     };
 
     private getExpanderIcon() {
         return this._isExpanded === true ? "icon-angle-down" : "icon-angle-right";
     }
 
-    add(control: HTMLElement) {
-        this.panel.appendChild(control);
+    override appendChild<T extends Node>(node: T): T {
+        this.items.appendChild(node);
+        return node;
     }
 
-    remove(control: HTMLElement): void {
-        this.panel.removeChild(control);
+    override append(...nodes: Node[]): void {
+        this.items.append(...nodes);
     }
 
-    protected handleDrop(model: Model) {
-        model.parent = this.group;
+    override removeChild<T extends Node>(child: T): T {
+        this.items.removeChild(child);
+        return child;
+    }
+
+    addItem(...items: Node[]) {
+        this.items.append(...items);
+        return this;
+    }
+
+    insertAfter(item: TreeItem, child: TreeItem | null): void {
+        this.items.insertBefore(item, child?.nextSibling ?? null);
     }
 }
+
+customElements.define("tree-group", TreeGroup);

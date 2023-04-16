@@ -19,8 +19,6 @@ const newId = jest.spyOn(Id, "new").mockImplementation(() => {
 let occ: OpenCascadeInstance;
 
 beforeAll(async () => {
-    console.log(initOpenCascade);
-
     occ = await initOpenCascade();
     global.occ = occ;
 }, 30000);
@@ -83,7 +81,6 @@ describe("curve test", () => {
         let tc = new occ.Geom_TrimmedCurve(c, s.current, e.current, true, true);
         expect(tc.FirstParameter()).toBe(0);
         expect(tc.LastParameter()).toBe(10);
-        console.log(OccHelps.toXYZ(c.get().Value(c.get().FirstParameter())));
 
         let lin = new occ.gp_Lin_3(ps, new occ.gp_Dir_4(1, 0, 0));
         e1 = new occ.BRepBuilderAPI_MakeEdge_4(lin).Edge();

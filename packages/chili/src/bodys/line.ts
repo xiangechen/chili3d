@@ -1,17 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, I18n, IShape, property, Result, XYZ } from "chili-core";
+import { Entity, I18n, IDocument, IShape, property, Result, XYZ } from "chili-core";
 import { Application } from "../application";
-
-import { XYZEqualityComparer } from "../comparers";
 
 export class LineBody extends Entity {
     private _start: XYZ;
     private _end: XYZ;
     readonly name: keyof I18n = "body.line";
 
-    constructor(start: XYZ, end: XYZ) {
-        super();
+    constructor(document: IDocument, start: XYZ, end: XYZ) {
+        super(document);
         this._start = start;
         this._end = end;
     }

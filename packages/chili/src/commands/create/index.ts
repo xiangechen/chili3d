@@ -2,7 +2,6 @@
 
 export * from "./box";
 export * from "./circle";
-export * from "./group";
 export * from "./line";
 export * from "./pline";
 export * from "./rect";

@@ -56,7 +56,9 @@ describe("test xyz", () => {
     test("test rotate", () => {
         let v = XYZ.unitX.add(XYZ.unitZ);
         expect(v.rotate(v, 90)?.isEqualTo(v)).toBeTruthy();
-        expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 4)?.isEqualTo(new XYZ(1, 1, 0).normalize()!)).toBeTruthy();
+        expect(
+            XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 4)?.isEqualTo(new XYZ(1, 1, 0).normalize()!)
+        ).toBeTruthy();
         expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 2)?.isEqualTo(new XYZ(0, 1, 0))).toBeTruthy();
         expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 1)?.isEqualTo(new XYZ(-1, 0, 0))).toBeTruthy();
         expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI * 1.5)?.isEqualTo(new XYZ(0, -1, 0))).toBeTruthy();

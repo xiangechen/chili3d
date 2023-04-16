@@ -1,30 +1,45 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { FlolderEntry, Id, IDocument, IHistory, IModelManager, IViewer, IVisualization, Observable } from "chili-core";
+import {
+    Entity,
+    Id,
+    IDocument,
+    ICollectionNode,
+    IHistory,
+    INode,
+    IViewer,
+    IVisualization,
+    Observable,
+    PubSub,
+    NodeLinkedList,
+} from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
 import { Application } from "./application";
 
 import { History } from "./history";
-import { ModelManager } from "./modelManager";
+import { NodeCollection } from "./nodeCollection";
 import { Viewer } from "./viewer";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
 
-    readonly models: IModelManager;
+    private _currentNode?: ICollectionNode;
+    readonly nodes: NodeCollection;
     readonly viewer: IViewer;
     readonly visualization: IVisualization;
     readonly history: IHistory;
-    readonly folder: FlolderEntry;
+    readonly rootNode: ICollectionNode;
 
     private constructor(name: string, factory: IVisualizationFactory, readonly id: string = Id.new()) {
         super();
         this._name = name;
-        this.models = new ModelManager(this);
+        this.nodes = new NodeCollection(this);
         this.history = new History();
         this.viewer = new Viewer(this);
-        this.folder = new FlolderEntry(undefined, "root");
+        this.rootNode = new NodeLinkedList(this, name);
         this.visualization = factory.create(this);
+
+        PubSub.default.sub("redraw", () => this.viewer.redraw());
     }
 
     static create(name: string) {
@@ -51,6 +66,14 @@ export class Document extends Observable implements IDocument {
 
     set name(name: string) {
         this.setProperty("name", name);
+    }
+
+    get currentNode(): ICollectionNode | undefined {
+        return this._currentNode;
+    }
+
+    set currentNode(value: ICollectionNode | undefined) {
+        this.setProperty("currentNode", value);
     }
 
     toJson() {

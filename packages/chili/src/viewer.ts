@@ -77,7 +77,11 @@ export class Viewer implements IViewer {
         this.subEvents("keyUp", view, (e) => this.keyUp(view, e));
     }
 
-    private subEvents<K extends keyof PubSubEventMap>(type: K, view: IView, callback: (...args: any[]) => void) {
+    private subEvents<K extends keyof PubSubEventMap>(
+        type: K,
+        view: IView,
+        callback: (...args: any[]) => void
+    ) {
         PubSub.default.sub(type, callback as any);
         if (this._subCaches.get(view) === undefined) {
             this._subCaches.set(view, []);

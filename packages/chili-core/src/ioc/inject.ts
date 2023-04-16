@@ -8,6 +8,8 @@ export function injectable<T>(): (target: new (...args: any[]) => T) => void {
     return tsyringeInjectable<T>();
 }
 
-export function inject(token: Token): (target: any, propertyKey: string | symbol, parameterIndex: number) => any {
+export function inject(
+    token: Token
+): (target: any, propertyKey: string | symbol, parameterIndex: number) => any {
     return tsyringeInject(token.token);
 }

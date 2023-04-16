@@ -1,0 +1,18 @@
+.root {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    justify-items: center;
+    border-right: var(--border);
+    margin: 4px;
+    padding-right: 8px;
+}
+
+.header {
+    color: var(--color);
+    font-size: 11px;
+}
+
+.panel {
+    display: flex;
+    flex-direction: row;
+}

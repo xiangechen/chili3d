@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { FloatContainer } from "chili-ui";
+import { Flyout } from "chili-ui";
 
 import { IDocument } from "../document";
 import { Plane, Ray, XY, XYZ } from "../math";
@@ -9,7 +9,7 @@ import { CursorType } from "./cursorType";
 
 export interface IView extends IPropertyChanged {
     get document(): IDocument;
-    get float(): FloatContainer;
+    get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;
     workplane: Plane;

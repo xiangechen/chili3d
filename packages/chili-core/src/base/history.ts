@@ -1,64 +1,103 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CollectionAction, ICollection } from "./observer";
+import { ICollectionNode, INode } from "../model";
+import { CollectionAction, ICollection } from "./collection";
 
-export type HistoryRecord = PropertyHistoryRecord | CollectionHistoryRecord;
-
-export interface PropertyHistoryRecord {
-    name: string;
-    object: any;
-    property: string | symbol | number;
-    oldValue: any;
-    newValue: any;
+export interface IHistoryRecord {
+    readonly name: string;
+    undo(): void;
+    redo(): void;
 }
 
-export interface CollectionHistoryRecord {
-    name: string;
-    collection: ICollection<any>;
-    action: CollectionAction;
-    item: any;
-}
-
-export interface IHistoryHandler {
-    setHistoryHandler: (handler: ((record: HistoryRecord) => void) | undefined) => void;
-}
-
-export namespace HistoryRecord {
-    export function isPropertyRecord(obj: HistoryRecord): obj is PropertyHistoryRecord {
-        return (obj as PropertyHistoryRecord).newValue !== undefined;
+export class PropertyHistoryRecord implements IHistoryRecord {
+    readonly name: string;
+    constructor(
+        readonly object: any,
+        readonly property: string | symbol | number,
+        readonly oldValue: any,
+        readonly newValue: any
+    ) {
+        this.name = `change ${String(property)} property`;
     }
 
-    export function isCollectionRecord(obj: HistoryRecord): obj is CollectionHistoryRecord {
-        return (obj as CollectionHistoryRecord).item !== undefined;
+    undo(): void {
+        this.object[this.property] = this.oldValue;
     }
 
-    export function undo(history: HistoryRecord) {
-        if (HistoryRecord.isPropertyRecord(history)) {
-            history.object[history.property] = history.oldValue;
-        } else if (HistoryRecord.isCollectionRecord(history)) {
-            if (history.action === CollectionAction.add) {
-                history.collection.remove(history.item);
-            } else if (history.action === CollectionAction.remove) {
-                history.collection.add(history.item);
+    redo(): void {
+        this.object[this.property] = this.newValue;
+    }
+}
+
+export class CollectionHistoryRecord<T> implements IHistoryRecord {
+    readonly name: string;
+    constructor(readonly collection: ICollection<T>, readonly action: CollectionAction, readonly items: T[]) {
+        this.name = `collection ${action}`;
+    }
+
+    undo(): void {
+        if (this.action === CollectionAction.add) {
+            this.collection.remove(...this.items);
+        } else if (this.action === CollectionAction.remove) {
+            this.collection.add(...this.items);
+        }
+    }
+
+    redo(): void {
+        if (this.action === CollectionAction.add) {
+            this.collection.add(...this.items);
+        } else if (this.action === CollectionAction.remove) {
+            this.collection.remove(...this.items);
+        }
+    }
+}
+
+export interface NodeRecord {
+    node: INode;
+    oldParent?: ICollectionNode;
+    oldPrevious?: INode;
+    newParent?: ICollectionNode;
+    newPrevious?: INode;
+}
+
+export class NodesHistoryRecord implements IHistoryRecord {
+    readonly name: string;
+    constructor(readonly records: NodeRecord[]) {
+        this.name = `change node`;
+    }
+
+    undo() {
+        for (let index = this.records.length - 1; index >= 0; index--) {
+            let record = this.records[index];
+            if (record.newParent === undefined) {
+                record.oldParent!.insertAfter(record.oldPrevious, record.node);
+            } else {
+                if (record.oldParent === undefined) {
+                    record.newParent.remove(record.node);
+                } else {
+                    record.newParent.moveToAfter(record.node, record.oldParent, record.oldPrevious);
+                }
             }
         }
     }
 
-    export function redo(history: HistoryRecord) {
-        if (HistoryRecord.isPropertyRecord(history)) {
-            history.object[history.property] = history.newValue;
-        } else if (HistoryRecord.isCollectionRecord(history)) {
-            if (history.action === CollectionAction.add) {
-                history.collection.add(history.item);
-            } else if (history.action === CollectionAction.remove) {
-                history.collection.remove(history.item);
+    redo() {
+        for (const record of this.records) {
+            if (record.newParent === undefined) {
+                record.oldParent?.remove(record.node);
+            } else {
+                if (record.oldParent === undefined) {
+                    record.newParent?.insertAfter(record.newPrevious, record.node);
+                } else {
+                    record.oldParent.moveToAfter(record.node, record.newParent, record.newPrevious);
+                }
             }
         }
     }
 }
 
 export class HistoryOperation {
-    readonly records: Array<HistoryRecord>;
+    readonly records: Array<IHistoryRecord>;
 
     constructor(readonly name: string) {
         this.records = [];
@@ -66,13 +105,13 @@ export class HistoryOperation {
 
     undo() {
         for (let index = this.records.length - 1; index >= 0; index--) {
-            HistoryRecord.undo(this.records[index]);
+            this.records[index].undo();
         }
     }
 
     redo() {
         for (const record of this.records) {
-            HistoryRecord.redo(record);
+            record.redo();
         }
     }
 }

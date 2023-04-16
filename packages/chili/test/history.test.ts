@@ -22,13 +22,7 @@ describe("test history", () => {
     test("test modify history", () => {
         let obj = new TestClass();
         let history = new History();
-        let h: PropertyHistoryRecord = {
-            name: "test",
-            object: obj,
-            property: "property",
-            oldValue: "p1",
-            newValue: "p2",
-        };
+        let h: PropertyHistoryRecord = new PropertyHistoryRecord(obj, "property", "p1", "p2");
         let action = new HistoryOperation("test");
         action.records.push(h);
         history.add(action);

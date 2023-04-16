@@ -200,11 +200,15 @@ export class Transform {
     }
 
     public static identity(): Transform {
-        return Transform.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+        return Transform.fromArray([
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ]);
     }
 
     public static zero(): Transform {
-        return Transform.fromArray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        return Transform.fromArray([
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ]);
     }
 
     static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Transform {
@@ -314,11 +318,45 @@ export class Transform {
     }
 
     public static scalingTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromArray([x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0]);
+        return Transform.fromArray([
+            x,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            y,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            z,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        ]);
     }
 
     public static translationTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0]);
+        return Transform.fromArray([
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            x,
+            y,
+            z,
+            1.0,
+        ]);
     }
 
     public transpose(): Transform {

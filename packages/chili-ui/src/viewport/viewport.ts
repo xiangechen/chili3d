@@ -1,13 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Control } from "../control";
+import { Control } from "../components";
 import style from "./viewport.module.css";
 
-export class Viewport {
-    readonly dom: HTMLDivElement;
-
-    private constructor() {
-        this.dom = Control.div(style.viewport);
+export class Viewport extends Control {
+    constructor() {
+        super(style.viewport);
     }
 
     private static _current: Viewport | undefined;
@@ -19,3 +17,5 @@ export class Viewport {
         return Viewport._current;
     }
 }
+
+customElements.define("chili-viewport", Viewport);

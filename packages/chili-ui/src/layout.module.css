@@ -1,0 +1,49 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    background: var(--background-color);
+    height: 100%;
+    width: 100%;
+}
+
+.tools {
+    display: flex;
+    flex-direction: row;
+    background-color: aqua;
+    flex: 0 0 70px;
+}
+
+.content {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+}
+
+.statusbar {
+    display: flex;
+    flex-direction: row;
+    flex: 0 0 24px;
+    background-color: blueviolet;
+}
+
+.sidebar {
+    flex: 0 0 360px;
+}
+
+.viewport {
+    height: 100%;
+    display: block;
+    flex: 1 1 auto;
+}
+
+@media (max-width: 600px) {
+    .content {
+        flex-direction: column-reverse;
+    }
+    .viewport {
+        height: 200px;
+    }
+    .sidebar {
+        flex: 1 1 auto;
+    }
+}

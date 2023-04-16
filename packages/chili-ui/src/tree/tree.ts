@@ -1,216 +1,190 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Constants,
-    IDocument,
-    Logger,
-    GroupModel,
-    Model,
-    PubSub,
-    FlolderEntry,
-    CollectionAction,
-    IFolder,
-    ICollection,
-} from "chili-core";
-import { customElement } from "../components";
-
-import { Control } from "../control";
-import { Tab } from "../tab";
+import { IDocument, PubSub, INode, NodeRecord, Transaction } from "chili-core";
 import style from "./tree.module.css";
+import { TreeModel } from "./treeModel";
 import { TreeItem } from "./treeItem";
-import { TreeItemBase } from "./treeItemBase";
-import { TreeItemGroup } from "./treeItemGroup";
-import { TreeToolBar } from "./treeToolBar";
+import { TreeGroup } from "./treeItemGroup";
 
-@customElement("model-tree")
 export class Tree extends HTMLElement {
-    readonly folder: FlolderEntry;
+    private readonly nodeMap = new WeakMap<INode, TreeItem>();
+    private lastClicked: INode | undefined;
+    private readonly selectedNodes: Set<INode> = new Set();
+    private dragging: INode[] | undefined;
 
     constructor(readonly document: IDocument) {
         super();
-        this.folder = document.folder;
-        this.appendChild(new TreeGroup(document.folder));
-    }
-}
-
-@customElement("model-group")
-export class TreeGroup extends HTMLElement {
-    readonly text: HTMLSpanElement;
-    constructor(readonly folder: FlolderEntry) {
-        super();
-        this.text = document.createElement("span");
-        this.text.innerText = folder.name;
-        this.appendChild(this.text);
-    }
-
-    connectedCallback() {
-        this.folder.onPropertyChanged(this.onPropertyChanged);
-        this.folder.onCollectionChanged(this.onCollectionChanged);
-    }
-
-    disconnectedCallback() {
-        this.folder.removePropertyChanged(this.onPropertyChanged);
-        this.folder.removeCollectionChanged(this.onCollectionChanged);
-    }
-
-    private onPropertyChanged = (source: FlolderEntry, property: keyof FlolderEntry, oldValue: any, newValue: any) => {
-        if (property === "name") {
-            this.text.innerText = newValue;
-        }
-    };
-
-    private onCollectionChanged = (source: ICollection<IFolder>, action: CollectionAction, item: IFolder) => {};
-}
-
-export class ModelTree {
-    readonly dom: HTMLElement;
-    private _tab: Tab;
-    private _selecteds?: Model[];
-    private _treePanel: HTMLDivElement;
-    readonly toolsPanel: TreeToolBar;
-    private readonly _modelMap: Map<Model, TreeItemBase>;
-
-    constructor(readonly document: IDocument) {
-        this._tab = new Tab("items.header");
-        this.dom = this._tab.dom;
-        this._modelMap = new Map<Model, TreeItemBase>();
-        this.toolsPanel = new TreeToolBar(this);
-        this._treePanel = Control.div(style.treePanel);
-        this._tab.addItem(this._treePanel);
-        this._tab.addTools(...this.toolsPanel.tools);
-        this.initTree(document.models.getMany());
-        this._treePanel.addEventListener("click", this.handleItemClick);
+        this.classList.add(style.panel);
+        let e = this.createHTMLElement(document.rootNode);
+        this.nodeMap.set(document.rootNode, e);
+        this.append(e);
+        document.onPropertyChanged(this.handleDocumentPropertyChanged);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
-        PubSub.default.sub("modelAdded", this.handleAddModel);
-        PubSub.default.sub("modelRemoved", this.handleRemoveModel);
-        PubSub.default.sub("parentChanged", this.handleParentChanged);
+        PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
+        PubSub.default.sub("nodeAdded", this.handleNodeAdded);
+        PubSub.default.sub("nodeRemoved", this.handleNodeRemoved);
     }
 
-    handleParentChanged = (model: Model, oldParent: GroupModel | undefined, newParent: GroupModel | undefined) => {
-        let control = this._modelMap.get(model);
-        if (control === undefined) return;
-        if (oldParent !== undefined) {
-            let oldParentControl = this._modelMap.get(oldParent);
-            if (oldParentControl instanceof TreeItemGroup) {
-                oldParentControl?.remove(control.dom);
-            }
-        }
-        if (newParent === undefined) {
-            this._treePanel.appendChild(control.dom);
-        } else {
-            let parent = this._modelMap.get(newParent);
-            if (parent instanceof TreeItemGroup) {
-                parent.add(control.dom);
-            }
-        }
+    private handleNodeAdded = (source: IDocument, nodes: INode[]) => {
+        nodes.forEach((node) => this.nodeMap.set(node, this.createHTMLElement(node)));
     };
 
-    getTreeItem(model: Model) {
-        return this._modelMap.get(model);
-    }
+    private handleNodeRemoved = (source: IDocument, nodes: INode[]) => {
+        nodes.forEach((node) => this.nodeMap.delete(node));
+    };
 
-    removeItem(model: Model) {
-        let item = this._modelMap.get(model);
-        if (item === undefined) return;
-        if (model.parent !== undefined) {
-            let testParent = this._modelMap.get(model.parent);
-            if (testParent === undefined) {
-                Logger.error(`没有找到 id 为 ${model.parent.id} 的控件`);
-            } else if (testParent instanceof TreeItemGroup) {
-                testParent.remove(item.dom);
+    private handleNodeLinkedChanged = (records: NodeRecord[]) => {
+        for (const record of records) {
+            let ele = this.nodeMap.get(record.node);
+            if (ele === undefined) continue;
+
+            if (record.oldParent !== undefined) {
+                this.nodeMap.get(record.oldParent)?.removeChild(ele);
             }
-        } else {
-            this._treePanel.removeChild(item.dom);
-        }
-        this._modelMap.delete(model);
-        item.dispose();
-    }
-
-    initTree(models: Model[]) {
-        let box = document.createDocumentFragment();
-        models.forEach((x) => this.addItemToGroup(box, x));
-        this._treePanel.appendChild(box);
-    }
-
-    private addItemToGroup(parent: Node, model: Model) {
-        let item = Model.isGroup(model)
-            ? new TreeItemGroup(this.document, this, model, true)
-            : new TreeItem(this.document, model);
-
-        let tParent = this._modelMap.get(model);
-        if (tParent === undefined) parent.appendChild(item.dom);
-        else tParent.dom.appendChild(item.dom);
-        this._modelMap.set(model, item);
-    }
-
-    private handleItemClick = (e: MouseEvent) => {
-        if (e.target instanceof HTMLElement) {
-            let modelId = e.target.getAttribute(Constants.ModelIdAttribute);
-            if (modelId === null) return;
-            if (e.shiftKey === false) {
-                let model = this.document.models.get(modelId);
-                if (model === undefined) return;
-                if (Model.isGeometry(model)) {
-                    this.document.visualization.selection.setSelected(false, model);
-                } else if (Model.isGroup(model)) {
-                    let group = this._modelMap.get(model) as TreeItemGroup;
-                    group?.setExpander(!group.isExpanded);
+            if (record.newParent !== undefined) {
+                let parent = this.nodeMap.get(record.newParent);
+                if (parent !== undefined && parent instanceof TreeGroup) {
+                    let pre = record.newPrevious === undefined ? null : this.nodeMap.get(record.newPrevious);
+                    parent.insertAfter(ele, pre ?? null);
                 }
             }
-            this.document.viewer.redraw();
         }
     };
 
-    treeItems() {
-        return this._modelMap.values();
-    }
-
-    getSelectedModelObjects() {
-        if (this._selecteds === undefined) return undefined;
-        return [...this._selecteds];
-    }
-
-    private handleSelectionChanged = (document: IDocument, models: Model[]) => {
-        this.clearSelectedStyle();
-        this.addSelectedStyle(models);
+    private handleDocumentPropertyChanged = (
+        document: IDocument,
+        property: keyof IDocument,
+        oldValue: any,
+        newValue: any
+    ) => {
+        if (property === "currentNode") {
+            (this.nodeMap.get(oldValue) as TreeGroup)?.header.classList.remove(style.current);
+            (this.nodeMap.get(newValue) as TreeGroup)?.header.classList.add(style.current);
+        }
     };
 
-    private handleAddModel = (document: IDocument, model: Model) => {
-        let item = Model.isGroup(model)
-            ? new TreeItemGroup(this.document, this, model, true)
-            : new TreeItem(this.document, model);
+    private handleSelectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
+        unselected.forEach((x) => {
+            this.nodeMap.get(x)?.removeSelectedStyle(style.selected);
+            this.selectedNodes.delete(x);
+        });
+        selected.forEach((model) => {
+            this.selectedNodes.add(model);
+            this.nodeMap.get(model)?.addSelectedStyle(style.selected);
+        });
+    };
 
-        if (model.parent !== undefined) {
-            let testParent = this._modelMap.get(model.parent);
-            if (testParent === undefined) {
-                Logger.error(`没有找到 id 为 ${model.parent.id} 的控件`);
-                model.parent = undefined;
-            } else if (testParent instanceof TreeItemGroup) {
-                testParent.add(item.dom);
+    private createHTMLElement(node: INode): TreeItem {
+        let result: TreeItem;
+        if (INode.isCollectionNode(node)) result = new TreeGroup(this.document, node);
+        else if (INode.isModelNode(node)) result = new TreeModel(node);
+        else throw "unknown node";
+
+        result.onConnectedCallback(() => this.addEvents(result));
+        result.onDisconnectedCallback(() => this.removeEvents(result));
+
+        return result;
+    }
+
+    private addEvents(item: HTMLElement) {
+        item.addEventListener("dragstart", this.onDragStart);
+        item.addEventListener("dragover", this.onDragOver);
+        item.addEventListener("dragleave", this.onDragLeave);
+        item.addEventListener("drop", this.onDrop);
+        item.addEventListener("click", this.onClick);
+    }
+
+    private removeEvents(item: HTMLElement) {
+        item.removeEventListener("dragstart", this.onDragStart);
+        item.removeEventListener("dragover", this.onDragOver);
+        item.removeEventListener("dragleave", this.onDragLeave);
+        item.removeEventListener("drop", this.onDrop);
+        item.removeEventListener("click", this.onClick);
+    }
+
+    private getTreeItem(item: HTMLElement | null): TreeItem | undefined {
+        if (item === null) return undefined;
+        if (item instanceof TreeItem) return item;
+        return this.getTreeItem(item.parentElement);
+    }
+
+    private onClick = (event: MouseEvent) => {
+        let item = this.getTreeItem(event.target as HTMLElement)?.node;
+        if (item === undefined) return;
+        event.stopPropagation();
+
+        if (event.shiftKey) {
+            if (this.lastClicked !== undefined) {
+                let nodes = INode.getNodesBetween(this.lastClicked, item);
+                this.document.visualization.selection.setSelected(false, nodes);
             }
         } else {
-            this._treePanel.appendChild(item.dom);
+            this.document.visualization.selection.setSelected(event.ctrlKey, [item]);
         }
-        this._modelMap.set(model, item);
+
+        this.lastClicked = item;
     };
 
-    private handleRemoveModel = (document: IDocument, model: Model) => {
-        this.removeItem(model);
+    private onDragLeave = (event: DragEvent) => {
+        if (!this.canDrop(event)) return;
     };
 
-    private addSelectedStyle(models?: Model[]) {
-        models?.forEach((m) => {
-            let li = this._modelMap.get(m);
-            li?.dom.classList.add(style.itemPanelSelected);
-        });
-        this._selecteds = models?.map((x) => x);
+    private onDragOver = (event: DragEvent) => {
+        if (!this.canDrop(event)) {
+            return;
+        }
+        event.preventDefault();
+        event.dataTransfer!.dropEffect = "move";
+    };
+
+    private canDrop(event: DragEvent) {
+        let node = this.getTreeItem(event.target as HTMLElement)?.node;
+        if (node === undefined) return false;
+        if (this.dragging?.includes(node)) return false;
+        let parent = node.parent;
+        while (parent !== undefined) {
+            if (this.dragging?.includes(parent)) return false;
+            parent = parent.parent;
+        }
+        return true;
     }
 
-    private clearSelectedStyle() {
-        this._selecteds?.forEach((s) => {
-            let li = this._modelMap.get(s);
-            li?.dom.classList.remove(style.itemPanelSelected);
-        });
-        this._selecteds = undefined;
+    protected onDrop = (event: DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        let node = this.getTreeItem(event.target as HTMLElement)?.node;
+        if (node === undefined) return;
+        let group = INode.isCollectionNode(node) ? node : node.parent;
+        if (group !== undefined) {
+            Transaction.excute(this.document, "move node", () => {
+                this.dragging?.forEach((x) => {
+                    x.parent?.moveToAfter(x, group!);
+                });
+            });
+        }
+
+        this.dragging = undefined;
+    };
+
+    private onDragStart = (event: DragEvent) => {
+        event.stopPropagation();
+        let item = this.getTreeItem(event.target as HTMLElement)?.node;
+        this.dragging = this.findAllCommonParents();
+        if (item !== undefined && !this.selectedNodes.has(item)) {
+            this.dragging.push(item);
+        }
+    };
+
+    private findAllCommonParents() {
+        let result: INode[] = [];
+        for (const node of this.selectedNodes) {
+            if (node.parent === undefined || !this.selectedNodes.has(node.parent)) {
+                result.push(node);
+            }
+        }
+        return result;
     }
 }
+
+customElements.define("ui-tree", Tree);

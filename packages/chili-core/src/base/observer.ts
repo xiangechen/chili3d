@@ -1,9 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { EventEmitter } from "events";
+import { IDocument } from "../document";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
-import { HistoryRecord, IHistoryHandler, PropertyHistoryRecord } from "./history";
+import { IHistoryRecord, PropertyHistoryRecord } from "./history";
+import { Transaction } from "./transaction";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 const CollectionChangedEvent = "CollectionChangedEvent";
@@ -12,23 +14,9 @@ export interface PropertyChangedHandler<T, K extends keyof T> {
     (source: T, property: K, oldValue: T[K], newValue: T[K]): void;
 }
 
-export interface CollectionChangedHandler<T> {
-    (source: ICollection<T>, action: CollectionAction, item: T): void;
-}
-
 export interface IPropertyChanged {
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
-}
-
-export enum CollectionAction {
-    add,
-    remove,
-}
-
-export interface ICollectionChanged<T> {
-    onCollectionChanged<T>(handler: CollectionChangedHandler<T>): void;
-    removeCollectionChanged<T>(handler: CollectionChangedHandler<T>): void;
 }
 
 export class Observable implements IPropertyChanged, IDisposable {
@@ -92,8 +80,10 @@ export class Observable implements IPropertyChanged, IDisposable {
     }
 }
 
-export abstract class HistoryObservable extends Observable implements IHistoryHandler {
-    protected _historyHandler: ((record: HistoryRecord) => void) | undefined;
+export abstract class HistoryObservable extends Observable {
+    constructor(readonly document: IDocument) {
+        super();
+    }
 
     protected override setProperty<K extends keyof this>(
         property: K,
@@ -101,111 +91,14 @@ export abstract class HistoryObservable extends Observable implements IHistoryHa
         onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]> | undefined
     ): boolean {
-        let oldValue = this[property];
-        if (super.setProperty(property, newValue, onPropertyChanged, equals)) {
-            let record: PropertyHistoryRecord = {
-                name: `modify ${String(property)}`,
-                object: this,
-                oldValue,
-                newValue,
-                property,
-            };
-            this._historyHandler?.(record);
-            return true;
-        }
-        return false;
-    }
-
-    setHistoryHandler(handler: ((record: HistoryRecord) => void) | undefined) {
-        this._historyHandler = handler;
-    }
-}
-
-export interface ICollection<T> {
-    add(item: T): void;
-    entry(): IterableIterator<T>;
-    remove(item: T): void;
-    size(): number;
-    find(predicate: (item: T) => boolean): T | undefined;
-}
-
-export abstract class CollectionPropertyObservable<T> extends Observable implements ICollectionChanged<T> {
-    onCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
-        this.eventEmitter.on(CollectionChangedEvent, handler);
-    }
-
-    removeCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
-        this.eventEmitter.off(CollectionChangedEvent, handler);
-    }
-
-    protected emitCollectionChanged<T>(action: CollectionAction, item: T) {
-        this.eventEmitter.emit(CollectionChangedEvent, this, action, item);
-    }
-}
-
-export abstract class CollectionChangedBase<T> implements ICollectionChanged<T>, IDisposable {
-    protected readonly _eventEmitter: EventEmitter;
-
-    constructor() {
-        this._eventEmitter = new EventEmitter();
-    }
-
-    dispose(): void | Promise<void> {
-        this._eventEmitter.eventNames().forEach((x) => {
-            this._eventEmitter.removeAllListeners(x);
-        });
-    }
-
-    onCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
-        this._eventEmitter.on(CollectionChangedEvent, handler);
-    }
-
-    removeCollectionChanged<T>(handler: CollectionChangedHandler<T>): void {
-        this._eventEmitter.off(CollectionChangedEvent, handler);
-    }
-
-    protected emitCollectionChanged<T>(action: CollectionAction, item: T) {
-        this._eventEmitter.emit(CollectionChangedEvent, this, action, item);
-    }
-}
-
-export class ObservableCollection<T> extends CollectionChangedBase<T> implements ICollection<T> {
-    private readonly _array: Array<T>;
-
-    constructor() {
-        super();
-        this._array = [];
-    }
-
-    add(item: T): boolean {
-        if (this._array.indexOf(item) > -1) return false;
-        this._array.push(item);
-        this.emitCollectionChanged(CollectionAction.add, item);
-        return true;
-    }
-
-    remove(item: T): boolean {
-        let index = this._array.indexOf(item);
-        if (index > -1) {
-            this._array.splice(index, 1);
-            this.emitCollectionChanged(CollectionAction.remove, item);
-            return true;
-        }
-        return false;
-    }
-
-    find(predicate: (item: T) => boolean): T | undefined {
-        for (const element of this._array) {
-            if (predicate(element)) return element;
-        }
-        return undefined;
-    }
-
-    entry(): IterableIterator<T> {
-        return this._array.values();
-    }
-
-    size(): number {
-        return this._array.length;
+        return super.setProperty(
+            property,
+            newValue,
+            (property, oldValue, newValue) => {
+                onPropertyChanged?.(property, oldValue, newValue);
+                Transaction.add(this.document, new PropertyHistoryRecord(this, property, oldValue, newValue));
+            },
+            equals
+        );
     }
 }

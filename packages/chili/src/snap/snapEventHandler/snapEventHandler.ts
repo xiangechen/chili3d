@@ -34,7 +34,8 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     constructor(private readonly data: SnapEventData) {
         this._snaps = [...data.snaps];
-        this._snapedChangedHandlers = data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
+        this._snapedChangedHandlers =
+            data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
         PubSub.default.sub("snapChanged", this.onSnapChanged);
     }
 

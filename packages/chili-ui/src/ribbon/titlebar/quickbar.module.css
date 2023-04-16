@@ -1,4 +1,4 @@
-.quickbarPanel {
+.root {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -6,7 +6,7 @@
     overflow: hidden;
 }
 
-.quickbarIcon {
+.icon {
     width: 14px;
     height: 14px;
     margin-left: 16px;
@@ -14,6 +14,6 @@
     overflow: hidden;
 }
 
-.quickbarIcon:hover {
+.icon:hover {
     fill: var(--quickbarIconHover);
 }

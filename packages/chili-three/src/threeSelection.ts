@@ -7,10 +7,11 @@ import {
     IShape,
     IView,
     IVisualizationShape,
-    Model,
+    IModel,
     Observable,
     PubSub,
     ShapeType,
+    INode,
 } from "chili-core";
 import { Object3D, Raycaster } from "three";
 
@@ -19,13 +20,12 @@ import { ThreeUtils } from "./threeUtils";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeSelection extends Observable implements ISelection {
-    private readonly _selectedModels: Set<Model>;
-    private _shapeType: ShapeType;
+    private _selectedNodes: INode[] = [];
+    private _unselectedNodes: INode[] = [];
+    private _shapeType: ShapeType = ShapeType.Shape;
 
     constructor(readonly document: IDocument, readonly context: ThreeVisulizationContext) {
         super();
-        this._shapeType = ShapeType.Shape;
-        this._selectedModels = new Set<Model>();
     }
 
     detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined {
@@ -47,8 +47,8 @@ export class ThreeSelection extends Observable implements ISelection {
         return objs.map((x) => x.userData[Constants.ShapeKey]);
     }
 
-    getSelectedModels(): Model[] {
-        return [...this._selectedModels];
+    getSelectedNodes(): INode[] {
+        return this._selectedNodes;
     }
 
     select(view: IView, x: number, y: number, shiftDown: boolean) {
@@ -57,42 +57,8 @@ export class ThreeSelection extends Observable implements ISelection {
             this.clearSelected();
             return;
         }
-        let model = view.document.models.get(intersect!.name);
-        if (model !== undefined) this.setSelectedObserver(shiftDown, true, model);
-    }
-
-    setSelected(shift: boolean, ...models: Model[]) {
-        this.setSelectedObserver(shift, true, ...models);
-    }
-
-    private setSelectedObserver(shift: boolean, publish: boolean, ...models: Model[]) {
-        if (shift) {
-            this.shiftSelect(models);
-        } else {
-            this.clearSelected();
-            this.setToSelected(...models);
-        }
-        if (publish) this.publishSelection();
-    }
-
-    unSelected(...models: Model[]) {
-        this.unSelectedObserver(true, models);
-    }
-
-    clearSelected() {
-        this.unSelectedObserver(true, this._selectedModels);
-    }
-
-    private unSelectedObserver(publish: boolean, models: Set<Model> | Model[]) {
-        models.forEach((m) => {
-            this.removeSelectedStatus(m);
-            this._selectedModels.delete(m);
-        });
-        if (publish) this.publishSelection();
-    }
-
-    private publishSelection() {
-        PubSub.default.pub("selectionChanged", this.document, [...this._selectedModels]);
+        let node = view.document.nodes.get(intersect!.name) as IModel;
+        if (node !== undefined) this.setSelected(shiftDown, [node]);
     }
 
     private detected(view: IView, x: number, y: number, firstHitOnly: boolean) {
@@ -117,29 +83,52 @@ export class ThreeSelection extends Observable implements ISelection {
         return raycaster.intersectObjects(shapes, false).map((x) => x.object);
     }
 
-    private shiftSelect(models: Model[]) {
-        models.forEach((m) => {
-            if (this._selectedModels.has(m)) {
-                this._selectedModels.delete(m);
-                this.removeSelectedStatus(m);
-            } else {
-                this.setToSelected(m);
-            }
-        });
+    setSelected(toggle: boolean, nodes: INode[]) {
+        if (toggle) {
+            this.toggleSelectPublish(nodes, true);
+        } else {
+            this.removeSelectedPublish(this._selectedNodes, false);
+            this.addSelectPublish(nodes, true);
+        }
     }
 
-    private setToSelected(...models: Model[]) {
-        models.forEach((m) => {
-            let shape = this.context.getShape(m);
-            if (shape !== undefined) {
-                shape.selectedState();
-                this._selectedModels.add(m);
-            }
-        });
+    unSelected(nodes: INode[]) {
+        this.removeSelectedPublish(nodes, true);
     }
 
-    private removeSelectedStatus(model: Model) {
-        let shape = this.context.getShape(model);
-        if (shape !== undefined) shape.unSelectedState();
+    clearSelected() {
+        this.removeSelectedPublish(this._selectedNodes, true);
+    }
+
+    private publishSelection() {
+        PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
+    }
+
+    private toggleSelectPublish(nodes: INode[], publish: boolean) {
+        let selected = nodes.filter((m) => this._selectedNodes.includes(m));
+        let unSelected = nodes.filter((m) => !this._selectedNodes.includes(m));
+        this.removeSelectedPublish(selected, false);
+        this.addSelectPublish(unSelected, publish);
+    }
+
+    private addSelectPublish(nodes: INode[], publish: boolean) {
+        nodes.forEach((m) => {
+            if (INode.isModelNode(m)) {
+                this.context.getShape(m)?.selectedState();
+            }
+        });
+        this._selectedNodes.push(...nodes);
+        if (publish) this.publishSelection();
+    }
+
+    private removeSelectedPublish(nodes: INode[], publish: boolean) {
+        for (const node of nodes) {
+            if (INode.isModelNode(node)) {
+                this.context.getShape(node)?.unSelectedState();
+            }
+        }
+        this._selectedNodes = this._selectedNodes.filter((m) => !nodes.includes(m));
+        this._unselectedNodes = nodes;
+        if (publish) this.publishSelection();
     }
 }

@@ -1,12 +1,20 @@
-.treePanel {
-    grid-row-start: 2;
-    height: 240px;
+.panel {
     margin: 4px;
     resize: vertical;
     overflow-y: auto;
+    display: block;
+    height: 240px;
 }
 
-.itemPanelSelected {
+.selected {
     background-color: var(--selected);
-    border-radius: 4px;
+}
+
+.current {
+    border: var(--border);
+}
+
+.dragging {
+    opacity: 0.56;
+    pointer-events: none;
 }

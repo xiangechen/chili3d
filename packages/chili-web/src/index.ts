@@ -15,5 +15,5 @@ let builder = new AppBuilder()
 await builder.build();
 
 let doc = Document.create("test");
-let view = doc.visualization.viewFactory.create("view", Plane.XY, Viewport.current.dom);
+let view = doc.visualization.viewFactory.create("view", Plane.XY, Viewport.current);
 view.redraw();

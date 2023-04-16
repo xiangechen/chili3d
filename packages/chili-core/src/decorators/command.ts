@@ -22,7 +22,9 @@ export function command<T extends { new (...args: any[]): ICommand }>(commandDat
 }
 
 export namespace CommandData {
-    export function get(command: string | ICommand | (new (...args: any[]) => ICommand)): CommandData | undefined {
+    export function get(
+        command: string | ICommand | (new (...args: any[]) => ICommand)
+    ): CommandData | undefined {
         if (typeof command === "string") {
             let c = commandMap.get(command);
             return c?.prototype.data;

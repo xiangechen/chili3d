@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEqualityComparer, HistoryObservable, Result } from "../base";
+import { IEqualityComparer, HistoryObservable, Result, PubSub } from "../base";
 import { IShape } from "../geometry";
 import { I18n } from "../i18n";
-import { IUpdater } from "./updater";
 
-export abstract class Entity extends HistoryObservable implements IUpdater {
-    updater: ((handler: IUpdater) => void) | undefined;
+const ShapeChangedEvent = "PropertyChangedEvent";
+
+export abstract class Entity extends HistoryObservable {
     abstract name: keyof I18n;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
@@ -28,8 +28,20 @@ export abstract class Entity extends HistoryObservable implements IUpdater {
     ) {
         if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
             this._shape = this.generateShape();
-            this.updater?.(this);
+            this.emitShapeChanged();
         }
+    }
+
+    protected emitShapeChanged() {
+        this.eventEmitter.emit(ShapeChangedEvent, this);
+    }
+
+    onShapeChanged(handler: (source: Entity) => void) {
+        this.eventEmitter.on(ShapeChangedEvent, handler);
+    }
+
+    removeShapeChanged(handler: (source: Entity) => void) {
+        this.eventEmitter.off(ShapeChangedEvent, handler);
     }
 
     protected abstract generateShape(): Result<IShape>;

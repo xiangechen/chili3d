@@ -1,11 +1,17 @@
-.itemPanel {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding: 6px 12px;
+.name {
+    flex: 1;
+    font-size: 12px;
 }
 
-.itemPanel:hover {
-    border-radius: 4px;
-    background-color: var(--hoverBackground);
+.icon {
+    width: 16px;
+    height: 16px;
+}
+
+.selected {
+    background-color: var(--selected);
+}
+
+.parent-visible {
+    opacity: 0.56;
 }

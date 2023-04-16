@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, I18n, IDisposable, IDocument, IEventHandler, IView, VertexRenderData, XYZ } from "chili-core";
+import {
+    CursorType,
+    I18n,
+    IDisposable,
+    IDocument,
+    IEventHandler,
+    IView,
+    VertexRenderData,
+    XYZ,
+} from "chili-core";
 import { ShapePreviewer, Snapper } from "../snap";
 
 export interface FeaturePoint {

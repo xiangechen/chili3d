@@ -5,21 +5,25 @@ import { IDisposable } from "./disposable";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { MessageType } from "./messageType";
-import { GroupModel, Model } from "../model";
+import { IModel } from "../model";
 import { ObjectSnapType } from "../snapType";
 import { Validation } from "./validation";
+import { ICollectionNode, INode } from "../model/node";
+import { CollectionAction } from "./collection";
+import { NodeRecord } from "./history";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
     keyUp: (e: KeyboardEvent) => void;
     excuteCommand: (commandName: keyof Commands) => void;
-    modelAdded: (source: IDocument, model: Model) => void;
+    nodeAdded: (source: IDocument, nodes: INode[]) => void;
+    nodeRemoved: (source: IDocument, nodes: INode[]) => void;
+    nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
-    modelRemoved: (source: IDocument, model: Model) => void;
-    modelUpdate: (model: Model) => void;
-    visibleChanged: (model: Model) => void;
-    parentChanged: (source: Model, oldParent: GroupModel | undefined, newParent: GroupModel | undefined) => void;
-    selectionChanged: (document: IDocument, models: Model[]) => void;
+    modelUpdate: (model: IModel) => void;
+    visibleChanged: (model: IModel) => void;
+    parentVisibleChanged: (model: IModel) => void;
+    selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
     snapChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;
@@ -27,6 +31,7 @@ export interface PubSubEventMap {
     clearFloatTip: () => void;
     showInput: (validCallback: (text: string) => Validation, callback: (text: string) => void) => void;
     clearInput: () => void;
+    redraw: () => void;
 }
 
 export class PubSub implements IDisposable {

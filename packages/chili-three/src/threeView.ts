@@ -1,8 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CursorType, IDisposable, IDocument, IView, Observable, Plane, Ray, XY, XYZ } from "chili-core";
-import { FloatContainer } from "chili-ui";
-import { Camera, OrthographicCamera, PerspectiveCamera, Scene, Spherical, Vector3, WebGLRenderer } from "three";
+import { Flyout } from "chili-ui";
+import {
+    Camera,
+    OrthographicCamera,
+    PerspectiveCamera,
+    Scene,
+    Spherical,
+    Vector3,
+    WebGLRenderer,
+} from "three";
 
 import { ThreeUtils } from "./threeUtils";
 
@@ -13,7 +21,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     private _workplane: Plane;
     private _camera: Camera;
     private _lastRedrawTime: number;
-    private _floatTip: FloatContainer;
+    private _floatTip: Flyout;
     private _target: Vector3;
     private _scale: number = 1;
     private _startRotate?: XY;
@@ -37,10 +45,10 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._camera = this.initCamera(container);
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
-        this._floatTip = new FloatContainer();
+        this._floatTip = new Flyout();
         document.viewer.addView(this);
 
-        container.appendChild(this._floatTip.dom);
+        container.appendChild(this._floatTip);
         container.addEventListener("mousemove", this.onMouseMove);
     }
 
@@ -57,14 +65,14 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         let renderer = new WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
-        container.appendChild(renderer.domElement);
+        container.append(renderer.domElement);
         renderer.autoClear = false;
         return renderer;
     }
 
     private onMouseMove = (e: MouseEvent) => {
-        this._floatTip.dom.style.top = e.clientY + "px";
-        this._floatTip.dom.style.left = e.clientX + "px";
+        this._floatTip.style.top = e.clientY + "px";
+        this._floatTip.style.left = e.clientX + "px";
     };
 
     pan(dx: number, dy: number) {
@@ -93,8 +101,14 @@ export default class ThreeView extends Observable implements IView, IDisposable 
             x = (2 * dx * distance) / this.container.clientHeight;
             y = (2 * dy * distance) / this.container.clientHeight;
         } else if (ThreeUtils.isOrthographicCamera(this._camera)) {
-            x = (dx * (this._camera.right - this._camera.left)) / this._camera.zoom / this.container.clientWidth;
-            y = (dy * (this._camera.top - this._camera.bottom)) / this._camera.zoom / this.container.clientHeight;
+            x =
+                (dx * (this._camera.right - this._camera.left)) /
+                this._camera.zoom /
+                this.container.clientWidth;
+            y =
+                (dy * (this._camera.top - this._camera.bottom)) /
+                this._camera.zoom /
+                this.container.clientHeight;
         }
         return { x, y };
     }
@@ -182,7 +196,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._renderer.render(this._scene, this._camera);
     }
 
-    get float(): FloatContainer {
+    get float(): Flyout {
         return this._floatTip;
     }
 

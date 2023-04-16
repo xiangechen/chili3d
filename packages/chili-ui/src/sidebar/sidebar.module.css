@@ -1,16 +1,18 @@
 .sidebar {
     display: flex;
-    height: 100%;
     flex-direction: column;
+    height: 100%;
+    overflow-y: scroll;
 }
 
 .top {
-    display: block;
     margin: 12px;
+    min-height: 32px;
+    flex: 0 1 auto;
 }
 
 .bottom {
     display: flex;
     margin: 0px 12px 12px 12px;
-    flex: 1 1 100%;
+    flex: 1 1 auto;
 }

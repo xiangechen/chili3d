@@ -12,7 +12,11 @@ function defaultSnapedData(): SnapPointData {
 }
 
 export class PointStep extends StepBase<SnapPointData> {
-    constructor(tip: keyof I18n, handleData: () => SnapPointData = defaultSnapedData, disableDefaultValidator = false) {
+    constructor(
+        tip: keyof I18n,
+        handleData: () => SnapPointData = defaultSnapedData,
+        disableDefaultValidator = false
+    ) {
         super(PointSnapper, tip, handleData, disableDefaultValidator);
     }
 

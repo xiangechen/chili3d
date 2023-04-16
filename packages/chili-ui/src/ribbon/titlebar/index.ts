@@ -1,39 +1,37 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n, Language, PubSub } from "chili-core";
+import { ComboBox, Control, Svg, Panel } from "../../components";
 
-import { Control } from "../../control";
 import { QuickToolbar } from "./quickbar";
 import { Title } from "./title";
 import style from "./title.module.css";
 
-export class TitleBar {
-    readonly dom: HTMLDivElement;
+export class TitleBar extends Control {
     readonly quickToolBar: QuickToolbar;
-    readonly title: Title;
-    readonly right: HTMLDivElement;
+    readonly titleBar: Title;
+    readonly right: HTMLElement;
 
     constructor() {
-        this.dom = Control.div(style.titleBarContainer);
-        let left = Control.div();
-        let center = Control.div();
-        this.right = Control.div();
-        this.quickToolBar = new QuickToolbar(left);
-        this.title = new Title(center);
-        Control.append(this.dom, left, center, this.right);
+        super(style.titleBarContainer);
+        this.right = new Panel();
+        this.quickToolBar = new QuickToolbar();
+        this.titleBar = new Title();
+        this.append(this.quickToolBar, this.titleBar, this.right);
 
-        let i18n = Control.div(style.i18n);
-        let svg = Control.svg("icon-i18n", style.i18nIcon);
-        let select = Control.select(Language.Languages, style.i18nSelect);
-        i18n.appendChild(svg);
-        i18n.appendChild(select);
-        this.right.appendChild(i18n);
-        select.addEventListener("change", (e) => {
-            Language.set(select.selectedIndex);
+        let i18n = new Panel().addClass(style.i18n);
+        let svg = new Svg("icon-i18n").addClass(style.i18nIcon);
+        let select = new ComboBox(Language.Languages).addClass(style.i18nSelect);
+        i18n.append(svg, select);
+        this.right.append(i18n);
+        select.onSelectionChanged((e: number) => {
+            Language.set(e);
         });
     }
 
     add(...controls: HTMLElement[]) {
-        Control.append(this.right, ...controls);
+        this.right.append(...controls);
     }
 }
+
+customElements.define("title-bar", TitleBar);

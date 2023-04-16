@@ -17,7 +17,9 @@ describe("test ray", () => {
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX))).toStrictEqual(XYZ.zero);
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitZ.reverse()))).toStrictEqual(XYZ.zero);
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX.add(XYZ.unitZ)))).toStrictEqual(new XYZ(-1, 0, 0));
-        expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX.add(XYZ.unitZ.reverse())))).toStrictEqual(new XYZ(1, 0, 0));
+        expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX.add(XYZ.unitZ.reverse())))).toStrictEqual(
+            new XYZ(1, 0, 0)
+        );
         expect(r1.nearestTo(new Ray(new XYZ(0.5, -0.5, 0), XYZ.unitY))).toStrictEqual(new XYZ(0.5, 0, 0));
     });
 

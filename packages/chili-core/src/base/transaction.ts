@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument } from "../document";
-import { HistoryOperation, HistoryRecord } from "./history";
+import { HistoryOperation, IHistoryRecord } from "./history";
 
 export class Transaction {
     private static readonly _transactionMap: WeakMap<IDocument, HistoryOperation> = new WeakMap();
 
     constructor(readonly document: IDocument, readonly name: string) {}
 
-    static add(document: IDocument, HistoryRecord: HistoryRecord) {
+    static add(document: IDocument, HistoryRecord: IHistoryRecord) {
         if (document.history.isDisabled) return;
         let operation = Transaction._transactionMap.get(document);
         if (operation !== undefined) {

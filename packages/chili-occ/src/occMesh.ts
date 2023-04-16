@@ -2,7 +2,6 @@
 
 import { EdgeMesh, FaceMesh, IShapeMesh, RenderDataBuilder, VertexMesh, VertexRenderData } from "chili-core";
 import {
-    gp_Trsf,
     Handle_Poly_Triangulation,
     Poly_Triangulation,
     TopAbs_Orientation,
@@ -72,12 +71,18 @@ export class OccMesh implements IShapeMesh {
     }
 
     private getEdgeMesh(edge: TopoDS_Edge) {
-        let aLocation = new occ.TopLoc_Location_1();
         let adaptorCurve = new occ.BRepAdaptor_Curve_2(edge);
-        let tangDef = new occ.GCPnts_TangentialDeflection_2(adaptorCurve, this.maxDeviation, 0.1, 2, 1.0e-9, 1.0e-7);
+        let tangDef = new occ.GCPnts_TangentialDeflection_2(
+            adaptorCurve,
+            this.maxDeviation,
+            0.1,
+            2,
+            1.0e-9,
+            1.0e-7
+        );
         let builder = new RenderDataBuilder();
         for (let i = 0; i < tangDef.NbPoints(); i++) {
-            let vertex = tangDef.Value(i + 1).Transformed(aLocation.Transformation());
+            let vertex = tangDef.Value(i + 1);
             builder.addVertex(vertex.X(), vertex.Y(), vertex.Z());
         }
         this._lines.push({
@@ -104,18 +109,21 @@ export class OccMesh implements IShapeMesh {
         let handlePoly = occ.BRep_Tool.Triangulation(face, location, undefined);
         if (handlePoly.IsNull()) return undefined;
         let poly = handlePoly.get();
-        let transform = location.Transformation();
         let builder = new RenderDataBuilder();
-        this.addNodes(poly, transform, builder);
+        this.addNodes(poly, builder);
         this.addTriangles(poly, face.Orientation_1(), builder);
-        this.addNormals(handlePoly, face, poly.NbNodes(), transform, builder);
+        this.addNormals(handlePoly, face, poly.NbNodes(), builder);
         this._faces.push({
             face: new OccFace(face),
             renderData: builder.buildFace(),
         });
     }
 
-    private addTriangles(poly: Poly_Triangulation, orientation: TopAbs_Orientation, builder: RenderDataBuilder) {
+    private addTriangles(
+        poly: Poly_Triangulation,
+        orientation: TopAbs_Orientation,
+        builder: RenderDataBuilder
+    ) {
         for (let index = 1; index <= poly.NbTriangles(); index++) {
             let triangle = poly.Triangle(index);
             if (orientation === occ.TopAbs_Orientation.TopAbs_REVERSED) {
@@ -126,9 +134,9 @@ export class OccMesh implements IShapeMesh {
         }
     }
 
-    private addNodes(poly: Poly_Triangulation, transform: gp_Trsf, builder: RenderDataBuilder) {
+    private addNodes(poly: Poly_Triangulation, builder: RenderDataBuilder) {
         for (let index = 1; index <= poly.NbNodes(); index++) {
-            const pnt = poly.Node(index).Transformed(transform);
+            const pnt = poly.Node(index);
             builder.addVertex(pnt.X(), pnt.Y(), pnt.Z());
         }
     }
@@ -137,15 +145,14 @@ export class OccMesh implements IShapeMesh {
         poly: Handle_Poly_Triangulation,
         face: TopoDS_Face,
         length: number,
-        trsf: gp_Trsf,
         builder: RenderDataBuilder
     ) {
         let array = new occ.TColgp_Array1OfDir_2(1, length);
         let pc = new occ.Poly_Connect_2(poly);
         occ.StdPrs_ToolTriangulatedShape.Normal(face, pc, array);
         for (let i = 0; i < length; i++) {
-            let d = array.Value(i + 1).Transformed(trsf);
-            builder.addNormal(d.X(), d.Y(), d.Z());
+            let normal = array.Value(i + 1);
+            builder.addNormal(normal.X(), normal.Y(), normal.Z());
         }
     }
 }

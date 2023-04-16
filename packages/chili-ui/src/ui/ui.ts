@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { PubSub } from "chili-core";
+import { Panel } from "../components/panel";
 
-import { Contextual } from "../contextual";
-import { Control } from "../control";
 import { DefaultRibbon } from "../profile/ribbon";
 import { Ribbon } from "../ribbon";
 import { RibbonData } from "../ribbon/ribbonData";
@@ -40,13 +39,13 @@ export class UI {
     }
 
     readonly ribbon: Ribbon;
-    readonly sidebar: Sidebar;
+    readonly sidebar: HTMLElement;
     readonly statusbar: Statusbar;
     private root?: HTMLElement;
 
     private constructor() {
         this.ribbon = new Ribbon();
-        this.sidebar = new Sidebar();
+        this.sidebar = new Panel().addClass(style.sidebar).addItem(new Sidebar());
         this.statusbar = new Statusbar();
     }
 
@@ -57,15 +56,10 @@ export class UI {
         root.addEventListener("keydown", this.handleKeyDown);
         root.addEventListener("keyup", this.handleKeyUp);
 
-        let div = Control.div(style.reactive);
-        Control.append(div, this.sidebar.dom, Viewport.current.dom);
-        root?.appendChild(this.ribbon.dom);
-        Contextual.instance.init(this.root);
-        root?.appendChild(div);
-        root?.appendChild(this.statusbar.dom);
+        let div = new Panel().addClass(style.reactive);
+        div.append(this.sidebar, Viewport.current);
+        root?.append(this.ribbon, div, this.statusbar);
         root.classList.add(style.root);
-
-        this.sidebar.dom.classList.add(style.sidebar);
 
         this.initRibbon(DefaultRibbon);
         this.initQuickBar(["Save", "Undo", "Redo"]);
@@ -90,16 +84,12 @@ export class UI {
 
     private initRibbon(configs: RibbonData) {
         configs.forEach((config) => {
-            let tab = RibbonTab.from(config, this.handleCommand.bind(this));
+            let tab = RibbonTab.from(config);
             this.ribbon.addTab(tab);
         });
     }
 
     private initQuickBar(buttons: string[]) {
-        this.ribbon.titlebar.quickToolBar.fromConfig(buttons, this.handleCommand.bind(this));
-    }
-
-    private handleCommand(commandName: string) {
-        PubSub.default.pub("excuteCommand", commandName as any);
+        this.ribbon.titlebar.quickToolBar.addButton(...buttons);
     }
 }

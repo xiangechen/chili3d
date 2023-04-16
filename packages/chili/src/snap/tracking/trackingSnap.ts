@@ -52,7 +52,10 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
             trackingDatas.sort((x) => x.distance);
             let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
             if (point !== undefined) {
-                snaped = this.getSnapedAndShowTracking(data.view, point, [trackingDatas[0], trackingDatas[1]]);
+                snaped = this.getSnapedAndShowTracking(data.view, point, [
+                    trackingDatas[0],
+                    trackingDatas[1],
+                ]);
             } else {
                 snaped = this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
             }
@@ -95,7 +98,9 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
             });
         });
         if (points.length === 0) return undefined;
-        let point = points.sort((p) => this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect))[0];
+        let point = points.sort((p) =>
+            this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect)
+        )[0];
         let id = this.tempShowLine(data.view, point.intersect, point.location);
         if (id === undefined) return undefined;
         this._tempLines.set(data.view, [id]);
@@ -120,7 +125,13 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         return axiesDistance;
     }
 
-    private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapedName: string | undefined) {
+    private getSnapedFromAxes(
+        axes: Axis[],
+        view: IView,
+        x: number,
+        y: number,
+        snapedName: string | undefined
+    ) {
         let result: TrackingData[] = [];
         for (let index = 0; index < axes.length; index++) {
             const axis = axes[index];
@@ -130,7 +141,13 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
                 let point = axis.nearestTo(ray);
                 if (point.sub(axis.location).dot(axis.direction) < 0) continue;
                 let info = snapedName === undefined ? axis.name : snapedName;
-                result.push({ axis, distance, point, info, isObjectTracking: snapedName !== undefined });
+                result.push({
+                    axis,
+                    distance,
+                    point,
+                    info,
+                    isObjectTracking: snapedName !== undefined,
+                });
             }
         }
         return result;

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, I18n, IShape, Plane, property, Result } from "chili-core";
+import { Entity, I18n, IDocument, IShape, Plane, property, Result } from "chili-core";
 import { Application } from "../application";
 
 export class BoxBody extends Entity {
@@ -9,8 +9,8 @@ export class BoxBody extends Entity {
     private _dz: number;
     readonly name: keyof I18n = "body.box";
 
-    constructor(readonly plane: Plane, dx: number, dy: number, dz: number) {
-        super();
+    constructor(document: IDocument, readonly plane: Plane, dx: number, dy: number, dz: number) {
+        super(document);
         this._dx = dx;
         this._dy = dy;
         this._dz = dz;

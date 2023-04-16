@@ -2,3 +2,4 @@ node_modules
 build
 coverage
 .VSCodeCounter
+.DS_Store

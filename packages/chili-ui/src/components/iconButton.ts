@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { customElement, DomEvent, ObservableHTMLElement } from "./observableHTMLElement";
+import { Control } from "./control";
 
-@customElement("chili-button")
-export class IconButton extends ObservableHTMLElement {
+export class IconButton extends Control {
     constructor(readonly dom: HTMLElement) {
         super();
         this.innerHTML = `
@@ -14,17 +13,9 @@ export class IconButton extends ObservableHTMLElement {
         `;
     }
 
-    protected getEvents(): DomEvent<"pointerdown">[] {
-        return [
-            {
-                id: "bb",
-                type: "pointerdown",
-                handler: this.onButtonClick,
-            },
-        ];
-    }
-
     private onButtonClick = (e: PointerEvent) => {
         console.log("click");
     };
 }
+
+customElements.define("chili-icon-button", IconButton);

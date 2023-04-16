@@ -9,3 +9,5 @@ export class CheckProperty extends PropertyBase {
         super(objects);
     }
 }
+
+customElements.define("chili-check-property", CheckProperty);

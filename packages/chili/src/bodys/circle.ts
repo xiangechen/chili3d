@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Entity, I18n, IShape, property, Result, XYZ } from "chili-core";
+import { Entity, I18n, IDocument, IShape, property, Result, XYZ } from "chili-core";
 import { Application } from "../application";
 
 export class CircleBody extends Entity {
@@ -8,8 +8,8 @@ export class CircleBody extends Entity {
     private _radius: number;
     readonly name: keyof I18n = "body.circle";
 
-    constructor(readonly normal: XYZ, center: XYZ, radius: number) {
-        super();
+    constructor(document: IDocument, readonly normal: XYZ, center: XYZ, radius: number) {
+        super(document);
         this._center = center;
         this._radius = radius;
     }

@@ -69,8 +69,8 @@ export abstract class RectCommandBase extends CreateCommand {
 export class Rect extends RectCommandBase {
     protected create(document: IDocument): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
-        let body = new RectBody(rect.plane, rect.dx, rect.dy);
-        return new GeometryModel(`Rect ${document.models.count + 1}`, body);
+        let body = new RectBody(document, rect.plane, rect.dx, rect.dy);
+        return GeometryModel.create(document, `Rect ${document.nodes.size() + 1}`, body);
     }
 
     constructor() {

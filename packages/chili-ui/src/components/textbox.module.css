@@ -1,0 +1,26 @@
+.container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.container:hover {
+    border-color: var(--primary-color);
+}
+
+.container:focus {
+    border-color: var(--primary-color);
+}
+
+.input {
+    flex: 1;
+    font-size: 1rem;
+    padding: 4px;
+    border: 0px;
+    outline: none;
+    background-color: transparent;
+}
+
+.readOnly {
+    color: var(--text-color);
+}

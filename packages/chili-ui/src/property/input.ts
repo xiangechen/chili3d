@@ -12,34 +12,32 @@ import {
     XYZ,
     XYZConverter,
 } from "chili-core";
+import { Label, TextBox, Panel } from "../components";
 
-import { Control } from "../control";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
 
 export class InputProperty extends PropertyBase {
-    readonly valueBox: HTMLInputElement;
-    readonly errorLabel: HTMLSpanElement;
+    readonly valueBox: TextBox;
+    readonly error: Label;
     readonly converter: IConverter | undefined;
 
     constructor(readonly document: IDocument, objects: any[], readonly property: Property) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
-        this.valueBox = Control.textBox(style.box);
-        this.valueBox.value = this.getDefaultValue();
-        if (this.isReadOnly()) {
-            this.valueBox.readOnly = true;
-            this.valueBox.classList.add(style.readonly);
-        }
-        let span = Control.span(property.display, commonStyle.propertyName);
-        span.title = property.display;
-        this.valueBox.addEventListener("keydown", this.handleKeyDown);
-        this.errorLabel = Control.span("error.default", style.error);
-        this.errorLabel.classList.add(style.hidden);
-        let div = Control.div(style.panel);
-        Control.append(div, span, this.valueBox);
-        Control.append(this.dom, div, this.errorLabel);
+        this.valueBox = new TextBox()
+            .addClass(style.box)
+            .setText(this.getDefaultValue())
+            .setReadOnly(this.isReadOnly())
+            .onKeyDown(this.handleKeyDown);
+        let name = new Label()
+            .i18nText(property.display)
+            .addClass(commonStyle.propertyName)
+            .setTitle(property.display);
+        this.error = new Label().i18nText("error.default").addClass(style.error, style.hidden);
+        let panel = new Panel().addClass(style.panel).addItem(name, this.valueBox);
+        this.append(panel, this.error);
     }
 
     private isReadOnly(): boolean {
@@ -92,10 +90,10 @@ export class InputProperty extends PropertyBase {
     private handleKeyDown = (e: KeyboardEvent) => {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
-            let newValue = this.converter.convertBack(this.valueBox.value);
+            let newValue = this.converter.convertBack(this.valueBox.text);
             if (newValue === undefined) {
-                this.errorLabel.textContent = this.converter.error ?? "error";
-                this.errorLabel.classList.remove(style.hidden);
+                this.error.text(this.converter.error ?? "error");
+                this.error.addClass(style.hidden);
                 return;
             }
             Transaction.excute(this.document, "modify property", () => {
@@ -105,7 +103,9 @@ export class InputProperty extends PropertyBase {
                 this.document.viewer.redraw();
             });
         } else {
-            this.errorLabel.classList.add(style.hidden);
+            this.error.addClass(style.hidden);
         }
     };
 }
+
+customElements.define("chili-input-property", InputProperty);

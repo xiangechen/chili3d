@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Ray, XYZ } from "../math";
+import { Quaternion, Ray, Transform, XYZ } from "../math";
 import { Result } from "../base";
 import { ICurve } from "./geometry";
 import { IShapeMesh } from "./shapeMesh";
@@ -35,6 +35,9 @@ export enum SurfaceType {
 export interface IShape {
     get id(): string;
     readonly shapeType: ShapeType;
+    setTranslation(offset: XYZ): void;
+    setScale(scale: XYZ, value: number): void;
+    setRotation(rotation: Quaternion): void;
     mesh(): IShapeMesh;
     toJson(): string;
 }

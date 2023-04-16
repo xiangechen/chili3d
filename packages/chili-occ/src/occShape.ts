@@ -13,9 +13,11 @@ import {
     ISolid,
     IVertex,
     IWire,
+    Quaternion,
     Ray,
     Result,
     ShapeType,
+    Transform,
     XYZ,
 } from "chili-core";
 import {
@@ -36,13 +38,32 @@ import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
-export class OccShapeBase {
+export class OccShapeBase implements IShape {
     readonly id: string;
     readonly shapeType: ShapeType;
 
     constructor(readonly shape: TopoDS_Shape) {
         this.id = Id.new();
         this.shapeType = OccHelps.getShapeType(shape);
+    }
+
+    setTranslation(offset: XYZ): void {
+        const trsf = this.shape.Location_1().Transformation();
+        trsf.SetTranslation_1(OccHelps.toVec(offset));
+        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
+    }
+
+    setRotation(rotation: Quaternion): void {
+        const quaternion = new occ.gp_Quaternion_2(rotation.x, rotation.y, rotation.z, rotation.w);
+        const trsf = this.shape.Location_1().Transformation();
+        trsf.SetRotation_2(quaternion);
+        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
+    }
+
+    setScale(scale: XYZ, value: number): void {
+        const trsf = this.shape.Location_1().Transformation();
+        trsf.SetScale(OccHelps.toPnt(scale), value);
+        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
     }
 
     mesh(): IShapeMesh {

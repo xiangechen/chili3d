@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Control } from "../control";
-import style from "./ribbon.module.css";
+import { Control } from "../components";
+import style from "./ribbonStack.module.css";
 
-export class RibbonStack {
-    readonly dom: HTMLDivElement;
+export class RibbonStack extends Control {
     constructor() {
-        this.dom = Control.div(style.stack);
+        super(style.root);
     }
 }
+
+customElements.define("ribbon-stack", RibbonStack);

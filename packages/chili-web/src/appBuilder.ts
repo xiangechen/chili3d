@@ -2,7 +2,14 @@
 
 import { CommandData, Container, ICommand, IRegister, Logger, Token } from "chili-core";
 
-import { Application, CommandService, EditorService, HotkeyService, IApplicationService } from "chili";
+import {
+    Application,
+    CommandService,
+    EditorService,
+    HotkeyService,
+    IApplicationService,
+    TreeService,
+} from "chili";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -38,7 +45,9 @@ export class AppBuilder {
             Logger.info("initializing UI");
 
             let ui = await import("chili-ui");
-            ui.UI.instance.init(document.getElementById("root")!);
+            // ui.UI.instance.init(document.getElementById("root")!);
+            let layout = new ui.Layout();
+            layout.render();
         });
         return this;
     }
@@ -70,6 +79,11 @@ export class AppBuilder {
     }
 
     private getServices(): IApplicationService[] {
-        return [CommandService.instance, HotkeyService.instance, EditorService.instance];
+        return [
+            CommandService.instance,
+            HotkeyService.instance,
+            EditorService.instance,
+            TreeService.instance,
+        ];
     }
 }

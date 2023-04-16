@@ -31,14 +31,19 @@ export class Box extends RectCommandBase {
 
     private previewBox = (end: XYZ) => {
         let data = this.getRectData(end);
-        return Application.instance.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
-            .value;
+        return Application.instance.shapeFactory.box(
+            data.plane,
+            data.dx,
+            data.dy,
+            this.getHeight(data.plane, end)
+        ).value;
     };
 
     protected create(document: IDocument): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
-        let body = new BoxBody(rect.plane, rect.dx, rect.dy, this.getHeight(rect.plane, this.stepDatas[2].point));
-        return new GeometryModel(`Box ${document.models.count + 1}`, body);
+        let dz = this.getHeight(rect.plane, this.stepDatas[2].point);
+        let body = new BoxBody(document, rect.plane, rect.dx, rect.dy, dz);
+        return GeometryModel.create(document, `Box ${document.nodes.size() + 1}`, body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

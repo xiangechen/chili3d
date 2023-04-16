@@ -78,7 +78,10 @@ export class XY {
     }
 
     isEqualTo(right: XY, tolerance: number = 1e-8) {
-        return MathUtils.almostEqual(this.x, right.x, tolerance) && MathUtils.almostEqual(this.y, right.y, tolerance);
+        return (
+            MathUtils.almostEqual(this.x, right.x, tolerance) &&
+            MathUtils.almostEqual(this.y, right.y, tolerance)
+        );
     }
 
     isParallelTo(right: XY, tolerance: number = 1e-8): boolean | undefined {

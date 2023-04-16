@@ -37,8 +37,8 @@ export class Circle extends CreateCommand {
     create(document: IDocument): GeometryModel {
         let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
         let plane = this.stepDatas[0].view.workplane;
-        let body = new CircleBody(plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
-        return new GeometryModel(`Circle ${document.models.count + 1}`, body);
+        let body = new CircleBody(document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        return GeometryModel.create(document, `Circle ${document.nodes.size() + 1}`, body);
     }
 
     private circlePreview = (point: XYZ) => {

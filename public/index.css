@@ -5,6 +5,8 @@ body {
     overflow: hidden;
     width: 100%;
     height: 100%;
+    font-size: 14px;
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .drawingCursor {
@@ -12,6 +14,15 @@ body {
 }
 
 :root[theme="light"] {
+    --primary-color: #888;
+    --border-color: lightgray;
+    --background-color: #eeeeee;
+    --panel-background-color: #ffffff;
+    --foreground-color: #333;
+    --hover-color: rgba(255, 255, 255, 0.35);
+    --hover-background-color: rgba(25, 25, 25, 0.1);
+    --statusbar-background-color: #dddddd;
+
     --color: #888;
     --border: solid 1px lightgray;
     --titlebarBackground: #dddddd;
@@ -25,8 +36,6 @@ body {
     --viewportBackground: #888;
     --statusbarBackground: #dddddd;
     --panelBackground: #ffffff;
-    --hover: rgba(255, 255, 255, 0.35);
-    --hoverBackground: rgba(25, 25, 25, 0.1);
     --selected: #eeeeee;
 }
 

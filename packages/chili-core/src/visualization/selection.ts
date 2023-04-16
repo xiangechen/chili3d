@@ -2,7 +2,7 @@
 
 import { IPropertyChanged } from "../base";
 import { IShape, ShapeType } from "../geometry";
-import { Model } from "../model";
+import { IModel, INode } from "../model";
 import { IView } from "./view";
 import { IVisualizationShape } from "./visualizationShape";
 
@@ -12,8 +12,8 @@ export interface ISelection extends IPropertyChanged {
     detectedShape(view: IView, x: number, y: number): IShape | undefined;
     detectedShapes(view: IView, x: number, y: number): IShape[];
     detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined;
-    getSelectedModels(): Model[];
-    setSelected(shift: boolean, ...models: Model[]): void;
+    getSelectedNodes(): INode[];
+    setSelected(toggle: boolean, models: INode[]): void;
     clearSelected(): void;
-    unSelected(...models: Model[]): void;
+    unSelected(models: INode[]): void;
 }
