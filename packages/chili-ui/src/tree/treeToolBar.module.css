@@ -6,5 +6,5 @@
 }
 
 .treeToolIcon:hover {
-    background-color: var(--hoverBackground);
+    background-color: var(--hover-background-color);
 }

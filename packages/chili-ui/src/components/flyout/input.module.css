@@ -1,10 +1,11 @@
 .panel {
     font-size: 13px;
-    background-color: var(--panelBackground);
+    background-color: var(--panel-background-color);
     opacity: 0.85;
     display: flex;
     flex-direction: column;
-    margin-top: 4px;
+    border-radius: 4px;
+    margin: 2px 0px;
 }
 
 .error {

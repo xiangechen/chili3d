@@ -6,10 +6,7 @@
 .icon {
     width: 16px;
     height: 16px;
-}
-
-.selected {
-    background-color: var(--selected);
+    padding: 0px;
 }
 
 .parent-visible {

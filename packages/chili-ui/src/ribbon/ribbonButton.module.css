@@ -2,34 +2,37 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-left: 8px;
     padding: 2px;
+    margin: 2px;
+    border-radius: 4px;
 }
 
 .normal:hover {
-    background-color: var(--hoverBackground);
+    background-color: var(--hover-background-color);
 }
 
 .small {
     display: flex;
     flex-direction: row;
-    justify-items: center;
+    justify-items: top;
+    justify-content: space-between;
     padding: 2px;
+    margin: 2px;
 }
 
 .small:hover {
-    background-color: var(--hoverBackground);
+    background-color: var(--hover-background-color);
 }
 
 .buttonText {
-    color: var(--color);
-    font-size: 11px;
+    color: var(--foreground-color);
+    font-size: 12px;
 }
 
 .icon {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 8px;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 4px;
 }
 
 .smallIcon {

@@ -1,45 +1,17 @@
-.titleBarContainer {
+.root {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
     align-items: center;
-    background-color: var(--titlebarBackground);
-    padding: 4px 0px;
 }
 
-.appName,
-.documentName {
+.name {
     font-size: 11px;
     max-width: 320px;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--color);
+    color: var(--titlebar-foreground-color);
 }
 
-.appName::before {
-    content: " | ";
-}
-
-.savedStatus {
-    font-size: 11px;
-}
-
-.i18n {
-    display: flex;
-    position: absolute;
-    margin: 8px;
-    right: 0px;
-    top: 0px;
-}
-
-.i18nIcon {
-    width: 24px;
-    height: 24px;
-}
-
-.i18nSelect {
-    background-color: transparent;
-    border-width: 0px;
-    margin: 0px 4px;
-    font-size: 11px;
+.split {
+    margin: 0px 6px;
 }

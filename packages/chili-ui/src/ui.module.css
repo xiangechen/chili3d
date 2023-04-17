@@ -1,39 +1,36 @@
 .root {
+    position: relative;
     display: flex;
     flex-direction: column;
-    background: var(--background-color);
+    background-color: var(--background-color);
     height: 100%;
     width: 100%;
-}
-
-.tools {
-    display: flex;
-    flex-direction: row;
-    background-color: aqua;
-    flex: 0 0 70px;
 }
 
 .content {
     display: flex;
     flex-direction: row;
+    justify-content: stretch;
     flex: 1 1 auto;
+    margin: 4px;
 }
 
 .statusbar {
-    display: flex;
-    flex-direction: row;
     flex: 0 0 24px;
-    background-color: blueviolet;
 }
 
 .sidebar {
     flex: 0 0 360px;
+    margin: 4px;
+    height: 100%;
 }
 
 .viewport {
-    height: 100%;
-    display: block;
     flex: 1 1 auto;
+    margin: 4px;
+    border-radius: 6px;
+    background: var(--viewport-background-color);
+    box-shadow: 2px 2px 4px rgba(128, 128, 128, 0.1);
 }
 
 @media (max-width: 600px) {

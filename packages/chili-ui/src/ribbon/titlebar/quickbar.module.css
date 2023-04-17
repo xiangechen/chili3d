@@ -7,13 +7,14 @@
 }
 
 .icon {
-    width: 14px;
-    height: 14px;
-    margin-left: 16px;
-    fill: var(--quickbarIcon);
+    width: 12px;
+    height: 12px;
+    margin-left: 8px;
+    fill: var(--titlebar-forground-color);
     overflow: hidden;
 }
 
 .icon:hover {
-    fill: var(--quickbarIconHover);
+    fill: var(--hover-foreground-color);
+    background-color: var(--hover-background-color);
 }

@@ -1,17 +1,17 @@
 .panel {
-    margin: 4px;
+    margin: 2px;
     resize: vertical;
     overflow-y: auto;
-    display: block;
-    height: 240px;
+    padding: 2px;
+    height: 200px;
 }
 
 .selected {
-    background-color: var(--selected);
+    background-color: var(--hover-background-color);
 }
 
 .current {
-    border: var(--border);
+    outline: 2px solid var(--primary-color);
 }
 
 .dragging {

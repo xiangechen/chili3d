@@ -13,10 +13,10 @@
 }
 
 .header {
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 4px;
+    border-radius: 2px;
 }
 
 .header:hover {
-    background-color: var(--hoverBackground);
+    background-color: var(--hover-background-color);
 }

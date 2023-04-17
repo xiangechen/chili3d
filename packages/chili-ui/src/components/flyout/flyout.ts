@@ -10,6 +10,7 @@ import style from "./flyout.module.css";
 export class Flyout extends Control {
     private _tip: Tip | undefined;
     private _input: Input | undefined;
+    private lastFocus: HTMLElement | null = null;
 
     constructor() {
         super(style.root);
@@ -40,6 +41,7 @@ export class Flyout extends Control {
         if (this._input === undefined) {
             this._input = new Input((e) => this.handleInput(e, validCallback, callback));
             this.append(this._input);
+            this.lastFocus = document.activeElement as HTMLElement;
             this._input.focus();
         }
     };
@@ -68,10 +70,7 @@ export class Flyout extends Control {
             this.removeChild(this._input);
             this._input.dispose();
             this._input = undefined;
-
-            console.log("should focus");
-
-            window.focus();
+            this.lastFocus?.focus();
         }
     };
 }

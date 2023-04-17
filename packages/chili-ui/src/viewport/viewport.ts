@@ -5,7 +5,7 @@ import style from "./viewport.module.css";
 
 export class Viewport extends Control {
     constructor() {
-        super(style.viewport);
+        super();
     }
 
     private static _current: Viewport | undefined;

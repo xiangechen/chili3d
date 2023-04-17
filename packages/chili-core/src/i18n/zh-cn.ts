@@ -4,8 +4,10 @@ import { I18n } from "./i18n";
 
 let zh: I18n = {
     name: "名称",
+    "ribbon.tab.file": "文件",
     "ribbon.tab.startup": "开始",
-    "ribbon.group.drawing": "绘制",
+    "ribbon.tab.draw": "绘图",
+    "ribbon.group.draw": "绘制",
     "items.header": "项目",
     "items.tool.newFolder": "文件夹",
     "items.tool.expandAll": "展开所有",

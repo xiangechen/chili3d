@@ -2,6 +2,7 @@
 
 export class Constants {
     static readonly TreeContainerId = "tree-container";
+    static readonly PropertiesContainerId = "properties-container";
     static readonly ModelIdAttribute = "data-model-id";
     static readonly I18nIdAttribute = "i18n";
     static readonly SelectedColor = 0xff0000;

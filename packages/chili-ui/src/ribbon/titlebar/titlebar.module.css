@@ -1,0 +1,29 @@
+.root {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-between;
+    overflow: hidden;
+    background-color: var(--titlebar-background-color);
+    color: var(--titlebar-foreground-color);
+}
+
+.i18n {
+    display: flex;
+    position: absolute;
+    margin: 8px;
+    right: 0px;
+    top: 0px;
+}
+
+.i18nIcon {
+    width: 24px;
+    height: 24px;
+}
+
+.i18nSelect {
+    background-color: transparent;
+    border-width: 0px;
+    margin: 0px 4px;
+    font-size: 11px;
+}

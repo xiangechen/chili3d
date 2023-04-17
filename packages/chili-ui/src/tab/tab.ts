@@ -6,8 +6,8 @@ import { Control, Label, Row, Panel } from "../components";
 import style from "./tab.module.css";
 
 export class Tab extends Control {
-    readonly itemsPanel: HTMLElement;
-    readonly toolsPanel: HTMLElement;
+    readonly itemsPanel: Panel;
+    readonly toolsPanel: Panel;
 
     constructor(name: keyof I18n) {
         super(style.root);
@@ -19,10 +19,12 @@ export class Tab extends Control {
 
     addTools(...items: HTMLElement[]) {
         this.toolsPanel.append(...items);
+        return this;
     }
 
     addItem(...items: HTMLElement[]) {
         this.itemsPanel.append(...items);
+        return this;
     }
 
     clearItems() {

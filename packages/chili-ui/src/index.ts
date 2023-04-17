@@ -7,6 +7,5 @@ export * from "./sidebar";
 export * from "./statusbar";
 export * from "./tab";
 export * from "./tree";
-export * from "./ui/";
 export * from "./viewport";
-export * from "./layout";
+export * from "./ui";

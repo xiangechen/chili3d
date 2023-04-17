@@ -1,17 +1,15 @@
 .header {
-    padding: 6px 16px;
-    font-size: 11px;
-    width: auto;
-    color: var(--color);
+    color: var(--titlebar-forground-color);
+    font-size: 12px;
+    padding: 4px 12px;
 }
 
 .header:hover {
-    background-color: var(--hover);
+    font-weight: bold;
+    background-color: var(--hover-background-color);
 }
 
 .panel {
     display: flex;
     flex-direction: row;
-    min-height: 84px;
-    background-color: var(--ribbonPanelBackground);
 }

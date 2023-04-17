@@ -6,31 +6,41 @@
 .headerPanel {
     display: flex;
     flex-direction: row;
-    background-color: var(--ribbonHeaderBackgound);
+    align-items: top;
     flex: auto;
 }
 
 .contentPanel {
     display: flex;
     flex-direction: row;
-    min-height: 84px;
-    background-color: var(--ribbonPanelBackground);
-    float: auto;
+    background-color: var(--panel-background-color);
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 0px 8px;
+    border-radius: 6px;
 }
 
 .selectedTab {
-    background-color: var(--selected);
+    position: relative;
+}
+
+.selectedTab::after {
+    content: "";
+    position: absolute;
+    bottom: 0px;
+    left: 8px;
+    right: 8px;
+    height: 3px;
+    background-color: var(--primary-color);
 }
 
 .startup {
-    padding: 6px 16px;
-    font-size: 11px;
-    width: auto;
-    color: var(--color);
-    border: 0px;
-    background-color: var(--ribbonHeaderBackgound);
+    padding: 4px 12px;
+    font-size: 12px;
+    margin: 0px 0px 0px 2px;
 }
 
 .startup:hover {
-    background-color: var(--hover);
+    font-weight: bold;
+    color: white;
+    background-color: var(--primary-color);
 }

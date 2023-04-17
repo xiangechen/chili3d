@@ -1,9 +1,10 @@
 .panel {
-    background: var(--statusbarBackground);
-    border-top: var(--border);
+    background: var(--statusbar-background-color);
+    border-top: 1px solid var(--border-color);
 }
 
 .tip {
-    font-size: 14px;
+    font-size: 12px;
     margin: 4px 8px;
+    color: var(--statusbar-foreground-color);
 }

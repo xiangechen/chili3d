@@ -3,20 +3,15 @@
 import { IDocument, GeometryModel, IModel, Property, PubSub, INode } from "chili-core";
 import { Control, Panel, Expander } from "../components";
 
-import { Tab } from "../tab";
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
 import style from "./propertyView.module.css";
 
 export class PropertyView extends Control {
-    private tab: Tab;
-    private panel = new Panel().addClass(style.panel);
-
+    private panel = new Panel(style.panel);
     constructor() {
         super(style.root);
-        this.tab = new Tab("properties.header");
-        this.append(this.tab);
-        this.tab.addItem(this.panel);
+        this.append(this.panel);
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 

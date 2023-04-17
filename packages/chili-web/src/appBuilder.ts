@@ -46,7 +46,7 @@ export class AppBuilder {
 
             let ui = await import("chili-ui");
             // ui.UI.instance.init(document.getElementById("root")!);
-            let layout = new ui.Layout();
+            let layout = new ui.UI();
             layout.render();
         });
         return this;

@@ -4,8 +4,10 @@ import { I18n } from "./i18n";
 
 let en: I18n = {
     name: "Name",
+    "ribbon.tab.file": "File",
     "ribbon.tab.startup": "Startup",
-    "ribbon.group.drawing": "Drawing",
+    "ribbon.tab.draw": "Drawing",
+    "ribbon.group.draw": "Drawing",
     "items.header": "Items",
     "items.tool.newFolder": "New Folder",
     "items.tool.expandAll": "Expand All",

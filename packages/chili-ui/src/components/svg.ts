@@ -15,16 +15,12 @@ export class Svg extends Control {
         this.append(this.svg);
     }
 
-    override addClass(...classes: string[]): this {
-        this.svg.classList.add(...classes);
-        return this;
-    }
-
     private createSVG() {
         const ns = "http://www.w3.org/2000/svg";
         const child = document.createElementNS(ns, "use");
         let svg = document.createElementNS(ns, "svg");
         svg.append(child);
+        svg.classList.add(style.icon);
         return svg;
     }
 

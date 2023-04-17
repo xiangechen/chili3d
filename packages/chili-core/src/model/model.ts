@@ -3,7 +3,7 @@
 import { property } from "../decorators";
 import { IDocument } from "../document";
 import { Quaternion, Transform, XYZ } from "../math";
-import { IModel, IModelGroup, Node } from "./node";
+import { IModel, IModelGroup, INode, Node } from "./node";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
 import { Feature } from "./feature";
@@ -66,7 +66,12 @@ export class GeometryModel extends Model {
     static create(document: IDocument, name: string, body: Entity) {
         let model = new GeometryModel(document, name, body);
         document.nodes.add(model);
-        (document.currentNode ?? document.rootNode).add(model);
+        let node = document.currentNode ?? document.rootNode;
+        if (INode.isCollectionNode(node)) {
+            node.add(model);
+        } else {
+            node.parent?.add(model);
+        }
         return model;
     }
 

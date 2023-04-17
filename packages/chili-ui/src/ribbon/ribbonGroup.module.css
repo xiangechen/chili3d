@@ -1,15 +1,24 @@
 .root {
+    position: relative;
     display: grid;
     grid-template-rows: 1fr auto;
     justify-items: center;
-    border-right: var(--border);
-    margin: 4px;
-    padding-right: 8px;
+}
+
+.root::after {
+    content: "";
+    position: absolute;
+    display: grid;
+    right: 0px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background-color: var(--border-color);
 }
 
 .header {
-    color: var(--color);
-    font-size: 11px;
+    color: var(--foreground-color);
+    font-size: 12px;
 }
 
 .panel {

@@ -14,29 +14,18 @@ body {
 }
 
 :root[theme="light"] {
-    --primary-color: #888;
-    --border-color: lightgray;
+    --primary-color: #0e62d7;
+    --secondary-color: #6a9ee6;
+    --foreground-color: #333;
+    --border-color: #dddddd;
     --background-color: #eeeeee;
     --panel-background-color: #ffffff;
-    --foreground-color: #333;
-    --hover-color: rgba(255, 255, 255, 0.35);
     --hover-background-color: rgba(25, 25, 25, 0.1);
-    --statusbar-background-color: #dddddd;
-
-    --color: #888;
-    --border: solid 1px lightgray;
-    --titlebarBackground: #dddddd;
-    --ribbonHeaderBackgound: #dddddd;
-    --ribbonPanelBackground: #eeeeee;
-    --ribbonGroupBackground: #ffffff;
-    --quickbarIcon: #666;
-    --quickbarIconHover: #444;
-    --contextBackground: #eeeeee;
-    --sidebarBackground: #eeeeee;
-    --viewportBackground: #888;
-    --statusbarBackground: #dddddd;
-    --panelBackground: #ffffff;
-    --selected: #eeeeee;
+    --titlebar-forground-color: #333;
+    --titlebar-background-color: #eeeeee;
+    --statusbar-foreground-color: #333;
+    --statusbar-background-color: #eeeeee;
+    --viewport-background-color: #888;
 }
 
 :root[theme="dark"] {

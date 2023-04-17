@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Logger } from "chili-core";
-import { Control, Panel } from "../components";
+import { Control, Label, Panel } from "../components";
 import { DefaultRibbon } from "../profile/ribbon";
 import { RibbonData } from "./ribbonData";
 import { RibbonTab } from "./ribbonTab";
@@ -14,7 +14,7 @@ export class Ribbon extends Control {
     private readonly _tabs: Array<RibbonTab> = [];
     private readonly _ribbonPanel: Panel;
     private readonly _ribbonHeader: Panel;
-    private readonly startup: Panel = new Panel().addClass(style.startup);
+    private readonly startup: Label = new Label().i18nText("ribbon.tab.file").addClass(style.startup);
     private _selected?: RibbonTab;
 
     constructor() {

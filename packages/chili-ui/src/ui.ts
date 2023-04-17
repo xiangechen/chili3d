@@ -2,13 +2,12 @@ import { PubSub } from "chili-core";
 import { Panel } from "./components";
 import { Ribbon } from "./ribbon";
 import { Sidebar } from "./sidebar";
-
-import style from "./layout.module.css";
 import { Viewport } from "./viewport";
+import { Statusbar } from "./statusbar";
+import style from "./ui.module.css";
 
-export class Layout {
+export class UI {
     readonly root: HTMLElement | null;
-    ribbon: any;
     constructor() {
         this.setTheme("light");
         this.root = this.initRoot();
@@ -40,7 +39,7 @@ export class Layout {
             new Panel()
                 .addClass(style.content)
                 .addItem(new Sidebar().addClass(style.sidebar), Viewport.current.addClass(style.viewport)),
-            new Panel().addClass(style.statusbar)
+            new Statusbar().addClass(style.statusbar)
         );
     }
 

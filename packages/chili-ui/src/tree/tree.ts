@@ -5,20 +5,19 @@ import style from "./tree.module.css";
 import { TreeModel } from "./treeModel";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
+import { Control } from "../components";
 
-export class Tree extends HTMLElement {
+export class Tree extends Control {
     private readonly nodeMap = new WeakMap<INode, TreeItem>();
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
     private dragging: INode[] | undefined;
 
     constructor(readonly document: IDocument) {
-        super();
-        this.classList.add(style.panel);
+        super(style.panel);
         let e = this.createHTMLElement(document.rootNode);
         this.nodeMap.set(document.rootNode, e);
         this.append(e);
-        document.onPropertyChanged(this.handleDocumentPropertyChanged);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
         PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
         PubSub.default.sub("nodeAdded", this.handleNodeAdded);
@@ -48,18 +47,6 @@ export class Tree extends HTMLElement {
                     parent.insertAfter(ele, pre ?? null);
                 }
             }
-        }
-    };
-
-    private handleDocumentPropertyChanged = (
-        document: IDocument,
-        property: keyof IDocument,
-        oldValue: any,
-        newValue: any
-    ) => {
-        if (property === "currentNode") {
-            (this.nodeMap.get(oldValue) as TreeGroup)?.header.classList.remove(style.current);
-            (this.nodeMap.get(newValue) as TreeGroup)?.header.classList.add(style.current);
         }
     };
 
@@ -122,7 +109,7 @@ export class Tree extends HTMLElement {
             this.document.visualization.selection.setSelected(event.ctrlKey, [item]);
         }
 
-        this.lastClicked = item;
+        this.setLastClickItem(item);
     };
 
     private onDragLeave = (event: DragEvent) => {
@@ -136,6 +123,15 @@ export class Tree extends HTMLElement {
         event.preventDefault();
         event.dataTransfer!.dropEffect = "move";
     };
+
+    private setLastClickItem(item: INode) {
+        if (this.lastClicked !== undefined) {
+            this.nodeMap.get(this.lastClicked)?.removeSelectedStyle(style.current);
+        }
+        this.nodeMap.get(item)?.addSelectedStyle(style.current);
+        this.document.currentNode = item;
+        this.lastClicked = item;
+    }
 
     private canDrop(event: DragEvent) {
         let node = this.getTreeItem(event.target as HTMLElement)?.node;

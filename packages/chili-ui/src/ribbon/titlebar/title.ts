@@ -14,11 +14,12 @@ export class Title extends Control {
     private currentDocument: IDocument | undefined;
 
     constructor() {
-        super();
-        this._documentName = new Label().addClass(style.documentName);
-        this._appName = new Label().text(AppName).addClass(style.appName);
-        this._saveState = new Label().text("*").addClass(style.savedStatus);
-        this.append(this._documentName, this._saveState, this._appName);
+        super(style.root);
+        this._documentName = new Label().addClass(style.name);
+        this._appName = new Label().text(AppName).addClass(style.name);
+        this._saveState = new Label().text("*").addClass(style.name);
+        let split = new Label().text(" | ").addClass(style.name, style.split);
+        this.append(this._documentName, this._saveState, split, this._appName);
         this.setSaveStatus(true);
 
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
