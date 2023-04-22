@@ -24,7 +24,7 @@
     height: inherit;
     display: flex;
     flex-direction: column;
-    flex: 0 0 300px;
+    flex: 0 0 360px;
 }
 
 .sidebarItem {

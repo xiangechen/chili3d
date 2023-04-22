@@ -55,11 +55,30 @@ export class Tree extends Control {
             this.nodeMap.get(x)?.removeSelectedStyle(style.selected);
             this.selectedNodes.delete(x);
         });
+        this.setLastClickItem(undefined);
         selected.forEach((model) => {
             this.selectedNodes.add(model);
             this.nodeMap.get(model)?.addSelectedStyle(style.selected);
         });
+        this.scrollToNode(selected);
     };
+
+    private scrollToNode(selected: INode[]) {
+        let node = selected.at(0);
+        if (node !== undefined) {
+            let parent = node.parent;
+            while (parent) {
+                const group = this.nodeMap.get(parent) as TreeGroup;
+                if (group !== undefined) {
+                    if (group.isExpanded === false) {
+                        group.isExpanded = true;
+                    }
+                    parent = parent.parent;
+                }
+            }
+            this.nodeMap.get(node)?.scrollIntoView({ block: "nearest" });
+        }
+    }
 
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
@@ -124,13 +143,15 @@ export class Tree extends Control {
         event.dataTransfer!.dropEffect = "move";
     };
 
-    private setLastClickItem(item: INode) {
+    private setLastClickItem(item: INode | undefined) {
         if (this.lastClicked !== undefined) {
             this.nodeMap.get(this.lastClicked)?.removeSelectedStyle(style.current);
         }
-        this.nodeMap.get(item)?.addSelectedStyle(style.current);
-        this.document.currentNode = item;
         this.lastClicked = item;
+        if (item !== undefined) {
+            this.nodeMap.get(item)?.addSelectedStyle(style.current);
+            this.document.currentNode = item;
+        }
     }
 
     private canDrop(event: DragEvent) {

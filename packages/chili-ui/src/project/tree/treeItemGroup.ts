@@ -20,6 +20,20 @@ export class TreeGroup extends TreeItem {
         super.append(new Column(this.header, this.items));
     }
 
+    get isExpanded(): boolean {
+        return this._isExpanded;
+    }
+
+    set isExpanded(value: boolean) {
+        this._isExpanded = value;
+        this.expanderIcon.setIcon(this.getExpanderIcon());
+        if (this._isExpanded) {
+            this.items.classList.remove(style.hide);
+        } else {
+            this.items.classList.add(style.hide);
+        }
+    }
+
     getSelectedHandler(): HTMLElement {
         return this.header;
     }
@@ -31,13 +45,7 @@ export class TreeGroup extends TreeItem {
 
     private handleExpanderClick = (e: MouseEvent) => {
         e.stopPropagation();
-        this._isExpanded = !this._isExpanded;
-        this.expanderIcon.setIcon(this.getExpanderIcon());
-        if (this._isExpanded) {
-            this.items.classList.remove(style.hide);
-        } else {
-            this.items.classList.add(style.hide);
-        }
+        this.isExpanded = !this._isExpanded;
     };
 
     private getExpanderIcon() {
