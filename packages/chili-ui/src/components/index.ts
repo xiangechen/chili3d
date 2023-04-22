@@ -10,5 +10,6 @@ export * from "./svg";
 export * from "./iconButton";
 export * from "./label";
 export * from "./row";
+export * from "./tab";
 export * from "./textbox";
 export * from "./panel";

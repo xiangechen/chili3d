@@ -1,28 +1,35 @@
-import { PubSub } from "chili-core";
+// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+
+import { Lazy, PubSub } from "chili-core";
 import { Panel } from "./components";
 import { Ribbon } from "./ribbon";
-import { Sidebar } from "./sidebar";
 import { Viewport } from "./viewport";
 import { Statusbar } from "./statusbar";
+import { ProjectView } from "./project";
+import { PropertyView } from "./property";
+
 import style from "./ui.module.css";
 
 export class UI {
-    readonly root: HTMLElement | null;
-    constructor() {
-        this.setTheme("light");
-        this.root = this.initRoot();
+    private static readonly _lazy = new Lazy(() => new UI());
+
+    static get instance() {
+        return this._lazy.value;
     }
 
-    private initRoot() {
-        const root = document.getElementById("root");
-        if (root !== null) {
-            root.focus();
-            root.className = style.root;
-            this.render();
-            root.addEventListener("keydown", this.handleKeyDown);
-            root.addEventListener("keyup", this.handleKeyUp);
-        }
-        return root;
+    private constructor() {}
+
+    init(root: HTMLElement) {
+        this.setTheme("light");
+        this.initRoot(root);
+        this.appendComponents(root);
+    }
+
+    private initRoot(root: HTMLElement) {
+        root.focus();
+        root.className = style.root;
+        root.addEventListener("keydown", this.handleKeyDown);
+        root.addEventListener("keyup", this.handleKeyUp);
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
@@ -33,12 +40,20 @@ export class UI {
         PubSub.default.pub("keyUp", e);
     };
 
-    render() {
-        this.root?.append(
+    private appendComponents(root: HTMLElement) {
+        root.append(
             new Ribbon(),
             new Panel()
                 .addClass(style.content)
-                .addItem(new Sidebar().addClass(style.sidebar), Viewport.current.addClass(style.viewport)),
+                .addItem(
+                    new Panel()
+                        .addClass(style.sidebar)
+                        .addItem(
+                            new ProjectView().addClass(style.sidebarItem),
+                            new PropertyView().addClass(style.sidebarItem)
+                        ),
+                    Viewport.current.addClass(style.viewport)
+                ),
             new Statusbar().addClass(style.statusbar)
         );
     }

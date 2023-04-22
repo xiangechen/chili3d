@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, Lazy, Logger, PubSub } from "chili-core";
-import { Application } from "../application";
-import { IApplicationService } from "./applicationService";
+import { Application, Commands, Lazy, Logger, PubSub, IService } from "chili-core";
 
 export interface Keys {
     key: string;
@@ -21,7 +19,7 @@ const DefaultKeyMap: HotkeyMap = {
     "ctrl+y": "Redo",
 };
 
-export class HotkeyService implements IApplicationService {
+export class HotkeyService implements IService {
     private static readonly _lazy = new Lazy(() => new HotkeyService());
 
     static get instance() {

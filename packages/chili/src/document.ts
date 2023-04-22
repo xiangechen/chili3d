@@ -14,7 +14,7 @@ import {
     NodeLinkedList,
 } from "chili-core";
 import { IVisualizationFactory } from "chili-vis";
-import { Application } from "./application";
+import { Application } from "chili-core/src/application";
 
 import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";

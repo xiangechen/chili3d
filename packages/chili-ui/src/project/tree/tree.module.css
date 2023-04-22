@@ -1,0 +1,16 @@
+.panel {
+    margin: 4px;
+}
+
+.selected {
+    background-color: var(--hover-background-color);
+}
+
+.current {
+    outline: 2px solid var(--primary-color);
+}
+
+.dragging {
+    opacity: 0.56;
+    pointer-events: none;
+}

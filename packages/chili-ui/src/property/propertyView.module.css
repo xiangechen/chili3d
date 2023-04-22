@@ -1,13 +1,24 @@
 .root {
     display: flex;
-    overflow-y: auto;
-    height: 100%;
+    flex-direction: column;
+}
+
+.header {
+    margin: 2px 12px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    flex: 0;
 }
 
 .panel {
-    flex: 0 1 600px;
-    margin: 8px;
-    width: 100%;
+    flex: 1;
+    margin: 0px 6px;
+    padding: 10px;
+    overflow-y: scroll;
+    border-radius: 6px;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    background-color: var(--panel-background-color);
 }
 
 .expander {

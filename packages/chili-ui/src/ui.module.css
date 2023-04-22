@@ -12,28 +12,33 @@
     flex-direction: row;
     justify-content: stretch;
     flex: 1 1 auto;
-    margin: 4px;
 }
 
 .statusbar {
     flex: 0 0 24px;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar {
-    flex: 0 0 360px;
-    margin: 4px;
-    height: 100%;
+    height: inherit;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 300px;
+}
+
+.sidebarItem {
+    height: 0;
+    margin-top: 10px;
+    flex: 1;
 }
 
 .viewport {
     flex: 1 1 auto;
-    margin: 4px;
-    border-radius: 6px;
     background: var(--viewport-background-color);
-    box-shadow: 2px 2px 4px rgba(128, 128, 128, 0.1);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 680px) {
     .content {
         flex-direction: column-reverse;
     }

@@ -1,0 +1,14 @@
+.name {
+    flex: 1;
+    font-size: 12px;
+}
+
+.icon {
+    width: 16px;
+    height: 16px;
+    padding: 0px;
+}
+
+.parent-visible {
+    opacity: 0.56;
+}

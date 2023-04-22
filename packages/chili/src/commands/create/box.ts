@@ -2,7 +2,7 @@
 
 import { command, Container, IDocument, GeometryModel, Plane, Token, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { Application } from "../../application";
+import { Application } from "chili-core/src/application";
 
 import { BoxBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";

@@ -14,9 +14,7 @@
     display: flex;
     flex-direction: row;
     background-color: var(--panel-background-color);
-    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-    margin: 0px 8px;
-    border-radius: 6px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .selectedTab {
@@ -36,7 +34,6 @@
 .startup {
     padding: 4px 12px;
     font-size: 12px;
-    margin: 0px 0px 0px 2px;
 }
 
 .startup:hover {

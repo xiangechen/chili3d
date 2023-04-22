@@ -1,0 +1,16 @@
+.panel {
+    display: flex;
+    flex-direction: row;
+    flex: 0;
+}
+
+.svg {
+    width: 16px;
+    height: 16px;
+    margin-left: 12px;
+    padding: 6px;
+}
+
+.svg:hover {
+    background-color: var(--hover-background-color);
+}

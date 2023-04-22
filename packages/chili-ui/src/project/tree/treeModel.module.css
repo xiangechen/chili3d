@@ -1,0 +1,11 @@
+.panel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-radius: 2px;
+    padding: 4px;
+}
+
+.panel:hover {
+    background-color: var(--hover-background-color);
+}

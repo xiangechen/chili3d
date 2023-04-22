@@ -1,0 +1,31 @@
+.root {
+    display: flex;
+    flex-direction: column;
+}
+
+.headerPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: end;
+    flex: 0;
+    margin: 0px 12px;
+}
+
+.itemsPanel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    overflow-y: auto;
+    margin: 0px 6px;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 6px;
+    background-color: var(--panel-background-color);
+}
+
+.header {
+    font-size: 1.15rem;
+    font-weight: bolder;
+    flex: 1;
+    margin: 2px 6px;
+}

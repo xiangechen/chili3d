@@ -1,15 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, Container, ICommand, IRegister, Logger, Token } from "chili-core";
-
 import {
     Application,
-    CommandService,
-    EditorService,
-    HotkeyService,
-    IApplicationService,
-    TreeService,
-} from "chili";
+    CommandData,
+    Container,
+    ICommand,
+    IRegister,
+    IService,
+    Logger,
+    Token,
+} from "chili-core";
+
+import { CommandService, EditorService, HotkeyService } from "chili";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -45,9 +47,11 @@ export class AppBuilder {
             Logger.info("initializing UI");
 
             let ui = await import("chili-ui");
-            // ui.UI.instance.init(document.getElementById("root")!);
-            let layout = new ui.UI();
-            layout.render();
+            const root = document.getElementById("root");
+            if (root === null) {
+                throw new Error("root element not found");
+            }
+            ui.UI.instance.init(root);
         });
         return this;
     }
@@ -78,12 +82,7 @@ export class AppBuilder {
         Logger.info("Application build completed");
     }
 
-    private getServices(): IApplicationService[] {
-        return [
-            CommandService.instance,
-            HotkeyService.instance,
-            EditorService.instance,
-            TreeService.instance,
-        ];
+    private getServices(): IService[] {
+        return [CommandService.instance, HotkeyService.instance, EditorService.instance];
     }
 }

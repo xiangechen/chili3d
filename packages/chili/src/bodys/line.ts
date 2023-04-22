@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Entity, I18n, IDocument, IShape, property, Result, XYZ } from "chili-core";
-import { Application } from "../application";
+import { Application } from "chili-core/src/application";
 
 export class LineBody extends Entity {
     private _start: XYZ;

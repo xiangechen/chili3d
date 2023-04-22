@@ -1,0 +1,48 @@
+.root {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.headerText {
+    flex: 0 1 auto;
+    background: var(--panel-background-color);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    line-height: 32px;
+    font-size: 1rem;
+    padding: 0 12px;
+    text-align: center;
+    vertical-align: center;
+}
+
+.headerText::after {
+    content: "";
+    width: 16px;
+    height: 8px;
+    position: absolute;
+    bottom: 0px;
+    right: -16px;
+    background: transparent;
+    border-bottom-left-radius: 8px;
+    box-shadow: -8px 0 0 0 var(--panel-background-color);
+}
+
+.headerTools {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    flex: 1 0 auto;
+}
+
+.itemsContainer {
+    overflow: hidden;
+    background: var(--panel-background-color);
+    border-radius: 0 8px 8px 8px;
+    min-height: 60px;
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    overflow-y: auto;
+}

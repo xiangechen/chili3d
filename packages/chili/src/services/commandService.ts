@@ -1,11 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, ICommand, Lazy, Logger, PubSub, Token } from "chili-core";
+import { Commands, ICommand, Lazy, Logger, PubSub, Token, IService, Application } from "chili-core";
 
-import { Application } from "../application";
-import { IApplicationService } from "./applicationService";
-
-export class CommandService implements IApplicationService {
+export class CommandService implements IService {
     private static readonly _lazy = new Lazy(() => new CommandService());
 
     static get instance() {

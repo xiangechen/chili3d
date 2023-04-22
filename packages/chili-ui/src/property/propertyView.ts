@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, GeometryModel, IModel, Property, PubSub, INode } from "chili-core";
-import { Control, Panel, Expander } from "../components";
+import { Control, Panel, Expander, Label } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
@@ -11,7 +11,7 @@ export class PropertyView extends Control {
     private panel = new Panel(style.panel);
     constructor() {
         super(style.root);
-        this.append(this.panel);
+        this.append(new Label().i18nText("properties.header").addClass(style.header), this.panel);
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 

@@ -2,11 +2,11 @@
 
 export class Lazy<T> {
     private _value?: T;
-    constructor(private readonly executor: () => T) {}
+    constructor(private readonly factory: () => T) {}
 
     get value(): T {
         if (this._value === undefined) {
-            this._value = this.executor();
+            this._value = this.factory();
         }
         return this._value;
     }
