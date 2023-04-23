@@ -30,7 +30,7 @@ export class Ribbon extends Control {
     selectTab(tab: RibbonTab) {
         if (this._selected !== undefined && this._selected !== tab) {
             this._selected.header.removeClass(style.selectedTab);
-            this.clearChildren(this._ribbonPanel);
+            this._ribbonPanel.clearChildren();
         }
 
         this._selected = tab;

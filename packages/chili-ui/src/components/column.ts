@@ -8,6 +8,11 @@ export class Column extends Control {
         super(style.column);
         this.append(...children);
     }
+
+    addItems(...children: Node[]) {
+        this.append(...children);
+        return this;
+    }
 }
 
 customElements.define("chili-column", Column);

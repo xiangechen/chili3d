@@ -42,8 +42,8 @@ export class Expander extends Control {
         return this;
     }
 
-    clearItems() {
-        this.clearChildren(this.contenxtPanel);
+    override clearChildren() {
+        this.contenxtPanel.clearChildren();
     }
 
     private getExpanderIcon() {

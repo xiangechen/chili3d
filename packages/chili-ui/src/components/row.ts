@@ -8,6 +8,11 @@ export class Row extends Control {
         super(style.row);
         this.append(...children);
     }
+
+    addItems(...children: Node[]) {
+        this.append(...children);
+        return this;
+    }
 }
 
 customElements.define("chili-row", Row);

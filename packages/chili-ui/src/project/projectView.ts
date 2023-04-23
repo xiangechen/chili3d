@@ -16,9 +16,9 @@ export class ProjectView extends Control {
         super(style.root);
         this.panel = new Panel().addClass(style.itemsPanel);
         this.append(
-            new Row(new Label().addClass(style.header).i18nText("items.header"), new ToolBar()).addClass(
-                style.headerPanel
-            ),
+            new Row()
+                .addClass(style.headerPanel)
+                .addItems(new Label().addClass(style.header).i18nText("items.header"), new ToolBar()),
             this.panel
         );
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);

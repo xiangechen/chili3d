@@ -35,7 +35,6 @@
 
 .viewport {
     flex: 1 1 auto;
-    background: var(--viewport-background-color);
 }
 
 @media (max-width: 680px) {

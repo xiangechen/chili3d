@@ -82,9 +82,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
 
     private translate(dvx: number, dvy: number) {
         let vx = new Vector3().setFromMatrixColumn(this.camera.matrix, 0).multiplyScalar(dvx);
-
         let vy = new Vector3().setFromMatrixColumn(this.camera.matrix, 1).multiplyScalar(dvy);
-
         let vector = new Vector3().add(vx).add(vy);
         this._target.add(vector);
         this.camera.position.add(vector);

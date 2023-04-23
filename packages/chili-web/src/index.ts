@@ -3,7 +3,7 @@
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
 import { Document } from "chili";
-import { Plane } from "chili-core";
+import { Application, Plane } from "chili-core";
 import { Viewport } from "chili-ui";
 import { AppBuilder } from "./appBuilder";
 
@@ -14,6 +14,7 @@ let builder = new AppBuilder()
     .useUI();
 await builder.build();
 
-let doc = Document.create("test");
-let view = doc.visualization.viewFactory.create("view", Plane.XY, Viewport.current);
-view.redraw();
+let doc = new Document("test");
+Application.instance.activeDocument = doc;
+// let view = doc.visualization.viewFactory.create("view", Plane.XY, Viewport.current);
+// view.redraw();

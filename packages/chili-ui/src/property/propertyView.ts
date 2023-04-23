@@ -16,7 +16,7 @@ export class PropertyView extends Control {
     }
 
     private selectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
-        this.clearChildren(this.panel);
+        this.panel.clearChildren();
         if (selected.length === 0) return;
         this.addDefault(document, selected);
         this.addTransform(document, selected);

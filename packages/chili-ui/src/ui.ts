@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Lazy, PubSub } from "chili-core";
+import { IDocument, Lazy, PubSub } from "chili-core";
 import { Panel } from "./components";
 import { Ribbon } from "./ribbon";
 import { Viewport } from "./viewport";
@@ -52,7 +52,7 @@ export class UI {
                             new ProjectView().addClass(style.sidebarItem),
                             new PropertyView().addClass(style.sidebarItem)
                         ),
-                    Viewport.current.addClass(style.viewport)
+                    new Viewport().addClass(style.viewport)
                 ),
             new Statusbar().addClass(style.statusbar)
         );

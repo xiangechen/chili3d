@@ -27,8 +27,8 @@ export class Tab extends Control {
         return this;
     }
 
-    clearItems() {
-        this.clearChildren(this.itemsPanel);
+    override clearChildren() {
+        this.itemsPanel.clearChildren();
     }
 }
 

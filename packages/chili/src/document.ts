@@ -30,23 +30,17 @@ export class Document extends Observable implements IDocument {
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
 
-    private constructor(name: string, factory: IVisualizationFactory, readonly id: string = Id.new()) {
+    constructor(name: string, readonly id: string = Id.new()) {
         super();
         this._name = name;
         this.nodes = new NodeCollection(this);
         this.history = new History();
         this.viewer = new Viewer(this);
         this.rootNode = new NodeLinkedList(this, name);
-        this.visualization = factory.create(this);
+        this.visualization = Application.instance.visualizationFactory.create(this);
 
+        Document.cacheDocument(this);
         PubSub.default.sub("redraw", () => this.viewer.redraw());
-    }
-
-    static create(name: string) {
-        let doc = new Document(name, Application.instance.visualizationFactory);
-        this.cacheDocument(doc);
-        Application.instance.activeDocument = doc;
-        return doc;
     }
 
     static get(id: string): IDocument | undefined {

@@ -60,9 +60,9 @@ export abstract class Control extends HTMLElement implements IDisposable {
         return this;
     }
 
-    clearChildren(e: HTMLElement) {
-        while (e.lastElementChild) {
-            e.removeChild(e.lastElementChild!);
+    clearChildren() {
+        while (this.lastElementChild) {
+            this.removeChild(this.lastElementChild!);
         }
     }
 
