@@ -4,7 +4,7 @@
 }
 
 .header {
-    margin: 2px 12px;
+    margin: 2px 18px;
     font-size: 1.15rem;
     font-weight: bold;
     flex: 0;
@@ -12,10 +12,8 @@
 
 .panel {
     flex: 1;
-    margin: 0px 6px;
     padding: 10px;
-    overflow-y: scroll;
-    border-radius: 6px;
+    overflow-y: auto;
     border-top: 2px solid transparent;
     border-bottom: 2px solid transparent;
     background-color: var(--panel-background-color);

@@ -16,10 +16,8 @@
     flex: 1;
     flex-direction: column;
     overflow-y: auto;
-    margin: 0px 6px;
     border-top: 2px solid transparent;
     border-bottom: 2px solid transparent;
-    border-radius: 6px;
     background-color: var(--panel-background-color);
 }
 
