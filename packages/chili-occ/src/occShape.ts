@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    CurveType,
     ICompound,
     ICompoundSolid,
     ICurve,
@@ -13,6 +14,7 @@ import {
     ISolid,
     IVertex,
     IWire,
+    Logger,
     Quaternion,
     Ray,
     Result,
@@ -23,6 +25,7 @@ import {
 import {
     Geom_Circle,
     Geom_Line,
+    TopAbs_ShapeEnum,
     TopoDS_Compound,
     TopoDS_CompSolid,
     TopoDS_Edge,
@@ -38,7 +41,7 @@ import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
-export class OccShapeBase implements IShape {
+export class OccShape implements IShape {
     readonly id: string;
     readonly shapeType: ShapeType;
 
@@ -73,15 +76,29 @@ export class OccShapeBase implements IShape {
     toJson(): string {
         throw new Error("没有实现 toJson");
     }
-}
 
-export class OccShape extends OccShapeBase implements IShape {
-    constructor(shape: TopoDS_Shape) {
-        super(shape);
+    findSubShapes(shapeType: ShapeType): IShape[] {
+        let result = new Array<IShape>();
+        let ex = new occ.TopExp_Explorer_2(
+            this.shape,
+            OccHelps.getShapeEnum(shapeType),
+            occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum
+        );
+        while (ex.More()) {
+            let topShape = ex.Current();
+            if (!topShape.IsEqual(this.shape)) result.push(OccHelps.getShape(topShape));
+            ex.Next();
+        }
+        return result;
+    }
+
+    isEqual(other: IShape): boolean {
+        if (other instanceof OccShape) return this.shape.IsEqual(other.shape);
+        return false;
     }
 }
 
-export class OccVertex extends OccShapeBase implements IVertex {
+export class OccVertex extends OccShape implements IVertex {
     constructor(shape: TopoDS_Vertex) {
         super(shape);
     }
@@ -92,7 +109,7 @@ export class OccVertex extends OccShapeBase implements IVertex {
     }
 }
 
-export class OccEdge extends OccShapeBase implements IEdge {
+export class OccEdge extends OccShape implements IEdge {
     constructor(shape: TopoDS_Edge) {
         super(shape);
     }
@@ -104,17 +121,18 @@ export class OccEdge extends OccShapeBase implements IEdge {
     }
 
     intersect(other: IEdge | Ray): XYZ[] {
-        if (other instanceof OccEdge) {
-            return this.intersectToEdge(other.shape);
-        } else {
-            let ray = other as Ray;
-            let start = OccHelps.toPnt(ray.location);
-            let end = OccHelps.toPnt(ray.location.add(ray.direction.multiply(1e22)));
+        if (other instanceof Ray) {
+            let start = OccHelps.toPnt(other.location);
+            let end = OccHelps.toPnt(other.location.add(other.direction.multiply(1e22)));
             let shape = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
-            if (shape.IsDone()) {
-                return this.intersectToEdge(shape.Edge());
+            return this.intersectToEdge(shape.Edge());
+        } else {
+            if (other instanceof OccEdge) {
+                return this.intersectToEdge(other.shape);
+            } else {
+                console.warn("不支持的类型");
+                return [];
             }
-            return [];
         }
     }
 
@@ -141,20 +159,28 @@ export class OccEdge extends OccShapeBase implements IEdge {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
         let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
-        let isType = (type: string) => curve.get().IsInstance_2(type);
-        if (isType("Geom_Line")) {
+        let curveType = OccHelps.getCurveType(curve);
+        if (curveType === CurveType.Line) {
             return Result.ok(new OccLine(curve.get() as Geom_Line, s.current, e.current));
-        } else if (isType("Geom_Circle")) {
+        } else if (curveType === CurveType.Circle) {
             return Result.ok(new OccCircle(curve.get() as Geom_Circle, s.current, e.current));
+        } else {
+            Logger.warn("Unsupported curve type");
+            return Result.ok(new OccCurve(curve.get(), s.current, e.current));
         }
-
-        return Result.error("Unsupported curve type");
     }
 }
 
-export class OccWire extends OccShapeBase implements IWire {
+export class OccWire extends OccShape implements IWire {
+    private readonly _edges: IEdge[] = [];
+
     constructor(shape: TopoDS_Wire) {
         super(shape);
+        this._edges.push(...(this.findSubShapes(ShapeType.Edge) as IEdge[]));
+    }
+
+    get edges(): readonly IEdge[] {
+        return [...this._edges];
     }
 
     toFace(): Result<IFace> {
@@ -166,32 +192,67 @@ export class OccWire extends OccShapeBase implements IWire {
     }
 }
 
-export class OccFace extends OccShapeBase implements IFace {
+export class OccFace extends OccShape implements IFace {
+    private readonly _wires: IWire[] = [];
+
     constructor(shape: TopoDS_Face) {
         super(shape);
+        this._wires.push(...(this.findSubShapes(ShapeType.Wire) as IWire[]));
+    }
+
+    get wires(): readonly IWire[] {
+        return [...this._wires];
     }
 }
 
-export class OccShell extends OccShapeBase implements IShell {
+export class OccShell extends OccShape implements IShell {
+    private readonly _faces: IFace[] = [];
+
     constructor(shape: TopoDS_Shell) {
         super(shape);
+        this._faces.push(...(this.findSubShapes(ShapeType.Face) as IFace[]));
+    }
+
+    get faces(): readonly IFace[] {
+        return [...this._faces];
     }
 }
 
-export class OccSolid extends OccShapeBase implements ISolid {
+export class OccSolid extends OccShape implements ISolid {
+    private readonly _shells: IShell[] = [];
+
     constructor(shape: TopoDS_Solid) {
         super(shape);
+        this._shells.push(...(this.findSubShapes(ShapeType.Shell) as IShell[]));
+    }
+
+    get shells(): readonly IShell[] {
+        return [...this._shells];
     }
 }
 
-export class OccCompound extends OccShapeBase implements ICompound {
+export class OccCompound extends OccShape implements ICompound {
+    private readonly _shapes: IShape[] = [];
+
     constructor(shape: TopoDS_Compound) {
         super(shape);
+        this._shapes.push(...(this.findSubShapes(ShapeType.Shape) as IShape[]));
+    }
+
+    get shapes(): readonly IShape[] {
+        return [...this._shapes];
     }
 }
 
-export class OccCompoundSolid extends OccShapeBase implements ICompoundSolid {
+export class OccCompoundSolid extends OccShape implements ICompoundSolid {
+    private readonly _solids: ISolid[] = [];
+
     constructor(shape: TopoDS_CompSolid) {
         super(shape);
+        this._solids.push(...(this.findSubShapes(ShapeType.Solid) as ISolid[]));
+    }
+
+    get solids(): readonly ISolid[] {
+        return [...this._solids];
     }
 }

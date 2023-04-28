@@ -3,12 +3,17 @@
 import { CurveType, IShape, Plane, ShapeType, XYZ } from "chili-core";
 import {
     BRepAdaptor_Curve,
+    Geom_Curve,
+    GeomAbs_CurveType,
+    GeomAdaptor_Curve,
     gp_Ax2,
     gp_Ax3,
     gp_Dir,
     gp_Pln,
     gp_Pnt,
     gp_Vec,
+    Handle_Geom_Curve,
+    TopAbs_ShapeEnum,
     TopoDS_Shape,
 } from "opencascade.js";
 
@@ -61,8 +66,12 @@ export class OccHelps {
         return new occ.gp_Pln_2(OccHelps.toAx3(plane));
     }
 
-    static getCurveType(adaptorCurve: BRepAdaptor_Curve): CurveType {
-        switch (adaptorCurve.GetType()) {
+    static getCurveType(curve: BRepAdaptor_Curve | Handle_Geom_Curve): CurveType {
+        let type =
+            curve instanceof occ.BRepAdaptor_Curve
+                ? curve.GetType()
+                : new occ.GeomAdaptor_Curve_2(curve).GetType();
+        switch (type) {
             case occ.GeomAbs_CurveType.GeomAbs_Line:
                 return CurveType.Line;
             case occ.GeomAbs_CurveType.GeomAbs_Circle:
@@ -104,6 +113,29 @@ export class OccHelps {
                 return ShapeType.Vertex;
             default:
                 return ShapeType.Shape;
+        }
+    }
+
+    static getShapeEnum(shapeType: ShapeType): TopAbs_ShapeEnum {
+        switch (shapeType) {
+            case ShapeType.Compound:
+                return occ.TopAbs_ShapeEnum.TopAbs_COMPOUND as TopAbs_ShapeEnum;
+            case ShapeType.CompoundSolid:
+                return occ.TopAbs_ShapeEnum.TopAbs_COMPSOLID as TopAbs_ShapeEnum;
+            case ShapeType.Solid:
+                return occ.TopAbs_ShapeEnum.TopAbs_SOLID as TopAbs_ShapeEnum;
+            case ShapeType.Shell:
+                return occ.TopAbs_ShapeEnum.TopAbs_SHELL as TopAbs_ShapeEnum;
+            case ShapeType.Face:
+                return occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum;
+            case ShapeType.Wire:
+                return occ.TopAbs_ShapeEnum.TopAbs_WIRE as TopAbs_ShapeEnum;
+            case ShapeType.Edge:
+                return occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum;
+            case ShapeType.Vertex:
+                return occ.TopAbs_ShapeEnum.TopAbs_VERTEX as TopAbs_ShapeEnum;
+            default:
+                return occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum;
         }
     }
 

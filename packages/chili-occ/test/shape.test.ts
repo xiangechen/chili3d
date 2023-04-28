@@ -46,6 +46,16 @@ describe("shape test", () => {
         let ray = new Ray(XYZ.unitZ.reverse(), XYZ.unitX.add(XYZ.unitZ));
         expect(edge1.intersect(ray)[0].isEqualTo(XYZ.unitX)).toBeTruthy();
     });
+
+    test("test findSubShape", () => {
+        let start = new occ.gp_Pnt_3(-10, 0, 0);
+        let end = new occ.gp_Pnt_3(10, 0, 0);
+        let make = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
+        let edge = new OccEdge(make.Edge());
+        expect(edge.findSubShapes(ShapeType.Edge).length).toBe(0);
+        expect(edge.findSubShapes(ShapeType.Vertex).length).toBe(2);
+        expect(edge.findSubShapes(ShapeType.Shape).length).toBe(0);
+    });
 });
 
 describe("geometry test", () => {

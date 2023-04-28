@@ -40,6 +40,7 @@ export interface IShape {
     setRotation(rotation: Quaternion): void;
     mesh(): IShapeMesh;
     toJson(): string;
+    isEqual(other: IShape): boolean;
 }
 
 export interface IVertex extends IShape {
@@ -53,15 +54,26 @@ export interface IEdge extends IShape {
 }
 
 export interface IWire extends IShape {
+    readonly edges: ReadonlyArray<IEdge>;
     toFace(): Result<IFace>;
 }
 
-export interface IFace extends IShape {}
+export interface IFace extends IShape {
+    readonly wires: ReadonlyArray<IWire>;
+}
 
-export interface IShell extends IShape {}
+export interface IShell extends IShape {
+    readonly faces: ReadonlyArray<IFace>;
+}
 
-export interface ISolid extends IShape {}
+export interface ISolid extends IShape {
+    readonly shells: ReadonlyArray<IShell>;
+}
 
-export interface ICompound extends IShape {}
+export interface ICompound extends IShape {
+    readonly shapes: ReadonlyArray<IShape>;
+}
 
-export interface ICompoundSolid extends IShape {}
+export interface ICompoundSolid extends IShape {
+    readonly solids: ReadonlyArray<ISolid>;
+}

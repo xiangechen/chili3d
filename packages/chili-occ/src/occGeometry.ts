@@ -15,11 +15,14 @@ import {
 
 import { OccHelps } from "./occHelps";
 
-export abstract class OccCurve implements ICurve, IDisposable {
+export class OccCurve implements ICurve, IDisposable {
     readonly curve: Geom_TrimmedCurve;
+    readonly curveType: CurveType;
 
-    constructor(readonly curveType: CurveType, curve: Geom_Curve, start: number, end: number) {
-        this.curve = new occ.Geom_TrimmedCurve(new occ.Handle_Geom_Curve_2(curve), start, end, true, true);
+    constructor(curve: Geom_Curve, start: number, end: number) {
+        let curveHandle = new occ.Handle_Geom_Curve_2(curve);
+        this.curveType = OccHelps.getCurveType(curveHandle);
+        this.curve = new occ.Geom_TrimmedCurve(curveHandle, start, end, true, true);
     }
 
     point(parameter: number): XYZ {
@@ -61,7 +64,7 @@ export abstract class OccCurve implements ICurve, IDisposable {
 
 export class OccLine extends OccCurve implements ILine {
     constructor(private line: Geom_Line, start: number, end: number) {
-        super(CurveType.Line, line, start, end);
+        super(line, start, end);
     }
 
     get start(): XYZ {
@@ -95,7 +98,7 @@ export class OccLine extends OccCurve implements ILine {
 
 export class OccCircle extends OccCurve implements ICircle {
     constructor(private circle: Geom_Circle, start: number, end: number) {
-        super(CurveType.Circle, circle, start, end);
+        super(circle, start, end);
     }
 
     get center(): XYZ {
