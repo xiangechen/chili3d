@@ -8,6 +8,7 @@ import {
     LineType,
     MathUtils,
     ObjectSnapType,
+    Precision,
     Ray,
     ShapeType,
     XY,
@@ -158,7 +159,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         let vector = new XY(x - start.x, y - start.y);
         if (vector.isEqualTo(XY.zero)) return 0;
         let end = view.worldToScreen(axis.location.add(axis.direction.multiply(100000)));
-        if (start.distanceTo(end) < MathUtils.Resolution) return vector.length();
+        if (start.distanceTo(end) < Precision.Resolution) return vector.length();
         let dir = end.sub(start).normalize()!;
         let dot = vector.dot(dir);
         return Math.sqrt(vector.lengthSq() - dot * dot);

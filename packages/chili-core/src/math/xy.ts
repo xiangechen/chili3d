@@ -1,5 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Precision } from "../base";
 import { MathUtils } from "./mathUtils";
 
 export class XY {
@@ -18,7 +19,7 @@ export class XY {
     }
 
     divided(scalar: number): XY | undefined {
-        if (Math.abs(scalar) < MathUtils.Resolution) {
+        if (Math.abs(scalar) < Precision.Resolution) {
             return undefined;
         }
         return new XY(this.x / scalar, this.y / scalar);
@@ -42,7 +43,7 @@ export class XY {
 
     normalize(): XY | undefined {
         let d = this.length();
-        if (d < MathUtils.Resolution) {
+        if (d < Precision.Resolution) {
             return undefined;
         }
         return new XY(this.x / d, this.y / d);

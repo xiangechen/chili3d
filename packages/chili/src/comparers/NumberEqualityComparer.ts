@@ -3,7 +3,7 @@
 import { IEqualityComparer, Precision } from "chili-core";
 
 export class NumberEqualityComparer implements IEqualityComparer<number> {
-    constructor(readonly tolerance: number = Precision.confusion) {}
+    constructor(readonly tolerance: number = Precision.Confusion) {}
 
     equals(left: number, right: number): boolean {
         return Math.abs(left - right) < this.tolerance;

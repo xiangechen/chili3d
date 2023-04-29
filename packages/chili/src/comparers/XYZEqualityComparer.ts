@@ -3,7 +3,7 @@
 import { IEqualityComparer, Precision, XYZ } from "chili-core";
 
 export class XYZEqualityComparer implements IEqualityComparer<XYZ> {
-    constructor(readonly tolerance: number = Precision.confusion) {}
+    constructor(readonly tolerance: number = Precision.Confusion) {}
 
     equals(left: XYZ, right: XYZ): boolean {
         return left.isEqualTo(right, this.tolerance);

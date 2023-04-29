@@ -1,3 +1,4 @@
 export class Precision {
-    static readonly confusion = 0.0000001;
+    static readonly Confusion = 1e-7;
+    static readonly Resolution = 1e-7;
 }

@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export class MathUtils {
-    static readonly Resolution = 1e-8;
+import { Precision } from "../base";
 
+export class MathUtils {
     static anyEqualZero(...numbers: number[]) {
-        return numbers.some((x) => Math.abs(x) < this.Resolution);
+        return numbers.some((x) => Math.abs(x) < Precision.Resolution);
     }
 
     static allEqualZero(...numbers: number[]) {
-        return !numbers.some((x) => Math.abs(x) > this.Resolution);
+        return !numbers.some((x) => Math.abs(x) > Precision.Resolution);
     }
 
     static almostEqual(left: number, right: number, tolerance: number = 1e-8) {
