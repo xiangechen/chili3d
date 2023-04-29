@@ -38,7 +38,7 @@ export class Label extends Control {
         property: keyof T,
         converter?: IConverter
     ): string | null {
-        return converter?.convert(source[property]) ?? String(source[property]);
+        return converter?.convert(source[property]).value ?? String(source[property]);
     }
 }
 

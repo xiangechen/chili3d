@@ -1,18 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ConverterBase } from "./converter";
+import { Result } from "../base";
+import { IConverter } from "./converter";
 
-export class NumberConverter extends ConverterBase<number> {
-    convert(value: number): string | undefined {
-        if (Number.isNaN(value)) return undefined;
-        return String(value);
+export class NumberConverter implements IConverter<number> {
+    convert(value: number): Result<string> {
+        if (Number.isNaN(value)) return Result.error("Number is NaN");
+        return Result.ok(String(value));
     }
-    convertBack(value: string): number | undefined {
+
+    convertBack(value: string): Result<number> {
         let n = Number(value);
         if (Number.isNaN(n)) {
-            this._error = `${value} can not convert to number`;
-            return undefined;
+            return Result.error(`${value} can not convert to number`);
         }
-        return n;
+        return Result.ok(n);
     }
 }

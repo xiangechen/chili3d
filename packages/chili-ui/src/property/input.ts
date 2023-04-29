@@ -72,7 +72,7 @@ export class InputProperty extends PropertyBase {
 
     private getValueString(obj: any): string {
         let value = obj[this.property.name];
-        return this.converter?.convert(value) ?? String(value);
+        return this.converter?.convert(value).value ?? String(value);
     }
 
     private getDefaultValue() {
@@ -91,8 +91,8 @@ export class InputProperty extends PropertyBase {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
             let newValue = this.converter.convertBack(this.valueBox.text);
-            if (newValue === undefined) {
-                this.error.text(this.converter.error ?? "error");
+            if (newValue.isErr()) {
+                this.error.text(newValue.err ?? "error");
                 this.error.addClass(style.hidden);
                 return;
             }

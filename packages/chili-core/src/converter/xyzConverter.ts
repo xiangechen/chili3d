@@ -1,22 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Result } from "../base";
 import { XYZ } from "../math";
-import { ConverterBase } from "./converter";
+import { IConverter } from "./converter";
 
-export class XYZConverter extends ConverterBase<XYZ> {
-    convert(value: XYZ): string | undefined {
-        return `${value.x},${value.y},${value.z}`;
+export class XYZConverter implements IConverter<XYZ> {
+    convert(value: XYZ) {
+        return Result.ok(`${value.x},${value.y},${value.z}`);
     }
 
-    convertBack(value: string): XYZ | undefined {
+    convertBack(value: string): Result<XYZ> {
         let vs = value
             .split(",")
             .map((x) => Number(x))
             .filter((x) => !isNaN(x));
         if (vs.length !== 3) {
-            this._error = `${value} convert to XYZ error`;
-            return undefined;
+            return Result.error(`${value} convert to XYZ error`);
         }
-        return new XYZ(vs[0], vs[1], vs[2]);
+        return Result.ok(new XYZ(vs[0], vs[1], vs[2]));
     }
 }

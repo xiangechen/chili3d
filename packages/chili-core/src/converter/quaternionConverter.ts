@@ -1,25 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Result } from "../base";
 import { Quaternion } from "../math";
-import { ConverterBase } from "./converter";
+import { IConverter } from "./converter";
 
-export class QuaternionConverter extends ConverterBase<Quaternion> {
-    convert(value: Quaternion): string | undefined {
+export class QuaternionConverter implements IConverter<Quaternion> {
+    convert(value: Quaternion) {
         let s = 180 / Math.PI;
         let fixed = (n: number) => Math.round(n * s * 10000) / 10000;
-        return `${fixed(value.x)},${fixed(value.y)},${fixed(value.z)},${fixed(value.w)}`;
+        return Result.ok(`${fixed(value.x)},${fixed(value.y)},${fixed(value.z)},${fixed(value.w)}`);
     }
 
-    convertBack(value: string): Quaternion | undefined {
+    convertBack(value: string): Result<Quaternion> {
         let vs = value
             .split(",")
             .map((x) => Number(x))
             .filter((x) => !isNaN(x));
         if (vs.length !== 4) {
-            this._error = `${value} convert to Quaternion error`;
-            return undefined;
+            return Result.error(`${value} convert to Quaternion error`);
         }
         let s = Math.PI / 180;
-        return new Quaternion(vs[0] * s, vs[1] * s, vs[2] * s, vs[3] * s);
+        return Result.ok(new Quaternion(vs[0] * s, vs[1] * s, vs[2] * s, vs[3] * s));
     }
 }
