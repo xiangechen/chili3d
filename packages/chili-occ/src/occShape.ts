@@ -172,11 +172,11 @@ export class OccEdge extends OccShape implements IEdge {
 }
 
 export class OccWire extends OccShape implements IWire {
-    private readonly _edges: IEdge[] = [];
+    private readonly _edges: IEdge[];
 
     constructor(shape: TopoDS_Wire) {
         super(shape);
-        this._edges.push(...(this.findSubShapes(ShapeType.Edge) as IEdge[]));
+        this._edges = this.findSubShapes(ShapeType.Edge) as IEdge[];
     }
 
     get edges(): readonly IEdge[] {
@@ -193,11 +193,11 @@ export class OccWire extends OccShape implements IWire {
 }
 
 export class OccFace extends OccShape implements IFace {
-    private readonly _wires: IWire[] = [];
+    private readonly _wires: IWire[];
 
     constructor(shape: TopoDS_Face) {
         super(shape);
-        this._wires.push(...(this.findSubShapes(ShapeType.Wire) as IWire[]));
+        this._wires = this.findSubShapes(ShapeType.Wire) as IWire[];
     }
 
     get wires(): readonly IWire[] {
@@ -219,11 +219,11 @@ export class OccShell extends OccShape implements IShell {
 }
 
 export class OccSolid extends OccShape implements ISolid {
-    private readonly _shells: IShell[] = [];
+    private readonly _shells: IShell[];
 
     constructor(shape: TopoDS_Solid) {
         super(shape);
-        this._shells.push(...(this.findSubShapes(ShapeType.Shell) as IShell[]));
+        this._shells = this.findSubShapes(ShapeType.Shell) as IShell[];
     }
 
     get shells(): readonly IShell[] {
@@ -232,11 +232,11 @@ export class OccSolid extends OccShape implements ISolid {
 }
 
 export class OccCompound extends OccShape implements ICompound {
-    private readonly _shapes: IShape[] = [];
+    private readonly _shapes: IShape[];
 
     constructor(shape: TopoDS_Compound) {
         super(shape);
-        this._shapes.push(...(this.findSubShapes(ShapeType.Shape) as IShape[]));
+        this._shapes = this.findSubShapes(ShapeType.Shape) as IShape[];
     }
 
     get shapes(): readonly IShape[] {
@@ -245,11 +245,11 @@ export class OccCompound extends OccShape implements ICompound {
 }
 
 export class OccCompoundSolid extends OccShape implements ICompoundSolid {
-    private readonly _solids: ISolid[] = [];
+    private readonly _solids: ISolid[];
 
     constructor(shape: TopoDS_CompSolid) {
         super(shape);
-        this._solids.push(...(this.findSubShapes(ShapeType.Solid) as ISolid[]));
+        this._solids = this.findSubShapes(ShapeType.Solid) as ISolid[];
     }
 
     get solids(): readonly ISolid[] {

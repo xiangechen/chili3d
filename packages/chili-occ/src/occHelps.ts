@@ -140,7 +140,7 @@ export class OccHelps {
     }
 
     static getShape(shape: TopoDS_Shape): IShape {
-        switch (shape.ShapeType) {
+        switch (shape.ShapeType()) {
             case occ.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return new OccCompound(occ.TopoDS.Compound_1(shape));
             case occ.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
