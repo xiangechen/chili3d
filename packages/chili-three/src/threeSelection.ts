@@ -57,7 +57,7 @@ export class ThreeSelection extends Observable implements ISelection {
             this.clearSelected();
             return;
         }
-        let node = view.document.nodes.get(intersect!.name) as IModel;
+        let node = view.viewer.document.nodes.get(intersect!.name) as IModel;
         if (node !== undefined) this.setSelected(shiftDown, [node]);
     }
 

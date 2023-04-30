@@ -36,7 +36,7 @@ export class Viewer implements IViewer {
         this._views.delete(view);
     }
 
-    views(): IView[] {
+    views(): readonly IView[] {
         return [...this._views];
     }
 

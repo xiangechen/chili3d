@@ -8,7 +8,7 @@ import { IView } from "./view";
 export interface IViewer extends IDisposable {
     readonly document: IDocument;
     addView(view: IView): void;
-    views(): IView[];
+    views(): readonly IView[];
     redraw(): void;
     update(): void;
     setCursor(cursor: CursorType): void;

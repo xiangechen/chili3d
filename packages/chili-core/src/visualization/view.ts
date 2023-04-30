@@ -2,13 +2,13 @@
 
 import { Flyout } from "chili-ui";
 
-import { IDocument } from "../document";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
+import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged {
-    get document(): IDocument;
+    get viewer(): IViewer;
     get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;

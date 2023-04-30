@@ -1,6 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, IDisposable, IDocument, IView, Observable, Plane, Ray, XY, XYZ } from "chili-core";
+import {
+    CursorType,
+    IDisposable,
+    IDocument,
+    IView,
+    IViewer,
+    Observable,
+    Plane,
+    Ray,
+    XY,
+    XYZ,
+} from "chili-core";
 import { Flyout } from "chili-ui";
 import {
     Camera,
@@ -31,7 +42,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly document: IDocument,
+        readonly viewer: IViewer,
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
@@ -46,7 +57,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this._floatTip = new Flyout();
-        document.viewer.addView(this);
+        viewer.addView(this);
 
         container.appendChild(this._floatTip);
         container.addEventListener("mousemove", this.onMouseMove);

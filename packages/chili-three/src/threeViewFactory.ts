@@ -8,6 +8,6 @@ export class ThreeViewFactory implements IViewFactory {
     constructor(readonly document: IDocument, readonly scene: Scene) {}
 
     create(name: string, workplane: Plane, container: HTMLElement): IView {
-        return new ThreeView(this.document, name, workplane, container, this.scene);
+        return new ThreeView(this.document.viewer, name, workplane, container, this.scene);
     }
 }
