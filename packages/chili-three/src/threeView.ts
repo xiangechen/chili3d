@@ -4,6 +4,7 @@ import {
     CursorType,
     IDisposable,
     IDocument,
+    ISelection,
     IView,
     IViewer,
     Observable,
@@ -23,7 +24,9 @@ import {
     WebGLRenderer,
 } from "three";
 
-import { ThreeUtils } from "./threeUtils";
+import { ThreeHelper } from "./threeHelper";
+import { ThreeSelection } from "./threeSelection";
+import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export default class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
@@ -36,6 +39,8 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     private _target: Vector3;
     private _scale: number = 1;
     private _startRotate?: XY;
+
+    readonly selection: ISelection;
 
     panSpeed: number = 0.3;
     zoomSpeed: number = 1.3;
@@ -56,6 +61,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._camera = this.initCamera(container);
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
+        this.selection = new ThreeSelection(this, new ThreeVisulizationContext(scene));
         this._floatTip = new Flyout();
         viewer.addView(this);
 
@@ -103,13 +109,13 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     private convert(dx: number, dy: number) {
         let x = 0,
             y = 0;
-        if (ThreeUtils.isPerspectiveCamera(this._camera)) {
+        if (ThreeHelper.isPerspectiveCamera(this._camera)) {
             let distance = this._camera.position.distanceTo(this._target);
             // half of the fov is center to top of screen
             distance *= this.fovTan(this._camera.fov);
             x = (2 * dx * distance) / this.container.clientHeight;
             y = (2 * dy * distance) / this.container.clientHeight;
-        } else if (ThreeUtils.isOrthographicCamera(this._camera)) {
+        } else if (ThreeHelper.isOrthographicCamera(this._camera)) {
             x =
                 (dx * (this._camera.right - this._camera.left)) /
                 this._camera.zoom /
@@ -150,7 +156,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         let scale = delta > 0 ? 0.9 : 1 / 0.9;
         this._scale *= scale;
         let point = this.mouseToWorld(mx, my);
-        if (ThreeUtils.isOrthographicCamera(this._camera)) {
+        if (ThreeHelper.isOrthographicCamera(this._camera)) {
             this._camera.zoom /= scale;
             let vec = point.clone().sub(this._target);
             let xvec = new Vector3().setFromMatrixColumn(this._camera.matrix, 0);
@@ -161,7 +167,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
             let aDyv = y / scale;
             this.translate(aDxv - x, aDyv - y);
             this._camera.updateProjectionMatrix();
-        } else if (ThreeUtils.isPerspectiveCamera(this._camera)) {
+        } else if (ThreeHelper.isPerspectiveCamera(this._camera)) {
             let direction = this._camera.position.clone().sub(this._target);
             let vector = this._camera.position.clone().sub(point).normalize();
             let angle = vector.angleTo(direction);
@@ -254,14 +260,14 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         if (this._camera instanceof OrthographicCamera) {
             direction = this.direction();
         } else {
-            direction = location.sub(ThreeUtils.toXYZ(this._camera.position)).normalize()!;
+            direction = location.sub(ThreeHelper.toXYZ(this._camera.position)).normalize()!;
         }
         return new Ray(location, direction);
     }
 
     screenToWorld(mx: number, my: number): XYZ {
         let vec = this.mouseToWorld(mx, my);
-        return ThreeUtils.toXYZ(vec);
+        return ThreeHelper.toXYZ(vec);
     }
 
     worldToScreen(point: XYZ): XY {
@@ -274,11 +280,11 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     direction(): XYZ {
         var vec = new Vector3();
         this._camera.getWorldDirection(vec);
-        return ThreeUtils.toXYZ(vec);
+        return ThreeHelper.toXYZ(vec);
     }
 
     up(): XYZ {
-        return ThreeUtils.toXYZ(this._camera.up);
+        return ThreeHelper.toXYZ(this._camera.up);
     }
 
     private mouseToWorld(mx: number, my: number) {

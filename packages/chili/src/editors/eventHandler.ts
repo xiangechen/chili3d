@@ -78,7 +78,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     mouseWheel(view: IView, event: WheelEvent): void {}
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            view.viewer.document.visualization.selection.clearSelected();
+            view.viewer.document.selectionManager.clearSelected();
         }
     }
     keyUp(view: IView, event: KeyboardEvent): void {}

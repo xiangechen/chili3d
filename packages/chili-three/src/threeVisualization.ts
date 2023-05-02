@@ -20,7 +20,6 @@ export class ThreeVisulization implements IVisualization {
     private readonly defaultEventHandler: IEventHandler = new ThreeSelectHandler();
     private _renderContext: ThreeVisulizationContext;
     private _scene: Scene;
-    private _selection: ThreeSelection;
     private _eventHandler: IEventHandler;
     private _viewFactory: IViewFactory;
     readonly viewHandler: IEventHandler;
@@ -30,7 +29,6 @@ export class ThreeVisulization implements IVisualization {
         this._eventHandler = this.defaultEventHandler;
         this._renderContext = new ThreeVisulizationContext(this._scene);
         this._viewFactory = new ThreeViewFactory(document, this._scene);
-        this._selection = new ThreeSelection(document, this._renderContext);
         this.viewHandler = new ThreeViewHandler();
         this.init();
     }
@@ -49,10 +47,6 @@ export class ThreeVisulization implements IVisualization {
 
     clearEventHandler() {
         this._eventHandler = this.defaultEventHandler;
-    }
-
-    get selection(): ISelection {
-        return this._selection;
     }
 
     init() {

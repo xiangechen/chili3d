@@ -7,7 +7,6 @@ import { IVisualizationContext } from "./visualizationContext";
 
 export interface IVisualization {
     get context(): IVisualizationContext;
-    get selection(): ISelection;
     get viewHandler(): IEventHandler;
     eventHandler: IEventHandler;
     get viewFactory(): IViewFactory;

@@ -1,19 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IPropertyChanged } from "../base";
 import { IShape, ShapeType } from "../geometry";
-import { IModel, INode } from "../model";
-import { IView } from "./view";
+import { IModel } from "../model";
 import { IVisualizationShape } from "./visualizationShape";
 
-export interface ISelection extends IPropertyChanged {
-    setSelectionType(type: ShapeType): void;
-    select(view: IView, x: number, y: number, shiftDown: boolean): void;
-    detectedShape(view: IView, x: number, y: number): IShape | undefined;
-    detectedShapes(view: IView, x: number, y: number): IShape[];
-    detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined;
-    getSelectedNodes(): INode[];
-    setSelected(toggle: boolean, models: INode[]): void;
-    clearSelected(): void;
-    unSelected(models: INode[]): void;
+export interface ISelection {
+    select(x: number, y: number, toggleSelected: boolean): void;
+    detectedShapes(x: number, y: number): IShape[];
+    detectedModel(x: number, y: number): IVisualizationShape | undefined;
 }

@@ -2,11 +2,13 @@
 
 import { IDisposable } from "../base";
 import { IDocument } from "../document";
+import { ShapeType } from "../geometry";
 import { CursorType } from "./cursorType";
 import { IView } from "./view";
 
 export interface IViewer extends IDisposable {
     readonly document: IDocument;
+    selectionType: ShapeType;
     addView(view: IView): void;
     views(): readonly IView[];
     redraw(): void;

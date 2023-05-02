@@ -21,11 +21,7 @@ export class ThreeSelectHandler implements IEventHandler {
             this._lastDetected.unHilightedState();
             this._lastDetected = undefined;
         }
-        this._lastDetected = view.viewer.document.visualization.selection.detectedModel(
-            view,
-            event.offsetX,
-            event.offsetY
-        );
+        this._lastDetected = view.selection.detectedModel(event.offsetX, event.offsetY);
         this._lastDetected?.hilightedState();
         view.update();
     }
@@ -42,12 +38,7 @@ export class ThreeSelectHandler implements IEventHandler {
 
     pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 0) {
-            view.viewer.document.visualization.selection.select(
-                view,
-                this.mouse.x,
-                this.mouse.y,
-                event.shiftKey
-            );
+            view.selection.select(this.mouse.x, this.mouse.y, event.shiftKey);
             this.mouse.isDown = false;
         }
         view.viewer.document.viewer.redraw();

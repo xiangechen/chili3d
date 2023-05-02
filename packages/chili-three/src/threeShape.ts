@@ -15,7 +15,7 @@ import {
 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
 
-import { ThreeUtils } from "./threeUtils";
+import { ThreeHelper } from "./threeHelper";
 
 let edgeMaterial = new LineBasicMaterial();
 

@@ -14,36 +14,25 @@ import {
     INode,
 } from "chili-core";
 import { Object3D, Raycaster } from "three";
-
 import { ThreeShape } from "./threeShape";
-import { ThreeUtils } from "./threeUtils";
+import { ThreeHelper } from "./threeHelper";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
+import ThreeView from "./threeView";
 
 export class ThreeSelection extends Observable implements ISelection {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
-    private _shapeType: ShapeType = ShapeType.Shape;
 
-    constructor(readonly document: IDocument, readonly context: ThreeVisulizationContext) {
+    constructor(readonly view: ThreeView, readonly context: ThreeVisulizationContext) {
         super();
     }
 
-    detectedModel(view: IView, x: number, y: number): IVisualizationShape | undefined {
-        return this.detected(view, x, y, true)?.at(0)?.parent?.parent as ThreeShape;
+    detectedModel(x: number, y: number): IVisualizationShape | undefined {
+        return this.detected(x, y, true)?.at(0)?.parent?.parent as ThreeShape;
     }
 
-    setSelectionType(type: ShapeType): void {
-        this._shapeType = type;
-    }
-
-    detectedShape(view: IView, x: number, y: number): IShape | undefined {
-        let obj = this.detected(view, x, y, true)?.at(0);
-        if (obj === undefined) return undefined;
-        return obj.userData[Constants.ShapeKey];
-    }
-
-    detectedShapes(view: IView, x: number, y: number): IShape[] {
-        let objs = this.detected(view, x, y, false);
+    detectedShapes(x: number, y: number): IShape[] {
+        let objs = this.detected(x, y, false);
         return objs.map((x) => x.userData[Constants.ShapeKey]);
     }
 
@@ -51,36 +40,47 @@ export class ThreeSelection extends Observable implements ISelection {
         return this._selectedNodes;
     }
 
-    select(view: IView, x: number, y: number, shiftDown: boolean) {
-        let intersect = this.detected(view, x, y, true)?.at(0)?.parent?.parent;
+    select(x: number, y: number, shiftDown: boolean) {
+        let intersect = this.detected(x, y, true)?.at(0)?.parent?.parent;
         if (intersect === undefined) {
             this.clearSelected();
-            return;
+            return [];
         }
-        let node = view.viewer.document.nodes.get(intersect!.name) as IModel;
+        let node = this.view.viewer.document.nodes.get(intersect!.name) as IModel;
         if (node !== undefined) this.setSelected(shiftDown, [node]);
     }
 
-    private detected(view: IView, x: number, y: number, firstHitOnly: boolean) {
-        let ray = view.rayAt(x, y);
-        let raycaster = new Raycaster();
-        let threshold = 10 * view.scale;
-        raycaster.params = { Line: { threshold }, Points: { threshold } };
-        raycaster.set(ThreeUtils.fromXYZ(ray.location), ThreeUtils.fromXYZ(ray.direction));
-        raycaster.firstHitOnly = firstHitOnly;
-        let threeShapes = this.context.getThreeShapes();
+    private detected(x: number, y: number, firstHitOnly: boolean) {
+        let raycaster = this.initRaycaster(x, y, firstHitOnly);
         let shapes = new Array<Object3D>();
+        let threeShapes = this.context.getThreeShapes();
         threeShapes.forEach((x) => {
-            if (this._shapeType === ShapeType.Shape || this._shapeType === ShapeType.Edge) {
+            if (
+                this.view.viewer.selectionType === ShapeType.Shape ||
+                this.view.viewer.selectionType === ShapeType.Edge
+            ) {
                 let lines = x.wireframe();
                 if (lines !== undefined) shapes.push(...lines);
             }
-            if (this._shapeType === ShapeType.Shape || this._shapeType === ShapeType.Face) {
+            if (
+                this.view.viewer.selectionType === ShapeType.Shape ||
+                this.view.viewer.selectionType === ShapeType.Face
+            ) {
                 let faces = x.faces();
                 if (faces !== undefined) shapes.push(...faces);
             }
         });
         return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+    }
+
+    private initRaycaster(x: number, y: number, firstHitOnly: boolean) {
+        let threshold = 10 * this.view.scale;
+        let ray = this.view.rayAt(x, y);
+        let raycaster = new Raycaster();
+        raycaster.params = { Line: { threshold }, Points: { threshold } };
+        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        raycaster.firstHitOnly = firstHitOnly;
+        return raycaster;
     }
 
     setSelected(toggle: boolean, nodes: INode[]) {
@@ -101,7 +101,12 @@ export class ThreeSelection extends Observable implements ISelection {
     }
 
     private publishSelection() {
-        PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
+        PubSub.default.pub(
+            "selectionChanged",
+            this.view.viewer.document,
+            this._selectedNodes,
+            this._unselectedNodes
+        );
     }
 
     private toggleSelectPublish(nodes: INode[], publish: boolean) {

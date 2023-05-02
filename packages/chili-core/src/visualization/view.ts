@@ -6,12 +6,14 @@ import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
 import { IViewer } from "./viewer";
+import { ISelection } from "./selection";
 
 export interface IView extends IPropertyChanged {
     get viewer(): IViewer;
     get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;
+    get selection(): ISelection;
     workplane: Plane;
     update(): void;
     redraw(): void;

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, IDocument, IView, IViewer, PubSub, PubSubEventMap } from "chili-core";
+import { CursorType, IDocument, IView, IViewer, PubSub, PubSubEventMap, ShapeType } from "chili-core";
 
 interface EventData {
     container: HTMLElement | Window;
@@ -8,7 +8,7 @@ interface EventData {
     callback: (e: any) => void;
 }
 
-interface SubData {
+interface SubCallbackData {
     view: IView;
     type: keyof PubSubEventMap;
     callback: (e: any) => void;
@@ -17,12 +17,14 @@ interface SubData {
 export class Viewer implements IViewer {
     private readonly _views: Set<IView>;
     private readonly _eventCaches: Map<IView, EventData[]>;
-    private readonly _subCaches: Map<IView, SubData[]>;
+    private readonly _callbackCaches: Map<IView, SubCallbackData[]>;
+
+    selectionType: ShapeType = ShapeType.Shape;
 
     constructor(readonly document: IDocument) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
-        this._subCaches = new Map();
+        this._callbackCaches = new Map();
     }
 
     addView(view: IView) {
@@ -83,10 +85,10 @@ export class Viewer implements IViewer {
         callback: (...args: any[]) => void
     ) {
         PubSub.default.sub(type, callback as any);
-        if (this._subCaches.get(view) === undefined) {
-            this._subCaches.set(view, []);
+        if (this._callbackCaches.get(view) === undefined) {
+            this._callbackCaches.set(view, []);
         }
-        this._subCaches.get(view)?.push({
+        this._callbackCaches.get(view)?.push({
             view,
             callback,
             type,
@@ -117,11 +119,11 @@ export class Viewer implements IViewer {
         });
         this._eventCaches.delete(view);
 
-        let subs = this._subCaches.get(view);
+        let subs = this._callbackCaches.get(view);
         subs?.forEach((x) => {
             PubSub.default.remove(x.type, x.callback);
         });
-        this._subCaches.delete(view);
+        this._callbackCaches.delete(view);
     }
 
     private pointerMove(view: IView, event: PointerEvent): void {
