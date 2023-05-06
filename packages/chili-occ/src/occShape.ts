@@ -159,7 +159,7 @@ export class OccEdge extends OccShape implements IEdge {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
         let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
-        let curveType = OccHelps.getCurveType(curve);
+        let curveType = OccHelps.getCurveType(curve.get());
         if (curveType === CurveType.Line) {
             return Result.ok(new OccLine(curve.get() as Geom_Line, s.current, e.current));
         } else if (curveType === CurveType.Circle) {

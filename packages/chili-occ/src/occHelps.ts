@@ -66,32 +66,17 @@ export class OccHelps {
         return new occ.gp_Pln_2(OccHelps.toAx3(plane));
     }
 
-    static getCurveType(curve: BRepAdaptor_Curve | Handle_Geom_Curve): CurveType {
-        let type =
-            curve instanceof occ.BRepAdaptor_Curve
-                ? curve.GetType()
-                : new occ.GeomAdaptor_Curve_2(curve).GetType();
-
-        switch (type) {
-            case occ.GeomAbs_CurveType.GeomAbs_Line:
-                return CurveType.Line;
-            case occ.GeomAbs_CurveType.GeomAbs_Circle:
-                return CurveType.Circle;
-            case occ.GeomAbs_CurveType.GeomAbs_Ellipse:
-                return CurveType.Ellipse;
-            case occ.GeomAbs_CurveType.GeomAbs_Hyperbola:
-                return CurveType.Hyperbola;
-            case occ.GeomAbs_CurveType.GeomAbs_Parabola:
-                return CurveType.Parabola;
-            case occ.GeomAbs_CurveType.GeomAbs_BezierCurve:
-                return CurveType.BezierCurve;
-            case occ.GeomAbs_CurveType.GeomAbs_BSplineCurve:
-                return CurveType.BSplineCurve;
-            case occ.GeomAbs_CurveType.GeomAbs_OffsetCurve:
-                return CurveType.OffsetCurve;
-            default:
-                return CurveType.OtherCurve;
-        }
+    static getCurveType(curve: Geom_Curve): CurveType {
+        let isType = (type: string) => curve.IsInstance_2(type);
+        if (isType("Geom_Line")) return CurveType.Line;
+        else if (isType("Geom_Circle")) return CurveType.Circle;
+        else if (isType("Geom_Ellipse")) return CurveType.Ellipse;
+        else if (isType("Geom_Hyperbola")) return CurveType.Hyperbola;
+        else if (isType("Geom_Parabola")) return CurveType.Parabola;
+        else if (isType("Geom_BezierCurve")) return CurveType.BezierCurve;
+        else if (isType("Geom_BSplineCurve")) return CurveType.BSplineCurve;
+        else if (isType("Geom_OffsetCurve")) return CurveType.OffsetCurve;
+        else return CurveType.OtherCurve;
     }
 
     static getShapeType(shape: TopoDS_Shape): ShapeType {

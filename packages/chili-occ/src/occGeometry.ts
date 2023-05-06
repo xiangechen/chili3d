@@ -21,7 +21,7 @@ export class OccCurve implements ICurve, IDisposable {
 
     constructor(curve: Geom_Curve, start: number, end: number) {
         let curveHandle = new occ.Handle_Geom_Curve_2(curve);
-        this.curveType = OccHelps.getCurveType(curveHandle);
+        this.curveType = OccHelps.getCurveType(curve);
         this.curve = new occ.Geom_TrimmedCurve(curveHandle, start, end, true, true);
     }
 
