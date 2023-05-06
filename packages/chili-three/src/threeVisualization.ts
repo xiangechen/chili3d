@@ -10,14 +10,13 @@ import {
 } from "chili-core";
 import { AxesHelper, DirectionalLight, Scene } from "three";
 
-import { ThreeSelection } from "./threeSelection";
-import { ThreeSelectHandler } from "./threeSelectionEventHandler";
+import { SelectionHandler } from "./selectionEventHandler";
 import { ThreeViewFactory } from "./threeViewFactory";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisulizationContext } from "./threeVisulizationContext";
 
 export class ThreeVisulization implements IVisualization {
-    private readonly defaultEventHandler: IEventHandler = new ThreeSelectHandler();
+    private readonly defaultEventHandler: IEventHandler = new SelectionHandler();
     private _renderContext: ThreeVisulizationContext;
     private _scene: Scene;
     private _eventHandler: IEventHandler;

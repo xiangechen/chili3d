@@ -1,23 +1,29 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    Constants,
     CursorType,
     IDisposable,
     IDocument,
     ISelection,
+    IShape,
     IView,
     IViewer,
+    IVisualizationShape,
     Observable,
     Plane,
     Ray,
+    ShapeType,
     XY,
     XYZ,
 } from "chili-core";
 import { Flyout } from "chili-ui";
 import {
     Camera,
+    Object3D,
     OrthographicCamera,
     PerspectiveCamera,
+    Raycaster,
     Scene,
     Spherical,
     Vector3,
@@ -25,8 +31,7 @@ import {
 } from "three";
 
 import { ThreeHelper } from "./threeHelper";
-import { ThreeSelection } from "./threeSelection";
-import { ThreeVisulizationContext } from "./threeVisulizationContext";
+import { ThreeShape } from "./threeShape";
 
 export default class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
@@ -39,8 +44,6 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     private _target: Vector3;
     private _scale: number = 1;
     private _startRotate?: XY;
-
-    readonly selection: ISelection;
 
     panSpeed: number = 0.3;
     zoomSpeed: number = 1.3;
@@ -61,7 +64,6 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._camera = this.initCamera(container);
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
-        this.selection = new ThreeSelection(this, new ThreeVisulizationContext(scene));
         this._floatTip = new Flyout();
         viewer.addView(this);
 
@@ -285,6 +287,51 @@ export default class ThreeView extends Observable implements IView, IDisposable 
 
     up(): XYZ {
         return ThreeHelper.toXYZ(this._camera.up);
+    }
+
+    detectedModel(x: number, y: number): IVisualizationShape | undefined {
+        return this.detected(x, y, true)?.at(0)?.parent?.parent as ThreeShape;
+    }
+
+    detectedShapes(x: number, y: number): IShape[] {
+        let objs = this.detected(x, y, false);
+        console.log(objs);
+
+        return objs.map((x) => x.userData[Constants.ShapeKey]);
+    }
+
+    detected(x: number, y: number, firstHitOnly: boolean) {
+        let raycaster = this.initRaycaster(x, y, firstHitOnly);
+        let shapes = new Array<Object3D>();
+        this.viewer.document.visualization.context.shapes().forEach((x) => {
+            if (x instanceof ThreeShape) {
+                if (
+                    this.viewer.selectionType === ShapeType.Shape ||
+                    this.viewer.selectionType === ShapeType.Edge
+                ) {
+                    let lines = x.wireframe();
+                    if (lines !== undefined) shapes.push(...lines);
+                }
+                if (
+                    this.viewer.selectionType === ShapeType.Shape ||
+                    this.viewer.selectionType === ShapeType.Face
+                ) {
+                    let faces = x.faces();
+                    if (faces !== undefined) shapes.push(...faces);
+                }
+            }
+        });
+        return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+    }
+
+    private initRaycaster(x: number, y: number, firstHitOnly: boolean) {
+        let threshold = 10 * this._scale;
+        let ray = this.rayAt(x, y);
+        let raycaster = new Raycaster();
+        raycaster.params = { Line: { threshold }, Points: { threshold } };
+        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        raycaster.firstHitOnly = firstHitOnly;
+        return raycaster;
     }
 
     private mouseToWorld(mx: number, my: number) {

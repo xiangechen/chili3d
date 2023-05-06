@@ -2,7 +2,7 @@
 
 import { INode } from "./model";
 
-export interface ISelectionManager {
+export interface ISelection {
     getSelectedNodes(): INode[];
     setSelected(toggle: boolean, models: INode[]): void;
     clearSelected(): void;

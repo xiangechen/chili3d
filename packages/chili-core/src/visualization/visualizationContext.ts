@@ -8,6 +8,7 @@ import { IVisualizationShape } from "./visualizationShape";
 export interface IVisualizationContext {
     get shapeCount(): number;
     removeModel(models: IModel[]): void;
+    shapes(): IVisualizationShape[];
     getShape(model: IModel): IVisualizationShape | undefined;
 
     hilighted(shape: IShape): void;

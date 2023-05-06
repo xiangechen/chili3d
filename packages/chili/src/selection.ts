@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, INode, ISelectionManager, IVisualizationContext, Observable, PubSub } from "chili-core";
+import { IDocument, INode, ISelection, IVisualizationContext, Observable, PubSub } from "chili-core";
 
-export class SelectionManager extends Observable implements ISelectionManager {
+export class Selection extends Observable implements ISelection {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
 

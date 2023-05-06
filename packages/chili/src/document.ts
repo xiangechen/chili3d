@@ -13,14 +13,13 @@ import {
     PubSub,
     NodeLinkedList,
     ISelection,
-    ISelectionManager,
 } from "chili-core";
 import { Application } from "chili-core/src/application";
 
 import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";
 import { Viewer } from "./viewer";
-import { SelectionManager } from "./selection";
+import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
@@ -31,7 +30,7 @@ export class Document extends Observable implements IDocument {
     readonly visualization: IVisualization;
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
-    readonly selectionManager: ISelectionManager;
+    readonly selectionManager: ISelection;
 
     constructor(name: string, readonly id: string = Id.new()) {
         super();
@@ -42,7 +41,7 @@ export class Document extends Observable implements IDocument {
         this.rootNode = new NodeLinkedList(this, name);
 
         this.visualization = Application.instance.visualizationFactory.create(this);
-        this.selectionManager = new SelectionManager(this, this.visualization.context);
+        this.selectionManager = new Selection(this, this.visualization.context);
 
         Document.cacheDocument(this);
         PubSub.default.sub("redraw", () => this.viewer.redraw());

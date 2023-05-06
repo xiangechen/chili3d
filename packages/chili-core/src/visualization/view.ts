@@ -6,14 +6,17 @@ import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
 import { IViewer } from "./viewer";
-import { ISelection } from "./selection";
+import { IShape } from "../geometry";
+import { IModel } from "../model";
+import { IVisualizationShape } from "./visualizationShape";
 
 export interface IView extends IPropertyChanged {
     get viewer(): IViewer;
     get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;
-    get selection(): ISelection;
+    detectedShapes(x: number, y: number, firstHitOnly: boolean): IShape[];
+    detectedModel(x: number, y: number): IVisualizationShape | undefined;
     workplane: Plane;
     update(): void;
     redraw(): void;

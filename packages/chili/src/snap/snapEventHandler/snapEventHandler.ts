@@ -90,7 +90,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     private getDetectedData(view: IView, event: MouseEvent) {
         view.viewer.selectionType = ShapeType.Edge;
-        let shapes = view.selection.detectedShapes(event.offsetX, event.offsetY);
+        let shapes = view.detectedShapes(event.offsetX, event.offsetY, event.shiftKey);
         let data: MouseAndDetected = {
             view,
             mx: event.offsetX,

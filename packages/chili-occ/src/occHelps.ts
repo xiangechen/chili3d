@@ -71,6 +71,7 @@ export class OccHelps {
             curve instanceof occ.BRepAdaptor_Curve
                 ? curve.GetType()
                 : new occ.GeomAdaptor_Curve_2(curve).GetType();
+
         switch (type) {
             case occ.GeomAbs_CurveType.GeomAbs_Line:
                 return CurveType.Line;

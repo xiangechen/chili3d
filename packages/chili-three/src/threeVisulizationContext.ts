@@ -44,7 +44,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
 
-    constructor(scene: Scene) {
+    constructor(readonly scene: Scene) {
         this.modelShapes = new Group();
         this.tempShapes = new Group();
         this.hilightedShapes = new Group();
@@ -82,7 +82,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         return this.modelShapes.getObjectByName(model.id) as ThreeShape;
     }
 
-    getThreeShapes(): ThreeShape[] {
+    shapes(): IVisualizationShape[] {
         let shapes = new Array<ThreeShape>();
         this.modelShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
         return shapes;
