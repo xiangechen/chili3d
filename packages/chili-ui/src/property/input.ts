@@ -98,7 +98,7 @@ export class InputProperty extends PropertyBase {
             }
             Transaction.excute(this.document, "modify property", () => {
                 this.objects.forEach((x) => {
-                    x[this.property.name] = newValue;
+                    x[this.property.name] = newValue.value;
                 });
                 this.document.viewer.redraw();
             });
