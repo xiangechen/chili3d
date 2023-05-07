@@ -22,7 +22,7 @@ export class SelectionHandler implements IEventHandler {
             this._lastDetected.unHilightedState();
             this._lastDetected = undefined;
         }
-        this._lastDetected = view.detectedModel(event.offsetX, event.offsetY);
+        this._lastDetected = view.detectedShapes(event.offsetX, event.offsetY, true).at(0);
         this._lastDetected?.hilightedState();
         view.update();
     }
@@ -39,17 +39,17 @@ export class SelectionHandler implements IEventHandler {
 
     pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 0) {
-            let intersect = view.detectedModel(this.mouse.x, this.mouse.y) as ThreeShape;
+            let intersect = view.detectedShapes(this.mouse.x, this.mouse.y, true).at(0);
             if (intersect === undefined) {
-                view.viewer.document.selectionManager.clearSelected();
+                view.visualization.selection.clearSelected();
                 return;
             }
-            let node = view.viewer.document.nodes.get(intersect!.name) as IModel;
-            if (node !== undefined) view.viewer.document.selectionManager.setSelected(event.shiftKey, [node]);
+            let node = view.visualization.context.getModel(intersect);
+            if (node !== undefined) view.visualization.selection.setSelected(event.shiftKey, [node]);
 
             this.mouse.isDown = false;
         }
-        view.viewer.redraw();
+        view.visualization.viewer.redraw();
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {}

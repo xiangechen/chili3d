@@ -86,7 +86,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         let distance = vector.length() * 1e10;
         let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
         let lineDats = EdgeRenderData.from(start, newEnd, 0x888, LineType.Dash);
-        return view.viewer.document.visualization.context.temporaryDisplay(lineDats);
+        return view.visualization.context.temporaryDisplay(lineDats);
     }
 
     private snapToIntersect(data: MouseAndDetected, trackingDatas: TrackingData[]): SnapedData | undefined {
@@ -174,7 +174,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
     removeDynamicObject(): void {
         this._tempLines.forEach((v, k) => {
             v.forEach((id) => {
-                k.viewer.document.visualization.context.temporaryRemove(id);
+                k.visualization.context.temporaryRemove(id);
             });
         });
         this._tempLines.clear();

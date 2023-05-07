@@ -41,7 +41,7 @@ export class EditorService implements IService {
         } else {
             document.visualization.clearEventHandler();
         }
-        document.viewer.redraw();
+        document.visualization.viewer.redraw();
     };
 
     private getEventHandler(document: IDocument, models: INode[]): EditorEventHandler | undefined {

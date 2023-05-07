@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IShape, IShapeMesh, IVisualizationShape } from "chili-core";
+import { Constants, IModel, IShape, IShapeMesh, IVisualizationShape } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
@@ -33,11 +33,11 @@ export class ThreeShape extends Object3D implements IVisualizationShape {
     private _wireMaterial: LineBasicMaterial;
     private _selectedStatus: boolean = false;
 
-    override type: "OccShape";
+    override type: "ChiliShape";
 
     constructor(readonly shape: IShape) {
         super();
-        this.type = "OccShape";
+        this.type = "ChiliShape";
         this._wireMaterial = edgeMaterial;
         this._faceMaterial = new MeshBasicMaterial({
             color: 0xaaaaaa,

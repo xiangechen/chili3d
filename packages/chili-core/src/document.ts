@@ -2,18 +2,14 @@
 
 import { IDisposable, IHistory, IPropertyChanged } from "./base";
 import { ICollectionNode, INode, INodeCollection } from "./model/node";
-import { ISelection } from "./selection";
 import { IVisualization } from "./visualization";
-import { IViewer } from "./visualization/viewer";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
-    readonly id: string;
     name: string;
-    readonly viewer: IViewer;
+    currentNode?: INode;
+    readonly id: string;
     readonly history: IHistory;
-    readonly selectionManager: ISelection;
     readonly visualization: IVisualization;
     readonly nodes: INodeCollection;
     readonly rootNode: ICollectionNode;
-    currentNode?: INode;
 }

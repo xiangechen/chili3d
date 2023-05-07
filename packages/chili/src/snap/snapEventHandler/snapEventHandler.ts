@@ -54,8 +54,8 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeInput();
         this.removeTempShapes(view);
         this._snaps.forEach((x) => x.clear());
-        view.viewer.selectionType = ShapeType.Shape;
-        view.viewer.redraw();
+        view.visualization.viewer.selectionType = ShapeType.Shape;
+        view.visualization.viewer.redraw();
     }
 
     private removeInput() {
@@ -72,7 +72,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         } else {
             this.clearSnapTip();
         }
-        view.viewer.document.viewer.update();
+        view.visualization.viewer.update();
     }
 
     private getSnaped(view: IView, event: MouseEvent) {
@@ -89,8 +89,8 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private getDetectedData(view: IView, event: MouseEvent) {
-        view.viewer.selectionType = ShapeType.Edge;
-        let shapes = view.detectedShapes(event.offsetX, event.offsetY, event.shiftKey);
+        view.visualization.viewer.selectionType = ShapeType.Edge;
+        let shapes = view.detectedShapes(event.offsetX, event.offsetY, event.shiftKey).map((x) => x.shape);
         let data: MouseAndDetected = {
             view,
             mx: event.offsetX,
@@ -119,21 +119,21 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     private showTempShape(point: XYZ, view: IView) {
         let data = VertexRenderData.from(point, 0xff0000, 3);
-        this._tempPointId = view.viewer.document.visualization.context.temporaryDisplay(data);
+        this._tempPointId = view.visualization.context.temporaryDisplay(data);
         let shape = this.data.preview?.(point);
         if (shape !== undefined) {
             let renderDatas = shape.mesh().edges.map((x) => x.renderData);
-            this._tempShapeId = view.viewer.document.visualization.context.temporaryDisplay(...renderDatas);
+            this._tempShapeId = view.visualization.context.temporaryDisplay(...renderDatas);
         }
     }
 
     private removeTempShapes(view: IView) {
         if (this._tempPointId !== undefined) {
-            view.viewer.document.visualization.context.temporaryRemove(this._tempPointId);
+            view.visualization.context.temporaryRemove(this._tempPointId);
             this._tempPointId = undefined;
         }
         if (this._tempShapeId !== undefined) {
-            view.viewer.document.visualization.context.temporaryRemove(this._tempShapeId);
+            view.visualization.context.temporaryRemove(this._tempShapeId);
             this._tempShapeId = undefined;
         }
     }
@@ -145,7 +145,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
     pointerUp(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.viewer.document.viewer.update();
+        view.visualization.viewer.update();
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {

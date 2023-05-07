@@ -32,8 +32,9 @@ import {
 
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
+import { ThreeVisulization } from "./threeVisualization";
 
-export default class ThreeView extends Observable implements IView, IDisposable {
+export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
     private _scene: Scene;
     private _renderer: WebGLRenderer;
@@ -50,7 +51,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly viewer: IViewer,
+        readonly visualization: ThreeVisulization,
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
@@ -65,7 +66,7 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this._floatTip = new Flyout();
-        viewer.addView(this);
+        visualization.viewer.addView(this);
 
         container.appendChild(this._floatTip);
         container.addEventListener("mousemove", this.onMouseMove);
@@ -289,32 +290,27 @@ export default class ThreeView extends Observable implements IView, IDisposable 
         return ThreeHelper.toXYZ(this._camera.up);
     }
 
-    detectedModel(x: number, y: number): IVisualizationShape | undefined {
-        return this.detected(x, y, true)?.at(0)?.parent?.parent as ThreeShape;
+    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualizationShape[] {
+        return this.detected(x, y, firstHitOnly)
+            .map((x) => x.parent?.parent as ThreeShape)
+            .filter((x) => x !== undefined);
     }
 
-    detectedShapes(x: number, y: number): IShape[] {
-        let objs = this.detected(x, y, false);
-        console.log(objs);
-
-        return objs.map((x) => x.userData[Constants.ShapeKey]);
-    }
-
-    detected(x: number, y: number, firstHitOnly: boolean) {
+    private detected(x: number, y: number, firstHitOnly: boolean) {
         let raycaster = this.initRaycaster(x, y, firstHitOnly);
         let shapes = new Array<Object3D>();
-        this.viewer.document.visualization.context.shapes().forEach((x) => {
+        this.visualization.context.shapes().forEach((x) => {
             if (x instanceof ThreeShape) {
                 if (
-                    this.viewer.selectionType === ShapeType.Shape ||
-                    this.viewer.selectionType === ShapeType.Edge
+                    this.visualization.viewer.selectionType === ShapeType.Shape ||
+                    this.visualization.viewer.selectionType === ShapeType.Edge
                 ) {
                     let lines = x.wireframe();
                     if (lines !== undefined) shapes.push(...lines);
                 }
                 if (
-                    this.viewer.selectionType === ShapeType.Shape ||
-                    this.viewer.selectionType === ShapeType.Face
+                    this.visualization.viewer.selectionType === ShapeType.Shape ||
+                    this.visualization.viewer.selectionType === ShapeType.Face
                 ) {
                     let faces = x.faces();
                     if (faces !== undefined) shapes.push(...faces);

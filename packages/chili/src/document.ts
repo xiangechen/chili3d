@@ -1,50 +1,41 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    Entity,
+    Application,
     Id,
     IDocument,
     ICollectionNode,
     IHistory,
-    INode,
-    IViewer,
     IVisualization,
     Observable,
     PubSub,
     NodeLinkedList,
     ISelection,
 } from "chili-core";
-import { Application } from "chili-core/src/application";
 
 import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";
-import { Viewer } from "./viewer";
-import { Selection } from "./selection";
+import { Selection } from "chili-three/src/selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
 
     private _currentNode?: ICollectionNode;
     readonly nodes: NodeCollection;
-    readonly viewer: IViewer;
     readonly visualization: IVisualization;
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
-    readonly selectionManager: ISelection;
 
     constructor(name: string, readonly id: string = Id.new()) {
         super();
         this._name = name;
         this.nodes = new NodeCollection(this);
         this.history = new History();
-        this.viewer = new Viewer(this);
         this.rootNode = new NodeLinkedList(this, name);
-
         this.visualization = Application.instance.visualizationFactory.create(this);
-        this.selectionManager = new Selection(this, this.visualization.context);
 
         Document.cacheDocument(this);
-        PubSub.default.sub("redraw", () => this.viewer.redraw());
+        PubSub.default.sub("redraw", () => this.visualization.viewer.redraw());
     }
 
     static get(id: string): IDocument | undefined {

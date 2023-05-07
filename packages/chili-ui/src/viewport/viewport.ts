@@ -27,7 +27,7 @@ export class Viewport extends Control {
             document.visualization.viewFactory.create("3D", Plane.XY, this.view3D);
             document.visualization.viewFactory.create("Front", Plane.ZX, this.viewFront);
             document.visualization.viewFactory.create("Right", Plane.YZ, this.viewRight);
-            document.viewer.redraw();
+            document.visualization.viewer.redraw();
         }
     };
 }

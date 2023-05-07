@@ -5,9 +5,10 @@ import { IDocument } from "../document";
 import { ShapeType } from "../geometry";
 import { CursorType } from "./cursorType";
 import { IView } from "./view";
+import { IVisualization } from "./visualization";
 
 export interface IViewer extends IDisposable {
-    readonly document: IDocument;
+    readonly visualization: IVisualization;
     selectionType: ShapeType;
     addView(view: IView): void;
     views(): readonly IView[];

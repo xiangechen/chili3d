@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, IDocument, IView, IViewer, PubSub, PubSubEventMap, ShapeType } from "chili-core";
+import {
+    CursorType,
+    IDocument,
+    IView,
+    IViewer,
+    IVisualization,
+    PubSub,
+    PubSubEventMap,
+    ShapeType,
+} from "chili-core";
 
 interface EventData {
     container: HTMLElement | Window;
@@ -21,7 +30,7 @@ export class Viewer implements IViewer {
 
     selectionType: ShapeType = ShapeType.Shape;
 
-    constructor(readonly document: IDocument) {
+    constructor(readonly visualization: IVisualization) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
         this._callbackCaches = new Map();
@@ -127,33 +136,33 @@ export class Viewer implements IViewer {
     }
 
     private pointerMove(view: IView, event: PointerEvent): void {
-        this.document.visualization.eventHandler.pointerMove(view, event);
-        this.document.visualization.viewHandler.pointerMove(view, event);
+        this.visualization.eventHandler.pointerMove(view, event);
+        this.visualization.viewHandler.pointerMove(view, event);
     }
 
     private pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        this.document.visualization.eventHandler.pointerDown(view, event);
-        this.document.visualization.viewHandler.pointerDown(view, event);
+        this.visualization.eventHandler.pointerDown(view, event);
+        this.visualization.viewHandler.pointerDown(view, event);
     }
 
     private pointerUp(view: IView, event: PointerEvent): void {
-        this.document.visualization.eventHandler.pointerUp(view, event);
-        this.document.visualization.viewHandler.pointerUp(view, event);
+        this.visualization.eventHandler.pointerUp(view, event);
+        this.visualization.viewHandler.pointerUp(view, event);
     }
 
     private mouseWheel(view: IView, event: WheelEvent): void {
-        this.document.visualization.eventHandler.mouseWheel(view, event);
-        this.document.visualization.viewHandler.mouseWheel(view, event);
+        this.visualization.eventHandler.mouseWheel(view, event);
+        this.visualization.viewHandler.mouseWheel(view, event);
     }
 
     private keyDown(view: IView, event: KeyboardEvent): void {
-        this.document.visualization.eventHandler.keyDown(view, event);
-        this.document.visualization.viewHandler.keyDown(view, event);
+        this.visualization.eventHandler.keyDown(view, event);
+        this.visualization.viewHandler.keyDown(view, event);
     }
 
     private keyUp(view: IView, event: KeyboardEvent): void {
-        this.document.visualization.eventHandler.keyUp(view, event);
-        this.document.visualization.viewHandler.keyUp(view, event);
+        this.visualization.eventHandler.keyUp(view, event);
+        this.visualization.viewHandler.keyUp(view, event);
     }
 }

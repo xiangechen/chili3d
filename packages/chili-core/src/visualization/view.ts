@@ -5,19 +5,16 @@ import { Flyout } from "chili-ui";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
-import { IViewer } from "./viewer";
-import { IShape } from "../geometry";
-import { IModel } from "../model";
 import { IVisualizationShape } from "./visualizationShape";
+import { IVisualization } from "./visualization";
 
 export interface IView extends IPropertyChanged {
-    get viewer(): IViewer;
+    get visualization(): IVisualization;
     get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;
-    detectedShapes(x: number, y: number, firstHitOnly: boolean): IShape[];
-    detectedModel(x: number, y: number): IVisualizationShape | undefined;
     workplane: Plane;
+    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualizationShape[];
     update(): void;
     redraw(): void;
     up(): XYZ;

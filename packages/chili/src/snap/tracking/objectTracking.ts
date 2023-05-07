@@ -30,7 +30,7 @@ export class ObjectTracking {
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
             v.forEach((s) => {
-                k.viewer.document.visualization.context.temporaryRemove(s.shapeId);
+                k.visualization.context.temporaryRemove(s.shapeId);
             });
         });
         this.trackings.clear();
@@ -65,11 +65,11 @@ export class ObjectTracking {
         } else {
             this.addSnapToTracking(snap, view, currentTrackings);
         }
-        view.viewer.redraw();
+        view.visualization.viewer.redraw();
     }
 
     private removeSnapFromTracking(view: IView, s: SnapeInfo, snaps: SnapeInfo[]) {
-        view.viewer.document.visualization.context.temporaryRemove(s.shapeId);
+        view.visualization.context.temporaryRemove(s.shapeId);
         this.trackings.set(
             view,
             snaps.filter((x) => x !== s)
@@ -78,7 +78,7 @@ export class ObjectTracking {
 
     private addSnapToTracking(snap: SnapedData, view: IView, snaps: SnapeInfo[]) {
         let data = VertexRenderData.from(snap.point, 0xf00, 5);
-        let pointId = view.viewer.document.visualization.context.temporaryDisplay(data);
+        let pointId = view.visualization.context.temporaryDisplay(data);
         let axies = Axis.getAxiesAtPlane(snap.point, view.workplane, this.trackingZ);
         snaps.push({ shapeId: pointId, snap, axies });
     }

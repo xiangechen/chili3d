@@ -1,12 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, INode, ISelection, IVisualizationContext, Observable, PubSub } from "chili-core";
+import {
+    IDocument,
+    INode,
+    ISelection,
+    IVisualization,
+    IVisualizationContext,
+    Observable,
+    PubSub,
+} from "chili-core";
 
 export class Selection extends Observable implements ISelection {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
 
-    constructor(readonly document: IDocument, readonly context: IVisualizationContext) {
+    constructor(readonly visualization: IVisualization) {
         super();
     }
 
@@ -32,7 +40,12 @@ export class Selection extends Observable implements ISelection {
     }
 
     private publishSelection() {
-        PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
+        PubSub.default.pub(
+            "selectionChanged",
+            this.visualization.document,
+            this._selectedNodes,
+            this._unselectedNodes
+        );
     }
 
     private toggleSelectPublish(nodes: INode[], publish: boolean) {
@@ -45,7 +58,7 @@ export class Selection extends Observable implements ISelection {
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
             if (INode.isModelNode(m)) {
-                this.context.getShape(m)?.selectedState();
+                this.visualization.context.getShape(m)?.selectedState();
             }
         });
         this._selectedNodes.push(...nodes);
@@ -55,7 +68,7 @@ export class Selection extends Observable implements ISelection {
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
             if (INode.isModelNode(node)) {
-                this.context.getShape(node)?.unSelectedState();
+                this.visualization.context.getShape(node)?.unSelectedState();
             }
         }
         this._selectedNodes = this._selectedNodes.filter((m) => !nodes.includes(m));

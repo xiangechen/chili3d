@@ -9,8 +9,8 @@ import { command, ICommand, IDocument } from "chili-core";
 })
 export class Redo implements ICommand {
     async excute(document: IDocument): Promise<void> {
-        document.selectionManager.clearSelected();
+        document.visualization.selection.clearSelected();
         document.history.redo();
-        document.viewer.redraw();
+        document.visualization.viewer.redraw();
     }
 }

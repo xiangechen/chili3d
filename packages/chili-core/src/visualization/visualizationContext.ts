@@ -10,6 +10,7 @@ export interface IVisualizationContext {
     removeModel(models: IModel[]): void;
     shapes(): IVisualizationShape[];
     getShape(model: IModel): IVisualizationShape | undefined;
+    getModel(shape: IVisualizationShape): IModel | undefined;
 
     hilighted(shape: IShape): void;
     unHilighted(shape: IShape): void;

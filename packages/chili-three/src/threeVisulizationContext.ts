@@ -40,6 +40,7 @@ export interface ModelInfo {
 }
 
 export class ThreeVisulizationContext implements IVisualizationContext {
+    private readonly _modelMap = new WeakMap<IVisualizationShape, IModel>();
     readonly modelShapes: Group;
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
@@ -54,6 +55,10 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         PubSub.default.sub("modelUpdate", this.handleModelUpdate);
         PubSub.default.sub("visibleChanged", this.handleVisibleChanged);
         PubSub.default.sub("parentVisibleChanged", this.handleVisibleChanged);
+    }
+
+    getModel(shape: IVisualizationShape): IModel | undefined {
+        return this._modelMap.get(shape);
     }
 
     handleModelUpdate = (model: IModel) => {
@@ -154,16 +159,16 @@ export class ThreeVisulizationContext implements IVisualizationContext {
                 childGroup.name = model.id;
                 this.modelShapes.add(childGroup);
             } else {
-                let geometryModel = model as GeometryModel;
+                let geometryModel = model;
                 let shape = this.getShape(geometryModel);
                 if (shape !== undefined) return shape;
-                if (geometryModel.error === undefined) return;
-                let modelShape = geometryModel.shape()!;
+                let modelShape = geometryModel.shape();
+                if (modelShape === undefined) return;
                 let threeShape = new ThreeShape(modelShape);
-                threeShape.name = geometryModel.id;
                 threeShape.applyMatrix4(this.convertMatrix(model.transform()));
                 model.onPropertyChanged(this.handleTransformChanged);
                 this.modelShapes.add(threeShape);
+                this._modelMap.set(threeShape, model);
             }
         });
     }
