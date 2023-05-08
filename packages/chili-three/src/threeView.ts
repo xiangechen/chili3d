@@ -9,7 +9,7 @@ import {
     IShape,
     IView,
     IViewer,
-    IVisualizationShape,
+    IVisualShape,
     Observable,
     Plane,
     Ray,
@@ -32,7 +32,7 @@ import {
 
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
-import { ThreeVisulization } from "./threeVisualization";
+import { ThreeVisul } from "./threeVisual";
 
 export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
@@ -51,7 +51,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly visualization: ThreeVisulization,
+        readonly visualization: ThreeVisul,
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
@@ -290,7 +290,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return ThreeHelper.toXYZ(this._camera.up);
     }
 
-    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualizationShape[] {
+    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[] {
         return this.detected(x, y, firstHitOnly)
             .map((x) => x.parent?.parent as ThreeShape)
             .filter((x) => x !== undefined);

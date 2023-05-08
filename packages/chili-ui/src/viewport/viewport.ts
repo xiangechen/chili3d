@@ -23,11 +23,11 @@ export class Viewport extends Control {
         this.viewRight.clearChildren();
 
         if (document !== undefined) {
-            document.visualization.viewFactory.create("Top", Plane.XY, this.viewTop);
-            document.visualization.viewFactory.create("3D", Plane.XY, this.view3D);
-            document.visualization.viewFactory.create("Front", Plane.ZX, this.viewFront);
-            document.visualization.viewFactory.create("Right", Plane.YZ, this.viewRight);
-            document.visualization.viewer.redraw();
+            document.visual.viewFactory.create("Top", Plane.XY, this.viewTop);
+            document.visual.viewFactory.create("3D", Plane.XY, this.view3D);
+            document.visual.viewFactory.create("Front", Plane.ZX, this.viewFront);
+            document.visual.viewFactory.create("Right", Plane.YZ, this.viewRight);
+            document.visual.viewer.redraw();
         }
     };
 }

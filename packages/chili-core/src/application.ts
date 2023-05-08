@@ -2,7 +2,7 @@
 
 import { IDocument, IResolve, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { IVisualizationFactory } from "chili-vis";
+import { IVisualFactory } from "chili-vis";
 import { IService } from "./service";
 
 export class Application {
@@ -20,11 +20,11 @@ export class Application {
         return this._instance;
     }
 
-    readonly visualizationFactory: IVisualizationFactory;
+    readonly visualizationFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
 
     private constructor(readonly resolve: IResolve, readonly services: IService[]) {
-        this.visualizationFactory = this.resolveOrThrow<IVisualizationFactory>(Token.VisulizationFactory);
+        this.visualizationFactory = this.resolveOrThrow<IVisualFactory>(Token.VisulizationFactory);
         this.shapeFactory = this.resolveOrThrow<IShapeFactory>(Token.ShapeFactory);
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());

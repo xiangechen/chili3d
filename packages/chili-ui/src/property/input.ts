@@ -100,7 +100,7 @@ export class InputProperty extends PropertyBase {
                 this.objects.forEach((x) => {
                     x[this.property.name] = newValue.value;
                 });
-                this.document.visualization.viewer.redraw();
+                this.document.visual.viewer.redraw();
             });
         } else {
             this.error.addClass(style.hidden);

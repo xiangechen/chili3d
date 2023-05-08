@@ -5,7 +5,7 @@ import {
     IDocument,
     IView,
     IViewer,
-    IVisualization,
+    IVisual,
     PubSub,
     PubSubEventMap,
     ShapeType,
@@ -30,7 +30,7 @@ export class Viewer implements IViewer {
 
     selectionType: ShapeType = ShapeType.Shape;
 
-    constructor(readonly visualization: IVisualization) {
+    constructor(readonly visualization: IVisual) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
         this._callbackCaches = new Map();

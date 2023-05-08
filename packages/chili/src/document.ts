@@ -6,7 +6,7 @@ import {
     IDocument,
     ICollectionNode,
     IHistory,
-    IVisualization,
+    IVisual,
     Observable,
     PubSub,
     NodeLinkedList,
@@ -15,14 +15,13 @@ import {
 
 import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";
-import { Selection } from "chili-three/src/selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
 
     private _currentNode?: ICollectionNode;
     readonly nodes: NodeCollection;
-    readonly visualization: IVisualization;
+    readonly visual: IVisual;
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
 
@@ -32,10 +31,10 @@ export class Document extends Observable implements IDocument {
         this.nodes = new NodeCollection(this);
         this.history = new History();
         this.rootNode = new NodeLinkedList(this, name);
-        this.visualization = Application.instance.visualizationFactory.create(this);
+        this.visual = Application.instance.visualizationFactory.create(this);
 
         Document.cacheDocument(this);
-        PubSub.default.sub("redraw", () => this.visualization.viewer.redraw());
+        PubSub.default.sub("redraw", () => this.visual.viewer.redraw());
     }
 
     static get(id: string): IDocument | undefined {

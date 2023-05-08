@@ -3,14 +3,14 @@
 import { RenderData } from "../geometry/renderData";
 import { IShape } from "../geometry/shape";
 import { IModel } from "../model";
-import { IVisualizationShape } from "./visualizationShape";
+import { IVisualShape } from "./visualShape";
 
-export interface IVisualizationContext {
+export interface IVisualContext {
     get shapeCount(): number;
     removeModel(models: IModel[]): void;
-    shapes(): IVisualizationShape[];
-    getShape(model: IModel): IVisualizationShape | undefined;
-    getModel(shape: IVisualizationShape): IModel | undefined;
+    shapes(): IVisualShape[];
+    getShape(model: IModel): IVisualShape | undefined;
+    getModel(shape: IVisualShape): IModel | undefined;
 
     hilighted(shape: IShape): void;
     unHilighted(shape: IShape): void;

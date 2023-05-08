@@ -2,7 +2,7 @@
 
 import { IModel, IShape } from "chili-core";
 
-export interface IVisualizationShape {
+export interface IVisualShape {
     get shape(): IShape;
     get visible(): boolean;
     set visible(value: boolean);

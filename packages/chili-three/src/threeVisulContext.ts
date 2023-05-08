@@ -3,8 +3,8 @@
 import {
     IDocument,
     IShape,
-    IVisualizationContext,
-    IVisualizationShape,
+    IVisualContext,
+    IVisualShape,
     LineType,
     GeometryModel,
     PubSub,
@@ -39,8 +39,8 @@ export interface ModelInfo {
     parent: IModel | IDocument | undefined;
 }
 
-export class ThreeVisulizationContext implements IVisualizationContext {
-    private readonly _modelMap = new WeakMap<IVisualizationShape, IModel>();
+export class ThreeVisulContext implements IVisualContext {
+    private readonly _modelMap = new WeakMap<IVisualShape, IModel>();
     readonly modelShapes: Group;
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
@@ -57,7 +57,7 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         PubSub.default.sub("parentVisibleChanged", this.handleVisibleChanged);
     }
 
-    getModel(shape: IVisualizationShape): IModel | undefined {
+    getModel(shape: IVisualShape): IModel | undefined {
         return this._modelMap.get(shape);
     }
 
@@ -83,11 +83,11 @@ export class ThreeVisulizationContext implements IVisualizationContext {
         return this.modelShapes.children.length;
     }
 
-    getShape(model: IModel): IVisualizationShape | undefined {
+    getShape(model: IModel): IVisualShape | undefined {
         return this.modelShapes.getObjectByName(model.id) as ThreeShape;
     }
 
-    shapes(): IVisualizationShape[] {
+    shapes(): IVisualShape[] {
         let shapes = new Array<ThreeShape>();
         this.modelShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
         return shapes;

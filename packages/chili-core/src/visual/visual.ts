@@ -5,11 +5,11 @@ import { ISelection } from "../selection";
 import { IEventHandler } from "./eventHandler";
 import { IViewFactory } from "./viewFactory";
 import { IViewer } from "./viewer";
-import { IVisualizationContext } from "./visualizationContext";
+import { IVisualContext } from "./visualContext";
 
-export interface IVisualization {
+export interface IVisual {
     get document(): IDocument;
-    get context(): IVisualizationContext;
+    get context(): IVisualContext;
     get viewHandler(): IEventHandler;
     readonly selection: ISelection;
     readonly viewer: IViewer;

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IVisualization } from "chili-core";
+import { IDocument, IVisual } from "chili-core";
 
-export interface IVisualizationFactory {
-    create(document: IDocument): IVisualization;
+export interface IVisualFactory {
+    create(document: IDocument): IVisual;
 }

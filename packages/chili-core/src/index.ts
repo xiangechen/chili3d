@@ -21,4 +21,4 @@ export * from "./module";
 export * from "./selection";
 export * from "./service";
 export * from "./snapType";
-export * from "./visualization";
+export * from "./visual";

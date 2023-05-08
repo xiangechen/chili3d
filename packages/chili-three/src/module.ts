@@ -2,7 +2,7 @@
 
 import { IModule, IRegister, Token } from "chili-core";
 
-import { ThreeVisulizationFactory } from "./threeVisulizationFactory";
+import { ThreeVisulFactory } from "./threeVisulFactory";
 
 export class ThreeModule implements IModule {
     type(): string {
@@ -10,6 +10,6 @@ export class ThreeModule implements IModule {
     }
 
     init(container: IRegister): void | Promise<void> {
-        container.registerSingleton(Token.VisulizationFactory, ThreeVisulizationFactory);
+        container.registerSingleton(Token.VisulizationFactory, ThreeVisulFactory);
     }
 }

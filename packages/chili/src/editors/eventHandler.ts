@@ -28,12 +28,12 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
 
     protected showPoint(point: XYZ): number {
         let start = VertexRenderData.from(point, 0xffff00, 5);
-        return this.document.visualization.context.temporaryDisplay(start);
+        return this.document.visual.context.temporaryDisplay(start);
     }
 
     dispose(): void | Promise<void> {
         this.points.forEach((x) => {
-            this.document.visualization.context.temporaryRemove(x.displayed);
+            this.document.visual.context.temporaryRemove(x.displayed);
         });
         this.points.length = 0;
     }
@@ -60,7 +60,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     }
 
     protected setNewPoint(snaped: FeaturePoint, point: XYZ) {
-        this.document.visualization.context.temporaryRemove(snaped.displayed);
+        this.document.visual.context.temporaryRemove(snaped.displayed);
         snaped.point = point;
         snaped.displayed = this.showPoint(point);
         snaped.setter(point);

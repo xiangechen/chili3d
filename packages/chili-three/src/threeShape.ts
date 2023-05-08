@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IModel, IShape, IShapeMesh, IVisualizationShape } from "chili-core";
+import { Constants, IModel, IShape, IShapeMesh, IVisualShape } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
@@ -27,7 +27,7 @@ selectedEdgeMaterial.color.set(0xabab00);
 
 let selectedColor = new Color(0.5, 0.8, 0.3);
 
-export class ThreeShape extends Object3D implements IVisualizationShape {
+export class ThreeShape extends Object3D implements IVisualShape {
     private _color: Color;
     private _faceMaterial: MeshBasicMaterial;
     private _wireMaterial: LineBasicMaterial;

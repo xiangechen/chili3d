@@ -25,21 +25,21 @@ export abstract class Snapper {
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
         if (this.eventHandler === undefined) this.eventHandler = this.getEventHandler();
-        document.visualization.viewer.setCursor(CursorType.Drawing);
+        document.visual.viewer.setCursor(CursorType.Drawing);
         PubSub.default.pub("statusBarTip", tip);
         await this.waitEventHandlerFinished(document);
-        document.visualization.viewer.setCursor(CursorType.Default);
+        document.visual.viewer.setCursor(CursorType.Default);
         PubSub.default.pub("clearStatusBarTip");
         return this.eventHandler.snaped;
     }
 
     protected async waitEventHandlerFinished(document: IDocument) {
-        let handler = document.visualization.eventHandler;
-        document.visualization.eventHandler = this.eventHandler!;
+        let handler = document.visual.eventHandler;
+        document.visual.eventHandler = this.eventHandler!;
         await new Promise((resolve, reject) => {
             this.cancellationToken.onCancellationRequested(resolve);
         });
-        document.visualization.eventHandler = handler;
+        document.visual.eventHandler = handler;
     }
 }
 

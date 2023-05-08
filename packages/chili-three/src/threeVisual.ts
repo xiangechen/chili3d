@@ -6,36 +6,33 @@ import {
     ISelection,
     IViewFactory,
     IViewer,
-    IVisualization,
-    IVisualizationContext,
+    IVisual,
+    IVisualContext,
 } from "chili-core";
 import { AxesHelper, DirectionalLight, Scene } from "three";
 
 import { SelectionHandler } from "./selectionEventHandler";
 import { ThreeViewFactory } from "./threeViewFactory";
 import { ThreeViewHandler } from "./threeViewEventHandler";
-import { ThreeVisulizationContext } from "./threeVisulizationContext";
+import { ThreeVisulContext } from "./threeVisulContext";
 import { Viewer } from "./viewer";
-import { Selection } from "./selection";
 
-export class ThreeVisulization implements IVisualization {
+export class ThreeVisul implements IVisual {
     private readonly defaultEventHandler: IEventHandler = new SelectionHandler();
-    private _renderContext: ThreeVisulizationContext;
+    private _renderContext: ThreeVisulContext;
     private _scene: Scene;
     private _eventHandler: IEventHandler;
     private _viewFactory: IViewFactory;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
-    readonly selection: ISelection;
 
-    constructor(readonly document: IDocument) {
+    constructor(readonly document: IDocument, readonly selection: ISelection) {
         this._scene = new Scene();
         this._eventHandler = this.defaultEventHandler;
         this.viewer = new Viewer(this);
-        this._renderContext = new ThreeVisulizationContext(this._scene);
+        this._renderContext = new ThreeVisulContext(this._scene);
         this._viewFactory = new ThreeViewFactory(this, this._scene);
         this.viewHandler = new ThreeViewHandler();
-        this.selection = new Selection(this);
         this.init();
     }
 
@@ -66,7 +63,7 @@ export class ThreeVisulization implements IVisualization {
         this._scene.add(axisHelper);
     }
 
-    get context(): IVisualizationContext {
+    get context(): IVisualContext {
         return this._renderContext;
     }
 }

@@ -36,12 +36,12 @@ export class EditorService implements IService {
         if (models.length > 0) {
             this.handler = this.getEventHandler(document, models);
             if (this.handler !== undefined) {
-                document.visualization.eventHandler = this.handler;
+                document.visual.eventHandler = this.handler;
             }
         } else {
-            document.visualization.clearEventHandler();
+            document.visual.clearEventHandler();
         }
-        document.visualization.viewer.redraw();
+        document.visual.viewer.redraw();
     };
 
     private getEventHandler(document: IDocument, models: INode[]): EditorEventHandler | undefined {
