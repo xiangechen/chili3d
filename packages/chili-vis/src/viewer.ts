@@ -28,8 +28,6 @@ export class Viewer implements IViewer {
     private readonly _eventCaches: Map<IView, EventData[]>;
     private readonly _callbackCaches: Map<IView, SubCallbackData[]>;
 
-    selectionType: ShapeType = ShapeType.Shape;
-
     constructor(readonly visualization: IVisual) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();

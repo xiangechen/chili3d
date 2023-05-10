@@ -4,8 +4,7 @@ import { IModel, IShape } from "chili-core";
 
 export interface IVisualShape {
     get shape(): IShape;
-    get visible(): boolean;
-    set visible(value: boolean);
+    visible: boolean;
     hilightedState(): void;
     unHilightedState(): void;
     selectedState(): void;

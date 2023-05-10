@@ -2,7 +2,7 @@
 
 import { IModule, IRegister, Token } from "chili-core";
 
-import { ThreeVisulFactory } from "./threeVisulFactory";
+import { ThreeVisulFactory } from "./threeVisualFactory";
 
 export class ThreeModule implements IModule {
     type(): string {

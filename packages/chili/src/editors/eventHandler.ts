@@ -40,13 +40,13 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     pointerMove(view: IView, event: PointerEvent): void {
         for (let point of this.points) {
             if (this.distanceToMouse(view, event.offsetX, event.offsetY, point.point) < 4) {
-                view.visualization.viewer.setCursor(CursorType.Drawing);
+                view.visual.viewer.setCursor(CursorType.Drawing);
                 this.snaped = point;
                 return;
             }
         }
         this.snaped = undefined;
-        view.visualization.viewer.setCursor(CursorType.Default);
+        view.visual.viewer.setCursor(CursorType.Default);
     }
     pointerDown(view: IView, event: PointerEvent): void {}
     async pointerUp(view: IView, event: PointerEvent) {
@@ -55,7 +55,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
         let data = await snapper?.snap(this.document, this.snaped.tip);
         if (data?.point === undefined) return;
         this.setNewPoint(this.snaped, data.point);
-        view.visualization.viewer.redraw();
+        view.visual.viewer.redraw();
         this.snaped = undefined;
     }
 
@@ -78,7 +78,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     mouseWheel(view: IView, event: WheelEvent): void {}
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            view.visualization.selection.clearSelected();
+            view.visual.selection.clearSelected();
         }
     }
     keyUp(view: IView, event: KeyboardEvent): void {}

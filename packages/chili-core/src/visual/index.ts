@@ -4,7 +4,6 @@ export * from "./cursorType";
 export * from "./eventHandler";
 export * from "./view";
 export * from "./viewer";
-export * from "./viewFactory";
 export * from "./visual";
 export * from "./visualContext";
 export * from "./visualShape";

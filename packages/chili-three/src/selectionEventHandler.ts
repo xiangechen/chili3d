@@ -41,15 +41,15 @@ export class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             let intersect = view.detectedShapes(this.mouse.x, this.mouse.y, true).at(0);
             if (intersect === undefined) {
-                view.visualization.selection.clearSelected();
+                view.visual.selection.clearSelected();
                 return;
             }
-            let node = view.visualization.context.getModel(intersect);
-            if (node !== undefined) view.visualization.selection.setSelected(event.shiftKey, [node]);
+            let node = view.visual.context.getModel(intersect);
+            if (node !== undefined) view.visual.selection.setSelected(event.shiftKey, [node]);
 
             this.mouse.isDown = false;
         }
-        view.visualization.viewer.redraw();
+        view.visual.viewer.redraw();
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {}

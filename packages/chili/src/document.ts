@@ -31,7 +31,7 @@ export class Document extends Observable implements IDocument {
         this.nodes = new NodeCollection(this);
         this.history = new History();
         this.rootNode = new NodeLinkedList(this, name);
-        this.visual = Application.instance.visualizationFactory.create(this);
+        this.visual = Application.instance.visualFactory.create(this);
 
         Document.cacheDocument(this);
         PubSub.default.sub("redraw", () => this.visual.viewer.redraw());

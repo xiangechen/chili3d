@@ -20,11 +20,11 @@ export class Application {
         return this._instance;
     }
 
-    readonly visualizationFactory: IVisualFactory;
+    readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
 
     private constructor(readonly resolve: IResolve, readonly services: IService[]) {
-        this.visualizationFactory = this.resolveOrThrow<IVisualFactory>(Token.VisulizationFactory);
+        this.visualFactory = this.resolveOrThrow<IVisualFactory>(Token.VisulizationFactory);
         this.shapeFactory = this.resolveOrThrow<IShapeFactory>(Token.ShapeFactory);
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());

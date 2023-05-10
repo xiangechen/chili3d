@@ -32,7 +32,7 @@ import {
 
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
-import { ThreeVisul } from "./threeVisual";
+import { ThreeVisual } from "./threeVisual";
 
 export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
@@ -51,22 +51,20 @@ export class ThreeView extends Observable implements IView, IDisposable {
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly visualization: ThreeVisul,
+        readonly visual: ThreeVisual,
         name: string,
         workplane: Plane,
-        readonly container: HTMLElement,
-        scene: Scene
+        readonly container: HTMLElement
     ) {
         super();
         this._name = name;
-        this._scene = scene;
+        this._scene = visual.scene;
         this._target = new Vector3();
         this._workplane = workplane;
         this._camera = this.initCamera(container);
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this._floatTip = new Flyout();
-        visualization.viewer.addView(this);
 
         container.appendChild(this._floatTip);
         container.addEventListener("mousemove", this.onMouseMove);
@@ -299,18 +297,18 @@ export class ThreeView extends Observable implements IView, IDisposable {
     private detected(x: number, y: number, firstHitOnly: boolean) {
         let raycaster = this.initRaycaster(x, y, firstHitOnly);
         let shapes = new Array<Object3D>();
-        this.visualization.context.shapes().forEach((x) => {
+        this.visual.context.shapes().forEach((x) => {
             if (x instanceof ThreeShape) {
                 if (
-                    this.visualization.viewer.selectionType === ShapeType.Shape ||
-                    this.visualization.viewer.selectionType === ShapeType.Edge
+                    this.visual.selectionType === ShapeType.Shape ||
+                    this.visual.selectionType === ShapeType.Edge
                 ) {
                     let lines = x.wireframe();
                     if (lines !== undefined) shapes.push(...lines);
                 }
                 if (
-                    this.visualization.viewer.selectionType === ShapeType.Shape ||
-                    this.visualization.viewer.selectionType === ShapeType.Face
+                    this.visual.selectionType === ShapeType.Shape ||
+                    this.visual.selectionType === ShapeType.Face
                 ) {
                     let faces = x.faces();
                     if (faces !== undefined) shapes.push(...faces);

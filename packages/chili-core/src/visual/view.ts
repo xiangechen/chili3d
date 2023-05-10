@@ -9,7 +9,7 @@ import { IVisualShape } from "./visualShape";
 import { IVisual } from "./visual";
 
 export interface IView extends IPropertyChanged {
-    get visualization(): IVisual;
+    get visual(): IVisual;
     get float(): Flyout;
     get container(): HTMLElement;
     get scale(): number;

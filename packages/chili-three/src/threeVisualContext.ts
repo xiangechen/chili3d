@@ -39,7 +39,7 @@ export interface ModelInfo {
     parent: IModel | IDocument | undefined;
 }
 
-export class ThreeVisulContext implements IVisualContext {
+export class ThreeVisualContext implements IVisualContext {
     private readonly _modelMap = new WeakMap<IVisualShape, IModel>();
     readonly modelShapes: Group;
     readonly tempShapes: Group;

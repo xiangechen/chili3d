@@ -4,44 +4,41 @@ import {
     IDocument,
     IEventHandler,
     ISelection,
-    IViewFactory,
+    IView,
     IViewer,
     IVisual,
     IVisualContext,
+    Plane,
+    ShapeType,
 } from "chili-core";
 import { AxesHelper, DirectionalLight, Scene } from "three";
 
 import { SelectionHandler } from "./selectionEventHandler";
-import { ThreeViewFactory } from "./threeViewFactory";
 import { ThreeViewHandler } from "./threeViewEventHandler";
-import { ThreeVisulContext } from "./threeVisulContext";
-import { Viewer } from "./viewer";
+import { ThreeVisualContext } from "./threeVisualContext";
+import { Viewer } from "chili-vis/src/viewer";
+import { ThreeView } from "./threeView";
 
-export class ThreeVisul implements IVisual {
+export class ThreeVisual implements IVisual {
     private readonly defaultEventHandler: IEventHandler = new SelectionHandler();
-    private _renderContext: ThreeVisulContext;
+    private _renderContext: ThreeVisualContext;
     private _scene: Scene;
     private _eventHandler: IEventHandler;
-    private _viewFactory: IViewFactory;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
+    selectionType: ShapeType = ShapeType.Shape;
 
     constructor(readonly document: IDocument, readonly selection: ISelection) {
         this._scene = new Scene();
         this._eventHandler = this.defaultEventHandler;
         this.viewer = new Viewer(this);
-        this._renderContext = new ThreeVisulContext(this._scene);
-        this._viewFactory = new ThreeViewFactory(this, this._scene);
+        this._renderContext = new ThreeVisualContext(this._scene);
         this.viewHandler = new ThreeViewHandler();
         this.init();
     }
 
     get scene(): Scene {
         return this._scene;
-    }
-
-    get viewFactory(): IViewFactory {
-        return this._viewFactory;
     }
 
     get eventHandler(): IEventHandler {
@@ -52,7 +49,7 @@ export class ThreeVisul implements IVisual {
         this._eventHandler = value;
     }
 
-    clearEventHandler() {
+    resetEventHandler() {
         this._eventHandler = this.defaultEventHandler;
     }
 
@@ -65,5 +62,11 @@ export class ThreeVisul implements IVisual {
 
     get context(): IVisualContext {
         return this._renderContext;
+    }
+
+    createView(name: string, workplane: Plane, dom: HTMLElement): IView {
+        let view = new ThreeView(this, name, workplane, dom);
+        this.viewer.addView(view);
+        return view;
     }
 }
