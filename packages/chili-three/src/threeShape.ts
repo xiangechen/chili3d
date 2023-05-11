@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, IModel, IShape, IShapeMesh, IVisualShape } from "chili-core";
+import { Color, Constants, IModel, IShape, IShapeMesh, IVisualShape } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
-    Color,
+    Color as ThreeColor,
     Float32BufferAttribute,
     Group,
     Line,
@@ -25,13 +25,14 @@ hilightEdgeMaterial.color.set(0xcfcf00);
 let selectedEdgeMaterial = new LineBasicMaterial();
 selectedEdgeMaterial.color.set(0xabab00);
 
-let selectedColor = new Color(0.5, 0.8, 0.3);
+let selectedColor = new ThreeColor(0.5, 0.8, 0.3);
 
 export class ThreeShape extends Object3D implements IVisualShape {
     private _color: Color;
     private _faceMaterial: MeshBasicMaterial;
     private _wireMaterial: LineBasicMaterial;
     private _selectedStatus: boolean = false;
+    transparency: number = 1;
 
     override type: "ChiliShape";
 
@@ -42,8 +43,14 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this._faceMaterial = new MeshBasicMaterial({
             color: 0xaaaaaa,
         });
-        this._color = this._faceMaterial.color;
+        this._color = ThreeHelper.toColor(this._faceMaterial.color);
         this.init();
+    }
+    setColor(color: Color): void {
+        throw new Error("Method not implemented.");
+    }
+    setTransparency(transparency: number): void {
+        throw new Error("Method not implemented.");
     }
 
     private init() {
@@ -96,7 +103,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this._selectedStatus = true;
         this._wireMaterial = selectedEdgeMaterial;
         this.updateEdgeMaterial(selectedEdgeMaterial);
-        this._color = this._faceMaterial.color;
+        this._color = ThreeHelper.toColor(this._faceMaterial.color);
         this._faceMaterial.color = selectedColor;
         // this._faceMaterial.transparent = true
         // this._faceMaterial.opacity = 0.5
@@ -107,7 +114,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this._selectedStatus = false;
         this._wireMaterial = edgeMaterial;
         this.updateEdgeMaterial(edgeMaterial);
-        this._faceMaterial.color = this._color;
+        this._faceMaterial.color = ThreeHelper.fromColor(this.color);
         // this._faceMaterial.transparent = false
         // this._faceMaterial.opacity = 1
     }
@@ -134,11 +141,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
 
     set color(color: Color) {
         this._color = color;
-        this._faceMaterial.color = color;
+        this._faceMaterial.color = ThreeHelper.fromColor(color);
     }
 
     get color(): Color {
-        return this._faceMaterial.color;
+        return this._color;
     }
 
     get isSelected() {

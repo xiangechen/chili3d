@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, XYZ } from "chili-core";
+import { Color, Constants, XYZ } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
     Camera,
+    Color as ThreeColor,
     Float32BufferAttribute,
     OrthographicCamera,
     PerspectiveCamera,
@@ -26,5 +27,13 @@ export class ThreeHelper {
 
     static isOrthographicCamera(camera: Camera): camera is OrthographicCamera {
         return (camera as OrthographicCamera).isOrthographicCamera;
+    }
+
+    static fromColor(color: Color): ThreeColor {
+        return new ThreeColor(color.r, color.g, color.b);
+    }
+
+    static toColor(color: ThreeColor): Color {
+        return new Color(color.r, color.g, color.b, 1);
     }
 }

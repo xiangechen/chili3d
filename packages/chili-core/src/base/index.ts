@@ -2,6 +2,7 @@
 
 export * from "./cancellationToken";
 export * from "./collection";
+export * from "./color";
 export * from "./disposable";
 export * from "./equalityComparer";
 export * from "./history";

@@ -13,6 +13,7 @@ import {
     Transform,
     INode,
     IModel,
+    Color,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -44,6 +45,8 @@ export class ThreeVisualContext implements IVisualContext {
     readonly modelShapes: Group;
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
+    hilightedColor: Color = new Color(0.5, 0.8, 0.3, 1);
+    selectedColor: Color = new Color(0.5, 0.8, 0.3, 1);
 
     constructor(readonly scene: Scene) {
         this.modelShapes = new Group();
