@@ -9,6 +9,7 @@ import {
     IShape,
     IView,
     IViewer,
+    IVisual,
     IVisualShape,
     Observable,
     Plane,
@@ -51,14 +52,15 @@ export class ThreeView extends Observable implements IView, IDisposable {
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly visual: ThreeVisual,
+        readonly visual: IVisual,
         name: string,
         workplane: Plane,
-        readonly container: HTMLElement
+        readonly container: HTMLElement,
+        scene: Scene
     ) {
         super();
         this._name = name;
-        this._scene = visual.scene;
+        this._scene = scene;
         this._target = new Vector3();
         this._workplane = workplane;
         this._camera = this.initCamera(container);

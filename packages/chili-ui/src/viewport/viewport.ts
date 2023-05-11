@@ -23,10 +23,10 @@ export class Viewport extends Control {
         this.viewRight.clearChildren();
 
         if (document !== undefined) {
-            document.visual.createView("Top", Plane.XY, this.viewTop);
-            document.visual.createView("3D", Plane.XY, this.view3D);
-            document.visual.createView("Front", Plane.ZX, this.viewFront);
-            document.visual.createView("Right", Plane.YZ, this.viewRight);
+            document.visual.viewer.createView("Top", Plane.XY, this.viewTop);
+            document.visual.viewer.createView("3D", Plane.XY, this.view3D);
+            document.visual.viewer.createView("Front", Plane.ZX, this.viewFront);
+            document.visual.viewer.createView("Right", Plane.YZ, this.viewRight);
             document.visual.viewer.redraw();
         }
     };

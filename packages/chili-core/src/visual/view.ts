@@ -9,10 +9,10 @@ import { IVisualShape } from "./visualShape";
 import { IVisual } from "./visual";
 
 export interface IView extends IPropertyChanged {
-    get visual(): IVisual;
-    get float(): Flyout;
-    get container(): HTMLElement;
-    get scale(): number;
+    readonly visual: IVisual;
+    readonly float: Flyout;
+    readonly container: HTMLElement;
+    scale: number;
     workplane: Plane;
     detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[];
     update(): void;

@@ -18,5 +18,4 @@ export interface IVisual {
     eventHandler: IEventHandler;
     selectionType: ShapeType;
     resetEventHandler(): void;
-    createView(name: string, workplane: Plane, dom: HTMLElement): IView;
 }

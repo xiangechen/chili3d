@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IEventHandler, IModel, IView, IVisualShape } from "chili-core";
-import { ThreeShape } from "./threeShape";
+import { ThreeShape } from "chili-three/src/threeShape";
 
 export class SelectionHandler implements IEventHandler {
     private mouse: { isDown: boolean; x: number; y: number };

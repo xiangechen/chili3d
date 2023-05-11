@@ -1,14 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDisposable } from "../base";
-import { ShapeType } from "../geometry";
+import { Plane } from "../math";
 import { CursorType } from "./cursorType";
 import { IView } from "./view";
 import { IVisual } from "./visual";
 
 export interface IViewer extends IDisposable {
-    readonly visualization: IVisual;
-    addView(view: IView): void;
+    readonly visual: IVisual;
+    createView(name: string, workplane: Plane, dom: HTMLElement): void;
+    removeView(view: IView): void;
     views(): readonly IView[];
     redraw(): void;
     update(): void;

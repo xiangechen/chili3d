@@ -13,11 +13,10 @@ import {
 } from "chili-core";
 import { AxesHelper, DirectionalLight, Scene } from "three";
 
-import { SelectionHandler } from "./selectionEventHandler";
+import { SelectionHandler } from "chili-vis";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisualContext } from "./threeVisualContext";
-import { Viewer } from "chili-vis/src/viewer";
-import { ThreeView } from "./threeView";
+import { ThreeViwer } from "./threeViewer";
 
 export class ThreeVisual implements IVisual {
     private readonly defaultEventHandler: IEventHandler = new SelectionHandler();
@@ -31,7 +30,7 @@ export class ThreeVisual implements IVisual {
     constructor(readonly document: IDocument, readonly selection: ISelection) {
         this._scene = new Scene();
         this._eventHandler = this.defaultEventHandler;
-        this.viewer = new Viewer(this);
+        this.viewer = new ThreeViwer(this, this._scene);
         this._renderContext = new ThreeVisualContext(this._scene);
         this.viewHandler = new ThreeViewHandler();
         this.init();
@@ -62,11 +61,5 @@ export class ThreeVisual implements IVisual {
 
     get context(): IVisualContext {
         return this._renderContext;
-    }
-
-    createView(name: string, workplane: Plane, dom: HTMLElement): IView {
-        let view = new ThreeView(this, name, workplane, dom);
-        this.viewer.addView(view);
-        return view;
     }
 }

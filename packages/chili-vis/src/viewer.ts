@@ -6,6 +6,7 @@ import {
     IView,
     IViewer,
     IVisual,
+    Plane,
     PubSub,
     PubSubEventMap,
     ShapeType,
@@ -23,22 +24,25 @@ interface SubCallbackData {
     callback: (e: any) => void;
 }
 
-export class Viewer implements IViewer {
+export abstract class Viewer implements IViewer {
     private readonly _views: Set<IView>;
     private readonly _eventCaches: Map<IView, EventData[]>;
     private readonly _callbackCaches: Map<IView, SubCallbackData[]>;
 
-    constructor(readonly visualization: IVisual) {
+    constructor(readonly visual: IVisual) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
         this._callbackCaches = new Map();
     }
 
-    addView(view: IView) {
-        if (this._views.has(view)) return;
+    createView(name: string, workplane: Plane, dom: HTMLElement): IView {
+        let view = this.handleCreateView(name, workplane, dom);
         this._views.add(view);
         this.initEvent(view.container, view);
+        return view;
     }
+
+    protected abstract handleCreateView(name: string, workplane: Plane, dom: HTMLElement): IView;
 
     removeView(view: IView) {
         this.removeEvents(view);
@@ -134,33 +138,33 @@ export class Viewer implements IViewer {
     }
 
     private pointerMove(view: IView, event: PointerEvent): void {
-        this.visualization.eventHandler.pointerMove(view, event);
-        this.visualization.viewHandler.pointerMove(view, event);
+        this.visual.eventHandler.pointerMove(view, event);
+        this.visual.viewHandler.pointerMove(view, event);
     }
 
     private pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        this.visualization.eventHandler.pointerDown(view, event);
-        this.visualization.viewHandler.pointerDown(view, event);
+        this.visual.eventHandler.pointerDown(view, event);
+        this.visual.viewHandler.pointerDown(view, event);
     }
 
     private pointerUp(view: IView, event: PointerEvent): void {
-        this.visualization.eventHandler.pointerUp(view, event);
-        this.visualization.viewHandler.pointerUp(view, event);
+        this.visual.eventHandler.pointerUp(view, event);
+        this.visual.viewHandler.pointerUp(view, event);
     }
 
     private mouseWheel(view: IView, event: WheelEvent): void {
-        this.visualization.eventHandler.mouseWheel(view, event);
-        this.visualization.viewHandler.mouseWheel(view, event);
+        this.visual.eventHandler.mouseWheel(view, event);
+        this.visual.viewHandler.mouseWheel(view, event);
     }
 
     private keyDown(view: IView, event: KeyboardEvent): void {
-        this.visualization.eventHandler.keyDown(view, event);
-        this.visualization.viewHandler.keyDown(view, event);
+        this.visual.eventHandler.keyDown(view, event);
+        this.visual.viewHandler.keyDown(view, event);
     }
 
     private keyUp(view: IView, event: KeyboardEvent): void {
-        this.visualization.eventHandler.keyUp(view, event);
-        this.visualization.viewHandler.keyUp(view, event);
+        this.visual.eventHandler.keyUp(view, event);
+        this.visual.viewHandler.keyUp(view, event);
     }
 }

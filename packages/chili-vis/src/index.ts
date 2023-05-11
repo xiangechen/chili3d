@@ -2,3 +2,5 @@
 
 export * from "./visualFactory";
 export * from "./selection";
+export * from "./selectionEventHandler";
+export * from "./viewer";
