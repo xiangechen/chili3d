@@ -12,7 +12,7 @@ export class SelectionHandler implements IEventHandler {
     }
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.update();
+        view.redraw();
     }
 
     keyUp(view: IView, event: KeyboardEvent): void {}
@@ -24,7 +24,7 @@ export class SelectionHandler implements IEventHandler {
         }
         this._lastDetected = view.detectedShapes(event.offsetX, event.offsetY, true).at(0);
         this._lastDetected?.hilightedState();
-        view.update();
+        view.redraw();
     }
 
     pointerDown(view: IView, event: PointerEvent): void {

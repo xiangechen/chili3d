@@ -72,7 +72,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         } else {
             this.clearSnapTip();
         }
-        view.visual.viewer.update();
+        view.visual.viewer.redraw();
     }
 
     private getSnaped(view: IView, event: MouseEvent) {
@@ -145,7 +145,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
     pointerUp(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.visual.viewer.update();
+        view.visual.viewer.redraw();
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {

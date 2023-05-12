@@ -2,6 +2,7 @@
 
 export * from "./cursorType";
 export * from "./eventHandler";
+export * from "./selection";
 export * from "./view";
 export * from "./viewer";
 export * from "./visual";

@@ -14,8 +14,7 @@ export interface IView extends IPropertyChanged {
     readonly container: HTMLElement;
     scale: number;
     workplane: Plane;
-    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[];
-    update(): void;
+    detectedShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
     redraw(): void;
     up(): XYZ;
     direction(): XYZ;

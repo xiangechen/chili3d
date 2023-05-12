@@ -30,7 +30,7 @@ export class ThreeViewHandler implements IEventHandler {
             this.mouse.x = event.offsetX;
             this.mouse.y = event.offsetY;
         }
-        view.update();
+        view.redraw();
     }
 
     pointerDown(view: IView, event: PointerEvent): void {

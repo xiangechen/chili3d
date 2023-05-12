@@ -46,6 +46,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     private _target: Vector3;
     private _scale: number = 1;
     private _startRotate?: XY;
+    private _needRedraw: boolean = false;
 
     panSpeed: number = 0.3;
     zoomSpeed: number = 1.3;
@@ -67,7 +68,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this._floatTip = new Flyout();
-
+        this.animate();
         container.appendChild(this._floatTip);
         container.addEventListener("mousemove", this.onMouseMove);
     }
@@ -203,15 +204,18 @@ export class ThreeView extends Observable implements IView, IDisposable {
         if (CursorType.Drawing === cursorType) this.container.classList.add("drawingCursor");
     }
 
-    update() {
-        let now = this.getTime();
-        if (now - this._lastRedrawTime < 50) return;
-        this._lastRedrawTime = now;
-        this._renderer.render(this._scene, this._camera);
+    private animate() {
+        requestAnimationFrame(() => {
+            this.animate();
+        });
+        if ((this._needRedraw = true)) {
+            this._renderer.render(this._scene, this._camera);
+            this._needRedraw = false;
+        }
     }
 
     redraw() {
-        this._renderer.render(this._scene, this._camera);
+        this._needRedraw = true;
     }
 
     get float(): Flyout {
@@ -234,7 +238,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
             this._camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
-        this.update();
+        this.redraw();
     }
 
     get name(): string {

@@ -24,7 +24,7 @@ import {
     LineBasicMaterial,
     LineDashedMaterial,
     Material,
-    Matrix4,
+    Matrix4 as ThreeMatrix4,
     Mesh,
     MeshBasicMaterial,
     Object3D,
@@ -177,7 +177,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private convertMatrix(transform: Matrix4) {
-        return new Matrix4().fromArray(transform.toArray());
+        return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
     private handleTransformChanged = (model: IModel, property: keyof IModel) => {

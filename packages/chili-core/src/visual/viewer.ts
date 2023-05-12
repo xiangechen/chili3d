@@ -12,6 +12,5 @@ export interface IViewer extends IDisposable {
     removeView(view: IView): void;
     views(): readonly IView[];
     redraw(): void;
-    update(): void;
     setCursor(cursor: CursorType): void;
 }
