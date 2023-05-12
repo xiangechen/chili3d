@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Quaternion, Ray, Transform, XYZ } from "../math";
+import { Quaternion, Ray, Matrix4, XYZ } from "../math";
 import { Result } from "../base";
 import { ICurve } from "./geometry";
 import { IShapeMesh } from "./shapeMesh";

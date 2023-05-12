@@ -10,7 +10,7 @@ import {
     PubSub,
     RenderData,
     ShapeType,
-    Transform,
+    Matrix4,
     INode,
     IModel,
     Color,
@@ -176,7 +176,7 @@ export class ThreeVisualContext implements IVisualContext {
         });
     }
 
-    private convertMatrix(transform: Transform) {
+    private convertMatrix(transform: Matrix4) {
         return new Matrix4().fromArray(transform.toArray());
     }
 

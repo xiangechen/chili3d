@@ -19,7 +19,7 @@ import {
     Ray,
     Result,
     ShapeType,
-    Transform,
+    Matrix4,
     XYZ,
 } from "chili-core";
 import {

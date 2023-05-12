@@ -3,8 +3,44 @@
 import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
-export class Transform {
+export class Matrix4 {
     private readonly array: Float32Array = new Float32Array(16);
+
+    constructor(
+        m11: number = 1,
+        m12: number = 0,
+        m13: number = 0,
+        m14: number = 0,
+        m21: number = 0,
+        m22: number = 1,
+        m23: number = 0,
+        m24: number = 0,
+        m31: number = 0,
+        m32: number = 0,
+        m33: number = 1,
+        m34: number = 0,
+        m41: number = 0,
+        m42: number = 0,
+        m43: number = 0,
+        m44: number = 1
+    ) {
+        this.array[0] = m11;
+        this.array[1] = m12;
+        this.array[2] = m13;
+        this.array[3] = m14;
+        this.array[4] = m21;
+        this.array[5] = m22;
+        this.array[6] = m23;
+        this.array[7] = m24;
+        this.array[8] = m31;
+        this.array[9] = m32;
+        this.array[10] = m33;
+        this.array[11] = m34;
+        this.array[12] = m41;
+        this.array[13] = m42;
+        this.array[14] = m43;
+        this.array[15] = m44;
+    }
 
     public determinant(): number {
         let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
@@ -26,19 +62,19 @@ export class Transform {
         return a13 * b6 - a03 * b7 + a33 * b8 - a23 * b9;
     }
 
-    public toArray(): number[] {
+    public toArray(): readonly number[] {
         return [...this.array];
     }
 
-    public add(other: Transform): Transform {
-        let result = new Transform();
+    public add(other: Matrix4): Matrix4 {
+        let result = new Matrix4();
         for (let index = 0; index < 16; index++) {
             result.array[index] = this.array[index] + other.array[index];
         }
         return result;
     }
 
-    public invert(): Transform | undefined {
+    public invert(): Matrix4 | undefined {
         let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
         let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
         let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
@@ -60,7 +96,7 @@ export class Transform {
         if (det === 0) return undefined;
         det = 1.0 / det;
 
-        return Transform.fromArray([
+        return new Matrix4(
             (a11 * b11 - a12 * b10 + a13 * b09) * det,
             (a02 * b10 - a01 * b11 - a03 * b09) * det,
             (a31 * b05 - a32 * b04 + a33 * b03) * det,
@@ -76,11 +112,11 @@ export class Transform {
             (a11 * b07 - a10 * b09 - a12 * b06) * det,
             (a00 * b09 - a01 * b07 + a02 * b06) * det,
             (a31 * b01 - a30 * b03 - a32 * b00) * det,
-            (a20 * b03 - a21 * b01 + a22 * b00) * det,
-        ]);
+            (a20 * b03 - a21 * b01 + a22 * b00) * det
+        );
     }
 
-    position(vector: XYZ): Transform {
+    position(vector: XYZ): Matrix4 {
         let transform = this.clone();
         transform.array[12] = vector.x;
         transform.array[13] = vector.y;
@@ -145,8 +181,8 @@ export class Transform {
         return new Quaternion(x, y, z, w);
     }
 
-    public multiply(other: Transform): Transform {
-        let result = new Transform();
+    public multiply(other: Matrix4): Matrix4 {
+        let result = new Matrix4();
 
         let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
         let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
@@ -180,39 +216,35 @@ export class Transform {
         return result;
     }
 
-    public equals(value: Transform): boolean {
+    public equals(value: Matrix4): boolean {
         for (let i = 0; i < 16; i++) {
             if (this.array[i] !== value.array[i]) return false;
         }
         return true;
     }
 
-    public clone(): Transform {
-        return Transform.fromArray(this.toArray());
+    public clone(): Matrix4 {
+        return Matrix4.fromArray(this.toArray());
     }
 
-    public static fromArray(array: ArrayLike<number>): Transform {
-        let result = new Transform();
+    public static fromArray(array: ArrayLike<number>): Matrix4 {
+        let result = new Matrix4();
         for (let index = 0; index < 16; index++) {
             result.array[index] = array[index];
         }
         return result;
     }
 
-    public static identity(): Transform {
-        return Transform.fromArray([
-            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-        ]);
+    public static identity(): Matrix4 {
+        return new Matrix4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     }
 
-    public static zero(): Transform {
-        return Transform.fromArray([
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        ]);
+    public static zero(): Matrix4 {
+        return new Matrix4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     }
 
-    static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Transform {
-        let transform = new Transform();
+    static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Matrix4 {
+        let transform = new Matrix4();
         const { x, y, z, w } = rotation;
         const x2 = x + x,
             y2 = y + y,
@@ -250,8 +282,8 @@ export class Transform {
         return transform;
     }
 
-    public static rotationXTransform(angle: number): Transform {
-        let result = new Transform();
+    public static rotationXTransform(angle: number): Matrix4 {
+        let result = new Matrix4();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
         result.array[0] = 1.0;
@@ -263,8 +295,8 @@ export class Transform {
         return result;
     }
 
-    public static rotationYTransform(angle: number): Transform {
-        let result = new Transform();
+    public static rotationYTransform(angle: number): Matrix4 {
+        let result = new Matrix4();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
         result.array[5] = 1.0;
@@ -276,8 +308,8 @@ export class Transform {
         return result;
     }
 
-    public static rotationZTransform(angle: number): Transform {
-        let result = new Transform();
+    public static rotationZTransform(angle: number): Matrix4 {
+        let result = new Matrix4();
         let s = Math.sin(angle);
         let c = Math.cos(angle);
         result.array[10] = 1.0;
@@ -289,11 +321,11 @@ export class Transform {
         return result;
     }
 
-    public static rotationAxis(vector: XYZ, angle: number): Transform {
+    public static rotationAxis(vector: XYZ, angle: number): Matrix4 {
         let axis = vector.normalize();
         if (axis === undefined) throw new TypeError("invalid vector");
 
-        let result = Transform.zero();
+        let result = Matrix4.zero();
         let s = Math.sin(-angle);
         let c = Math.cos(-angle);
         let c1 = 1 - c;
@@ -317,50 +349,16 @@ export class Transform {
         return result;
     }
 
-    public static scalingTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromArray([
-            x,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            y,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            z,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-        ]);
+    public static scalingTransform(x: number, y: number, z: number): Matrix4 {
+        return Matrix4.fromArray([x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0]);
     }
 
-    public static translationTransform(x: number, y: number, z: number): Transform {
-        return Transform.fromArray([
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            x,
-            y,
-            z,
-            1.0,
-        ]);
+    public static translationTransform(x: number, y: number, z: number): Matrix4 {
+        return Matrix4.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0]);
     }
 
-    public transpose(): Transform {
-        let result = new Transform();
+    public transpose(): Matrix4 {
+        let result = new Matrix4();
         result.array[0] = this.array[0];
         result.array[1] = this.array[4];
         result.array[2] = this.array[8];

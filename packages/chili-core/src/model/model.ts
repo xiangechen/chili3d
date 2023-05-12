@@ -2,7 +2,7 @@
 
 import { property } from "../decorators";
 import { IDocument } from "../document";
-import { Quaternion, Transform, XYZ } from "../math";
+import { Quaternion, Matrix4, XYZ } from "../math";
 import { IModel, IModelGroup, INode, Node } from "./node";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
@@ -27,8 +27,8 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         return this._shape;
     }
 
-    transform(): Transform {
-        return Transform.compose(this._translation, this._rotation, this._scale);
+    transform(): Matrix4 {
+        return Matrix4.compose(this._translation, this._rotation, this._scale);
     }
 
     @property("model.translation")

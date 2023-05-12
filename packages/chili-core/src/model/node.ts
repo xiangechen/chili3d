@@ -5,7 +5,7 @@ import { property } from "../decorators";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
-import { Quaternion, Transform, XYZ } from "../math";
+import { Quaternion, Matrix4, XYZ } from "../math";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged {
@@ -29,7 +29,7 @@ export interface ICollectionNode extends INode, ICollection<INode> {
 export interface IModel<T extends IShape = IShape> extends INode {
     readonly document: IDocument;
     readonly body: Entity;
-    transform(): Transform;
+    transform(): Matrix4;
     translation: XYZ;
     rotation: Quaternion;
     scale: XYZ;
