@@ -27,7 +27,7 @@ export class ThreeVisual implements IVisual {
     readonly viewer: IViewer;
     selectionType: ShapeType = ShapeType.Shape;
 
-    constructor(readonly document: IDocument, readonly selection: ISelection) {
+    constructor(readonly document: IDocument) {
         this._scene = new Scene();
         this._eventHandler = this.defaultEventHandler;
         this.viewer = new ThreeViwer(this, this._scene);

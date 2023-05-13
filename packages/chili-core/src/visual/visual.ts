@@ -3,7 +3,7 @@
 import { IDocument } from "../document";
 import { ShapeType } from "../geometry";
 import { Plane } from "../math";
-import { ISelection } from "./selection";
+import { ISelection } from "../selection";
 import { IEventHandler } from "./eventHandler";
 import { IView } from "./view";
 import { IViewer } from "./viewer";
@@ -13,7 +13,6 @@ export interface IVisual {
     readonly document: IDocument;
     readonly context: IVisualContext;
     readonly viewHandler: IEventHandler;
-    readonly selection: ISelection;
     readonly viewer: IViewer;
     eventHandler: IEventHandler;
     selectionType: ShapeType;

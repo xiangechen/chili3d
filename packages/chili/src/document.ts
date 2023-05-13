@@ -15,6 +15,7 @@ import {
 
 import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";
+import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
@@ -24,6 +25,7 @@ export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
+    readonly selection: ISelection;
 
     constructor(name: string, readonly id: string = Id.new()) {
         super();
@@ -32,6 +34,7 @@ export class Document extends Observable implements IDocument {
         this.history = new History();
         this.rootNode = new NodeLinkedList(this, name);
         this.visual = Application.instance.visualFactory.create(this);
+        this.selection = new Selection(this);
 
         Document.cacheDocument(this);
         PubSub.default.sub("redraw", () => this.visual.viewer.redraw());
