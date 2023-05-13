@@ -10,16 +10,16 @@ import { ThreeViwer } from "./threeViewer";
 export class ThreeVisual implements IVisual {
     private readonly defaultEventHandler: IEventHandler = new SelectionHandler();
     readonly context: ThreeVisualContext;
-    private _scene: Scene;
+    readonly scene: Scene;
     private _eventHandler: IEventHandler;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
 
     constructor(readonly document: IDocument) {
-        this._scene = new Scene();
+        this.scene = new Scene();
         this._eventHandler = this.defaultEventHandler;
-        this.viewer = new ThreeViwer(this, this._scene);
-        this.context = new ThreeVisualContext(this._scene);
+        this.viewer = new ThreeViwer(this, this.scene);
+        this.context = new ThreeVisualContext(this.scene);
         this.viewHandler = new ThreeViewHandler();
     }
 

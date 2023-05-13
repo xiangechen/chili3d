@@ -7,10 +7,10 @@ import {
     INode,
     INodeCollection,
     ISelection,
-    IVisualization,
+    IVisual,
     PropertyChangedHandler,
 } from "chili-core";
-import { ThreeVisulization } from "../src/threeVisualization";
+import { ThreeVisual } from "../src/threeVisual";
 
 export class TestDocument implements IDocument {
     name: string;
@@ -18,7 +18,7 @@ export class TestDocument implements IDocument {
     id: string;
     history: IHistory;
     selection: ISelection;
-    visualization: ThreeVisulization;
+    visual: ThreeVisual;
     nodes: INodeCollection;
     rootNode: ICollectionNode;
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
@@ -34,7 +34,7 @@ export class TestDocument implements IDocument {
     constructor() {
         this.name = "test";
         this.id = "test";
-        this.visualization = new ThreeVisulization(this);
+        this.visual = new ThreeVisual(this);
         this.history = {} as any;
         this.selection = {} as any;
         this.nodes = {} as any;

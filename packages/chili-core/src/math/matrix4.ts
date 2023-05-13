@@ -6,42 +6,6 @@ import { XYZ } from "./xyz";
 export class Matrix4 {
     private readonly array: Float32Array = new Float32Array(16);
 
-    constructor(
-        m11: number = 1,
-        m12: number = 0,
-        m13: number = 0,
-        m14: number = 0,
-        m21: number = 0,
-        m22: number = 1,
-        m23: number = 0,
-        m24: number = 0,
-        m31: number = 0,
-        m32: number = 0,
-        m33: number = 1,
-        m34: number = 0,
-        m41: number = 0,
-        m42: number = 0,
-        m43: number = 0,
-        m44: number = 1
-    ) {
-        this.array[0] = m11;
-        this.array[1] = m12;
-        this.array[2] = m13;
-        this.array[3] = m14;
-        this.array[4] = m21;
-        this.array[5] = m22;
-        this.array[6] = m23;
-        this.array[7] = m24;
-        this.array[8] = m31;
-        this.array[9] = m32;
-        this.array[10] = m33;
-        this.array[11] = m34;
-        this.array[12] = m41;
-        this.array[13] = m42;
-        this.array[14] = m43;
-        this.array[15] = m44;
-    }
-
     public determinant(): number {
         let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
         let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
@@ -96,7 +60,7 @@ export class Matrix4 {
         if (det === 0) return undefined;
         det = 1.0 / det;
 
-        return new Matrix4(
+        return Matrix4.fromArray([
             (a11 * b11 - a12 * b10 + a13 * b09) * det,
             (a02 * b10 - a01 * b11 - a03 * b09) * det,
             (a31 * b05 - a32 * b04 + a33 * b03) * det,
@@ -112,8 +76,8 @@ export class Matrix4 {
             (a11 * b07 - a10 * b09 - a12 * b06) * det,
             (a00 * b09 - a01 * b07 + a02 * b06) * det,
             (a31 * b01 - a30 * b03 - a32 * b00) * det,
-            (a20 * b03 - a21 * b01 + a22 * b00) * det
-        );
+            (a20 * b03 - a21 * b01 + a22 * b00) * det,
+        ]);
     }
 
     position(vector: XYZ): Matrix4 {
@@ -236,11 +200,15 @@ export class Matrix4 {
     }
 
     public static identity(): Matrix4 {
-        return new Matrix4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+        return Matrix4.fromArray([
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ]);
     }
 
     public static zero(): Matrix4 {
-        return new Matrix4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        return Matrix4.fromArray([
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ]);
     }
 
     static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Matrix4 {

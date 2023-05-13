@@ -58,7 +58,7 @@ export class Quaternion {
         const y = this.y;
         const z = this.z;
         const w = this.w;
-        return new Matrix4(
+        return Matrix4.fromArray([
             1 - 2 * y * y - 2 * z * z,
             2 * x * y - 2 * z * w,
             2 * x * z + 2 * y * w,
@@ -74,8 +74,8 @@ export class Quaternion {
             0,
             0,
             0,
-            1
-        );
+            1,
+        ]);
     }
 
     toEuler(): XYZ {
