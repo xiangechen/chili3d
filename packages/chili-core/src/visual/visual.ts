@@ -15,6 +15,5 @@ export interface IVisual {
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
     eventHandler: IEventHandler;
-    selectionType: ShapeType;
     resetEventHandler(): void;
 }

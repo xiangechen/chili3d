@@ -54,7 +54,6 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeInput();
         this.removeTempShapes(view);
         this._snaps.forEach((x) => x.clear());
-        view.visual.selectionType = ShapeType.Shape;
         view.visual.viewer.redraw();
     }
 
@@ -80,7 +79,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.data.validator === undefined || this.data.validator(snaped.point)) {
+            if (this.data.validator?.(snaped.point)) {
                 return snaped;
             }
         }
@@ -88,16 +87,14 @@ export abstract class SnapEventHandler implements IEventHandler {
         return undefined;
     }
 
-    private getDetectedData(view: IView, event: MouseEvent) {
-        view.visual.selectionType = ShapeType.Edge;
-        let shapes = view.detectedShapes(event.offsetX, event.offsetY, event.shiftKey).map((x) => x.shape);
-        let data: MouseAndDetected = {
+    private getDetectedData(view: IView, event: MouseEvent): MouseAndDetected {
+        let shapes = view.detectedShapes(ShapeType.Edge, event.offsetX, event.offsetY, event.shiftKey);
+        return {
             view,
             mx: event.offsetX,
             my: event.offsetY,
             shapes,
         };
-        return data;
     }
 
     private clearSnapTip() {

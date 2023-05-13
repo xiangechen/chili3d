@@ -208,7 +208,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         requestAnimationFrame(() => {
             this.animate();
         });
-        if ((this._needRedraw = true)) {
+        if (this._needRedraw) {
             this._renderer.render(this._scene, this._camera);
             this._needRedraw = false;
         }
@@ -294,28 +294,32 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return ThreeHelper.toXYZ(this._camera.up);
     }
 
-    detectedShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[] {
-        return this.detected(x, y, firstHitOnly)
+    detectedVisualShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[] {
+        return this.detected(ShapeType.Shape, x, y, firstHitOnly)
             .map((x) => x.parent?.parent as ThreeShape)
             .filter((x) => x !== undefined);
     }
 
-    private detected(x: number, y: number, firstHitOnly: boolean) {
+    detectedShapes(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): IShape[] {
+        return this.detected(shapeType, x, y, firstHitOnly)
+            .map((x) => x.userData[Constants.ShapeKey] as IShape)
+            .filter((x) => x !== undefined);
+    }
+
+    private detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean) {
         let raycaster = this.initRaycaster(x, y, firstHitOnly);
         let shapes = new Array<Object3D>();
         this.visual.context.shapes().forEach((x) => {
             if (x instanceof ThreeShape) {
-                if (
-                    this.visual.selectionType === ShapeType.Shape ||
-                    this.visual.selectionType === ShapeType.Edge
-                ) {
+                if (shapeType === ShapeType.Shape) {
                     let lines = x.wireframe();
                     if (lines !== undefined) shapes.push(...lines);
-                }
-                if (
-                    this.visual.selectionType === ShapeType.Shape ||
-                    this.visual.selectionType === ShapeType.Face
-                ) {
+                    let faces = x.faces();
+                    if (faces !== undefined) shapes.push(...faces);
+                } else if (shapeType === ShapeType.Edge) {
+                    let lines = x.wireframe();
+                    if (lines !== undefined) shapes.push(...lines);
+                } else if (shapeType === ShapeType.Face) {
                     let faces = x.faces();
                     if (faces !== undefined) shapes.push(...faces);
                 }

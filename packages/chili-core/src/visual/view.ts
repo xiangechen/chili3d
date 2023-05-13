@@ -7,6 +7,7 @@ import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
 import { IVisualShape } from "./visualShape";
 import { IVisual } from "./visual";
+import { IShape, ShapeType } from "../geometry";
 
 export interface IView extends IPropertyChanged {
     readonly visual: IVisual;
@@ -14,7 +15,8 @@ export interface IView extends IPropertyChanged {
     readonly container: HTMLElement;
     scale: number;
     workplane: Plane;
-    detectedShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
+    detectedShapes(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): IShape[];
+    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
     redraw(): void;
     up(): XYZ;
     direction(): XYZ;

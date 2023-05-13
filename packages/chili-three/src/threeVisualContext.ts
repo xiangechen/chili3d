@@ -31,6 +31,8 @@ import {
     Points,
     PointsMaterial,
     Scene,
+    DirectionalLight,
+    AxesHelper,
 } from "three";
 
 import { ThreeShape } from "./threeShape";
@@ -41,7 +43,9 @@ export interface ModelInfo {
 }
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _modelMap = new WeakMap<IVisualShape, IModel>();
+    private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
+    private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
+
     readonly modelShapes: Group;
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
@@ -52,6 +56,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.modelShapes = new Group();
         this.tempShapes = new Group();
         this.hilightedShapes = new Group();
+        this.initScene();
         scene.add(this.modelShapes, this.tempShapes, this.hilightedShapes);
         PubSub.default.sub("nodeAdded", this.handleAddModel);
         PubSub.default.sub("nodeRemoved", this.handleRemoveModel);
@@ -60,8 +65,15 @@ export class ThreeVisualContext implements IVisualContext {
         PubSub.default.sub("parentVisibleChanged", this.handleVisibleChanged);
     }
 
+    initScene() {
+        const light = new DirectionalLight(0xffffff, 0.5);
+        this.scene.add(light);
+        let axisHelper = new AxesHelper(250);
+        this.scene.add(axisHelper);
+    }
+
     getModel(shape: IVisualShape): IModel | undefined {
-        return this._modelMap.get(shape);
+        return this._shapeModelMap.get(shape);
     }
 
     handleModelUpdate = (model: IModel) => {
@@ -87,7 +99,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     getShape(model: IModel): IVisualShape | undefined {
-        return this.modelShapes.getObjectByName(model.id) as ThreeShape;
+        return this._modelShapeMap.get(model) as ThreeShape;
     }
 
     shapes(): IVisualShape[] {
@@ -101,8 +113,7 @@ export class ThreeVisualContext implements IVisualContext {
         if (group.type === "Group") {
             group.children.forEach((x) => this._getThreeShapes(shapes, x));
         } else {
-            let threeShape = shape as ThreeShape;
-            if (threeShape.shape !== undefined) shapes.push(threeShape);
+            if (shape instanceof ThreeShape) shapes.push(shape);
         }
     }
 
@@ -171,7 +182,8 @@ export class ThreeVisualContext implements IVisualContext {
                 threeShape.applyMatrix4(this.convertMatrix(model.transform()));
                 model.onPropertyChanged(this.handleTransformChanged);
                 this.modelShapes.add(threeShape);
-                this._modelMap.set(threeShape, model);
+                this._shapeModelMap.set(threeShape, model);
+                this._modelShapeMap.set(model, threeShape);
             }
         });
     }
@@ -196,11 +208,16 @@ export class ThreeVisualContext implements IVisualContext {
     };
 
     removeModel(models: IModel[]) {
-        models.forEach((model) => {
-            let obj = this.modelShapes.getObjectByName(model.id);
-            if (obj === undefined) return;
-            // https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
-            this.modelShapes.remove(obj);
+        let shapes = models
+            .map((model) => {
+                return this._modelShapeMap.get(model) as ThreeShape;
+            })
+            .filter((x) => x !== undefined);
+        // https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
+        this.modelShapes.remove(...shapes);
+        shapes.forEach((obj) => {
+            this._modelShapeMap.delete(this._shapeModelMap.get(obj) as IModel);
+            this._shapeModelMap.delete(obj);
             obj.traverse((child) => {
                 if (child instanceof BufferGeometry) {
                     child.dispose();
@@ -214,19 +231,16 @@ export class ThreeVisualContext implements IVisualContext {
     findShapes(shapeType: ShapeType): Object3D[] {
         let res = new Array<Object3D>();
         if (shapeType === ShapeType.Shape) res.push(...this.modelShapes.children);
-        if (shapeType === ShapeType.Edge) {
+        else {
             this.modelShapes.traverse((x) => {
                 if (x instanceof ThreeShape) {
-                    let wireframe = x.wireframe();
-                    if (wireframe !== undefined) res.push(...wireframe);
-                }
-            });
-        }
-        if (shapeType === ShapeType.Face) {
-            this.modelShapes.traverse((x) => {
-                if (x instanceof ThreeShape) {
-                    let faces = x.faces();
-                    if (faces !== undefined) res.push(...faces);
+                    if (shapeType === ShapeType.Edge) {
+                        let wireframe = x.wireframe();
+                        if (wireframe !== undefined) res.push(...wireframe);
+                    } else if (shapeType === ShapeType.Face) {
+                        let faces = x.faces();
+                        if (faces !== undefined) res.push(...faces);
+                    }
                 }
             });
         }

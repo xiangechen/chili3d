@@ -34,11 +34,8 @@ export class ThreeShape extends Object3D implements IVisualShape {
     private _selectedStatus: boolean = false;
     transparency: number = 1;
 
-    override type: "ChiliShape";
-
     constructor(readonly shape: IShape) {
         super();
-        this.type = "ChiliShape";
         this._wireMaterial = edgeMaterial;
         this._faceMaterial = new MeshBasicMaterial({
             color: 0xaaaaaa,
@@ -58,6 +55,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let vertexGroup = this.initVertexs(mesh);
         let faceGroup = this.initFaces(mesh);
         let edgeGroup = this.initEdges(mesh);
+        this.userData[Constants.ShapeKey] = this.shape;
         this.add(vertexGroup, edgeGroup, faceGroup);
     }
 
