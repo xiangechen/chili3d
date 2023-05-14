@@ -103,15 +103,15 @@ export class GeometryModel extends Model {
     }
 
     protected onVisibleChanged(): void {
-        PubSub.default.pub("visibleChanged", this);
+        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }
 
     protected onParentVisibleChanged(): void {
-        PubSub.default.pub("parentVisibleChanged", this);
+        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }
 
     private update() {
-        PubSub.default.pub("modelUpdate", this);
+        this.document.visual.context.redrawModel([this]);
     }
 
     private applyFeatures(startIndex: number) {

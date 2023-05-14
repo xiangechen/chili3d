@@ -43,8 +43,9 @@ export interface ModelInfo {
 }
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
-    private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
+    private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();
+    private readonly _modelShapeMap = new WeakMap<IModel, ThreeShape>();
+    private readonly _shapeShapeMap = new WeakMap<IShape, ThreeShape>();
 
     readonly modelShapes: Group;
     readonly tempShapes: Group;
@@ -58,11 +59,6 @@ export class ThreeVisualContext implements IVisualContext {
         this.hilightedShapes = new Group();
         this.initScene();
         scene.add(this.modelShapes, this.tempShapes, this.hilightedShapes);
-        PubSub.default.sub("nodeAdded", this.handleAddModel);
-        PubSub.default.sub("nodeRemoved", this.handleRemoveModel);
-        PubSub.default.sub("modelUpdate", this.handleModelUpdate);
-        PubSub.default.sub("visibleChanged", this.handleVisibleChanged);
-        PubSub.default.sub("parentVisibleChanged", this.handleVisibleChanged);
     }
 
     initScene() {
@@ -73,13 +69,13 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     getModel(shape: IVisualShape): IModel | undefined {
-        return this._shapeModelMap.get(shape);
+        return this._shapeModelMap.get(shape as ThreeShape);
     }
 
-    handleModelUpdate = (model: IModel) => {
-        this.removeModel([model]);
-        this.addModel([model]);
-    };
+    redrawModel(models: IModel[]) {
+        this.removeModel(models);
+        this.addModel(models);
+    }
 
     hilighted(shape: IShape) {
         let threeShape = new ThreeShape(shape);
@@ -99,7 +95,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     getShape(model: IModel): IVisualShape | undefined {
-        return this._modelShapeMap.get(model) as ThreeShape;
+        return this._modelShapeMap.get(model);
     }
 
     shapes(): IVisualShape[] {
@@ -151,32 +147,23 @@ export class ThreeVisualContext implements IVisualContext {
         this.tempShapes.remove(shape);
     }
 
-    handleAddModel = (document: IDocument, nodes: INode[]) => {
-        this.addModel(nodes.map((x) => x as IModel).filter((x) => x.translation !== undefined));
-    };
-
-    handleRemoveModel = (document: IDocument, nodes: INode[]) => {
-        this.removeModel(nodes.map((x) => x as IModel).filter((x) => x.translation !== undefined));
-    };
-
-    private handleVisibleChanged = (model: IModel) => {
+    setVisible(model: IModel, visible: boolean): void {
         let shape = this.getShape(model);
-        let visible = model.visible && model.parentVisible;
         if (shape === undefined || shape.visible === visible) return;
         shape.visible = visible;
-    };
+    }
 
     addModel(models: IModel[]) {
         models.forEach((model) => {
+            if (this._modelShapeMap.has(model)) return;
             if (INode.isModelGroup(model)) {
                 let childGroup = new Group();
                 childGroup.name = model.id;
                 this.modelShapes.add(childGroup);
             } else {
-                let geometryModel = model;
-                let shape = this.getShape(geometryModel);
+                let shape = this.getShape(model);
                 if (shape !== undefined) return shape;
-                let modelShape = geometryModel.shape();
+                let modelShape = model.shape();
                 if (modelShape === undefined) return;
                 let threeShape = new ThreeShape(modelShape);
                 threeShape.applyMatrix4(this.convertMatrix(model.transform()));
@@ -193,7 +180,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private handleTransformChanged = (model: IModel, property: keyof IModel) => {
-        let shape = this.modelShapes.getObjectByName(model.id);
+        let shape = this.getShape(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "translation") {
             shape?.position.set(model.translation.x, model.translation.y, model.translation.z);

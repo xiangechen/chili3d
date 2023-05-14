@@ -12,56 +12,55 @@ import {
 } from "chili-core";
 
 export class NodeCollection implements INodeCollection {
-    private readonly modelMap: Map<string, INode> = new Map();
+    private readonly nodeMap: Map<string, INode> = new Map();
 
     constructor(readonly document: IDocument) {}
 
     get(id: string): INode | undefined {
-        return this.modelMap.get(id);
+        return this.nodeMap.get(id);
     }
 
-    add(...models: INode[]) {
-        let index = 0;
-        let items = new Array(models.length);
-        for (const model of models) {
-            if (!this.modelMap.has(model.id)) {
-                this.modelMap.set(model.id, model);
-                items[index++] = model;
-            }
-        }
-        if (index === 0) return;
-        items.splice(index);
-        Transaction.add(this.document, new CollectionHistoryRecord(this, CollectionAction.add, items));
+    add(...nodes: INode[]) {
+        let items = this.getItems(nodes, (node) => this.nodeMap.set(node.id, node));
+        if (items.length === 0) return;
+        this.document.visual.context.addModel(nodes.filter((node) => INode.isModelNode(node)) as IModel[]);
         PubSub.default.pub("nodeAdded", this.document, items);
+        Transaction.add(this.document, new CollectionHistoryRecord(this, CollectionAction.add, items));
     }
 
-    remove(...models: IModel[]) {
+    remove(...nodes: INode[]) {
+        let items = this.getItems(nodes, (node) => this.nodeMap.delete(node.id));
+        if (items.length === 0) return;
+        this.document.visual.context.removeModel(nodes.filter((node) => INode.isModelNode(node)) as IModel[]);
+        PubSub.default.pub("nodeRemoved", this.document, items);
+        Transaction.add(this.document, new CollectionHistoryRecord(this, CollectionAction.remove, items));
+    }
+
+    private getItems(nodes: INode[], handleNodeAction: (node: INode) => void) {
+        let items = new Array(nodes.length);
         let index = 0;
-        let items = new Array(models.length);
-        for (const model of models) {
-            if (this.modelMap.has(model.id)) {
-                this.modelMap.delete(model.id);
-                items[index++] = model;
+        for (const node of nodes) {
+            if (this.nodeMap.has(node.id)) {
+                handleNodeAction(node);
+                items[index++] = node;
             }
         }
-        if (index === 0) return;
         items.splice(index);
-        Transaction.add(this.document, new CollectionHistoryRecord(this, CollectionAction.remove, items));
-        PubSub.default.pub("nodeRemoved", this.document, items);
+        return items;
     }
 
     find(predicate: (item: INode) => boolean): INode | undefined {
-        for (let item of this.modelMap.values()) {
+        for (let item of this.nodeMap.values()) {
             if (predicate(item)) return item;
         }
         return undefined;
     }
 
     entry(): IterableIterator<INode> {
-        return this.modelMap.values();
+        return this.nodeMap.values();
     }
 
     size(): number {
-        return this.modelMap.size;
+        return this.nodeMap.size;
     }
 }
