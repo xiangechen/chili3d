@@ -53,7 +53,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     rotateSpeed: number = 1.0;
 
     constructor(
-        readonly visual: IVisual,
+        readonly viewer: IViewer,
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
@@ -74,8 +74,15 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     private initCamera(container: HTMLElement) {
-        let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 4000);
-        //let camera = new OrthographicCamera(-this._container.offsetWidth / 2, this._container.offsetWidth / 2, this._container.offsetHeight / 2, -this._container.offsetHeight / 2, 0.01, 3000)
+        //let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 4000);
+        let camera = new OrthographicCamera(
+            -this.container.offsetWidth / 2,
+            this.container.offsetWidth / 2,
+            this.container.offsetHeight / 2,
+            -this.container.offsetHeight / 2,
+            0.01,
+            3000
+        );
         camera.up.set(0, 0, 1);
         camera.position.set(1000, 1000, 1000);
         camera.lookAt(this._target);
@@ -95,6 +102,13 @@ export class ThreeView extends Observable implements IView, IDisposable {
         this._floatTip.style.top = e.clientY + "px";
         this._floatTip.style.left = e.clientX + "px";
     };
+
+    lookAt(cameraPosition: XYZ, target: XYZ): void {
+        this._target.set(target.x, target.y, target.z);
+        this._camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        this._camera.lookAt(this._target);
+        this.redraw();
+    }
 
     pan(dx: number, dy: number) {
         let { x, y } = this.convert(dx, dy);
@@ -292,50 +306,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     up(): XYZ {
         return ThreeHelper.toXYZ(this._camera.up);
-    }
-
-    detectedVisualShapes(x: number, y: number, firstHitOnly: boolean): IVisualShape[] {
-        return this.detected(ShapeType.Shape, x, y, firstHitOnly)
-            .map((x) => x.parent?.parent as ThreeShape)
-            .filter((x) => x !== undefined);
-    }
-
-    detectedShapes(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): IShape[] {
-        return this.detected(shapeType, x, y, firstHitOnly)
-            .map((x) => x.userData[Constants.ShapeKey] as IShape)
-            .filter((x) => x !== undefined);
-    }
-
-    private detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean) {
-        let raycaster = this.initRaycaster(x, y, firstHitOnly);
-        let shapes = new Array<Object3D>();
-        this.visual.context.shapes().forEach((x) => {
-            if (x instanceof ThreeShape) {
-                if (shapeType === ShapeType.Shape) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
-                } else if (shapeType === ShapeType.Edge) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                } else if (shapeType === ShapeType.Face) {
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
-                }
-            }
-        });
-        return raycaster.intersectObjects(shapes, false).map((x) => x.object);
-    }
-
-    private initRaycaster(x: number, y: number, firstHitOnly: boolean) {
-        let threshold = 10 * this._scale;
-        let ray = this.rayAt(x, y);
-        let raycaster = new Raycaster();
-        raycaster.params = { Line: { threshold }, Points: { threshold } };
-        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
-        raycaster.firstHitOnly = firstHitOnly;
-        return raycaster;
     }
 
     private mouseToWorld(mx: number, my: number) {

@@ -8,18 +8,18 @@ import { CursorType } from "./cursorType";
 import { IVisualShape } from "./visualShape";
 import { IVisual } from "./visual";
 import { IShape, ShapeType } from "../geometry";
+import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged {
-    readonly visual: IVisual;
+    readonly viewer: IViewer;
     readonly float: Flyout;
     readonly container: HTMLElement;
     scale: number;
     workplane: Plane;
-    detectedShapes(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): IShape[];
-    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
     redraw(): void;
     up(): XYZ;
     direction(): XYZ;
+    lookAt(cameraLocation: XYZ, target: XYZ): void;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;

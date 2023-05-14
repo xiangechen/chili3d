@@ -45,7 +45,7 @@ export class ObjectSnap implements ISnap {
     clear() {
         this.unHilighted();
         this._invisibleInfos.forEach((info) => {
-            info.displays.forEach((x) => info.view.visual.context.temporaryRemove(x));
+            info.displays.forEach((x) => info.view.viewer.visual.context.temporaryRemove(x));
         });
     }
 
@@ -128,7 +128,7 @@ export class ObjectSnap implements ISnap {
 
     private showCircleCenter(curve: ICircle, view: IView, shape: IShape) {
         let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
-        let id = view.visual.context.temporaryDisplay(temporary);
+        let id = view.viewer.visual.context.temporaryDisplay(temporary);
         this._invisibleInfos.set(shape, {
             view,
             snaps: [
@@ -148,13 +148,13 @@ export class ObjectSnap implements ISnap {
             view,
             shapes,
         };
-        shapes.forEach((x) => view.visual.context.hilighted(x));
+        shapes.forEach((x) => view.viewer.visual.context.hilighted(x));
     }
 
     private unHilighted() {
         if (this._hilightedShapes !== undefined) {
             this._hilightedShapes.shapes.forEach((x) =>
-                this._hilightedShapes?.view.visual.context.unHilighted(x)
+                this._hilightedShapes?.view.viewer.visual.context.unHilighted(x)
             );
             this._hilightedShapes = undefined;
         }

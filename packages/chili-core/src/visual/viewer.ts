@@ -8,7 +8,7 @@ import { IVisual } from "./visual";
 
 export interface IViewer extends IDisposable {
     readonly visual: IVisual;
-    createView(name: string, workplane: Plane, dom: HTMLElement): void;
+    createView(name: string, workplane: Plane, dom: HTMLElement): IView;
     removeView(view: IView): void;
     views(): readonly IView[];
     redraw(): void;

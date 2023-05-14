@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Plane, PubSub } from "chili-core";
+import { IDocument, Plane, PubSub, XYZ } from "chili-core";
 import { Control, Panel } from "../components";
 import { ViewControl } from "./view";
 import style from "./viewport.module.css";
@@ -23,10 +23,16 @@ export class Viewport extends Control {
         this.viewRight.clearChildren();
 
         if (document !== undefined) {
-            document.visual.viewer.createView("Top", Plane.XY, this.viewTop);
+            document.visual.viewer
+                .createView("Top", Plane.XY, this.viewTop)
+                .lookAt(new XYZ(0, 0, 1000), XYZ.zero);
             document.visual.viewer.createView("3D", Plane.XY, this.view3D);
-            document.visual.viewer.createView("Front", Plane.ZX, this.viewFront);
-            document.visual.viewer.createView("Right", Plane.YZ, this.viewRight);
+            document.visual.viewer
+                .createView("Front", Plane.ZX, this.viewFront)
+                .lookAt(new XYZ(0, 1000, 0), XYZ.zero);
+            document.visual.viewer
+                .createView("Right", Plane.YZ, this.viewRight)
+                .lookAt(new XYZ(1000, 0, 0), XYZ.zero);
             document.visual.viewer.redraw();
         }
     };

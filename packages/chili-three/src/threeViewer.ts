@@ -11,6 +11,6 @@ export class ThreeViwer extends Viewer {
     }
 
     protected handleCreateView(name: string, workplane: Plane, dom: HTMLElement) {
-        return new ThreeView(this.visual, name, workplane, dom, this.scene);
+        return new ThreeView(this.visual.viewer, name, workplane, dom, this.scene);
     }
 }
