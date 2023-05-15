@@ -1,0 +1,26 @@
+.dialog {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    margin: 0px;
+    padding: 0px;
+}
+
+.title {
+    padding: 16px;
+    font-size: medium;
+}
+
+.content {
+    padding: 0px 16px;
+    opacity: 0.56;
+}
+
+.buttons {
+    margin-top: 16px;
+    padding: 16px;
+}
+
+.button {
+    width: 64px;
+}
