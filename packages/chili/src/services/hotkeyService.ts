@@ -15,6 +15,7 @@ export interface HotkeyMap {
 
 const DefaultKeyMap: HotkeyMap = {
     Delete: "Delete",
+    Backspace: "Delete",
     "ctrl+z": "Undo",
     "ctrl+y": "Redo",
 };
