@@ -18,7 +18,6 @@ import {
     XY,
     XYZ,
 } from "chili-core";
-import { Flyout } from "chili-ui";
 import {
     Camera,
     Object3D,
@@ -42,7 +41,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
     private _workplane: Plane;
     private _camera: Camera;
     private _lastRedrawTime: number;
-    private _floatTip: Flyout;
     private _target: Vector3;
     private _scale: number = 1;
     private _startRotate?: XY;
@@ -67,10 +65,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         this._camera = this.initCamera(container);
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
-        this._floatTip = new Flyout();
         this.animate();
-        container.appendChild(this._floatTip);
-        container.addEventListener("mousemove", this.onMouseMove);
     }
 
     private initCamera(container: HTMLElement) {
@@ -97,11 +92,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
         renderer.autoClear = false;
         return renderer;
     }
-
-    private onMouseMove = (e: MouseEvent) => {
-        this._floatTip.style.top = e.clientY + "px";
-        this._floatTip.style.left = e.clientX + "px";
-    };
 
     lookAt(cameraPosition: XYZ, target: XYZ): void {
         this._target.set(target.x, target.y, target.z);
@@ -230,10 +220,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     redraw() {
         this._needRedraw = true;
-    }
-
-    get float(): Flyout {
-        return this._floatTip;
     }
 
     get camera(): Camera {

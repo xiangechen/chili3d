@@ -40,6 +40,7 @@ import {
 
 import { ThreeShape } from "./threeShape";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeView } from "./threeView";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();
@@ -253,33 +254,36 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private detected(shapeType: ShapeType, view: IView, mx: number, my: number, firstHitOnly: boolean) {
-        let raycaster = this.initRaycaster(view, mx, my, firstHitOnly);
-        let shapes = new Array<Object3D>();
-        this.shapes().forEach((x) => {
-            if (x instanceof ThreeShape) {
-                if (shapeType === ShapeType.Shape) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
-                } else if (shapeType === ShapeType.Edge) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                } else if (shapeType === ShapeType.Face) {
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
+        if (view instanceof ThreeView) {
+            let raycaster = this.initRaycaster(view, mx, my, firstHitOnly);
+            let shapes = new Array<Object3D>();
+            this.shapes().forEach((x) => {
+                if (x instanceof ThreeShape) {
+                    if (shapeType === ShapeType.Shape) {
+                        let lines = x.wireframe();
+                        if (lines !== undefined) shapes.push(...lines);
+                        let faces = x.faces();
+                        if (faces !== undefined) shapes.push(...faces);
+                    } else if (shapeType === ShapeType.Edge) {
+                        let lines = x.wireframe();
+                        if (lines !== undefined) shapes.push(...lines);
+                    } else if (shapeType === ShapeType.Face) {
+                        let faces = x.faces();
+                        if (faces !== undefined) shapes.push(...faces);
+                    }
                 }
-            }
-        });
-        return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+            });
+            return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+        }
+        return [];
     }
 
-    private initRaycaster(view: IView, x: number, y: number, firstHitOnly: boolean) {
+    private initRaycaster(view: ThreeView, mx: number, my: number, firstHitOnly: boolean) {
         let threshold = 10 * view.scale;
-        let ray = view.rayAt(x, y);
+        let { x, y } = view.screenToCameraRect(mx, my);
         let raycaster = new Raycaster();
         raycaster.params = { Line: { threshold }, Points: { threshold } };
-        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        raycaster.setFromCamera({ x, y }, view.camera);
         raycaster.firstHitOnly = firstHitOnly;
         return raycaster;
     }
