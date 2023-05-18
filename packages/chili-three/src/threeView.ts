@@ -24,6 +24,7 @@ import {
     OrthographicCamera,
     PerspectiveCamera,
     Raycaster,
+    Renderer,
     Scene,
     Spherical,
     Vector3,
@@ -37,7 +38,7 @@ import { ThreeVisual } from "./threeVisual";
 export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
     private _scene: Scene;
-    private _renderer: WebGLRenderer;
+    private _renderer: Renderer;
     private _workplane: Plane;
     private _camera: Camera;
     private _lastRedrawTime: number;
@@ -71,10 +72,10 @@ export class ThreeView extends Observable implements IView, IDisposable {
     private initCamera(container: HTMLElement) {
         //let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 4000);
         let camera = new OrthographicCamera(
-            -this.container.offsetWidth / 2,
-            this.container.offsetWidth / 2,
-            this.container.offsetHeight / 2,
-            -this.container.offsetHeight / 2,
+            -this.container.clientWidth / 2,
+            this.container.clientWidth / 2,
+            this.container.clientHeight / 2,
+            -this.container.clientHeight / 2,
             0.01,
             3000
         );
@@ -84,7 +85,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return camera;
     }
 
-    private initRender(container: HTMLElement) {
+    protected initRender(container: HTMLElement): Renderer {
         let renderer = new WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -250,11 +251,11 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     get width(): number {
-        return this.container.offsetWidth;
+        return this.container.clientWidth;
     }
 
     get heigth(): number {
-        return this.container.offsetHeight;
+        return this.container.clientHeight;
     }
 
     screenToCameraRect(x: number, y: number): XY {
