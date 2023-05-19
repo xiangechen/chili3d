@@ -94,16 +94,26 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return renderer;
     }
 
-    lookAt(cameraPosition: XYZ, target: XYZ): void {
+    lookAt(eye: XYZ, target: XYZ): void {
         this._target.set(target.x, target.y, target.z);
-        this._camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        this._camera.position.set(eye.x, eye.y, eye.z);
         this._camera.lookAt(this._target);
+        this._camera.updateMatrixWorld(true);
         this.redraw();
     }
 
     pan(dx: number, dy: number) {
         let { x, y } = this.convert(dx, dy);
         this.translate(x, y);
+    }
+
+    get eye(): XYZ {
+        return new XYZ(this._camera.position.x, this._camera.position.y, this._camera.position.z);
+    }
+
+    set eye(value: XYZ) {
+        this._camera.position.set(value.x, value.y, value.z);
+        this.redraw();
     }
 
     private translate(dvx: number, dvy: number) {

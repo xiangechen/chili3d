@@ -273,6 +273,7 @@ export class ThreeVisualContext implements IVisualContext {
                     }
                 }
             });
+
             return raycaster.intersectObjects(shapes, false).map((x) => x.object);
         }
         return [];
