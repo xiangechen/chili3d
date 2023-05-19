@@ -82,6 +82,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         camera.up.set(0, 0, 1);
         camera.position.set(1000, 1000, 1000);
         camera.lookAt(this._target);
+        camera.updateMatrixWorld(true);
         return camera;
     }
 
@@ -273,14 +274,16 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     rayAt(mx: number, my: number): Ray {
-        let location = this.screenToWorld(mx, my);
-        let direction: XYZ;
-        if (this._camera instanceof OrthographicCamera) {
-            direction = this.direction();
-        } else {
-            direction = location.sub(ThreeHelper.toXYZ(this._camera.position)).normalize()!;
+        let position = this.mouseToWorld(mx, my);
+        let vec = new Vector3();
+        if (this._camera instanceof PerspectiveCamera) {
+            vec = position.clone().sub(this._camera.position).normalize();
+        } else if (this._camera instanceof OrthographicCamera) {
+            this._camera.getWorldDirection(vec);
         }
-        return new Ray(location, direction);
+        let offset = position.clone().sub(this._camera.position).dot(vec);
+        position = position.clone().sub(vec.clone().multiplyScalar(offset));
+        return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(vec));
     }
 
     screenToWorld(mx: number, my: number): XYZ {

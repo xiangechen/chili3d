@@ -21,12 +21,22 @@ describe("three test", () => {
     });
 
     test("test context", () => {
+        let context = doc.visual.context;
         let body = new TestBody(doc, XYZ.zero, new XYZ(100, 0, 0));
         let model = new GeometryModel(doc, "test model", body);
-        doc.visual.context.addModel([model]);
-        expect(doc.visual.context.getShape(model)).not.toBeNull();
-        let mouse = view.worldToScreen(new XYZ(0, 0, 0));
-        var shapes = doc.visual.context.detectedShapes(ShapeType.Shape, view, mouse.x, mouse.y, false);
+        context.addModel([model]);
+        expect(context.getShape(model)).not.toBeNull();
+        let mouse = view.worldToScreen(new XYZ(100, 0, 0));
+        let shapes = context.detectedShapes(ShapeType.Shape, view, mouse.x, mouse.y, false);
         expect(shapes.length).toEqual(1);
+        expect(context.detectedVisualShapes(view, mouse.x, mouse.y, false).length).toEqual(1);
+
+        let shape = context.getShape(model);
+        expect(shapes.at(0)).toEqual(shape?.shape);
+        expect(context.getModel(shape!)).toEqual(model);
+
+        context.removeModel([model]);
+        expect(context.detectedShapes(ShapeType.Shape, view, mouse.x, mouse.y, false).length).toEqual(0);
+        expect(context.detectedVisualShapes(view, mouse.x, mouse.y, false).length).toEqual(0);
     });
 });
