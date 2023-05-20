@@ -2,8 +2,8 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { Document } from "chili";
-import { Application, Plane } from "chili-core";
+import { BoxBody, Document } from "chili";
+import { Application, GeometryModel, Model, Plane, XYZ } from "chili-core";
 import { Viewport } from "chili-ui";
 import { AppBuilder } from "./appBuilder";
 
@@ -16,5 +16,18 @@ await builder.build();
 
 let doc = new Document("test");
 Application.instance.activeDocument = doc;
-// let view = doc.visualization.viewFactory.create("view", Plane.XY, Viewport.current);
-// view.redraw();
+
+// let models = new Array<Model>(10000);
+// console.log("create models");
+
+// for (let i = 0; i < 100; i++) {
+//     for (let j = 0; j < 100; j++) {
+//         let plane = new Plane(new XYZ(i * 11, j * 11, 0), XYZ.unitZ, XYZ.unitX)
+//         let body = new BoxBody(doc, plane, 10, 10, 10);
+//         models.push(new GeometryModel(doc, `model-${i}-${j}`, body));
+//     }
+// }
+// console.log("add models");
+
+// doc.nodes.add(...models);
+// doc.visual.viewer.redraw()

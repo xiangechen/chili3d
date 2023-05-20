@@ -4,6 +4,8 @@ import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
 import { CursorType } from "./cursorType";
 import { IViewer } from "./viewer";
+import { IShape, ShapeType } from "../geometry";
+import { IVisualShape } from "./visualShape";
 
 export interface IView extends IPropertyChanged {
     readonly viewer: IViewer;
@@ -23,4 +25,6 @@ export interface IView extends IPropertyChanged {
     rotation(dx: number, dy: number): void;
     startRotation(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
+    detectedShapes(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): IShape[];
+    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
 }

@@ -17,9 +17,6 @@ export interface IVisualContext {
     redrawModel(models: IModel[]): void;
     setVisible(model: IModel, visible: boolean): void;
 
-    detectedShapes(shapeType: ShapeType, view: IView, x: number, y: number, firstHitOnly: boolean): IShape[];
-    detectedVisualShapes(view: IView, mx: number, my: number, firstHitOnly: boolean): IVisualShape[];
-
     shapes(): IVisualShape[];
 
     // addShape(shape: IShape): void;

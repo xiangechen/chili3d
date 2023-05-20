@@ -30,6 +30,8 @@ import {
     Vector3,
     WebGLRenderer,
 } from "three";
+import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
+import { SelectionHelper } from "three/examples/jsm/interactive/SelectionHelper";
 
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
@@ -67,6 +69,10 @@ export class ThreeView extends Observable implements IView, IDisposable {
         this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this.animate();
+    }
+
+    get renderer(): Renderer {
+        return this._renderer;
     }
 
     private initCamera(container: HTMLElement) {
@@ -316,5 +322,60 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     private getTime() {
         return new Date().getTime();
+    }
+
+    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[] {
+        return this.detected(ShapeType.Shape, mx, my, firstHitOnly)
+            .map((x) => x.parent?.parent as ThreeShape)
+            .filter((x) => x !== undefined);
+    }
+
+    detectedShapes(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): IShape[] {
+        return this.detected(shapeType, mx, my, firstHitOnly)
+            .map((x) => x.userData[Constants.ShapeKey] as IShape)
+            .filter((x) => x !== undefined);
+    }
+
+    rectDetected(mx1: number, mx2: number, my1: number, my2: number) {
+        const selectionBox = new SelectionBox(this._camera, this._scene);
+        const start = this.screenToCameraRect(mx1, my1);
+        const end = this.screenToCameraRect(mx2, my2);
+        selectionBox.startPoint.set(start.x, start.y, 0.5);
+        selectionBox.endPoint.set(end.x, end.y, 0.5);
+        let shapes = selectionBox.select();
+        return shapes;
+    }
+
+    private detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
+        let raycaster = this.initRaycaster(mx, my, firstHitOnly);
+        let shapes = new Array<Object3D>();
+        this.viewer.visual.context.shapes().forEach((x) => {
+            if (x instanceof ThreeShape) {
+                if (shapeType === ShapeType.Shape) {
+                    let lines = x.wireframe();
+                    if (lines !== undefined) shapes.push(...lines);
+                    let faces = x.faces();
+                    if (faces !== undefined) shapes.push(...faces);
+                } else if (shapeType === ShapeType.Edge) {
+                    let lines = x.wireframe();
+                    if (lines !== undefined) shapes.push(...lines);
+                } else if (shapeType === ShapeType.Face) {
+                    let faces = x.faces();
+                    if (faces !== undefined) shapes.push(...faces);
+                }
+            }
+        });
+
+        return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+    }
+
+    private initRaycaster(mx: number, my: number, firstHitOnly: boolean) {
+        let threshold = 10 * this.scale;
+        let raycaster = new Raycaster();
+        raycaster.params = { Line: { threshold }, Points: { threshold } };
+        let ray = this.rayAt(mx, my);
+        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        raycaster.firstHitOnly = firstHitOnly;
+        return raycaster;
     }
 }
