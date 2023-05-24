@@ -12,10 +12,11 @@ let builder = new AppBuilder()
     .useOcc()
     .useThree()
     .useUI();
-await builder.build();
 
-let doc = new Document("test");
-Application.instance.activeDocument = doc;
+builder.build().then(() => {
+    let doc = new Document("test");
+    Application.instance.activeDocument = doc;
+});
 
 // let models = new Array<Model>(10000);
 // console.log("create models");

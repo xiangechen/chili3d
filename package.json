@@ -4,12 +4,11 @@
     "description": "",
     "author": "仙阁",
     "scripts": {
-        "build": "webpack --config ./webpack.prod.js",
-        "dev": "webpack serve --config ./webpack.dev.js",
+        "build": "npx rspack build",
+        "dev": "npx rspack dev",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-        "prettier": "npx prettier --write .",
-        "hook": "npx simple-git-hooks"
+        "prettier": "npx prettier --write ."
     },
     "simple-git-hooks": {
         "pre-commit": "npx lint-staged"
@@ -23,10 +22,8 @@
         "packages/*"
     ],
     "devDependencies": {
+        "@rspack/cli": "^0.1.12",
         "@types/jest": "^29.5.1",
-        "copy-webpack-plugin": "^11.0.0",
-        "css-loader": "^6.7.4",
-        "file-loader": "^6.2.0",
         "identity-obj-proxy": "^3.0.0",
         "jest": "^29.5.0",
         "jest-environment-jsdom": "^29.5.0",
@@ -35,16 +32,9 @@
         "prettier": "^2.8.8",
         "reflect-metadata": "^0.1.13",
         "simple-git-hooks": "^2.8.1",
-        "style-loader": "^3.3.3",
         "ts-jest": "^29.1.0",
-        "ts-loader": "^9.4.3",
         "tsyringe": "^4.7.0",
         "typescript": "^4.9.4",
-        "typescript-plugin-css-modules": "^4.1.1",
-        "webpack": "^5.83.1",
-        "webpack-cli": "^5.1.1",
-        "webpack-dev-server": "^4.15.0",
-        "webpack-merge": "^5.9.0",
-        "worker-loader": "^3.0.8"
+        "typescript-plugin-css-modules": "^4.1.1"
     }
 }
