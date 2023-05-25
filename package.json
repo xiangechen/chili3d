@@ -34,7 +34,7 @@
         "simple-git-hooks": "^2.8.1",
         "ts-jest": "^29.1.0",
         "tsyringe": "^4.7.0",
-        "typescript": "^4.9.4",
-        "typescript-plugin-css-modules": "^4.1.1"
+        "typescript": "^5.0.4",
+        "typescript-plugin-css-modules": "^5.0.1"
     }
 }

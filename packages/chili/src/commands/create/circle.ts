@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, IDocument, inject, injectable, GeometryModel, Plane, Token, XYZ } from "chili-core";
-import { IShapeFactory } from "chili-geo";
-
+import { command, IDocument, injectable, GeometryModel, Plane, XYZ, Application } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -15,7 +13,7 @@ import { CreateCommand } from "./createCommand";
     icon: "icon-circle",
 })
 export class Circle extends CreateCommand {
-    constructor(@inject(Token.ShapeFactory) private factory: IShapeFactory) {
+    constructor() {
         super();
     }
 
@@ -44,7 +42,11 @@ export class Circle extends CreateCommand {
     private circlePreview = (point: XYZ) => {
         let start = this.stepDatas[0].point;
         let plane = this.stepDatas[0].view.workplane;
-        return this.factory.circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point)).value;
+        return Application.instance.shapeFactory.circle(
+            plane.normal,
+            start,
+            this.getDistanceAtPlane(plane, start, point)
+        ).value;
     };
 
     private getDistanceAtPlane(plane: Plane, p1: XYZ, p2: XYZ) {
