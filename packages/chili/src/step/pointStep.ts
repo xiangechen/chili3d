@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, XYZ } from "chili-core";
+import { I18n, Precision, XYZ } from "chili-core";
 
 import { Dimension, PointSnapper, SnapPointData } from "../snap";
 import { StepBase } from "./step";
@@ -22,6 +22,6 @@ export class PointStep extends StepBase<SnapPointData> {
 
     protected validator(data: SnapPointData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
-        return data.refPoint.distanceTo(point) > 0;
+        return data.refPoint.distanceTo(point) > Precision.Confusion;
     }
 }
