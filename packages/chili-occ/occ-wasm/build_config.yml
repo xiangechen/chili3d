@@ -38,7 +38,6 @@ mainBuild:
     - symbol: BRepFeat_Form
     - symbol: BRepFeat_Gluer
     - symbol: BRepFeat_MakeDPrism
-    # - symbol: BRepFeat_MakeLinearForm
     - symbol: BRepFeat_MakePipe
     - symbol: BRepFeat_MakePrism
     - symbol: BRepFeat_MakeRevol
@@ -138,9 +137,12 @@ mainBuild:
     - symbol: Handle_Geom_Surface
     - symbol: Handle_Geom_TrimmedCurve
     - symbol: Handle_Law_Function
+    - symbol: Handle_StepData_StepModel
     - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
     - symbol: IFSelect_ReturnStatus
+    - symbol: Interface_Static
+    - symbol: Interface_TypedValue
     - symbol: Law_BSpFunc
     - symbol: Law_Composite
     - symbol: Law_Function
@@ -148,7 +150,9 @@ mainBuild:
     - symbol: Law_Linear
     - symbol: Law_S
     - symbol: Message_ProgressRange
+    - symbol: MoniTool_TypedValue
     - symbol: NCollection_BaseList
+    - symbol: NCollection_BaseMap
     - symbol: Poly_Array1OfTriangle
     - symbol: Poly_Connect
     - symbol: Poly_PolygonOnTriangulation
@@ -179,6 +183,7 @@ mainBuild:
     - symbol: TColStd_Array1OfReal 
     - symbol: TopAbs_Orientation
     - symbol: TopAbs_ShapeEnum
+    - symbol: TopExp
     - symbol: TopExp_Explorer
     - symbol: TopLoc_Location
     - symbol: TopoDS
@@ -193,9 +198,8 @@ mainBuild:
     - symbol: TopoDS_Vertex
     - symbol: TopoDS_Wire
     - symbol: TopTools_ListOfShape
+    - symbol: TopTools_IndexedDataMapOfShapeListOfShape
     - symbol: XSControl_Reader
-
-    - symbol: OccUtils
 
   emccFlags:
     - -sEXPORT_ES6=1
@@ -204,30 +208,3 @@ mainBuild:
     - -sEXPORTED_RUNTIME_METHODS=["FS"]
     - -O3
     - -sDISABLE_EXCEPTION_CATCHING=1
-
-additionalCppCode: |
-  #include <BRep_Builder.hxx>
-  #include <BRepTools.hxx>
-  #include <string>
-  #include <iostream>
-  #include <sstream>
-  
-  class OccUtils {
-    private:
-      OccUtils() {}
-    public:
-      static std::string ShapeToString(const TopoDS_Shape& shape)
-      {
-        std::ostringstream oss(std::ios_base::out);
-        BRepTools::Write(shape, oss);
-        return oss.str();
-      }
-      static TopoDS_Shape ShapeFromString(const std::string& str)
-      {
-        TopoDS_Shape shape;
-        BRep_Builder brepBuilder;
-        std::istringstream iss(str, std::ios_base::in);
-        BRepTools::Read(shape, iss, brepBuilder);
-        return shape;
-      }
-  };

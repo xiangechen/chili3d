@@ -2,7 +2,6 @@
 
 export * from "./geometry";
 export * from "./lineType";
-export * from "./renderData";
+export * from "./meshData";
 export * from "./shape";
-export * from "./shapeMesh";
 export * from "./shapeType";

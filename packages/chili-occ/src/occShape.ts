@@ -9,7 +9,7 @@ import {
     IEdge,
     IFace,
     IShape,
-    IShapeMesh,
+    IShapeMeshData,
     IShell,
     ISolid,
     IVertex,
@@ -25,7 +25,7 @@ import {
 import {
     Geom_Circle,
     Geom_Line,
-    TopAbs_ShapeEnum,
+    STEPControl_StepModelType,
     TopoDS_Compound,
     TopoDS_CompSolid,
     TopoDS_Edge,
@@ -69,7 +69,7 @@ export class OccShape implements IShape {
         this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
     }
 
-    mesh(): IShapeMesh {
+    mesh(): IShapeMeshData {
         return new OccMesh(this.shape);
     }
 
@@ -77,19 +77,43 @@ export class OccShape implements IShape {
         throw new Error("没有实现 toJson");
     }
 
-    findSubShapes(shapeType: ShapeType): IShape[] {
-        let result = new Array<IShape>();
-        let ex = new occ.TopExp_Explorer_2(
+    blobStep() {
+        const filename = "blob.step";
+        const writer = new occ.STEPControl_Writer_1();
+        occ.Interface_Static.SetIVal("write.step.schema", 5);
+        writer.Model(true);
+        const progress = new occ.Message_ProgressRange_1();
+        writer.Transfer(
             this.shape,
-            OccHelps.getShapeEnum(shapeType),
-            occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum
+            occ.STEPControl_StepModelType.STEPControl_AsIs as STEPControl_StepModelType,
+            true,
+            progress
         );
-        while (ex.More()) {
-            let topShape = ex.Current();
-            if (!topShape.IsEqual(this.shape)) result.push(OccHelps.getShape(topShape));
-            ex.Next();
+
+        const done = writer.Write(filename);
+        if (done === occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
+            const file = occ.FS.readFile("/" + filename);
+            occ.FS.unlink("/" + filename);
+            return new Blob([file], { type: "application/STEP" });
+        } else {
+            throw new Error("WRITE STEP FILE FAILED.");
+        }
+    }
+
+    findSubShapes(shapeType: ShapeType, unique: boolean = false): IShape[] {
+        let result = new Array<IShape>();
+        let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
+        for (const it of iter) {
+            result.push(OccHelps.getShape(it));
         }
         return result;
+    }
+
+    *iterSubShapes(shapeType: ShapeType, unique: boolean = false): IterableIterator<IShape> {
+        let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
+        for (const it of iter) {
+            yield OccHelps.getShape(it);
+        }
     }
 
     isEqual(other: IShape): boolean {
@@ -210,7 +234,7 @@ export class OccShell extends OccShape implements IShell {
 
     constructor(shape: TopoDS_Shell) {
         super(shape);
-        this._faces.push(...(this.findSubShapes(ShapeType.Face) as IFace[]));
+        this._faces = this.findSubShapes(ShapeType.Face) as IFace[];
     }
 
     get faces(): readonly IFace[] {

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Color } from "../base";
-import { RenderData, IShape, ShapeType } from "../geometry";
+import { IShape, MeshData, ShapeType } from "../geometry";
 import { IModel } from "../model";
 import { IView } from "./view";
 import { IVisualShape } from "./visualShape";
@@ -25,6 +25,6 @@ export interface IVisualContext {
     hilighted(shape: IShape): void;
     unHilighted(shape: IShape): void;
 
-    temporaryDisplay(...datas: RenderData[]): number;
+    temporaryDisplay(...datas: MeshData[]): number;
     temporaryRemove(id: number): void;
 }

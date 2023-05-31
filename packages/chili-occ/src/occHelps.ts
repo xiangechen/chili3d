@@ -66,6 +66,10 @@ export class OccHelps {
         return new occ.gp_Pln_2(OccHelps.toAx3(plane));
     }
 
+    static hashCode(shape: TopoDS_Shape) {
+        return shape.HashCode(2147483647); // max int
+    }
+
     static getCurveType(curve: Geom_Curve): CurveType {
         let isType = (type: string) => curve.IsInstance_2(type);
         if (isType("Geom_Line")) return CurveType.Line;
@@ -145,6 +149,45 @@ export class OccHelps {
                 return new OccVertex(occ.TopoDS.Vertex_1(shape));
             default:
                 return new OccShape(shape);
+        }
+    }
+
+    static findAncestors(subShape: TopoDS_Shape, from: TopoDS_Shape, ancestorType: TopAbs_ShapeEnum) {
+        let map = new occ.TopTools_IndexedDataMapOfShapeListOfShape_1();
+        occ.TopExp.MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
+        const index = map.FindIndex(subShape);
+        let item = map.FindFromIndex(index);
+        let shapes: TopoDS_Shape[] = [];
+        while (!item.IsEmpty()) {
+            shapes.push(item.Last_1());
+            item.RemoveFirst();
+        }
+        return shapes;
+    }
+
+    static *findSubShapes(
+        shape: TopoDS_Shape,
+        shapeType: TopAbs_ShapeEnum,
+        unique: boolean
+    ): IterableIterator<TopoDS_Shape> {
+        const explorer = new occ.TopExp_Explorer_2(
+            shape,
+            shapeType,
+            occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum
+        );
+        const hashes = unique ? new Map() : undefined;
+        while (explorer.More()) {
+            const item = explorer.Current();
+            if (!unique) {
+                yield item;
+            } else {
+                const hash = OccHelps.hashCode(item);
+                if (!hashes?.has(hash)) {
+                    hashes?.set(hash, true);
+                    yield item;
+                }
+            }
+            explorer.Next();
         }
     }
 }

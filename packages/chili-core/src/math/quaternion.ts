@@ -1,75 +1,80 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
-
 import { Matrix4 } from "./matrix4";
-import { XYZ } from "./xyz";
 
 export class Quaternion {
-    constructor(readonly x: number, readonly y: number, readonly z: number, readonly w: number) {}
-
-    static fromEuler(x: number, y: number, z: number): Quaternion {
-        const c1 = Math.cos(x / 2);
-        const c2 = Math.cos(y / 2);
-        const c3 = Math.cos(z / 2);
-        const s1 = Math.sin(x / 2);
-        const s2 = Math.sin(y / 2);
-        const s3 = Math.sin(z / 2);
-        return new Quaternion(
-            s1 * c2 * c3 + c1 * s2 * s3,
-            c1 * s2 * c3 - s1 * c2 * s3,
-            c1 * c2 * s3 + s1 * s2 * c3,
-            c1 * c2 * c3 - s1 * s2 * s3
-        );
+    readonly w: number;
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+    constructor(w = 1, x = 0, y = 0, z = 0) {
+        this.w = w;
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
-
-    static fromAxisAngle({ x, y, z }: XYZ, angle: number): Quaternion {
-        const halfAngle = angle / 2;
-        const s = Math.sin(halfAngle);
-        return new Quaternion(x * s, y * s, z * s, Math.cos(halfAngle));
+    add(q: Quaternion): Quaternion {
+        return new Quaternion(this.w + q.w, this.x + q.x, this.y + q.y, this.z + q.z);
     }
-
-    static multiply(q1: Quaternion, q2: Quaternion): Quaternion {
-        return new Quaternion(
-            q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y,
-            q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z,
-            q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x,
-            q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
-        );
+    subtract(q: Quaternion): Quaternion {
+        return new Quaternion(this.w - q.w, this.x - q.x, this.y - q.y, this.z - q.z);
     }
-
-    static dot(q1: Quaternion, q2: Quaternion): number {
-        return q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
+    multiply(q: Quaternion): Quaternion {
+        const w = this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z;
+        const x = this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y;
+        const y = this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x;
+        const z = this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w;
+        return new Quaternion(w, x, y, z);
     }
-
-    static conjugate(q: Quaternion): Quaternion {
-        return new Quaternion(-q.x, -q.y, -q.z, q.w);
+    conjugate(): Quaternion {
+        return new Quaternion(this.w, -this.x, -this.y, -this.z);
     }
-
-    static inverse(q: Quaternion): Quaternion {
-        return Quaternion.conjugate(q).normalize();
+    magnitude(): number {
+        return Math.sqrt(this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z);
     }
-
     normalize(): Quaternion {
-        const l = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w);
-        return new Quaternion(this.x / l, this.y / l, this.z / l, this.w / l);
+        const magnitude = this.magnitude();
+        return new Quaternion(this.w / magnitude, this.x / magnitude, this.y / magnitude, this.z / magnitude);
     }
-
-    toMatrix(): Matrix4 {
-        const x = this.x;
-        const y = this.y;
-        const z = this.z;
-        const w = this.w;
+    toEuler(): { x: number; y: number; z: number } {
+        const sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
+        const cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
+        const roll = Math.atan2(sinr_cosp, cosr_cosp);
+        const sinp = 2 * (this.w * this.y - this.z * this.x);
+        const pitch = Math.abs(sinp) >= 1 ? (Math.PI / 2) * Math.sign(sinp) : Math.asin(sinp);
+        const siny_cosp = 2 * (this.w * this.z + this.x * this.y);
+        const cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
+        const yaw = Math.atan2(siny_cosp, cosy_cosp);
+        return {
+            x: roll,
+            y: pitch,
+            z: yaw,
+        };
+    }
+    toMatrix4(): Matrix4 {
+        const x = this.x,
+            y = this.y,
+            z = this.z,
+            w = this.w;
+        const xx = x * x,
+            xy = x * y,
+            xz = x * z,
+            xw = x * w;
+        const yy = y * y,
+            yz = y * z,
+            yw = y * w;
+        const zz = z * z,
+            zw = z * w;
         return Matrix4.fromArray([
-            1 - 2 * y * y - 2 * z * z,
-            2 * x * y - 2 * z * w,
-            2 * x * z + 2 * y * w,
+            1 - 2 * (yy + zz),
+            2 * (xy - zw),
+            2 * (xz + yw),
             0,
-            2 * x * y + 2 * z * w,
-            1 - 2 * x * x - 2 * z * z,
-            2 * y * z - 2 * x * w,
+            2 * (xy + zw),
+            1 - 2 * (xx + zz),
+            2 * (yz - xw),
             0,
-            2 * x * z - 2 * y * w,
-            2 * y * z + 2 * x * w,
-            1 - 2 * x * x - 2 * y * y,
+            2 * (xz - yw),
+            2 * (yz + xw),
+            1 - 2 * (xx + yy),
             0,
             0,
             0,
@@ -77,22 +82,17 @@ export class Quaternion {
             1,
         ]);
     }
-
-    toEuler(): XYZ {
-        const sqw = this.w * this.w;
-        const sqx = this.x * this.x;
-        const sqy = this.y * this.y;
-        const sqz = this.z * this.z;
-        const unit = sqx + sqy + sqz + sqw;
-        const test = this.x * this.y + this.z * this.w;
-        const heading = Math.atan2(2 * this.y * this.w - 2 * this.x * this.z, sqx - sqy - sqz + sqw);
-        const attitude =
-            test > 0.499 * unit
-                ? Math.PI / 2
-                : test < -0.499 * unit
-                ? -Math.PI / 2
-                : Math.asin((2 * test) / unit);
-        const bank = Math.atan2(2 * this.x * this.w - 2 * this.y * this.z, -sqx + sqy - sqz + sqw);
-        return new XYZ(bank, heading, attitude);
+    static fromEuler(roll: number, pitch: number, yaw: number): Quaternion {
+        const cy = Math.cos(yaw * 0.5);
+        const sy = Math.sin(yaw * 0.5);
+        const cp = Math.cos(pitch * 0.5);
+        const sp = Math.sin(pitch * 0.5);
+        const cr = Math.cos(roll * 0.5);
+        const sr = Math.sin(roll * 0.5);
+        const w = cr * cp * cy + sr * sp * sy;
+        const x = sr * cp * cy - cr * sp * sy;
+        const y = cr * sp * cy + sr * cp * sy;
+        const z = cr * cp * sy - sr * sp * cy;
+        return new Quaternion(w, x, y, z);
     }
 }

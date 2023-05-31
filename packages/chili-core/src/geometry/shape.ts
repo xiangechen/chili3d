@@ -3,8 +3,8 @@
 import { Quaternion, Ray, Matrix4, XYZ } from "../math";
 import { Result } from "../base";
 import { ICurve } from "./geometry";
-import { IShapeMesh } from "./shapeMesh";
 import { ShapeType } from "./shapeType";
+import { IShapeMeshData } from "./meshData";
 
 export enum CurveType {
     Line,
@@ -38,7 +38,7 @@ export interface IShape {
     setTranslation(offset: XYZ): void;
     setScale(scale: XYZ, value: number): void;
     setRotation(rotation: Quaternion): void;
-    mesh(): IShapeMesh;
+    mesh(): IShapeMeshData;
     toJson(): string;
     isEqual(other: IShape): boolean;
 }

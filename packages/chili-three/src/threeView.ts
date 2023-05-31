@@ -85,7 +85,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
             0.01,
             3000
         );
-        camera.up.set(0, 0, 1);
         camera.position.set(1000, 1000, 1000);
         camera.lookAt(this._target);
         camera.updateMatrixWorld(true);
@@ -326,7 +325,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[] {
         return this.detected(ShapeType.Shape, mx, my, firstHitOnly)
-            .map((x) => x.parent?.parent as ThreeShape)
+            .map((x) => x.parent as ThreeShape)
             .filter((x) => x !== undefined);
     }
 
@@ -351,21 +350,12 @@ export class ThreeView extends Observable implements IView, IDisposable {
         let shapes = new Array<Object3D>();
         this.viewer.visual.context.shapes().forEach((x) => {
             if (x instanceof ThreeShape) {
-                if (shapeType === ShapeType.Shape) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
-                } else if (shapeType === ShapeType.Edge) {
-                    let lines = x.wireframe();
-                    if (lines !== undefined) shapes.push(...lines);
-                } else if (shapeType === ShapeType.Face) {
-                    let faces = x.faces();
-                    if (faces !== undefined) shapes.push(...faces);
-                }
+                let lines = x.edges();
+                if (lines !== undefined) shapes.push(lines);
+                let faces = x.faces();
+                if (faces !== undefined) shapes.push(faces);
             }
         });
-
         return raycaster.intersectObjects(shapes, false).map((x) => x.object);
     }
 

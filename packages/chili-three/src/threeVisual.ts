@@ -1,11 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, IEventHandler, IViewer, IVisual, IVisualContext, ShapeType } from "chili-core";
-import { Scene } from "three";
+import { Object3D, Scene } from "three";
 import { SelectionHandler } from "chili-vis";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeViwer } from "./threeViewer";
+
+Object3D.DEFAULT_UP.set(0, 0, 1);
 
 export class ThreeVisual implements IVisual {
     private readonly defaultEventHandler: IEventHandler = new SelectionHandler();

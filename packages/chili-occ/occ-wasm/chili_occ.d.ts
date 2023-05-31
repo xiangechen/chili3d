@@ -3402,6 +3402,55 @@ export declare type IFSelect_ReturnStatus = {
   IFSelect_RetStop: {};
 }
 
+export declare class Interface_Static extends Interface_TypedValue {
+  PrintStatic(S: Standard_OStream): void;
+  Family(): Standard_CString;
+  SetWild(wildcard: Handle_Interface_Static): void;
+  Wild(): Handle_Interface_Static;
+  SetUptodate(): void;
+  UpdatedStatus(): Standard_Boolean;
+  static Init_1(family: Standard_CString, name: Standard_CString, type: Interface_ParamType, init: Standard_CString): Standard_Boolean;
+  static Init_2(family: Standard_CString, name: Standard_CString, type: Standard_Character, init: Standard_CString): Standard_Boolean;
+  static Static(name: Standard_CString): Handle_Interface_Static;
+  static IsPresent(name: Standard_CString): Standard_Boolean;
+  static CDef(name: Standard_CString, part: Standard_CString): Standard_CString;
+  static IDef(name: Standard_CString, part: Standard_CString): Graphic3d_ZLayerId;
+  static IsSet(name: Standard_CString, proper: Standard_Boolean): Standard_Boolean;
+  static CVal(name: Standard_CString): Standard_CString;
+  static IVal(name: Standard_CString): Graphic3d_ZLayerId;
+  static RVal(name: Standard_CString): Standard_Real;
+  static SetCVal(name: Standard_CString, val: Standard_CString): Standard_Boolean;
+  static SetIVal(name: Standard_CString, val: Graphic3d_ZLayerId): Standard_Boolean;
+  static SetRVal(name: Standard_CString, val: Standard_Real): Standard_Boolean;
+  static Update(name: Standard_CString): Standard_Boolean;
+  static IsUpdated(name: Standard_CString): Standard_Boolean;
+  static Items(mode: Graphic3d_ZLayerId, criter: Standard_CString): Handle_TColStd_HSequenceOfHAsciiString;
+  static Standards(): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Interface_Static_1 extends Interface_Static {
+    constructor(family: Standard_CString, name: Standard_CString, type: Interface_ParamType, init: Standard_CString);
+  }
+
+  export declare class Interface_Static_2 extends Interface_Static {
+    constructor(family: Standard_CString, name: Standard_CString, other: Handle_Interface_Static);
+  }
+
+export declare class Interface_TypedValue extends MoniTool_TypedValue {
+  constructor(name: Standard_CString, type: Interface_ParamType, init: Standard_CString)
+  Type(): Interface_ParamType;
+  static ParamTypeToValueType(typ: Interface_ParamType): MoniTool_ValueType;
+  static ValueTypeToParamType(typ: MoniTool_ValueType): Interface_ParamType;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
 export declare class Law_BSpFunc extends Law_Function {
   Continuity(): GeomAbs_Shape;
   NbIntervals(S: GeomAbs_Shape): Graphic3d_ZLayerId;
@@ -3548,9 +3597,83 @@ export declare class Message_ProgressRange {
     constructor(theOther: Message_ProgressRange);
   }
 
+export declare class MoniTool_TypedValue extends Standard_Transient {
+  Name(): Standard_CString;
+  ValueType(): MoniTool_ValueType;
+  Definition(): XCAFDoc_PartId;
+  SetDefinition(deftext: Standard_CString): void;
+  Print(S: Standard_OStream): void;
+  PrintValue(S: Standard_OStream): void;
+  AddDef(initext: Standard_CString): Standard_Boolean;
+  SetLabel(label: Standard_CString): void;
+  Label(): Standard_CString;
+  SetMaxLength(max: Graphic3d_ZLayerId): void;
+  MaxLength(): Graphic3d_ZLayerId;
+  SetIntegerLimit(max: Standard_Boolean, val: Graphic3d_ZLayerId): void;
+  IntegerLimit(max: Standard_Boolean, val: Graphic3d_ZLayerId): Standard_Boolean;
+  SetRealLimit(max: Standard_Boolean, val: Standard_Real): void;
+  RealLimit(max: Standard_Boolean, val: Standard_Real): Standard_Boolean;
+  SetUnitDef(def: Standard_CString): void;
+  UnitDef(): Standard_CString;
+  StartEnum(start: Graphic3d_ZLayerId, match: Standard_Boolean): void;
+  AddEnum(v1: Standard_CString, v2: Standard_CString, v3: Standard_CString, v4: Standard_CString, v5: Standard_CString, v6: Standard_CString, v7: Standard_CString, v8: Standard_CString, v9: Standard_CString, v10: Standard_CString): void;
+  AddEnumValue(val: Standard_CString, num: Graphic3d_ZLayerId): void;
+  EnumDef(startcase: Graphic3d_ZLayerId, endcase: Graphic3d_ZLayerId, match: Standard_Boolean): Standard_Boolean;
+  EnumVal(num: Graphic3d_ZLayerId): Standard_CString;
+  EnumCase(val: Standard_CString): Graphic3d_ZLayerId;
+  SetObjectType(typ: Handle_Standard_Type): void;
+  ObjectType(): Handle_Standard_Type;
+  SetInterpret(func: MoniTool_ValueInterpret): void;
+  HasInterpret(): Standard_Boolean;
+  SetSatisfies(func: MoniTool_ValueSatisfies, name: Standard_CString): void;
+  SatisfiesName(): Standard_CString;
+  IsSetValue(): Standard_Boolean;
+  CStringValue(): Standard_CString;
+  HStringValue(): Handle_TCollection_HAsciiString;
+  Interpret(hval: Handle_TCollection_HAsciiString, native: Standard_Boolean): Handle_TCollection_HAsciiString;
+  Satisfies(hval: Handle_TCollection_HAsciiString): Standard_Boolean;
+  ClearValue(): void;
+  SetCStringValue(val: Standard_CString): Standard_Boolean;
+  SetHStringValue(hval: Handle_TCollection_HAsciiString): Standard_Boolean;
+  IntegerValue(): Graphic3d_ZLayerId;
+  SetIntegerValue(ival: Graphic3d_ZLayerId): Standard_Boolean;
+  RealValue(): Standard_Real;
+  SetRealValue(rval: Standard_Real): Standard_Boolean;
+  ObjectValue(): Handle_Standard_Transient;
+  GetObjectValue(val: Handle_Standard_Transient): void;
+  SetObjectValue(obj: Handle_Standard_Transient): Standard_Boolean;
+  ObjectTypeName(): Standard_CString;
+  static AddLib(tv: Handle_MoniTool_TypedValue, def: Standard_CString): Standard_Boolean;
+  static Lib(def: Standard_CString): Handle_MoniTool_TypedValue;
+  static FromLib(def: Standard_CString): Handle_MoniTool_TypedValue;
+  static LibList(): Handle_TColStd_HSequenceOfAsciiString;
+  static StaticValue(name: Standard_CString): Handle_MoniTool_TypedValue;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class MoniTool_TypedValue_1 extends MoniTool_TypedValue {
+    constructor(name: Standard_CString, type: MoniTool_ValueType, init: Standard_CString);
+  }
+
+  export declare class MoniTool_TypedValue_2 extends MoniTool_TypedValue {
+    constructor(other: Handle_MoniTool_TypedValue);
+  }
+
 export declare class NCollection_BaseList {
   Extent(): Graphic3d_ZLayerId;
   IsEmpty(): Standard_Boolean;
+  Allocator(): Handle_NCollection_BaseAllocator;
+  delete(): void;
+}
+
+export declare class NCollection_BaseMap {
+  NbBuckets(): Graphic3d_ZLayerId;
+  Extent(): Graphic3d_ZLayerId;
+  IsEmpty(): Standard_Boolean;
+  Statistics(S: Standard_OStream): void;
   Allocator(): Handle_NCollection_BaseAllocator;
   delete(): void;
 }
@@ -4178,6 +4301,30 @@ export declare class StdPrs_ToolTriangulatedShape {
   delete(): void;
 }
 
+export declare class Handle_StepData_StepModel {
+  Nullify(): void;
+  IsNull(): boolean;
+  reset(thePtr: StepData_StepModel): void;
+  get(): StepData_StepModel;
+  delete(): void;
+}
+
+  export declare class Handle_StepData_StepModel_1 extends Handle_StepData_StepModel {
+    constructor();
+  }
+
+  export declare class Handle_StepData_StepModel_2 extends Handle_StepData_StepModel {
+    constructor(thePtr: StepData_StepModel);
+  }
+
+  export declare class Handle_StepData_StepModel_3 extends Handle_StepData_StepModel {
+    constructor(theHandle: Handle_StepData_StepModel);
+  }
+
+  export declare class Handle_StepData_StepModel_4 extends Handle_StepData_StepModel {
+    constructor(theHandle: Handle_StepData_StepModel);
+  }
+
 export declare class StlAPI {
   constructor();
   static Write(theShape: TopoDS_Shape, theFile: Standard_CString, theAsciiMode: Standard_Boolean): Standard_Boolean;
@@ -4535,6 +4682,21 @@ export declare type TopAbs_ShapeEnum = {
   TopAbs_SHAPE: {};
 }
 
+export declare class TopExp {
+  constructor();
+  static MapShapes_1(S: TopoDS_Shape, T: TopAbs_ShapeEnum, M: TopTools_IndexedMapOfShape): void;
+  static MapShapes_2(S: TopoDS_Shape, M: TopTools_IndexedMapOfShape, cumOri: Standard_Boolean, cumLoc: Standard_Boolean): void;
+  static MapShapes_3(S: TopoDS_Shape, M: TopTools_MapOfShape, cumOri: Standard_Boolean, cumLoc: Standard_Boolean): void;
+  static MapShapesAndAncestors(S: TopoDS_Shape, TS: TopAbs_ShapeEnum, TA: TopAbs_ShapeEnum, M: TopTools_IndexedDataMapOfShapeListOfShape): void;
+  static MapShapesAndUniqueAncestors(S: TopoDS_Shape, TS: TopAbs_ShapeEnum, TA: TopAbs_ShapeEnum, M: TopTools_IndexedDataMapOfShapeListOfShape, useOrientation: Standard_Boolean): void;
+  static FirstVertex(E: TopoDS_Edge, CumOri: Standard_Boolean): TopoDS_Vertex;
+  static LastVertex(E: TopoDS_Edge, CumOri: Standard_Boolean): TopoDS_Vertex;
+  static Vertices_1(E: TopoDS_Edge, Vfirst: TopoDS_Vertex, Vlast: TopoDS_Vertex, CumOri: Standard_Boolean): void;
+  static Vertices_2(W: TopoDS_Wire, Vfirst: TopoDS_Vertex, Vlast: TopoDS_Vertex): void;
+  static CommonVertex(E1: TopoDS_Edge, E2: TopoDS_Edge, V: TopoDS_Vertex): Standard_Boolean;
+  delete(): void;
+}
+
 export declare class TopExp_Explorer {
   Init(S: TopoDS_Shape, ToFind: TopAbs_ShapeEnum, ToAvoid: TopAbs_ShapeEnum): void;
   More(): Standard_Boolean;
@@ -4588,6 +4750,46 @@ export declare class TopLoc_Location {
 
   export declare class TopLoc_Location_3 extends TopLoc_Location {
     constructor(D: Handle_TopLoc_Datum3D);
+  }
+
+export declare class TopTools_IndexedDataMapOfShapeListOfShape extends NCollection_BaseMap {
+  begin(): any;
+  end(): any;
+  cbegin(): any;
+  cend(): any;
+  Exchange(theOther: TopTools_IndexedDataMapOfShapeListOfShape): void;
+  Assign(theOther: TopTools_IndexedDataMapOfShapeListOfShape): TopTools_IndexedDataMapOfShapeListOfShape;
+  ReSize(N: Standard_Integer): void;
+  Add(theKey1: TopoDS_Shape, theItem: TopTools_ListOfShape): Standard_Integer;
+  Contains(theKey1: TopoDS_Shape): Standard_Boolean;
+  Substitute(theIndex: Standard_Integer, theKey1: TopoDS_Shape, theItem: TopTools_ListOfShape): void;
+  Swap(theIndex1: Standard_Integer, theIndex2: Standard_Integer): void;
+  RemoveLast(): void;
+  RemoveFromIndex(theIndex: Standard_Integer): void;
+  RemoveKey(theKey1: TopoDS_Shape): void;
+  FindKey(theIndex: Standard_Integer): TopoDS_Shape;
+  FindFromIndex(theIndex: Standard_Integer): TopTools_ListOfShape;
+  ChangeFromIndex(theIndex: Standard_Integer): TopTools_ListOfShape;
+  FindIndex(theKey1: TopoDS_Shape): Standard_Integer;
+  ChangeFromKey(theKey1: TopoDS_Shape): TopTools_ListOfShape;
+  Seek(theKey1: TopoDS_Shape): TopTools_ListOfShape;
+  ChangeSeek(theKey1: TopoDS_Shape): TopTools_ListOfShape;
+  Clear_1(doReleaseMemory: Standard_Boolean): void;
+  Clear_2(theAllocator: Handle_NCollection_BaseAllocator): void;
+  Size(): Standard_Integer;
+  delete(): void;
+}
+
+  export declare class TopTools_IndexedDataMapOfShapeListOfShape_1 extends TopTools_IndexedDataMapOfShapeListOfShape {
+    constructor();
+  }
+
+  export declare class TopTools_IndexedDataMapOfShapeListOfShape_2 extends TopTools_IndexedDataMapOfShapeListOfShape {
+    constructor(theNbBuckets: Standard_Integer, theAllocator: Handle_NCollection_BaseAllocator);
+  }
+
+  export declare class TopTools_IndexedDataMapOfShapeListOfShape_3 extends TopTools_IndexedDataMapOfShapeListOfShape {
+    constructor(theOther: TopTools_IndexedDataMapOfShapeListOfShape);
   }
 
 export declare class TopTools_ListOfShape extends NCollection_BaseList {
@@ -5789,12 +5991,6 @@ export declare class gp_XYZ {
     constructor(theX: Standard_Real, theY: Standard_Real, theZ: Standard_Real);
   }
 
-export declare class OccUtils {
-  static ShapeToString(shape: TopoDS_Shape): string;
-  static ShapeFromString(str: string): TopoDS_Shape;
-  delete(): void;
-}
-
 type Standard_Boolean = boolean;
 type Standard_Byte = number;
 type Standard_Character = number;
@@ -6355,6 +6551,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GeomAbs_SurfaceType: GeomAbs_SurfaceType;
   GeomLib: typeof GeomLib;
   IFSelect_ReturnStatus: IFSelect_ReturnStatus;
+  Interface_Static: typeof Interface_Static;
+  Interface_Static_1: typeof Interface_Static_1;
+  Interface_Static_2: typeof Interface_Static_2;
+  Interface_TypedValue: typeof Interface_TypedValue;
   Law_BSpFunc: typeof Law_BSpFunc;
   Law_BSpFunc_1: typeof Law_BSpFunc_1;
   Law_BSpFunc_2: typeof Law_BSpFunc_2;
@@ -6373,7 +6573,11 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Message_ProgressRange: typeof Message_ProgressRange;
   Message_ProgressRange_1: typeof Message_ProgressRange_1;
   Message_ProgressRange_2: typeof Message_ProgressRange_2;
+  MoniTool_TypedValue: typeof MoniTool_TypedValue;
+  MoniTool_TypedValue_1: typeof MoniTool_TypedValue_1;
+  MoniTool_TypedValue_2: typeof MoniTool_TypedValue_2;
   NCollection_BaseList: typeof NCollection_BaseList;
+  NCollection_BaseMap: typeof NCollection_BaseMap;
   Poly_Array1OfTriangle: typeof Poly_Array1OfTriangle;
   Poly_Array1OfTriangle_1: typeof Poly_Array1OfTriangle_1;
   Poly_Array1OfTriangle_2: typeof Poly_Array1OfTriangle_2;
@@ -6433,6 +6637,11 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Standard_Transient_1: typeof Standard_Transient_1;
   Standard_Transient_2: typeof Standard_Transient_2;
   StdPrs_ToolTriangulatedShape: typeof StdPrs_ToolTriangulatedShape;
+  Handle_StepData_StepModel: typeof Handle_StepData_StepModel;
+  Handle_StepData_StepModel_1: typeof Handle_StepData_StepModel_1;
+  Handle_StepData_StepModel_2: typeof Handle_StepData_StepModel_2;
+  Handle_StepData_StepModel_3: typeof Handle_StepData_StepModel_3;
+  Handle_StepData_StepModel_4: typeof Handle_StepData_StepModel_4;
   StlAPI: typeof StlAPI;
   StlAPI_Reader: typeof StlAPI_Reader;
   StlAPI_Writer: typeof StlAPI_Writer;
@@ -6480,6 +6689,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   TColgp_Array2OfPnt_5: typeof TColgp_Array2OfPnt_5;
   TopAbs_Orientation: TopAbs_Orientation;
   TopAbs_ShapeEnum: TopAbs_ShapeEnum;
+  TopExp: typeof TopExp;
   TopExp_Explorer: typeof TopExp_Explorer;
   TopExp_Explorer_1: typeof TopExp_Explorer_1;
   TopExp_Explorer_2: typeof TopExp_Explorer_2;
@@ -6487,6 +6697,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   TopLoc_Location_1: typeof TopLoc_Location_1;
   TopLoc_Location_2: typeof TopLoc_Location_2;
   TopLoc_Location_3: typeof TopLoc_Location_3;
+  TopTools_IndexedDataMapOfShapeListOfShape: typeof TopTools_IndexedDataMapOfShapeListOfShape;
+  TopTools_IndexedDataMapOfShapeListOfShape_1: typeof TopTools_IndexedDataMapOfShapeListOfShape_1;
+  TopTools_IndexedDataMapOfShapeListOfShape_2: typeof TopTools_IndexedDataMapOfShapeListOfShape_2;
+  TopTools_IndexedDataMapOfShapeListOfShape_3: typeof TopTools_IndexedDataMapOfShapeListOfShape_3;
   TopTools_ListOfShape: typeof TopTools_ListOfShape;
   TopTools_ListOfShape_1: typeof TopTools_ListOfShape_1;
   TopTools_ListOfShape_2: typeof TopTools_ListOfShape_2;
@@ -6586,7 +6800,6 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   gp_XYZ: typeof gp_XYZ;
   gp_XYZ_1: typeof gp_XYZ_1;
   gp_XYZ_2: typeof gp_XYZ_2;
-  OccUtils: typeof OccUtils;
 };
 
 declare function init(): Promise<OpenCascadeInstance>;

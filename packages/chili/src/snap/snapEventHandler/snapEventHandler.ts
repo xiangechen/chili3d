@@ -2,6 +2,7 @@
 
 import {
     CancellationToken,
+    Color,
     IEventHandler,
     IShape,
     IView,
@@ -10,7 +11,7 @@ import {
     PubSub,
     ShapeType,
     Validation,
-    VertexRenderData,
+    VertexMeshData,
     XYZ,
 } from "chili-core";
 
@@ -115,12 +116,12 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private showTempShape(point: XYZ, view: IView) {
-        let data = VertexRenderData.from(point, 0xff0000, 3);
+        let data = VertexMeshData.from(point, 3, Color.fromHex(0xff0000));
         this._tempPointId = view.viewer.visual.context.temporaryDisplay(data);
         let shape = this.data.preview?.(point);
         if (shape !== undefined) {
-            let renderDatas = shape.mesh().edges.map((x) => x.renderData);
-            this._tempShapeId = view.viewer.visual.context.temporaryDisplay(...renderDatas);
+            let edges = shape.mesh().edges;
+            if (edges !== undefined) this._tempShapeId = view.viewer.visual.context.temporaryDisplay(edges);
         }
     }
 

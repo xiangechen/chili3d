@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Color, Constants, IModel, IShape, IShapeMesh, IVisualShape } from "chili-core";
+import { Color, Constants, IModel, IShape, IShapeMeshData, IVisualShape } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
@@ -12,12 +12,14 @@ import {
     Mesh,
     MeshBasicMaterial,
     Object3D,
+    LineSegments,
+    DoubleSide,
+    Float16BufferAttribute,
+    Int32BufferAttribute,
 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
 
 import { ThreeHelper } from "./threeHelper";
-
-let edgeMaterial = new LineBasicMaterial();
 
 let hilightEdgeMaterial = new LineBasicMaterial();
 hilightEdgeMaterial.color.set(0xcfcf00);
@@ -36,9 +38,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
 
     constructor(readonly shape: IShape) {
         super();
-        this._wireMaterial = edgeMaterial;
+        this._wireMaterial = new LineBasicMaterial();
         this._faceMaterial = new MeshBasicMaterial({
             color: 0xaaaaaa,
+            side: DoubleSide,
+            transparent: true,
         });
         this._color = ThreeHelper.toColor(this._faceMaterial.color);
         this.init();
@@ -52,48 +56,39 @@ export class ThreeShape extends Object3D implements IVisualShape {
 
     private init() {
         let mesh = this.shape.mesh();
-        let vertexGroup = this.initVertexs(mesh);
-        let faceGroup = this.initFaces(mesh);
-        let edgeGroup = this.initEdges(mesh);
+        let faces = this.initFaces(mesh);
+        let edges = this.initEdges(mesh);
         this.userData[Constants.ShapeKey] = this.shape;
-        this.add(vertexGroup, edgeGroup, faceGroup);
+        if (edges !== undefined) this.add(edges);
+        if (faces !== undefined) this.add(faces);
     }
 
-    private initVertexs(mesh: IShapeMesh) {
-        let vertexGroup = new Group();
-
-        return vertexGroup;
+    private initEdges(mesh: IShapeMeshData) {
+        if (mesh.edges === undefined) return undefined;
+        let edgeMaterial = new LineBasicMaterial();
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new Float32BufferAttribute(mesh.edges.positions, 3));
+        buff.userData[Constants.GroupKey] = mesh.edges.groups;
+        if (mesh.edges.color instanceof Array) {
+            edgeMaterial.vertexColors = true;
+            buff.setAttribute("color", new Float32BufferAttribute(mesh.edges.color, 3));
+        } else {
+            edgeMaterial.color = new ThreeColor(mesh.edges.color.toHexStr());
+        }
+        return new LineSegments(buff, edgeMaterial);
     }
 
-    private initEdges(mesh: IShapeMesh) {
-        let edgeGroup = new Group();
+    private initFaces(mesh: IShapeMeshData) {
+        if (mesh.faces === undefined) return undefined;
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new Float32BufferAttribute(mesh.faces.positions, 3));
+        buff.setAttribute("normals", new Float32BufferAttribute(mesh.faces.normals, 3));
+        buff.setIndex(mesh.faces.indices);
+        buff.userData[Constants.GroupKey] = mesh.faces.groups;
+        let g = new Mesh(buff, this._faceMaterial);
+        // g.userData[Constants.ShapeKey] = mesh.;
 
-        mesh.edges.forEach((x) => {
-            let buff = new BufferGeometry();
-            buff.setAttribute("position", new Float32BufferAttribute(x.renderData.vertexs, 3));
-            let line = new Line(buff, edgeMaterial);
-            line.userData[Constants.ShapeKey] = x.edge;
-            line.renderOrder = 1;
-            edgeGroup.add(line);
-        });
-
-        return edgeGroup;
-    }
-
-    private initFaces(mesh: IShapeMesh) {
-        let faceGroup = new Group();
-
-        mesh.faces.forEach((x) => {
-            let buff = new BufferGeometry();
-            buff.setAttribute("position", new Float32BufferAttribute(x.renderData.vertexs, 3));
-            buff.setAttribute("normals", new Float32BufferAttribute(x.renderData.normals, 3));
-            buff.setIndex(x.renderData.indices);
-            let g = new Mesh(buff, this._faceMaterial);
-            g.userData[Constants.ShapeKey] = x.face;
-            faceGroup.add(g);
-        });
-
-        return faceGroup;
+        return g;
     }
 
     selectedState() {
@@ -110,8 +105,8 @@ export class ThreeShape extends Object3D implements IVisualShape {
     unSelectedState() {
         if (!this._selectedStatus) return;
         this._selectedStatus = false;
-        this._wireMaterial = edgeMaterial;
-        this.updateEdgeMaterial(edgeMaterial);
+        //this._wireMaterial = edgeMaterial;
+        //this.updateEdgeMaterial(edgeMaterial);
         this._faceMaterial.color = ThreeHelper.fromColor(this.color);
         // this._faceMaterial.transparent = false
         // this._faceMaterial.opacity = 1
@@ -134,7 +129,10 @@ export class ThreeShape extends Object3D implements IVisualShape {
     }
 
     private updateEdgeMaterial(material: LineBasicMaterial) {
-        this.wireframe()?.forEach((x) => (x.material = material));
+        let wire = this.edges();
+        if (wire !== undefined) {
+            wire.material = material;
+        }
     }
 
     set color(color: Color) {
@@ -150,19 +148,19 @@ export class ThreeShape extends Object3D implements IVisualShape {
         return this._selectedStatus;
     }
 
-    face(index: number): Mesh | undefined {
-        return this.children.at(2)?.children.at(index) as Mesh;
+    // face(index: number): Mesh | undefined {
+    //     return this.children.at(1)?.children.at(index) as Mesh;
+    // }
+
+    faces(): Mesh | undefined {
+        return this.children.at(0) as Mesh;
     }
 
-    faces() {
-        return this.children.at(2)?.children.map((x) => x as Mesh);
-    }
+    // edge(index: number): Line | undefined {
+    //     return this.children.at(0)?.children.at(index) as Line;
+    // }
 
-    edge(index: number): Line | undefined {
-        return this.children.at(1)?.children.at(index) as Line;
-    }
-
-    wireframe() {
-        return this.children.at(1)?.children.map((x) => x as Line);
+    edges(): LineSegments | undefined {
+        return this.children.at(0) as LineSegments;
     }
 }

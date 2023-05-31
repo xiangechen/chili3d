@@ -9,4 +9,5 @@ export class Constants {
     static readonly SelectedOp = 0.5;
     static readonly ModelKey = "ModelKey";
     static readonly ShapeKey = "ShapeKey";
+    static readonly GroupKey = "GroupKey";
 }

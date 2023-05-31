@@ -28,7 +28,6 @@ export class SelectionHandler implements IEventHandler {
 
         if (view instanceof ThreeView && this.mouse.isDown) {
             let o = view.rectDetected(this.mouse.x, event.offsetX, this.mouse.y, event.offsetY);
-            console.log(o);
         }
 
         view.viewer.redraw();

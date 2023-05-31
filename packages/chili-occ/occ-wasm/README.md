@@ -5,7 +5,7 @@ An opencascadejs build containing only the APIs necessary to run chili.
 ## Usage
 
 ```shell
-sudo podman run -it --rm -v $(pwd):/src -u $(id -u):$(id -g) docker.io/donalffons/opencascade.js build_config.yml
+sudo docker run -it --rm -v $(pwd):/src -u $(id -u):$(id -g) docker.io/donalffons/opencascade.js build_config.yml
 ```
 
 ## Link

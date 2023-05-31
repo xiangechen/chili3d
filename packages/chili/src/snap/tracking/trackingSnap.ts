@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    EdgeRenderData,
+    Color,
+    EdgeMeshData,
     i18n,
     IEdge,
     IView,
@@ -85,7 +86,7 @@ export class TrackingSnap implements ISnap, SnapChangedHandler {
         if (normal === undefined) return undefined;
         let distance = vector.length() * 1e10;
         let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
-        let lineDats = EdgeRenderData.from(start, newEnd, 0x888, LineType.Dash);
+        let lineDats = EdgeMeshData.from(start, newEnd, Color.fromHex(0x888), LineType.Dash);
         return view.viewer.visual.context.temporaryDisplay(lineDats);
     }
 

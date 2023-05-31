@@ -8,7 +8,6 @@ import {
     LineType,
     GeometryModel,
     PubSub,
-    RenderData,
     ShapeType,
     Matrix4,
     INode,
@@ -17,6 +16,7 @@ import {
     IView,
     Constants,
     IVertex,
+    MeshData,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -34,8 +34,10 @@ import {
     Scene,
     DirectionalLight,
     AxesHelper,
+    LineSegments,
 } from "three";
 import { ThreeShape } from "./threeShape";
+import { ThreeHelper } from "./threeHelper";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();
@@ -108,26 +110,27 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    temporaryDisplay(...datas: RenderData[]): number {
+    temporaryDisplay(...datas: MeshData[]): number {
         let group = new Group();
 
         datas.forEach((data) => {
             let geometry: Object3D | undefined = undefined;
             let buff = new BufferGeometry();
-            buff.setAttribute("position", new Float32BufferAttribute(data.vertexs, 3));
-            if (RenderData.isVertex(data)) {
+            buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+            let color = ThreeHelper.fromColor(data.color as Color);
+            if (MeshData.isVertex(data)) {
                 let material = new PointsMaterial({
                     size: data.size,
                     sizeAttenuation: false,
-                    color: data.color,
+                    color,
                 });
                 geometry = new Points(buff, material);
-            } else if (RenderData.isEdge(data)) {
+            } else if (MeshData.isEdge(data)) {
                 let material: LineBasicMaterial =
                     data.lineType === LineType.Dash
-                        ? new LineDashedMaterial({ color: data.color, dashSize: 6, gapSize: 6 })
-                        : new LineBasicMaterial({ color: data.color });
-                geometry = new Line(buff, material).computeLineDistances();
+                        ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
+                        : new LineBasicMaterial({ color });
+                geometry = new LineSegments(buff, material).computeLineDistances();
             }
             if (geometry !== undefined) group.add(geometry);
         });
@@ -217,11 +220,11 @@ export class ThreeVisualContext implements IVisualContext {
             this.modelShapes.traverse((x) => {
                 if (x instanceof ThreeShape) {
                     if (shapeType === ShapeType.Edge) {
-                        let wireframe = x.wireframe();
-                        if (wireframe !== undefined) res.push(...wireframe);
+                        let wireframe = x.edges();
+                        if (wireframe !== undefined) res.push(wireframe);
                     } else if (shapeType === ShapeType.Face) {
                         let faces = x.faces();
-                        if (faces !== undefined) res.push(...faces);
+                        if (faces !== undefined) res.push(faces);
                     }
                 }
             });
