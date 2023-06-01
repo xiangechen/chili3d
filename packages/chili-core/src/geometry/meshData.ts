@@ -88,14 +88,6 @@ export abstract class MeshDataBuilder<T extends MeshData> {
         this._vertexColor.push(r, g, b);
     }
 
-    abstract newGroup(): void;
-
-    abstract endGroup(shape: IShape): void;
-
-    abstract addPosition(x: number, y: number, z: number): void;
-
-    abstract build(): T;
-
     protected getColor() {
         let color: Color | number[] | undefined = this._vertexColor;
         if (this._vertexColor?.length !== this._positions.length) {
@@ -104,6 +96,14 @@ export abstract class MeshDataBuilder<T extends MeshData> {
         if (color === undefined) color = Color.fromRGB(0.7, 0.9, 0.75);
         return color;
     }
+
+    abstract newGroup(): void;
+
+    abstract endGroup(shape: IShape): void;
+
+    abstract addPosition(x: number, y: number, z: number): void;
+
+    abstract build(): T;
 }
 
 /**

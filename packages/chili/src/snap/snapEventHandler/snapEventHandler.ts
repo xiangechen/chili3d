@@ -64,7 +64,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     pointerMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
-        this._snaped = this.getSnaped(view, event);
+        this._snaped = this.getSnaped(ShapeType.Edge, view, event);
         this._snapedChangedHandlers.forEach((x) => x.onSnapChanged(view, this._snaped));
         if (this._snaped !== undefined) {
             this.showTempShape(this._snaped.point, view);
@@ -75,8 +75,8 @@ export abstract class SnapEventHandler implements IEventHandler {
         view.viewer.redraw();
     }
 
-    private getSnaped(view: IView, event: MouseEvent) {
-        let data = this.getDetectedData(view, event);
+    private getSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {
+        let data = this.getDetectedData(shapeType, view, event);
         for (const snap of this._snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
@@ -88,13 +88,16 @@ export abstract class SnapEventHandler implements IEventHandler {
         return undefined;
     }
 
-    private getDetectedData(view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view.detectedShapes(ShapeType.Edge, event.offsetX, event.offsetY, event.shiftKey);
+    private getDetectedData(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
+        let shapes = view
+            .detected(shapeType, event.offsetX, event.offsetY, event.shiftKey)
+            .map((x) => x.shape)
+            .filter((x) => x !== undefined) as IShape[];
         return {
+            shapes,
             view,
             mx: event.offsetX,
             my: event.offsetY,
-            shapes,
         };
     }
 

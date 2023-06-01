@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    Constants,
     CursorType,
+    DetectedData,
     IDisposable,
     IDocument,
     ISelection,
@@ -11,6 +11,7 @@ import {
     IViewer,
     IVisual,
     IVisualShape,
+    MeshGroup,
     Observable,
     Plane,
     Ray,
@@ -20,6 +21,7 @@ import {
 } from "chili-core";
 import {
     Camera,
+    Intersection,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
@@ -36,6 +38,7 @@ import { SelectionHelper } from "three/examples/jsm/interactive/SelectionHelper"
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 import { ThreeVisual } from "./threeVisual";
+import { Constants } from "./constants";
 
 export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;
@@ -323,18 +326,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return new Date().getTime();
     }
 
-    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[] {
-        return this.detected(ShapeType.Shape, mx, my, firstHitOnly)
-            .map((x) => x.parent as ThreeShape)
-            .filter((x) => x !== undefined);
-    }
-
-    detectedShapes(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): IShape[] {
-        return this.detected(shapeType, mx, my, firstHitOnly)
-            .map((x) => x.userData[Constants.ShapeKey] as IShape)
-            .filter((x) => x !== undefined);
-    }
-
     rectDetected(mx1: number, mx2: number, my1: number, my2: number) {
         const selectionBox = new SelectionBox(this._camera, this._scene);
         const start = this.screenToCameraRect(mx1, my1);
@@ -345,22 +336,69 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return shapes;
     }
 
-    private detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
+    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[] {
+        return this.findIntersections(ShapeType.Shape, mx, my, firstHitOnly)
+            .map((x) => x.object.parent as ThreeShape)
+            .filter((x) => x !== undefined);
+    }
+
+    detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): DetectedData[] {
+        let intersections = this.findIntersections(shapeType, mx, my, firstHitOnly);
+        let shapes = intersections.map(this.shapeMapper(shapeType));
+        return shapes.filter((x) => x !== undefined) as DetectedData[];
+    }
+
+    private shapeMapper = (shapeType: ShapeType) => {
+        return (detected: Intersection<Object3D>): DetectedData | undefined => {
+            let parent = detected.object.parent;
+            if (!(parent instanceof ThreeShape)) return undefined;
+            if (shapeType === ShapeType.Shape) {
+                return {
+                    owner: parent,
+                };
+            } else {
+                let index = shapeType === ShapeType.Face ? detected.faceIndex : detected.index;
+                if (index === undefined) return undefined;
+                let groups: MeshGroup[] = detected.object.userData[Constants.GroupsKey];
+                for (let i = 0; i < groups.length; i++) {
+                    if (ThreeHelper.groupFinder(index)(groups[i])) {
+                        return {
+                            owner: parent,
+                            shape: groups[i].shape,
+                            index: i,
+                        };
+                    }
+                }
+                return undefined;
+            }
+        };
+    };
+
+    private findIntersections(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
         let raycaster = this.initRaycaster(mx, my, firstHitOnly);
+        let shapes = this.initIntersectableObjects(shapeType);
+        return raycaster.intersectObjects(shapes, false);
+    }
+
+    private initIntersectableObjects(shapeType: ShapeType) {
         let shapes = new Array<Object3D>();
+        const addObject = (obj: Object3D | undefined) => {
+            if (obj !== undefined) shapes.push(obj);
+        };
         this.viewer.visual.context.shapes().forEach((x) => {
-            if (x instanceof ThreeShape) {
-                let lines = x.edges();
-                if (lines !== undefined) shapes.push(lines);
-                let faces = x.faces();
-                if (faces !== undefined) shapes.push(faces);
+            if (!(x instanceof ThreeShape)) return;
+            if (shapeType === ShapeType.Face || shapeType === ShapeType.Shape) {
+                addObject(x.faces());
+            }
+            if (shapeType !== ShapeType.Face) {
+                addObject(x.edges());
             }
         });
-        return raycaster.intersectObjects(shapes, false).map((x) => x.object);
+        return shapes;
     }
 
     private initRaycaster(mx: number, my: number, firstHitOnly: boolean) {
-        let threshold = 10 * this.scale;
+        let threshold = Constants.Threshold * this.scale;
         let raycaster = new Raycaster();
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         let ray = this.rayAt(mx, my);

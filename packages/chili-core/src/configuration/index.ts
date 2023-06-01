@@ -1,16 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { PubSub } from "./base";
-import { ObjectSnapType } from "./snapType";
+import { Lazy, PubSub } from "../base";
+import { ObjectSnapType } from "../snapType";
 
 export class Configure {
-    static _configure: Configure | undefined;
+    private static readonly _lazy = new Lazy(() => new Configure());
 
-    static get current() {
-        if (Configure._configure === undefined) {
-            Configure._configure = new Configure();
-        }
-        return Configure._configure;
+    static get instance() {
+        return this._lazy.value;
     }
 
     private _snapType: ObjectSnapType;
@@ -30,7 +27,6 @@ export class Configure {
 
     set snapType(snapType: ObjectSnapType) {
         this._snapType = snapType;
-
         PubSub.default.pub("snapChanged", snapType);
     }
 }

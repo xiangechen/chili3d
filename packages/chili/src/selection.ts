@@ -1,6 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, INode, ISelection, IVisual, IVisualContext, Observable, PubSub } from "chili-core";
+import {
+    IDocument,
+    INode,
+    ISelection,
+    IVisual,
+    IVisualContext,
+    Observable,
+    PubSub,
+    ShapeType,
+    VisualState,
+} from "chili-core";
 
 export class Selection extends Observable implements ISelection {
     private _selectedNodes: INode[] = [];
@@ -50,7 +60,7 @@ export class Selection extends Observable implements ISelection {
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
             if (INode.isModelNode(m)) {
-                this.document.visual.context.getShape(m)?.selectedState();
+                this.document.visual.context.getShape(m)?.addState(VisualState.selected, ShapeType.Shape);
             }
         });
         this._selectedNodes.push(...nodes);
@@ -60,7 +70,9 @@ export class Selection extends Observable implements ISelection {
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
             if (INode.isModelNode(node)) {
-                this.document.visual.context.getShape(node)?.unSelectedState();
+                this.document.visual.context
+                    .getShape(node)
+                    ?.removeState(VisualState.selected, ShapeType.Shape);
             }
         }
         this._selectedNodes = this._selectedNodes.filter((m) => !nodes.includes(m));

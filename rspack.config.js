@@ -1,39 +1,44 @@
 const path = require("path");
 
-module.exports = {
-    entry: {
-        main: "./packages/chili-web/src/index.ts",
-    },
-    module: {
-        rules: [
-            {
-                test: /\.wasm$/,
-                type: "asset",
-            },
-        ],
-    },
-    builtins: {
-        copy: {
-            patterns: [
+module.exports = (env, arg) => {
+    console.log(arg);
+    return {
+        entry: {
+            main: "./packages/chili-web/src/index.ts",
+        },
+        module: {
+            rules: [
                 {
-                    from: "./public",
+                    test: /\.wasm$/,
+                    type: "asset",
                 },
             ],
         },
-    },
-    resolve: {
-        extensions: [".tsx", ".ts", ".js"],
-        fallback: {
-            fs: false,
-            perf_hooks: false,
-            os: false,
-            crypto: false,
-            stream: false,
-            path: false,
+        builtins: {
+            copy: env.production
+                ? {
+                      patterns: [
+                          {
+                              from: "./public",
+                          },
+                      ],
+                  }
+                : undefined,
         },
-    },
-    output: {
-        filename: "bundle.js",
-        path: path.resolve(__dirname, "build"),
-    },
+        resolve: {
+            extensions: [".tsx", ".ts", ".js"],
+            fallback: {
+                fs: false,
+                perf_hooks: false,
+                os: false,
+                crypto: false,
+                stream: false,
+                path: false,
+            },
+        },
+        output: {
+            filename: "bundle.js",
+            path: path.resolve(__dirname, "build"),
+        },
+    };
 };

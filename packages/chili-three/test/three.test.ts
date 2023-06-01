@@ -2,10 +2,10 @@
 
 import "reflect-metadata";
 import { expect, jest, test } from "@jest/globals";
-import { GeometryModel, Model, Plane, RenderData, ShapeType, XY, XYZ } from "chili-core";
+import { GeometryModel, Model, Plane, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestView } from "./testView";
-import { TestBody } from "./testEdge";
+import { TestBody, TestEdge } from "./testEdge";
 import { shaderFunctions } from "three-mesh-bvh";
 
 describe("three test", () => {
@@ -29,6 +29,7 @@ describe("three test", () => {
         let mouse = view.worldToScreen(new XYZ(100, 0, 0));
         let shapes = view.detectedShapes(ShapeType.Shape, mouse.x, mouse.y, false);
         expect(shapes.length).toEqual(1);
+        expect(shapes[0] instanceof TestEdge).toBeTruthy();
         expect(view.detectedVisualShapes(mouse.x, mouse.y, false).length).toEqual(1);
 
         let shape = context.getShape(model);

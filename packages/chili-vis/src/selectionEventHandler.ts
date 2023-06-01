@@ -1,12 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEventHandler, IModel, IView, IVisualShape, ShapeType } from "chili-core";
-import { ThreeShape } from "chili-three/src/threeShape";
-import { ThreeView } from "chili-three/src/threeView";
+import { DetectedData, IEventHandler, IModel, IView, IVisualShape, ShapeType, VisualState } from "chili-core";
 
 export class SelectionHandler implements IEventHandler {
     private mouse: { isDown: boolean; x: number; y: number };
-    private _lastDetected: IVisualShape | undefined;
+    private _lastDetected: DetectedData | undefined;
 
     constructor() {
         this.mouse = { isDown: false, x: 0, y: 0 };
@@ -20,15 +18,18 @@ export class SelectionHandler implements IEventHandler {
 
     pointerMove(view: IView, event: PointerEvent): void {
         if (this._lastDetected !== undefined) {
-            this._lastDetected.unHilightedState();
-            this._lastDetected = undefined;
+            this._lastDetected?.owner.removeState(
+                VisualState.hilight,
+                ShapeType.Shape,
+                this._lastDetected.index!
+            );
         }
-        this._lastDetected = view.detectedVisualShapes(event.offsetX, event.offsetY, true).at(0);
-        this._lastDetected?.hilightedState();
+        this._lastDetected = view.detected(ShapeType.Shape, event.offsetX, event.offsetY, true).at(0);
+        this._lastDetected?.owner.addState(VisualState.hilight, ShapeType.Shape, this._lastDetected.index!);
 
-        if (view instanceof ThreeView && this.mouse.isDown) {
-            let o = view.rectDetected(this.mouse.x, event.offsetX, this.mouse.y, event.offsetY);
-        }
+        // if (view instanceof ThreeView && this.mouse.isDown) {
+        //     let o = view.rectDetected(this.mouse.x, event.offsetX, this.mouse.y, event.offsetY);
+        // }
 
         view.viewer.redraw();
     }
@@ -45,13 +46,13 @@ export class SelectionHandler implements IEventHandler {
 
     pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 0) {
-            let intersect = view.detectedVisualShapes(this.mouse.x, this.mouse.y, true).at(0);
+            let intersect = view.detected(ShapeType.Shape, this.mouse.x, this.mouse.y, true).at(0);
             if (intersect === undefined) {
                 view.viewer.visual.document.selection.clearSelected();
                 return;
             }
 
-            let node = view.viewer.visual.context.getModel(intersect);
+            let node = view.viewer.visual.context.getModel(intersect.owner);
             if (node !== undefined) view.viewer.visual.document.selection.setSelected(event.shiftKey, [node]);
 
             this.mouse.isDown = false;

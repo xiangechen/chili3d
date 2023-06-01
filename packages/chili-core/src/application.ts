@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IResolve, PubSub, Token } from "chili-core";
+import { IDocument, IResolve, Logger, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { IService } from "./service";
@@ -10,13 +10,17 @@ export class Application {
 
     static get instance() {
         if (Application._instance === undefined) {
-            throw "Application is not initialized";
+            throw "Application is not build";
         }
         return Application._instance;
     }
 
     static build(resolve: IResolve, services: IService[]): Application {
-        this._instance = new Application(resolve, services);
+        if (this._instance) {
+            Logger.warn("Application has been built");
+        } else {
+            this._instance = new Application(resolve, services);
+        }
         return this._instance;
     }
 

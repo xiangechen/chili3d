@@ -17,6 +17,7 @@ import {
     Constants,
     IVertex,
     MeshData,
+    VisualState,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -77,7 +78,7 @@ export class ThreeVisualContext implements IVisualContext {
     hilighted(shape: IShape) {
         let threeShape = new ThreeShape(shape);
         threeShape.name = shape.id;
-        threeShape.hilightedState();
+        threeShape.addState(VisualState.hilight, ShapeType.Shape);
         this.hilightedShapes.add(threeShape);
     }
 

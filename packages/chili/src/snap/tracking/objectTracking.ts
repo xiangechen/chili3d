@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IView, VertexRenderData } from "chili-core";
+import { Color, IView, VertexMeshData } from "chili-core";
 
 import { SnapedData } from "../";
 import { Axis } from "./axis";
@@ -77,7 +77,7 @@ export class ObjectTracking {
     }
 
     private addSnapToTracking(snap: SnapedData, view: IView, snaps: SnapeInfo[]) {
-        let data = VertexRenderData.from(snap.point, 0xf00, 5);
+        let data = VertexMeshData.from(snap.point, 5, Color.fromHex(0xf00));
         let pointId = view.viewer.visual.context.temporaryDisplay(data);
         let axies = Axis.getAxiesAtPlane(snap.point, view.workplane, this.trackingZ);
         snaps.push({ shapeId: pointId, snap, axies });

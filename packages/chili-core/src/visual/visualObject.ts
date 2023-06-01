@@ -6,11 +6,4 @@ export interface IVisualObject {
     visible: boolean;
     color: Color;
     transparency: number;
-    // displayMode: number;
-    // hilightMode: boolean;
-    // matrix: Matrix4;
-    hilightedState(): void;
-    unHilightedState(): void;
-    selectedState(): void;
-    unSelectedState(): void;
 }

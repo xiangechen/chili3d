@@ -10,8 +10,7 @@ import {
     Logger,
     Token,
 } from "chili-core";
-
-import { CommandService, EditorService, HotkeyService } from "chili";
+import { CommandService, EditorService, HotkeyService } from "./services";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];

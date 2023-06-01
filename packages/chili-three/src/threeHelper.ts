@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Color, Constants, XYZ } from "chili-core";
+import { Color, Constants, MeshGroup, XYZ } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
@@ -36,4 +36,10 @@ export class ThreeHelper {
     static toColor(color: ThreeColor): Color {
         return new Color(color.r, color.g, color.b, 1);
     }
+
+    static groupFinder = (index: number) => {
+        return (group: MeshGroup) => {
+            return index >= group.start && index < group.start + group.count;
+        };
+    };
 }

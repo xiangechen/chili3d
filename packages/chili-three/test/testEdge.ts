@@ -1,12 +1,14 @@
 import {
+    Color,
     Entity,
     I18n,
     ICurve,
     IDocument,
     IEdge,
     IShape,
-    IShapeMesh,
+    IShapeMeshData,
     IVertex,
+    LineType,
     Quaternion,
     Ray,
     Result,
@@ -33,26 +35,16 @@ export class TestEdge implements IEdge {
     setTranslation(offset: XYZ): void {}
     setScale(scale: XYZ, value: number): void {}
     setRotation(rotation: Quaternion): void {}
-    mesh(): IShapeMesh {
+    mesh(): IShapeMeshData {
         return {
-            vertexs: [],
-            edges: [
-                {
-                    renderData: {
-                        vertexs: [
-                            this.start.x,
-                            this.start.y,
-                            this.start.z,
-                            this.end.x,
-                            this.end.y,
-                            this.end.z,
-                        ],
-                        type: "edge",
-                    },
-                    edge: this,
-                },
-            ],
-            faces: [],
+            shape: this,
+            edges: {
+                positions: [this.start.x, this.start.y, this.start.z, this.end.x, this.end.y, this.end.z],
+                color: Color.fromRGB(1.0, 0, 0),
+                lineType: LineType.Solid,
+                groups: [],
+            },
+            faces: undefined,
         };
     }
     toJson(): string {

@@ -2,10 +2,8 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { BoxBody, Document } from "chili";
+import { AppBuilder, BoxBody, Document } from "chili";
 import { Application, GeometryModel, Model, Plane, XYZ } from "chili-core";
-import { Viewport } from "chili-ui";
-import { AppBuilder } from "./appBuilder";
 
 // prettier-ignore
 let builder = new AppBuilder()
