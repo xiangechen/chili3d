@@ -18,14 +18,11 @@ export class SelectionHandler implements IEventHandler {
 
     pointerMove(view: IView, event: PointerEvent): void {
         if (this._lastDetected !== undefined) {
-            this._lastDetected?.owner.removeState(
-                VisualState.hilight,
-                ShapeType.Shape,
-                this._lastDetected.index!
-            );
+            this._lastDetected?.owner.removeState(VisualState.hilight, ShapeType.Shape);
         }
+
         this._lastDetected = view.detected(ShapeType.Shape, event.offsetX, event.offsetY, true).at(0);
-        this._lastDetected?.owner.addState(VisualState.hilight, ShapeType.Shape, this._lastDetected.index!);
+        this._lastDetected?.owner.addState(VisualState.hilight, ShapeType.Shape);
 
         // if (view instanceof ThreeView && this.mouse.isDown) {
         //     let o = view.rectDetected(this.mouse.x, event.offsetX, this.mouse.y, event.offsetY);

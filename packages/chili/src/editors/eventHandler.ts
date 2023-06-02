@@ -1,13 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    Color,
     CursorType,
     I18n,
     IDisposable,
     IDocument,
     IEventHandler,
     IView,
-    VertexRenderData,
+    VertexMeshData,
     XYZ,
 } from "chili-core";
 import { ShapePreviewer, Snapper } from "../snap";
@@ -27,7 +28,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     constructor(readonly document: IDocument) {}
 
     protected showPoint(point: XYZ): number {
-        let start = VertexRenderData.from(point, 0xffff00, 5);
+        let start = VertexMeshData.from(point, 5, Color.fromHex(0xffff00));
         return this.document.visual.context.temporaryDisplay(start);
     }
 

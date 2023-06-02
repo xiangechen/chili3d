@@ -151,18 +151,20 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
 
 export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     private _indexStart: number = 0;
+    private _groupStart: number = 0;
     private readonly _normals: number[] = [];
     private readonly _uvs: number[] = [];
     private readonly _indices: number[] = [];
 
     override newGroup() {
+        this._groupStart = this._indices.length;
         this._indexStart = this._positions.length / 3;
     }
 
     override endGroup(shape: IShape) {
         this._groups.push({
-            start: this._indexStart,
-            count: this._indices.length / 3 - this._indexStart,
+            start: this._groupStart,
+            count: this._indices.length - this._groupStart,
             shape,
         });
     }
