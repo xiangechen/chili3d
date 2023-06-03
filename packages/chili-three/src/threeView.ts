@@ -369,7 +369,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
             let groupIndex = ThreeHelper.findGroupIndex(groups, index);
             result.push({
                 owner: parent,
-                shape: groupIndex ? groups.at(groupIndex)?.shape : undefined,
+                shape: groupIndex !== undefined ? groups.at(groupIndex)?.shape : undefined,
                 index: groupIndex,
             });
         }
