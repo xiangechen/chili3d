@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    CancellationToken,
+    TaskToken,
     Color,
     IEventHandler,
     IShape,
@@ -19,7 +19,7 @@ import { ISnap, MouseAndDetected, SnapChangedHandler, SnapedData } from "../inte
 import { ShapePreviewer, Validator } from "./interfaces";
 
 export interface SnapEventData {
-    cancellationToken: CancellationToken;
+    cancellationToken: TaskToken;
     snaps: ISnap[];
     snapChangedHandlers?: SnapChangedHandler[];
     validator?: Validator;
@@ -48,9 +48,18 @@ export abstract class SnapEventHandler implements IEventHandler {
         return this._snaped;
     }
 
-    private stopSnap(view: IView) {
-        this._snapedChangedHandlers.length = 0;
+    private finishSnap(view: IView) {
+        this.data.cancellationToken.complete();
+        this.clean(view);
+    }
+
+    private cancleSnap(view: IView) {
         this.data.cancellationToken.cancel();
+        this.clean(view);
+    }
+
+    private clean(view: IView) {
+        this._snapedChangedHandlers.length = 0;
         this.clearSnapTip();
         this.removeInput();
         this.removeTempShapes(view);
@@ -141,7 +150,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     pointerDown(view: IView, event: MouseEvent): void {
         if (event.button === 0) {
-            this.stopSnap(view);
+            this.finishSnap(view);
         }
     }
     pointerUp(view: IView, event: MouseEvent): void {}
@@ -151,7 +160,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
             this._snaped = undefined;
-            this.stopSnap(view);
+            this.cancleSnap(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub(
                 "showInput",
@@ -167,7 +176,7 @@ export abstract class SnapEventHandler implements IEventHandler {
             point: this.getPointFromInput(view, text),
             shapes: [],
         };
-        this.stopSnap(view);
+        this.cancleSnap(view);
     };
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
