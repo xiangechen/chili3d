@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Color } from "../base";
+import { Config } from "../config";
 import { XYZ } from "../math";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";
@@ -14,7 +15,7 @@ export interface IShapeMeshData {
 export interface MeshGroup {
     start: number;
     count: number;
-    shape: IShape;
+    shape?: IShape;
 }
 
 export interface MeshData {
@@ -93,7 +94,6 @@ export abstract class MeshDataBuilder<T extends MeshData> {
         if (this._vertexColor?.length !== this._positions.length) {
             color = this._color;
         }
-        if (color === undefined) color = Color.fromRGB(0.7, 0.9, 0.75);
         return color;
     }
 
@@ -113,6 +113,11 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     protected _positionStart: number = 0;
     private _previousVertex: [number, number, number] | undefined = undefined;
     private _lineType: LineType = LineType.Solid;
+
+    constructor() {
+        super();
+        this._color = Config.instance.visualConfig.faceEdgeColor;
+    }
 
     setType(type: LineType) {
         this._lineType = type;
@@ -139,7 +144,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     }
 
     override build(): EdgeMeshData {
-        let color = this.getColor();
+        let color = this.getColor()!;
         return {
             positions: this._positions,
             groups: this._groups,
@@ -155,6 +160,11 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     private readonly _normals: number[] = [];
     private readonly _uvs: number[] = [];
     private readonly _indices: number[] = [];
+
+    constructor() {
+        super();
+        this._color = Color.random();
+    }
 
     override newGroup() {
         this._groupStart = this._indices.length;
@@ -186,7 +196,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     }
 
     build(): FaceMeshData {
-        let color = this.getColor();
+        let color = this.getColor()!;
         return {
             positions: this._positions,
             color,

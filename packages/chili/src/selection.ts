@@ -24,7 +24,7 @@ export class Selection extends Observable implements ISelection {
         return this._selectedNodes;
     }
 
-    setSelected(toggle: boolean, nodes: INode[]) {
+    select(nodes: INode[], toggle: boolean) {
         if (toggle) {
             this.toggleSelectPublish(nodes, true);
         } else {
@@ -33,7 +33,7 @@ export class Selection extends Observable implements ISelection {
         }
     }
 
-    unSelected(nodes: INode[]) {
+    deselect(nodes: INode[]) {
         this.removeSelectedPublish(nodes, true);
     }
 

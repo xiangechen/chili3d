@@ -27,17 +27,15 @@ describe("three test", () => {
         context.addModel([model]);
         expect(context.getShape(model)).not.toBeNull();
         let mouse = view.worldToScreen(new XYZ(100, 0, 0));
-        let shapes = view.detectedShapes(ShapeType.Shape, mouse.x, mouse.y, false);
+        let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y, false);
         expect(shapes.length).toEqual(1);
-        expect(shapes[0] instanceof TestEdge).toBeTruthy();
-        expect(view.detectedVisualShapes(mouse.x, mouse.y, false).length).toEqual(1);
+        expect(shapes[0].shape?.shapeType).toBe(ShapeType.Edge);
 
         let shape = context.getShape(model);
-        expect(shapes.at(0)).toEqual(shape?.shape);
+        expect(shapes.at(0)?.shape).toEqual(shape?.shape);
         expect(context.getModel(shape!)).toEqual(model);
 
         context.removeModel([model]);
-        expect(view.detectedShapes(ShapeType.Shape, mouse.x, mouse.y, false).length).toEqual(0);
-        expect(view.detectedVisualShapes(mouse.x, mouse.y, false).length).toEqual(0);
+        expect(view.detected(ShapeType.Shape, mouse.x, mouse.y, false).length).toEqual(0);
     });
 });

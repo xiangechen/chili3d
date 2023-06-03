@@ -4,7 +4,7 @@ import { INode } from "./model";
 
 export interface ISelection {
     getSelectedNodes(): INode[];
-    setSelected(toggle: boolean, models: INode[]): void;
+    select(models: INode[], toggle: boolean): void;
     clearSelected(): void;
-    unSelected(models: INode[]): void;
+    deselect(models: INode[]): void;
 }

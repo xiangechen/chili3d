@@ -122,10 +122,10 @@ export class Tree extends Control {
         if (event.shiftKey) {
             if (this.lastClicked !== undefined) {
                 let nodes = INode.getNodesBetween(this.lastClicked, item);
-                this.document.selection.setSelected(false, nodes);
+                this.document.selection.select(nodes, false);
             }
         } else {
-            this.document.selection.setSelected(event.ctrlKey, [item]);
+            this.document.selection.select([item], event.ctrlKey);
         }
 
         this.setLastClickItem(item);

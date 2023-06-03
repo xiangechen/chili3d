@@ -7,7 +7,7 @@ import {
     IShape,
     IVisualShape,
     MeshData,
-    MeshGroup,
+    Config,
     ShapeType,
     VisualState,
 } from "chili-core";
@@ -21,45 +21,63 @@ import {
     Object3D,
     LineSegments,
     DoubleSide,
-    MeshLambertMaterial,
-    Group,
-    BufferAttribute,
 } from "three";
 import { MeshBVH } from "three-mesh-bvh";
 
 import { ThreeHelper } from "./threeHelper";
 import { Constants } from "./constants";
 
-let hilightEdgeMaterial = new LineBasicMaterial({ color: 0xcfcf00 });
-let selectedEdgeMaterial = new LineBasicMaterial({ color: 0xabab00 });
+let hilightEdgeMaterial = new LineBasicMaterial({
+    color: ThreeHelper.fromColor(Config.instance.visualConfig.highlightEdgeColor),
+});
 
-let hilightFaceMaterial = new MeshLambertMaterial({
-    color: 0xabab00,
+let selectedEdgeMaterial = new LineBasicMaterial({
+    color: ThreeHelper.fromColor(Config.instance.visualConfig.selectedEdgeColor),
+});
+
+let hilightFaceMaterial = new MeshBasicMaterial({
+    color: ThreeHelper.fromColor(Config.instance.visualConfig.highlightFaceColor),
     side: DoubleSide,
     transparent: true,
 });
 
-let selectedFaceMaterial = new MeshLambertMaterial({
-    color: 0x343400,
+let selectedFaceMaterial = new MeshBasicMaterial({
+    color: ThreeHelper.fromColor(Config.instance.visualConfig.selectedFaceColor),
     side: DoubleSide,
     transparent: true,
 });
 
 export class ThreeShape extends Object3D implements IVisualShape {
     private readonly _stateMap = new Map<string, VisualState>();
-    private _faceMaterial: MeshBasicMaterial = new MeshBasicMaterial();
+    private _faceMaterial: MeshBasicMaterial = new MeshBasicMaterial({
+        side: DoubleSide,
+        transparent: true,
+    });
     private _edgeMaterial = new LineBasicMaterial();
     private _edges?: LineSegments;
     private _faces?: Mesh;
 
-    transparency: number = 1;
+    set color(color: Color) {
+        this._faceMaterial.color = ThreeHelper.fromColor(color);
+    }
+
+    get color(): Color {
+        return ThreeHelper.toColor(this._faceMaterial.color);
+    }
+
+    get transparency() {
+        return this._faceMaterial.opacity;
+    }
+
+    set transparency(value: number) {
+        this._faceMaterial.opacity = value;
+    }
 
     constructor(readonly shape: IShape) {
         super();
-        this.userData[Constants.ShapeKey] = this.shape;
         let mesh = this.shape.mesh();
-        if (mesh.edges !== undefined) this.add(this.initEdges(mesh.edges));
         if (mesh.faces !== undefined) this.add(this.initFaces(mesh.faces));
+        if (mesh.edges !== undefined) this.add(this.initEdges(mesh.edges));
     }
 
     private initEdges(data: EdgeMeshData) {
@@ -69,7 +87,8 @@ export class ThreeShape extends Object3D implements IVisualShape {
         data.groups.forEach((x) => buff.addGroup(x.start, x.count));
         buff.computeBoundingSphere();
         this._edges = new LineSegments(buff, [this._edgeMaterial, hilightEdgeMaterial, selectedEdgeMaterial]);
-        this._edges.userData[Constants.GroupsKey] = data.groups;
+        this._edges.userData[Constants.GeometryGroupsKey] = data.groups;
+        this._edges.renderOrder = 99;
         return this._edges;
     }
 
@@ -82,7 +101,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.initColor(data, buff, this._faceMaterial);
         buff.computeBoundingSphere();
         this._faces = new Mesh(buff, [this._faceMaterial, hilightFaceMaterial, selectedFaceMaterial]);
-        this._faces.userData[Constants.GroupsKey] = data.groups;
+        this._faces.userData[Constants.GeometryGroupsKey] = data.groups;
         return this._faces;
     }
 
@@ -129,22 +148,19 @@ export class ThreeShape extends Object3D implements IVisualShape {
     }
 
     private updateState(mode: "add" | "remove", state: VisualState, type: ShapeType, index?: number) {
-        let key = this.stateMapKey(type, index);
+        const key = `${type}_${index}`;
         let newState = this._stateMap.get(key);
-        if (newState === undefined) {
+        if (!newState) {
             newState = state;
         } else {
-            newState =
-                mode === "add"
-                    ? VisualState.addState(newState, state)
-                    : VisualState.removeState(newState, state);
+            if (mode === "add") {
+                newState = VisualState.addState(newState, state);
+            } else {
+                newState = VisualState.removeState(newState, state);
+            }
         }
         this._stateMap.set(key, newState);
         return newState;
-    }
-
-    private stateMapKey(type: ShapeType, index?: number) {
-        return `${type}-${index}`;
     }
 
     resetState(): void {
@@ -173,24 +189,6 @@ export class ThreeShape extends Object3D implements IVisualShape {
             let g = buff.groups.at(index);
             if (g !== undefined && g.materialIndex !== materialIndex) g.materialIndex = materialIndex;
         }
-    }
-
-    set color(color: Color) {
-        this._faceMaterial.color = ThreeHelper.fromColor(color);
-    }
-
-    get color(): Color {
-        return ThreeHelper.toColor(this._faceMaterial.color);
-    }
-
-    face(faceIndex: number): IShape | undefined {
-        let groups: MeshGroup[] = this._faces?.userData[Constants.GroupsKey];
-        return groups.find(ThreeHelper.groupFinder(faceIndex))?.shape;
-    }
-
-    edge(index: number): IShape | undefined {
-        let groups: MeshGroup[] = this._edges?.userData[Constants.GroupsKey];
-        return groups.find(ThreeHelper.groupFinder(index))?.shape;
     }
 
     faces() {

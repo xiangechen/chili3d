@@ -8,8 +8,6 @@ import { IVisualShape } from "./visualShape";
 
 export interface IVisualContext {
     get shapeCount(): number;
-    hilightedColor: Color;
-    selectedColor: Color;
     addModel(models: IModel[]): void;
     removeModel(models: IModel[]): void;
     getShape(model: IModel): IVisualShape | undefined;

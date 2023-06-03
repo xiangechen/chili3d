@@ -4,7 +4,7 @@ export * from "./application";
 export * from "./command";
 export * from "./commands";
 export * from "./base";
-export * from "./configuration";
+export * from "./config";
 export * from "./constants";
 export * from "./converter";
 export * from "./decorators";

@@ -25,6 +25,12 @@ export namespace VisualState {
     }
 }
 
+export interface VisualGroup {
+    start: number;
+    count: number;
+    materialIndex?: number;
+}
+
 export interface IVisualShape extends IVisualObject {
     get shape(): IShape;
     addState(state: VisualState, type: ShapeType, index?: number): void;

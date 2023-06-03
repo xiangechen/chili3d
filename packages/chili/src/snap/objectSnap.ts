@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    Color,
     CurveType,
     i18n,
     ICircle,
@@ -10,7 +11,7 @@ import {
     IView,
     ObjectSnapType,
     ShapeType,
-    VertexRenderData,
+    VertexMeshData,
     XYZ,
 } from "chili-core";
 
@@ -127,7 +128,7 @@ export class ObjectSnap implements ISnap {
     }
 
     private showCircleCenter(curve: ICircle, view: IView, shape: IShape) {
-        let temporary = VertexRenderData.from(curve.center, 0xffff00, 3);
+        let temporary = VertexMeshData.from(curve.center, 3, Color.fromHex(0xffff00));
         let id = view.viewer.visual.context.temporaryDisplay(temporary);
         this._invisibleInfos.set(shape, {
             view,

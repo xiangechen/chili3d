@@ -1,16 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Color, Constants, MeshGroup, XYZ } from "chili-core";
-import {
-    BufferAttribute,
-    BufferGeometry,
-    Camera,
-    Color as ThreeColor,
-    Float32BufferAttribute,
-    OrthographicCamera,
-    PerspectiveCamera,
-    Vector3,
-} from "three";
+import { Color, XYZ } from "chili-core";
+import { Camera, Color as ThreeColor, OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
 
 export class ThreeHelper {
     static toXYZ(vector: Vector3): XYZ {
@@ -37,9 +28,12 @@ export class ThreeHelper {
         return new Color(color.r, color.g, color.b, 1);
     }
 
-    static groupFinder = (index: number) => {
-        return (group: MeshGroup) => {
-            return index >= group.start && index < group.start + group.count;
-        };
-    };
+    static findGroupIndex(groups: { start: number; count: number }[], subIndex: number) {
+        for (let i = 0; i < groups.length; i++) {
+            if (subIndex >= groups[i].start && subIndex < groups[i].start + groups[i].count) {
+                return i;
+            }
+        }
+        return undefined;
+    }
 }

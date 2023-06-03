@@ -336,43 +336,53 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return shapes;
     }
 
-    detectedVisualShapes(mx: number, my: number, firstHitOnly: boolean): IVisualShape[] {
-        return this.findIntersections(ShapeType.Shape, mx, my, firstHitOnly)
-            .map((x) => x.object.parent as ThreeShape)
-            .filter((x) => x !== undefined);
-    }
-
     detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): DetectedData[] {
         let intersections = this.findIntersections(shapeType, mx, my, firstHitOnly);
-        let shapes = intersections.map(this.shapeMapper(shapeType));
-        return shapes.filter((x) => x !== undefined) as DetectedData[];
+        return shapeType === ShapeType.Shape
+            ? this.detectThreeShapes(intersections)
+            : this.detectSubShapes(shapeType, intersections);
     }
 
-    private shapeMapper = (shapeType: ShapeType) => {
-        return (detected: Intersection<Object3D>): DetectedData | undefined => {
-            let parent = detected.object.parent;
-            if (!(parent instanceof ThreeShape)) return undefined;
-            if (shapeType === ShapeType.Shape) {
-                return {
+    private detectThreeShapes(intersections: Intersection<Object3D>[]) {
+        let result: DetectedData[] = [];
+        for (let i = 0; i < intersections.length; i++) {
+            const parent = intersections[i].object.parent;
+            if (parent instanceof ThreeShape) {
+                result.push({
                     owner: parent,
-                };
-            } else {
-                let index = shapeType === ShapeType.Face ? detected.faceIndex : detected.index;
-                if (index === undefined) return undefined;
-                let groups: MeshGroup[] = detected.object.userData[Constants.GroupsKey];
-                for (let i = 0; i < groups.length; i++) {
-                    if (ThreeHelper.groupFinder(index)(groups[i])) {
-                        return {
-                            owner: parent,
-                            shape: groups[i].shape,
-                            index: i,
-                        };
-                    }
-                }
-                return undefined;
+                    shape: parent.shape,
+                });
             }
-        };
-    };
+        }
+        return result;
+    }
+
+    private detectSubShapes(shapeType: ShapeType, intersections: Intersection<Object3D>[]) {
+        let result: DetectedData[] = [];
+        for (let i = 0; i < intersections.length; i++) {
+            let item = intersections[i];
+            const parent = intersections[i].object.parent;
+            if (!(parent instanceof ThreeShape)) continue;
+            let index = this.getIndex(shapeType, item);
+            if (index == undefined) continue;
+            let groups: MeshGroup[] = item.object.userData[Constants.GeometryGroupsKey];
+            let groupIndex = ThreeHelper.findGroupIndex(groups, index);
+            result.push({
+                owner: parent,
+                shape: groupIndex ? groups.at(groupIndex)?.shape : undefined,
+                index: groupIndex,
+            });
+        }
+        return result;
+    }
+
+    private getIndex(shapeType: ShapeType, item: Intersection<Object3D>) {
+        if (shapeType === ShapeType.Face) {
+            return item.faceIndex ? item.faceIndex * 3 : undefined;
+        } else {
+            return item.index;
+        }
+    }
 
     private findIntersections(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
         let raycaster = this.initRaycaster(mx, my, firstHitOnly);
@@ -398,7 +408,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     private initRaycaster(mx: number, my: number, firstHitOnly: boolean) {
-        let threshold = Constants.Threshold * this.scale;
+        let threshold = Constants.RaycasterThreshold * this.scale;
         let raycaster = new Raycaster();
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         let ray = this.rayAt(mx, my);

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CancellationToken, Configure, I18n, IShape, IView, Plane, Validation, XYZ } from "chili-core";
+import { CancellationToken, Config, I18n, IShape, IView, Plane, Validation, XYZ } from "chili-core";
 
 import { Dimension } from "../dimension";
 import { ObjectSnap } from "../objectSnap";
@@ -19,7 +19,7 @@ export interface SnapPointData {
 
 export class SnapPointEventHandler extends SnapEventHandler {
     constructor(cancellationToken: CancellationToken, private pointData: SnapPointData) {
-        let objectSnap = new ObjectSnap(Configure.instance.snapType);
+        let objectSnap = new ObjectSnap(Config.instance.snapType);
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];

@@ -1,30 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    IDocument,
     IShape,
     IVisualContext,
     IVisualShape,
     LineType,
-    GeometryModel,
-    PubSub,
     ShapeType,
     Matrix4,
     INode,
     IModel,
     Color,
-    IView,
-    Constants,
-    IVertex,
     MeshData,
     VisualState,
 } from "chili-core";
 import {
     BufferGeometry,
-    EdgesGeometry,
     Float32BufferAttribute,
     Group,
-    Line,
     LineBasicMaterial,
     LineDashedMaterial,
     Material,
@@ -33,8 +25,6 @@ import {
     Points,
     PointsMaterial,
     Scene,
-    DirectionalLight,
-    AxesHelper,
     LineSegments,
 } from "three";
 import { ThreeShape } from "./threeShape";
@@ -43,27 +33,16 @@ import { ThreeHelper } from "./threeHelper";
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();
     private readonly _modelShapeMap = new WeakMap<IModel, ThreeShape>();
-    private readonly _shapeShapeMap = new WeakMap<IShape, ThreeShape>();
 
     readonly modelShapes: Group;
     readonly tempShapes: Group;
     readonly hilightedShapes: Group;
-    hilightedColor: Color = new Color(0.5, 0.8, 0.3, 1);
-    selectedColor: Color = new Color(0.5, 0.8, 0.3, 1);
 
     constructor(readonly scene: Scene) {
         this.modelShapes = new Group();
         this.tempShapes = new Group();
         this.hilightedShapes = new Group();
-        this.initScene();
         scene.add(this.modelShapes, this.tempShapes, this.hilightedShapes);
-    }
-
-    initScene() {
-        const light = new DirectionalLight(0xffffff, 0.5);
-        this.scene.add(light);
-        let axisHelper = new AxesHelper(250);
-        this.scene.add(axisHelper);
     }
 
     getModel(shape: IVisualShape): IModel | undefined {
