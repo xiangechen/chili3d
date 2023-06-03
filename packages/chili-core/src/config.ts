@@ -4,10 +4,10 @@ import { Color, Lazy, PubSub } from "./base";
 import { ObjectSnapType } from "./snapType";
 
 export class VisualConfig {
-    faceEdgeColor: Color = Color.fromRGB(0.6, 0.6, 0.6);
-    highlightEdgeColor: Color = Color.fromRGB(0.4, 0.4, 0.4);
+    faceEdgeColor: Color = Color.fromRGB(0.85, 0.85, 0.85);
+    highlightEdgeColor: Color = Color.fromRGB(0.95, 0.95, 0.95);
     highlightFaceColor: Color = Color.fromHex(0xfef08a);
-    selectedEdgeColor: Color = Color.fromRGB(0.5, 0.5, 0.5);
+    selectedEdgeColor: Color = Color.fromRGB(1, 1, 1);
     selectedFaceColor: Color = Color.fromHex(0xfde047);
 }
 
