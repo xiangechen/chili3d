@@ -18,13 +18,12 @@ export interface SnapPointData {
 }
 
 export class SnapPointEventHandler extends SnapEventHandler {
-    constructor(cancellationToken: TaskToken, private pointData: SnapPointData) {
+    constructor(token: TaskToken, private pointData: SnapPointData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super({
-            cancellationToken,
+        super(token, {
             snaps,
             snapChangedHandlers: [trackingSnap],
             validator: pointData.validator,

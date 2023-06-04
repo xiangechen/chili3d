@@ -16,7 +16,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { Dimension, ISnap, MouseAndDetected, SnapChangedHandler, SnapedData } from "../";
+import { Dimension, ISnapper, MouseAndDetected, SnapChangedHandler, SnapedData } from "../";
 import { Axis } from "./axis";
 import { ObjectTracking } from "./objectTracking";
 import { SnapAxies } from "./snapAxies";
@@ -29,7 +29,7 @@ export interface TrackingData {
     info: string;
 }
 
-export class TrackingSnap implements ISnap, SnapChangedHandler {
+export class TrackingSnap implements ISnapper, SnapChangedHandler {
     private _axisTrackings: SnapAxies;
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();

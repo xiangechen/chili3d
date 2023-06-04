@@ -4,9 +4,7 @@ import { MessageType, PubSub, Validation } from "chili-core";
 import { Input } from "./input";
 import { Tip } from "./tip";
 import { Control } from "../control";
-
 import style from "./flyout.module.css";
-import { Dialog } from "../../dialog";
 
 export class Flyout extends Control {
     private _tip: Tip | undefined;

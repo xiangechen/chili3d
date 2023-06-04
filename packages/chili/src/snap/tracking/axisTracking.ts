@@ -2,9 +2,9 @@
 
 import { IView, ObjectSnapType, Plane, Ray, XYZ } from "chili-core";
 
-import { ISnap, MouseAndDetected, SnapedData } from "../";
+import { ISnapper, MouseAndDetected, SnapedData } from "../";
 
-export class AxisTracking implements ISnap {
+export class AxisTracking implements ISnapper {
     constructor(readonly point: XYZ, readonly direction: XYZ) {}
 
     onSnapChanged(view: IView, snaped?: SnapedData) {}

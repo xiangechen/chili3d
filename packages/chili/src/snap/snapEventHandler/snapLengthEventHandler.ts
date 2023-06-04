@@ -23,11 +23,10 @@ export interface SnapLengthAtPlaneData {
 }
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {
-    constructor(cancellationToken: TaskToken, readonly lengthData: SnapLengthAtAxisData) {
+    constructor(token: TaskToken, readonly lengthData: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisTracking = new AxisTracking(lengthData.point, lengthData.direction);
-        super({
-            cancellationToken,
+        super(token, {
             snaps: [objectSnap, axisTracking],
             validator: lengthData.validator,
             preview: lengthData.preview,
@@ -46,12 +45,11 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
 }
 
 export class SnapLengthAtPlaneHandler extends SnapEventHandler {
-    constructor(cancellationToken: TaskToken, readonly lengthData: SnapLengthAtPlaneData) {
+    constructor(token: TaskToken, readonly lengthData: SnapLengthAtPlaneData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane);
-        super({
-            cancellationToken,
+        super(token, {
             snaps: [objectSnap, trackingSnap, planeSnap],
             snapChangedHandlers: [trackingSnap],
             validator: lengthData.validator,

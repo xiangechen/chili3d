@@ -8,7 +8,7 @@ export class TaskToken implements IDisposable {
 
     private _isCancellationRequested: boolean = false;
 
-    get isCanceled() {
+    get isCancelled() {
         return this._isCancellationRequested;
     }
 

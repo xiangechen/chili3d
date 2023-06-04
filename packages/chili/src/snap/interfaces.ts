@@ -20,7 +20,7 @@ export interface SnapChangedHandler {
     onSnapChanged(view: IView, snaped: SnapedData | undefined): void;
 }
 
-export interface ISnap {
+export interface ISnapper {
     snap(data: MouseAndDetected): SnapedData | undefined;
     onSnapTypeChanged(snapType: ObjectSnapType): void;
     removeDynamicObject(): void;

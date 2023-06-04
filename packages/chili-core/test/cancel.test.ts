@@ -2,16 +2,16 @@
 
 import "reflect-metadata";
 
-import { CancellationToken } from "../src";
+import { TaskToken } from "../src";
 
 test("test CancellationToken", async () => {
-    let token = new CancellationToken();
-    expect(token.isCancellationRequested).toBeFalsy();
+    let token = new TaskToken();
+    expect(token.isCanceled).toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
             token.cancel();
             r("resolved");
         }, 30);
     });
-    expect(token.isCancellationRequested).toBeTruthy();
+    expect(token.isCanceled).toBeTruthy();
 });

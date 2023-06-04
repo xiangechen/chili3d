@@ -2,9 +2,9 @@
 
 import { ObjectSnapType, Plane } from "chili-core";
 
-import { ISnap, MouseAndDetected, SnapedData } from "./interfaces";
+import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
 
-export abstract class PlaneSnapBase implements ISnap {
+export abstract class PlaneSnapBase implements ISnapper {
     onSnapTypeChanged(snapType: ObjectSnapType): void {}
     removeDynamicObject(): void {}
     clear(): void {}

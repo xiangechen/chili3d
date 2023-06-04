@@ -15,7 +15,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { ISnap, MouseAndDetected, SnapedData } from "./interfaces";
+import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
 
 const SnapDistance: number = 5;
 
@@ -30,7 +30,7 @@ interface InvisibleSnapInfo {
     displays: number[];
 }
 
-export class ObjectSnap implements ISnap {
+export class ObjectSnap implements ISnapper {
     private _featureInfos: Map<IShape, SnapedData[]>;
     private _intersectionInfos: Map<string, SnapedData[]>;
     private _invisibleInfos: Map<IShape, InvisibleSnapInfo>;

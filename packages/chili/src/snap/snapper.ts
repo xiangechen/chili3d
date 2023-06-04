@@ -14,12 +14,11 @@ import {
 import { SnapedData } from "./interfaces";
 
 export abstract class Snapper {
-    protected readonly taskToken: TaskToken = new TaskToken();
-
-    protected abstract getEventHandler(): SnapEventHandler;
+    protected abstract getEventHandler(token: TaskToken): SnapEventHandler;
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
-        let eventHandler = this.getEventHandler();
+        let taskToken: TaskToken = new TaskToken();
+        let eventHandler = this.getEventHandler(taskToken);
         document.visual.viewer.setCursor(CursorType.Drawing);
         PubSub.default.pub("statusBarTip", tip);
         await this.waitEventHandlerFinished(document, eventHandler);
@@ -32,16 +31,18 @@ export abstract class Snapper {
         let handler = document.visual.eventHandler;
         document.visual.eventHandler = eventHandler!;
         await new Promise((resolve, reject) => {
-            this.taskToken.onCompletedRequested(resolve);
-            this.taskToken.onCancellationRequested(reject);
+            eventHandler.taskToken.onCompletedRequested(resolve);
+            eventHandler.taskToken.onCancellationRequested(reject);
         })
             .then((r) => {
                 Logger.info("complete snap");
             })
             .catch((r) => {
                 Logger.info("cancel snap");
+            })
+            .finally(() => {
+                document.visual.eventHandler = handler;
             });
-        document.visual.eventHandler = handler;
     }
 }
 
@@ -50,8 +51,8 @@ export class PointSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(): SnapEventHandler {
-        return new SnapPointEventHandler(this.taskToken, this.data);
+    protected getEventHandler(token: TaskToken): SnapEventHandler {
+        return new SnapPointEventHandler(token, this.data);
     }
 }
 
@@ -60,8 +61,8 @@ export class LengthAtAxisSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(): SnapEventHandler {
-        return new SnapLengthAtAxisHandler(this.taskToken, this.data);
+    protected getEventHandler(token: TaskToken): SnapEventHandler {
+        return new SnapLengthAtAxisHandler(token, this.data);
     }
 }
 
@@ -70,7 +71,7 @@ export class LengthAtPlaneSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(): SnapEventHandler {
-        return new SnapLengthAtPlaneHandler(this.taskToken, this.data);
+    protected getEventHandler(token: TaskToken): SnapEventHandler {
+        return new SnapLengthAtPlaneHandler(token, this.data);
     }
 }
