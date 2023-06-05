@@ -13,6 +13,6 @@
         "resolveJsonModule": true,
         "plugins": [{ "name": "typescript-plugin-css-modules" }]
     },
-    "include": ["packages/*/src", "packages/*/tests"],
+    "include": ["packages/*/src", "packages/*/test"],
     "exclude": ["packages/chili-occ/occ-wasm/*"]
 }
