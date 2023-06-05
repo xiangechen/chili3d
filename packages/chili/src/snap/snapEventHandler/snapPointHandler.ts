@@ -47,27 +47,27 @@ export class SnapPointEventHandler extends SnapEventHandler {
         return result;
     }
 
-    protected isValidInput(text: string) {
+    protected isTextValid(text: string) {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.pointData.dimension, dimension)) {
-            return Validation.error("error.input.unsupportedInputs");
+            return Validation.error<keyof I18n>("error.input.unsupportedInputs");
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Validation.error("error.input.invalidNumber");
+            return Validation.error<keyof I18n>("error.input.invalidNumber");
         } else {
             if (this.pointData.refPoint === undefined) {
                 if (dims.length !== 3) {
-                    return Validation.error("error.input.threeNumberCanBeInput");
+                    return Validation.error<keyof I18n>("error.input.threeNumberCanBeInput");
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snaped === undefined || this._snaped.point.isEqualTo(this.pointData.refPoint))
                 ) {
-                    return Validation.error("error.input.cannotInputANumber");
+                    return Validation.error<keyof I18n>("error.input.cannotInputANumber");
                 }
             }
         }
-        return Validation.ok();
+        return Validation.ok<keyof I18n>();
     }
 }

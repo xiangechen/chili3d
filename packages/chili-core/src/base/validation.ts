@@ -1,15 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "../i18n";
-
-export class Validation<T extends keyof I18n = keyof I18n> {
+export class Validation<T> {
     constructor(readonly isOk: boolean, readonly error?: T) {}
 
-    static ok<T extends keyof I18n>() {
+    static ok<T>() {
         return new Validation<T>(true, undefined);
     }
 
-    static error<T extends keyof I18n>(err: T) {
+    static error<T>(err: T) {
         return new Validation(false, err);
     }
 }

@@ -13,6 +13,7 @@ import {
     Validation,
     VertexMeshData,
     XYZ,
+    I18n,
 } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapChangedHandler, SnapedData } from "../interfaces";
@@ -32,7 +33,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     private readonly _snaps: ISnapper[];
     private readonly _snapeChangedHandlers: SnapChangedHandler[];
 
-    constructor(readonly taskToken: TaskToken, private readonly data: SnapEventData) {
+    constructor(readonly token: TaskToken, private readonly data: SnapEventData) {
         this._snaps = [...data.snaps];
         this._snapeChangedHandlers =
             data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
@@ -48,12 +49,12 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private finish(view: IView) {
-        this.taskToken.complete();
+        this.token.complete();
         this.clean(view);
     }
 
     private cancel(view: IView) {
-        this.taskToken.cancel();
+        this.token.cancel();
         this.clean(view);
     }
 
@@ -161,15 +162,14 @@ export abstract class SnapEventHandler implements IEventHandler {
             this._snaped = undefined;
             this.cancel(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
-            PubSub.default.pub(
-                "showInput",
-                (t) => this.isValidInput(t),
-                (text: string) => this.handleInput(view, text)
-            );
+            PubSub.default.pub("showInput", {
+                validate: (t) => this.isTextValid(t),
+                execute: (text: string) => this.handleText(view, text),
+            });
         }
     }
 
-    private handleInput = (view: IView, text: string) => {
+    private handleText = (view: IView, text: string) => {
         this._snaped = {
             view,
             point: this.getPointFromInput(view, text),
@@ -180,7 +180,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
-    protected abstract isValidInput(text: string): Validation;
+    protected abstract isTextValid(text: string): Validation<keyof I18n>;
 
     keyUp(view: IView, event: KeyboardEvent): void {}
 }

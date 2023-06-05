@@ -11,6 +11,7 @@ import { Validation } from "./validation";
 import { ICollectionNode, INode } from "../model/node";
 import { CollectionAction } from "./collection";
 import { NodeRecord } from "./history";
+import { Executor } from "./executor";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
@@ -29,7 +30,7 @@ export interface PubSubEventMap {
     clearStatusBarTip: () => void;
     showFloatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
-    showInput: (validCallback: (text: string) => Validation, callback: (text: string) => void) => void;
+    showInput: (executor: Executor<string, keyof I18n>) => void;
     clearInput: () => void;
     redraw: () => void;
 }

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { MessageType, PubSub, Validation } from "chili-core";
+import { I18n, Executor, MessageType, PubSub, Validation } from "chili-core";
 import { Input } from "./input";
 import { Tip } from "./tip";
 import { Control } from "../control";
@@ -16,7 +16,7 @@ export class Flyout extends Control {
 
         PubSub.default.sub("showFloatTip", this.showTip);
         PubSub.default.sub("clearFloatTip", this.clearTip);
-        PubSub.default.sub("showInput", this.showInput);
+        PubSub.default.sub("showInput", this.displayInput);
         PubSub.default.sub("clearInput", this.clearInput);
     }
 
@@ -36,31 +36,14 @@ export class Flyout extends Control {
         }
     };
 
-    private showInput = (validCallback: (text: string) => Validation, callback: (text: string) => void) => {
+    private displayInput = (excutor: Executor<string, keyof I18n>) => {
         if (this._input === undefined) {
-            this._input = new Input((e) => this.handleInput(e, validCallback, callback));
-            this.append(this._input);
             this.lastFocus = document.activeElement as HTMLElement;
+            this._input = new Input(excutor);
+            this._input.onCancelled(this.clearInput);
+            this._input.onCompleted(this.clearInput);
+            this.append(this._input);
             this._input.focus();
-        }
-    };
-
-    private handleInput = (
-        e: KeyboardEvent,
-        validCallback: (text: string) => Validation,
-        callback: (text: string) => void
-    ) => {
-        if (e.key === "Enter") {
-            let text = this._input!.text;
-            let inputValue = validCallback(text);
-            if (inputValue.isOk) {
-                this.clearInput();
-                callback(text);
-            } else {
-                this._input!.showTip(inputValue.error!);
-            }
-        } else if (e.key === "Escape") {
-            this.clearInput();
         }
     };
 

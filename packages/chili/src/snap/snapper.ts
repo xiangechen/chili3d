@@ -31,8 +31,8 @@ export abstract class Snapper {
         let handler = document.visual.eventHandler;
         document.visual.eventHandler = eventHandler!;
         await new Promise((resolve, reject) => {
-            eventHandler.taskToken.onCompletedRequested(resolve);
-            eventHandler.taskToken.onCancellationRequested(reject);
+            eventHandler.token.onCompleted(resolve);
+            eventHandler.token.onCancelled(reject);
         })
             .then((r) => {
                 Logger.info("complete snap");

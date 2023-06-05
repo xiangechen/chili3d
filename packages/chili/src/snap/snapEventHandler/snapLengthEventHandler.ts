@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskToken, Config, IView, Plane, Validation, XYZ } from "chili-core";
+import { TaskToken, Config, IView, Plane, Validation, XYZ, I18n } from "chili-core";
 
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
@@ -37,10 +37,10 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         return this.lengthData.point.add(this.lengthData.direction.multiply(Number(text)));
     }
 
-    protected isValidInput(text: string) {
+    protected isTextValid(text: string) {
         let n = Number(text);
-        if (Number.isNaN(n)) return Validation.error("error.input.invalidNumber");
-        return Validation.ok();
+        if (Number.isNaN(n)) return Validation.error<keyof I18n>("error.input.invalidNumber");
+        return Validation.ok<keyof I18n>();
     }
 }
 
@@ -68,12 +68,12 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
             .add(this.lengthData.plane.y.multiply(ns[1]));
     }
 
-    protected isValidInput(text: string) {
+    protected isTextValid(text: string) {
         let ns = text.split(",").map((x) => Number(x));
-        if (ns.some((x) => Number.isNaN(x))) return Validation.error("error.input.invalidNumber");
+        if (ns.some((x) => Number.isNaN(x))) return Validation.error<keyof I18n>("error.input.invalidNumber");
         if (ns.length !== 1 && ns.length !== 2) {
-            return Validation.error("error.input.invalidNumber");
+            return Validation.error<keyof I18n>("error.input.invalidNumber");
         }
-        return Validation.ok();
+        return Validation.ok<keyof I18n>();
     }
 }
