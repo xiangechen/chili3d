@@ -95,7 +95,7 @@ export class GeometryModel extends Model {
 
     generate() {
         if (!this.body.generate()) {
-            Logger.error(`Body of ${this.name} is null: ${this.body.shape.err}`);
+            Logger.error(`Body of ${this.name} is null: ${this.body.shape.error}`);
             return;
         }
         this._shape = this.body.shape.value;
@@ -128,8 +128,8 @@ export class GeometryModel extends Model {
         for (let i = startIndex; i < this._editors.length; i++) {
             this._editors[i].origin = this._shape;
             this._editors[i].generate();
-            if (this._editors[i].shape.isErr()) {
-                this._error = this._editors[i].shape.err;
+            if (this._editors[i].shape.hasError()) {
+                this._error = this._editors[i].shape.error;
                 return;
             }
             this._shape = this._editors[i].shape.value;
@@ -138,7 +138,7 @@ export class GeometryModel extends Model {
 
     private setShape(shape: Result<IShape>) {
         this._shape = shape.value;
-        this._error = shape.err;
+        this._error = shape.error;
     }
 
     error() {
@@ -162,7 +162,7 @@ export class GeometryModel extends Model {
         if (this._shape !== undefined) {
             editor.origin = this._shape;
             editor.generate();
-            this._error = editor.shape.err;
+            this._error = editor.shape.error;
             if (this._error === undefined) {
                 this._shape = editor.shape.value;
             }

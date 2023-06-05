@@ -91,8 +91,8 @@ export class InputProperty extends PropertyBase {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
             let newValue = this.converter.convertBack(this.valueBox.text);
-            if (newValue.isErr()) {
-                this.error.text(newValue.err ?? "error");
+            if (newValue.hasError()) {
+                this.error.text(newValue.error ?? "error");
                 this.error.addClass(style.hidden);
                 return;
             }
