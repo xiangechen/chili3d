@@ -17,7 +17,7 @@ test("test result", () => {
     expect(r2.hasError()).toBeTruthy();
     expect(r2.error).toBe("err");
 
-    let r3 = Result.ok(null);
+    let r3 = Result.ok(true);
     expect(r3.isOk()).toBeTruthy();
     expect(r3.hasError()).toBeFalsy();
     expect(r3.value).toBeNull();

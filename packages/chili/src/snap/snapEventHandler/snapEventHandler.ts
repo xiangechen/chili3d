@@ -14,6 +14,7 @@ import {
     VertexMeshData,
     XYZ,
     I18n,
+    Result,
 } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapChangedHandler, SnapedData } from "../interfaces";
@@ -163,8 +164,15 @@ export abstract class SnapEventHandler implements IEventHandler {
             this.cancel(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", {
-                validate: (t) => this.isTextValid(t),
-                execute: (text: string) => this.handleText(view, text),
+                execute: (text: string) => {
+                    let valid = this.isTextValid(text);
+                    if (valid.isOk) {
+                        this.handleText(view, text);
+                        return Result.ok(undefined);
+                    } else {
+                        return Result.error(valid.error!);
+                    }
+                },
             });
         }
     }

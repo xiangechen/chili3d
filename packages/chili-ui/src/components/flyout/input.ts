@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Executor, I18n, IDisposable } from "chili-core";
+import { Executor, I18n, IDisposable, i18n } from "chili-core";
 import { Control } from "../control";
 import { Label } from "../label";
 import { TextBox } from "../textbox";
@@ -60,12 +60,14 @@ export class Input extends Control implements IDisposable {
 
     private onKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Enter") {
-            let validation = this.executor.validate(this.textbox.text);
-            if (validation.isOk) {
+            this.textbox.setReadOnly(true);
+            let result = this.executor.execute(this.textbox.text);
+            if (result.hasError()) {
+                this.textbox.setReadOnly(false);
+                this.showTip(result.error!);
+            } else {
                 this._completedCallbacks.forEach((x) => x());
                 this.executor.execute(this.textbox.text);
-            } else {
-                this.showTip(validation.error!);
             }
         } else if (e.key === "Escape") {
             this._cancelledCallbacks.forEach((x) => x());
