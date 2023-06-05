@@ -1,7 +1,7 @@
 const path = require("path");
+const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 
 module.exports = (env, arg) => {
-    console.log(arg);
     return {
         entry: {
             main: "./packages/chili-web/src/index.ts",
@@ -15,15 +15,13 @@ module.exports = (env, arg) => {
             ],
         },
         builtins: {
-            copy: env.production
-                ? {
-                      patterns: [
-                          {
-                              from: "./public",
-                          },
-                      ],
-                  }
-                : undefined,
+            copy: {
+                patterns: [
+                    {
+                        from: "./public",
+                    },
+                ],
+            },
         },
         resolve: {
             extensions: [".tsx", ".ts", ".js"],
@@ -36,6 +34,7 @@ module.exports = (env, arg) => {
                 path: false,
             },
         },
+        plugins: [new ForkTsCheckerWebpackPlugin()],
         output: {
             filename: "bundle.js",
             path: path.resolve(__dirname, "build"),
