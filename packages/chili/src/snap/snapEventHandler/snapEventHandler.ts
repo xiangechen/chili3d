@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    TaskToken,
+    TaskManager,
     Color,
     IEventHandler,
     IShape,
@@ -34,7 +34,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     private readonly _snaps: ISnapper[];
     private readonly _snapeChangedHandlers: SnapChangedHandler[];
 
-    constructor(readonly token: TaskToken, private readonly data: SnapEventData) {
+    constructor(readonly token: TaskManager, private readonly data: SnapEventData) {
         this._snaps = [...data.snaps];
         this._snapeChangedHandlers =
             data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
@@ -163,16 +163,14 @@ export abstract class SnapEventHandler implements IEventHandler {
             this._snaped = undefined;
             this.cancel(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
-            PubSub.default.pub("showInput", {
-                execute: (text: string) => {
-                    let valid = this.isTextValid(text);
-                    if (valid.isOk) {
-                        this.handleText(view, text);
-                        return Result.ok(undefined);
-                    } else {
-                        return Result.error(valid.error!);
-                    }
-                },
+            PubSub.default.pub("showInput", (text: string) => {
+                let valid = this.isTextValid(text);
+                if (valid.isOk) {
+                    this.handleText(view, text);
+                    return Result.ok(undefined);
+                } else {
+                    return Result.error(valid.error!);
+                }
             });
         }
     }

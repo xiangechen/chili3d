@@ -5,13 +5,10 @@ import { IDisposable } from "./disposable";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { MessageType } from "./messageType";
-import { IModel } from "../model";
+import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
-import { Validation } from "./validation";
-import { ICollectionNode, INode } from "../model/node";
-import { CollectionAction } from "./collection";
 import { NodeRecord } from "./history";
-import { Executor } from "./executor";
+import { Result } from "./result";
 
 export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
@@ -30,7 +27,7 @@ export interface PubSubEventMap {
     clearStatusBarTip: () => void;
     showFloatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
-    showInput: (executor: Executor<string, keyof I18n>) => void;
+    showInput: (handler: (text: string) => Result<undefined, keyof I18n>) => void;
     clearInput: () => void;
     redraw: () => void;
 }

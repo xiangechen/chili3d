@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskToken, Config, IView, Plane, Validation, XYZ, I18n } from "chili-core";
+import { TaskManager, Config, IView, Plane, Validation, XYZ, I18n } from "chili-core";
 
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
@@ -23,7 +23,7 @@ export interface SnapLengthAtPlaneData {
 }
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {
-    constructor(token: TaskToken, readonly lengthData: SnapLengthAtAxisData) {
+    constructor(token: TaskManager, readonly lengthData: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisTracking = new AxisTracking(lengthData.point, lengthData.direction);
         super(token, {
@@ -45,7 +45,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
 }
 
 export class SnapLengthAtPlaneHandler extends SnapEventHandler {
-    constructor(token: TaskToken, readonly lengthData: SnapLengthAtPlaneData) {
+    constructor(token: TaskManager, readonly lengthData: SnapLengthAtPlaneData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane);

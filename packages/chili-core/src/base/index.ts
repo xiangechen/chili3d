@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export * from "./executor";
-export * from "./taskToken";
+export * from "./taskManager";
 export * from "./collection";
 export * from "./color";
 export * from "./disposable";

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Executor, I18n, IDisposable, i18n } from "chili-core";
+import { I18n, IDisposable, Result, i18n } from "chili-core";
 import { Control } from "../control";
 import { Label } from "../label";
 import { TextBox } from "../textbox";
@@ -14,7 +14,7 @@ export class Input extends Control implements IDisposable {
     private readonly textbox: TextBox;
     private tip?: Label;
 
-    constructor(readonly executor: Executor<string, keyof I18n>) {
+    constructor(readonly handler: (text: string) => Result<undefined, keyof I18n>) {
         super(style.panel);
         this.textbox = new TextBox();
         this.append(this.textbox);
@@ -61,13 +61,12 @@ export class Input extends Control implements IDisposable {
     private onKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Enter") {
             this.textbox.setReadOnly(true);
-            let result = this.executor.execute(this.textbox.text);
-            if (result.hasError()) {
-                this.textbox.setReadOnly(false);
-                this.showTip(result.error!);
-            } else {
+            let error = this.handler(this.textbox.text).error;
+            if (error === undefined) {
                 this._completedCallbacks.forEach((x) => x());
-                this.executor.execute(this.textbox.text);
+            } else {
+                this.textbox.setReadOnly(false);
+                this.showTip(error);
             }
         } else if (e.key === "Escape") {
             this._cancelledCallbacks.forEach((x) => x());
