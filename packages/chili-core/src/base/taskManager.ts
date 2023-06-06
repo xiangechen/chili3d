@@ -2,7 +2,7 @@
 
 import { IDisposable } from "./disposable";
 
-export class TaskToken implements IDisposable {
+export class TaskManager implements IDisposable {
     private readonly _cancelHandles: ((arg: any) => void)[] = [];
     private readonly _completeHandles: ((arg: any) => void)[] = [];
 
