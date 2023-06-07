@@ -2,7 +2,7 @@
 
 import { Config, IDocument, IView, VertexMeshData } from "chili-core";
 
-import { SnapedData } from "../";
+import { ISnapper, MouseAndDetected, SnapedData } from "..";
 import { Axis } from "./axis";
 
 export interface ObjectTrackingAxis {
@@ -37,7 +37,7 @@ export class ObjectTracking {
 
     getTrackingRays(view: IView) {
         let result: ObjectTrackingAxis[] = [];
-        this.trackings.get(view.viewer.visual.document)?.forEach((x) => {
+        this.trackings.get(view.viewer.visual.document)?.map((x) => {
             let axes = Axis.getAxiesAtPlane(x.snap.point, view.workplane, this.trackingZ);
             result.push({ axes, objectName: x.snap.info });
         });
@@ -52,10 +52,10 @@ export class ObjectTracking {
             this.timer = undefined;
         }
         if (snap === undefined) return;
-        this.timer = setTimeout(() => this.showTracking(document, snap), 600);
+        this.timer = setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }
 
-    private showTracking(document: IDocument, snap: SnapedData) {
+    private switchTrackingPoint(document: IDocument, snap: SnapedData) {
         if (this.isCleared || snap.shapes.length === 0) return;
         if (!this.trackings.has(document)) {
             this.trackings.set(document, []);
@@ -63,14 +63,14 @@ export class ObjectTracking {
         let currentTrackings = this.trackings.get(document)!;
         let s = currentTrackings.find((x) => x.snap.point.isEqualTo(snap.point));
         if (s !== undefined) {
-            this.removeSnapFromTracking(document, s, currentTrackings);
+            this.removeTrackingPoint(document, s, currentTrackings);
         } else {
-            this.addSnapToTracking(snap, document, currentTrackings);
+            this.addTrackingPoint(snap, document, currentTrackings);
         }
         document.visual.viewer.redraw();
     }
 
-    private removeSnapFromTracking(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
+    private removeTrackingPoint(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
         document.visual.context.temporaryRemove(s.shapeId);
         this.trackings.set(
             document,
@@ -78,7 +78,7 @@ export class ObjectTracking {
         );
     }
 
-    private addSnapToTracking(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
+    private addTrackingPoint(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
         let data = VertexMeshData.from(
             snap.point,
             Config.instance.visual.trackingVertexSize,

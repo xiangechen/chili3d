@@ -19,7 +19,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { ISnapper as ISnap, MouseAndDetected, SnapedData } from "./interfaces";
+import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
 
 interface InvisibleSnapInfo {
     view: IView;
@@ -27,7 +27,7 @@ interface InvisibleSnapInfo {
     displays: number[];
 }
 
-export class ObjectSnap implements ISnap {
+export class ObjectSnap implements ISnapper {
     private _featureInfos: Map<VisualShapeData, SnapedData[]>;
     private _intersectionInfos: Map<string, SnapedData[]>;
     private _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
@@ -85,8 +85,12 @@ export class ObjectSnap implements ISnap {
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {
         let featurePoints = this.getFeaturePoints(view, shapes[0]);
+        let perpendiculars = this.findPerpendicular(view, shapes[0]);
         let intersections = this.getIntersections(view, shapes[0], shapes);
-        let ordered = featurePoints.concat(intersections).sort((a, b) => this.sortSnaps(view, x, y, a, b));
+        let ordered = featurePoints
+            .concat(perpendiculars)
+            .concat(intersections)
+            .sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length === 0) return undefined;
         let dist = this.distanceToMouse(view, x, y, ordered[0].point);
         if (dist < Config.instance.SnapDistance) {
@@ -192,32 +196,62 @@ export class ObjectSnap implements ISnap {
         return this.distanceToMouse(view, x, y, a.point) - this.distanceToMouse(view, x, y, b.point);
     }
 
+    private findPerpendicular(view: IView, shape: VisualShapeData): SnapedData[] {
+        let result: SnapedData[] = [];
+        if (
+            !ObjectSnapType.has(this._snapType, ObjectSnapType.perpendicular) ||
+            this.referencePoint === undefined
+        )
+            return result;
+        let curve = (shape.shape as IEdge).asCurve().value;
+        if (curve === undefined) return result;
+        let point = curve.project(this.referencePoint).at(0);
+        if (point === undefined) return result;
+        result.push({
+            view,
+            point,
+            info: i18n["snap.perpendicular"],
+            shapes: [shape],
+        });
+
+        return result;
+    }
+
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
         let result = new Array<SnapedData>();
-        if (current.shape.shapeType !== ShapeType.Edge) return result;
+        if (
+            !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) &&
+            current.shape.shapeType !== ShapeType.Edge
+        ) {
+            return result;
+        }
         shapes.forEach((x) => {
             if (x === current || x.shape.shapeType !== ShapeType.Edge) return;
-            let key =
-                current.shape.id < x.shape.id
-                    ? `${current.shape.id}:${x.shape.id}`
-                    : `${x.shape.id}:${current.shape.id}`;
-            if (!this._intersectionInfos.has(key)) {
-                let intersections = (current.shape as IEdge).intersect(x.shape as IEdge);
-                if (intersections.length > 0) {
-                    let infos: SnapedData[] = intersections.map((point) => {
-                        return {
-                            view,
-                            point,
-                            info: i18n["snap.intersection"],
-                            shapes: [current, x],
-                        };
-                    });
-                    this._intersectionInfos.set(key, infos);
-                }
+            let key = this.getIntersectionKey(current, x);
+            let arr = this._intersectionInfos.get(key);
+            if (arr === undefined) {
+                arr = this.findIntersections(view, current, x);
+                this._intersectionInfos.set(key, arr);
             }
-            if (this._intersectionInfos.has(key)) result.push(...this._intersectionInfos.get(key)!);
+            result.push(...arr);
         });
         return result;
+    }
+
+    private getIntersectionKey(s1: VisualShapeData, s2: VisualShapeData) {
+        return s1.shape.id < s2.shape.id ? `${s1.shape.id}:${s2.shape.id}` : `${s2.shape.id}:${s1.shape.id}`;
+    }
+
+    private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapedData[] {
+        let intersections = (s1.shape as IEdge).intersect(s2.shape as IEdge);
+        return intersections.map((point) => {
+            return {
+                view,
+                point,
+                info: i18n["snap.intersection"],
+                shapes: [s1, s2],
+            };
+        });
     }
 
     private getFeaturePoints(view: IView, shape: VisualShapeData) {

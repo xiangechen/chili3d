@@ -4,12 +4,12 @@ import { i18n, IView, LineType, Plane, XYZ } from "chili-core";
 
 import { Axis } from "./axis";
 
-export class SnapAxies {
+export class AxesTracking {
     private axies: Map<IView, Axis[]> = new Map();
 
     constructor(readonly trackingZ: boolean) {}
 
-    getAxies(view: IView, referencePoint: XYZ, angle: number | undefined = undefined) {
+    getAxes(view: IView, referencePoint: XYZ, angle: number | undefined = undefined) {
         if (!this.axies.has(view)) {
             this.axies.set(view, this.initAxes(view.workplane, referencePoint, angle));
         }

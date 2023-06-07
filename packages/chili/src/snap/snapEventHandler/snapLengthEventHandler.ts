@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskManager, Config, IView, Plane, Validation, XYZ, I18n, IDocument } from "chili-core";
+import { TaskManager, Config, IView, Plane, XYZ, I18n } from "chili-core";
 
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
-import { AxisTracking, TrackingSnap } from "../tracking";
+import { TrackingSnap } from "../tracking";
 import { ShapePreviewer, Validator } from "../interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
+import { AxisSnap } from "../axisSnap";
 
 export interface SnapLengthAtAxisData {
     point: XYZ;
@@ -25,8 +26,8 @@ export interface SnapLengthAtPlaneData {
 export class SnapLengthAtAxisHandler extends SnapEventHandler {
     constructor(token: TaskManager, readonly lengthData: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
-        let axisTracking = new AxisTracking(lengthData.point, lengthData.direction);
-        super(token, [objectSnap, axisTracking], lengthData.validator, lengthData.preview);
+        let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
+        super(token, [objectSnap, axisSnap], lengthData.validator, lengthData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

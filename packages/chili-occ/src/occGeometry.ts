@@ -54,6 +54,7 @@ export class OccCurve implements ICurve, IDisposable {
             let point = api.Point(i);
             result.push(OccHelps.toXYZ(point));
         }
+        result.sort((a, b) => a.distanceTo(point) - b.distanceTo(point));
         return result;
     }
 
