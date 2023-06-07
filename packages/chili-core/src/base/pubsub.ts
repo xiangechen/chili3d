@@ -22,7 +22,7 @@ export interface PubSubEventMap {
     visibleChanged: (model: IModel) => void;
     parentVisibleChanged: (model: IModel) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
-    snapChanged: (snapeType: ObjectSnapType) => void;
+    snapTypeChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: keyof I18n) => void;
     clearStatusBarTip: () => void;
     showFloatTip: (level: MessageType, msg: string) => void;

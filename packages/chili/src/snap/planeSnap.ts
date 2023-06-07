@@ -5,7 +5,6 @@ import { ObjectSnapType, Plane } from "chili-core";
 import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
 
 export abstract class PlaneSnapBase implements ISnapper {
-    onSnapTypeChanged(snapType: ObjectSnapType): void {}
     removeDynamicObject(): void {}
     clear(): void {}
     abstract snap(data: MouseAndDetected): SnapedData | undefined;

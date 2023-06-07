@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskManager, Config, IView, Plane, Validation, XYZ, I18n } from "chili-core";
+import { TaskManager, Config, IView, Plane, Validation, XYZ, I18n, IDocument } from "chili-core";
 
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
 import { AxisTracking, TrackingSnap } from "../tracking";
-import { ShapePreviewer, Validator } from "./interfaces";
+import { ShapePreviewer, Validator } from "../interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapLengthAtAxisData {
@@ -26,21 +26,17 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
     constructor(token: TaskManager, readonly lengthData: SnapLengthAtAxisData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisTracking = new AxisTracking(lengthData.point, lengthData.direction);
-        super(token, {
-            snaps: [objectSnap, axisTracking],
-            validator: lengthData.validator,
-            preview: lengthData.preview,
-        });
+        super(token, [objectSnap, axisTracking], lengthData.validator, lengthData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
         return this.lengthData.point.add(this.lengthData.direction.multiply(Number(text)));
     }
 
-    protected isTextValid(text: string) {
+    protected getErrorMessage(text: string): keyof I18n | undefined {
         let n = Number(text);
-        if (Number.isNaN(n)) return Validation.error<keyof I18n>("error.input.invalidNumber");
-        return Validation.ok<keyof I18n>();
+        if (Number.isNaN(n)) return "error.input.invalidNumber";
+        return undefined;
     }
 }
 
@@ -49,12 +45,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane);
-        super(token, {
-            snaps: [objectSnap, trackingSnap, planeSnap],
-            snapChangedHandlers: [trackingSnap],
-            validator: lengthData.validator,
-            preview: lengthData.preview,
-        });
+        super(token, [objectSnap, trackingSnap, planeSnap], lengthData.validator, lengthData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -68,12 +59,12 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
             .add(this.lengthData.plane.y.multiply(ns[1]));
     }
 
-    protected isTextValid(text: string) {
+    protected getErrorMessage(text: string): keyof I18n | undefined {
         let ns = text.split(",").map((x) => Number(x));
-        if (ns.some((x) => Number.isNaN(x))) return Validation.error<keyof I18n>("error.input.invalidNumber");
+        if (ns.some((x) => Number.isNaN(x))) return "error.input.invalidNumber";
         if (ns.length !== 1 && ns.length !== 2) {
-            return Validation.error<keyof I18n>("error.input.invalidNumber");
+            return "error.input.invalidNumber";
         }
-        return Validation.ok<keyof I18n>();
+        return undefined;
     }
 }

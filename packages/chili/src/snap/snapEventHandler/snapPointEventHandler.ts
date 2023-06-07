@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskManager, Config, I18n, IShape, IView, Plane, Validation, XYZ } from "chili-core";
+import { TaskManager, Config, I18n, IView, Plane, XYZ } from "chili-core";
 
 import { Dimension } from "../dimension";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
-import { ShapePreviewer, Validator } from "./interfaces";
+import { ShapePreviewer, Validator } from "../interfaces";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapPointData {
@@ -23,12 +23,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(token, {
-            snaps,
-            snapChangedHandlers: [trackingSnap],
-            validator: pointData.validator,
-            preview: pointData.preview,
-        });
+        super(token, snaps, pointData.validator, pointData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -47,27 +42,27 @@ export class SnapPointEventHandler extends SnapEventHandler {
         return result;
     }
 
-    protected isTextValid(text: string) {
+    protected getErrorMessage(text: string): keyof I18n | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.pointData.dimension, dimension)) {
-            return Validation.error<keyof I18n>("error.input.unsupportedInputs");
+            return "error.input.unsupportedInputs";
         } else if (dims.some((x) => Number.isNaN(x))) {
-            return Validation.error<keyof I18n>("error.input.invalidNumber");
+            return "error.input.invalidNumber";
         } else {
             if (this.pointData.refPoint === undefined) {
                 if (dims.length !== 3) {
-                    return Validation.error<keyof I18n>("error.input.threeNumberCanBeInput");
+                    return "error.input.threeNumberCanBeInput";
                 }
             } else {
                 if (
                     dims.length === 1 &&
                     (this._snaped === undefined || this._snaped.point.isEqualTo(this.pointData.refPoint))
                 ) {
-                    return Validation.error<keyof I18n>("error.input.cannotInputANumber");
+                    return "error.input.cannotInputANumber";
                 }
             }
         }
-        return Validation.ok<keyof I18n>();
+        return undefined;
     }
 }

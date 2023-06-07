@@ -29,7 +29,7 @@ describe("three test", () => {
         let mouse = view.worldToScreen(new XYZ(100, 0, 0));
         let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y, false);
         expect(shapes.length).toEqual(1);
-        expect(shapes[0].shape?.shapeType).toBe(ShapeType.Edge);
+        expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
 
         let shape = context.getShape(model);
         expect(shapes.at(0)?.shape).toEqual(shape?.shape);

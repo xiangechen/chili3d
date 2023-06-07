@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Color, IView, VertexMeshData } from "chili-core";
+import { Config, IDocument, IView, VertexMeshData } from "chili-core";
 
 import { SnapedData } from "../";
 import { Axis } from "./axis";
@@ -13,14 +13,13 @@ export interface ObjectTrackingAxis {
 interface SnapeInfo {
     snap: SnapedData;
     shapeId: number;
-    axies: Axis[];
 }
 
 export class ObjectTracking {
     private timer?: any;
     private isCleared: boolean = false;
     private snapping?: SnapedData;
-    private trackings: Map<IView, SnapeInfo[]>;
+    private trackings: Map<IDocument, SnapeInfo[]>;
 
     constructor(readonly trackingZ: boolean) {
         this.trackings = new Map();
@@ -30,7 +29,7 @@ export class ObjectTracking {
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
             v.forEach((s) => {
-                k.viewer.visual.context.temporaryRemove(s.shapeId);
+                k.visual.context.temporaryRemove(s.shapeId);
             });
         });
         this.trackings.clear();
@@ -38,11 +37,14 @@ export class ObjectTracking {
 
     getTrackingRays(view: IView) {
         let result: ObjectTrackingAxis[] = [];
-        this.trackings.get(view)?.forEach((x) => result.push({ axes: x.axies, objectName: x.snap.info }));
+        this.trackings.get(view.viewer.visual.document)?.forEach((x) => {
+            let axes = Axis.getAxiesAtPlane(x.snap.point, view.workplane, this.trackingZ);
+            result.push({ axes, objectName: x.snap.info });
+        });
         return result;
     }
 
-    showTrackingAtTimeout(view: IView, snap?: SnapedData) {
+    showTrackingAtTimeout(document: IDocument, snap?: SnapedData) {
         if (snap !== undefined && this.snapping === snap) return;
         this.snapping = snap;
         if (this.timer !== undefined) {
@@ -50,36 +52,39 @@ export class ObjectTracking {
             this.timer = undefined;
         }
         if (snap === undefined) return;
-        this.timer = setTimeout(() => this.showTracking(view, snap), 600);
+        this.timer = setTimeout(() => this.showTracking(document, snap), 600);
     }
 
-    private showTracking(view: IView, snap: SnapedData) {
+    private showTracking(document: IDocument, snap: SnapedData) {
         if (this.isCleared || snap.shapes.length === 0) return;
-        if (!this.trackings.has(view)) {
-            this.trackings.set(view, []);
+        if (!this.trackings.has(document)) {
+            this.trackings.set(document, []);
         }
-        let currentTrackings = this.trackings.get(view)!;
+        let currentTrackings = this.trackings.get(document)!;
         let s = currentTrackings.find((x) => x.snap.point.isEqualTo(snap.point));
         if (s !== undefined) {
-            this.removeSnapFromTracking(view, s, currentTrackings);
+            this.removeSnapFromTracking(document, s, currentTrackings);
         } else {
-            this.addSnapToTracking(snap, view, currentTrackings);
+            this.addSnapToTracking(snap, document, currentTrackings);
         }
-        view.viewer.redraw();
+        document.visual.viewer.redraw();
     }
 
-    private removeSnapFromTracking(view: IView, s: SnapeInfo, snaps: SnapeInfo[]) {
-        view.viewer.visual.context.temporaryRemove(s.shapeId);
+    private removeSnapFromTracking(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
+        document.visual.context.temporaryRemove(s.shapeId);
         this.trackings.set(
-            view,
+            document,
             snaps.filter((x) => x !== s)
         );
     }
 
-    private addSnapToTracking(snap: SnapedData, view: IView, snaps: SnapeInfo[]) {
-        let data = VertexMeshData.from(snap.point, 5, Color.fromHex(0xf00));
-        let pointId = view.viewer.visual.context.temporaryDisplay(data);
-        let axies = Axis.getAxiesAtPlane(snap.point, view.workplane, this.trackingZ);
-        snaps.push({ shapeId: pointId, snap, axies });
+    private addSnapToTracking(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
+        let data = VertexMeshData.from(
+            snap.point,
+            Config.instance.visual.trackingVertexSize,
+            Config.instance.visual.trackingVertexColor
+        );
+        let pointId = document.visual.context.temporaryDisplay(data);
+        snaps.push({ shapeId: pointId, snap });
     }
 }

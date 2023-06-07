@@ -6,7 +6,7 @@ import {
     FaceMeshData,
     IShape,
     IVisualShape,
-    MeshData,
+    ShapeMeshData,
     Config,
     ShapeType,
     VisualState,
@@ -28,21 +28,21 @@ import { ThreeHelper } from "./threeHelper";
 import { Constants } from "./constants";
 
 let hilightEdgeMaterial = new LineBasicMaterial({
-    color: ThreeHelper.fromColor(Config.instance.visualConfig.highlightEdgeColor),
+    color: ThreeHelper.fromColor(Config.instance.visual.highlightEdgeColor),
 });
 
 let selectedEdgeMaterial = new LineBasicMaterial({
-    color: ThreeHelper.fromColor(Config.instance.visualConfig.selectedEdgeColor),
+    color: ThreeHelper.fromColor(Config.instance.visual.selectedEdgeColor),
 });
 
 let hilightFaceMaterial = new MeshBasicMaterial({
-    color: ThreeHelper.fromColor(Config.instance.visualConfig.highlightFaceColor),
+    color: ThreeHelper.fromColor(Config.instance.visual.highlightFaceColor),
     side: DoubleSide,
     transparent: true,
 });
 
 let selectedFaceMaterial = new MeshBasicMaterial({
-    color: ThreeHelper.fromColor(Config.instance.visualConfig.selectedFaceColor),
+    color: ThreeHelper.fromColor(Config.instance.visual.selectedFaceColor),
     side: DoubleSide,
     transparent: true,
 });
@@ -106,7 +106,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     }
 
     private initColor(
-        meshData: MeshData,
+        meshData: ShapeMeshData,
         geometry: BufferGeometry,
         material: LineBasicMaterial | MeshBasicMaterial
     ) {

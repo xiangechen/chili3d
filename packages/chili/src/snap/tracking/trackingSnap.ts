@@ -2,21 +2,24 @@
 
 import {
     Color,
+    Config,
     EdgeMeshData,
     i18n,
+    IDocument,
     IEdge,
     IView,
     LineType,
     MathUtils,
     ObjectSnapType,
     Precision,
+    PubSub,
     Ray,
     ShapeType,
     XY,
     XYZ,
 } from "chili-core";
 
-import { Dimension, ISnapper, MouseAndDetected, SnapChangedHandler, SnapedData } from "../";
+import { Dimension, ISnapper, MouseAndDetected, SnapedData } from "../";
 import { Axis } from "./axis";
 import { ObjectTracking } from "./objectTracking";
 import { SnapAxies } from "./snapAxies";
@@ -29,7 +32,7 @@ export interface TrackingData {
     info: string;
 }
 
-export class TrackingSnap implements ISnapper, SnapChangedHandler {
+export class TrackingSnap implements ISnapper {
     private _axisTrackings: SnapAxies;
     readonly objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
@@ -37,10 +40,7 @@ export class TrackingSnap implements ISnapper, SnapChangedHandler {
     constructor(readonly referencePoint: XYZ | undefined, trackingAxisZ: boolean) {
         this._axisTrackings = new SnapAxies(trackingAxisZ);
         this.objectTracking = new ObjectTracking(trackingAxisZ);
-    }
-
-    onSnapChanged(view: IView, snaped?: SnapedData) {
-        this.objectTracking.showTrackingAtTimeout(view, snaped);
+        PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
     }
 
     snap(data: MouseAndDetected): SnapedData | undefined {
@@ -65,6 +65,10 @@ export class TrackingSnap implements ISnapper, SnapChangedHandler {
         return snaped;
     }
 
+    handleSnaped = (document: IDocument, snaped?: SnapedData | undefined) => {
+        this.objectTracking.showTrackingAtTimeout(document, snaped);
+    };
+
     private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
         let info: string | undefined = undefined;
         if (trackingDatas.length === 1) {
@@ -86,13 +90,18 @@ export class TrackingSnap implements ISnapper, SnapChangedHandler {
         if (normal === undefined) return undefined;
         let distance = vector.length() * 1e10;
         let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
-        let lineDats = EdgeMeshData.from(start, newEnd, Color.fromHex(0x888), LineType.Dash);
+        let lineDats = EdgeMeshData.from(
+            start,
+            newEnd,
+            Config.instance.visual.temporaryEdgeColor,
+            LineType.Dash
+        );
         return view.viewer.visual.context.temporaryDisplay(lineDats);
     }
 
     private snapToIntersect(data: MouseAndDetected, trackingDatas: TrackingData[]): SnapedData | undefined {
-        if (data.shapes.length === 0 || data.shapes[0].shapeType !== ShapeType.Edge) return undefined;
-        let edge = data.shapes[0] as IEdge;
+        if (data.shapes.length === 0 || data.shapes[0].shape.shapeType !== ShapeType.Edge) return undefined;
+        let edge = data.shapes[0].shape as IEdge;
         let points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {
@@ -181,7 +190,7 @@ export class TrackingSnap implements ISnapper, SnapChangedHandler {
         this._tempLines.clear();
     }
 
-    onSnapTypeChanged(snapType: ObjectSnapType): void {
+    private onSnapTypeChanged(snapType: ObjectSnapType): void {
         this.removeDynamicObject();
         this.objectTracking.clear();
         this._axisTrackings.clear();

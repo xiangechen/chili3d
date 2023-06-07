@@ -17,22 +17,15 @@ export abstract class Snapper {
     protected abstract getEventHandler(token: TaskManager): SnapEventHandler;
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
-        let taskToken: TaskManager = new TaskManager();
-        let eventHandler = this.getEventHandler(taskToken);
-        document.visual.viewer.setCursor(CursorType.Drawing);
-        PubSub.default.pub("statusBarTip", tip);
-        await this.waitEventHandlerFinished(document, eventHandler);
-        document.visual.viewer.setCursor(CursorType.Default);
-        PubSub.default.pub("clearStatusBarTip");
-        return eventHandler.snaped;
-    }
-
-    protected async waitEventHandlerFinished(document: IDocument, eventHandler: SnapEventHandler) {
-        let handler = document.visual.eventHandler;
-        document.visual.eventHandler = eventHandler!;
+        let token: TaskManager = new TaskManager();
+        let executorHandler = this.getEventHandler(token);
+        let beforeHandler = document.visual.eventHandler;
         await new Promise((resolve, reject) => {
-            eventHandler.token.onCompleted(resolve);
-            eventHandler.token.onCancelled(reject);
+            document.visual.viewer.setCursor(CursorType.Drawing);
+            document.visual.eventHandler = executorHandler!;
+            PubSub.default.pub("statusBarTip", tip);
+            token.onCompleted(resolve);
+            token.onCancelled(reject);
         })
             .then((r) => {
                 Logger.info("complete snap");
@@ -41,8 +34,11 @@ export abstract class Snapper {
                 Logger.info("cancel snap");
             })
             .finally(() => {
-                document.visual.eventHandler = handler;
+                PubSub.default.pub("clearStatusBarTip");
+                document.visual.eventHandler = beforeHandler;
+                document.visual.viewer.setCursor(CursorType.Default);
             });
+        return executorHandler.snaped;
     }
 }
 

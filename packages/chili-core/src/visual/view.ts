@@ -6,7 +6,7 @@ import { CursorType } from "./cursorType";
 import { IViewer } from "./viewer";
 import { IShape, ShapeType } from "../geometry";
 import { IVisualShape } from "./visualShape";
-import { DetectedData } from "./detectedData";
+import { VisualShapeData } from "./detectedData";
 
 export interface IView extends IPropertyChanged {
     readonly viewer: IViewer;
@@ -26,5 +26,5 @@ export interface IView extends IPropertyChanged {
     rotation(dx: number, dy: number): void;
     startRotation(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
-    detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): DetectedData[];
+    detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): VisualShapeData[];
 }

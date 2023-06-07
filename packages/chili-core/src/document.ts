@@ -3,11 +3,12 @@
 import { IDisposable, IHistory, IPropertyChanged } from "./base";
 import { ICollectionNode, INode, INodeCollection } from "./model/node";
 import { ISelection } from "./selection";
-import { IVisual } from "./visual";
+import { IView, IVisual } from "./visual";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
     name: string;
     currentNode?: INode;
+    // activeView: IView | undefined;
     readonly selection: ISelection;
     readonly id: string;
     readonly history: IHistory;

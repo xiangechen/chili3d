@@ -12,33 +12,33 @@ export interface IShapeMeshData {
     get faces(): FaceMeshData | undefined;
 }
 
-export interface MeshGroup {
+export interface ShapeMeshGroup {
     start: number;
     count: number;
-    shape?: IShape;
+    shape: IShape;
 }
 
-export interface MeshData {
+export interface ShapeMeshData {
     positions: number[];
-    groups: MeshGroup[];
+    groups: ShapeMeshGroup[];
     color: Color | number[];
 }
 
-export namespace MeshData {
-    export function isVertex(data: MeshData): data is VertexMeshData {
+export namespace ShapeMeshData {
+    export function isVertex(data: ShapeMeshData): data is VertexMeshData {
         return (data as VertexMeshData).size !== undefined;
     }
 
-    export function isEdge(data: MeshData): data is EdgeMeshData {
+    export function isEdge(data: ShapeMeshData): data is EdgeMeshData {
         return (data as EdgeMeshData).lineType !== undefined;
     }
 
-    export function isFace(data: MeshData): data is FaceMeshData {
+    export function isFace(data: ShapeMeshData): data is FaceMeshData {
         return (data as FaceMeshData).indices !== undefined;
     }
 }
 
-export interface VertexMeshData extends MeshData {
+export interface VertexMeshData extends ShapeMeshData {
     size: number;
 }
 
@@ -53,7 +53,7 @@ export namespace VertexMeshData {
     }
 }
 
-export interface EdgeMeshData extends MeshData {
+export interface EdgeMeshData extends ShapeMeshData {
     lineType: LineType;
 }
 
@@ -68,15 +68,15 @@ export namespace EdgeMeshData {
     }
 }
 
-export interface FaceMeshData extends MeshData {
+export interface FaceMeshData extends ShapeMeshData {
     indices: number[];
     normals: number[];
     uvs: number[];
 }
 
-export abstract class MeshDataBuilder<T extends MeshData> {
+export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     protected readonly _positions: number[] = [];
-    protected readonly _groups: MeshGroup[] = [];
+    protected readonly _groups: ShapeMeshGroup[] = [];
     protected _color: Color | undefined;
     protected _vertexColor: number[] | undefined;
 
@@ -116,7 +116,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
 
     constructor() {
         super();
-        this._color = Config.instance.visualConfig.faceEdgeColor;
+        this._color = Config.instance.visual.faceEdgeColor;
     }
 
     setType(type: LineType) {

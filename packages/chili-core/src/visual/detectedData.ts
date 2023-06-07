@@ -3,8 +3,8 @@
 import { IShape } from "../geometry";
 import { IVisualShape } from "./visualShape";
 
-export interface DetectedData {
-    shape?: IShape;
+export interface VisualShapeData {
+    shape: IShape;
     owner: IVisualShape;
     index?: number;
 }

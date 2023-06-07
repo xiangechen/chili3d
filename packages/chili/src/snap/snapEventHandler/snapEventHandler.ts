@@ -2,48 +2,31 @@
 
 import {
     TaskManager,
-    Color,
     IEventHandler,
-    IShape,
     IView,
     MessageType,
-    ObjectSnapType,
     PubSub,
     ShapeType,
-    Validation,
     VertexMeshData,
     XYZ,
     I18n,
     Result,
+    Config,
 } from "chili-core";
 
-import { ISnapper, MouseAndDetected, SnapChangedHandler, SnapedData } from "../interfaces";
-import { ShapePreviewer, Validator } from "./interfaces";
-
-export interface SnapEventData {
-    snaps: ISnapper[];
-    snapChangedHandlers?: SnapChangedHandler[];
-    validator?: Validator;
-    preview?: ShapePreviewer;
-}
+import { ISnapper, MouseAndDetected, ShapePreviewer, SnapedData, Validator } from "../interfaces";
 
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPointId?: number;
     private _tempShapeId?: number;
     protected _snaped?: SnapedData;
-    private readonly _snaps: ISnapper[];
-    private readonly _snapeChangedHandlers: SnapChangedHandler[];
 
-    constructor(readonly token: TaskManager, private readonly data: SnapEventData) {
-        this._snaps = [...data.snaps];
-        this._snapeChangedHandlers =
-            data.snapChangedHandlers === undefined ? [] : [...data.snapChangedHandlers];
-        PubSub.default.sub("snapChanged", this.onSnapChanged);
-    }
-
-    private onSnapChanged = (snapType: ObjectSnapType) => {
-        this._snaps.forEach((x) => x.onSnapTypeChanged(snapType));
-    };
+    constructor(
+        readonly token: TaskManager,
+        readonly snaps: ISnapper[],
+        readonly validator?: Validator,
+        readonly preview?: ShapePreviewer
+    ) {}
 
     get snaped() {
         return this._snaped;
@@ -60,11 +43,10 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private clean(view: IView) {
-        this._snapeChangedHandlers.length = 0;
         this.clearSnapTip();
         this.removeInput();
         this.removeTempShapes(view);
-        this._snaps.forEach((x) => x.clear());
+        this.snaps.forEach((x) => x.clear());
         view.viewer.redraw();
     }
 
@@ -74,8 +56,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     pointerMove(view: IView, event: MouseEvent): void {
         this.removeTempObject(view);
-        this._snaped = this.getSnaped(ShapeType.Edge, view, event);
-        this._snapeChangedHandlers.forEach((x) => x.onSnapChanged(view, this._snaped));
+        this.setSnaped(view, event);
         if (this._snaped !== undefined) {
             this.showTempShape(this._snaped.point, view);
             this.switchSnapedTip(this._snaped.info);
@@ -85,12 +66,19 @@ export abstract class SnapEventHandler implements IEventHandler {
         view.viewer.redraw();
     }
 
-    private getSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {
-        let data = this.getDetectedData(shapeType, view, event);
-        for (const snap of this._snaps) {
+    private setSnaped(view: IView, event: MouseEvent) {
+        this._snaped = this.findSnaped(ShapeType.Edge, view, event);
+        this.snaps.forEach((x) => {
+            x.handleSnaped?.(view.viewer.visual.document, this._snaped);
+        });
+    }
+
+    private findSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {
+        let data = this.findDetecteds(shapeType, view, event);
+        for (const snap of this.snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.data.validator?.(snaped.point)) {
+            if (this.validator?.(snaped.point)) {
                 return snaped;
             }
         }
@@ -98,11 +86,8 @@ export abstract class SnapEventHandler implements IEventHandler {
         return undefined;
     }
 
-    private getDetectedData(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view
-            .detected(shapeType, event.offsetX, event.offsetY, false)
-            .map((x) => x.shape)
-            .filter((x) => x !== undefined) as IShape[];
+    private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
+        let shapes = view.detected(shapeType, event.offsetX, event.offsetY, false);
         return {
             shapes,
             view,
@@ -125,13 +110,17 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     private removeTempObject(view: IView) {
         this.removeTempShapes(view);
-        this._snaps.forEach((x) => x.removeDynamicObject());
+        this.snaps.forEach((x) => x.removeDynamicObject());
     }
 
     private showTempShape(point: XYZ, view: IView) {
-        let data = VertexMeshData.from(point, 3, Color.fromHex(0xff0000));
+        let data = VertexMeshData.from(
+            point,
+            Config.instance.visual.temporaryVertexSize,
+            Config.instance.visual.temporaryVertexColor
+        );
         this._tempPointId = view.viewer.visual.context.temporaryDisplay(data);
-        let shape = this.data.preview?.(point);
+        let shape = this.preview?.(point);
         if (shape !== undefined) {
             let edges = shape.mesh().edges;
             if (edges !== undefined) this._tempShapeId = view.viewer.visual.context.temporaryDisplay(edges);
@@ -164,12 +153,12 @@ export abstract class SnapEventHandler implements IEventHandler {
             this.cancel(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", (text: string) => {
-                let valid = this.isTextValid(text);
-                if (valid.isOk) {
+                let error = this.getErrorMessage(text);
+                if (error === undefined) {
                     this.handleText(view, text);
                     return Result.ok(undefined);
                 } else {
-                    return Result.error(valid.error!);
+                    return Result.error(error);
                 }
             });
         }
@@ -186,7 +175,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
-    protected abstract isTextValid(text: string): Validation<keyof I18n>;
+    protected abstract getErrorMessage(text: string): keyof I18n | undefined;
 
     keyUp(view: IView, event: KeyboardEvent): void {}
 }

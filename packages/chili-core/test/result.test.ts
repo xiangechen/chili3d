@@ -20,7 +20,7 @@ test("test result", () => {
     let r3 = Result.ok(true);
     expect(r3.isOk()).toBeTruthy();
     expect(r3.hasError()).toBeFalsy();
-    expect(r3.value).toBeNull();
+    expect(r3.value).toBeTruthy();
     expect(r3.error).toBeUndefined();
 
     let r4 = Result.ok(undefined);

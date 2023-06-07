@@ -11,6 +11,7 @@ import {
     PubSub,
     NodeLinkedList,
     ISelection,
+    IView,
 } from "chili-core";
 
 import { History } from "./history";
@@ -19,13 +20,41 @@ import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
-
-    private _currentNode?: ICollectionNode;
     readonly nodes: NodeCollection;
     readonly visual: IVisual;
     readonly history: IHistory;
     readonly rootNode: ICollectionNode;
     readonly selection: ISelection;
+
+    private _name: string;
+
+    get name(): string {
+        return this._name;
+    }
+
+    set name(name: string) {
+        this.setProperty("name", name);
+    }
+
+    private _currentNode?: ICollectionNode;
+
+    get currentNode(): ICollectionNode | undefined {
+        return this._currentNode;
+    }
+
+    set currentNode(value: ICollectionNode | undefined) {
+        this.setProperty("currentNode", value);
+    }
+
+    private _activeView: IView | undefined;
+
+    get activeView() {
+        return this._activeView;
+    }
+
+    set activeView(value: IView | undefined) {
+        this.setProperty("activeView", value);
+    }
 
     constructor(name: string, readonly id: string = Id.new()) {
         super();
@@ -47,24 +76,6 @@ export class Document extends Observable implements IDocument {
     private static cacheDocument(document: IDocument) {
         if (this._documentMap.has(document.id)) return;
         this._documentMap.set(document.id, document);
-    }
-
-    private _name: string;
-
-    get name(): string {
-        return this._name;
-    }
-
-    set name(name: string) {
-        this.setProperty("name", name);
-    }
-
-    get currentNode(): ICollectionNode | undefined {
-        return this._currentNode;
-    }
-
-    set currentNode(value: ICollectionNode | undefined) {
-        this.setProperty("currentNode", value);
     }
 
     toJson() {

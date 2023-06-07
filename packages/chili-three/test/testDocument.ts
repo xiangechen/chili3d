@@ -7,6 +7,7 @@ import {
     INode,
     INodeCollection,
     ISelection,
+    IView,
     IVisual,
     PropertyChangedHandler,
 } from "chili-core";
@@ -21,6 +22,7 @@ export class TestDocument implements IDocument {
     visual: ThreeVisual;
     nodes: INodeCollection;
     rootNode: ICollectionNode;
+    activeView: IView | undefined;
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }

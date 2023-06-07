@@ -2,6 +2,7 @@
 
 import {
     Color,
+    Config,
     CursorType,
     I18n,
     IDisposable,
@@ -28,7 +29,11 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     constructor(readonly document: IDocument) {}
 
     protected showPoint(point: XYZ): number {
-        let start = VertexMeshData.from(point, 5, Color.fromHex(0xffff00));
+        let start = VertexMeshData.from(
+            point,
+            Config.instance.visual.editVertexSize,
+            Config.instance.visual.editVertexColor
+        );
         return this.document.visual.context.temporaryDisplay(start);
     }
 

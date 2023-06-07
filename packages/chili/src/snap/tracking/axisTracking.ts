@@ -1,11 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IView, ObjectSnapType, Plane, Ray, XYZ } from "chili-core";
+import { IView, ObjectSnapType, Plane, PubSub, Ray, XYZ } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapedData } from "../";
 
 export class AxisTracking implements ISnapper {
-    constructor(readonly point: XYZ, readonly direction: XYZ) {}
+    constructor(readonly point: XYZ, readonly direction: XYZ) {
+        PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
+    }
 
     onSnapChanged(view: IView, snaped?: SnapedData) {}
 
@@ -29,7 +31,7 @@ export class AxisTracking implements ISnapper {
 
     removeDynamicObject(): void {}
 
-    onSnapTypeChanged(snapType: ObjectSnapType): void {
+    private onSnapTypeChanged(snapType: ObjectSnapType): void {
         this.removeDynamicObject();
     }
 

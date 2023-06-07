@@ -2,7 +2,7 @@
 
 import {
     CursorType,
-    DetectedData,
+    VisualShapeData,
     IDisposable,
     IDocument,
     ISelection,
@@ -11,7 +11,7 @@ import {
     IViewer,
     IVisual,
     IVisualShape,
-    MeshGroup,
+    ShapeMeshGroup,
     Observable,
     Plane,
     Ray,
@@ -336,7 +336,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return shapes;
     }
 
-    detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): DetectedData[] {
+    detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): VisualShapeData[] {
         let intersections = this.findIntersections(shapeType, mx, my, firstHitOnly);
         return shapeType === ShapeType.Shape
             ? this.detectThreeShapes(intersections)
@@ -344,7 +344,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     private detectThreeShapes(intersections: Intersection<Object3D>[]) {
-        let result: DetectedData[] = [];
+        let result: VisualShapeData[] = [];
         for (let i = 0; i < intersections.length; i++) {
             const parent = intersections[i].object.parent;
             if (parent instanceof ThreeShape) {
@@ -358,18 +358,18 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     private detectSubShapes(shapeType: ShapeType, intersections: Intersection<Object3D>[]) {
-        let result: DetectedData[] = [];
+        let result: VisualShapeData[] = [];
         for (let i = 0; i < intersections.length; i++) {
             let item = intersections[i];
             const parent = intersections[i].object.parent;
             if (!(parent instanceof ThreeShape)) continue;
             let index = this.getIndex(shapeType, item);
             if (index == undefined) continue;
-            let groups: MeshGroup[] = item.object.userData[Constants.GeometryGroupsKey];
-            let groupIndex = ThreeHelper.findGroupIndex(groups, index);
+            let groups: ShapeMeshGroup[] = item.object.userData[Constants.GeometryGroupsKey];
+            let groupIndex = ThreeHelper.findGroupIndex(groups, index)!;
             result.push({
                 owner: parent,
-                shape: groupIndex !== undefined ? groups.at(groupIndex)?.shape : undefined,
+                shape: groups[groupIndex].shape,
                 index: groupIndex,
             });
         }

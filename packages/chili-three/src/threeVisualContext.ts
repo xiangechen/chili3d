@@ -10,7 +10,7 @@ import {
     INode,
     IModel,
     Color,
-    MeshData,
+    ShapeMeshData,
     VisualState,
 } from "chili-core";
 import {
@@ -90,7 +90,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    temporaryDisplay(...datas: MeshData[]): number {
+    temporaryDisplay(...datas: ShapeMeshData[]): number {
         let group = new Group();
 
         datas.forEach((data) => {
@@ -98,14 +98,14 @@ export class ThreeVisualContext implements IVisualContext {
             let buff = new BufferGeometry();
             buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
             let color = ThreeHelper.fromColor(data.color as Color);
-            if (MeshData.isVertex(data)) {
+            if (ShapeMeshData.isVertex(data)) {
                 let material = new PointsMaterial({
                     size: data.size,
                     sizeAttenuation: false,
                     color,
                 });
                 geometry = new Points(buff, material);
-            } else if (MeshData.isEdge(data)) {
+            } else if (ShapeMeshData.isEdge(data)) {
                 let material: LineBasicMaterial =
                     data.lineType === LineType.Dash
                         ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
