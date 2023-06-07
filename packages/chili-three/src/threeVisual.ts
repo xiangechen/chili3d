@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IEventHandler, IViewer, IVisual, IVisualContext, ShapeType } from "chili-core";
+import { IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
 import { AxesHelper, DirectionalLight, Object3D, Scene } from "three";
 import { SelectionHandler } from "chili-vis";
 import { ThreeViewHandler } from "./threeViewEventHandler";
@@ -16,7 +16,17 @@ export class ThreeVisual implements IVisual {
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
 
-    eventHandler: IEventHandler = DefaultEventHandler;
+    #eventHandler: IEventHandler = DefaultEventHandler;
+
+    get eventHandler() {
+        return this.#eventHandler;
+    }
+
+    set eventHandler(value: IEventHandler) {
+        if (this.#eventHandler === value) return;
+        this.#eventHandler = value;
+        Logger.info(`Changed EventHandler to ${Object.getPrototypeOf(value).constructor.name}`);
+    }
 
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
