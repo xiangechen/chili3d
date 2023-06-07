@@ -97,14 +97,14 @@ export class NodeLinkedList extends Node implements ILinkListNode {
                 oldParent: this,
                 oldPrevious: item.previousSibling,
             });
-            this.removeNode(item);
+            this.removeNode(item, true);
             this._count--;
         });
         this.handlePubAndHistory(records);
     }
 
-    private removeNode(item: INode) {
-        if (item.parent !== undefined) {
+    private removeNode(item: INode, nullifyParent: boolean) {
+        if (nullifyParent) {
             item.parent = undefined;
         }
         if (this._firstChild === item) {
@@ -154,6 +154,7 @@ export class NodeLinkedList extends Node implements ILinkListNode {
     }
 
     insertAfter(target: INode | undefined, node: INode): void {
+        if (target !== undefined && !this.ensureIsChild(target)) return;
         let record: NodeRecord = {
             action: node.parent === undefined ? "add" : "move",
             oldParent: node.parent,
@@ -176,6 +177,10 @@ export class NodeLinkedList extends Node implements ILinkListNode {
     }
 
     moveToAfter(child: INode, newParent: ILinkListNode, target?: INode | undefined): void {
+        if (this.ensureIsChild(child)) {
+            this.removeNode(child, false);
+            this._count--;
+        }
         newParent.insertAfter(target, child);
     }
 
