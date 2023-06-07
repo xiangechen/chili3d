@@ -12,12 +12,7 @@ let index: number = 1;
 export class NewFolder implements ICommand {
     async excute(document: IDocument): Promise<void> {
         let folder = new NodeLinkedList(document, `Folder${index++}`);
-        document.nodes.add(folder);
         let node = document.currentNode ?? document.rootNode;
-        if (INode.isCollectionNode(node)) {
-            node.add(folder);
-        } else {
-            node.parent?.add(folder);
-        }
+        node.add(folder);
     }
 }

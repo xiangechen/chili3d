@@ -20,19 +20,11 @@ export class Tree extends Control {
         this.append(e);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
         PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
-        PubSub.default.sub("nodeAdded", this.handleNodeAdded);
-        PubSub.default.sub("nodeRemoved", this.handleNodeRemoved);
     }
 
-    private handleNodeAdded = (source: IDocument, nodes: INode[]) => {
-        nodes.forEach((node) => this.nodeMap.set(node, this.createHTMLElement(source, node)));
-    };
-
-    private handleNodeRemoved = (source: IDocument, nodes: INode[]) => {
-        nodes.forEach((node) => this.nodeMap.delete(node));
-    };
-
     private handleNodeLinkedChanged = (records: NodeRecord[]) => {
+        this.ensureHasHTML(records);
+
         for (const record of records) {
             let ele = this.nodeMap.get(record.node);
             if (ele === undefined) continue;
@@ -63,6 +55,14 @@ export class Tree extends Control {
         this.scrollToNode(selected);
     };
 
+    private ensureHasHTML(records: NodeRecord[]) {
+        records.forEach((record) => {
+            if (!this.nodeMap.has(record.node)) {
+                this.nodeMap.set(record.node, this.createHTMLElement(this.document, record.node));
+            }
+        });
+    }
+
     private scrollToNode(selected: INode[]) {
         let node = selected.at(0);
         if (node !== undefined) {
@@ -82,7 +82,7 @@ export class Tree extends Control {
 
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
-        if (INode.isCollectionNode(node)) result = new TreeGroup(document, node);
+        if (INode.isLinkListNode(node)) result = new TreeGroup(document, node);
         else if (INode.isModelNode(node)) result = new TreeModel(node);
         else throw "unknown node";
 
@@ -150,7 +150,7 @@ export class Tree extends Control {
         this.lastClicked = item;
         if (item !== undefined) {
             this.nodeMap.get(item)?.addSelectedStyle(style.current);
-            this.document.currentNode = item;
+            this.document.currentNode = INode.isLinkListNode(item) ? item : item.parent;
         }
     }
 
@@ -172,7 +172,7 @@ export class Tree extends Control {
 
         let node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
-        let group = INode.isCollectionNode(node) ? node : node.parent;
+        let group = INode.isLinkListNode(node) ? node : node.parent;
         if (group !== undefined) {
             Transaction.excute(this.document, "move node", () => {
                 this.dragging?.forEach((x) => {

@@ -4,7 +4,7 @@ import {
     Application,
     Id,
     IDocument,
-    ICollectionNode,
+    ILinkListNode,
     History,
     IVisual,
     Observable,
@@ -12,17 +12,18 @@ import {
     NodeLinkedList,
     ISelection,
     IView,
+    NodeRecord,
+    IModel,
+    INode,
 } from "chili-core";
 
-import { NodeCollection } from "./nodeCollection";
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
-    readonly nodes: NodeCollection;
     readonly visual: IVisual;
     readonly history: History;
-    readonly rootNode: ICollectionNode;
+    readonly rootNode: ILinkListNode;
     readonly selection: ISelection;
 
     private _name: string;
@@ -35,13 +36,13 @@ export class Document extends Observable implements IDocument {
         this.setProperty("name", name);
     }
 
-    private _currentNode?: ICollectionNode;
+    private _currentNode?: ILinkListNode;
 
-    get currentNode(): ICollectionNode | undefined {
+    get currentNode(): ILinkListNode | undefined {
         return this._currentNode;
     }
 
-    set currentNode(value: ICollectionNode | undefined) {
+    set currentNode(value: ILinkListNode | undefined) {
         this.setProperty("currentNode", value);
     }
 
@@ -58,15 +59,29 @@ export class Document extends Observable implements IDocument {
     constructor(name: string, readonly id: string = Id.new()) {
         super();
         this._name = name;
-        this.nodes = new NodeCollection(this);
         this.history = new History();
         this.rootNode = new NodeLinkedList(this, name);
         this.visual = Application.instance.visualFactory.create(this);
         this.selection = new Selection(this);
 
         Document.cacheDocument(this);
+        PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         PubSub.default.sub("redraw", () => this.visual.viewer.redraw());
     }
+
+    private handleModelChanged = (records: NodeRecord[]) => {
+        let adds: INode[] = [];
+        let rms: INode[] = [];
+        records.forEach((x) => {
+            if (x.action === "add") {
+                INode.addNodeOrChildrenToNodes(adds, x.node);
+            } else if (x.action === "remove") {
+                INode.addNodeOrChildrenToNodes(rms, x.node);
+            }
+        });
+        this.visual.context.addModel(adds.filter((x) => !INode.isLinkListNode(x)) as IModel[]);
+        this.visual.context.removeModel(rms.filter((x) => !INode.isLinkListNode(x)) as IModel[]);
+    };
 
     static get(id: string): IDocument | undefined {
         return this._documentMap.get(id);

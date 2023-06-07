@@ -10,7 +10,7 @@ import { Feature } from "./feature";
 import { Entity } from "./entity";
 import { Logger, PubSub, Result } from "../base";
 
-export abstract class Model<T extends IShape = IShape> extends Node implements IModel<T> {
+export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
     private _translation: XYZ;
     private _rotation: Quaternion;
     private _scale: XYZ;
@@ -63,22 +63,9 @@ export class GeometryModel extends Model {
     private readonly _editors: Feature[] = [];
     private _error: string | undefined;
 
-    static create(document: IDocument, name: string, body: Entity) {
-        let model = new GeometryModel(document, name, body);
-        document.nodes.add(model);
-        let node = document.currentNode ?? document.rootNode;
-        if (INode.isCollectionNode(node)) {
-            node.add(model);
-        } else {
-            node.parent?.add(model);
-        }
-        return model;
-    }
-
     constructor(document: IDocument, name: string, body: Entity, id: string = Id.new()) {
         super(document, name, body, id);
         this.generate();
-        this.update();
         body.onShapeChanged(this.onShapeChanged);
     }
 
@@ -90,7 +77,7 @@ export class GeometryModel extends Model {
             let i = this._editors.indexOf(editor);
             this.applyFeatures(i);
         }
-        this.update();
+        this.redraw();
     };
 
     generate() {
@@ -110,8 +97,9 @@ export class GeometryModel extends Model {
         this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }
 
-    private update() {
+    private redraw() {
         this.document.visual.context.redrawModel([this]);
+        Logger.debug(`model ${this.name} redraw`);
     }
 
     private applyFeatures(startIndex: number) {
@@ -151,7 +139,7 @@ export class GeometryModel extends Model {
             this._editors.splice(index, 1);
             editor.removeShapeChanged(this.onShapeChanged);
             this.applyFeatures(index);
-            this.update();
+            this.redraw();
         }
     }
 
@@ -166,7 +154,7 @@ export class GeometryModel extends Model {
             if (this._error === undefined) {
                 this._shape = editor.shape.value;
             }
-            this.update();
+            this.redraw();
         }
     }
 

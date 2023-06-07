@@ -67,10 +67,12 @@ export abstract class RectCommandBase extends CreateCommand {
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
+    private static count: number = 1;
+
     protected create(document: IDocument): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new RectBody(document, rect.plane, rect.dx, rect.dy);
-        return GeometryModel.create(document, `Rect ${document.nodes.size() + 1}`, body);
+        return new GeometryModel(document, `Rect ${Rect.count++}`, body);
     }
 
     constructor() {

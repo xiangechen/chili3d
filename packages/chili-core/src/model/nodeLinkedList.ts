@@ -3,9 +3,9 @@
 import { Logger, NodeRecord, NodesHistoryRecord, PubSub, Transaction } from "../base";
 import { IDocument } from "../document";
 import { Id } from "../id";
-import { ICollectionNode, INode, Node } from "./node";
+import { ILinkListNode, IModel, INode, Node } from "./node";
 
-export class NodeLinkedList extends Node implements ICollectionNode {
+export class NodeLinkedList extends Node implements ILinkListNode {
     private _count: number = 0;
     private _firstChild: INode | undefined;
     private _lastChild: INode | undefined;
@@ -34,6 +34,7 @@ export class NodeLinkedList extends Node implements ICollectionNode {
         let records: NodeRecord[] = [];
         items.forEach((item) => {
             records.push({
+                action: "add",
                 node: item,
                 oldParent: item.parent,
                 newParent: this,
@@ -45,12 +46,14 @@ export class NodeLinkedList extends Node implements ICollectionNode {
             }
             this._count++;
         });
+
         this.handlePubAndHistory(records);
     }
 
     private handlePubAndHistory(records: NodeRecord[]) {
         Transaction.add(this.document, new NodesHistoryRecord(records));
         PubSub.default.pub("nodeLinkedListChanged", records);
+        Logger.debug(`NodeLinkList Changed`);
     }
 
     private ensureIsChild(item: INode) {
@@ -87,6 +90,7 @@ export class NodeLinkedList extends Node implements ICollectionNode {
         items.forEach((item) => {
             if (!this.ensureIsChild(item)) return;
             records.push({
+                action: "remove",
                 node: item,
                 newParent: undefined,
                 newPrevious: undefined,
@@ -126,7 +130,8 @@ export class NodeLinkedList extends Node implements ICollectionNode {
 
     insertBefore(target: INode | undefined, node: INode): void {
         if (target !== undefined && !this.ensureIsChild(target)) return;
-        let record = {
+        let record: NodeRecord = {
+            action: node.parent === undefined ? "add" : "move",
             node,
             oldParent: node.parent,
             oldPrevious: node.previousSibling,
@@ -149,8 +154,8 @@ export class NodeLinkedList extends Node implements ICollectionNode {
     }
 
     insertAfter(target: INode | undefined, node: INode): void {
-        if (target !== undefined && !this.ensureIsChild(target)) return;
-        let record = {
+        let record: NodeRecord = {
+            action: node.parent === undefined ? "add" : "move",
             oldParent: node.parent,
             oldPrevious: node.previousSibling,
             newParent: this,
@@ -170,8 +175,7 @@ export class NodeLinkedList extends Node implements ICollectionNode {
         this.handlePubAndHistory([record]);
     }
 
-    moveToAfter(child: INode, newParent: ICollectionNode, target?: INode | undefined): void {
-        this.remove(child);
+    moveToAfter(child: INode, newParent: ILinkListNode, target?: INode | undefined): void {
         newParent.insertAfter(target, child);
     }
 

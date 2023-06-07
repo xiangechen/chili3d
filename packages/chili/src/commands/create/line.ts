@@ -15,9 +15,11 @@ import { CreateCommand } from "./createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
+    private static count: number = 1;
+
     create(document: IDocument): GeometryModel {
         let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
-        return GeometryModel.create(document, `Line ${document.nodes.size() + 1}`, body);
+        return new GeometryModel(document, `Line ${Line.count++}`, body);
     }
 
     override afterExcute(document: IDocument): boolean {

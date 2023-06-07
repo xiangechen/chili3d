@@ -37,7 +37,7 @@ export abstract class CreateCommand implements ICommand {
     private createModel(document: IDocument) {
         Transaction.excute(document, `add model`, () => {
             let model = this.create(document);
-            document.nodes.add(model);
+            (document.currentNode ?? document.rootNode).add(model);
             document.visual.viewer.redraw();
         });
     }

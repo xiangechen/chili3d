@@ -14,8 +14,6 @@ export interface PubSubEventMap {
     keyDown: (e: KeyboardEvent) => void;
     keyUp: (e: KeyboardEvent) => void;
     excuteCommand: (commandName: keyof Commands) => void;
-    nodeAdded: (source: IDocument, nodes: INode[]) => void;
-    nodeRemoved: (source: IDocument, nodes: INode[]) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     modelUpdate: (model: IModel) => void;

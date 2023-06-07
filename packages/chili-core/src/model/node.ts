@@ -13,40 +13,39 @@ export interface INode extends IPropertyChanged {
     visible: boolean;
     parentVisible: boolean;
     name: string;
-    parent: ICollectionNode | undefined;
+    parent: ILinkListNode | undefined;
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
 }
 
-export interface ICollectionNode extends INode, ICollection<INode> {
+export interface ILinkListNode extends INode {
+    add(...items: INode[]): void;
+    remove(...items: INode[]): void;
+    size(): number;
     firstChild(): INode | undefined;
     lastChild(): INode | undefined;
     insertBefore(target: INode | undefined, node: INode): void;
     insertAfter(target: INode | undefined, node: INode): void;
-    moveToAfter(child: INode, newParent: ICollectionNode, target?: INode): void;
+    moveToAfter(child: INode, newParent: ILinkListNode, target?: INode): void;
 }
 
-export interface IModel<T extends IShape = IShape> extends INode {
+export interface IModel extends INode {
     readonly document: IDocument;
     readonly body: Entity;
     transform(): Matrix4;
     translation: XYZ;
     rotation: Quaternion;
     scale: XYZ;
-    shape(): T | undefined;
+    shape(): IShape | undefined;
 }
 
-export interface IModelGroup extends IModel<ICompound> {
+export interface IModelGroup extends IModel {
     children: ReadonlyArray<IModel>;
 }
 
-export interface INodeCollection extends ICollection<INode> {
-    get(id: string): INode | undefined;
-}
-
 export namespace INode {
-    export function isCollectionNode(node: INode): node is ICollectionNode {
-        return (node as ICollectionNode).firstChild !== undefined;
+    export function isLinkListNode(node: INode): node is ILinkListNode {
+        return (node as ILinkListNode).firstChild !== undefined;
     }
 
     export function isModelNode(node: INode): node is IModel {
@@ -63,7 +62,7 @@ export abstract class Node extends HistoryObservable implements INode {
     private _visible: boolean = true;
     private _parentVisible: boolean = true;
 
-    parent: ICollectionNode | undefined;
+    parent: ILinkListNode | undefined;
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
 
@@ -108,7 +107,7 @@ export namespace INode {
         let prePath = getPathToRoot(node1);
         let curPath = getPathToRoot(node2);
         let index = getCommonParentIndex(prePath, curPath);
-        let parent = prePath.at(1 - index) as ICollectionNode;
+        let parent = prePath.at(1 - index) as ILinkListNode;
         if (parent === curPath[0] || parent === prePath[0]) {
             let child = parent === curPath[0] ? prePath[0] : curPath[0];
             getNodesFromParentToChild(nodes, parent, child);
@@ -123,11 +122,11 @@ export namespace INode {
     }
 
     function getNodesFromPath(nodes: INode[], path1: INode[], path2: INode[], commonIndex: number) {
-        getNodesAndChildren(nodes, path1[0]);
+        addNodeOrChildrenToNodes(nodes, path1[0]);
         for (let i = 0; i < path1.length - commonIndex; i++) {
             let next = path1[i].nextSibling;
             while (next !== undefined) {
-                getNodesAndChildren(nodes, next);
+                addNodeOrChildrenToNodes(nodes, next);
                 next = next.nextSibling;
             }
         }
@@ -138,7 +137,7 @@ export namespace INode {
                 nodes.push(path2[0]);
                 return;
             }
-            if (INode.isCollectionNode(nextParent)) {
+            if (INode.isLinkListNode(nextParent)) {
                 if (getNodesFromParentToChild(nodes, nextParent, path2[0])) {
                     return;
                 }
@@ -147,15 +146,15 @@ export namespace INode {
         }
     }
 
-    function getNodesAndChildren(nodes: INode[], node: INode) {
-        if (INode.isCollectionNode(node)) {
+    export function addNodeOrChildrenToNodes(nodes: INode[], node: INode) {
+        if (INode.isLinkListNode(node)) {
             getNodesFromParentToChild(nodes, node);
         } else {
             nodes.push(node);
         }
     }
 
-    function getNodesFromParentToChild(nodes: INode[], parent: ICollectionNode, until?: INode): boolean {
+    function getNodesFromParentToChild(nodes: INode[], parent: ILinkListNode, until?: INode): boolean {
         nodes.push(parent);
         let node = parent.firstChild();
         while (node !== undefined) {
@@ -163,7 +162,7 @@ export namespace INode {
                 nodes.push(node);
                 return true;
             }
-            if (INode.isCollectionNode(node)) {
+            if (INode.isLinkListNode(node)) {
                 if (getNodesFromParentToChild(nodes, node, until)) return true;
             } else {
                 nodes.push(node);

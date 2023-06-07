@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ICollectionNode, INode } from "../model";
+import { ILinkListNode, INode } from "../model";
 import { CollectionAction, ICollection } from "./collection";
 
 export interface IHistoryRecord {
@@ -110,9 +110,10 @@ export class CollectionHistoryRecord<T> implements IHistoryRecord {
 
 export interface NodeRecord {
     node: INode;
-    oldParent?: ICollectionNode;
+    action: "add" | "remove" | "move";
+    oldParent?: ILinkListNode;
     oldPrevious?: INode;
-    newParent?: ICollectionNode;
+    newParent?: ILinkListNode;
     newPrevious?: INode;
 }
 

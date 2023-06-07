@@ -15,6 +15,8 @@ import { RectCommandBase } from "./rect";
     icon: "icon-box",
 })
 export class Box extends RectCommandBase {
+    private static count: number = 1;
+
     protected override getSteps(): IStep[] {
         let steps = super.getSteps();
         let third = new LengthAtAxisStep("operate.pickNextPoint", this.getHeightStepData);
@@ -43,7 +45,7 @@ export class Box extends RectCommandBase {
         let rect = this.getRectData(this.stepDatas[1].point);
         let dz = this.getHeight(rect.plane, this.stepDatas[2].point);
         let body = new BoxBody(document, rect.plane, rect.dx, rect.dy, dz);
-        return GeometryModel.create(document, `Box ${document.nodes.size() + 1}`, body);
+        return new GeometryModel(document, `Box ${Box.count++}`, body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

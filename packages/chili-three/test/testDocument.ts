@@ -1,27 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    ICollectionNode,
-    IDocument,
-    History,
-    INode,
-    INodeCollection,
-    ISelection,
-    IView,
-    IVisual,
-    PropertyChangedHandler,
-} from "chili-core";
+import { ILinkListNode, IDocument, History, ISelection, IView, PropertyChangedHandler } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
 
 export class TestDocument implements IDocument {
     name: string;
-    currentNode?: INode | undefined;
+    currentNode?: ILinkListNode | undefined;
     id: string;
     history: History;
     selection: ISelection;
     visual: ThreeVisual;
-    nodes: INodeCollection;
-    rootNode: ICollectionNode;
+    rootNode: ILinkListNode;
     activeView: IView | undefined;
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
@@ -39,7 +28,6 @@ export class TestDocument implements IDocument {
         this.visual = new ThreeVisual(this);
         this.history = {} as any;
         this.selection = {} as any;
-        this.nodes = {} as any;
         this.rootNode = {} as any;
     }
 }
