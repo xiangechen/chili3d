@@ -42,8 +42,6 @@ export class Config {
     readonly SnapDistance: number = 5;
 
     constructor() {
-        console.log(this.visual);
-
         this._snapType =
             ObjectSnapType.midPoint |
             ObjectSnapType.endPoint |

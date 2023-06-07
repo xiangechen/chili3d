@@ -9,6 +9,62 @@ export interface IHistoryRecord {
     redo(): void;
 }
 
+export class History {
+    private _isDisabled: boolean = false;
+    private readonly _undos: IHistoryRecord[] = [];
+    private readonly _redos: IHistoryRecord[] = [];
+
+    undoLimits: number = 25;
+
+    get isDisabled() {
+        return this._isDisabled;
+    }
+
+    add(record: IHistoryRecord) {
+        this._redos.length = 0;
+        this._undos.push(record);
+        while (this._undos.length > this.undoLimits) {
+            this._undos.shift();
+        }
+    }
+
+    undoCount() {
+        return this._undos.length;
+    }
+
+    redoCount() {
+        return this._redos.length;
+    }
+
+    undo() {
+        this.tryOperate(() => {
+            let records = this._undos.pop();
+            if (records === undefined) return;
+            records.undo();
+            this._redos.push(records);
+        });
+    }
+
+    redo() {
+        this.tryOperate(() => {
+            let records = this._redos.pop();
+            if (records === undefined) return;
+            records.redo();
+            this._undos.push(records);
+        });
+    }
+
+    private tryOperate(action: () => void) {
+        let isDisabled = this._isDisabled;
+        if (!isDisabled) this._isDisabled = true;
+        try {
+            action();
+        } finally {
+            this._isDisabled = isDisabled;
+        }
+    }
+}
+
 export class PropertyHistoryRecord implements IHistoryRecord {
     readonly name: string;
     constructor(
@@ -96,12 +152,10 @@ export class NodesHistoryRecord implements IHistoryRecord {
     }
 }
 
-export class HistoryOperation {
-    readonly records: Array<IHistoryRecord>;
+export class ArrayRecord implements IHistoryRecord {
+    readonly records: Array<IHistoryRecord> = [];
 
-    constructor(readonly name: string) {
-        this.records = [];
-    }
+    constructor(readonly name: string) {}
 
     undo() {
         for (let index = this.records.length - 1; index >= 0; index--) {
@@ -114,13 +168,4 @@ export class HistoryOperation {
             record.redo();
         }
     }
-}
-
-export interface IHistory {
-    get isDisabled(): boolean;
-    add(action: HistoryOperation): void;
-    undo(): void;
-    redo(): void;
-    undoCount(): number;
-    redoCount(): number;
 }

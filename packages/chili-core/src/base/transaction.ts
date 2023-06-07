@@ -1,22 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument } from "../document";
-import { HistoryOperation, IHistoryRecord } from "./history";
+import { ArrayRecord, IHistoryRecord } from "./history";
 
 export class Transaction {
-    private static readonly _transactionMap: WeakMap<IDocument, HistoryOperation> = new WeakMap();
+    private static readonly _transactionMap: WeakMap<IDocument, ArrayRecord> = new WeakMap();
 
     constructor(readonly document: IDocument, readonly name: string) {}
 
-    static add(document: IDocument, HistoryRecord: IHistoryRecord) {
+    static add(document: IDocument, record: IHistoryRecord) {
         if (document.history.isDisabled) return;
-        let operation = Transaction._transactionMap.get(document);
-        if (operation !== undefined) {
-            operation.records.push(HistoryRecord);
+        let arrayRecord = Transaction._transactionMap.get(document);
+        if (arrayRecord !== undefined) {
+            arrayRecord.records.push(record);
         } else {
-            operation = new HistoryOperation(HistoryRecord.name);
-            operation.records.push(HistoryRecord);
-            document.history.add(operation);
+            document.history.add(record);
         }
     }
 
@@ -37,22 +35,22 @@ export class Transaction {
         if (Transaction._transactionMap.get(this.document) !== undefined) {
             throw "The document has started a transaction";
         }
-        Transaction._transactionMap.set(this.document, new HistoryOperation(transactionName));
+        Transaction._transactionMap.set(this.document, new ArrayRecord(transactionName));
     }
 
     commit() {
-        let operation = Transaction._transactionMap.get(this.document);
-        if (operation === undefined) {
+        let arrayRecord = Transaction._transactionMap.get(this.document);
+        if (arrayRecord === undefined) {
             throw "Transaction has not started";
         }
-        if (operation.records.length > 0) this.document.history.add(operation);
+        if (arrayRecord.records.length > 0) this.document.history.add(arrayRecord);
         Transaction._transactionMap.delete(this.document);
     }
 
     rollback() {
-        let operation = Transaction._transactionMap.get(this.document);
-        if (operation == undefined) return;
-        operation.undo();
+        let arrayRecord = Transaction._transactionMap.get(this.document);
+        if (arrayRecord == undefined) return;
+        arrayRecord.undo();
         Transaction._transactionMap.delete(this.document);
     }
 }

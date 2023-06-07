@@ -5,7 +5,7 @@ import {
     Id,
     IDocument,
     ICollectionNode,
-    IHistory,
+    History,
     IVisual,
     Observable,
     PubSub,
@@ -14,7 +14,6 @@ import {
     IView,
 } from "chili-core";
 
-import { History } from "./history";
 import { NodeCollection } from "./nodeCollection";
 import { Selection } from "./selection";
 
@@ -22,7 +21,7 @@ export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
     readonly nodes: NodeCollection;
     readonly visual: IVisual;
-    readonly history: IHistory;
+    readonly history: History;
     readonly rootNode: ICollectionNode;
     readonly selection: ISelection;
 

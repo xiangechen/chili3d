@@ -2,11 +2,10 @@
 
 import "reflect-metadata";
 
-import { IDocument, NodeLinkedList } from "../src";
-import { TestHistory } from "./common";
+import { IDocument, History, NodeLinkedList } from "../src";
 
 describe("test NodeLinkedList", () => {
-    let doc: IDocument = { history: new TestHistory() } as any;
+    let doc: IDocument = { history: new History() } as any;
 
     test("test add and remove", () => {
         let l1 = new NodeLinkedList(doc, "l1");

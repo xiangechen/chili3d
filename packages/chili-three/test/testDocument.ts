@@ -3,7 +3,7 @@
 import {
     ICollectionNode,
     IDocument,
-    IHistory,
+    History,
     INode,
     INodeCollection,
     ISelection,
@@ -17,7 +17,7 @@ export class TestDocument implements IDocument {
     name: string;
     currentNode?: INode | undefined;
     id: string;
-    history: IHistory;
+    history: History;
     selection: ISelection;
     visual: ThreeVisual;
     nodes: INodeCollection;

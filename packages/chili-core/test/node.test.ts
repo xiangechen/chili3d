@@ -1,11 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import "reflect-metadata";
-import { IDocument, INode, NodeLinkedList } from "../src";
-import { TestHistory } from "./common";
+import { IDocument, History, INode, NodeLinkedList } from "../src";
 
 describe("test node", () => {
-    let doc: IDocument = { history: new TestHistory() } as any;
+    let doc: IDocument = { history: new History() } as any;
 
     test("test get all nodes between two nodes", () => {
         let n1 = new NodeLinkedList(doc, "n1");

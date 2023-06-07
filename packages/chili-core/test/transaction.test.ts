@@ -2,12 +2,11 @@
 
 import "reflect-metadata";
 
-import { HistoryOperation, IDocument, IHistory, PropertyHistoryRecord, Transaction } from "../src";
-import { TestHistory } from "./common";
+import { IDocument, History, PropertyHistoryRecord, Transaction } from "../src";
 
 describe("test Transaction", () => {
     test("test static methods", () => {
-        let doc: IDocument = { history: new TestHistory() } as any;
+        let doc: IDocument = { history: new History() } as any;
         let history: PropertyHistoryRecord = {} as any;
         Transaction.add(doc, history);
         expect(doc.history.undoCount()).toBe(1);
@@ -26,7 +25,7 @@ describe("test Transaction", () => {
     });
 
     test("test methods", () => {
-        let doc: IDocument = { history: new TestHistory() } as any;
+        let doc: IDocument = { history: new History() } as any;
         let trans = new Transaction(doc, "test");
         expect(() => trans.commit()).toThrowError("Transaction has not started");
         trans.start();

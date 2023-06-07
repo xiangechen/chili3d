@@ -2,9 +2,7 @@
 
 import "reflect-metadata";
 
-import { HistoryOperation, PropertyHistoryRecord } from "chili-core";
-
-import { History } from "../src";
+import { ArrayRecord, PropertyHistoryRecord, History } from "chili-core";
 
 describe("test history", () => {
     class TestClass {
@@ -23,7 +21,7 @@ describe("test history", () => {
         let obj = new TestClass();
         let history = new History();
         let h: PropertyHistoryRecord = new PropertyHistoryRecord(obj, "property", "p1", "p2");
-        let action = new HistoryOperation("test");
+        let action = new ArrayRecord("test");
         action.records.push(h);
         history.add(action);
         expect(history.undoCount()).toBe(1);

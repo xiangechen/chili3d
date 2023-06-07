@@ -5,6 +5,5 @@ export * from "./bodys";
 export * from "./commands";
 export * from "./comparers";
 export * from "./document";
-export * from "./history";
 export * from "./services";
 export * from "./snap";
