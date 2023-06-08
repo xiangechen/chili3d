@@ -16,10 +16,12 @@ import {
 } from "chili-core";
 import {
     Camera,
+    Euler,
     Intersection,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
+    Quaternion,
     Raycaster,
     Renderer,
     Scene,
@@ -150,17 +152,18 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     rotation(dx: number, dy: number): void {
-        console.log("rotate");
-
-        let spherical = new Spherical().setFromVector3(this._camera.position.sub(this._target));
-        console.log(spherical);
-        spherical.phi -= (dx * Math.PI) / this.container.clientHeight;
-        spherical.theta -= (dy * Math.PI) / this.container.clientHeight;
-
-        let vector = new Vector3().setFromSpherical(spherical);
-        this._camera.position.copy(this._target.clone().add(vector));
+        const rotationX = dx * 0.01;
+        const rotationY = dy * 0.01;
+        const position = this._camera.position.clone();
+        position.sub(this._target);
+        const quaternionX = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), rotationX);
+        const quaternionY = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), rotationY);
+        position.applyQuaternion(quaternionX);
+        position.applyQuaternion(quaternionY);
+        position.add(this._target);
+        this._camera.position.copy(position);
+        this._camera.up.set(0, 0, 1);
         this._camera.lookAt(this._target);
-        this._camera.updateMatrixWorld(true);
     }
 
     startRotation(dx: number, dy: number): void {}
