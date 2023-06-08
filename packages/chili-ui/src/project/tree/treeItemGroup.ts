@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, ILinkListNode } from "chili-core";
+import { IDocument, INodeLinkedList } from "chili-core";
 import { Column, Row, Svg } from "../../components";
 import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
@@ -11,7 +11,7 @@ export class TreeGroup extends TreeItem {
     readonly items: Column = new Column().addClass(style.container);
     readonly expanderIcon: Svg;
 
-    constructor(document: IDocument, node: ILinkListNode) {
+    constructor(document: IDocument, node: INodeLinkedList) {
         super(document, node);
         this.expanderIcon = new Svg(this.getExpanderIcon())
             .addClass(style.expanderIcon)

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, INode, NodeRecord, PubSub, Transaction } from "chili-core";
+import { IDocument, INode, INodeLinkedList, NodeRecord, PubSub, Transaction } from "chili-core";
 import { Control } from "../../components";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
@@ -80,7 +80,7 @@ export class Tree extends Control {
 
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
-        if (INode.isLinkListNode(node)) result = new TreeGroup(document, node);
+        if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
         else if (INode.isModelNode(node)) result = new TreeModel(node);
         else throw new Error("unknown node");
 
@@ -148,7 +148,7 @@ export class Tree extends Control {
         this.lastClicked = item;
         if (item !== undefined) {
             this.nodeMap.get(item)?.addSelectedStyle(style.current);
-            this.document.currentNode = INode.isLinkListNode(item) ? item : item.parent;
+            this.document.currentNode = INode.isLinkedListNode(item) ? item : item.parent;
         }
     }
 
@@ -170,14 +170,14 @@ export class Tree extends Control {
 
         let node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
-        let group = INode.isLinkListNode(node) ? node : node.parent;
-        if (group !== undefined) {
-            Transaction.excute(this.document, "move node", () => {
-                this.dragging?.forEach((x) => {
-                    x.parent?.moveToAfter(x, group!);
-                });
+        Transaction.excute(this.document, "move node", () => {
+            let isLinkList = INode.isLinkedListNode(node!);
+            let newParent = isLinkList ? (node as INodeLinkedList) : node!.parent;
+            let target = isLinkList ? undefined : node;
+            this.dragging?.forEach((x) => {
+                x.parent?.move(x, newParent!, target);
             });
-        }
+        });
 
         this.dragging = undefined;
     };

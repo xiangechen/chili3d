@@ -3,8 +3,8 @@
 import {
     History,
     IDocument,
-    ILinkListNode,
     INode,
+    INodeLinkedList,
     ISelection,
     IView,
     PropertyChangedHandler,
@@ -13,12 +13,12 @@ import { ThreeVisual } from "../src/threeVisual";
 
 export class TestDocument implements IDocument {
     name: string;
-    currentNode: ILinkListNode | undefined;
+    currentNode: INodeLinkedList | undefined;
     id: string;
     history: History;
     selection: ISelection;
     visual: ThreeVisual;
-    rootNode: ILinkListNode;
+    rootNode: INodeLinkedList;
     activeView: IView | undefined;
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");

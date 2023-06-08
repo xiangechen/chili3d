@@ -2,19 +2,20 @@
 
 import {
     Application,
-    Id,
-    IDocument,
-    ILinkListNode,
     History,
-    IVisual,
-    Observable,
-    PubSub,
-    NodeLinkedList,
-    ISelection,
-    IView,
-    NodeRecord,
+    IDocument,
     IModel,
     INode,
+    INodeLinkedList,
+    ISelection,
+    IView,
+    IVisual,
+    Id,
+    NodeAction,
+    NodeLinkedList,
+    NodeRecord,
+    Observable,
+    PubSub,
 } from "chili-core";
 
 import { Selection } from "./selection";
@@ -23,7 +24,7 @@ export class Document extends Observable implements IDocument {
     private static readonly _documentMap: Map<string, IDocument> = new Map();
     readonly visual: IVisual;
     readonly history: History;
-    readonly rootNode: ILinkListNode;
+    readonly rootNode: INodeLinkedList;
     readonly selection: ISelection;
 
     private _name: string;
@@ -36,13 +37,13 @@ export class Document extends Observable implements IDocument {
         this.setProperty("name", name);
     }
 
-    private _currentNode?: ILinkListNode;
+    private _currentNode?: INodeLinkedList;
 
-    get currentNode(): ILinkListNode | undefined {
+    get currentNode(): INodeLinkedList | undefined {
         return this._currentNode;
     }
 
-    set currentNode(value: ILinkListNode | undefined) {
+    set currentNode(value: INodeLinkedList | undefined) {
         this.setProperty("currentNode", value);
     }
 
@@ -73,14 +74,14 @@ export class Document extends Observable implements IDocument {
         let adds: INode[] = [];
         let rms: INode[] = [];
         records.forEach((x) => {
-            if (x.action === "add") {
+            if (x.action === NodeAction.add) {
                 INode.addNodeOrChildrenToNodes(adds, x.node);
-            } else if (x.action === "remove") {
+            } else if (x.action === NodeAction.remove) {
                 INode.addNodeOrChildrenToNodes(rms, x.node);
             }
         });
-        this.visual.context.addModel(adds.filter((x) => !INode.isLinkListNode(x)) as IModel[]);
-        this.visual.context.removeModel(rms.filter((x) => !INode.isLinkListNode(x)) as IModel[]);
+        this.visual.context.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
+        this.visual.context.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
     };
 
     static get(id: string): IDocument | undefined {

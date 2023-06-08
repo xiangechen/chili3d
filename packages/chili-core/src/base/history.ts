@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ILinkListNode, INode } from "../model";
+import { INode, INodeLinkedList } from "../model";
 import { CollectionAction, ICollection } from "./collection";
 
 export interface IHistoryRecord {
@@ -108,16 +108,24 @@ export class CollectionHistoryRecord<T> implements IHistoryRecord {
     }
 }
 
+export enum NodeAction {
+    add,
+    remove,
+    move,
+    insertAfter,
+    insertBefore,
+}
+
 export interface NodeRecord {
     node: INode;
-    action: "add" | "remove" | "move";
-    oldParent?: ILinkListNode;
+    action: NodeAction;
+    oldParent?: INodeLinkedList;
     oldPrevious?: INode;
-    newParent?: ILinkListNode;
+    newParent?: INodeLinkedList;
     newPrevious?: INode;
 }
 
-export class NodesHistoryRecord implements IHistoryRecord {
+export class NodeLinkedListHistoryRecord implements IHistoryRecord {
     readonly name: string;
     constructor(readonly records: NodeRecord[]) {
         this.name = `change node`;
@@ -126,28 +134,32 @@ export class NodesHistoryRecord implements IHistoryRecord {
     undo() {
         for (let index = this.records.length - 1; index >= 0; index--) {
             let record = this.records[index];
-            if (record.newParent === undefined) {
-                record.oldParent!.insertAfter(record.oldPrevious, record.node);
-            } else {
-                if (record.oldParent === undefined) {
-                    record.newParent.remove(record.node);
-                } else {
-                    record.newParent.moveToAfter(record.node, record.oldParent, record.oldPrevious);
-                }
+            if (record.action === NodeAction.add) {
+                record.newParent?.remove(record.node);
+            } else if (record.action === NodeAction.remove) {
+                record.oldParent?.add(record.node);
+            } else if (record.action === NodeAction.move) {
+                record.newParent?.move(record.node, record.oldParent!, record.oldPrevious);
+            } else if (record.action === NodeAction.insertAfter) {
+                record.newParent?.remove(record.node);
+            } else if (record.action === NodeAction.insertBefore) {
+                record.newParent?.remove(record.node);
             }
         }
     }
 
     redo() {
         for (const record of this.records) {
-            if (record.newParent === undefined) {
+            if (record.action === NodeAction.add) {
+                record.newParent?.add(record.node);
+            } else if (record.action === NodeAction.remove) {
                 record.oldParent?.remove(record.node);
-            } else {
-                if (record.oldParent === undefined) {
-                    record.newParent?.insertAfter(record.newPrevious, record.node);
-                } else {
-                    record.oldParent.moveToAfter(record.node, record.newParent, record.newPrevious);
-                }
+            } else if (record.action === NodeAction.move) {
+                record.oldParent?.move(record.node, record.newParent!, record.newPrevious);
+            } else if (record.action === NodeAction.insertAfter) {
+                record.newParent?.insertAfter(record.newPrevious, record.node);
+            } else if (record.action === NodeAction.insertBefore) {
+                record.newParent?.insertBefore(record.newPrevious?.nextSibling, record.node);
             }
         }
     }

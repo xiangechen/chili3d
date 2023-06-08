@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, NodeRecord, NodesHistoryRecord, PubSub, Transaction } from "../base";
+import { Logger, NodeAction, NodeLinkedListHistoryRecord, NodeRecord, PubSub, Transaction } from "../base";
 import { IDocument } from "../document";
 import { Id } from "../id";
-import { ILinkListNode, INode, Node } from "./node";
+import { INode, INodeLinkedList, Node } from "./node";
 
-export class NodeLinkedList extends Node implements ILinkListNode {
+export class NodeLinkedList extends Node implements INodeLinkedList {
     private _count: number = 0;
     private _firstChild: INode | undefined;
     private _lastChild: INode | undefined;
@@ -34,7 +34,7 @@ export class NodeLinkedList extends Node implements ILinkListNode {
         let records: NodeRecord[] = [];
         items.forEach((item) => {
             records.push({
-                action: "add",
+                action: NodeAction.add,
                 node: item,
                 oldParent: item.parent,
                 newParent: this,
@@ -45,13 +45,14 @@ export class NodeLinkedList extends Node implements ILinkListNode {
                 this.addToLast(item);
             }
             this._count++;
+            Logger.debug(`add node: ${item.name}`);
         });
 
         this.handlePubAndHistory(records);
     }
 
     private handlePubAndHistory(records: NodeRecord[]) {
-        Transaction.add(this.document, new NodesHistoryRecord(records));
+        Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
         PubSub.default.pub("nodeLinkedListChanged", records);
         Logger.debug(`NodeLinkList Changed`);
     }
@@ -90,7 +91,7 @@ export class NodeLinkedList extends Node implements ILinkListNode {
         items.forEach((item) => {
             if (!this.ensureIsChild(item)) return;
             records.push({
-                action: "remove",
+                action: NodeAction.remove,
                 node: item,
                 newParent: undefined,
                 newPrevious: undefined,
@@ -98,40 +99,41 @@ export class NodeLinkedList extends Node implements ILinkListNode {
                 oldPrevious: item.previousSibling,
             });
             this.removeNode(item, true);
-            this._count--;
+            Logger.debug(`remove node: ${item.name}`);
         });
         this.handlePubAndHistory(records);
     }
 
-    private removeNode(item: INode, nullifyParent: boolean) {
+    private removeNode(node: INode, nullifyParent: boolean) {
         if (nullifyParent) {
-            item.parent = undefined;
+            node.parent = undefined;
         }
-        if (this._firstChild === item) {
-            if (this._lastChild === item) {
+        if (this._firstChild === node) {
+            if (this._lastChild === node) {
                 this._firstChild = undefined;
                 this._lastChild = undefined;
             } else {
-                this._firstChild = item.nextSibling;
+                this._firstChild = node.nextSibling;
                 this._firstChild!.previousSibling = undefined;
-                item.nextSibling = undefined;
+                node.nextSibling = undefined;
             }
-        } else if (this._lastChild === item) {
-            this._lastChild = item.previousSibling;
+        } else if (this._lastChild === node) {
+            this._lastChild = node.previousSibling;
             this._lastChild!.nextSibling = undefined;
-            item.previousSibling = undefined;
+            node.previousSibling = undefined;
         } else {
-            item.previousSibling!.nextSibling = item.nextSibling;
-            item.nextSibling!.previousSibling = item.previousSibling;
-            item.previousSibling = undefined;
-            item.nextSibling = undefined;
+            node.previousSibling!.nextSibling = node.nextSibling;
+            node.nextSibling!.previousSibling = node.previousSibling;
+            node.previousSibling = undefined;
+            node.nextSibling = undefined;
         }
+        this._count--;
     }
 
     insertBefore(target: INode | undefined, node: INode): void {
         if (target !== undefined && !this.ensureIsChild(target)) return;
         let record: NodeRecord = {
-            action: node.parent === undefined ? "add" : "move",
+            action: NodeAction.insertBefore,
             node,
             oldParent: node.parent,
             oldPrevious: node.previousSibling,
@@ -144,6 +146,7 @@ export class NodeLinkedList extends Node implements ILinkListNode {
                 node.nextSibling = this._firstChild;
                 this._firstChild = node;
             } else {
+                target.previousSibling!.nextSibling = node;
                 node.previousSibling = target.previousSibling;
                 node.nextSibling = target;
                 target.previousSibling = node;
@@ -151,37 +154,57 @@ export class NodeLinkedList extends Node implements ILinkListNode {
         }
         this._count++;
         this.handlePubAndHistory([record]);
+        Logger.debug(`inser before: ${node.name}`);
     }
 
     insertAfter(target: INode | undefined, node: INode): void {
         if (target !== undefined && !this.ensureIsChild(target)) return;
         let record: NodeRecord = {
-            action: node.parent === undefined ? "add" : "move",
+            action: NodeAction.insertAfter,
             oldParent: node.parent,
             oldPrevious: node.previousSibling,
             newParent: this,
             newPrevious: target,
             node,
         };
-        if (this.initParentAndAssertNotFirst(node)) {
-            if (target === undefined || target === this._lastChild) {
-                this.addToLast(node);
+        NodeLinkedList.insertNodeAfter(this, target, node);
+        this.handlePubAndHistory([record]);
+        Logger.debug(`inser after: ${node.name}`);
+    }
+
+    private static insertNodeAfter(parent: NodeLinkedList, target: INode | undefined, node: INode) {
+        if (parent.initParentAndAssertNotFirst(node)) {
+            if (target === undefined || target === parent._lastChild) {
+                parent.addToLast(node);
             } else {
+                target.nextSibling!.previousSibling = node;
                 node.nextSibling = target.nextSibling;
                 node.previousSibling = target;
                 target.nextSibling = node;
             }
         }
-        this._count++;
-        this.handlePubAndHistory([record]);
+        parent._count++;
     }
 
-    moveToAfter(child: INode, newParent: ILinkListNode, target?: INode | undefined): void {
-        if (this.ensureIsChild(child)) {
-            this.removeNode(child, false);
-            this._count--;
+    move(child: INode, newParent: NodeLinkedList, previousSibling?: INode): void {
+        if (previousSibling !== undefined && previousSibling.parent !== newParent) {
+            Logger.warn(`${previousSibling.name} is not a child node of the ${newParent.name} node`);
+            return;
         }
-        newParent.insertAfter(target, child);
+        let record: NodeRecord = {
+            action: NodeAction.move,
+            oldParent: child.parent,
+            oldPrevious: child.previousSibling,
+            newParent: newParent,
+            newPrevious: previousSibling,
+            node: child,
+        };
+
+        this.removeNode(child, false);
+        NodeLinkedList.insertNodeAfter(newParent, previousSibling, child);
+
+        this.handlePubAndHistory([record]);
+        Logger.debug(`move node: ${child.name}`);
     }
 
     protected onVisibleChanged() {
