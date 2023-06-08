@@ -23,7 +23,6 @@ export interface IView extends IPropertyChanged {
     setCursor(cursor: CursorType): void;
     pan(dx: number, dy: number): void;
     rotation(dx: number, dy: number): void;
-    startRotation(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
     detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): VisualShapeData[];
 }

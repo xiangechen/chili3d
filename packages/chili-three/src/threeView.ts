@@ -16,7 +16,6 @@ import {
 } from "chili-core";
 import {
     Camera,
-    Euler,
     Intersection,
     Object3D,
     OrthographicCamera,
@@ -25,7 +24,6 @@ import {
     Raycaster,
     Renderer,
     Scene,
-    Spherical,
     Vector3,
     WebGLRenderer,
 } from "three";
@@ -41,10 +39,8 @@ export class ThreeView extends Observable implements IView, IDisposable {
     private _renderer: Renderer;
     private _workplane: Plane;
     private _camera: Camera;
-    private _lastRedrawTime: number;
     private _target: Vector3;
     private _scale: number = 1;
-    private _startRotate?: XY;
     private _needRedraw: boolean = false;
 
     panSpeed: number = 0.3;
@@ -64,7 +60,6 @@ export class ThreeView extends Observable implements IView, IDisposable {
         this._target = new Vector3();
         this._workplane = workplane;
         this._camera = this.initCamera(container);
-        this._lastRedrawTime = this.getTime();
         this._renderer = this.initRender(container);
         this.animate();
     }
@@ -303,7 +298,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
     }
 
     direction(): XYZ {
-        var vec = new Vector3();
+        const vec = new Vector3();
         this._camera.getWorldDirection(vec);
         return ThreeHelper.toXYZ(vec);
     }
@@ -314,12 +309,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     private mouseToWorld(mx: number, my: number) {
         let { x, y } = this.screenToCameraRect(mx, my);
-        var vec = new Vector3(x, y, 0).unproject(this._camera);
-        return vec;
-    }
-
-    private getTime() {
-        return new Date().getTime();
+        return new Vector3(x, y, 0).unproject(this._camera);
     }
 
     rectDetected(mx1: number, mx2: number, my1: number, my2: number) {
@@ -341,8 +331,8 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     private detectThreeShapes(intersections: Intersection<Object3D>[]) {
         let result: VisualShapeData[] = [];
-        for (let i = 0; i < intersections.length; i++) {
-            const parent = intersections[i].object.parent;
+        for (const element of intersections) {
+            const parent = element.object.parent;
             if (parent instanceof ThreeShape) {
                 result.push({
                     owner: parent,
@@ -355,13 +345,12 @@ export class ThreeView extends Observable implements IView, IDisposable {
 
     private detectSubShapes(shapeType: ShapeType, intersections: Intersection<Object3D>[]) {
         let result: VisualShapeData[] = [];
-        for (let i = 0; i < intersections.length; i++) {
-            let item = intersections[i];
-            const parent = intersections[i].object.parent;
+        for (const element of intersections) {
+            const parent = element.object.parent;
             if (!(parent instanceof ThreeShape)) continue;
-            let index = this.getIndex(shapeType, item);
+            let index = this.getIndex(shapeType, element);
             if (index == undefined) continue;
-            let groups: ShapeMeshGroup[] = item.object.userData[Constants.GeometryGroupsKey];
+            let groups: ShapeMeshGroup[] = element.object.userData[Constants.GeometryGroupsKey];
             let groupIndex = ThreeHelper.findGroupIndex(groups, index)!;
             result.push({
                 owner: parent,

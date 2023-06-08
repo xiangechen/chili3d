@@ -18,9 +18,9 @@ import {
 } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapedData } from "../";
+import { AxesTracking } from "./axesTracking";
 import { Axis } from "./axis";
 import { ObjectTracking } from "./objectTracking";
-import { AxesTracking } from "./axesTracking";
 
 export interface TrackingData {
     axis: Axis;
@@ -96,7 +96,7 @@ export class TrackingSnap implements ISnapper {
             Config.instance.visual.temporaryEdgeColor,
             LineType.Dash
         );
-        return view.viewer.visual.context.temporaryDisplay(lineDats);
+        return view.viewer.visual.context.displayShapeMesh(lineDats);
     }
 
     private shapeIntersectTracking(
@@ -189,7 +189,7 @@ export class TrackingSnap implements ISnapper {
     removeDynamicObject(): void {
         this._tempLines.forEach((v, k) => {
             v.forEach((id) => {
-                k.viewer.visual.context.temporaryRemove(id);
+                k.viewer.visual.context.removeShapeMesh(id);
             });
         });
         this._tempLines.clear();

@@ -12,15 +12,7 @@ export interface IVisualContext {
     getModel(shape: IVisualShape): IModel | undefined;
     redrawModel(models: IModel[]): void;
     setVisible(model: IModel, visible: boolean): void;
-
     shapes(): IVisualShape[];
-
-    // addShape(shape: IShape): void;
-    // removeShape(shape: IShape): void;
-
-    hilighted(shape: IShape): void;
-    unHilighted(shape: IShape): void;
-
-    temporaryDisplay(...datas: ShapeMeshData[]): number;
-    temporaryRemove(id: number): void;
+    displayShapeMesh(...datas: ShapeMeshData[]): number;
+    removeShapeMesh(id: number): void;
 }

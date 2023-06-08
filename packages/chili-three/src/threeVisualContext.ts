@@ -4,14 +4,12 @@ import {
     Color,
     IModel,
     INode,
-    IShape,
     IVisualContext,
     IVisualShape,
     LineType,
     Matrix4,
     ShapeMeshData,
     ShapeType,
-    VisualState,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -20,7 +18,6 @@ import {
     LineBasicMaterial,
     LineDashedMaterial,
     LineSegments,
-    Material,
     Object3D,
     Points,
     PointsMaterial,
@@ -36,13 +33,11 @@ export class ThreeVisualContext implements IVisualContext {
 
     readonly modelShapes: Group;
     readonly tempShapes: Group;
-    readonly hilightedShapes: Group;
 
     constructor(readonly scene: Scene) {
         this.modelShapes = new Group();
         this.tempShapes = new Group();
-        this.hilightedShapes = new Group();
-        scene.add(this.modelShapes, this.tempShapes, this.hilightedShapes);
+        scene.add(this.modelShapes, this.tempShapes);
     }
 
     getModel(shape: IVisualShape): IModel | undefined {
@@ -52,19 +47,6 @@ export class ThreeVisualContext implements IVisualContext {
     redrawModel(models: IModel[]) {
         this.removeModel(models);
         this.addModel(models);
-    }
-
-    hilighted(shape: IShape) {
-        let threeShape = new ThreeShape(shape);
-        threeShape.name = shape.id;
-        threeShape.addState(VisualState.hilight, ShapeType.Shape);
-        this.hilightedShapes.add(threeShape);
-    }
-
-    unHilighted(shape: IShape): void {
-        let threeShape = this.hilightedShapes.getObjectByName(shape.id);
-        if (threeShape === undefined) return;
-        this.hilightedShapes.remove(threeShape);
     }
 
     get shapeCount() {
@@ -90,7 +72,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    temporaryDisplay(...datas: ShapeMeshData[]): number {
+    displayShapeMesh(...datas: ShapeMeshData[]): number {
         let group = new Group();
 
         datas.forEach((data) => {
@@ -119,7 +101,7 @@ export class ThreeVisualContext implements IVisualContext {
         return group!.id;
     }
 
-    temporaryRemove(id: number) {
+    removeShapeMesh(id: number) {
         let shape = this.tempShapes.getObjectById(id);
         if (shape === undefined) return;
         this.tempShapes.remove(shape);
@@ -186,30 +168,28 @@ export class ThreeVisualContext implements IVisualContext {
             obj.traverse((child) => {
                 if (child instanceof BufferGeometry) {
                     child.dispose();
-                } else if (child instanceof Material) {
-                    child.dispose();
                 }
             });
         });
     }
 
     findShapes(shapeType: ShapeType): Object3D[] {
-        let res = new Array<Object3D>();
-        if (shapeType === ShapeType.Shape) res.push(...this.modelShapes.children);
-        else {
-            this.modelShapes.traverse((x) => {
-                if (x instanceof ThreeShape) {
-                    if (shapeType === ShapeType.Edge) {
-                        let wireframe = x.edges();
-                        if (wireframe !== undefined) res.push(wireframe);
-                    } else if (shapeType === ShapeType.Face) {
-                        let faces = x.faces();
-                        if (faces !== undefined) res.push(faces);
-                    }
+        const shapes: Object3D[] = [];
+        if (shapeType === ShapeType.Shape) {
+            shapes.push(...this.modelShapes.children);
+        } else {
+            this.modelShapes.traverse((child) => {
+                if (!(child instanceof ThreeShape)) return;
+                if (shapeType === ShapeType.Edge) {
+                    let wireframe = child.edges();
+                    if (wireframe) shapes.push(wireframe);
+                } else if (shapeType === ShapeType.Face) {
+                    let faces = child.faces();
+                    if (faces) shapes.push(faces);
                 }
             });
         }
 
-        return res;
+        return shapes;
     }
 }

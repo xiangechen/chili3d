@@ -119,21 +119,21 @@ export abstract class SnapEventHandler implements IEventHandler {
             Config.instance.visual.temporaryVertexSize,
             Config.instance.visual.temporaryVertexColor
         );
-        this._tempPointId = view.viewer.visual.context.temporaryDisplay(data);
+        this._tempPointId = view.viewer.visual.context.displayShapeMesh(data);
         let shape = this.preview?.(point);
         if (shape !== undefined) {
             let edges = shape.mesh().edges;
-            if (edges !== undefined) this._tempShapeId = view.viewer.visual.context.temporaryDisplay(edges);
+            if (edges !== undefined) this._tempShapeId = view.viewer.visual.context.displayShapeMesh(edges);
         }
     }
 
     private removeTempShapes(view: IView) {
         if (this._tempPointId !== undefined) {
-            view.viewer.visual.context.temporaryRemove(this._tempPointId);
+            view.viewer.visual.context.removeShapeMesh(this._tempPointId);
             this._tempPointId = undefined;
         }
         if (this._tempShapeId !== undefined) {
-            view.viewer.visual.context.temporaryRemove(this._tempShapeId);
+            view.viewer.visual.context.removeShapeMesh(this._tempShapeId);
             this._tempShapeId = undefined;
         }
     }

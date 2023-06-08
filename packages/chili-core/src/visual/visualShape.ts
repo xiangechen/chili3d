@@ -7,7 +7,6 @@ export enum VisualState {
     normal = 0,
     hilight = 1,
     selected = 1 << 1,
-
     hilightAndSelected = hilight | selected,
 }
 

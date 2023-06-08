@@ -2,7 +2,7 @@
 
 import { Config, IDocument, IView, VertexMeshData } from "chili-core";
 
-import { ISnapper, MouseAndDetected, SnapedData } from "..";
+import { SnapedData } from "..";
 import { Axis } from "./axis";
 
 export interface ObjectTrackingAxis {
@@ -29,7 +29,7 @@ export class ObjectTracking {
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
             v.forEach((s) => {
-                k.visual.context.temporaryRemove(s.shapeId);
+                k.visual.context.removeShapeMesh(s.shapeId);
             });
         });
         this.trackings.clear();
@@ -71,7 +71,7 @@ export class ObjectTracking {
     }
 
     private removeTrackingPoint(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
-        document.visual.context.temporaryRemove(s.shapeId);
+        document.visual.context.removeShapeMesh(s.shapeId);
         this.trackings.set(
             document,
             snaps.filter((x) => x !== s)
@@ -84,7 +84,7 @@ export class ObjectTracking {
             Config.instance.visual.trackingVertexSize,
             Config.instance.visual.trackingVertexColor
         );
-        let pointId = document.visual.context.temporaryDisplay(data);
+        let pointId = document.visual.context.displayShapeMesh(data);
         snaps.push({ shapeId: pointId, snap });
     }
 }

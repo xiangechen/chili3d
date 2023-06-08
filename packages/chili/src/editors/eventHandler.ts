@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    Color,
     Config,
     CursorType,
     I18n,
@@ -34,12 +33,12 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
             Config.instance.visual.editVertexSize,
             Config.instance.visual.editVertexColor
         );
-        return this.document.visual.context.temporaryDisplay(start);
+        return this.document.visual.context.displayShapeMesh(start);
     }
 
     dispose(): void | Promise<void> {
         this.points.forEach((x) => {
-            this.document.visual.context.temporaryRemove(x.displayed);
+            this.document.visual.context.removeShapeMesh(x.displayed);
         });
         this.points.length = 0;
     }
@@ -66,7 +65,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     }
 
     protected setNewPoint(snaped: FeaturePoint, point: XYZ) {
-        this.document.visual.context.temporaryRemove(snaped.displayed);
+        this.document.visual.context.removeShapeMesh(snaped.displayed);
         snaped.point = point;
         snaped.displayed = this.showPoint(point);
         snaped.setter(point);

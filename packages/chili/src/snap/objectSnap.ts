@@ -45,7 +45,7 @@ export class ObjectSnap implements ISnapper {
     clear() {
         this.unHilighted();
         this._invisibleInfos.forEach((info) => {
-            info.displays.forEach((x) => info.view.viewer.visual.context.temporaryRemove(x));
+            info.displays.forEach((x) => info.view.viewer.visual.context.removeShapeMesh(x));
         });
         this.removeHint();
     }
@@ -70,7 +70,7 @@ export class ObjectSnap implements ISnapper {
 
     private removeHint() {
         if (this._hintVertex !== undefined) {
-            this._hintVertex[0].temporaryRemove(this._hintVertex[1]);
+            this._hintVertex[0].removeShapeMesh(this._hintVertex[1]);
             this._hintVertex = undefined;
         }
     }
@@ -109,7 +109,7 @@ export class ObjectSnap implements ISnapper {
             Config.instance.visual.hintVertexSize,
             Config.instance.visual.hintVertexColor
         );
-        this._hintVertex = [view.viewer.visual.context, view.viewer.visual.context.temporaryDisplay(data)];
+        this._hintVertex = [view.viewer.visual.context, view.viewer.visual.context.displayShapeMesh(data)];
     }
 
     private snapeInvisible(view: IView, x: number, y: number): SnapedData | undefined {
@@ -158,7 +158,7 @@ export class ObjectSnap implements ISnapper {
             Config.instance.visual.hintVertexSize,
             Config.instance.visual.hintVertexColor
         );
-        let id = view.viewer.visual.context.temporaryDisplay(temporary);
+        let id = view.viewer.visual.context.displayShapeMesh(temporary);
         this._invisibleInfos.set(shape, {
             view,
             snaps: [
