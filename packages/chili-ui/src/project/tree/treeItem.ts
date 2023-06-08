@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IModel, INode, Transaction } from "chili-core";
+import { IDocument, INode, Transaction } from "chili-core";
 import { Control, Label, Svg } from "../../components";
 import style from "./treeItem.module.css";
 

@@ -1,17 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    TaskManager,
+    AsyncToken,
+    Config,
+    I18n,
     IEventHandler,
     IView,
     MessageType,
     PubSub,
+    Result,
     ShapeType,
     VertexMeshData,
     XYZ,
-    I18n,
-    Result,
-    Config,
 } from "chili-core";
 
 import { ISnapper, MouseAndDetected, ShapePreviewer, SnapedData, Validator } from "../interfaces";
@@ -22,7 +22,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     protected _snaped?: SnapedData;
 
     constructor(
-        readonly token: TaskManager,
+        readonly token: AsyncToken,
         readonly snaps: ISnapper[],
         readonly validator?: Validator,
         readonly preview?: ShapePreviewer

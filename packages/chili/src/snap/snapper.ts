@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { TaskManager, CursorType, I18n, IDocument, PubSub, Logger } from "chili-core";
+import { AsyncToken, CursorType, I18n, IDocument, Logger, PubSub } from "chili-core";
 
+import { SnapedData } from "./interfaces";
 import {
     SnapEventHandler,
     SnapLengthAtAxisData,
@@ -11,13 +12,12 @@ import {
     SnapPointData,
     SnapPointEventHandler,
 } from "./snapEventHandler";
-import { SnapedData } from "./interfaces";
 
 export abstract class Snapper {
-    protected abstract getEventHandler(token: TaskManager): SnapEventHandler;
+    protected abstract getEventHandler(token: AsyncToken): SnapEventHandler;
 
     async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
-        let token: TaskManager = new TaskManager();
+        let token: AsyncToken = new AsyncToken();
         let executorHandler = this.getEventHandler(token);
         let beforeHandler = document.visual.eventHandler;
         await new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ export class PointSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: TaskManager): SnapEventHandler {
+    protected getEventHandler(token: AsyncToken): SnapEventHandler {
         return new SnapPointEventHandler(token, this.data);
     }
 }
@@ -57,7 +57,7 @@ export class LengthAtAxisSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: TaskManager): SnapEventHandler {
+    protected getEventHandler(token: AsyncToken): SnapEventHandler {
         return new SnapLengthAtAxisHandler(token, this.data);
     }
 }
@@ -67,7 +67,7 @@ export class LengthAtPlaneSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: TaskManager): SnapEventHandler {
+    protected getEventHandler(token: AsyncToken): SnapEventHandler {
         return new SnapLengthAtPlaneHandler(token, this.data);
     }
 }

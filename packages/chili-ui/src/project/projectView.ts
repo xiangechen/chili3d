@@ -2,8 +2,8 @@
 
 import { IDocument, PubSub } from "chili-core";
 import { Control, Label, Panel, Row } from "../components";
-import { Tree } from "./tree";
 import { ToolBar } from "./toolBar";
+import { Tree } from "./tree";
 
 import style from "./projectView.module.css";
 

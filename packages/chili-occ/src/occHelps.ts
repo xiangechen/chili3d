@@ -2,19 +2,15 @@
 
 import { CurveType, IShape, Plane, ShapeType, XYZ } from "chili-core";
 import {
-    BRepAdaptor_Curve,
     Geom_Curve,
-    GeomAbs_CurveType,
-    GeomAdaptor_Curve,
+    TopAbs_ShapeEnum,
+    TopoDS_Shape,
     gp_Ax2,
     gp_Ax3,
     gp_Dir,
     gp_Pln,
     gp_Pnt,
     gp_Vec,
-    Handle_Geom_Curve,
-    TopAbs_ShapeEnum,
-    TopoDS_Shape,
 } from "opencascade.js";
 
 import {

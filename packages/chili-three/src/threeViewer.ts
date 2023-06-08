@@ -2,8 +2,8 @@
 
 import { IVisual, Plane } from "chili-core";
 import { Viewer } from "chili-vis";
-import { ThreeView } from "./threeView";
 import { Scene } from "three";
+import { ThreeView } from "./threeView";
 
 export class ThreeViwer extends Viewer {
     constructor(visual: IVisual, private scene: Scene) {

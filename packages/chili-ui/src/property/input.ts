@@ -12,7 +12,7 @@ import {
     XYZ,
     XYZConverter,
 } from "chili-core";
-import { Label, TextBox, Panel } from "../components";
+import { Label, Panel, TextBox } from "../components";
 
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";

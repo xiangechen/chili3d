@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n } from "chili-core";
-import { Panel } from "../panel";
 import { Control } from "../control";
 import { Label } from "../label";
+import { Panel } from "../panel";
 import { Svg } from "../svg";
 import style from "./expander.module.css";
 

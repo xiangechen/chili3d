@@ -4,7 +4,7 @@ import { EventEmitter } from "events";
 import { IDocument } from "../document";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
-import { IHistoryRecord, PropertyHistoryRecord } from "./history";
+import { PropertyHistoryRecord } from "./history";
 import { Transaction } from "./transaction";
 
 const PropertyChangedEvent = "PropertyChangedEvent";

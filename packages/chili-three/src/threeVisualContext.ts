@@ -1,16 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    Color,
+    IModel,
+    INode,
     IShape,
     IVisualContext,
     IVisualShape,
     LineType,
-    ShapeType,
     Matrix4,
-    INode,
-    IModel,
-    Color,
     ShapeMeshData,
+    ShapeType,
     VisualState,
 } from "chili-core";
 import {
@@ -19,16 +19,16 @@ import {
     Group,
     LineBasicMaterial,
     LineDashedMaterial,
+    LineSegments,
     Material,
-    Matrix4 as ThreeMatrix4,
     Object3D,
     Points,
     PointsMaterial,
     Scene,
-    LineSegments,
+    Matrix4 as ThreeMatrix4,
 } from "three";
-import { ThreeShape } from "./threeShape";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeShape } from "./threeShape";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();

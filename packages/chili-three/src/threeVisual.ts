@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
-import { AxesHelper, DirectionalLight, Object3D, Scene } from "three";
 import { SelectionHandler } from "chili-vis";
+import { AxesHelper, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeViewHandler } from "./threeViewEventHandler";
-import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeViwer } from "./threeViewer";
+import { ThreeVisualContext } from "./threeVisualContext";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 const DefaultEventHandler: IEventHandler = new SelectionHandler();

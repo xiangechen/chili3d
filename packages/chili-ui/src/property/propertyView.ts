@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, GeometryModel, IModel, Property, PubSub, INode } from "chili-core";
-import { Control, Panel, Expander, Label } from "../components";
+import { GeometryModel, IDocument, INode, Property, PubSub } from "chili-core";
+import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";

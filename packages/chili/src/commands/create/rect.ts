@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, IDocument, MathUtils, GeometryModel, Plane, Token, XYZ } from "chili-core";
-import { IShapeFactory } from "chili-geo";
+import { command, IDocument, MathUtils, GeometryModel, Plane, XYZ } from "chili-core";
 import { Application } from "chili-core/src/application";
 
 import { RectBody } from "../../bodys";

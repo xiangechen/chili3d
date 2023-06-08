@@ -2,13 +2,13 @@
 
 import {
     EdgeMeshData,
-    IShape,
-    VertexMeshData,
+    EdgeMeshDataBuilder,
     FaceMeshData,
+    FaceMeshDataBuilder,
+    IShape,
     IShapeMeshData,
     MeshDataBuilder,
-    FaceMeshDataBuilder,
-    EdgeMeshDataBuilder,
+    VertexMeshData,
 } from "chili-core";
 import {
     Handle_Poly_Triangulation,

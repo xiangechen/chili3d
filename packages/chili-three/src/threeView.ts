@@ -2,20 +2,15 @@
 
 import {
     CursorType,
-    VisualShapeData,
     IDisposable,
-    IDocument,
-    ISelection,
-    IShape,
     IView,
     IViewer,
-    IVisual,
-    IVisualShape,
-    ShapeMeshGroup,
     Observable,
     Plane,
     Ray,
+    ShapeMeshGroup,
     ShapeType,
+    VisualShapeData,
     XY,
     XYZ,
 } from "chili-core";
@@ -33,12 +28,10 @@ import {
     WebGLRenderer,
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
-import { SelectionHelper } from "three/examples/jsm/interactive/SelectionHelper";
 
+import { Constants } from "./constants";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
-import { ThreeVisual } from "./threeVisual";
-import { Constants } from "./constants";
 
 export class ThreeView extends Observable implements IView, IDisposable {
     private _name: string;

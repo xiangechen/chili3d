@@ -1,12 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, PubSub } from "chili-core";
-import { Control, Label, Panel } from "../components";
-import { RibbonButton } from "./ribbonButton";
-import { RibbonButtonSize } from "./ribbonButtonSize";
+import { I18n } from "chili-core";
+import { Control, Label } from "../components";
 import { RibbonTabData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
-import { RibbonStack } from "./ribbonStack";
 import style from "./ribbonTab.module.css";
 
 export class RibbonTab extends Control {

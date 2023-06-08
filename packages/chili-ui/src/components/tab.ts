@@ -2,7 +2,7 @@
 
 import { I18n } from "chili-core";
 
-import { Control, Label, Row, Panel } from ".";
+import { Control, Label, Panel, Row } from ".";
 import style from "./tab.module.css";
 
 export class Tab extends Control {

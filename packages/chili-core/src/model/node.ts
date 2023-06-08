@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObservable, ICollection, IPropertyChanged, PubSub } from "../base";
+import { HistoryObservable, IPropertyChanged } from "../base";
 import { property } from "../decorators";
 import { IDocument } from "../document";
-import { ICompound, IShape } from "../geometry";
+import { IShape } from "../geometry";
 import { Id } from "../id";
-import { Quaternion, Matrix4, XYZ } from "../math";
+import { Matrix4, Quaternion, XYZ } from "../math";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged {

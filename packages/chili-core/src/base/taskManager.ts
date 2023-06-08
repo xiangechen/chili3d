@@ -2,7 +2,7 @@
 
 import { IDisposable } from "./disposable";
 
-export class TaskManager implements IDisposable {
+export class AsyncToken implements IDisposable {
     private readonly _cancelHandles: ((arg: any) => void)[] = [];
     private readonly _completeHandles: ((arg: any) => void)[] = [];
 
@@ -42,7 +42,7 @@ export class TaskManager implements IDisposable {
         this._completeHandles.push(listener);
     }
 
-    dispose(): void | Promise<void> {
+    dispose(): void {
         this._cancelHandles.length = 0;
         this._completeHandles.length = 0;
     }

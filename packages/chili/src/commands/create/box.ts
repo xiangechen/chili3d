@@ -1,9 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, IDocument, GeometryModel, Plane, Token, XYZ } from "chili-core";
-import { IShapeFactory } from "chili-geo";
-import { Application } from "chili-core/src/application";
-
+import { Application, command, IDocument, GeometryModel, Plane, XYZ } from "chili-core";
 import { BoxBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";

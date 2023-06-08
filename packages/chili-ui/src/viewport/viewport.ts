@@ -2,7 +2,6 @@
 
 import { IDocument, Plane, PubSub, XYZ } from "chili-core";
 import { Control, Flyout, Panel } from "../components";
-import { ViewControl } from "./view";
 import style from "./viewport.module.css";
 
 export class Viewport extends Control {

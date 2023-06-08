@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub, INode, NodeRecord, Transaction } from "chili-core";
+import { IDocument, INode, NodeRecord, PubSub, Transaction } from "chili-core";
+import { Control } from "../../components";
 import style from "./tree.module.css";
-import { TreeModel } from "./treeModel";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
-import { Control } from "../../components";
+import { TreeModel } from "./treeModel";
 
 export class Tree extends Control {
     private readonly nodeMap = new WeakMap<INode, TreeItem>();
@@ -24,11 +24,9 @@ export class Tree extends Control {
 
     private handleNodeLinkedChanged = (records: NodeRecord[]) => {
         this.ensureHasHTML(records);
-
         for (const record of records) {
             let ele = this.nodeMap.get(record.node);
             if (ele === undefined) continue;
-
             if (record.oldParent !== undefined) {
                 this.nodeMap.get(record.oldParent)?.removeChild(ele);
             }
@@ -84,7 +82,7 @@ export class Tree extends Control {
         let result: TreeItem;
         if (INode.isLinkListNode(node)) result = new TreeGroup(document, node);
         else if (INode.isModelNode(node)) result = new TreeModel(node);
-        else throw "unknown node";
+        else throw new Error("unknown node");
 
         result.onConnectedCallback(() => this.addEvents(result));
         result.onDisconnectedCallback(() => this.removeEvents(result));

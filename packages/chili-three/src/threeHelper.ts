@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Color, XYZ } from "chili-core";
-import { Camera, Color as ThreeColor, OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
+import { Camera, OrthographicCamera, PerspectiveCamera, Color as ThreeColor, Vector3 } from "three";
 
 export class ThreeHelper {
     static toXYZ(vector: Vector3): XYZ {

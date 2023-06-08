@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, Lazy, PubSub } from "chili-core";
+import { Lazy, PubSub } from "chili-core";
 import { Panel } from "./components";
-import { Ribbon } from "./ribbon";
-import { Viewport } from "./viewport";
-import { Statusbar } from "./statusbar";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
+import { Ribbon } from "./ribbon";
+import { Statusbar } from "./statusbar";
+import { Viewport } from "./viewport";
 
 import style from "./ui.module.css";
 

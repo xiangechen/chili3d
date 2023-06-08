@@ -1,12 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Plane, Ray, XY, XYZ } from "../math";
 import { IPropertyChanged } from "../base";
+import { ShapeType } from "../geometry";
+import { Plane, Ray, XY, XYZ } from "../math";
 import { CursorType } from "./cursorType";
-import { IViewer } from "./viewer";
-import { IShape, ShapeType } from "../geometry";
-import { IVisualShape } from "./visualShape";
 import { VisualShapeData } from "./detectedData";
+import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged {
     readonly viewer: IViewer;

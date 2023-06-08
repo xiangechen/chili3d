@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ILinkListNode, IDocument, INode } from "chili-core";
-import { Svg, Column, Row } from "../../components";
+import { IDocument, ILinkListNode } from "chili-core";
+import { Column, Row, Svg } from "../../components";
 import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 

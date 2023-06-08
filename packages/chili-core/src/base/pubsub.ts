@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands } from "../commands";
-import { IDisposable } from "./disposable";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
-import { MessageType } from "./messageType";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
+import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
+import { MessageType } from "./messageType";
 import { Result } from "./result";
 
 export interface PubSubEventMap {

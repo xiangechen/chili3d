@@ -92,6 +92,10 @@ export class Document extends Observable implements IDocument {
         this._documentMap.set(document.id, document);
     }
 
+    addNode(...nodes: INode[]): void {
+        (this.currentNode ?? this.rootNode).add(...nodes);
+    }
+
     toJson() {
         return {
             id: this.id,

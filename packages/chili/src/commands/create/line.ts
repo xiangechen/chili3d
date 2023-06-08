@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, Container, IDocument, GeometryModel, Token, XYZ } from "chili-core";
-import { IShapeFactory } from "chili-geo";
+import { command, IDocument, GeometryModel, XYZ } from "chili-core";
 import { Application } from "chili-core/src/application";
 
 import { LineBody } from "../../bodys";
@@ -22,11 +21,10 @@ export class Line extends CreateCommand {
         return new GeometryModel(document, `Line ${Line.count++}`, body);
     }
 
-    override afterExcute(document: IDocument): boolean {
+    override afterExcute(document: IDocument): Promise<void> {
         this.stepDatas[0] = this.stepDatas[1];
         this.stepDatas.length = 1;
-        this.excuteFromStep(document, 1);
-        return true;
+        return this.excuteFromStep(document, 1);
     }
 
     getSteps(): IStep[] {

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IDisposable, Result, i18n } from "chili-core";
+import { I18n, IDisposable, Result } from "chili-core";
 import { Control } from "../control";
 import { Label } from "../label";
 import { TextBox } from "../textbox";

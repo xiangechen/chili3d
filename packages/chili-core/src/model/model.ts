@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { Logger, Result } from "../base";
 import { property } from "../decorators";
 import { IDocument } from "../document";
-import { Quaternion, Matrix4, XYZ } from "../math";
-import { IModel, IModelGroup, INode, Node } from "./node";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
-import { Feature } from "./feature";
+import { Matrix4, Quaternion, XYZ } from "../math";
 import { Entity } from "./entity";
-import { Logger, PubSub, Result } from "../base";
+import { Feature } from "./feature";
+import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
     private _translation: XYZ;

@@ -9,13 +9,13 @@ export abstract class CreateCommand implements ICommand {
     protected stepDatas: SnapedData[] = [];
 
     async excute(document: IDocument): Promise<void> {
-        this.excuteFromStep(document, 0);
+        await this.excuteFromStep(document, 0);
     }
 
     protected async excuteFromStep(document: IDocument, step: number): Promise<void> {
         if (!(await this.performSteps(document, step))) return;
         this.createModel(document);
-        this.afterExcute(document);
+        await this.afterExcute(document);
     }
 
     private async performSteps(document: IDocument, startIndex: number): Promise<boolean> {
@@ -37,14 +37,15 @@ export abstract class CreateCommand implements ICommand {
     private createModel(document: IDocument) {
         Transaction.excute(document, `add model`, () => {
             let model = this.create(document);
-            (document.currentNode ?? document.rootNode).add(model);
+            document.addNode(model);
             document.visual.viewer.redraw();
         });
     }
 
     protected abstract create(document: IDocument): GeometryModel;
 
-    protected afterExcute(document: IDocument) {
+    protected afterExcute(document: IDocument): Promise<void> {
         /* 空 */
+        return Promise.resolve();
     }
 }

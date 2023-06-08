@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { I18n, MessageType, PubSub, Result } from "chili-core";
-import { Input } from "./input";
-import { Tip } from "./tip";
 import { Control } from "../control";
 import style from "./flyout.module.css";
+import { Input } from "./input";
+import { Tip } from "./tip";
 
 export class Flyout extends Control {
     private _tip: Tip | undefined;

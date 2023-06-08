@@ -1,11 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ILinkListNode, IDocument, History, ISelection, IView, PropertyChangedHandler } from "chili-core";
+import {
+    History,
+    IDocument,
+    ILinkListNode,
+    INode,
+    ISelection,
+    IView,
+    PropertyChangedHandler,
+} from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
 
 export class TestDocument implements IDocument {
     name: string;
-    currentNode?: ILinkListNode | undefined;
+    currentNode: ILinkListNode | undefined;
     id: string;
     history: History;
     selection: ISelection;
@@ -29,5 +37,8 @@ export class TestDocument implements IDocument {
         this.history = {} as any;
         this.selection = {} as any;
         this.rootNode = {} as any;
+    }
+    addNode(...nodes: INode[]): void {
+        throw new Error("Method not implemented.");
     }
 }

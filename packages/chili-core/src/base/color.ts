@@ -36,66 +36,6 @@ export class Color {
         return new Color(r, g, b, a);
     }
 
-    static fromHSV(h: number, s: number, v: number): Color {
-        return Color.fromHSVA(h, s, v, 1);
-    }
-
-    static fromHSVA(h: number, s: number, v: number, a: number): Color {
-        let r = 0,
-            g = 0,
-            b = 0;
-        if (s == 0) {
-            r = g = b = v;
-        } else {
-            let i = Math.floor(h * 6);
-            let f = h * 6 - i;
-            let p = v * (1 - s);
-            let q = v * (1 - f * s);
-            let t = v * (1 - (1 - f) * s);
-            switch (i % 6) {
-                case 0:
-                    (r = v), (g = t), (b = p);
-                    break;
-                case 1:
-                    (r = q), (g = v), (b = p);
-                    break;
-                case 2:
-                    (r = p), (g = v), (b = t);
-                    break;
-                case 3:
-                    (r = p), (g = q), (b = v);
-                    break;
-                case 4:
-                    (r = t), (g = p), (b = v);
-                    break;
-                case 5:
-                    (r = v), (g = p), (b = q);
-                    break;
-            }
-        }
-        return new Color(r, g, b, a);
-    }
-
-    static fromHSL(h: number, s: number, l: number): Color {
-        return Color.fromHSLA(h, s, l, 1);
-    }
-
-    static fromHSLA(h: number, s: number, l: number, a: number): Color {
-        let r = 0,
-            g = 0,
-            b = 0;
-        if (s == 0) {
-            r = g = b = l;
-        } else {
-            let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            let p = 2 * l - q;
-            r = Color.hue2rgb(p, q, h + 1 / 3);
-            g = Color.hue2rgb(p, q, h);
-            b = Color.hue2rgb(p, q, h - 1 / 3);
-        }
-        return new Color(r, g, b, a);
-    }
-
     static hue2rgb(p: number, q: number, t: number): number {
         if (t < 0) t += 1;
         if (t > 1) t -= 1;
@@ -145,38 +85,6 @@ export class Color {
             hex = "0" + hex;
         }
         return hex;
-    }
-
-    toHSV(): { h: number; s: number; v: number } {
-        let r = this.r,
-            g = this.g,
-            b = this.b;
-        let max = Math.max(r, g, b),
-            min = Math.min(r, g, b);
-        let h = 0,
-            s = 0,
-            v = max;
-        let d = max - min;
-        if (max != 0) {
-            s = d / max;
-        }
-        if (max == min) {
-            h = 0;
-        } else {
-            switch (max) {
-                case r:
-                    h = (g - b) / d + (g < b ? 6 : 0);
-                    break;
-                case g:
-                    h = (b - r) / d + 2;
-                    break;
-                case b:
-                    h = (r - g) / d + 4;
-                    break;
-            }
-            h /= 6;
-        }
-        return { h, s, v };
     }
 }
 

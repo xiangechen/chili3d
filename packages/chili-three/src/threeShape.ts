@@ -2,30 +2,29 @@
 
 import {
     Color,
+    Config,
     EdgeMeshData,
     FaceMeshData,
     IShape,
     IVisualShape,
     ShapeMeshData,
-    Config,
     ShapeType,
     VisualState,
 } from "chili-core";
 import {
     BufferGeometry,
-    Color as ThreeColor,
+    DoubleSide,
     Float32BufferAttribute,
     LineBasicMaterial,
+    LineSegments,
     Mesh,
     MeshBasicMaterial,
     Object3D,
-    LineSegments,
-    DoubleSide,
+    Color as ThreeColor,
 } from "three";
-import { MeshBVH } from "three-mesh-bvh";
 
-import { ThreeHelper } from "./threeHelper";
 import { Constants } from "./constants";
+import { ThreeHelper } from "./threeHelper";
 
 let hilightEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.highlightEdgeColor),

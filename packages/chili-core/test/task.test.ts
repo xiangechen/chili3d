@@ -2,10 +2,10 @@
 
 import "reflect-metadata";
 
-import { TaskManager } from "../src";
+import { AsyncToken } from "../src";
 
 test("test cancel", async () => {
-    let token = new TaskManager();
+    let token = new AsyncToken();
     expect(token.isCancelled).toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
@@ -17,7 +17,7 @@ test("test cancel", async () => {
 });
 
 test("test complete", async () => {
-    let token = new TaskManager();
+    let token = new AsyncToken();
     expect(token.isCompleted).toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {

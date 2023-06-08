@@ -3,7 +3,7 @@
 import { Logger, NodeRecord, NodesHistoryRecord, PubSub, Transaction } from "../base";
 import { IDocument } from "../document";
 import { Id } from "../id";
-import { ILinkListNode, IModel, INode, Node } from "./node";
+import { ILinkListNode, INode, Node } from "./node";
 
 export class NodeLinkedList extends Node implements ILinkListNode {
     private _count: number = 0;

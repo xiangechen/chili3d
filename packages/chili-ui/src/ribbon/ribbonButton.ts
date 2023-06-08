@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, Container, ICommand, Logger, Token } from "chili-core";
+import { CommandData, Logger } from "chili-core";
 import { Control, Label, Svg } from "../components";
-import { RibbonButtonSize } from "./ribbonButtonSize";
 import style from "./ribbonButton.module.css";
+import { RibbonButtonSize } from "./ribbonButtonSize";
 
 export class RibbonButton extends Control {
     constructor(readonly commandName: string, size: RibbonButtonSize, handleCommand: (name: string) => void) {
