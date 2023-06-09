@@ -36,9 +36,9 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             records.push({
                 action: NodeAction.add,
                 node: item,
-                oldParent: item.parent,
+                oldParent: undefined,
+                oldPrevious: undefined,
                 newParent: this,
-                oldPrevious: item.previousSibling,
                 newPrevious: this._lastChild,
             });
             if (this.initParentAndAssertNotFirst(item)) {
@@ -135,8 +135,8 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         let record: NodeRecord = {
             action: NodeAction.insertBefore,
             node,
-            oldParent: node.parent,
-            oldPrevious: node.previousSibling,
+            oldParent: undefined,
+            oldPrevious: undefined,
             newParent: this,
             newPrevious: target?.previousSibling,
         };
@@ -161,8 +161,8 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         if (target !== undefined && !this.ensureIsChild(target)) return;
         let record: NodeRecord = {
             action: NodeAction.insertAfter,
-            oldParent: node.parent,
-            oldPrevious: node.previousSibling,
+            oldParent: undefined,
+            oldPrevious: undefined,
             newParent: this,
             newPrevious: target,
             node,
@@ -174,7 +174,11 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     private static insertNodeAfter(parent: NodeLinkedList, target: INode | undefined, node: INode) {
         if (parent.initParentAndAssertNotFirst(node)) {
-            if (target === undefined || target === parent._lastChild) {
+            if (target === undefined) {
+                parent._firstChild!.previousSibling = node;
+                node.nextSibling = parent._firstChild;
+                parent._firstChild = node;
+            } else if (target === parent._lastChild) {
                 parent.addToLast(node);
             } else {
                 target.nextSibling!.previousSibling = node;
@@ -199,7 +203,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             newPrevious: previousSibling,
             node: child,
         };
-
         this.removeNode(child, false);
         NodeLinkedList.insertNodeAfter(newParent, previousSibling, child);
 

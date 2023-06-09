@@ -72,7 +72,11 @@ export class TreeGroup extends TreeItem {
     }
 
     insertAfter(item: TreeItem, child: TreeItem | null): void {
-        this.items.insertBefore(item, child?.nextSibling ?? null);
+        if (child === null) {
+            this.items.insertBefore(item, this.items.firstChild);
+        } else {
+            this.items.insertBefore(item, child?.nextSibling ?? null);
+        }
     }
 }
 
