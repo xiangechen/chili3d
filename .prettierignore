@@ -1,4 +1,5 @@
 occ-wasm
 public/iconfont.js
 build
+dist
 coverage
