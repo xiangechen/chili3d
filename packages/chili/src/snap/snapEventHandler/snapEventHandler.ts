@@ -18,7 +18,7 @@ import { ISnapper, MouseAndDetected, SnapPreviewer, SnapValidator, SnapedData } 
 
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPointId?: number;
-    private _tempShapeId?: number;
+    private _tempShapeIds?: number[];
     protected _snaped?: SnapedData;
 
     constructor(
@@ -120,21 +120,21 @@ export abstract class SnapEventHandler implements IEventHandler {
             Config.instance.visual.temporaryVertexColor
         );
         this._tempPointId = view.viewer.visual.context.displayShapeMesh(data);
-        let shape = this.preview?.(point);
-        if (shape !== undefined) {
-            this._tempShapeId = view.viewer.visual.context.displayShapeMesh(shape);
-        }
+        let shapes = this.preview?.(point);
+        this._tempShapeIds = shapes?.map((shape) => {
+            return view.viewer.visual.context.displayShapeMesh(shape);
+        });
     }
 
     private removeTempShapes(view: IView) {
-        if (this._tempPointId !== undefined) {
+        if (this._tempPointId) {
             view.viewer.visual.context.removeShapeMesh(this._tempPointId);
             this._tempPointId = undefined;
         }
-        if (this._tempShapeId !== undefined) {
-            view.viewer.visual.context.removeShapeMesh(this._tempShapeId);
-            this._tempShapeId = undefined;
-        }
+        this._tempShapeIds?.forEach((x) => {
+            view.viewer.visual.context.removeShapeMesh(x);
+        });
+        this._tempShapeIds = undefined;
     }
 
     pointerDown(view: IView, event: MouseEvent): void {

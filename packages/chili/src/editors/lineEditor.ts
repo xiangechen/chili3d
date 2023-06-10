@@ -42,6 +42,6 @@ export class LineEditorEventHandler extends EditorEventHandler {
     }
 
     private linePreview = (s: XYZ, e: XYZ) => {
-        return Application.instance.shapeFactory.line(s, e).value!.mesh().edges;
+        return [Application.instance.shapeFactory.line(s, e).value!.mesh().edges!];
     };
 }

@@ -38,7 +38,7 @@ export class Move extends MultistepCommand {
         };
     };
 
-    private movePreview = (point: XYZ): EdgeMeshData | undefined => {
+    private movePreview = (point: XYZ) => {
         let start = this.stepDatas[0].point;
         let positions = [...this.positions!];
         let { x, y, z } = point.sub(start);
@@ -48,12 +48,14 @@ export class Move extends MultistepCommand {
             else if (i % 3 === 2) positions[i] += z;
         }
         positions.push(start.x, start.y, start.z, point.x, point.y, point.z);
-        return {
-            positions,
-            lineType: LineType.Solid,
-            color: Config.instance.visual.temporaryEdgeColor,
-            groups: [],
-        };
+        return [
+            {
+                positions,
+                lineType: LineType.Solid,
+                color: Config.instance.visual.temporaryEdgeColor,
+                groups: [],
+            },
+        ];
     };
 
     protected override beforeExcute(document: IDocument): Promise<boolean> {

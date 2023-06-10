@@ -62,7 +62,7 @@ export class CircleEditorEventHandler extends EditorEventHandler {
     };
 
     private circlePreview = (c: XYZ, r: number) => {
-        return Application.instance.shapeFactory.circle(this.circle.normal, c, r).value!.mesh().edges;
+        return [Application.instance.shapeFactory.circle(this.circle.normal, c, r).value!.mesh().edges!];
     };
 
     private getRadiusPoint() {

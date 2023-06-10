@@ -4,7 +4,7 @@ import { IDocument, IView, ShapeMeshData, VisualShapeData, XYZ } from "chili-cor
 
 export type SnapValidator = (point: XYZ) => boolean;
 
-export type SnapPreviewer = (point: XYZ) => ShapeMeshData | undefined;
+export type SnapPreviewer = (point: XYZ) => ShapeMeshData[];
 
 export interface SnapedData {
     view: IView;
