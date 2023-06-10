@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IModel, INode, IShape, XYZ, command } from "chili-core";
+import { IDocument, IModel, INode, IShape, ShapeMeshData, XYZ, command } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 import { IStep, PointStep } from "../../step";
 import { Dimension, SnapPointData } from "../../snap";
@@ -27,7 +27,7 @@ export class Move extends MultistepCommand {
         };
     };
 
-    private movePreview = (point: XYZ): IShape | undefined => {
+    private movePreview = (point: XYZ): ShapeMeshData | undefined => {
         return;
     };
 

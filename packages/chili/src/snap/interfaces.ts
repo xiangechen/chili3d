@@ -1,14 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { VisualShapeData, IShape, IView, XYZ, IDocument } from "chili-core";
+import { IDocument, IView, ShapeMeshData, VisualShapeData, XYZ } from "chili-core";
 
-export interface Validator {
-    (point: XYZ): boolean;
-}
+export type SnapValidator = (point: XYZ) => boolean;
 
-export interface ShapePreviewer {
-    (point: XYZ): IShape | undefined;
-}
+export type SnapPreviewer = (point: XYZ) => ShapeMeshData | undefined;
 
 export interface SnapedData {
     view: IView;

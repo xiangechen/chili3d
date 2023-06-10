@@ -1,15 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IDocument, IView, XYZ } from "chili-core";
+import { I18n, IDocument, XYZ } from "chili-core";
 
-import { SnapedData, Snapper, Validator } from "../snap";
+import { SnapedData, Snapper, SnapValidator } from "../snap";
 
 export interface IStep {
     perform(document: IDocument): Promise<SnapedData | undefined>;
 }
 
 export interface ValidatorData {
-    validator?: Validator;
+    validator?: SnapValidator;
 }
 
 export abstract class StepBase<D extends ValidatorData> implements IStep {

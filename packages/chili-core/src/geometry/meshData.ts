@@ -87,6 +87,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     addColor(r: number, g: number, b: number) {
         if (this._vertexColor === undefined) this._vertexColor = [];
         this._vertexColor.push(r, g, b);
+        return this;
     }
 
     protected getColor() {
@@ -97,11 +98,11 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
         return color;
     }
 
-    abstract newGroup(): void;
+    abstract newGroup(): this;
 
-    abstract endGroup(shape: IShape): void;
+    abstract endGroup(shape: IShape): this;
 
-    abstract addPosition(x: number, y: number, z: number): void;
+    abstract addPosition(x: number, y: number, z: number): this;
 
     abstract build(): T;
 }
@@ -126,6 +127,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     override newGroup() {
         this._positionStart = this._positions.length;
         this._previousVertex = undefined;
+        return this;
     }
 
     override endGroup(shape: IShape) {
@@ -134,6 +136,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
             count: (this._positions.length - this._positionStart) / 3,
             shape,
         });
+        return this;
     }
 
     override addPosition(x: number, y: number, z: number) {
@@ -141,6 +144,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
             this._positions.push(...this._previousVertex, x, y, z);
         }
         this._previousVertex = [x, y, z];
+        return this;
     }
 
     override build(): EdgeMeshData {
@@ -169,6 +173,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     override newGroup() {
         this._groupStart = this._indices.length;
         this._indexStart = this._positions.length / 3;
+        return this;
     }
 
     override endGroup(shape: IShape) {
@@ -177,22 +182,27 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
             count: this._indices.length - this._groupStart,
             shape,
         });
+        return this;
     }
 
     override addPosition(x: number, y: number, z: number) {
         this._positions.push(x, y, z);
+        return this;
     }
 
     addNormal(x: number, y: number, z: number) {
         this._normals.push(x, y, z);
+        return this;
     }
 
     addUV(u: number, v: number) {
         this._uvs.push(u, v);
+        return this;
     }
 
     addIndices(i1: number, i2: number, i3: number) {
         this._indices.push(this._indexStart + i1, this._indexStart + i2, this._indexStart + i3);
+        return this;
     }
 
     build(): FaceMeshData {

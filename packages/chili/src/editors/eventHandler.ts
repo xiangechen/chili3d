@@ -11,11 +11,11 @@ import {
     VertexMeshData,
     XYZ,
 } from "chili-core";
-import { ShapePreviewer, Snapper } from "../snap";
+import { SnapPreviewer, Snapper } from "../snap";
 
 export interface FeaturePoint {
     point: XYZ;
-    preview: ShapePreviewer;
+    preview: SnapPreviewer;
     displayed: number;
     tip: keyof I18n;
     setter: (newPoint: XYZ) => void;

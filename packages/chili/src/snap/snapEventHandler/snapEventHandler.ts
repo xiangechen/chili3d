@@ -14,7 +14,7 @@ import {
     XYZ,
 } from "chili-core";
 
-import { ISnapper, MouseAndDetected, ShapePreviewer, SnapedData, Validator } from "../interfaces";
+import { ISnapper, MouseAndDetected, SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPointId?: number;
@@ -24,8 +24,8 @@ export abstract class SnapEventHandler implements IEventHandler {
     constructor(
         readonly token: AsyncToken,
         readonly snaps: ISnapper[],
-        readonly validator?: Validator,
-        readonly preview?: ShapePreviewer
+        readonly validator?: SnapValidator,
+        readonly preview?: SnapPreviewer
     ) {}
 
     get snaped() {
@@ -122,8 +122,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         this._tempPointId = view.viewer.visual.context.displayShapeMesh(data);
         let shape = this.preview?.(point);
         if (shape !== undefined) {
-            let edges = shape.mesh().edges;
-            if (edges !== undefined) this._tempShapeId = view.viewer.visual.context.displayShapeMesh(edges);
+            this._tempShapeId = view.viewer.visual.context.displayShapeMesh(shape);
         }
     }
 

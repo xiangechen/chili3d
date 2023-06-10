@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IShape, XYZ } from "chili-core";
+import { IDocument, IShape, ShapeMeshData, XYZ } from "chili-core";
 import { Application } from "chili-core/src/application";
 import { LineBody } from "../bodys";
 import { Dimension, PointSnapper, Snapper } from "../snap";
@@ -41,7 +41,7 @@ export class LineEditorEventHandler extends EditorEventHandler {
         ];
     }
 
-    private linePreview = (s: XYZ, e: XYZ): IShape => {
-        return Application.instance.shapeFactory.line(s, e).value!;
+    private linePreview = (s: XYZ, e: XYZ) => {
+        return Application.instance.shapeFactory.line(s, e).value!.mesh().edges;
     };
 }
