@@ -2,6 +2,7 @@
 
 export * from "./delete";
 export * from "./create";
+export * from "./modify";
 export * from "./folder";
 export * from "./redo";
 export * from "./undo";

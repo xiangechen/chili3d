@@ -45,6 +45,7 @@ type Keys =
     | "command.box"
     | "command.circle"
     | "command.rect"
+    | "command.move"
     | "command.polygon"
     | "operate.pickFistPoint"
     | "operate.pickNextPoint"

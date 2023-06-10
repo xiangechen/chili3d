@@ -12,6 +12,7 @@ export class Commands {
     Delete = "Delete";
     Undo = "Undo";
     Redo = "Redo";
+    Move = "Move";
 
     private constructor() {}
 

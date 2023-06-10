@@ -8,6 +8,10 @@ export const DefaultRibbon: RibbonData = [
                 groupName: "ribbon.group.draw",
                 items: ["Line", "Rect", "Circle", "Box", ["PLine", "Circle"]],
             },
+            {
+                groupName: "ribbon.group.draw",
+                items: ["Move"],
+            },
         ],
     },
     {

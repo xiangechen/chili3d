@@ -29,6 +29,7 @@ let zh: I18n = {
     "command.line": "直线",
     "command.newGroup": "新建组",
     "command.newFolder": "新建文件夹",
+    "command.move": "移动",
     "snap.end": "端点",
     "snap.mid": "中点",
     "snap.center": "圆心",
