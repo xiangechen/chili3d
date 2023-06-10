@@ -1,16 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    CursorType,
-    IDocument,
-    IView,
-    IViewer,
-    IVisual,
-    Plane,
-    PubSub,
-    PubSubEventMap,
-    ShapeType,
-} from "chili-core";
+import { CursorType, IView, IViewer, IVisual, Plane, PubSub, PubSubEventMap } from "chili-core";
 
 interface EventData {
     container: HTMLElement | Window;
@@ -77,6 +67,7 @@ export abstract class Viewer implements IViewer {
 
         this.addEventListener(container, view, "pointerdown", (e) => this.pointerDown(view, e));
         this.addEventListener(container, view, "pointermove", (e) => this.pointerMove(view, e));
+        this.addEventListener(container, view, "pointerout", (e) => this.pointerOut(view, e));
         this.addEventListener(container, view, "pointerup", (e) => this.pointerUp(view, e));
         this.addEventListener(container, view, "wheel", (e) => this.mouseWheel(view, e));
 
@@ -145,6 +136,11 @@ export abstract class Viewer implements IViewer {
     private pointerUp(view: IView, event: PointerEvent): void {
         this.visual.eventHandler.pointerUp(view, event);
         this.visual.viewHandler.pointerUp(view, event);
+    }
+
+    private pointerOut(view: IView, event: PointerEvent): void {
+        this.visual.eventHandler.pointerOut?.(view, event);
+        this.visual.viewHandler.pointerOut?.(view, event);
     }
 
     private mouseWheel(view: IView, event: WheelEvent): void {

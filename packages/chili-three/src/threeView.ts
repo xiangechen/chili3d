@@ -17,6 +17,7 @@ import {
 import {
     Camera,
     Intersection,
+    LineSegments,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
@@ -312,14 +313,24 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return new Vector3(x, y, 0).unproject(this._camera);
     }
 
-    rectDetected(mx1: number, mx2: number, my1: number, my2: number) {
+    rectDetected(shapeType: ShapeType, mx1: number, my1: number, mx2: number, my2: number) {
+        let detecteds: VisualShapeData[] = [];
         const selectionBox = new SelectionBox(this._camera, this._scene);
         const start = this.screenToCameraRect(mx1, my1);
         const end = this.screenToCameraRect(mx2, my2);
         selectionBox.startPoint.set(start.x, start.y, 0.5);
         selectionBox.endPoint.set(end.x, end.y, 0.5);
         let shapes = selectionBox.select();
-        return shapes;
+        for (const shape of shapes) {
+            let groups: ShapeMeshGroup[] = shape.userData[Constants.GeometryGroupsKey];
+            if (groups && shape.parent instanceof ThreeShape && shape instanceof LineSegments) {
+                detecteds.push({
+                    owner: shape.parent,
+                    shape: shape.parent.shape,
+                });
+            }
+        }
+        return detecteds;
     }
 
     detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): VisualShapeData[] {
