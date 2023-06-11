@@ -2,19 +2,12 @@
 
 import "reflect-metadata";
 
-import { CurveType, IShape, Id, Ray, ShapeType, XYZ } from "chili-core";
-import initOpenCascade, {
-    BRepBuilderAPI_MakeVertex,
-    OpenCascadeInstance,
-    TopoDS_Shape,
-} from "opencascade.js/dist/node.js";
-
+import { CurveType, Id, Ray, ShapeType, XYZ } from "chili-core";
+import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { expect, jest, test } from "@jest/globals";
-
 import { OccCurve } from "../src/occGeometry";
 import { OccHelps } from "../src/occHelps";
-import { OccMesh } from "../src/occMesh";
-import { OccEdge, OccShape, OccSolid } from "../src/occShape";
+import { OccEdge, OccSolid } from "../src/occShape";
 
 const newId = jest.spyOn(Id, "new").mockImplementation(() => {
     return "asfas";
@@ -152,5 +145,49 @@ describe("curve test", () => {
         tc = new occ.Geom_TrimmedCurve(c, s.current, e.current, true, true);
         expect(tc.FirstParameter()).toBe(1);
         expect(tc.LastParameter()).toBe(2);
+    });
+
+    describe("test transform", () => {
+        test("test edge transform", () => {
+            let ps = new occ.gp_Pnt_3(0, 0, 0);
+            let pe = new occ.gp_Pnt_3(10, 0, 0);
+            let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
+            let s: any = { current: 0 };
+            let e: any = { current: 0 };
+            let c1 = occ.BRep_Tool.Curve_2(e1, s, e);
+            let pnt1 = new occ.gp_Pnt_1();
+            c1.get().D0(0, pnt1);
+            expect(pnt1.X()).toBeCloseTo(0);
+
+            let trsf = e1.Location_1().Transformation();
+            trsf.SetTranslation_1(new occ.gp_Vec_4(10, 0, 0));
+            e1.Location_2(new occ.TopLoc_Location_2(trsf), true);
+            let c2 = occ.BRep_Tool.Curve_2(e1, s, e).get();
+            let pnt2 = new occ.gp_Pnt_1();
+            c2.D0(0, pnt2);
+            expect(pnt2.X()).toBeCloseTo(10);
+
+            let e2 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
+            let e3 = new OccEdge(e2).mesh.edges?.groups.at(0)?.shape as OccEdge;
+            expect(e3.shape.IsEqual(e2));
+            trsf = e2.Location_1().Transformation();
+            trsf.SetTranslation_1(new occ.gp_Vec_4(10, 0, 0));
+            e2.Location_2(new occ.TopLoc_Location_2(trsf), true);
+            let c3 = occ.BRep_Tool.Curve_2(e2, s, e);
+            c3.get().D0(0, pnt2);
+            expect(pnt2.X()).toBeCloseTo(10);
+        });
+
+        test("test mesh transform", () => {
+            let ps = new occ.gp_Pnt_3(0, 0, 0);
+            let pe = new occ.gp_Pnt_3(10, 0, 0);
+            let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
+            let shape = new OccEdge(e1);
+            let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
+            shape.setTranslation(new XYZ(10, 0, 0));
+            let p2 = shape.asCurve().value?.point(0);
+            expect(p2?.x).toBeCloseTo(10);
+            expect(edge.asCurve().value?.point(0).x).toBeCloseTo(10);
+        });
     });
 });

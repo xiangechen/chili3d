@@ -74,7 +74,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
 
     constructor(readonly shape: IShape) {
         super();
-        let mesh = this.shape.mesh();
+        let mesh = this.shape.mesh;
         if (mesh.faces !== undefined) this.add(this.initFaces(mesh.faces));
         if (mesh.edges !== undefined) this.add(this.initEdges(mesh.edges));
     }
@@ -85,8 +85,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.initColor(data, buff, this._edgeMaterial);
         data.groups.forEach((x) => buff.addGroup(x.start, x.count));
         buff.computeBoundingSphere();
-        this._edges = new LineSegments(buff, [this._edgeMaterial, hilightEdgeMaterial, selectedEdgeMaterial]);
-        this._edges.userData[Constants.GeometryGroupsKey] = data.groups;
+        this._edges = new LineSegments(buff, [
+            this._edgeMaterial,
+            hilightEdgeMaterial,
+            selectedEdgeMaterial,
+        ]);
         this._edges.renderOrder = 99;
         return this._edges;
     }
@@ -100,7 +103,6 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.initColor(data, buff, this._faceMaterial);
         buff.computeBoundingSphere();
         this._faces = new Mesh(buff, [this._faceMaterial, hilightFaceMaterial, selectedFaceMaterial]);
-        this._faces.userData[Constants.GeometryGroupsKey] = data.groups;
         return this._faces;
     }
 

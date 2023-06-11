@@ -62,7 +62,7 @@ export class Move extends MultistepCommand {
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         this.positions = [];
         this.models?.forEach((model) => {
-            let ps = model.shape()?.mesh().edges?.positions;
+            let ps = model.shape()?.mesh.edges?.positions;
             if (!ps) return;
             this.positions = this.positions!.concat(ps);
         });

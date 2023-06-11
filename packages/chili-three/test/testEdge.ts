@@ -35,7 +35,7 @@ export class TestEdge implements IEdge {
     setTranslation(offset: XYZ): void {}
     setScale(scale: XYZ, value: number): void {}
     setRotation(rotation: Quaternion): void {}
-    mesh(): IShapeMeshData {
+    get mesh(): IShapeMeshData {
         return {
             shape: this,
             edges: {

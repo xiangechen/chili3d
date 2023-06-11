@@ -2,5 +2,4 @@
 
 export class Constants {
     static readonly RaycasterThreshold = 10;
-    static readonly GeometryGroupsKey = "groups";
 }

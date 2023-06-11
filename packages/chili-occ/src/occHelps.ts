@@ -148,6 +148,29 @@ export class OccHelps {
         }
     }
 
+    static getActualShape(shape: TopoDS_Shape): TopoDS_Shape {
+        switch (shape.ShapeType()) {
+            case occ.TopAbs_ShapeEnum.TopAbs_COMPOUND:
+                return occ.TopoDS.Compound_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
+                return occ.TopoDS.CompSolid_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_SOLID:
+                return occ.TopoDS.Solid_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_SHELL:
+                return occ.TopoDS.Shell_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_FACE:
+                return occ.TopoDS.Face_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_WIRE:
+                return occ.TopoDS.Wire_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_EDGE:
+                return occ.TopoDS.Edge_1(shape);
+            case occ.TopAbs_ShapeEnum.TopAbs_VERTEX:
+                return occ.TopoDS.Vertex_1(shape);
+            default:
+                return shape;
+        }
+    }
+
     static findAncestors(subShape: TopoDS_Shape, from: TopoDS_Shape, ancestorType: TopAbs_ShapeEnum) {
         let map = new occ.TopTools_IndexedDataMapOfShapeListOfShape_1();
         occ.TopExp.MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
@@ -155,7 +178,7 @@ export class OccHelps {
         let item = map.FindFromIndex(index);
         let shapes: TopoDS_Shape[] = [];
         while (!item.IsEmpty()) {
-            shapes.push(item.Last_1());
+            shapes.push(this.getActualShape(item.Last_1()));
             item.RemoveFirst();
         }
         return shapes;
@@ -180,7 +203,7 @@ export class OccHelps {
                 const hash = OccHelps.hashCode(item);
                 if (!hashes?.has(hash)) {
                     hashes?.set(hash, true);
-                    yield item;
+                    yield this.getActualShape(item);
                 }
             }
             explorer.Next();

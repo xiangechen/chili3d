@@ -44,9 +44,11 @@ export class Circle extends CreateCommand {
         let start = this.stepDatas[0].point;
         let plane = this.stepDatas[0].view.workplane;
         return [
-            Application.instance.shapeFactory
-                .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
-                .value?.mesh().edges!,
+            Application.instance.shapeFactory.circle(
+                plane.normal,
+                start,
+                this.getDistanceAtPlane(plane, start, point)
+            ).value?.mesh.edges!,
         ];
     };
 

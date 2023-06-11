@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { VisualShapeData, IEventHandler, IModel, IView, ShapeType, VisualState } from "chili-core";
+import { OccEdge } from "chili-occ/src/occShape";
 
 const SelectionRectStyle = `
     border: 1px solid #55aaff;

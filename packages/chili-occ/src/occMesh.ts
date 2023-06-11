@@ -5,7 +5,6 @@ import {
     EdgeMeshDataBuilder,
     FaceMeshData,
     FaceMeshDataBuilder,
-    IShape,
     IShapeMeshData,
     MeshDataBuilder,
     VertexMeshData,
@@ -22,19 +21,21 @@ import {
 } from "opencascade.js";
 
 import { OccHelps } from "./occHelps";
+import { OccShape } from "./occShape";
 
 export class OccMesh implements IShapeMeshData {
-    private maxDeviation: number;
+    private maxDeviation: number = 8;
     private _vertexs?: VertexMeshData;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
-    readonly shape: IShape;
 
-    constructor(readonly ocShape: TopoDS_Shape) {
-        this.maxDeviation = 8;
-        this.shape = OccHelps.getShape(ocShape);
-        new occ.BRepMesh_IncrementalMesh_2(ocShape, 0.1, false, 0.1, false);
-        this._mesh(ocShape);
+    private constructor(readonly shape: OccShape) {
+        this._mesh(shape.shape);
+    }
+
+    static create(shape: OccShape): IShapeMeshData {
+        new occ.BRepMesh_IncrementalMesh_2(shape.shape, 0.1, false, 0.1, false);
+        return new OccMesh(shape);
     }
 
     get vertexs(): VertexMeshData | undefined {
@@ -71,8 +72,8 @@ export class OccMesh implements IShapeMeshData {
             true
         );
         let builder = new EdgeMeshDataBuilder();
-        for (const shape of shapes) {
-            let edge = occ.TopoDS.Edge_1(shape);
+        for (const e of shapes) {
+            let edge = occ.TopoDS.Edge_1(e);
             this.addEdgeMesh(edge, builder);
         }
         this._lines = builder.build();
@@ -103,8 +104,8 @@ export class OccMesh implements IShapeMeshData {
             true
         );
         let builder = new FaceMeshDataBuilder();
-        for (const shape of shapes) {
-            let face = occ.TopoDS.Face_1(shape);
+        for (const f of shapes) {
+            let face = occ.TopoDS.Face_1(f);
             this.addFaceMesh(face, builder);
         }
         this._faces = builder.build();

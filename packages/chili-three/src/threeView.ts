@@ -322,8 +322,8 @@ export class ThreeView extends Observable implements IView, IDisposable {
         selectionBox.endPoint.set(end.x, end.y, 0.5);
         let shapes = selectionBox.select();
         for (const shape of shapes) {
-            let groups: ShapeMeshGroup[] = shape.userData[Constants.GeometryGroupsKey];
-            if (groups && shape.parent instanceof ThreeShape && shape instanceof LineSegments) {
+            // todo: add more shape types
+            if (shape.parent instanceof ThreeShape && shape instanceof LineSegments) {
                 detecteds.push({
                     owner: shape.parent,
                     shape: shape.parent.shape,
@@ -359,25 +359,31 @@ export class ThreeView extends Observable implements IView, IDisposable {
         for (const element of intersections) {
             const parent = element.object.parent;
             if (!(parent instanceof ThreeShape)) continue;
-            let index = this.getIndex(shapeType, element);
-            if (index == undefined) continue;
-            let groups: ShapeMeshGroup[] = element.object.userData[Constants.GeometryGroupsKey];
-            let groupIndex = ThreeHelper.findGroupIndex(groups, index)!;
-            result.push({
-                owner: parent,
-                shape: groups[groupIndex].shape,
-                index: groupIndex,
-            });
+            let { groupIndex, groups } = this.getGroupInfo(shapeType, parent, element);
+            if (groupIndex !== undefined && groups) {
+                result.push({
+                    owner: parent,
+                    shape: groups[groupIndex].shape,
+                    index: groupIndex,
+                });
+            }
         }
         return result;
     }
 
-    private getIndex(shapeType: ShapeType, item: Intersection<Object3D>) {
+    private getGroupInfo(shapeType: ShapeType, parent: ThreeShape, element: Intersection) {
+        let groups: ShapeMeshGroup[] | undefined = undefined;
+        let groupIndex: number | undefined = undefined;
         if (shapeType === ShapeType.Face) {
-            return item.faceIndex ? item.faceIndex * 3 : undefined;
+            groups = parent.shape.mesh.faces?.groups;
+            if (groups && element.faceIndex !== undefined)
+                groupIndex = ThreeHelper.findGroupIndex(groups, element.faceIndex * 3)!;
         } else {
-            return item.index;
+            groups = parent.shape.mesh.edges?.groups;
+            if (groups && element.index !== undefined)
+                groupIndex = ThreeHelper.findGroupIndex(groups, element.index);
         }
+        return { groupIndex, groups };
     }
 
     private findIntersections(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
