@@ -23,7 +23,7 @@ export abstract class Entity extends HistoryObservable {
     protected setPropertyAndUpdate<K extends keyof this>(
         property: K,
         newValue: this[K],
-        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]>
     ) {
         if (this.setProperty(property, newValue, onPropertyChanged, equals)) {

@@ -19,11 +19,11 @@ export abstract class TreeItem extends Control {
         node.onPropertyChanged(this.onPropertyChanged);
     }
 
-    private onPropertyChanged = (model: INode, property: keyof INode, old: any, newValue: any) => {
+    private onPropertyChanged = (model: INode, property: keyof INode, old: any) => {
         if (property === "visible") {
             this.visibleIcon.setIcon(this.getVisibleIcon());
         } else if (property === "parentVisible") {
-            if (newValue) {
+            if (model[property]) {
                 this.visibleIcon.classList.remove(style["parent-visible"]);
             } else {
                 this.visibleIcon.classList.add(style["parent-visible"]);

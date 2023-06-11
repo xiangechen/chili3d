@@ -34,9 +34,9 @@ export class Title extends Control {
         this.currentDocument?.onPropertyChanged(this.handleNameChanged);
     };
 
-    private handleNameChanged = (d: IDocument, property: keyof IDocument, oldValue: any, newValue: any) => {
+    private handleNameChanged = (d: IDocument, property: keyof IDocument, oldValue: any) => {
         if (property === "name") {
-            this._documentName.text(newValue);
+            this._documentName.text(d[property]);
         }
     };
 

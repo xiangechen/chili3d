@@ -8,11 +8,8 @@ import { PropertyHistoryRecord } from "./history";
 import { Transaction } from "./transaction";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
-const CollectionChangedEvent = "CollectionChangedEvent";
 
-export interface PropertyChangedHandler<T, K extends keyof T> {
-    (source: T, property: K, oldValue: T[K], newValue: T[K]): void;
-}
+export type PropertyChangedHandler<T, K extends keyof T> = (source: T, property: K, oldValue: T[K]) => void;
 
 export interface IPropertyChanged {
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
@@ -36,7 +33,7 @@ export class Observable implements IPropertyChanged, IDisposable {
     protected setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
-        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]>
     ): boolean {
         let priKey = this.privateKeyMap(String(property));
@@ -44,8 +41,8 @@ export class Observable implements IPropertyChanged, IDisposable {
         let oldValue = obj[priKey];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
         obj[priKey] = newValue;
-        onPropertyChanged?.(property, oldValue, newValue);
-        this.emitPropertyChanged(property as any, oldValue, newValue);
+        onPropertyChanged?.(property, oldValue);
+        this.emitPropertyChanged(property as any, oldValue);
         return true;
     }
 
@@ -61,8 +58,8 @@ export class Observable implements IPropertyChanged, IDisposable {
         }
     }
 
-    protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K], newValue: this[K]) {
-        this.eventEmitter.emit(PropertyChangedEvent, this, property, oldValue, newValue);
+    protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
+        this.eventEmitter.emit(PropertyChangedEvent, this, property, oldValue);
     }
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
@@ -88,15 +85,18 @@ export abstract class HistoryObservable extends Observable {
     protected override setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
-        onPropertyChanged?: (property: K, oldValue: this[K], newValue: this[K]) => void,
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]> | undefined
     ): boolean {
         return super.setProperty(
             property,
             newValue,
-            (property, oldValue, newValue) => {
-                onPropertyChanged?.(property, oldValue, newValue);
-                Transaction.add(this.document, new PropertyHistoryRecord(this, property, oldValue, newValue));
+            (property, oldValue) => {
+                onPropertyChanged?.(property, oldValue);
+                Transaction.add(
+                    this.document,
+                    new PropertyHistoryRecord(this, property, oldValue, newValue)
+                );
             },
             equals
         );
