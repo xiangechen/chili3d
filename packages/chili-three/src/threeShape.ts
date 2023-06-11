@@ -23,7 +23,6 @@ import {
     Color as ThreeColor,
 } from "three";
 
-import { Constants } from "./constants";
 import { ThreeHelper } from "./threeHelper";
 
 let hilightEdgeMaterial = new LineBasicMaterial({
@@ -75,6 +74,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     constructor(readonly shape: IShape) {
         super();
         let mesh = this.shape.mesh;
+        this.matrixAutoUpdate = false;
         if (mesh.faces !== undefined) this.add(this.initFaces(mesh.faces));
         if (mesh.edges !== undefined) this.add(this.initEdges(mesh.edges));
     }

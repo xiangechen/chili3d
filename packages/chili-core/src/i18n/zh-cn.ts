@@ -4,6 +4,7 @@ import { I18n } from "./i18n";
 
 let zh: I18n = {
     name: "名称",
+    matrix: "矩阵",
     "ribbon.tab.file": "文件",
     "ribbon.tab.startup": "开始",
     "ribbon.tab.draw": "绘图",

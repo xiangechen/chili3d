@@ -33,12 +33,10 @@ export enum SurfaceType {
 }
 
 export interface IShape {
-    get id(): string;
     readonly shapeType: ShapeType;
+    get id(): string;
     get mesh(): IShapeMeshData;
-    setTranslation(offset: XYZ): void;
-    setScale(scale: XYZ, value: number): void;
-    setRotation(rotation: Quaternion): void;
+    setMatrix(matrix: Matrix4): void;
     toJson(): string;
     isEqual(other: IShape): boolean;
 }

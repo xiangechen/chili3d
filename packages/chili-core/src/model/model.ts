@@ -1,61 +1,40 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Logger, Result } from "../base";
-import { property } from "../decorators";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
-import { Matrix4, Quaternion, XYZ } from "../math";
+import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    private _translation: XYZ;
-    private _rotation: Quaternion;
-    private _scale: XYZ;
     protected _shape: T | undefined;
+
+    protected _matrix: Matrix4 = Matrix4.identity();
+    get matrix(): Matrix4 {
+        return this._matrix;
+    }
+    set matrix(value: Matrix4) {
+        this.setProperty(
+            "matrix",
+            value,
+            () => {
+                this._shape?.setMatrix(value);
+            },
+            {
+                equals: (left, right) => left.equals(right),
+            }
+        );
+    }
 
     constructor(document: IDocument, name: string, readonly body: Entity, id: string = Id.new()) {
         super(document, name, id);
-        this._translation = XYZ.zero;
-        this._scale = XYZ.one;
-        this._rotation = new Quaternion(0, 0, 0, 0);
     }
 
     shape(): T | undefined {
         return this._shape;
-    }
-
-    transform(): Matrix4 {
-        return Matrix4.compose(this._translation, this._rotation, this._scale);
-    }
-
-    @property("model.translation")
-    get translation() {
-        return this._translation;
-    }
-
-    set translation(value: XYZ) {
-        this.setProperty("translation", value, () => this._shape?.setTranslation(value));
-    }
-
-    @property("model.rotation")
-    get rotation() {
-        return this._rotation;
-    }
-
-    set rotation(value: Quaternion) {
-        this.setProperty("rotation", value, () => this._shape?.setRotation(value));
-    }
-
-    @property("model.scale")
-    get scale() {
-        return this._scale;
-    }
-
-    set scale(value: XYZ) {
-        this.setProperty("scale", value);
     }
 }
 

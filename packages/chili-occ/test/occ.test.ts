@@ -2,7 +2,7 @@
 
 import "reflect-metadata";
 
-import { CurveType, Id, Ray, ShapeType, XYZ } from "chili-core";
+import { CurveType, Id, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { expect, jest, test } from "@jest/globals";
 import { OccCurve } from "../src/occGeometry";
@@ -179,15 +179,16 @@ describe("curve test", () => {
         });
 
         test("test mesh transform", () => {
-            let ps = new occ.gp_Pnt_3(0, 0, 0);
-            let pe = new occ.gp_Pnt_3(10, 0, 0);
+            let ps = new occ.gp_Pnt_3(10, 0, 0);
+            let pe = new occ.gp_Pnt_3(10, 10, 0);
             let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
             let shape = new OccEdge(e1);
             let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
-            shape.setTranslation(new XYZ(10, 0, 0));
+            shape.setMatrix(Matrix4.translationTransform(10, 20, 30));
             let p2 = shape.asCurve().value?.point(0);
-            expect(p2?.x).toBeCloseTo(10);
-            expect(edge.asCurve().value?.point(0).x).toBeCloseTo(10);
+            expect(p2?.x).toBeCloseTo(20);
+
+            expect(edge.asCurve().value?.point(0).x).toBeCloseTo(20);
         });
     });
 });

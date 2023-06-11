@@ -9,6 +9,7 @@ import {
     IShapeMeshData,
     IVertex,
     LineType,
+    Matrix4,
     Quaternion,
     Ray,
     Result,
@@ -32,9 +33,7 @@ export class TestEdge implements IEdge {
         return "testEdge";
     }
     shapeType: ShapeType = ShapeType.Edge;
-    setTranslation(offset: XYZ): void {}
-    setScale(scale: XYZ, value: number): void {}
-    setRotation(rotation: Quaternion): void {}
+    setMatrix(matrix: Matrix4): void {}
     get mesh(): IShapeMeshData {
         return {
             shape: this,

@@ -126,7 +126,6 @@ export class ThreeVisualContext implements IVisualContext {
                 let modelShape = model.shape();
                 if (modelShape === undefined) return;
                 let threeShape = new ThreeShape(modelShape);
-                threeShape.applyMatrix4(this.convertMatrix(model.transform()));
                 model.onPropertyChanged(this.handleTransformChanged);
                 this.modelShapes.add(threeShape);
                 this._shapeModelMap.set(threeShape, model);
@@ -142,15 +141,9 @@ export class ThreeVisualContext implements IVisualContext {
     private handleTransformChanged = (model: IModel, property: keyof IModel) => {
         let shape = this.getShape(model) as ThreeShape;
         if (shape === undefined) return;
-        if (property === "translation") {
-            shape?.position.set(model.translation.x, model.translation.y, model.translation.z);
-            shape?.updateMatrix();
-        } else if (property === "rotation") {
-            shape?.rotation.set(model.rotation.x, model.rotation.y, model.rotation.z);
-            shape?.updateMatrix();
-        } else if (property === "scale") {
-            shape?.scale.set(model.scale.x, model.scale.y, model.scale.z);
-            shape?.updateMatrix();
+        if (property === "matrix") {
+            shape.matrix.copy(this.convertMatrix(model.matrix));
+            shape.matrixWorldNeedsUpdate = true;
         }
     };
 

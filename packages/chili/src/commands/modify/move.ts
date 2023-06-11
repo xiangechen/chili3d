@@ -1,16 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Config,
-    EdgeMeshData,
-    IDocument,
-    IModel,
-    INode,
-    LineType,
-    Transaction,
-    XYZ,
-    command,
-} from "chili-core";
+import { Config, IDocument, IModel, INode, LineType, Matrix4, Transaction, XYZ, command } from "chili-core";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
@@ -64,15 +54,17 @@ export class Move extends MultistepCommand {
         this.models?.forEach((model) => {
             let ps = model.shape()?.mesh.edges?.positions;
             if (!ps) return;
-            this.positions = this.positions!.concat(ps);
+            this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
         });
         return Promise.resolve(this.models.length > 0);
     }
 
     protected excuting(document: IDocument): void {
         Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+            let vec = this.stepDatas[1].point.sub(this.stepDatas[0].point);
+            let transform = Matrix4.translationTransform(vec.x, vec.y, vec.z);
             this.models?.forEach((x) => {
-                x.translation = this.stepDatas[1].point.sub(this.stepDatas[0].point);
+                x.matrix = x.matrix.multiply(transform);
             });
             document.visual.viewer.redraw();
         });

@@ -1,5 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { MathUtils } from "./mathUtils";
 import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
@@ -182,7 +183,7 @@ export class Matrix4 {
 
     public equals(value: Matrix4): boolean {
         for (let i = 0; i < 16; i++) {
-            if (this.array[i] !== value.array[i]) return false;
+            if (!MathUtils.almostEqual(this.array[i], value.array[i])) return false;
         }
         return true;
     }
@@ -350,13 +351,37 @@ export class Matrix4 {
         return result;
     }
 
-    public ofPoint(point: XYZ): XYZ {
-        let x = point.x * this.array[0] + point.y * this.array[4] + point.z * this.array[8] + this.array[12];
-        let y = point.x * this.array[1] + point.y * this.array[5] + point.z * this.array[9] + this.array[13];
-        let z = point.x * this.array[2] + point.y * this.array[6] + point.z * this.array[10] + this.array[14];
-        let w = point.x * this.array[3] + point.y * this.array[7] + point.z * this.array[11] + this.array[15];
+    ofPoints(points: number[]): number[] {
+        let result: number[] = [];
+        for (let i = 0; i < points.length / 3; i++) {
+            let x =
+                points[3 * i] * this.array[0] +
+                points[3 * i + 1] * this.array[4] +
+                points[3 * i + 2] * this.array[8] +
+                this.array[12];
+            let y =
+                points[3 * i] * this.array[1] +
+                points[3 * i + 1] * this.array[5] +
+                points[3 * i + 2] * this.array[9] +
+                this.array[13];
+            let z =
+                points[3 * i] * this.array[2] +
+                points[3 * i + 1] * this.array[6] +
+                points[3 * i + 2] * this.array[10] +
+                this.array[14];
+            let w =
+                points[3 * i] * this.array[3] +
+                points[3 * i + 1] * this.array[7] +
+                points[3 * i + 2] * this.array[11] +
+                this.array[15];
+            result.push(x / w, y / w, z / w);
+        }
+        return result;
+    }
 
-        return new XYZ(x / w, y / w, z / w);
+    public ofPoint(point: XYZ): XYZ {
+        let result = this.ofPoints([point.x, point.y, point.z]);
+        return new XYZ(result[0], result[1], result[2]);
     }
 
     public ofVector(vector: XYZ): XYZ {

@@ -4,6 +4,7 @@ import { I18n } from "./i18n";
 
 let en: I18n = {
     name: "Name",
+    matrix: "Matrix",
     "ribbon.tab.file": "File",
     "ribbon.tab.startup": "Startup",
     "ribbon.tab.draw": "Drawing",

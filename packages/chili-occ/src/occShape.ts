@@ -15,6 +15,7 @@ import {
     IWire,
     Id,
     Logger,
+    Matrix4,
     Quaternion,
     Ray,
     Result,
@@ -69,26 +70,8 @@ export class OccShape implements IShape {
         if (generateMesh) this._mesh = undefined;
     }
 
-    setTranslation(offset: XYZ): void {
-        const trsf = this.shape.Location_1().Transformation();
-        trsf.SetTranslation_1(OccHelps.toVec(offset));
-        this.updateTransform(trsf);
-    }
-
-    setRotation(rotation: Quaternion): void {
-        const quaternion = new occ.gp_Quaternion_2(rotation.x, rotation.y, rotation.z, rotation.w);
-        const trsf = this.shape.Location_1().Transformation();
-        trsf.SetRotation_2(quaternion);
-        this.updateTransform(trsf);
-    }
-
-    setScale(scale: XYZ, value: number): void {
-        const trsf = this.shape.Location_1().Transformation();
-        trsf.SetScale(OccHelps.toPnt(scale), value);
-        this.updateTransform(trsf);
-    }
-
-    private updateTransform(trsf: gp_Trsf) {
+    setMatrix(matrix: Matrix4): void {
+        let trsf = OccHelps.convertMatrix(matrix);
         this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
 
         this.resetGroupShapes(ShapeType.Face, this._mesh?.faces);
@@ -97,8 +80,8 @@ export class OccShape implements IShape {
 
     private resetGroupShapes(type: ShapeType, data?: ShapeMeshData) {
         if (data) {
-            let shapes = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(type), true);
             let index = 0;
+            let shapes = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(type), true);
             for (const shape of shapes) {
                 (data.groups.at(index++)?.shape as OccShape)?.resetShape(shape, false);
             }

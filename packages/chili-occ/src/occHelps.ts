@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, IShape, Plane, ShapeType, XYZ } from "chili-core";
+import { CurveType, IShape, Matrix4, Plane, ShapeType, XYZ } from "chili-core";
 import {
     Geom_Curve,
     TopAbs_ShapeEnum,
@@ -10,6 +10,7 @@ import {
     gp_Dir,
     gp_Pln,
     gp_Pnt,
+    gp_Trsf,
     gp_Vec,
 } from "opencascade.js";
 
@@ -64,6 +65,26 @@ export class OccHelps {
 
     static hashCode(shape: TopoDS_Shape) {
         return shape.HashCode(2147483647); // max int
+    }
+
+    static convertMatrix(matrix: Matrix4): gp_Trsf {
+        const arr = matrix.toArray();
+        let trsf = new occ.gp_Trsf_1();
+        trsf.SetValues(
+            arr[0],
+            arr[4],
+            arr[8],
+            arr[12],
+            arr[1],
+            arr[5],
+            arr[9],
+            arr[13],
+            arr[2],
+            arr[6],
+            arr[10],
+            arr[14]
+        );
+        return trsf;
     }
 
     static getCurveType(curve: Geom_Curve): CurveType {

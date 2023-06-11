@@ -4,6 +4,7 @@ export type I18n = Record<Keys, string>;
 
 type Keys =
     | "name"
+    | "matrix"
     | "normal"
     | "body.line"
     | "body.rect"

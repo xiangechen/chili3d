@@ -5,7 +5,7 @@ import { property } from "../decorators";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
 import { Id } from "../id";
-import { Matrix4, Quaternion, XYZ } from "../math";
+import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged {
@@ -32,10 +32,7 @@ export interface INodeLinkedList extends INode {
 export interface IModel extends INode {
     readonly document: IDocument;
     readonly body: Entity;
-    transform(): Matrix4;
-    translation: XYZ;
-    rotation: Quaternion;
-    scale: XYZ;
+    matrix: Matrix4;
     shape(): IShape | undefined;
 }
 
@@ -49,12 +46,12 @@ export namespace INode {
     }
 
     export function isModelNode(node: INode): node is IModel {
-        return (node as IModel).translation !== undefined;
+        return (node as IModel).matrix !== undefined;
     }
 
     export function isModelGroup(node: INode): node is IModelGroup {
         let group = node as IModelGroup;
-        return group.translation !== undefined && group.children !== undefined;
+        return group.matrix !== undefined && group.children !== undefined;
     }
 }
 
