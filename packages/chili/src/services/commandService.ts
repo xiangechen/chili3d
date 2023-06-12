@@ -32,7 +32,7 @@ export class CommandService implements IService {
 
     private excuteCommand = async (commandName: keyof Commands) => {
         if (this.app === undefined) {
-            throw "Executor is not initialized";
+            throw new Error("Executor is not initialized");
         }
         if (this.app.activeDocument === undefined || this._excutingCommand !== undefined) return;
         this._excutingCommand = commandName;

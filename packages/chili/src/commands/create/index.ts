@@ -3,5 +3,4 @@
 export * from "./box";
 export * from "./circle";
 export * from "./line";
-export * from "./pline";
 export * from "./rect";

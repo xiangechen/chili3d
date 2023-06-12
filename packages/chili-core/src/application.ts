@@ -10,7 +10,7 @@ export class Application {
 
     static get instance() {
         if (Application._instance === undefined) {
-            throw "Application is not build";
+            throw new Error("Application is not build");
         }
         return Application._instance;
     }
@@ -36,7 +36,7 @@ export class Application {
 
     private resolveOrThrow<T>(token: Token): T {
         let v = this.resolve.resolve<T>(token);
-        if (v === undefined) throw `can not resolve ${token}`;
+        if (v === undefined) throw new Error(`can not resolve ${token.token}`);
         return v;
     }
 

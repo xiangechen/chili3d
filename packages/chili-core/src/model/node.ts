@@ -182,7 +182,7 @@ export namespace INode {
         for (index; index <= Math.min(prePath.length, curPath.length); index++) {
             if (prePath.at(-index) !== curPath.at(-index)) break;
         }
-        if (prePath.at(1 - index) !== curPath.at(1 - index)) throw "can not find a common parent";
+        if (prePath.at(1 - index) !== curPath.at(1 - index)) throw new Error("can not find a common parent");
         return index;
     }
 

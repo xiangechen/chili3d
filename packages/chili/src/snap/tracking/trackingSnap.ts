@@ -125,7 +125,8 @@ export class TrackingSnap implements ISnapper {
                 points.push({ intersect: p, location: x.axis.location });
             });
         });
-        return points.sort((p) => this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect)).at(0);
+        points.sort((p) => this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect));
+        return points.at(0);
     }
 
     private detectTracking(view: IView, x: number, y: number) {
@@ -149,19 +150,17 @@ export class TrackingSnap implements ISnapper {
         snapedName: string | undefined
     ) {
         let result: TrackingData[] = [];
-        for (let index = 0; index < axes.length; index++) {
-            const axis = axes[index];
+        for (const axis of axes) {
             let distance = this.rayDistanceAtScreen(view, x, y, axis);
             if (distance < Config.instance.SnapDistance) {
                 let ray = view.rayAt(x, y);
                 let point = axis.nearestTo(ray);
                 if (point.sub(axis.location).dot(axis.direction) < 0) continue;
-                let info = snapedName === undefined ? axis.name : snapedName;
                 result.push({
                     axis,
                     distance,
                     point,
-                    info,
+                    info: snapedName ?? axis.name,
                     isObjectTracking: snapedName !== undefined,
                 });
             }

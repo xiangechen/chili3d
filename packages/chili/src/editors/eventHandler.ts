@@ -36,7 +36,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
         return this.document.visual.context.displayShapeMesh(start);
     }
 
-    dispose(): void | Promise<void> {
+    dispose(): void {
         this.points.forEach((x) => {
             this.document.visual.context.removeShapeMesh(x.displayed);
         });

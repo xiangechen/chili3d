@@ -1,16 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    IDocument,
-    INode,
-    ISelection,
-    IVisual,
-    IVisualContext,
-    Observable,
-    PubSub,
-    ShapeType,
-    VisualState,
-} from "chili-core";
+import { IDocument, INode, ISelection, Observable, PubSub, ShapeType, VisualState } from "chili-core";
 
 export class Selection extends Observable implements ISelection {
     private _selectedNodes: INode[] = [];

@@ -97,8 +97,8 @@ export class ThreeVisualContext implements IVisualContext {
             if (geometry !== undefined) group.add(geometry);
         });
 
-        this.tempShapes.add(group!);
-        return group!.id;
+        this.tempShapes.add(group);
+        return group.id;
     }
 
     removeShapeMesh(id: number) {

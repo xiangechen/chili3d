@@ -16,7 +16,6 @@ import {
     Id,
     Logger,
     Matrix4,
-    Quaternion,
     Ray,
     Result,
     ShapeMeshData,
@@ -27,12 +26,10 @@ import {
     Geom_Circle,
     Geom_Line,
     STEPControl_StepModelType,
-    TopAbs_ShapeEnum,
     TopoDS_Edge,
     TopoDS_Shape,
     TopoDS_Vertex,
     TopoDS_Wire,
-    gp_Trsf,
 } from "opencascade.js";
 
 import { OccCircle, OccCurve, OccLine } from "./occGeometry";

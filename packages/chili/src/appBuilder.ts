@@ -21,7 +21,7 @@ export class AppBuilder {
         this.registerCommands();
     }
 
-    useOcc(): AppBuilder {
+    useOcc(): this {
         this._inits.push(async () => {
             Logger.info("initializing occ");
 
@@ -31,7 +31,7 @@ export class AppBuilder {
         return this;
     }
 
-    useThree(): AppBuilder {
+    useThree(): this {
         this._inits.push(async () => {
             Logger.info("initializing three");
 
@@ -41,7 +41,7 @@ export class AppBuilder {
         return this;
     }
 
-    useUI(): AppBuilder {
+    useUI(): this {
         this._inits.push(async () => {
             Logger.info("initializing UI");
 
@@ -61,8 +61,8 @@ export class AppBuilder {
 
             let commands: any = await import("chili");
             let keys = Object.keys(commands);
-            for (let index = 0; index < keys.length; index++) {
-                let command = commands[keys[index]];
+            for (const element of keys) {
+                let command = commands[element];
                 let data = CommandData.get(command);
                 if (command.prototype?.excute !== undefined && data !== undefined) {
                     this._register.register<ICommand>(new Token(data.name), command);
@@ -72,8 +72,8 @@ export class AppBuilder {
     }
 
     async build(): Promise<void> {
-        for (let index = 0; index < this._inits.length; index++) {
-            await this._inits[index]();
+        for (const element of this._inits) {
+            await element();
         }
         let services = this.getServices();
         Application.build(this._register.createResolve(), services);

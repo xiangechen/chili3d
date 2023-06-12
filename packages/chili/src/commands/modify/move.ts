@@ -53,8 +53,7 @@ export class Move extends MultistepCommand {
         this.positions = [];
         this.models?.forEach((model) => {
             let ps = model.shape()?.mesh.edges?.positions;
-            if (!ps) return;
-            this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
+            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
         });
         return Promise.resolve(this.models.length > 0);
     }

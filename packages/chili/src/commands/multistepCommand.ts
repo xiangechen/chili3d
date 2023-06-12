@@ -25,9 +25,8 @@ export abstract class MultistepCommand implements ICommand {
             if (data === undefined) {
                 this.stepDatas.length = 0;
                 return false;
-            } else {
-                this.stepDatas.push(data);
             }
+            this.stepDatas.push(data);
         }
         return true;
     }

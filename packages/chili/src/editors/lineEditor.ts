@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IShape, ShapeMeshData, XYZ } from "chili-core";
+import { IDocument, XYZ } from "chili-core";
 import { Application } from "chili-core/src/application";
 import { LineBody } from "../bodys";
 import { Dimension, PointSnapper, Snapper } from "../snap";

@@ -23,7 +23,7 @@ export namespace ContextualControl {
     }
 }
 
-export function contextual<T extends { new (...args: any[]): ICommand }>(controls: ContextualControl[]) {
+export function contextual<T extends new (...args: any[]) => ICommand>(controls: ContextualControl[]) {
     return (ctor: T) => {
         ctor.prototype.contextual = controls;
     };

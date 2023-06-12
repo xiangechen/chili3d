@@ -148,9 +148,7 @@ export class GeometryModel extends Model {
         return [...this._editors];
     }
 
-    protected handleTransformChanged() {
-        // this.generate();
-    }
+    protected handleTransformChanged() {}
 }
 
 export class ModelGroup extends Model<ICompound> implements IModelGroup {

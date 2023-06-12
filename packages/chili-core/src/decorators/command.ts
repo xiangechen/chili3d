@@ -14,7 +14,7 @@ export interface CommandData {
     helpUrl?: string;
 }
 
-export function command<T extends { new (...args: any[]): ICommand }>(commandData: CommandData) {
+export function command<T extends new (...args: any[]) => ICommand>(commandData: CommandData) {
     return (ctor: T) => {
         commandMap.set(commandData.name, ctor);
         ctor.prototype.data = commandData;

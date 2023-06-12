@@ -1,8 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export interface CollectionChangedHandler<T> {
-    (source: ICollection<T>, action: CollectionAction, item: T): void;
-}
+export type CollectionChangedHandler<T> = (
+    source: ICollection<T>,
+    action: CollectionAction,
+    item: T
+) => void;
 
 export enum CollectionAction {
     add,

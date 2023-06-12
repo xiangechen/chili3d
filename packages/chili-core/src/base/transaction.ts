@@ -33,7 +33,7 @@ export class Transaction {
     start(name?: string) {
         let transactionName = name ?? this.name;
         if (Transaction._transactionMap.get(this.document) !== undefined) {
-            throw "The document has started a transaction";
+            throw new Error("The document has started a transaction");
         }
         Transaction._transactionMap.set(this.document, new ArrayRecord(transactionName));
     }
@@ -41,7 +41,7 @@ export class Transaction {
     commit() {
         let arrayRecord = Transaction._transactionMap.get(this.document);
         if (arrayRecord === undefined) {
-            throw "Transaction has not started";
+            throw new Error("Transaction has not started");
         }
         if (arrayRecord.records.length > 0) this.document.history.add(arrayRecord);
         Transaction._transactionMap.delete(this.document);

@@ -13,5 +13,5 @@ export * from "./precision";
 export * from "./pubsub";
 export * from "./result";
 export * from "./storage";
-export * from "./taskManager";
+export * from "./asyncToken";
 export * from "./transaction";
