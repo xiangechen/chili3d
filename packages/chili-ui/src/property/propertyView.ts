@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, IDocument, INode, Property, PubSub } from "chili-core";
+import { GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
 import style from "./propertyView.module.css";
+import { MatrixConverter, RotateConverter, ScalingConverter, TranslationConverter } from "./matrixConverter";
 
 export class PropertyView extends Control {
     private panel = new Panel(style.panel);
@@ -44,12 +45,20 @@ export class PropertyView extends Control {
     private addTransform(document: IDocument, nodes: INode[]) {
         nodes = nodes.filter((x) => INode.isModelNode(x));
         if (nodes.length === 0) return;
-        let transform = new Expander("properties.group.transform");
-        transform.addClass(style.expander);
+        let transform = new Expander("properties.group.transform").addClass(style.expander);
         this.panel.append(transform);
-        this.appendProperty(transform, document, nodes, Property.get(nodes.at(0), "model.translation"));
-        this.appendProperty(transform, document, nodes, Property.get(nodes.at(0), "model.rotation"));
-        this.appendProperty(transform, document, nodes, Property.get(nodes.at(0), "model.scale"));
+        const addMatrix = (display: keyof I18n, converter: IConverter) => {
+            this.appendProperty(transform, document, nodes, {
+                name: "matrix",
+                display,
+                converter,
+            });
+        };
+        // 这部分代码有问题，待完善
+        let converters = MatrixConverter.init();
+        addMatrix("model.translation", converters.translation);
+        addMatrix("model.scale", converters.scale);
+        addMatrix("model.rotation", converters.rotate);
     }
 
     private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {

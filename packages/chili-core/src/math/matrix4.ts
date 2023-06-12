@@ -81,16 +81,24 @@ export class Matrix4 {
         ]);
     }
 
-    position(vector: XYZ): Matrix4 {
+    position(x: number, y: number, z: number): Matrix4 {
         let transform = this.clone();
-        transform.array[12] = vector.x;
-        transform.array[13] = vector.y;
-        transform.array[14] = vector.z;
+        transform.array[12] = x;
+        transform.array[13] = y;
+        transform.array[14] = z;
         return transform;
     }
 
     getPosition(): XYZ {
         return new XYZ(this.array[12], this.array[13], this.array[14]);
+    }
+
+    scaling(x: number, y: number, z: number) {
+        let matrix = this.clone();
+        matrix.array[0] = x;
+        matrix.array[5] = y;
+        matrix.array[10] = z;
+        return matrix;
     }
 
     getScaling(): XYZ {
@@ -109,6 +117,45 @@ export class Matrix4 {
             Math.sqrt(m21 * m21 + m22 * m22 + m23 * m23),
             Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33)
         );
+    }
+
+    eulerAngles(pitch: number, yaw: number, roll: number) {
+        let matrix = this.clone();
+        const sp = Math.sin(pitch);
+        const cp = Math.cos(pitch);
+        const sy = Math.sin(yaw);
+        const cy = Math.cos(yaw);
+        const sr = Math.sin(roll);
+        const cr = Math.cos(roll);
+        matrix.array[0] = cy * cr + sy * sp * sr;
+        matrix.array[1] = cp * sr;
+        matrix.array[2] = -sy * cr + cy * sp * sr;
+        matrix.array[4] = cy * sr - sy * sp * cr;
+        matrix.array[5] = cp * cr;
+        matrix.array[6] = sy * sr + cy * sp * cr;
+        matrix.array[8] = sy * cp;
+        matrix.array[9] = -sp;
+        matrix.array[10] = cy * cp;
+        return matrix;
+    }
+
+    getEulerAngles(): { pitch: number; yaw: number; roll: number } {
+        const pitch = -Math.asin(this.array[9]);
+        let yaw = 0.0,
+            roll = 0.0;
+        if (this.array[9] < 1.0) {
+            if (this.array[9] > -1.0) {
+                yaw = Math.atan2(this.array[8], this.array[10]);
+                roll = Math.atan2(this.array[1], this.array[5]);
+            } else {
+                yaw = -Math.atan2(-this.array[2], this.array[0]);
+                roll = 0.0;
+            }
+        } else {
+            yaw = Math.atan2(-this.array[2], this.array[0]);
+            roll = 0.0;
+        }
+        return { pitch, yaw, roll };
     }
 
     getRotation() {

@@ -13,7 +13,7 @@ describe("test Transform", () => {
 
     test("test clone", () => {
         let t1 = new Matrix4();
-        let t2 = t1.position(new XYZ(1, 0, 0));
+        let t2 = t1.position(1, 0, 0);
         expect(t1.toArray()).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         expect(t2.toArray()).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]);
     });

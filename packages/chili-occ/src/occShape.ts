@@ -69,8 +69,7 @@ export class OccShape implements IShape {
 
     setMatrix(matrix: Matrix4): void {
         let trsf = OccHelps.convertMatrix(matrix);
-        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), true);
-
+        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), false);
         this.resetGroupShapes(ShapeType.Face, this._mesh?.faces);
         this.resetGroupShapes(ShapeType.Edge, this._mesh?.edges);
     }
