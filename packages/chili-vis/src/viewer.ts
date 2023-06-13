@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CursorType, IView, IViewer, IVisual, Plane, PubSub, PubSubEventMap } from "chili-core";
+import { CursorType, IView, IViewer, IVisual, Plane } from "chili-core";
 
 interface EventData {
     container: HTMLElement | Window;
@@ -8,27 +8,29 @@ interface EventData {
     callback: (e: any) => void;
 }
 
-interface SubCallbackData {
-    view: IView;
-    type: keyof PubSubEventMap;
-    callback: (e: any) => void;
-}
-
 export abstract class Viewer implements IViewer {
     private readonly _views: Set<IView>;
     private readonly _eventCaches: Map<IView, EventData[]>;
-    private readonly _callbackCaches: Map<IView, SubCallbackData[]>;
+
+    private _activeView?: IView;
+    get activeView(): IView | undefined {
+        return this._activeView;
+    }
+    set acitveView(value: IView) {
+        if (this._activeView === value) return;
+        this._activeView = value;
+    }
 
     constructor(readonly visual: IVisual) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
-        this._callbackCaches = new Map();
     }
 
     createView(name: string, workplane: Plane, dom: HTMLElement): IView {
         let view = this.handleCreateView(name, workplane, dom);
         this._views.add(view);
         this.initEvent(view.container, view);
+        if (this._activeView === undefined) this._activeView = view;
         return view;
     }
 
@@ -37,6 +39,7 @@ export abstract class Viewer implements IViewer {
     removeView(view: IView) {
         this.removeEvents(view);
         this._views.delete(view);
+        if (this._activeView === view) this._activeView = undefined;
     }
 
     views(): readonly IView[] {
@@ -70,25 +73,6 @@ export abstract class Viewer implements IViewer {
         this.addEventListener(container, view, "pointerout", (e) => this.pointerOut(view, e));
         this.addEventListener(container, view, "pointerup", (e) => this.pointerUp(view, e));
         this.addEventListener(container, view, "wheel", (e) => this.mouseWheel(view, e));
-
-        this.subEvents("keyDown", view, (e) => this.keyDown(view, e));
-        this.subEvents("keyUp", view, (e) => this.keyUp(view, e));
-    }
-
-    private subEvents<K extends keyof PubSubEventMap>(
-        type: K,
-        view: IView,
-        callback: (...args: any[]) => void
-    ) {
-        PubSub.default.sub(type, callback as any);
-        if (this._callbackCaches.get(view) === undefined) {
-            this._callbackCaches.set(view, []);
-        }
-        this._callbackCaches.get(view)?.push({
-            view,
-            callback,
-            type,
-        });
     }
 
     private addEventListener(
@@ -114,12 +98,6 @@ export abstract class Viewer implements IViewer {
             x.container.removeEventListener(x.type, x.callback);
         });
         this._eventCaches.delete(view);
-
-        let subs = this._callbackCaches.get(view);
-        subs?.forEach((x) => {
-            PubSub.default.remove(x.type, x.callback);
-        });
-        this._callbackCaches.delete(view);
     }
 
     private pointerMove(view: IView, event: PointerEvent): void {
@@ -129,6 +107,7 @@ export abstract class Viewer implements IViewer {
 
     private pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
+        this.acitveView = view;
         this.visual.eventHandler.pointerDown(view, event);
         this.visual.viewHandler.pointerDown(view, event);
     }
@@ -146,15 +125,5 @@ export abstract class Viewer implements IViewer {
     private mouseWheel(view: IView, event: WheelEvent): void {
         this.visual.eventHandler.mouseWheel(view, event);
         this.visual.viewHandler.mouseWheel(view, event);
-    }
-
-    private keyDown(view: IView, event: KeyboardEvent): void {
-        this.visual.eventHandler.keyDown(view, event);
-        this.visual.viewHandler.keyDown(view, event);
-    }
-
-    private keyUp(view: IView, event: KeyboardEvent): void {
-        this.visual.eventHandler.keyUp(view, event);
-        this.visual.viewHandler.keyUp(view, event);
     }
 }

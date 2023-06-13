@@ -175,6 +175,4 @@ export abstract class SnapEventHandler implements IEventHandler {
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
     protected abstract getErrorMessage(text: string): keyof I18n | undefined;
-
-    keyUp(view: IView, event: KeyboardEvent): void {}
 }

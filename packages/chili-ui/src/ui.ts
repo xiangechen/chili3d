@@ -21,24 +21,9 @@ export class UI {
 
     init(root: HTMLElement) {
         this.setTheme("light");
-        this.initRoot(root);
+        root.className = style.root;
         this.appendComponents(root);
     }
-
-    private initRoot(root: HTMLElement) {
-        root.focus();
-        root.className = style.root;
-        root.addEventListener("keydown", this.handleKeyDown);
-        root.addEventListener("keyup", this.handleKeyUp);
-    }
-
-    private handleKeyDown = (e: KeyboardEvent) => {
-        PubSub.default.pub("keyDown", e);
-    };
-
-    private handleKeyUp = (e: KeyboardEvent) => {
-        PubSub.default.pub("keyUp", e);
-    };
 
     private appendComponents(root: HTMLElement) {
         root.append(

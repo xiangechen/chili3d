@@ -11,8 +11,6 @@ import { MessageType } from "./messageType";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
-    keyDown: (e: KeyboardEvent) => void;
-    keyUp: (e: KeyboardEvent) => void;
     excuteCommand: (commandName: keyof Commands) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;

@@ -27,6 +27,7 @@ export class HotkeyService implements IService {
         return this._lazy.value;
     }
 
+    private app?: Application;
     private readonly _keyMap = new Map<string, keyof Commands>();
 
     private constructor() {
@@ -36,23 +37,32 @@ export class HotkeyService implements IService {
     }
 
     register(app: Application): void {
+        this.app = app;
         Logger.info(`${HotkeyService.name} registed`);
     }
 
     start(): void {
-        PubSub.default.sub("keyDown", this.handleKeyDown);
+        window.addEventListener("keydown", this.handleKeyDown);
         Logger.info(`${HotkeyService.name} started`);
     }
 
     stop(): void {
-        PubSub.default.remove("keyDown", this.handleKeyDown);
+        window.removeEventListener("keydown", this.handleKeyDown);
         Logger.info(`${HotkeyService.name} stoped`);
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
         let command = HotkeyService.instance.getCommand(e);
-        if (command === undefined) return;
-        PubSub.default.pub("excuteCommand", command);
+        if (command !== undefined) {
+            PubSub.default.pub("excuteCommand", command);
+        } else {
+            let visual = this.app?.activeDocument?.visual;
+            let view = visual?.viewer.activeView;
+            if (view && visual) {
+                visual.viewHandler.keyDown(view, e);
+                visual.eventHandler.keyDown(view, e);
+            }
+        }
     };
 
     getKey(keys: Keys): string {

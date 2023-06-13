@@ -10,6 +10,7 @@ import { IViewer } from "./viewer";
 export interface IView extends IPropertyChanged {
     readonly viewer: IViewer;
     readonly container: HTMLElement;
+    name: string;
     scale: number;
     workplane: Plane;
     redraw(): void;

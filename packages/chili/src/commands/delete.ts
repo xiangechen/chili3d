@@ -10,6 +10,7 @@ import { command, ICommand, IDocument } from "chili-core";
 export class Delete implements ICommand {
     async excute(document: IDocument): Promise<void> {
         let models = document.selection.getSelectedNodes();
+        document.selection.clearSelected();
         models.forEach((model) => model.parent?.remove(model));
         document.visual.viewer.redraw();
     }

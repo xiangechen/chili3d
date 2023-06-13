@@ -86,5 +86,4 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
             view.viewer.visual.document.selection.clearSelected();
         }
     }
-    keyUp(view: IView, event: KeyboardEvent): void {}
 }

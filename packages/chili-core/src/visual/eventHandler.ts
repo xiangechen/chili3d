@@ -9,5 +9,4 @@ export interface IEventHandler {
     pointerOut?(view: IView, event: PointerEvent): void;
     mouseWheel(view: IView, event: WheelEvent): void;
     keyDown(view: IView, event: KeyboardEvent): void;
-    keyUp(view: IView, event: KeyboardEvent): void;
 }

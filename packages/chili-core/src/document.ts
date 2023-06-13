@@ -8,7 +8,6 @@ import { IVisual } from "./visual";
 export interface IDocument extends IPropertyChanged, IDisposable {
     name: string;
     currentNode?: INodeLinkedList;
-    // activeView: IView | undefined;
     readonly selection: ISelection;
     readonly id: string;
     readonly history: History;

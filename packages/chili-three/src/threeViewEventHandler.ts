@@ -15,8 +15,6 @@ export class ThreeViewHandler implements IEventHandler {
         view.zoom(event.offsetX, event.offsetY, event.deltaY);
     }
 
-    keyUp(view: IView, event: KeyboardEvent): void {}
-
     pointerMove(view: IView, event: PointerEvent): void {
         event.preventDefault();
         if (this.mouse.isDown) {
