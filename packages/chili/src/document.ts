@@ -21,7 +21,6 @@ import {
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
-    private static readonly _documentMap: Map<string, IDocument> = new Map();
     readonly visual: IVisual;
     readonly history: History;
     readonly rootNode: INodeLinkedList;
@@ -32,7 +31,6 @@ export class Document extends Observable implements IDocument {
     get name(): string {
         return this._name;
     }
-
     set name(name: string) {
         this.setProperty("name", name);
     }
@@ -65,9 +63,7 @@ export class Document extends Observable implements IDocument {
         this.visual = Application.instance.visualFactory.create(this);
         this.selection = new Selection(this);
 
-        Document.cacheDocument(this);
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
-        PubSub.default.sub("redraw", () => this.visual.viewer.redraw());
     }
 
     save(): void {
@@ -88,15 +84,6 @@ export class Document extends Observable implements IDocument {
         this.visual.context.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
         this.visual.context.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
     };
-
-    static get(id: string): IDocument | undefined {
-        return this._documentMap.get(id);
-    }
-
-    private static cacheDocument(document: IDocument) {
-        if (this._documentMap.has(document.id)) return;
-        this._documentMap.set(document.id, document);
-    }
 
     addNode(...nodes: INode[]): void {
         (this.currentNode ?? this.rootNode).add(...nodes);

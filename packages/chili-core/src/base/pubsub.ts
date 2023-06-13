@@ -25,7 +25,6 @@ export interface PubSubEventMap {
     clearFloatTip: () => void;
     showInput: (handler: (text: string) => Result<undefined, keyof I18n>) => void;
     clearInput: () => void;
-    redraw: () => void;
 }
 
 export class PubSub implements IDisposable {
