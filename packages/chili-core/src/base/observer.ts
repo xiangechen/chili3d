@@ -6,6 +6,7 @@ import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
 import { Transaction } from "./transaction";
+import { ISerialize, Serialize } from "./serialize";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 
@@ -16,11 +17,15 @@ export interface IPropertyChanged {
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
 }
 
-export class Observable implements IPropertyChanged, IDisposable {
+export class Observable implements IPropertyChanged, IDisposable, ISerialize {
     protected readonly eventEmitter: EventEmitter;
 
     constructor() {
         this.eventEmitter = new EventEmitter();
+    }
+
+    serialize(): Record<string, any> {
+        return Serialize.serialize(this);
     }
 
     protected privateKeyMap(pubKey: string) {

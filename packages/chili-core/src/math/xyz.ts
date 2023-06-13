@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Precision } from "../base";
+import { ISerialize, Precision } from "../base";
 import { MathUtils } from "./mathUtils";
 
-export class XYZ {
+export class XYZ implements ISerialize {
     static readonly zero = new XYZ(0, 0, 0);
     static readonly unitX = new XYZ(1, 0, 0);
     static readonly unitY = new XYZ(0, 1, 0);
@@ -11,6 +11,14 @@ export class XYZ {
     static readonly one = new XYZ(1, 1, 1);
 
     constructor(readonly x: number, readonly y: number, readonly z: number) {}
+
+    serialize(): Record<string, any> {
+        return {
+            x: this.x,
+            y: this.y,
+            z: this.z,
+        };
+    }
 
     cross(right: XYZ): XYZ {
         return new XYZ(

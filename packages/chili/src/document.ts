@@ -70,6 +70,11 @@ export class Document extends Observable implements IDocument {
         PubSub.default.sub("redraw", () => this.visual.viewer.redraw());
     }
 
+    save(): void {
+        let data = this.rootNode.serialize();
+        console.log(data);
+    }
+
     private handleModelChanged = (records: NodeRecord[]) => {
         let adds: INode[] = [];
         let rms: INode[] = [];

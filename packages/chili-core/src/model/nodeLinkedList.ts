@@ -1,14 +1,32 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, NodeAction, NodeLinkedListHistoryRecord, NodeRecord, PubSub, Transaction } from "../base";
+import {
+    Logger,
+    NodeAction,
+    NodeLinkedListHistoryRecord,
+    NodeRecord,
+    PubSub,
+    Serialize,
+    Transaction,
+} from "../base";
 import { IDocument } from "../document";
 import { Id } from "../id";
 import { INode, INodeLinkedList, Node } from "./node";
 
 export class NodeLinkedList extends Node implements INodeLinkedList {
     private _count: number = 0;
+
     private _firstChild: INode | undefined;
+
+    @Serialize.enable()
+    get firstChild(): INode | undefined {
+        return this._firstChild;
+    }
+
     private _lastChild: INode | undefined;
+    get lastChild(): INode | undefined {
+        return this._lastChild;
+    }
 
     constructor(document: IDocument, name: string, id: string = Id.new()) {
         super(document, name, id);
@@ -20,14 +38,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     size(): number {
         return this._count;
-    }
-
-    firstChild(): INode | undefined {
-        return this._firstChild;
-    }
-
-    lastChild(): INode | undefined {
-        return this._lastChild;
     }
 
     add(...items: INode[]): void {

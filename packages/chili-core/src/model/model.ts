@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Result } from "../base";
+import { Logger, Result, Serialize } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
@@ -11,15 +11,22 @@ import { IModel, IModelGroup, Node } from "./node";
 import { Body } from "./body";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
+    @Serialize.enable()
+    readonly body: Body;
+
     protected _shape: T | undefined;
+
     shape(): T | undefined {
         return this._shape;
     }
 
     protected _matrix: Matrix4 = Matrix4.identity();
+
+    @Serialize.enable()
     get matrix(): Matrix4 {
         return this._matrix;
     }
+
     set matrix(value: Matrix4) {
         this.setProperty(
             "matrix",
@@ -34,14 +41,19 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         );
     }
 
-    constructor(document: IDocument, name: string, readonly body: Body, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
         super(document, name, id);
+        this.body = body;
     }
 }
 
 export class GeometryModel extends Model {
     private readonly _editors: Feature[] = [];
+
     private _error: string | undefined;
+    error() {
+        return this._error;
+    }
 
     constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
         super(document, name, body, id);
@@ -107,10 +119,6 @@ export class GeometryModel extends Model {
     private setShape(shape: Result<IShape>) {
         this._shape = shape.value;
         this._error = shape.error;
-    }
-
-    error() {
-        return this._error;
     }
 
     removeEditor(editor: Feature) {

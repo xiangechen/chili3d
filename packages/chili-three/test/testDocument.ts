@@ -41,4 +41,5 @@ export class TestDocument implements IDocument {
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");
     }
+    save() {}
 }

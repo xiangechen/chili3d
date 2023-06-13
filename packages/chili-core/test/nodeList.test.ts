@@ -14,34 +14,34 @@ describe("test NodeLinkedList", () => {
         let l4 = new NodeLinkedList(doc, "l4");
 
         l1.add(l2);
-        expect(l1.firstChild()).toEqual(l2);
-        expect(l1.lastChild()).toEqual(l2);
+        expect(l1.firstChild).toEqual(l2);
+        expect(l1.lastChild).toEqual(l2);
         expect(l1.size()).toBe(1);
 
         l1.remove(l2);
-        expect(l1.firstChild()).toBeUndefined();
-        expect(l1.lastChild()).toBeUndefined();
+        expect(l1.firstChild).toBeUndefined();
+        expect(l1.lastChild).toBeUndefined();
         expect(l1.size()).toBe(0);
 
         l1.add(l2);
         l1.add(l3);
-        expect(l1.firstChild()).toEqual(l2);
-        expect(l1.lastChild()).toBe(l3);
+        expect(l1.firstChild).toEqual(l2);
+        expect(l1.lastChild).toBe(l3);
         expect(l2.nextSibling).toBe(l3);
         expect(l3.previousSibling).toBe(l2);
         expect(l1.size()).toBe(2);
 
         l1.remove(l2);
-        expect(l1.firstChild()).toBe(l3);
-        expect(l1.lastChild()).toBe(l3);
+        expect(l1.firstChild).toBe(l3);
+        expect(l1.lastChild).toBe(l3);
         expect(l1.size()).toBe(1);
 
         l1.add(l2);
-        expect(l1.firstChild()).toBe(l3);
-        expect(l1.lastChild()).toBe(l2);
+        expect(l1.firstChild).toBe(l3);
+        expect(l1.lastChild).toBe(l2);
         l1.add(l4);
         expect(l1.size()).toBe(3);
-        expect(l1.lastChild()).toBe(l4);
+        expect(l1.lastChild).toBe(l4);
         l1.remove(l2);
         expect(l3.nextSibling).toBe(l4);
         expect(l4.previousSibling).toBe(l3);
@@ -55,12 +55,12 @@ describe("test NodeLinkedList", () => {
         let l4 = new NodeLinkedList(doc, "l4");
 
         l1.insertBefore(undefined, l2);
-        expect(l1.firstChild()).toBe(l2);
-        expect(l1.lastChild()).toBe(l2);
+        expect(l1.firstChild).toBe(l2);
+        expect(l1.lastChild).toBe(l2);
         expect(l1.size()).toBe(1);
 
         l1.insertBefore(l2, l3);
-        expect(l1.firstChild()).toBe(l3);
+        expect(l1.firstChild).toBe(l3);
         expect(l3.nextSibling).toBe(l2);
         expect(l2.previousSibling).toBe(l3);
         expect(l1.size()).toBe(2);
@@ -81,13 +81,13 @@ describe("test NodeLinkedList", () => {
         let l5 = new NodeLinkedList(doc, "l5");
 
         l1.insertAfter(undefined, l2);
-        expect(l1.firstChild()).toEqual(l2);
-        expect(l1.lastChild()).toEqual(l2);
+        expect(l1.firstChild).toEqual(l2);
+        expect(l1.lastChild).toEqual(l2);
         expect(l1.size()).toBe(1);
 
         l1.insertAfter(l2, l3);
-        expect(l1.firstChild()).toEqual(l2);
-        expect(l1.lastChild()).toEqual(l3);
+        expect(l1.firstChild).toEqual(l2);
+        expect(l1.lastChild).toEqual(l3);
         expect(l2.nextSibling).toBe(l3);
         expect(l2.previousSibling).toBeUndefined();
         expect(l3.previousSibling).toBe(l2);
@@ -101,7 +101,7 @@ describe("test NodeLinkedList", () => {
         expect(l1.size()).toBe(3);
 
         l1.insertAfter(undefined, l5);
-        expect(l1.firstChild()).toBe(l5);
+        expect(l1.firstChild).toBe(l5);
         expect(l5.nextSibling).toBe(l2);
         expect(l2.previousSibling).toBe(l5);
     });
@@ -119,9 +119,9 @@ describe("test NodeLinkedList", () => {
         l1.move(l2, l5);
         expect(l1.count).toBe(1);
         expect(l5.count).toBe(1);
-        expect(l1.firstChild()?.name).toBe(l4.name);
-        expect(l2.firstChild()?.name).toBe(l3.name);
-        expect(l5.firstChild()?.name).toBe(l2.name);
+        expect(l1.firstChild?.name).toBe(l4.name);
+        expect(l2.firstChild?.name).toBe(l3.name);
+        expect(l5.firstChild?.name).toBe(l2.name);
 
         l5.add(l6);
         l1.move(l4, l5, l2);
@@ -149,22 +149,22 @@ describe("test NodeLinkedList", () => {
 
         // add undo redo
         doc.rootNode.add(l1);
-        expect(doc.rootNode.firstChild()).toBe(l1);
+        expect(doc.rootNode.firstChild).toBe(l1);
         doc.history.undo();
-        expect(doc.rootNode.firstChild()).toBeUndefined();
+        expect(doc.rootNode.firstChild).toBeUndefined();
         doc.history.redo();
-        expect(doc.rootNode.firstChild()).toBe(l1);
+        expect(doc.rootNode.firstChild).toBe(l1);
         doc.rootNode.remove(l1);
 
         // remove undo redo
         doc.rootNode.add(l1);
-        expect(doc.rootNode.firstChild()).toBe(l1);
+        expect(doc.rootNode.firstChild).toBe(l1);
         doc.rootNode.remove(l1);
-        expect(doc.rootNode.firstChild()).toBeUndefined();
+        expect(doc.rootNode.firstChild).toBeUndefined();
         doc.history.undo();
-        expect(doc.rootNode.firstChild()).toBe(l1);
+        expect(doc.rootNode.firstChild).toBe(l1);
         doc.history.redo();
-        expect(doc.rootNode.firstChild()).toBeUndefined();
+        expect(doc.rootNode.firstChild).toBeUndefined();
         doc.rootNode.remove(l1);
 
         let l2 = new NodeLinkedList(doc, "l2");
@@ -228,31 +228,31 @@ describe("test NodeLinkedList", () => {
         l2.move(l5, l1, l3);
         expect(l2.count).toBe(0);
         expect(l1.count).toBe(3);
-        expect(l2.firstChild()).toBeUndefined();
+        expect(l2.firstChild).toBeUndefined();
         expect(l5.previousSibling).toBe(l3);
         expect(l5.nextSibling).toBe(l4);
         expect(l3.nextSibling).toBe(l5);
         expect(l4.previousSibling?.name).toBe(l5.name);
-        expect(l5.firstChild()).toBe(l6);
+        expect(l5.firstChild).toBe(l6);
 
         doc.history.undo();
         expect(l2.count).toBe(1);
         expect(l1.count).toBe(2);
-        expect(l2.firstChild()).toBe(l5);
+        expect(l2.firstChild).toBe(l5);
         expect(l5.previousSibling).toBe(undefined);
         expect(l5.nextSibling).toBe(undefined);
         expect(l3.nextSibling).toBe(l4);
         expect(l4.previousSibling).toBe(l3);
-        expect(l5.firstChild()).toBe(l6);
+        expect(l5.firstChild).toBe(l6);
 
         doc.history.redo();
         expect(l2.count).toBe(0);
         expect(l1.count).toBe(3);
-        expect(l2.firstChild()).toBeUndefined();
+        expect(l2.firstChild).toBeUndefined();
         expect(l5.previousSibling).toBe(l3);
         expect(l5.nextSibling).toBe(l4);
         expect(l3.nextSibling).toBe(l5);
         expect(l4.previousSibling).toBe(l5);
-        expect(l5.firstChild()).toBe(l6);
+        expect(l5.firstChild).toBe(l6);
     });
 });

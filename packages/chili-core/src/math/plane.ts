@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { ISerialize } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
-export class Plane {
+export class Plane implements ISerialize {
     static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
     static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
     static readonly ZX: Plane = new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ);
@@ -31,6 +32,14 @@ export class Plane {
         this.normal = n;
         this.x = x;
         this.y = n.cross(x).normalize()!;
+    }
+
+    serialize(): Record<string, any> {
+        return {
+            location: this.location.serialize(),
+            normal: this.normal.serialize(),
+            x: this.x.serialize(),
+        };
     }
 
     copyTo(location: XYZ) {

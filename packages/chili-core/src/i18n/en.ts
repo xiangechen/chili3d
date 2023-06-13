@@ -24,6 +24,8 @@ let en: I18n = {
     "vertex.point": "Point",
     "line.start": "Start",
     "line.end": "End",
+    "command.open": "Open",
+    "command.save": "Save",
     "command.delete": "Delete",
     "command.redo": "Redo",
     "command.undo": "Undo",

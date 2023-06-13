@@ -24,6 +24,8 @@ let zh: I18n = {
     "vertex.point": "点",
     "line.start": "起点",
     "line.end": "终点",
+    "command.open": "打开",
+    "command.save": "保存",
     "command.delete": "删除",
     "command.redo": "重做",
     "command.undo": "撤销",

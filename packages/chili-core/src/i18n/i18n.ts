@@ -37,6 +37,8 @@ type Keys =
     | "box.dz"
     | "rect.dx"
     | "rect.dy"
+    | "command.save"
+    | "command.open"
     | "command.delete"
     | "command.redo"
     | "command.newGroup"

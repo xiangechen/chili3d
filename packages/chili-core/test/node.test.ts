@@ -27,6 +27,7 @@ describe("test node", () => {
             nextSibling: undefined,
             onPropertyChanged: () => {},
             removePropertyChanged: () => {},
+            serialize: () => ({} as any),
         };
         // n1
         // ---n2

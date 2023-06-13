@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18n, IDocument, IShape, Matrix4, property, Result, XYZ } from "chili-core";
+import { Body, I18n, IDocument, IShape, Matrix4, property, Result, Serialize, XYZ } from "chili-core";
 import { Application } from "chili-core/src/application";
 
 export class CircleBody extends Body {
@@ -9,6 +9,8 @@ export class CircleBody extends Body {
     private readonly initialNormal: XYZ;
 
     private _center: XYZ;
+
+    @Serialize.enable()
     @property("circle.center")
     get center() {
         return this._center;
@@ -18,6 +20,8 @@ export class CircleBody extends Body {
     }
 
     private _radius: number;
+
+    @Serialize.enable()
     @property("circle.radius")
     get radius() {
         return this._radius;
@@ -27,6 +31,8 @@ export class CircleBody extends Body {
     }
 
     private _normal: XYZ;
+
+    @Serialize.enable()
     get normal() {
         return this._normal;
     }

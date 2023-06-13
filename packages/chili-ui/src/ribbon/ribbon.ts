@@ -24,7 +24,7 @@ export class Ribbon extends Control {
         this.append(this.titlebar, this._ribbonHeader, this._ribbonPanel);
 
         this.initRibbon(DefaultRibbon);
-        this.initQuickBar(["Save", "Undo", "Redo"]);
+        this.initQuickBar(["Open", "Save", "Undo", "Redo"]);
     }
 
     selectTab(tab: RibbonTab) {

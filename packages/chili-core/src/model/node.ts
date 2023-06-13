@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { HistoryObservable, IPropertyChanged } from "../base";
+import { ISerialize, Serialize } from "../base/serialize";
 import { property } from "../decorators";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
@@ -8,7 +9,7 @@ import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 
-export interface INode extends IPropertyChanged {
+export interface INode extends IPropertyChanged, ISerialize {
     readonly id: string;
     visible: boolean;
     parentVisible: boolean;
@@ -19,8 +20,8 @@ export interface INode extends IPropertyChanged {
 }
 
 export interface INodeLinkedList extends INode {
-    firstChild(): INode | undefined;
-    lastChild(): INode | undefined;
+    get firstChild(): INode | undefined;
+    get lastChild(): INode | undefined;
     add(...items: INode[]): void;
     remove(...items: INode[]): void;
     size(): number;
@@ -42,7 +43,7 @@ export interface IModelGroup extends IModel {
 
 export namespace INode {
     export function isLinkedListNode(node: INode): node is INodeLinkedList {
-        return (node as INodeLinkedList).firstChild !== undefined;
+        return (node as INodeLinkedList).add !== undefined;
     }
 
     export function isModelNode(node: INode): node is IModel {
@@ -61,12 +62,19 @@ export abstract class Node extends HistoryObservable implements INode {
 
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
+
+    @Serialize.enable()
     nextSibling: INode | undefined;
 
-    constructor(document: IDocument, private _name: string, readonly id: string = Id.new()) {
+    @Serialize.enable()
+    readonly id: string;
+
+    constructor(document: IDocument, private _name: string, id: string = Id.new()) {
         super(document);
+        this.id = id;
     }
 
+    @Serialize.enable()
     @property("name")
     get name() {
         return this._name;
@@ -76,6 +84,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setProperty("name", value);
     }
 
+    @Serialize.enable()
     get visible(): boolean {
         return this._visible;
     }
@@ -153,7 +162,7 @@ export namespace INode {
 
     function getNodesFromParentToChild(nodes: INode[], parent: INodeLinkedList, until?: INode): boolean {
         nodes.push(parent);
-        let node = parent.firstChild();
+        let node = parent.firstChild;
         while (node !== undefined) {
             if (until === node) {
                 nodes.push(node);
