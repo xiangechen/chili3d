@@ -8,9 +8,13 @@ import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
+import { Body } from "./body";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
     protected _shape: T | undefined;
+    shape(): T | undefined {
+        return this._shape;
+    }
 
     protected _matrix: Matrix4 = Matrix4.identity();
     get matrix(): Matrix4 {
@@ -22,6 +26,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
             value,
             () => {
                 this._shape?.setMatrix(value);
+                this.body.setMatrix(value);
             },
             {
                 equals: (left, right) => left.equals(right),
@@ -29,12 +34,8 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         );
     }
 
-    constructor(document: IDocument, name: string, readonly body: Entity, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, readonly body: Body, id: string = Id.new()) {
         super(document, name, id);
-    }
-
-    shape(): T | undefined {
-        return this._shape;
     }
 }
 
@@ -42,7 +43,7 @@ export class GeometryModel extends Model {
     private readonly _editors: Feature[] = [];
     private _error: string | undefined;
 
-    constructor(document: IDocument, name: string, body: Entity, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
         super(document, name, body, id);
         this.generate();
         body.onShapeChanged(this.onShapeChanged);

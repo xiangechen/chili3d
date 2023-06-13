@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { MathUtils } from "./mathUtils";
+import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
@@ -40,6 +41,13 @@ export class Plane {
         let vector = point.sub(this.location);
         let dot = vector.dot(this.normal);
         return this.location.add(vector.sub(this.normal.multiply(dot)));
+    }
+
+    transformed(matrix: Matrix4) {
+        let location = matrix.ofPoint(this.location);
+        let x = matrix.ofVector(this.x);
+        let normal = matrix.ofVector(this.normal);
+        return new Plane(location, normal, x);
     }
 
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {

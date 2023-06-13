@@ -1,16 +1,14 @@
 import {
+    Body,
     Color,
-    Entity,
     I18n,
     ICurve,
     IDocument,
     IEdge,
     IShape,
     IShapeMeshData,
-    IVertex,
     LineType,
     Matrix4,
-    Quaternion,
     Ray,
     Result,
     ShapeType,
@@ -57,7 +55,7 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends Entity {
+export class TestBody extends Body {
     name: keyof I18n = "body.line";
     constructor(document: IDocument, readonly start: XYZ, readonly end: XYZ) {
         super(document);
@@ -65,5 +63,9 @@ export class TestBody extends Entity {
 
     protected generateShape(): Result<IShape> {
         return Result.ok(new TestEdge(this.start, this.end));
+    }
+
+    override setMatrix(matrix: Matrix4): void {
+        throw new Error("Method not implemented.");
     }
 }
