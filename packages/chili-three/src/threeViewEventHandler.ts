@@ -13,6 +13,7 @@ export class ThreeViewHandler implements IEventHandler {
 
     mouseWheel(view: IView, event: WheelEvent): void {
         view.zoom(event.offsetX, event.offsetY, event.deltaY);
+        view.redraw();
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
