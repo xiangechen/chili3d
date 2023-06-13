@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
+import { Body, GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
 import style from "./propertyView.module.css";
-import { MatrixConverter, RotateConverter, ScalingConverter, TranslationConverter } from "./matrixConverter";
+import { MatrixConverter } from "./matrixConverter";
 
 export class PropertyView extends Control {
     private panel = new Panel(style.panel);
@@ -29,17 +29,27 @@ export class PropertyView extends Control {
     }
 
     private addBody(nodes: INode[], document: IDocument) {
-        nodes = nodes.filter((x) => INode.isModelNode(x));
-        if (nodes.length === 0) return;
-        if (!nodes.some((x) => INode.isModelGroup(x))) {
-            let bodies = nodes.map((x) => (x as GeometryModel).body);
-            let body = new Expander(bodies[0].name);
-            this.panel.append(body);
-            body.classList.add(style.expander);
-            Property.getAll(bodies[0]).forEach((x) => {
-                this.appendProperty(body.contenxtPanel, document, bodies, x);
-            });
+        let bodies = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).body);
+        if (bodies.length === 0 || !this.isAllElementsOfTypeFirstElement(bodies)) return;
+        let body = new Expander(bodies[0].name);
+        this.panel.append(body);
+        body.classList.add(style.expander);
+        Property.getAll(bodies[0]).forEach((x) => {
+            this.appendProperty(body.contenxtPanel, document, bodies, x);
+        });
+    }
+
+    private isAllElementsOfTypeFirstElement(arr: any[]): boolean {
+        if (arr.length <= 1) {
+            return true;
         }
+        const firstElementType = Object.getPrototypeOf(arr[0]).constructor;
+        for (let i = 1; i < arr.length; i++) {
+            if (Object.getPrototypeOf(arr[i]).constructor !== firstElementType) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private addTransform(document: IDocument, nodes: INode[]) {
