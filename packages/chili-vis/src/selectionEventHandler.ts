@@ -21,43 +21,54 @@ interface SelectionRect {
 }
 
 export class SelectionHandler implements IEventHandler {
-    private element?: SelectionRect;
-    private mouse: { isDown: boolean; x: number; y: number };
-    private _lastDetecteds: VisualShapeData[] | undefined;
-
+    private rect?: SelectionRect;
+    private mouse = { isDown: false, x: 0, y: 0 };
+    private _lastHighlights: VisualShapeData[] | undefined;
+    private _detecting: VisualShapeData[] | undefined;
     private shapeType: ShapeType = ShapeType.Shape;
-
-    constructor() {
-        this.mouse = { isDown: false, x: 0, y: 0 };
-    }
-
-    mouseWheel(view: IView, event: WheelEvent): void {
-        view.redraw();
-    }
+    private detectedIndex = 0;
 
     pointerMove(view: IView, event: PointerEvent): void {
-        if (this.element) {
-            this.updateRect(this.element, event);
+        this.detectedIndex = 0;
+        this._detecting = undefined;
+        if (this.rect) {
+            this.updateRect(this.rect, event);
         }
+        let detecteds = this.getDetecteds(view, event);
+        this.setHighlight(view, detecteds);
+    }
 
+    private getDetecteds(view: IView, event: PointerEvent) {
         let detecteds: VisualShapeData[] = [];
         if (this.mouse.isDown) {
             detecteds = detecteds.concat(
                 view.rectDetected(this.shapeType, this.mouse.x, this.mouse.y, event.offsetX, event.offsetY)
             );
         } else {
-            let detect = view.detected(this.shapeType, event.offsetX, event.offsetY, true).at(0);
-            if (detect !== undefined) detecteds.push(detect);
+            this._detecting = view.detected(this.shapeType, event.offsetX, event.offsetY, true);
+            let detected = this.getPointDetecting();
+            if (detected) detecteds.push(detected);
         }
+        return detecteds;
+    }
 
-        this._lastDetecteds?.forEach((x) => {
+    private getPointDetecting() {
+        if (this._detecting) {
+            if (this.detectedIndex >= 0 && this.detectedIndex < this._detecting.length) {
+                return this._detecting[this.detectedIndex];
+            }
+        }
+        return undefined;
+    }
+
+    private setHighlight(view: IView, detecteds: VisualShapeData[]) {
+        this._lastHighlights?.forEach((x) => {
             if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType);
         });
         detecteds.forEach((x) => {
-            if (!this._lastDetecteds?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
+            if (!this._lastHighlights?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
         });
-
-        this._lastDetecteds = detecteds;
+        this._lastHighlights = detecteds;
         view.viewer.redraw();
     }
 
@@ -68,7 +79,7 @@ export class SelectionHandler implements IEventHandler {
                 x: event.offsetX,
                 y: event.offsetY,
             };
-            this.element = this.initRect(view.container, event);
+            this.rect = this.initRect(view.container, event);
         }
     }
 
@@ -105,39 +116,58 @@ export class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            if (this._lastDetecteds === undefined || this._lastDetecteds.length === 0) {
-                view.viewer.visual.document.selection.clearSelected();
-            } else {
-                let nodes: IModel[] = [];
-                this._lastDetecteds.forEach((x) => {
-                    let model = view.viewer.visual.context.getModel(x.owner);
-                    if (model) nodes.push(model);
-                });
-                view.viewer.visual.document.selection.select(nodes, event.shiftKey);
-            }
+            this.setSelected(view, event);
         }
         this.cleanDetecteds();
         view.viewer.redraw();
     }
 
+    private setSelected(view: IView, event: PointerEvent) {
+        if (this._lastHighlights === undefined || this._lastHighlights.length === 0) {
+            view.viewer.visual.document.selection.clearSelected();
+        } else {
+            let nodes: IModel[] = [];
+            this._lastHighlights.forEach((x) => {
+                let model = view.viewer.visual.context.getModel(x.owner);
+                if (model) nodes.push(model);
+            });
+            view.viewer.visual.document.selection.select(nodes, event.shiftKey);
+        }
+    }
+
     private removeRect(view: IView) {
-        if (this.element) {
-            view.container.removeChild(this.element.element);
-            this.element = undefined;
+        if (this.rect) {
+            view.container.removeChild(this.rect.element);
+            this.rect = undefined;
         }
     }
 
     private cleanDetecteds() {
-        this._lastDetecteds?.forEach((x) => {
+        this._lastHighlights?.forEach((x) => {
             x.owner.removeState(VisualState.hilight, this.shapeType);
         });
-        this._lastDetecteds = undefined;
+        this._lastHighlights = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
             this.cleanDetecteds();
             view.viewer.visual.document.selection.clearSelected();
+        } else if (event.key === "Tab") {
+            event.preventDefault();
+            this.highlightNext(view);
+        }
+    }
+
+    private highlightNext(view: IView) {
+        if (this._detecting) {
+            if (this._detecting.length - 1 > this.detectedIndex) {
+                this.detectedIndex++;
+            } else if (this.detectedIndex !== 0) {
+                this.detectedIndex = 0;
+            }
+            let detected = this.getPointDetecting();
+            if (detected) this.setHighlight(view, [detected]);
         }
     }
 }

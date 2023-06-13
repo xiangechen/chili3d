@@ -80,7 +80,6 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    mouseWheel(view: IView, event: WheelEvent): void {}
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
             view.viewer.visual.document.selection.clearSelected();

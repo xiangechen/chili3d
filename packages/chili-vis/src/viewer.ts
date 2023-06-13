@@ -123,7 +123,7 @@ export abstract class Viewer implements IViewer {
     }
 
     private mouseWheel(view: IView, event: WheelEvent): void {
-        this.visual.eventHandler.mouseWheel(view, event);
-        this.visual.viewHandler.mouseWheel(view, event);
+        this.visual.eventHandler.mouseWheel?.(view, event);
+        this.visual.viewHandler.mouseWheel?.(view, event);
     }
 }
