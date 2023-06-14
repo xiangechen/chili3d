@@ -49,6 +49,11 @@ export class LineBody extends Body {
         this._end = end;
     }
 
+    @Serialize.deserialize()
+    static from({ document, start, end }: { document: IDocument; start: XYZ; end: XYZ }) {
+        return new LineBody(document, start, end);
+    }
+
     protected generateShape(): Result<IShape, string> {
         return Application.instance.shapeFactory.line(this._start, this._end);
     }

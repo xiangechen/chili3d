@@ -8,6 +8,7 @@ import {
     INode,
     INodeLinkedList,
     ISelection,
+    ISerialize,
     IView,
     IVisual,
     Id,
@@ -16,14 +17,18 @@ import {
     NodeRecord,
     Observable,
     PubSub,
+    Serialize,
+    Serialized,
+    Storage,
 } from "chili-core";
-
 import { Selection } from "./selection";
 
-export class Document extends Observable implements IDocument {
+const DBName = "chili3d";
+const StoreName = "documents";
+
+export class Document extends Observable implements IDocument, ISerialize {
     readonly visual: IVisual;
     readonly history: History;
-    readonly rootNode: INodeLinkedList;
     readonly selection: ISelection;
 
     private _name: string;
@@ -33,6 +38,12 @@ export class Document extends Observable implements IDocument {
     }
     set name(name: string) {
         this.setProperty("name", name);
+    }
+
+    private _rootNode: INodeLinkedList;
+
+    get rootNode(): INodeLinkedList {
+        return this._rootNode;
     }
 
     private _currentNode?: INodeLinkedList;
@@ -59,16 +70,46 @@ export class Document extends Observable implements IDocument {
         super();
         this._name = name;
         this.history = new History();
-        this.rootNode = new NodeLinkedList(this, name);
+        this._rootNode = new NodeLinkedList(this, name);
         this.visual = Application.instance.visualFactory.create(this);
         this.selection = new Selection(this);
 
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
     }
 
-    save(): void {
-        let data = this.rootNode.serialize();
-        console.log(data);
+    override serialize(): Serialized {
+        return {
+            type: Document.name,
+            id: this.id,
+            name: this.name,
+            rootNode: this.rootNode.serialize(),
+        };
+    }
+
+    async save() {
+        let data = this.serialize();
+        let db = await Storage.open(DBName, StoreName);
+        await Storage.put(db, StoreName, this.name, data);
+    }
+
+    static async open(name: string) {
+        let db = await Storage.open(DBName, StoreName);
+        let data = (await Storage.get(db, StoreName, name)) as Serialized;
+        this.load(data);
+    }
+
+    static load(data: Serialized) {
+        let document = new Document("111111");
+        let rootData = data["rootNode"];
+        let rootNode = new NodeLinkedList(document, "111111", rootData["id"]);
+        document._rootNode = rootNode;
+        Application.instance.activeDocument = document;
+        const parentMap = new Map<INodeLinkedList, INode[]>();
+        this.getNodes(parentMap, document, rootNode, rootData["firstChild"]);
+        for (const kv of parentMap) {
+            kv[0].add(...kv[1]);
+        }
+        return document;
     }
 
     private handleModelChanged = (records: NodeRecord[]) => {
@@ -89,16 +130,28 @@ export class Document extends Observable implements IDocument {
         (this.currentNode ?? this.rootNode).add(...nodes);
     }
 
-    toJson() {
-        return {
-            id: this.id,
-            name: this._name,
-        };
+    private static getNodes(
+        map: Map<INodeLinkedList, INode[]>,
+        document: IDocument,
+        parent: INodeLinkedList,
+        data: Serialized
+    ) {
+        data["document"] = document;
+        if (!map.has(parent)) map.set(parent, []);
+        let node = this.createInstance(data);
+        map.get(parent)!.push(node);
+        if (data["firstChild"]) this.getNodes(map, document, node, data["firstChild"]);
+        if (data["nextSibling"]) this.getNodes(map, document, parent, data["nextSibling"]);
     }
 
-    static fromJson(data: any) {
-        let document = new Document(data.name, data.id);
-        // data.models.forEach(x => document.addModel(x))
-        return document;
+    private static createInstance(data: Serialized) {
+        for (const key of Object.keys(data)) {
+            if (key === "firstChild" || key === "nextSibling") continue; // 不生成嵌套节点
+            if (data[key]?.type) data[key] = this.createInstance(data[key]);
+        }
+        let create = Serialize.getDeserialize(data.type);
+        if (create === undefined)
+            throw new Error(`The type of ${data.type} is unknown and cannot be loaded.`);
+        return create(data);
     }
 }

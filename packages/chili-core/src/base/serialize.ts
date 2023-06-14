@@ -1,27 +1,44 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+export type Serialized = {
+    type: string;
+    [property: string]: any;
+};
+
 export interface ISerialize {
-    serialize(): Record<string, any>;
+    serialize(): Serialized;
 }
 
 export namespace Serialize {
-    const map = new Map<new (...args: any[]) => any, Set<string>>();
+    const keyMap = new Map<new (...args: any[]) => any, Set<string>>();
+    const deserializeMap = new Map<string, (...args: any[]) => any>();
 
     export function enable() {
         return (target: any, name: string) => {
-            let keys = map.get(target);
+            let keys = keyMap.get(target);
             if (keys === undefined) {
                 keys = new Set();
-                map.set(target, keys);
+                keyMap.set(target, keys);
             }
             keys.add(name);
         };
     }
 
-    export function serialize(target: ISerialize): Record<string, any> {
+    export function deserialize() {
+        return (target: any, name: string) => {
+            deserializeMap.set(target.name, target[name]);
+        };
+    }
+
+    export function getDeserialize(type: string) {
+        return deserializeMap.get(type);
+    }
+
+    export function serialize(target: ISerialize): Serialized {
         let keys = getKeys(target);
-        let data: Record<string, any> = {};
-        data["type"] = target.constructor.name;
+        let data: Serialized = {
+            type: target.constructor.name,
+        };
         for (const key of keys) {
             let value = (target as any)[key];
             let type = typeof value;
@@ -29,6 +46,8 @@ export namespace Serialize {
                 data[key] = value.serialize();
             } else if (type !== "function" && type !== "symbol") {
                 data[key] = value;
+            } else {
+                throw new Error("Unsupported serialized object");
             }
         }
         return data;
@@ -38,7 +57,7 @@ export namespace Serialize {
         let keys: string[] = [];
         let prototype = Object.getPrototypeOf(target);
         while (prototype !== null) {
-            let k = map.get(prototype);
+            let k = keyMap.get(prototype);
             if (k) keys.push(...k.values());
             prototype = Object.getPrototypeOf(prototype);
         }

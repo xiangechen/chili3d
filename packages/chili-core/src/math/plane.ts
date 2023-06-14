@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize } from "../base";
+import { ISerialize, Serialize, Serialized } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
@@ -34,12 +34,18 @@ export class Plane implements ISerialize {
         this.y = n.cross(x).normalize()!;
     }
 
-    serialize(): Record<string, any> {
+    serialize() {
         return {
+            type: Plane.name,
             location: this.location.serialize(),
             normal: this.normal.serialize(),
-            x: this.x.serialize(),
+            xDirection: this.x.serialize(),
         };
+    }
+
+    @Serialize.deserialize()
+    static from(data: { location: XYZ; normal: XYZ; xDirection: XYZ }) {
+        return new Plane(data.location, data.normal, data.xDirection);
     }
 
     copyTo(location: XYZ) {

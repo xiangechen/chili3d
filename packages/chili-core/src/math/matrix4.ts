@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { ISerialize, Serialize, Serialized } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
-export class Matrix4 {
+export class Matrix4 implements ISerialize {
     private readonly array: Float32Array = new Float32Array(16);
 
     public determinant(): number {
@@ -25,6 +26,18 @@ export class Matrix4 {
         let b9 = a30 * b2 - a31 * b1 + a32 * b0;
 
         return a13 * b6 - a03 * b7 + a33 * b8 - a23 * b9;
+    }
+
+    serialize(): Serialized {
+        return {
+            type: Matrix4.name,
+            array: this.toArray(),
+        };
+    }
+
+    @Serialize.deserialize()
+    static from({ array }: { array: number[] }) {
+        return Matrix4.fromArray(array);
     }
 
     public toArray(): readonly number[] {

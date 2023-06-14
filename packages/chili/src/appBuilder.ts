@@ -65,7 +65,7 @@ export class AppBuilder {
                 let command = commands[element];
                 let data = CommandData.get(command);
                 if (command.prototype?.excute !== undefined && data !== undefined) {
-                    this._register.register<ICommand>(new Token(data.name), command);
+                    this._register.register(new Token(data.name), command);
                 }
             }
         });

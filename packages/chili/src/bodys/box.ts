@@ -1,7 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18n, IDocument, IShape, Matrix4, Plane, property, Result, Serialize } from "chili-core";
-import { Application } from "chili-core/src/application";
+import {
+    Application,
+    Body,
+    I18n,
+    IDocument,
+    IShape,
+    Matrix4,
+    Plane,
+    property,
+    Result,
+    Serialize,
+} from "chili-core";
 
 export class BoxBody extends Body {
     readonly name: keyof I18n = "body.box";
@@ -54,6 +64,23 @@ export class BoxBody extends Body {
         this._dx = dx;
         this._dy = dy;
         this._dz = dz;
+    }
+
+    @Serialize.deserialize()
+    static from({
+        document,
+        plane,
+        dx,
+        dy,
+        dz,
+    }: {
+        document: IDocument;
+        plane: Plane;
+        dx: number;
+        dy: number;
+        dz: number;
+    }) {
+        return new BoxBody(document, plane, dx, dy, dz);
     }
 
     protected generateShape(): Result<IShape> {

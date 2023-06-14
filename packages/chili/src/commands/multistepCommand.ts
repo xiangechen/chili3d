@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ICommand, IDocument } from "chili-core";
+import { Application, ICommand, IDocument, Logger } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
 export abstract class MultistepCommand implements ICommand {
     protected stepDatas: SnapedData[] = [];
 
-    async excute(document: IDocument): Promise<void> {
-        await this.excuteFrom(document, 0);
+    async excute(application: Application): Promise<void> {
+        await this.excuteFrom(application.activeDocument!, 0);
     }
 
     protected async excuteFrom(document: IDocument, step: number): Promise<void> {

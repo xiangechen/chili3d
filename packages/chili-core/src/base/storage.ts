@@ -2,9 +2,15 @@
 
 import { Logger } from "./logger";
 
+const Version = 1;
+
 export class Storage {
-    open(dbName: string, storeName: string, options?: IDBObjectStoreParameters): Promise<IDBDatabase> {
-        let request = window.indexedDB.open(dbName);
+    static open(
+        dbName: string,
+        storeName: string,
+        options?: IDBObjectStoreParameters
+    ): Promise<IDBDatabase> {
+        let request = window.indexedDB.open(dbName, Version);
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {
                 Logger.info(`open ${dbName} success`);
@@ -26,7 +32,7 @@ export class Storage {
         });
     }
 
-    get(db: IDBDatabase, storeName: string, key: string) {
+    static get(db: IDBDatabase, storeName: string, key: string) {
         let request = db.transaction([storeName], "readonly").objectStore(storeName).get(key);
 
         return new Promise((resolve, reject) => {
@@ -50,7 +56,7 @@ export class Storage {
      * @param count items per page
      * @returns
      */
-    getPage(db: IDBDatabase, storeName: string, page: number, count: number = 20) {
+    static getPage(db: IDBDatabase, storeName: string, page: number, count: number = 20) {
         let result: any[] = [];
         let index = 0;
         let isAdvanced = false;
@@ -80,7 +86,7 @@ export class Storage {
         });
     }
 
-    delete(db: IDBDatabase, storeName: string, key: string): Promise<boolean> {
+    static delete(db: IDBDatabase, storeName: string, key: string): Promise<boolean> {
         let request = db.transaction([storeName], "readwrite").objectStore(storeName).delete(key);
 
         return new Promise((resolve, reject) => {
@@ -96,8 +102,8 @@ export class Storage {
         });
     }
 
-    put(db: IDBDatabase, storeName: string, value: any): Promise<boolean> {
-        let request = db.transaction([storeName], "readwrite").objectStore(storeName).put(value);
+    static put(db: IDBDatabase, storeName: string, key: IDBValidKey, value: any): Promise<boolean> {
+        let request = db.transaction([storeName], "readwrite").objectStore(storeName).put(value, key);
 
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {

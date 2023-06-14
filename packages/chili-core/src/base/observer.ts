@@ -6,7 +6,7 @@ import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
 import { Transaction } from "./transaction";
-import { ISerialize, Serialize } from "./serialize";
+import { ISerialize, Serialize, Serialized } from "./serialize";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 
@@ -24,7 +24,7 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
         this.eventEmitter = new EventEmitter();
     }
 
-    serialize(): Record<string, any> {
+    serialize(): Serialized {
         return Serialize.serialize(this);
     }
 

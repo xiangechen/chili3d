@@ -32,12 +32,7 @@ export class Selection extends Observable implements ISelection {
     }
 
     private publishSelection() {
-        PubSub.default.pub(
-            "selectionChanged",
-            this.document.visual.document,
-            this._selectedNodes,
-            this._unselectedNodes
-        );
+        PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
     }
 
     private toggleSelectPublish(nodes: INode[], publish: boolean) {

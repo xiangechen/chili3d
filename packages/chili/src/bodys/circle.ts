@@ -1,7 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18n, IDocument, IShape, Matrix4, property, Result, Serialize, XYZ } from "chili-core";
-import { Application } from "chili-core/src/application";
+import {
+    Application,
+    Body,
+    I18n,
+    IDocument,
+    IShape,
+    Matrix4,
+    property,
+    Result,
+    Serialize,
+    XYZ,
+} from "chili-core";
 
 export class CircleBody extends Body {
     readonly name: keyof I18n = "body.circle";
@@ -44,6 +54,21 @@ export class CircleBody extends Body {
         this._normal = normal;
         this._center = center;
         this._radius = radius;
+    }
+
+    @Serialize.deserialize()
+    static from({
+        document,
+        normal,
+        center,
+        radius,
+    }: {
+        document: IDocument;
+        normal: XYZ;
+        center: XYZ;
+        radius: number;
+    }) {
+        return new CircleBody(document, normal, center, radius);
     }
 
     protected generateShape(): Result<IShape, string> {

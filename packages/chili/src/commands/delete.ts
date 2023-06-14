@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand, IDocument } from "chili-core";
+import { Application, command, ICommand } from "chili-core";
 
 @command({
     name: "Delete",
@@ -8,7 +8,8 @@ import { command, ICommand, IDocument } from "chili-core";
     icon: "icon-redo",
 })
 export class Delete implements ICommand {
-    async excute(document: IDocument): Promise<void> {
+    async excute(app: Application): Promise<void> {
+        let document = app.activeDocument!;
         let models = document.selection.getSelectedNodes();
         document.selection.clearSelected();
         models.forEach((model) => model.parent?.remove(model));

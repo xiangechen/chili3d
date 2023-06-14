@@ -1,7 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18n, IDocument, IShape, Matrix4, Plane, property, Result, Serialize } from "chili-core";
-import { Application } from "chili-core/src/application";
+import {
+    Application,
+    Body,
+    I18n,
+    IDocument,
+    IShape,
+    Matrix4,
+    Plane,
+    property,
+    Result,
+    Serialize,
+} from "chili-core";
 
 export class RectBody extends Body {
     readonly name: keyof I18n = "body.rect";
@@ -40,6 +50,11 @@ export class RectBody extends Body {
         this._plane = plane;
         this._dx = dx;
         this._dy = dy;
+    }
+
+    @Serialize.deserialize()
+    static from({ document, plane, dx, dy }: { document: IDocument; plane: Plane; dx: number; dy: number }) {
+        return new RectBody(document, plane, dx, dy);
     }
 
     protected generateShape(): Result<IShape, string> {

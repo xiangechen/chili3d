@@ -61,6 +61,21 @@ export class GeometryModel extends Model {
         body.onShapeChanged(this.onShapeChanged);
     }
 
+    @Serialize.deserialize()
+    static from({
+        document,
+        name,
+        body,
+        id,
+    }: {
+        document: IDocument;
+        name: string;
+        body: Body;
+        id?: string;
+    }) {
+        return new GeometryModel(document, name, body, id ?? Id.new());
+    }
+
     private onShapeChanged = (entity: Entity) => {
         if (entity === this.body) {
             this.generate();

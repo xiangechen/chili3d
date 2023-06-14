@@ -7,6 +7,7 @@ import {
     IVisualContext,
     IVisualShape,
     LineType,
+    Logger,
     Matrix4,
     ShapeMeshData,
     ShapeType,

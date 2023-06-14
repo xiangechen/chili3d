@@ -32,6 +32,11 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         super(document, name, id);
     }
 
+    @Serialize.deserialize()
+    static from({ document, name, id }: { document: IDocument; name: string; id?: string }) {
+        return new NodeLinkedList(document, name, id ?? Id.new());
+    }
+
     get count() {
         return this._count;
     }

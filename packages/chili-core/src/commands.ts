@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 export class Commands {
-    Save = "Save";
-    Open = "Open";
+    NewDocument = "NewDocument";
+    SaveDocument = "SaveDocument";
+    OpenDocument = "OpenDocument";
     LastCommand = "LastCommand";
     NewFolder = "NewFolder";
     NewGroup = "NewGroup";
