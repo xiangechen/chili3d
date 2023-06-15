@@ -10,15 +10,10 @@ export interface IHistoryRecord {
 }
 
 export class History {
-    private _isDisabled: boolean = false;
     private readonly _undos: IHistoryRecord[] = [];
     private readonly _redos: IHistoryRecord[] = [];
-
+    disabled: boolean = false;
     undoLimits: number = 25;
-
-    get isDisabled() {
-        return this._isDisabled;
-    }
 
     add(record: IHistoryRecord) {
         this._redos.length = 0;
@@ -55,12 +50,12 @@ export class History {
     }
 
     private tryOperate(action: () => void) {
-        let isDisabled = this._isDisabled;
-        if (!isDisabled) this._isDisabled = true;
+        let isDisabled = this.disabled;
+        if (!isDisabled) this.disabled = true;
         try {
             action();
         } finally {
-            this._isDisabled = isDisabled;
+            this.disabled = isDisabled;
         }
     }
 }
@@ -87,7 +82,11 @@ export class PropertyHistoryRecord implements IHistoryRecord {
 
 export class CollectionHistoryRecord<T> implements IHistoryRecord {
     readonly name: string;
-    constructor(readonly collection: ICollection<T>, readonly action: CollectionAction, readonly items: T[]) {
+    constructor(
+        readonly collection: ICollection<T>,
+        readonly action: CollectionAction,
+        readonly items: T[]
+    ) {
         this.name = `collection ${action}`;
     }
 

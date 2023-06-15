@@ -15,9 +15,11 @@ export class Tree extends Control {
 
     constructor(readonly document: IDocument) {
         super(style.panel);
-        let e = this.createHTMLElement(document, document.rootNode);
-        this.nodeMap.set(document.rootNode, e);
-        this.append(e);
+        this.addAllNodes(document, this, document.rootNode);
+        this.onDisconnectedCallback(() => {
+            PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+            PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
+        });
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
         PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
     }
@@ -75,6 +77,21 @@ export class Tree extends Control {
                 }
             }
             this.nodeMap.get(node)?.scrollIntoView({ block: "nearest" });
+        }
+    }
+
+    private addAllNodes(document: IDocument, parent: HTMLElement, node: INode) {
+        let element = this.createHTMLElement(document, node);
+        this.nodeMap.set(node, element);
+        parent.appendChild(element);
+
+        if (INode.isLinkedListNode(node)) {
+            if (node.firstChild) {
+                this.addAllNodes(document, element, node.firstChild);
+            }
+            if (node.nextSibling) {
+                this.addAllNodes(document, parent, node.nextSibling);
+            }
         }
     }
 

@@ -8,15 +8,15 @@ import { ThreeViwer } from "./threeViewer";
 import { ThreeVisualContext } from "./threeVisualContext";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
-const DefaultEventHandler: IEventHandler = new SelectionHandler();
 
 export class ThreeVisual implements IVisual {
+    readonly DefaultEventHandler: IEventHandler = new SelectionHandler();
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
 
-    #eventHandler: IEventHandler = DefaultEventHandler;
+    #eventHandler: IEventHandler = this.DefaultEventHandler;
 
     get eventHandler() {
         return this.#eventHandler;
@@ -44,6 +44,6 @@ export class ThreeVisual implements IVisual {
     }
 
     resetEventHandler() {
-        this.eventHandler = DefaultEventHandler;
+        this.eventHandler = this.DefaultEventHandler;
     }
 }

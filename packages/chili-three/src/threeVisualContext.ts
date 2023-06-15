@@ -7,7 +7,6 @@ import {
     IVisualContext,
     IVisualShape,
     LineType,
-    Logger,
     Matrix4,
     ShapeMeshData,
     ShapeType,
@@ -29,8 +28,8 @@ import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _shapeModelMap = new WeakMap<ThreeShape, IModel>();
-    private readonly _modelShapeMap = new WeakMap<IModel, ThreeShape>();
+    private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
+    private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
 
     readonly modelShapes: Group;
     readonly tempShapes: Group;
@@ -42,7 +41,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     getModel(shape: IVisualShape): IModel | undefined {
-        return this._shapeModelMap.get(shape as ThreeShape);
+        return this._shapeModelMap.get(shape);
     }
 
     redrawModel(models: IModel[]) {

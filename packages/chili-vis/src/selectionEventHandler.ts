@@ -128,11 +128,7 @@ export class SelectionHandler implements IEventHandler {
         } else {
             let nodes: IModel[] = [];
             this._lastHighlights.forEach((x) => {
-                console.log(x);
-
                 let model = view.viewer.visual.context.getModel(x.owner);
-                console.log(model);
-
                 if (model) nodes.push(model);
             });
             view.viewer.visual.document.selection.select(nodes, event.shiftKey);

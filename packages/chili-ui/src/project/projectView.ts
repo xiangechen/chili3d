@@ -26,7 +26,8 @@ export class ProjectView extends Control {
 
     private handleActiveDocumentChanged = (document: IDocument | undefined) => {
         if (this.activeDocument !== undefined && this.documentTreeMap.has(this.activeDocument)) {
-            this.panel.removeChild(this.documentTreeMap.get(this.activeDocument)!);
+            let tree = this.documentTreeMap.get(this.activeDocument)!;
+            this.panel.removeChild(tree);
         }
         this.activeDocument = document;
         if (document === undefined) return;

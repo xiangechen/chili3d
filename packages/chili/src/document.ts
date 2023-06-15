@@ -40,9 +40,12 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.setProperty("name", name);
     }
 
-    private _rootNode: INodeLinkedList;
+    private _rootNode: INodeLinkedList | undefined;
 
     get rootNode(): INodeLinkedList {
+        if (this._rootNode === undefined) {
+            this._rootNode = new NodeLinkedList(this, this._name);
+        }
         return this._rootNode;
     }
 
@@ -70,7 +73,6 @@ export class Document extends Observable implements IDocument, ISerialize {
         super();
         this._name = name;
         this.history = new History();
-        this._rootNode = new NodeLinkedList(this, name);
         this.visual = Application.instance.visualFactory.create(this);
         this.selection = new Selection(this);
 
@@ -92,22 +94,28 @@ export class Document extends Observable implements IDocument, ISerialize {
         await Storage.put(db, StoreName, this.name, data);
     }
 
+    close() {}
+
     static async open(name: string) {
         let db = await Storage.open(DBName, StoreName);
         let data = (await Storage.get(db, StoreName, name)) as Serialized;
-        this.load(data);
+        return this.load(data);
     }
 
     static load(data: Serialized) {
-        let document = new Document("111111");
+        let document = new Document(data["name"], data["id"]);
         let rootData = data["rootNode"];
-        let rootNode = new NodeLinkedList(document, "111111", rootData["id"]);
+        let rootNode = new NodeLinkedList(document, rootData["name"], rootData["id"]);
         document._rootNode = rootNode;
-        Application.instance.activeDocument = document;
         const parentMap = new Map<INodeLinkedList, INode[]>();
         this.getNodes(parentMap, document, rootNode, rootData["firstChild"]);
-        for (const kv of parentMap) {
-            kv[0].add(...kv[1]);
+        try {
+            document.history.disabled = true;
+            for (const kv of parentMap) {
+                kv[0].add(...kv[1]);
+            }
+        } finally {
+            document.history.disabled = false;
         }
         return document;
     }

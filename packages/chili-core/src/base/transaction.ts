@@ -9,7 +9,7 @@ export class Transaction {
     constructor(readonly document: IDocument, readonly name: string) {}
 
     static add(document: IDocument, record: IHistoryRecord) {
-        if (document.history.isDisabled) return;
+        if (document.history.disabled) return;
         let arrayRecord = Transaction._transactionMap.get(document);
         if (arrayRecord !== undefined) {
             arrayRecord.records.push(record);
