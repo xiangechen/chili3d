@@ -10,6 +10,10 @@ import { Document } from "../../document";
 })
 export class NewDocument implements ICommand {
     async excute(app: Application): Promise<void> {
+        if (app.activeDocument) {
+            await app.activeDocument.save();
+            await app.activeDocument.close();
+        }
         let document = new Document("test");
         app.activeDocument = document;
     }

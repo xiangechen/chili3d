@@ -2,4 +2,6 @@
 
 export class Constants {
     static readonly I18nIdAttribute = "i18n";
+    static readonly DBName = "chili3d-db";
+    static readonly DocumentTableName = "documents";
 }

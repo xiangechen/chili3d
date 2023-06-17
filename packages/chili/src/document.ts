@@ -2,6 +2,7 @@
 
 import {
     Application,
+    Constants,
     History,
     IDocument,
     IModel,
@@ -19,12 +20,8 @@ import {
     PubSub,
     Serialize,
     Serialized,
-    Storage,
 } from "chili-core";
 import { Selection } from "./selection";
-
-const DBName = "chili3d";
-const StoreName = "documents";
 
 export class Document extends Observable implements IDocument, ISerialize {
     readonly visual: IVisual;
@@ -91,8 +88,7 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     async save() {
         let data = this.serialize();
-        let db = await Storage.open(DBName, StoreName);
-        await Storage.put(db, StoreName, this.name, data);
+        await Application.instance.storage.put(Constants.DBName, Constants.DocumentTableName, this.id, data);
     }
 
     async close() {
@@ -102,12 +98,14 @@ export class Document extends Observable implements IDocument, ISerialize {
         PubSub.default.pub("documentClosed", this);
     }
 
-    static async open(name: string) {
-        if (Application.instance.activeDocument) await Application.instance.activeDocument.close();
-        let db = await Storage.open(DBName, StoreName);
-        let data = (await Storage.get(db, StoreName, name)) as Serialized;
+    static async open(id: string) {
+        let data = (await Application.instance.storage.get(
+            Constants.DBName,
+            Constants.DocumentTableName,
+            id
+        )) as Serialized;
         if (data === undefined) {
-            Logger.warn(`document: ${name} not find`);
+            Logger.warn(`document: ${id} not find`);
             return;
         }
         let document = this.load(data);

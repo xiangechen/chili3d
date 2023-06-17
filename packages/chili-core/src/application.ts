@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IResolve, Logger, PubSub, Token } from "chili-core";
+import { IDocument, IResolve, IStorage, Logger, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
+import { IndexedDBStorage } from "chili-storage";
 import { IVisualFactory } from "chili-vis";
 import { IService } from "./service";
 
@@ -26,6 +27,7 @@ export class Application {
 
     readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
+    readonly storage: IStorage = new IndexedDBStorage();
 
     private constructor(readonly resolve: IResolve, readonly services: IService[]) {
         this.visualFactory = this.resolveOrThrow<IVisualFactory>(Token.VisulizationFactory);

@@ -10,6 +10,6 @@ import { Application, command, ICommand } from "chili-core";
 export class SaveDocument implements ICommand {
     async excute(app: Application): Promise<void> {
         let document = app.activeDocument!;
-        document.save();
+        await document.save();
     }
 }
