@@ -98,13 +98,12 @@ export class Tree extends Control {
         this.nodeMap.set(node, element);
         parent.appendChild(element);
 
-        if (INode.isLinkedListNode(node)) {
-            if (node.firstChild) {
-                this.addAllNodes(document, element, node.firstChild);
-            }
-            if (node.nextSibling) {
-                this.addAllNodes(document, parent, node.nextSibling);
-            }
+        let firstChild = (node as INodeLinkedList).firstChild;
+        if (firstChild) {
+            this.addAllNodes(document, element, firstChild);
+        }
+        if (node.nextSibling) {
+            this.addAllNodes(document, parent, node.nextSibling);
         }
     }
 
