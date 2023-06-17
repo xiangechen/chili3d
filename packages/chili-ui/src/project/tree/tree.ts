@@ -24,6 +24,7 @@ export class Tree extends Control {
             PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
             PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
         });
+        this.addEvents(this);
     }
 
     override dispose(): void {
@@ -31,6 +32,7 @@ export class Tree extends Control {
         this.lastClicked = undefined;
         this.dragging = undefined;
         this.selectedNodes.clear();
+        this.removeEvents(this);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
         PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
     }
@@ -111,10 +113,6 @@ export class Tree extends Control {
         if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
         else if (INode.isModelNode(node)) result = new TreeModel(node);
         else throw new Error("unknown node");
-
-        result.addConnectedCallback(() => this.addEvents(result));
-        result.addDisconnectedCallback(() => this.removeEvents(result));
-
         return result;
     }
 
@@ -212,6 +210,8 @@ export class Tree extends Control {
 
     private onDragStart = (event: DragEvent) => {
         event.stopPropagation();
+        console.log(event);
+
         let item = this.getTreeItem(event.target as HTMLElement)?.node;
         this.dragging = this.findAllCommonParents();
         if (item !== undefined && !this.selectedNodes.has(item)) {
