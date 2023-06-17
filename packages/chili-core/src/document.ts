@@ -14,6 +14,6 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly visual: IVisual;
     readonly rootNode: INodeLinkedList;
     addNode(...nodes: INode[]): void;
-    save(): void;
-    close(): void;
+    save(): Promise<void>;
+    close(): Promise<void>;
 }

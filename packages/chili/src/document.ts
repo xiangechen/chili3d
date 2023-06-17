@@ -9,7 +9,6 @@ import {
     INodeLinkedList,
     ISelection,
     ISerialize,
-    IView,
     IVisual,
     Id,
     NodeAction,
@@ -94,7 +93,8 @@ export class Document extends Observable implements IDocument, ISerialize {
         await Storage.put(db, StoreName, this.name, data);
     }
 
-    close() {
+    async close() {
+        await this.save();
         this.dispose();
         PubSub.default.pub("documentClosed", this);
     }
@@ -106,7 +106,7 @@ export class Document extends Observable implements IDocument, ISerialize {
         return this.load(data);
     }
 
-    static load(data: Serialized) {
+    private static load(data: Serialized) {
         let document = new Document(data["name"], data["id"]);
         let rootData = data["rootNode"];
         let rootNode = new NodeLinkedList(document, rootData["name"], rootData["id"]);

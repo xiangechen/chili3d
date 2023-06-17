@@ -30,7 +30,9 @@ export class TestDocument implements IDocument {
         throw new Error("Method not implemented.");
     }
 
-    close() {}
+    close(): Promise<void> {
+        return Promise.resolve();
+    }
 
     constructor() {
         this.name = "test";
@@ -43,5 +45,7 @@ export class TestDocument implements IDocument {
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");
     }
-    save() {}
+    save(): Promise<void> {
+        return Promise.resolve();
+    }
 }
