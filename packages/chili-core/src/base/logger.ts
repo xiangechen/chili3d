@@ -17,3 +17,9 @@ export class Logger {
         console.error(message, ...optionalParams);
     }
 }
+
+// facilitate debugging
+Logger.info = console.log;
+Logger.warn = console.warn;
+Logger.debug = console.log;
+Logger.error = console.error;
