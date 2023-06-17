@@ -1,13 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObservable, IEqualityComparer, ISerialize, Result, Serialize } from "../base";
+import { HistoryObservable, IEqualityComparer, ISerialize, Result } from "../base";
 import { IShape } from "../geometry";
 import { I18n } from "../i18n";
 
 const ShapeChangedEvent = "PropertyChangedEvent";
 
 export abstract class Entity extends HistoryObservable implements ISerialize {
-    @Serialize.property()
     abstract name: keyof I18n;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
