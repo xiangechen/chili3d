@@ -13,7 +13,7 @@ export namespace Serialize {
     const keyMap = new Map<new (...args: any[]) => any, Set<string>>();
     const deserializeMap = new Map<string, (...args: any[]) => any>();
 
-    export function enable() {
+    export function property() {
         return (target: any, name: string) => {
             let keys = keyMap.get(target);
             if (keys === undefined) {
@@ -24,14 +24,14 @@ export namespace Serialize {
         };
     }
 
-    export function deserialize() {
+    export function deserializer() {
         return (target: any, name: string) => {
             deserializeMap.set(target.name, target[name]);
         };
     }
 
-    export function getDeserialize(type: string) {
-        return deserializeMap.get(type);
+    export function deserialize(data: Serialized) {
+        return deserializeMap.get(data.type)?.(data);
     }
 
     export function serialize(target: ISerialize): Serialized {

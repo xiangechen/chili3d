@@ -11,6 +11,7 @@ import {
     ISerialize,
     IVisual,
     Id,
+    Logger,
     NodeAction,
     NodeLinkedList,
     NodeRecord,
@@ -64,8 +65,8 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.history = new History();
         this.visual = Application.instance.visualFactory.create(this);
         this.selection = new Selection(this);
-
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
+        Logger.info(`new document: ${name}`);
     }
 
     override serialize(): Serialized {
@@ -73,6 +74,7 @@ export class Document extends Observable implements IDocument, ISerialize {
             type: Document.name,
             id: this.id,
             name: this.name,
+            image: this.visual.viewer.activeView?.toImage(),
             rootNode: this.rootNode.serialize(),
         };
     }
@@ -96,14 +98,21 @@ export class Document extends Observable implements IDocument, ISerialize {
     async close() {
         await this.save();
         this.dispose();
+        Logger.info(`document: ${this._name} closed`);
         PubSub.default.pub("documentClosed", this);
     }
 
     static async open(name: string) {
-        if (Application.instance.activeDocument) Application.instance.activeDocument.close();
+        if (Application.instance.activeDocument) await Application.instance.activeDocument.close();
         let db = await Storage.open(DBName, StoreName);
         let data = (await Storage.get(db, StoreName, name)) as Serialized;
-        return this.load(data);
+        if (data === undefined) {
+            Logger.warn(`document: ${name} not find`);
+            return;
+        }
+        let document = this.load(data);
+        Logger.info(`document: ${document.name} opened`);
+        return document;
     }
 
     private static load(data: Serialized) {
@@ -112,7 +121,7 @@ export class Document extends Observable implements IDocument, ISerialize {
         let rootNode = new NodeLinkedList(document, rootData["name"], rootData["id"]);
         document._rootNode = rootNode;
         const parentMap = new Map<INodeLinkedList, INode[]>();
-        this.getNodes(parentMap, document, rootNode, rootData["firstChild"]);
+        if (rootData["firstChild"]) this.getNodes(parentMap, document, rootNode, rootData["firstChild"]);
         try {
             document.history.disabled = true;
             for (const kv of parentMap) {
@@ -148,6 +157,7 @@ export class Document extends Observable implements IDocument, ISerialize {
         parent: INodeLinkedList,
         data: Serialized
     ) {
+        if (data === undefined) return;
         data["document"] = document;
         if (!map.has(parent)) map.set(parent, []);
         let node = this.createInstance(data);
@@ -161,9 +171,9 @@ export class Document extends Observable implements IDocument, ISerialize {
             if (key === "firstChild" || key === "nextSibling") continue; // 不生成嵌套节点
             if (data[key]?.type) data[key] = this.createInstance(data[key]);
         }
-        let create = Serialize.getDeserialize(data.type);
-        if (create === undefined)
+        let instance = Serialize.deserialize(data);
+        if (instance === undefined)
             throw new Error(`The type of ${data.type} is unknown and cannot be loaded.`);
-        return create(data);
+        return instance;
     }
 }

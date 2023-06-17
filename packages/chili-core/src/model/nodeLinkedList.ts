@@ -18,7 +18,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     private _firstChild: INode | undefined;
 
-    @Serialize.enable()
+    @Serialize.property()
     get firstChild(): INode | undefined {
         return this._firstChild;
     }
@@ -32,7 +32,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         super(document, name, id);
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({ document, name, id }: { document: IDocument; name: string; id?: string }) {
         return new NodeLinkedList(document, name, id ?? Id.new());
     }

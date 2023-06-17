@@ -19,7 +19,7 @@ export class RectBody extends Body {
     private readonly initialPlane: Plane;
 
     private _dx: number;
-    @Serialize.enable()
+    @Serialize.property()
     @property("rect.dx")
     get dx() {
         return this._dx;
@@ -29,7 +29,7 @@ export class RectBody extends Body {
     }
 
     private _dy: number;
-    @Serialize.enable()
+    @Serialize.property()
     @property("rect.dy")
     get dy() {
         return this._dy;
@@ -39,7 +39,7 @@ export class RectBody extends Body {
     }
 
     private _plane: Plane;
-    @Serialize.enable()
+    @Serialize.property()
     get plane() {
         return this._plane;
     }
@@ -52,7 +52,7 @@ export class RectBody extends Body {
         this._dy = dy;
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({ document, plane, dx, dy }: { document: IDocument; plane: Plane; dx: number; dy: number }) {
         return new RectBody(document, plane, dx, dy);
     }

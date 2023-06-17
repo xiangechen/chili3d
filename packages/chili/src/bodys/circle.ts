@@ -20,7 +20,7 @@ export class CircleBody extends Body {
 
     private _center: XYZ;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("circle.center")
     get center() {
         return this._center;
@@ -31,7 +31,7 @@ export class CircleBody extends Body {
 
     private _radius: number;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("circle.radius")
     get radius() {
         return this._radius;
@@ -42,7 +42,7 @@ export class CircleBody extends Body {
 
     private _normal: XYZ;
 
-    @Serialize.enable()
+    @Serialize.property()
     get normal() {
         return this._normal;
     }
@@ -56,7 +56,7 @@ export class CircleBody extends Body {
         this._radius = radius;
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({
         document,
         normal,

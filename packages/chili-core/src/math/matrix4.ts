@@ -35,7 +35,7 @@ export class Matrix4 implements ISerialize {
         };
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({ array }: { array: number[] }) {
         return Matrix4.fromArray(array);
     }

@@ -5,13 +5,13 @@ import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
+import { Body } from "./body";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
-import { Body } from "./body";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serialize.enable()
+    @Serialize.property()
     readonly body: Body;
 
     protected _shape: T | undefined;
@@ -22,7 +22,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 
     protected _matrix: Matrix4 = Matrix4.identity();
 
-    @Serialize.enable()
+    @Serialize.property()
     get matrix(): Matrix4 {
         return this._matrix;
     }
@@ -61,7 +61,7 @@ export class GeometryModel extends Model {
         body.onShapeChanged(this.onShapeChanged);
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({
         document,
         name,

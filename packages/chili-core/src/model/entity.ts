@@ -7,7 +7,7 @@ import { I18n } from "../i18n";
 const ShapeChangedEvent = "PropertyChangedEvent";
 
 export abstract class Entity extends HistoryObservable implements ISerialize {
-    @Serialize.enable()
+    @Serialize.property()
     abstract name: keyof I18n;
 
     private _shape: Result<IShape> = Result.error("Not initialised");

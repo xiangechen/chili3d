@@ -21,7 +21,7 @@ export class LineBody extends Body {
 
     private _start: XYZ;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("line.start")
     get start() {
         return this._start;
@@ -32,7 +32,7 @@ export class LineBody extends Body {
 
     private _end: XYZ;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("line.end")
     get end() {
         return this._end;
@@ -49,7 +49,7 @@ export class LineBody extends Body {
         this._end = end;
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({ document, start, end }: { document: IDocument; start: XYZ; end: XYZ }) {
         return new LineBody(document, start, end);
     }

@@ -19,7 +19,7 @@ export class BoxBody extends Body {
 
     private _dx: number;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("box.dx")
     get dx() {
         return this._dx;
@@ -30,7 +30,7 @@ export class BoxBody extends Body {
 
     private _dy: number;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("box.dy")
     get dy() {
         return this._dy;
@@ -41,7 +41,7 @@ export class BoxBody extends Body {
 
     private _dz: number;
 
-    @Serialize.enable()
+    @Serialize.property()
     @property("box.dz")
     get dz() {
         return this._dz;
@@ -52,7 +52,7 @@ export class BoxBody extends Body {
 
     private _plane: Plane;
 
-    @Serialize.enable()
+    @Serialize.property()
     get plane() {
         return this._plane;
     }
@@ -66,7 +66,7 @@ export class BoxBody extends Body {
         this._dz = dz;
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({
         document,
         plane,

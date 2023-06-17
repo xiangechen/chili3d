@@ -21,7 +21,7 @@ export class XYZ implements ISerialize {
         };
     }
 
-    @Serialize.deserialize()
+    @Serialize.deserializer()
     static from({ x, y, z }: { x: number; y: number; z: number }) {
         return new XYZ(x, y, z);
     }
