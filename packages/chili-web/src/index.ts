@@ -2,8 +2,8 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { AppBuilder } from "chili";
 import { Logger } from "chili-core";
+import { AppBuilder } from "./appBuilder";
 
 // prettier-ignore
 new AppBuilder()

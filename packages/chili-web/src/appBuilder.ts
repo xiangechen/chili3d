@@ -1,16 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Application,
-    CommandData,
-    Container,
-    ICommand,
-    IRegister,
-    IService,
-    Logger,
-    Token,
-} from "chili-core";
-import { CommandService, EditorService, HotkeyService } from "./services";
+import { Application, CommandData, Container, IRegister, IService, Logger, Token } from "chili-core";
+import { CommandService, EditorService, HotkeyService } from "chili";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
