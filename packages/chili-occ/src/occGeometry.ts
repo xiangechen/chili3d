@@ -48,7 +48,7 @@ export class OccCurve implements ICurve, IDisposable {
         return result;
     }
 
-    dispose(): void {
+    dispose() {
         this.curve.delete();
     }
 }

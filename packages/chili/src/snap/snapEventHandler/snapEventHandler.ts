@@ -32,6 +32,10 @@ export abstract class SnapEventHandler implements IEventHandler {
         return this._snaped;
     }
 
+    dispose() {
+        this._snaped = undefined;
+    }
+
     private finish(view: IView) {
         this.token.complete();
         this.clean(view);

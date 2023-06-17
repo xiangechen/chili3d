@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+import { IDisposable } from "../base";
 import { ShapeMeshData } from "../geometry";
 import { IModel } from "../model";
 import { IVisualShape } from "./visualShape";
 
-export interface IVisualContext {
+export interface IVisualContext extends IDisposable {
     get shapeCount(): number;
     addModel(models: IModel[]): void;
     removeModel(models: IModel[]): void;

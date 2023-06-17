@@ -41,7 +41,7 @@ export abstract class TreeItem extends Control {
 
     abstract getSelectedHandler(): HTMLElement;
 
-    override dispose(): void | Promise<void> {
+    override dispose() {
         super.dispose();
         this.visibleIcon.removeEventListener("click", this.onVisibleIconClick);
     }

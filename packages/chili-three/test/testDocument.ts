@@ -26,9 +26,11 @@ export class TestDocument implements IDocument {
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }
-    dispose(): void | Promise<void> {
+    dispose() {
         throw new Error("Method not implemented.");
     }
+
+    close() {}
 
     constructor() {
         this.name = "test";

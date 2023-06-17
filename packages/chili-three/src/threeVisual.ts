@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
+import { IDisposable, IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
 import { SelectionHandler } from "chili-vis";
 import { AxesHelper, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeViewHandler } from "./threeViewEventHandler";
@@ -45,5 +45,17 @@ export class ThreeVisual implements IVisual {
 
     resetEventHandler() {
         this.eventHandler = this.DefaultEventHandler;
+    }
+
+    async dispose() {
+        this.context.dispose();
+        this.viewer.dispose();
+        this.DefaultEventHandler.dispose();
+        this.viewHandler.dispose();
+        this.#eventHandler.dispose();
+        this.scene.traverse((x) => {
+            if (IDisposable.isDisposable(x)) x.dispose();
+        });
+        this.scene.clear();
     }
 }

@@ -38,7 +38,7 @@ export class TreeGroup extends TreeItem {
         return this.header;
     }
 
-    override dispose(): void | Promise<void> {
+    override dispose() {
         super.dispose();
         this.expanderIcon.removeEventListener("click", this.handleExpanderClick);
     }

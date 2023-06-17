@@ -36,7 +36,7 @@ export abstract class MatrixConverter implements IConverter<Matrix4, string>, ID
         this.matrix = matrix;
     }
 
-    dispose(): void | Promise<void> {
+    dispose() {
         this.onMatrixChangeds.length = 0;
     }
 }

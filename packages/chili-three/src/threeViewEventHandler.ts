@@ -11,6 +11,8 @@ export class ThreeViewHandler implements IEventHandler {
         this.mouse = { isDown: false, x: 0, y: 0 };
     }
 
+    dispose() {}
+
     mouseWheel(view: IView, event: WheelEvent): void {
         view.zoom(event.offsetX, event.offsetY, event.deltaY);
         view.redraw();

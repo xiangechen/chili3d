@@ -75,8 +75,21 @@ export class ThreeShape extends Object3D implements IVisualShape {
         super();
         let mesh = this.shape.mesh;
         this.matrixAutoUpdate = false;
-        if (mesh.faces !== undefined) this.add(this.initFaces(mesh.faces));
-        if (mesh.edges !== undefined) this.add(this.initEdges(mesh.edges));
+        if (mesh.faces) this.add(this.initFaces(mesh.faces));
+        if (mesh.edges) this.add(this.initEdges(mesh.edges));
+    }
+
+    dispose() {
+        if (this._edges) {
+            this._edges.geometry.dispose();
+            this._edges.material = [];
+        }
+        if (this._faces) {
+            this._faces.geometry.dispose();
+            this._faces.material = [];
+        }
+        this._edgeMaterial.dispose();
+        this._faceMaterial.dispose();
     }
 
     private initEdges(data: EdgeMeshData) {

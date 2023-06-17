@@ -45,7 +45,7 @@ export abstract class Control extends HTMLElement implements IDisposable {
         this.onConnectedCallbacks.forEach((x) => x());
     }
 
-    onConnectedCallback(callback: () => void): this {
+    addConnectedCallback(callback: () => void): this {
         this.onConnectedCallbacks.push(callback);
         return this;
     }
@@ -55,7 +55,7 @@ export abstract class Control extends HTMLElement implements IDisposable {
         this.onDisconnectedCallbacks.forEach((x) => x());
     }
 
-    onDisconnectedCallback(callback: () => void): this {
+    addDisconnectedCallback(callback: () => void): this {
         this.onDisconnectedCallbacks.push(callback);
         return this;
     }
@@ -66,7 +66,7 @@ export abstract class Control extends HTMLElement implements IDisposable {
         }
     }
 
-    dispose(): void | Promise<void> {
+    dispose() {
         this.propertyHandlers.length = 0;
         this.onConnectedCallbacks.length = 0;
         this.onDisconnectedCallbacks.length = 0;

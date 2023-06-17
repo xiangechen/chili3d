@@ -16,6 +16,7 @@ export class Viewport extends Control {
         this.append(this.viewTop, this.view3D, this.viewFront, this.viewRight, this.flyout);
         this.addEventListener("mousemove", this.handleMouseMove);
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
+        PubSub.default.sub("documentClosed", (d) => this.clearViews());
     }
 
     private handleMouseMove(e: MouseEvent) {
@@ -23,11 +24,15 @@ export class Viewport extends Control {
         this.flyout.style.left = e.clientX + "px";
     }
 
-    private handleActiveDocumentChanged = (document: IDocument | undefined) => {
+    private clearViews() {
         this.viewTop.clearChildren();
         this.viewFront.clearChildren();
         this.view3D.clearChildren();
         this.viewRight.clearChildren();
+    }
+
+    private handleActiveDocumentChanged = (document: IDocument | undefined) => {
+        this.clearViews();
 
         if (document !== undefined) {
             document.visual.viewer

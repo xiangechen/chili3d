@@ -22,7 +22,15 @@ export class ProjectView extends Control {
             this.panel
         );
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
+        PubSub.default.sub("documentClosed", this.handleDocumentClosed);
     }
+
+    private handleDocumentClosed = (document: IDocument) => {
+        let tree = this.documentTreeMap.get(document);
+        if (tree) this.panel.removeChild(tree);
+        this.documentTreeMap.delete(document);
+        this.activeDocument = undefined;
+    };
 
     private handleActiveDocumentChanged = (document: IDocument | undefined) => {
         if (this.activeDocument !== undefined && this.documentTreeMap.has(this.activeDocument)) {

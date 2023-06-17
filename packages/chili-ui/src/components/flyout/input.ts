@@ -37,7 +37,7 @@ export class Input extends Control implements IDisposable {
         this.textbox.focus();
     }
 
-    override dispose(): void | Promise<void> {
+    override dispose() {
         this.textbox.removeEventListener("keydown", this.onKeyDown);
         this._cancelledCallbacks.length = 0;
         this._completedCallbacks.length = 0;

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObservable, IPropertyChanged } from "../base";
+import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
 import { ISerialize, Serialize } from "../base/serialize";
 import { property } from "../decorators";
 import { IDocument } from "../document";
@@ -9,7 +9,7 @@ import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 
-export interface INode extends IPropertyChanged, ISerialize {
+export interface INode extends IPropertyChanged, ISerialize, IDisposable {
     readonly id: string;
     visible: boolean;
     parentVisible: boolean;

@@ -28,6 +28,11 @@ export class SelectionHandler implements IEventHandler {
     private shapeType: ShapeType = ShapeType.Shape;
     private detectedIndex = 0;
 
+    dispose() {
+        this._lastHighlights = undefined;
+        this._detecting = undefined;
+    }
+
     pointerMove(view: IView, event: PointerEvent): void {
         this.detectedIndex = 0;
         this._detecting = undefined;

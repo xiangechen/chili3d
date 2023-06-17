@@ -2,6 +2,7 @@
 
 import { INode, INodeLinkedList } from "../model";
 import { CollectionAction, ICollection } from "./collection";
+import { IDisposable } from "./disposable";
 
 export interface IHistoryRecord {
     readonly name: string;
@@ -9,11 +10,16 @@ export interface IHistoryRecord {
     redo(): void;
 }
 
-export class History {
+export class History implements IDisposable {
     private readonly _undos: IHistoryRecord[] = [];
     private readonly _redos: IHistoryRecord[] = [];
     disabled: boolean = false;
     undoLimits: number = 25;
+
+    dispose(): void {
+        this._undos.length = 0;
+        this._redos.length = 0;
+    }
 
     add(record: IHistoryRecord) {
         this._redos.length = 0;

@@ -28,6 +28,7 @@ describe("test node", () => {
             onPropertyChanged: () => {},
             removePropertyChanged: () => {},
             serialize: () => ({} as any),
+            dispose() {},
         };
         // n1
         // ---n2

@@ -59,16 +59,6 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.setProperty("currentNode", value);
     }
 
-    private _activeView: IView | undefined;
-
-    get activeView() {
-        return this._activeView;
-    }
-
-    set activeView(value: IView | undefined) {
-        this.setProperty("activeView", value);
-    }
-
     constructor(name: string, readonly id: string = Id.new()) {
         super();
         this._name = name;
@@ -88,15 +78,29 @@ export class Document extends Observable implements IDocument, ISerialize {
         };
     }
 
+    override dispose(): void {
+        super.dispose();
+        this.visual.dispose();
+        this.history.dispose();
+        this.selection.dispose();
+        this._rootNode?.dispose();
+        this._rootNode = undefined;
+        this._currentNode = undefined;
+    }
+
     async save() {
         let data = this.serialize();
         let db = await Storage.open(DBName, StoreName);
         await Storage.put(db, StoreName, this.name, data);
     }
 
-    close() {}
+    close() {
+        this.dispose();
+        PubSub.default.pub("documentClosed", this);
+    }
 
     static async open(name: string) {
+        if (Application.instance.activeDocument) Application.instance.activeDocument.close();
         let db = await Storage.open(DBName, StoreName);
         let data = (await Storage.get(db, StoreName, name)) as Serialized;
         return this.load(data);

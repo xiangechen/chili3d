@@ -10,6 +10,12 @@ export class Selection extends Observable implements ISelection {
         super();
     }
 
+    override dispose(): void {
+        super.dispose();
+        this._selectedNodes.length = 0;
+        this._unselectedNodes.length = 0;
+    }
+
     getSelectedNodes(): INode[] {
         return this._selectedNodes;
     }

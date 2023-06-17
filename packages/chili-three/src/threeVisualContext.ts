@@ -2,6 +2,7 @@
 
 import {
     Color,
+    IDisposable,
     IModel,
     INode,
     IVisualContext,
@@ -38,6 +39,15 @@ export class ThreeVisualContext implements IVisualContext {
         this.modelShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.modelShapes, this.tempShapes);
+    }
+
+    async dispose() {
+        this.modelShapes.traverse((x) => {
+            if (IDisposable.isDisposable(x)) x.dispose();
+        });
+        this.modelShapes.clear();
+        this.tempShapes.clear();
+        this.scene.remove(this.modelShapes, this.tempShapes);
     }
 
     getModel(shape: IVisualShape): IModel | undefined {

@@ -14,6 +14,7 @@ export interface PubSubEventMap {
     excuteCommand: (commandName: keyof Commands) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
+    documentClosed: (document: IDocument) => void;
     modelUpdate: (model: IModel) => void;
     visibleChanged: (model: IModel) => void;
     parentVisibleChanged: (model: IModel) => void;
@@ -36,7 +37,7 @@ export class PubSub implements IDisposable {
         this._events = new Map();
     }
 
-    dispose(): void {
+    dispose() {
         this._events.forEach((v, k) => {
             v.clear();
         });

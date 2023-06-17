@@ -23,6 +23,7 @@ export class Title extends Control {
         this.setSaveStatus(true);
 
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
+        PubSub.default.sub("documentClosed", (d) => this._documentName.text(""));
     }
 
     private handleActiveDocumentChanged = (d: IDocument | undefined) => {

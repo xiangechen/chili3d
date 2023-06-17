@@ -11,6 +11,7 @@ interface EventData {
 export abstract class Viewer implements IViewer {
     private readonly _views: Set<IView>;
     private readonly _eventCaches: Map<IView, EventData[]>;
+    private readonly _ResizeObserverMap: Map<IView, ResizeObserver> = new Map();
 
     private _activeView?: IView;
     get activeView(): IView | undefined {
@@ -56,10 +57,16 @@ export abstract class Viewer implements IViewer {
         });
     }
 
-    dispose(): void {
+    dispose() {
+        this._activeView = undefined;
         this._views.forEach((v) => {
             this.removeEvents(v);
         });
+        this._views.clear();
+        this._eventCaches.clear();
+
+        this._ResizeObserverMap.forEach((v, k) => v.disconnect());
+        this._ResizeObserverMap.clear();
     }
 
     private initEvent(container: HTMLElement, view: IView) {
@@ -67,6 +74,7 @@ export abstract class Viewer implements IViewer {
             view.resize(container.offsetWidth, container.offsetHeight);
         });
         resizeObserver.observe(container);
+        this._ResizeObserverMap.set(view, resizeObserver);
 
         this.addEventListener(container, view, "pointerdown", (e) => this.pointerDown(view, e));
         this.addEventListener(container, view, "pointermove", (e) => this.pointerMove(view, e));

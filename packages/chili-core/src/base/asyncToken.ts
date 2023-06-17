@@ -42,7 +42,7 @@ export class AsyncToken implements IDisposable {
         this._completeHandles.push(listener);
     }
 
-    dispose(): void {
+    dispose() {
         this._cancelHandles.length = 0;
         this._completeHandles.length = 0;
     }

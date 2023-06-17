@@ -16,12 +16,23 @@ export class Tree extends Control {
     constructor(readonly document: IDocument) {
         super(style.panel);
         this.addAllNodes(document, this, document.rootNode);
-        this.onDisconnectedCallback(() => {
+        this.addDisconnectedCallback(() => {
             PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
             PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
         });
-        PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
-        PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
+        this.addConnectedCallback(() => {
+            PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
+            PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
+        });
+    }
+
+    override dispose(): void {
+        super.dispose();
+        this.lastClicked = undefined;
+        this.dragging = undefined;
+        this.selectedNodes.clear();
+        PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+        PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
     }
 
     private handleNodeLinkedChanged = (records: NodeRecord[]) => {
@@ -101,8 +112,8 @@ export class Tree extends Control {
         else if (INode.isModelNode(node)) result = new TreeModel(node);
         else throw new Error("unknown node");
 
-        result.onConnectedCallback(() => this.addEvents(result));
-        result.onDisconnectedCallback(() => this.removeEvents(result));
+        result.addConnectedCallback(() => this.addEvents(result));
+        result.addDisconnectedCallback(() => this.removeEvents(result));
 
         return result;
     }
