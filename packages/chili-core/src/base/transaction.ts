@@ -2,6 +2,7 @@
 
 import { IDocument } from "../document";
 import { ArrayRecord, IHistoryRecord } from "./history";
+import { Logger } from "./logger";
 
 export class Transaction {
     private static readonly _transactionMap: WeakMap<IDocument, ArrayRecord> = new WeakMap();
@@ -14,8 +15,13 @@ export class Transaction {
         if (arrayRecord !== undefined) {
             arrayRecord.records.push(record);
         } else {
-            document.history.add(record);
+            Transaction.addToHistory(document, record);
         }
+    }
+
+    static addToHistory(document: IDocument, record: IHistoryRecord) {
+        document.history.add(record);
+        Logger.info(`history added ${record.name}`);
     }
 
     static excute(document: IDocument, name: string, action: () => void) {
@@ -43,7 +49,7 @@ export class Transaction {
         if (arrayRecord === undefined) {
             throw new Error("Transaction has not started");
         }
-        if (arrayRecord.records.length > 0) this.document.history.add(arrayRecord);
+        if (arrayRecord.records.length > 0) Transaction.addToHistory(this.document, arrayRecord);
         Transaction._transactionMap.delete(this.document);
     }
 
