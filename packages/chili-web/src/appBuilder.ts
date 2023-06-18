@@ -1,15 +1,42 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, CommandData, Container, IRegister, IService, Logger, Token } from "chili-core";
+import {
+    Application,
+    CommandData,
+    Container,
+    IRegister,
+    IService,
+    IStorage,
+    Logger,
+    Token,
+} from "chili-core";
 import { CommandService, EditorService, HotkeyService } from "chili";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
     private _register: IRegister = new Container();
+    private _storage?: IStorage;
+
+    private storage() {
+        if (this._storage === undefined) {
+            throw new Error("storage has not been initialized");
+        }
+        return this._storage;
+    }
 
     constructor() {
         this._inits = [];
         this.registerCommands();
+    }
+
+    useIndexedDB() {
+        this._inits.push(async () => {
+            Logger.info("initializing IndexedDBStorage");
+
+            let db = await import("chili-storage");
+            this._storage = new db.IndexedDBStorage();
+        });
+        return this;
     }
 
     useOcc(): this {
@@ -36,12 +63,13 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing UI");
 
-            let ui = await import("chili-ui");
             const root = document.getElementById("root");
             if (root === null) {
                 throw new Error("root element not found");
             }
-            ui.UI.instance.init(root);
+
+            let ui = await import("chili-ui");
+            ui.UI.instance.init(this.storage(), root);
         });
         return this;
     }
@@ -67,7 +95,7 @@ export class AppBuilder {
             await element();
         }
         let services = this.getServices();
-        Application.build(this._register.createResolve(), services);
+        Application.build(this._register.createResolve(), services, this.storage());
 
         Logger.info("Application build completed");
     }

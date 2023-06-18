@@ -16,20 +16,23 @@ export class Application {
         return Application._instance;
     }
 
-    static build(resolve: IResolve, services: IService[]): Application {
+    static build(resolve: IResolve, services: IService[], storage: IStorage): Application {
         if (this._instance) {
             Logger.warn("Application has been built");
         } else {
-            this._instance = new Application(resolve, services);
+            this._instance = new Application(resolve, services, storage);
         }
         return this._instance;
     }
 
     readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
-    readonly storage: IStorage = new IndexedDBStorage();
 
-    private constructor(readonly resolve: IResolve, readonly services: IService[]) {
+    private constructor(
+        readonly resolve: IResolve,
+        readonly services: IService[],
+        readonly storage: IStorage
+    ) {
         this.visualFactory = this.resolveOrThrow<IVisualFactory>(Token.VisulizationFactory);
         this.shapeFactory = this.resolveOrThrow<IShapeFactory>(Token.ShapeFactory);
         services.forEach((x) => x.register(this));

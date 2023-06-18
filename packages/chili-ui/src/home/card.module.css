@@ -1,0 +1,9 @@
+.panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.image {
+    width: 64px;
+    height: 64px;
+}

@@ -1,0 +1,49 @@
+.panel {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.content {
+    display: flex;
+    flex-direction: row;
+    justify-content: stretch;
+    flex: 1 1 auto;
+}
+
+.statusbar {
+    flex: 0 0 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar {
+    height: inherit;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 360px;
+}
+
+.sidebarItem {
+    height: 0;
+    margin-top: 10px;
+    flex: 1;
+}
+
+.viewport {
+    flex: 1 1 auto;
+}
+
+@media (max-width: 680px) {
+    .content {
+        flex-direction: column-reverse;
+    }
+    .viewport {
+        height: 200px;
+    }
+    .sidebar {
+        flex: 1 1 auto;
+    }
+}

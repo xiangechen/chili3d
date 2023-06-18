@@ -1,0 +1,30 @@
+.panel {
+    position: fixed;
+    display: flex;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    flex-direction: column;
+    background-color: var(--panel-background-color);
+}
+
+.header {
+    flex: 0 1 auto;
+    height: 160px;
+    justify-content: center;
+}
+
+.welcome {
+    font-size: 24px;
+    justify-content: center;
+}
+
+.content {
+    flex: 1 0 auto;
+}
+
+.hidden {
+    visibility: hidden;
+}
