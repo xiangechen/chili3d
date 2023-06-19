@@ -160,6 +160,22 @@ export namespace INode {
         }
     }
 
+    export function findTopLevelNodes(nodes: Set<INode>) {
+        let result: INode[] = [];
+        for (const node of nodes) {
+            if (!containsDescendant(nodes, node)) {
+                result.push(node);
+            }
+        }
+        return result;
+    }
+
+    export function containsDescendant(nodes: Set<INode>, node: INode): boolean {
+        if (node.parent === undefined) return false;
+        if (nodes.has(node.parent)) return true;
+        return containsDescendant(nodes, node.parent);
+    }
+
     function getNodesFromParentToChild(nodes: INode[], parent: INodeLinkedList, until?: INode): boolean {
         nodes.push(parent);
         let node = parent.firstChild;

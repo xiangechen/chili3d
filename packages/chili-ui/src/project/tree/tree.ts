@@ -202,31 +202,19 @@ export class Tree extends Control {
             this.dragging?.forEach((x) => {
                 x.parent?.move(x, newParent!, target);
             });
+            this.dragging = undefined;
         });
-
-        this.dragging = undefined;
     };
 
     private onDragStart = (event: DragEvent) => {
         event.stopPropagation();
-        console.log(event);
 
         let item = this.getTreeItem(event.target as HTMLElement)?.node;
-        this.dragging = this.findAllCommonParents();
-        if (item !== undefined && !this.selectedNodes.has(item)) {
+        this.dragging = INode.findTopLevelNodes(this.selectedNodes);
+        if (item && !INode.containsDescendant(this.selectedNodes, item)) {
             this.dragging.push(item);
         }
     };
-
-    private findAllCommonParents() {
-        let result: INode[] = [];
-        for (const node of this.selectedNodes) {
-            if (node.parent === undefined || !this.selectedNodes.has(node.parent)) {
-                result.push(node);
-            }
-        }
-        return result;
-    }
 }
 
 customElements.define("ui-tree", Tree);
