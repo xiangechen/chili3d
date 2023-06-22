@@ -1,22 +1,34 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable, IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
+import {
+    IDisposable,
+    IDocument,
+    IEventHandler,
+    IModel,
+    IView,
+    IViewer,
+    IVisual,
+    Logger,
+    ShapeType,
+    VisualShapeData,
+} from "chili-core";
 import { SelectionHandler } from "chili-vis";
 import { AxesHelper, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeViwer } from "./threeViewer";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ModelSelectionHandler } from "chili-vis";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 
 export class ThreeVisual implements IVisual {
-    readonly DefaultEventHandler: IEventHandler = new SelectionHandler();
+    readonly defaultEventHandler: IEventHandler;
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
 
-    #eventHandler: IEventHandler = this.DefaultEventHandler;
+    #eventHandler: IEventHandler;
 
     get eventHandler() {
         return this.#eventHandler;
@@ -30,9 +42,11 @@ export class ThreeVisual implements IVisual {
 
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
+        this.defaultEventHandler = new ModelSelectionHandler(ShapeType.Shape);
         this.viewer = new ThreeViwer(this, this.scene);
         this.context = new ThreeVisualContext(this.scene);
         this.viewHandler = new ThreeViewHandler();
+        this.#eventHandler = this.defaultEventHandler;
     }
 
     initScene() {
@@ -44,13 +58,13 @@ export class ThreeVisual implements IVisual {
     }
 
     resetEventHandler() {
-        this.eventHandler = this.DefaultEventHandler;
+        this.eventHandler = this.defaultEventHandler;
     }
 
     async dispose() {
         this.context.dispose();
         this.viewer.dispose();
-        this.DefaultEventHandler.dispose();
+        this.defaultEventHandler.dispose();
         this.viewHandler.dispose();
         this.#eventHandler.dispose();
         this.scene.traverse((x) => {

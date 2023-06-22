@@ -17,7 +17,7 @@ export * from "./ioc";
 export * from "./math";
 export * from "./model";
 export * from "./module";
-export * from "./selection";
+export * from "./selectionManager";
 export * from "./service";
 export * from "./snapType";
 export * from "./visual";

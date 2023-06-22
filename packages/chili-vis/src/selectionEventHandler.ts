@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { VisualShapeData, IEventHandler, IModel, IView, ShapeType, VisualState } from "chili-core";
+import { IEventHandler, IView, ShapeType, VisualShapeData, VisualState } from "chili-core";
 
 const SelectionRectStyle = `
     border: 1px solid #55aaff;
@@ -20,22 +20,24 @@ interface SelectionRect {
     downY: number;
 }
 
-export class SelectionHandler implements IEventHandler {
+export abstract class SelectionHandler implements IEventHandler {
     private rect?: SelectionRect;
     private mouse = { isDown: false, x: 0, y: 0 };
-    private _lastHighlights: VisualShapeData[] | undefined;
-    private _detecting: VisualShapeData[] | undefined;
-    private shapeType: ShapeType = ShapeType.Shape;
-    private detectedIndex = 0;
+    private _highlights: VisualShapeData[] | undefined;
+    private _detects: VisualShapeData[] | undefined;
+    private detectingIndex = 0; // 用于切换捕获的对象
+
+    constructor(readonly shapeType: ShapeType, readonly multiMode: boolean = true) {}
 
     dispose() {
-        this._lastHighlights = undefined;
-        this._detecting = undefined;
+        this._highlights = undefined;
+        this._detects = undefined;
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
-        this.detectedIndex = 0;
-        this._detecting = undefined;
+        // 每次鼠标移动，就将捕获对象的序号设为 0
+        this.detectingIndex = 0;
+        this._detects = undefined;
         if (this.rect) {
             this.updateRect(this.rect, event);
         }
@@ -45,35 +47,37 @@ export class SelectionHandler implements IEventHandler {
 
     private getDetecteds(view: IView, event: PointerEvent) {
         let detecteds: VisualShapeData[] = [];
-        if (this.mouse.isDown) {
+        if (this.rect) {
             detecteds = detecteds.concat(
                 view.rectDetected(this.shapeType, this.mouse.x, this.mouse.y, event.offsetX, event.offsetY)
             );
         } else {
-            this._detecting = view.detected(this.shapeType, event.offsetX, event.offsetY, true);
-            let detected = this.getPointDetecting();
+            // 每次鼠标移动，就获得鼠标处的所有对象，用户可以通过键盘切换要选择的对象
+            this._detects = view.detected(this.shapeType, event.offsetX, event.offsetY, true);
+            // 获得当前 detectingIndex 下的对象
+            let detected = this.getDetecting();
             if (detected) detecteds.push(detected);
         }
         return detecteds;
     }
 
-    private getPointDetecting() {
-        if (this._detecting) {
-            if (this.detectedIndex >= 0 && this.detectedIndex < this._detecting.length) {
-                return this._detecting[this.detectedIndex];
+    private getDetecting() {
+        if (this._detects) {
+            if (this.detectingIndex >= 0 && this.detectingIndex < this._detects.length) {
+                return this._detects[this.detectingIndex];
             }
         }
         return undefined;
     }
 
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
-        this._lastHighlights?.forEach((x) => {
+        this._highlights?.forEach((x) => {
             if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType);
         });
         detecteds.forEach((x) => {
-            if (!this._lastHighlights?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
+            if (!this._highlights?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
         });
-        this._lastHighlights = detecteds;
+        this._highlights = detecteds;
         view.viewer.redraw();
     }
 
@@ -84,7 +88,7 @@ export class SelectionHandler implements IEventHandler {
                 x: event.offsetX,
                 y: event.offsetY,
             };
-            this.rect = this.initRect(view.container, event);
+            if (this.multiMode) this.rect = this.initRect(view.container, event);
         }
     }
 
@@ -114,31 +118,20 @@ export class SelectionHandler implements IEventHandler {
     pointerOut(view: IView, event: PointerEvent): void {
         this.mouse.isDown = false;
         this.removeRect(view);
-        this.cleanDetecteds();
+        this.cleanHighlights();
     }
 
     pointerUp(view: IView, event: PointerEvent): void {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            this.setSelected(view, event);
+            this.select(view, this._highlights ?? [], event);
         }
-        this.cleanDetecteds();
+        this.cleanHighlights();
         view.viewer.redraw();
     }
 
-    private setSelected(view: IView, event: PointerEvent) {
-        if (this._lastHighlights === undefined || this._lastHighlights.length === 0) {
-            view.viewer.visual.document.selection.clearSelected();
-        } else {
-            let nodes: IModel[] = [];
-            this._lastHighlights.forEach((x) => {
-                let model = view.viewer.visual.context.getModel(x.owner);
-                if (model) nodes.push(model);
-            });
-            view.viewer.visual.document.selection.select(nodes, event.shiftKey);
-        }
-    }
+    protected abstract select(view: IView, highlights: VisualShapeData[], event: PointerEvent): void;
 
     private removeRect(view: IView) {
         if (this.rect) {
@@ -147,16 +140,16 @@ export class SelectionHandler implements IEventHandler {
         }
     }
 
-    private cleanDetecteds() {
-        this._lastHighlights?.forEach((x) => {
+    private cleanHighlights() {
+        this._highlights?.forEach((x) => {
             x.owner.removeState(VisualState.hilight, this.shapeType);
         });
-        this._lastHighlights = undefined;
+        this._highlights = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            this.cleanDetecteds();
+            this.cleanHighlights();
             view.viewer.visual.document.selection.clearSelected();
         } else if (event.key === "Tab") {
             event.preventDefault();
@@ -165,13 +158,13 @@ export class SelectionHandler implements IEventHandler {
     }
 
     private highlightNext(view: IView) {
-        if (this._detecting) {
-            if (this._detecting.length - 1 > this.detectedIndex) {
-                this.detectedIndex++;
-            } else if (this.detectedIndex !== 0) {
-                this.detectedIndex = 0;
+        if (this._detects) {
+            if (this._detects.length - 1 > this.detectingIndex) {
+                this.detectingIndex++;
+            } else if (this.detectingIndex !== 0) {
+                this.detectingIndex = 0;
             }
-            let detected = this.getPointDetecting();
+            let detected = this.getDetecting();
             if (detected) this.setHighlight(view, [detected]);
         }
     }

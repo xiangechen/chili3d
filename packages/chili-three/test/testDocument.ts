@@ -5,9 +5,9 @@ import {
     IDocument,
     INode,
     INodeLinkedList,
-    ISelection,
     IView,
     PropertyChangedHandler,
+    SelectionManager,
 } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
 
@@ -16,7 +16,7 @@ export class TestDocument implements IDocument {
     currentNode: INodeLinkedList | undefined;
     id: string;
     history: History;
-    selection: ISelection;
+    selection: SelectionManager;
     visual: ThreeVisual;
     rootNode: INodeLinkedList;
     activeView: IView | undefined;

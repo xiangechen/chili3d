@@ -2,13 +2,13 @@
 
 import { History, IDisposable, IPropertyChanged } from "./base";
 import { INode, INodeLinkedList } from "./model/node";
-import { ISelection } from "./selection";
+import { SelectionManager } from "./selectionManager";
 import { IVisual } from "./visual";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
     name: string;
     currentNode?: INodeLinkedList;
-    readonly selection: ISelection;
+    readonly selection: SelectionManager;
     readonly id: string;
     readonly history: History;
     readonly visual: IVisual;
