@@ -40,20 +40,15 @@ export class CommandService implements IService {
     }
 
     private excuteCommand = async (commandName: keyof Commands) => {
-        Logger.info(`excuting command ${commandName}`);
-        if (
-            ![OpenDocument.name, NewDocument.name].includes(commandName) &&
-            this.app.activeDocument === undefined
-        ) {
-            Logger.error("No active document");
-            return;
-        }
-        let commandToken = commandName === "LastCommand" ? this._lastCommand : commandName;
-        let command = this.app.resolve.resolve<ICommand>(new Token(commandToken!));
-        if (command === undefined || command.excute === undefined) {
-            Logger.error(`Attempted to resolve unregistered dependency token: ${commandName}`);
-            return;
-        }
+        let command = commandName === "LastCommand" ? this._lastCommand : commandName;
+        if (command === undefined) return;
+        if (!this.canExcute(command)) return;
+        Logger.info(`excuting command ${command}`);
+        await this.excuteCommandAsync(command);
+    };
+
+    private async excuteCommandAsync(commandName: keyof Commands) {
+        let command = this.app.resolve.resolve<ICommand>(new Token(commandName!))!;
         this._excutingCommand = commandName;
         await command
             .excute(this.app)
@@ -61,8 +56,27 @@ export class CommandService implements IService {
                 Logger.error(err);
             })
             .finally(() => {
-                this._lastCommand = commandToken;
+                this._lastCommand = commandName;
                 this._excutingCommand = undefined;
             });
-    };
+    }
+
+    private canExcute(commandName: string) {
+        if (this._excutingCommand) {
+            Logger.warn(`command ${this._excutingCommand} is excuting`);
+            return false;
+        }
+        if (
+            ![OpenDocument.name, NewDocument.name].includes(commandName) &&
+            this.app.activeDocument === undefined
+        ) {
+            Logger.error("No active document");
+            return false;
+        }
+        if (!this.app.resolve.has(new Token(commandName))) {
+            Logger.error(`Unregistered dependency token: ${commandName}`);
+            return false;
+        }
+        return true;
+    }
 }

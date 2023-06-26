@@ -3,5 +3,6 @@
 import { Token } from "../decorators/token";
 
 export interface IResolve {
+    has(token: Token): boolean;
     resolve<T>(token: Token): T | undefined;
 }

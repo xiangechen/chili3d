@@ -12,6 +12,10 @@ export class Container implements IRegister, IResolve {
         this.container = tsContainer.createChildContainer();
     }
 
+    has(token: Token): boolean {
+        return this.container.isRegistered(token.token);
+    }
+
     createResolve(): IResolve {
         return this;
     }
@@ -35,7 +39,6 @@ export class Container implements IRegister, IResolve {
     }
 
     resolve<T>(token: Token): T | undefined {
-        if (!this.container.isRegistered<T>(token.token)) return undefined;
         return this.container.resolve<T>(token.token);
     }
 }
