@@ -25,7 +25,7 @@ export class PropertyView extends Control {
     };
 
     private addDefault(document: IDocument, nodes: INode[]) {
-        this.appendProperty(this.panel, document, nodes, Property.get(nodes.at(0), "name"));
+        this.appendProperty(this.panel, document, nodes, Property.get(nodes.at(0), "common.name"));
     }
 
     private addBody(nodes: INode[], document: IDocument) {

@@ -9,8 +9,8 @@ export const DefaultRibbon: RibbonData = [
                 items: ["Line", "Rect", "Circle", "Box", ["PLine", "Circle"]],
             },
             {
-                groupName: "ribbon.group.draw",
-                items: ["Move"],
+                groupName: "ribbon.group.modify",
+                items: ["Move", "Copy", "Mirror", "Rotate", "Array"],
             },
         ],
     },

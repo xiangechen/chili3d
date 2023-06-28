@@ -75,7 +75,7 @@ export abstract class Node extends HistoryObservable implements INode {
     }
 
     @Serialize.property()
-    @property("name")
+    @property("common.name")
     get name() {
         return this._name;
     }
