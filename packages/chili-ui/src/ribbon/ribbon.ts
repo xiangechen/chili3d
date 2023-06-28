@@ -54,8 +54,10 @@ export class Ribbon extends Control {
 
     private newSelectionGroup(token: AsyncState) {
         let group = new RibbonGroup("ribbon.group.selection");
-        group.add(new RibbonButton("common.confirm", "icon-move", RibbonButtonSize.Normal, token.success));
-        group.add(new RibbonButton("common.cancel", "", RibbonButtonSize.Normal, token.cancel));
+        group.add(
+            new RibbonButton("common.confirm", "icon-confirm", RibbonButtonSize.Normal, token.success)
+        );
+        group.add(new RibbonButton("common.cancel", "icon-cancel", RibbonButtonSize.Normal, token.cancel));
         return group;
     }
 

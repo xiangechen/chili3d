@@ -16,6 +16,10 @@ export class Commands {
     Undo = "Undo";
     Redo = "Redo";
     Move = "Move";
+    Copy = "Copy";
+    Mirror = "Mirror";
+    Rotate = "Rotate";
+    Array = "Array";
 
     private constructor() {}
 

@@ -7,11 +7,11 @@ import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "Move",
-    display: "command.move",
-    icon: "icon-move",
+    name: "Array",
+    display: "command.array",
+    icon: "icon-array",
 })
-export class Move extends MultistepCommand {
+export class Array extends MultistepCommand {
     private models?: IModel[];
     private positions?: number[];
 
