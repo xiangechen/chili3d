@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ICommand } from "../command";
-import { Commands } from "../commands";
+import { Commands, ICommand } from "../command";
 import { I18n } from "../i18n";
 
 let commandMap = new Map<string, new (...args: any[]) => ICommand>();

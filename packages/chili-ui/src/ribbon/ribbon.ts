@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger } from "chili-core";
+import { AsyncState, Logger, PubSub } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { DefaultRibbon } from "../profile/ribbon";
 import { RibbonData } from "./ribbonData";
@@ -8,6 +8,9 @@ import { RibbonTab } from "./ribbonTab";
 import { TitleBar } from "./titlebar";
 
 import style from "./ribbon.module.css";
+import { RibbonButton } from "./ribbonButton";
+import { RibbonButtonSize } from "./ribbonButtonSize";
+import { RibbonGroup } from "./ribbonGroup";
 
 export class Ribbon extends Control {
     readonly titlebar: TitleBar = new TitleBar();
@@ -16,6 +19,7 @@ export class Ribbon extends Control {
     private readonly _ribbonHeader: Panel;
     private readonly startup: Label = new Label().i18nText("ribbon.tab.file").addClass(style.startup);
     private _selected?: RibbonTab;
+    private _selectionControl?: RibbonGroup;
 
     constructor() {
         super(style.root);
@@ -25,6 +29,34 @@ export class Ribbon extends Control {
 
         this.initRibbon(DefaultRibbon);
         this.initQuickBar([/*"NewDocument", "OpenDocument",*/ "SaveDocument", "Undo", "Redo"]);
+
+        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
+        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
+    }
+
+    override dispose(): void {
+        super.dispose();
+        PubSub.default.remove("showSelectionControl", this.showSelectionControl);
+        PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
+    }
+
+    private showSelectionControl = (token: AsyncState) => {
+        this._selectionControl = this.newSelectionGroup(token);
+        this._selected?.add(this._selectionControl);
+    };
+
+    private clearSelectionControl = () => {
+        if (this._selectionControl) {
+            this._selectionControl.parentElement?.removeChild(this._selectionControl);
+            this._selectionControl = undefined;
+        }
+    };
+
+    private newSelectionGroup(token: AsyncState) {
+        let group = new RibbonGroup("axis.x");
+        group.add(new RibbonButton("axis.x", "icon-move", RibbonButtonSize.Normal, token.success));
+        group.add(new RibbonButton("axis.x", "", RibbonButtonSize.Normal, token.cancel));
+        return group;
     }
 
     selectTab(tab: RibbonTab) {

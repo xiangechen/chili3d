@@ -39,16 +39,20 @@ export class CommandService implements IService {
         Logger.info(`${CommandService.name} registed`);
     }
 
+    get isExcuting(): boolean {
+        return this._excutingCommand !== undefined;
+    }
+
     private excuteCommand = async (commandName: keyof Commands) => {
         let command = commandName === "LastCommand" ? this._lastCommand : commandName;
         if (command === undefined) return;
         if (!this.canExcute(command)) return;
         Logger.info(`excuting command ${command}`);
-        await this.excuteCommandAsync(command);
+        await this.excuteAsync(command);
     };
 
-    private async excuteCommandAsync(commandName: keyof Commands) {
-        let command = this.app.resolve.resolve<ICommand>(new Token(commandName!))!;
+    private async excuteAsync(commandName: keyof Commands) {
+        let command = this.app.resolve.resolve<ICommand>(new Token(commandName))!;
         this._excutingCommand = commandName;
         await command
             .excute(this.app)

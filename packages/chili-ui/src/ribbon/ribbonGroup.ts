@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, PubSub } from "chili-core";
+import { Commands, I18n, PubSub } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -27,24 +27,26 @@ export class RibbonGroup extends Control {
 
     static from(data: RibbonGroupData) {
         let group = new RibbonGroup(data.groupName);
-        let items = data.items.map((item) => {
-            if (typeof item === "string") {
-                return new RibbonButton(item, RibbonButtonSize.Normal, this.handleCommand);
-            } else {
-                let stack = new RibbonStack();
-                item.forEach((b) => {
-                    stack.append(new RibbonButton(b, RibbonButtonSize.Mini, this.handleCommand));
-                });
-                return stack;
-            }
-        });
+        let items = data.items
+            .map((item) => {
+                if (typeof item === "string") {
+                    return RibbonButton.fromCommandName(item as keyof Commands, RibbonButtonSize.Normal);
+                } else {
+                    let stack = new RibbonStack();
+                    item.forEach((b) => {
+                        let button = RibbonButton.fromCommandName(
+                            b as keyof Commands,
+                            RibbonButtonSize.Mini
+                        );
+                        if (button) stack.append(button);
+                    });
+                    return stack;
+                }
+            })
+            .filter((x) => x !== undefined) as Control[];
         group.add(...items);
         return group;
     }
-
-    private static handleCommand = (name: string) => {
-        PubSub.default.pub("excuteCommand", name as any);
-    };
 }
 
 customElements.define("ribbon-group", RibbonGroup);

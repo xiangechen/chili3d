@@ -1,6 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Config, IDocument, IModel, INode, LineType, Matrix4, Transaction, XYZ, command } from "chili-core";
+import {
+    Config,
+    IDocument,
+    IModel,
+    INode,
+    LineType,
+    Matrix4,
+    ShapeType,
+    Transaction,
+    XYZ,
+    command,
+} from "chili-core";
+import { Selection } from "../../selection";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
@@ -48,14 +60,18 @@ export class Move extends MultistepCommand {
         ];
     };
 
-    protected override beforeExcute(document: IDocument): Promise<boolean> {
+    protected override async beforeExcute(document: IDocument): Promise<boolean> {
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
+        if (this.models.length === 0) {
+            this.models = await Selection.pickModel(document, "axis.x");
+            if (this.models.length === 0) return false;
+        }
         this.positions = [];
         this.models?.forEach((model) => {
             let ps = model.shape()?.mesh.edges?.positions;
             if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
         });
-        return Promise.resolve(this.models.length > 0);
+        return true;
     }
 
     protected excuting(document: IDocument): void {

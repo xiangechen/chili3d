@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEventHandler, IView, ShapeType, VisualShapeData, VisualState } from "chili-core";
+import {
+    AsyncState,
+    IDocument,
+    IEventHandler,
+    IView,
+    ShapeType,
+    VisualShapeData,
+    VisualState,
+} from "chili-core";
 
 const SelectionRectStyle = `
     border: 1px solid #55aaff;
@@ -23,14 +31,24 @@ interface SelectionRect {
 export abstract class SelectionHandler implements IEventHandler {
     private rect?: SelectionRect;
     private mouse = { isDown: false, x: 0, y: 0 };
-    private _highlights: VisualShapeData[] | undefined;
+    private _visualShapes: VisualShapeData[] | undefined;
     private _detects: VisualShapeData[] | undefined;
     private detectingIndex = 0; // 用于切换捕获的对象
 
-    constructor(readonly shapeType: ShapeType, readonly multiMode: boolean = true) {}
+    constructor(
+        readonly document: IDocument,
+        readonly shapeType: ShapeType,
+        readonly multiMode: boolean,
+        readonly token?: AsyncState
+    ) {
+        token?.onCancelled((s) => {
+            this.clearSelected(document);
+            this.cleanHighlights();
+        });
+    }
 
     dispose() {
-        this._highlights = undefined;
+        this._visualShapes = undefined;
         this._detects = undefined;
     }
 
@@ -71,13 +89,13 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
-        this._highlights?.forEach((x) => {
+        this._visualShapes?.forEach((x) => {
             if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType);
         });
         detecteds.forEach((x) => {
-            if (!this._highlights?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
+            if (!this._visualShapes?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
         });
-        this._highlights = detecteds;
+        this._visualShapes = detecteds;
         view.viewer.redraw();
     }
 
@@ -125,13 +143,15 @@ export abstract class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            this.select(view, this._highlights ?? [], event);
+            this.select(view, this._visualShapes ?? [], event);
         }
         this.cleanHighlights();
         view.viewer.redraw();
     }
 
-    protected abstract select(view: IView, highlights: VisualShapeData[], event: PointerEvent): void;
+    protected abstract clearSelected(document: IDocument): void;
+
+    protected abstract select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void;
 
     private removeRect(view: IView) {
         if (this.rect) {
@@ -141,16 +161,23 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     private cleanHighlights() {
-        this._highlights?.forEach((x) => {
+        this._visualShapes?.forEach((x) => {
             x.owner.removeState(VisualState.hilight, this.shapeType);
         });
-        this._highlights = undefined;
+        this._visualShapes = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
+            if (this.token) {
+                this.token.cancel();
+            } else {
+                this.clearSelected(view.viewer.visual.document);
+                this.cleanHighlights();
+            }
+        } else if (event.key === "Enter") {
             this.cleanHighlights();
-            view.viewer.visual.document.selection.clearSelected();
+            this.token?.success();
         } else if (event.key === "Tab") {
             event.preventDefault();
             this.highlightNext(view);

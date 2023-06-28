@@ -52,14 +52,15 @@ export class HotkeyService implements IService {
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
+        e.preventDefault();
         let visual = this.app?.activeDocument?.visual;
         let view = visual?.viewer.activeView;
         if (view && visual) {
-            visual.viewHandler.keyDown(view, e);
             visual.eventHandler.keyDown(view, e);
+            visual.viewHandler.keyDown(view, e);
         }
 
-        let command = HotkeyService.instance.getCommand(e);
+        let command = this.getCommand(e);
         if (command !== undefined) {
             PubSub.default.pub("excuteCommand", command);
         }

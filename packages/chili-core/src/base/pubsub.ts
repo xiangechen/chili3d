@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands } from "../commands";
+import { Commands } from "../command";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
+import { AsyncState } from "./asyncState";
 import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
 import { MessageType } from "./messageType";
@@ -26,6 +27,8 @@ export interface PubSubEventMap {
     clearFloatTip: () => void;
     showInput: (handler: (text: string) => Result<undefined, keyof I18n>) => void;
     clearInput: () => void;
+    showSelectionControl: (token: AsyncState) => void;
+    clearSelectionControl: () => void;
 }
 
 export class PubSub implements IDisposable {

@@ -3,7 +3,6 @@
 export * from "./application";
 export * from "./base";
 export * from "./command";
-export * from "./commands";
 export * from "./config";
 export * from "./constants";
 export * from "./converter";
