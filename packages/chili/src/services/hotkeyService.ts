@@ -42,24 +42,30 @@ export class HotkeyService implements IService {
     }
 
     start(): void {
-        window.addEventListener("keydown", this.handleKeyDown);
+        window.addEventListener("keydown", this.eventHandlerKeyDown);
+        window.addEventListener("keydown", this.commandKeyDown);
         Logger.info(`${HotkeyService.name} started`);
     }
 
     stop(): void {
-        window.removeEventListener("keydown", this.handleKeyDown);
+        window.removeEventListener("keydown", this.eventHandlerKeyDown);
+        window.removeEventListener("keydown", this.commandKeyDown);
         Logger.info(`${HotkeyService.name} stoped`);
     }
 
-    private handleKeyDown = (e: KeyboardEvent) => {
+    private eventHandlerKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
         let visual = this.app?.activeDocument?.visual;
         let view = visual?.viewer.activeView;
         if (view && visual) {
             visual.eventHandler.keyDown(view, e);
             visual.viewHandler.keyDown(view, e);
+            if (visual.isExcutingHandler()) e.stopImmediatePropagation();
         }
+    };
 
+    private commandKeyDown = (e: KeyboardEvent) => {
+        e.preventDefault();
         let command = this.getCommand(e);
         if (command !== undefined) {
             PubSub.default.pub("excuteCommand", command);

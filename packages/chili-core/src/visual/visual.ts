@@ -13,4 +13,5 @@ export interface IVisual extends IDisposable {
     readonly viewer: IViewer;
     eventHandler: IEventHandler;
     resetEventHandler(): void;
+    isExcutingHandler(): boolean;
 }

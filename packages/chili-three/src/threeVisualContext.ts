@@ -41,7 +41,7 @@ export class ThreeVisualContext implements IVisualContext {
         scene.add(this.modelShapes, this.tempShapes);
     }
 
-    async dispose() {
+    dispose() {
         this.modelShapes.traverse((x) => {
             if (IDisposable.isDisposable(x)) x.dispose();
         });
