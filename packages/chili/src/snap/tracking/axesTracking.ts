@@ -23,7 +23,7 @@ export class AxesTracking {
             let result: Axis[] = [];
             let testAngle = 0;
             while (testAngle < 360) {
-                let direction = plane.x.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
+                let direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
                 result.push(new Axis(referencePoint, direction, `${testAngle} °`));
                 testAngle += angle;
             }

@@ -74,11 +74,11 @@ export class TranslationConverter extends MatrixConverter {
 
 export class ScalingConverter extends MatrixConverter {
     protected convertFrom(matrix: Matrix4): [number, number, number] {
-        let s = matrix.getScaling();
+        let s = matrix.getScale();
         return [s.x, s.y, s.z];
     }
     protected convertTo(matrix: Matrix4, values: [number, number, number]): Matrix4 {
-        return matrix.scaling(values[0], values[1], values[2]);
+        return matrix.scale(values[0], values[1], values[2]);
     }
 }
 

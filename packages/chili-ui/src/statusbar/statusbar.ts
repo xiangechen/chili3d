@@ -6,7 +6,7 @@ import { Control, Label } from "../components";
 import style from "./statusbar.module.css";
 
 export class Statusbar extends Control {
-    readonly tip = new Label().i18nText("tip.default").addClass(style.tip);
+    readonly tip = new Label().i18nText("prompt.default").addClass(style.tip);
 
     constructor() {
         super(style.panel);
@@ -20,7 +20,7 @@ export class Statusbar extends Control {
     };
 
     private clearStatusBarTip = () => {
-        this.tip.i18nText("tip.default");
+        this.tip.i18nText("prompt.default");
     };
 }
 

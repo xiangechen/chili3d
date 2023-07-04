@@ -9,10 +9,10 @@ export class Axis extends Ray {
 
     static getAxiesAtPlane(location: XYZ, plane: Plane, containsZ: boolean) {
         let axies = [
-            new Axis(location, plane.x, i18n["axis.x"]),
-            new Axis(location, plane.x.reverse(), i18n["axis.x"]),
-            new Axis(location, plane.y, i18n["axis.y"]),
-            new Axis(location, plane.y.reverse(), i18n["axis.y"]),
+            new Axis(location, plane.xvec, i18n["axis.x"]),
+            new Axis(location, plane.xvec.reverse(), i18n["axis.x"]),
+            new Axis(location, plane.yvec, i18n["axis.y"]),
+            new Axis(location, plane.yvec.reverse(), i18n["axis.y"]),
         ];
         if (containsZ) {
             axies.push(

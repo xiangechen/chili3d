@@ -17,6 +17,7 @@ export class Commands {
     Redo = "Redo";
     Move = "Move";
     Copy = "Copy";
+    CopyInplace = "CopyInplace";
     Mirror = "Mirror";
     Rotate = "Rotate";
     Array = "Array";

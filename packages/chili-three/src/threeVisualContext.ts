@@ -152,6 +152,8 @@ export class ThreeVisualContext implements IVisualContext {
         let shape = this.getShape(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {
+            console.log(this.convertMatrix(model.matrix));
+
             shape.matrix.copy(this.convertMatrix(model.matrix));
             shape.matrixWorldNeedsUpdate = true;
         }

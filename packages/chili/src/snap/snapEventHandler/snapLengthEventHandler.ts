@@ -34,7 +34,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         return this.lengthData.point.add(this.lengthData.direction.multiply(Number(text)));
     }
 
-    protected getErrorMessage(text: string): keyof I18n | undefined {
+    protected inputError(text: string): keyof I18n | undefined {
         let n = Number(text);
         if (Number.isNaN(n)) return "error.input.invalidNumber";
         return undefined;
@@ -56,11 +56,11 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
             return this.lengthData.point.add(vector!.multiply(ns[0]));
         }
         return this.lengthData.point
-            .add(this.lengthData.plane.x.multiply(ns[0]))
-            .add(this.lengthData.plane.y.multiply(ns[1]));
+            .add(this.lengthData.plane.xvec.multiply(ns[0]))
+            .add(this.lengthData.plane.yvec.multiply(ns[1]));
     }
 
-    protected getErrorMessage(text: string): keyof I18n | undefined {
+    protected inputError(text: string): keyof I18n | undefined {
         let ns = text.split(",").map((x) => Number(x));
         if (ns.some((x) => Number.isNaN(x))) return "error.input.invalidNumber";
         if (ns.length !== 1 && ns.length !== 2) {

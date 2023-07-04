@@ -2,9 +2,13 @@
 
 import { ISerialize, Serialize, Serialized } from "../base";
 import { MathUtils } from "./mathUtils";
+import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
 import { XYZ } from "./xyz";
 
+/**
+ * Matrix in column-major order
+ */
 export class Matrix4 implements ISerialize {
     private readonly array: Float32Array = new Float32Array(16);
 
@@ -30,7 +34,7 @@ export class Matrix4 implements ISerialize {
 
     serialize(): Serialized {
         return {
-            type: Matrix4.name,
+            className: Matrix4.name,
             array: this.toArray(),
         };
     }
@@ -106,7 +110,7 @@ export class Matrix4 implements ISerialize {
         return new XYZ(this.array[12], this.array[13], this.array[14]);
     }
 
-    scaling(x: number, y: number, z: number) {
+    scale(x: number, y: number, z: number) {
         let matrix = this.clone();
         matrix.array[0] = x;
         matrix.array[5] = y;
@@ -114,7 +118,7 @@ export class Matrix4 implements ISerialize {
         return matrix;
     }
 
-    getScaling(): XYZ {
+    getScale(): XYZ {
         let m11 = this.array[0];
         let m12 = this.array[1];
         let m13 = this.array[2];
@@ -125,8 +129,14 @@ export class Matrix4 implements ISerialize {
         let m32 = this.array[9];
         let m33 = this.array[10];
 
+        let sx = Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13);
+        const det = this.determinant();
+        if (det < 0) {
+            sx = -sx;
+        }
+
         return new XYZ(
-            Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13),
+            sx,
             Math.sqrt(m21 * m21 + m22 * m22 + m23 * m23),
             Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33)
         );
@@ -207,38 +217,15 @@ export class Matrix4 implements ISerialize {
     }
 
     public multiply(other: Matrix4): Matrix4 {
-        let result = new Matrix4();
-
-        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
-        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
-        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
-        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
-
-        let [b0, b1, b2, b3] = [other.array[0], other.array[1], other.array[2], other.array[3]];
-        result.array[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.array[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.array[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.array[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-        [b0, b1, b2, b3] = [other.array[4], other.array[5], other.array[6], other.array[7]];
-        result.array[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.array[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.array[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.array[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-        [b0, b1, b2, b3] = [other.array[8], other.array[9], other.array[10], other.array[11]];
-        result.array[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.array[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.array[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.array[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-        [b0, b1, b2, b3] = [other.array[12], other.array[13], other.array[14], other.array[15]];
-        result.array[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-        result.array[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-        result.array[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-        result.array[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-
-        return result;
+        const array = new Array(16).fill(0);
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                for (let k = 0; k < 4; k++) {
+                    array[i * 4 + j] += this.array[i * 4 + k] * other.array[k * 4 + j];
+                }
+            }
+        }
+        return Matrix4.fromArray(array);
     }
 
     public equals(value: Matrix4): boolean {
@@ -249,7 +236,7 @@ export class Matrix4 implements ISerialize {
     }
 
     public clone(): Matrix4 {
-        return Matrix4.fromArray(this.toArray());
+        return Matrix4.fromArray([...this.array]);
     }
 
     public static fromArray(array: ArrayLike<number>): Matrix4 {
@@ -267,9 +254,7 @@ export class Matrix4 implements ISerialize {
     }
 
     public static zero(): Matrix4 {
-        return Matrix4.fromArray([
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        ]);
+        return Matrix4.fromArray(new Array(16).fill(0));
     }
 
     static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Matrix4 {
@@ -350,40 +335,106 @@ export class Matrix4 implements ISerialize {
         return result;
     }
 
-    public static rotationAxis(vector: XYZ, angle: number): Matrix4 {
-        let axis = vector.normalize();
-        if (axis === undefined) throw new TypeError("invalid vector");
+    public static createRotation(vector: XYZ, angle: number): Matrix4 {
+        let unit = vector.normalize();
+        if (unit === undefined) throw new TypeError("invalid vector");
 
-        let result = Matrix4.zero();
+        let { x, y, z } = unit;
         let s = Math.sin(-angle);
         let c = Math.cos(-angle);
-        let c1 = 1 - c;
+        let t = 1 - c;
 
-        result.array[0] = axis.x * axis.x * c1 + c;
-        result.array[1] = axis.x * axis.y * c1 - axis.z * s;
-        result.array[2] = axis.x * axis.z * c1 + axis.y * s;
-        result.array[3] = 0.0;
+        const array = [
+            t * x * x + c,
+            t * x * y - z * s,
+            t * x * z + y * s,
+            0,
+            t * x * y + z * s,
+            t * y * y + c,
+            t * y * z - x * s,
+            0,
+            t * x * z - y * s,
+            t * y * z + x * s,
+            t * z * z + c,
+            0,
+            0,
+            0,
+            0,
+            1,
+        ];
 
-        result.array[4] = axis.y * axis.x * c1 + axis.z * s;
-        result.array[5] = axis.y * axis.y * c1 + c;
-        result.array[6] = axis.y * axis.z * c1 - axis.x * s;
-        result.array[7] = 0.0;
-
-        result.array[8] = axis.z * axis.x * c1 - axis.y * s;
-        result.array[9] = axis.z * axis.y * c1 + axis.x * s;
-        result.array[10] = axis.z * axis.z * c1 + c;
-        result.array[11] = 0.0;
-
-        result.array[15] = 1.0;
-        return result;
+        return Matrix4.fromArray(array);
     }
 
-    public static scalingTransform(x: number, y: number, z: number): Matrix4 {
+    public static createRotationAt(center: XYZ, normal: XYZ, angle: number): Matrix4 {
+        let unit = normal.normalize();
+        if (unit === undefined) throw new TypeError("invalid vector");
+
+        let { x, y, z } = unit;
+        let s = Math.sin(-angle);
+        let c = Math.cos(-angle);
+        let t = 1 - c;
+
+        const array = [
+            t * x * x + c,
+            t * x * y - z * s,
+            t * x * z + y * s,
+            0,
+            t * x * y + z * s,
+            t * y * y + c,
+            t * y * z - x * s,
+            0,
+            t * x * z - y * s,
+            t * y * z + x * s,
+            t * z * z + c,
+            0,
+            center.x,
+            center.y,
+            center.z,
+            1,
+        ];
+
+        array[12] -= center.x * array[0] + center.y * array[4] + center.z * array[8];
+        array[13] -= center.x * array[1] + center.y * array[5] + center.z * array[9];
+        array[14] -= center.x * array[2] + center.y * array[6] + center.z * array[10];
+
+        return Matrix4.fromArray(array);
+    }
+
+    public static createScale(x: number, y: number, z: number): Matrix4 {
         return Matrix4.fromArray([x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0]);
     }
 
-    public static translationTransform(x: number, y: number, z: number): Matrix4 {
+    public static createTranslation(x: number, y: number, z: number): Matrix4 {
         return Matrix4.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0]);
+    }
+
+    public static createMirrorWithPlane(plane: Plane): Matrix4 {
+        let d = -plane.origin.dot(plane.normal);
+        const x = plane.normal.x;
+        const y = plane.normal.y;
+        const z = plane.normal.z;
+        const temp = -2 * x;
+        const temp2 = -2 * y;
+        const temp3 = -2 * z;
+        return Matrix4.fromArray([
+            temp * x + 1,
+            temp2 * x,
+            temp3 * x,
+            0.0,
+            temp * y,
+            temp2 * y + 1,
+            temp3 * y,
+            0.0,
+            temp * z,
+            temp2 * z,
+            temp3 * z + 1,
+            0.0,
+            temp * d,
+            temp2 * d,
+            temp3 * d,
+            1.0,
+        ]);
     }
 
     public transpose(): Matrix4 {

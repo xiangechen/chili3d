@@ -67,7 +67,7 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     override serialize(): Serialized {
         return {
-            type: Document.name,
+            className: Document.name,
             id: this.id,
             name: this.name,
             image: this.visual.viewer.activeView?.toImage(),
@@ -117,13 +117,10 @@ export class Document extends Observable implements IDocument, ISerialize {
         let rootData = data["rootNode"];
         let rootNode = new NodeLinkedList(document, rootData["name"], rootData["id"]);
         document._rootNode = rootNode;
-        const parentMap = new Map<INodeLinkedList, INode[]>();
-        if (rootData["firstChild"]) this.getNodes(parentMap, document, rootNode, rootData["firstChild"]);
         try {
             document.history.disabled = true;
-            for (const kv of parentMap) {
-                kv[0].add(...kv[1]);
-            }
+            if (rootData["firstChild"])
+                Serialize.nodeDeserialize(document, rootNode, rootData["firstChild"]);
         } finally {
             document.history.disabled = false;
         }
@@ -146,31 +143,5 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     addNode(...nodes: INode[]): void {
         (this.currentNode ?? this.rootNode).add(...nodes);
-    }
-
-    private static getNodes(
-        map: Map<INodeLinkedList, INode[]>,
-        document: IDocument,
-        parent: INodeLinkedList,
-        data: Serialized
-    ) {
-        if (data === undefined) return;
-        data["document"] = document;
-        if (!map.has(parent)) map.set(parent, []);
-        let node = this.createInstance(data);
-        map.get(parent)!.push(node);
-        if (data["firstChild"]) this.getNodes(map, document, node, data["firstChild"]);
-        if (data["nextSibling"]) this.getNodes(map, document, parent, data["nextSibling"]);
-    }
-
-    private static createInstance(data: Serialized) {
-        for (const key of Object.keys(data)) {
-            if (key === "firstChild" || key === "nextSibling") continue; // 不生成嵌套节点
-            if (data[key]?.type) data[key] = this.createInstance(data[key]);
-        }
-        let instance = Serialize.deserialize(data);
-        if (instance === undefined)
-            throw new Error(`The type of ${data.type} is unknown and cannot be loaded.`);
-        return instance;
     }
 }

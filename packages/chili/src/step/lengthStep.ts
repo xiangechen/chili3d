@@ -7,12 +7,17 @@ import {
     LengthAtPlaneSnapper,
     SnapLengthAtAxisData,
     SnapLengthAtPlaneData,
+    Snapper,
 } from "../snap";
 import { StepBase } from "./step";
 
 export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
     constructor(tip: keyof I18n, handleData: () => SnapLengthAtAxisData, disableDefaultValidator = false) {
-        super(LengthAtAxisSnapper, tip, handleData, disableDefaultValidator);
+        super(tip, handleData, disableDefaultValidator);
+    }
+
+    protected override snapper(data: SnapLengthAtAxisData): Snapper {
+        return new LengthAtAxisSnapper(data);
     }
 
     protected validator(data: SnapLengthAtAxisData, point: XYZ): boolean {
@@ -22,7 +27,11 @@ export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
 
 export class LengthAtPlaneStep extends StepBase<SnapLengthAtPlaneData> {
     constructor(tip: keyof I18n, handleData: () => SnapLengthAtPlaneData, disableDefaultValidator = false) {
-        super(LengthAtPlaneSnapper, tip, handleData, disableDefaultValidator);
+        super(tip, handleData, disableDefaultValidator);
+    }
+
+    protected override snapper(data: SnapLengthAtPlaneData): Snapper {
+        return new LengthAtPlaneSnapper(data);
     }
 
     protected validator(data: SnapLengthAtPlaneData, point: XYZ): boolean {

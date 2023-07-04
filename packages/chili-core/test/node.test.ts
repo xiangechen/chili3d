@@ -28,6 +28,7 @@ describe("test node", () => {
             onPropertyChanged: () => {},
             removePropertyChanged: () => {},
             serialize: () => ({} as any),
+            clone: () => ({} as any),
             dispose() {},
         };
         // n1

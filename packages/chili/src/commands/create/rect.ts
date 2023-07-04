@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, IDocument, MathUtils, GeometryModel, Plane, XYZ } from "chili-core";
+import { GeometryModel, IDocument, MathUtils, Plane, XYZ, command } from "chili-core";
 import { Application } from "chili-core/src/application";
 
 import { RectBody } from "../../bodys";
@@ -18,10 +18,10 @@ export interface RectData {
 
 export namespace RectData {
     export function get(atPlane: Plane, start: XYZ, end: XYZ): RectData {
-        let plane = new Plane(start, atPlane.normal, atPlane.x);
+        let plane = new Plane(start, atPlane.normal, atPlane.xvec);
         let vector = end.sub(start);
-        let dx = vector.dot(plane.x);
-        let dy = vector.dot(plane.y);
+        let dx = vector.dot(plane.xvec);
+        let dy = vector.dot(plane.yvec);
         return { plane, dx, dy, p1: start, p2: end };
     }
 }
@@ -38,7 +38,7 @@ export abstract class RectCommandBase extends CreateCommand {
         return {
             point,
             preview: this.previewRect,
-            plane: this.stepDatas[0].view.workplane.copyTo(point),
+            plane: this.stepDatas[0].view.workplane.translateTo(point),
             validator: this.handleValid,
         };
     };

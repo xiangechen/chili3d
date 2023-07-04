@@ -18,6 +18,7 @@ const DefaultKeyMap: HotkeyMap = {
     Backspace: "Delete",
     "ctrl+z": "Undo",
     "ctrl+y": "Redo",
+    "ctrl+d": "CopyInplace",
 };
 
 export class HotkeyService implements IService {

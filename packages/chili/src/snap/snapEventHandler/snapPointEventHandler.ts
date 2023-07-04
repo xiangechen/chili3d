@@ -17,7 +17,7 @@ export interface SnapPointData {
 }
 
 export class SnapPointEventHandler extends SnapEventHandler {
-    constructor(token: AsyncState, private pointData: SnapPointData) {
+    constructor(token: AsyncState, protected pointData: SnapPointData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
@@ -33,7 +33,9 @@ export class SnapPointEventHandler extends SnapEventHandler {
             let vector = end.sub(this.pointData.refPoint!).normalize()!;
             result = result.add(vector.multiply(dims[0]));
         } else if (dims.length > 1) {
-            result = result.add(view.workplane.x.multiply(dims[0])).add(view.workplane.y.multiply(dims[1]));
+            result = result
+                .add(view.workplane.xvec.multiply(dims[0]))
+                .add(view.workplane.yvec.multiply(dims[1]));
             if (dims.length === 3) {
                 result = result.add(view.workplane.normal.multiply(dims[2]));
             }
@@ -41,7 +43,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         return result;
     }
 
-    protected getErrorMessage(text: string): keyof I18n | undefined {
+    protected inputError(text: string): keyof I18n | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.pointData.dimension, dimension)) {

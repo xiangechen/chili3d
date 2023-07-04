@@ -47,8 +47,10 @@ let en: I18n = {
     "snap.center": "Center",
     "snap.intersection": "Intersection",
     "snap.perpendicular": "Perpendicular",
-    "tip.default":
+    "prompt.default":
         "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
+    "prompt.select.models": "Please select models",
+    "prompt.select.noModelSelected": "No model selected",
     "error.default": "",
     "error.input.unsupportedInputs": "Exceeds the maximum number of inputs",
     "error.input.invalidNumber": "Please enter a valid number, separated by ,",

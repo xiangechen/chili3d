@@ -2,7 +2,7 @@
 
 import { I18n, Precision, XYZ } from "chili-core";
 
-import { Dimension, PointSnapper, SnapPointData, Snapper } from "../snap";
+import { AngleSnapper, Dimension, SnapPointData, Snapper } from "../snap";
 import { StepBase } from "./step";
 
 function defaultSnapedData(): SnapPointData {
@@ -11,17 +11,18 @@ function defaultSnapedData(): SnapPointData {
     };
 }
 
-export class PointStep extends StepBase<SnapPointData> {
+export class AngleStep extends StepBase<SnapPointData> {
     constructor(
         tip: keyof I18n,
-        handleData: () => SnapPointData = defaultSnapedData,
+        private handleP1: () => XYZ,
+        handleCenter: () => SnapPointData = defaultSnapedData,
         disableDefaultValidator = false
     ) {
-        super(tip, handleData, disableDefaultValidator);
+        super(tip, handleCenter, disableDefaultValidator);
     }
 
     protected override snapper(data: SnapPointData): Snapper {
-        return new PointSnapper(data);
+        return new AngleSnapper(data, this.handleP1());
     }
 
     protected validator(data: SnapPointData, point: XYZ): boolean {

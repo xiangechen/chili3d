@@ -19,6 +19,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
     private _firstChild: INode | undefined;
 
     @Serialize.property()
+    @Serialize.deserializeSkip()
     get firstChild(): INode | undefined {
         return this._firstChild;
     }

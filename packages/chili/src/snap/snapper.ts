@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, CursorType, I18n, IDocument } from "chili-core";
+import { AsyncState, CursorType, I18n, IDocument, XYZ } from "chili-core";
 
 import { Selection } from "../selection";
 import { SnapedData } from "./interfaces";
 import {
+    SnapAngleEventHandler,
     SnapEventHandler,
     SnapLengthAtAxisData,
     SnapLengthAtAxisHandler,
@@ -22,6 +23,16 @@ export abstract class Snapper {
         let executorHandler = this.getEventHandler(token);
         await Selection.pickAsync(document, executorHandler, tip, token, false, CursorType.Drawing);
         return executorHandler.snaped;
+    }
+}
+
+export class AngleSnapper extends Snapper {
+    constructor(readonly center: SnapPointData, readonly p1: XYZ) {
+        super();
+    }
+
+    protected getEventHandler(token: AsyncState): SnapEventHandler {
+        return new SnapAngleEventHandler(token, this.center, this.p1);
     }
 }
 

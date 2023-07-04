@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Serialize } from "../base";
+import { ISerialize, Serialize, Serialized } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
@@ -15,11 +15,11 @@ export class Plane implements ISerialize {
      * unit vector
      */
     readonly normal: XYZ;
-    readonly x: XYZ;
-    readonly y: XYZ;
-    constructor(readonly location: XYZ, normal: XYZ, xDirection: XYZ) {
+    readonly xvec: XYZ;
+    readonly yvec: XYZ;
+    constructor(readonly origin: XYZ, normal: XYZ, xvec: XYZ) {
         let n = normal.normalize(),
-            x = xDirection.normalize();
+            x = xvec.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("normal can not be zero");
         }
@@ -30,44 +30,44 @@ export class Plane implements ISerialize {
             throw new Error("xDirector can not parallel normal");
         }
         this.normal = n;
-        this.x = x;
-        this.y = n.cross(x).normalize()!;
+        this.xvec = x;
+        this.yvec = n.cross(x).normalize()!;
     }
 
-    serialize() {
+    serialize(): Serialized {
         return {
-            type: Plane.name,
-            location: this.location.serialize(),
+            className: Plane.name,
+            origin: this.origin.serialize(),
             normal: this.normal.serialize(),
-            xDirection: this.x.serialize(),
+            xvec: this.xvec.serialize(),
         };
     }
 
     @Serialize.deserializer()
-    static from(data: { location: XYZ; normal: XYZ; xDirection: XYZ }) {
-        return new Plane(data.location, data.normal, data.xDirection);
+    static from(data: { origin: XYZ; normal: XYZ; xvec: XYZ }) {
+        return new Plane(data.origin, data.normal, data.xvec);
     }
 
-    copyTo(location: XYZ) {
-        return new Plane(location, this.normal, this.x);
+    translateTo(origin: XYZ) {
+        return new Plane(origin, this.normal, this.xvec);
     }
 
     project(point: XYZ): XYZ {
-        let vector = point.sub(this.location);
+        let vector = point.sub(this.origin);
         let dot = vector.dot(this.normal);
-        return this.location.add(vector.sub(this.normal.multiply(dot)));
+        return this.origin.add(vector.sub(this.normal.multiply(dot)));
     }
 
     transformed(matrix: Matrix4) {
-        let location = matrix.ofPoint(this.location);
-        let x = matrix.ofVector(this.x);
+        let location = matrix.ofPoint(this.origin);
+        let x = matrix.ofVector(this.xvec);
         let normal = matrix.ofVector(this.normal);
         return new Plane(location, normal, x);
     }
 
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {
-        let vec = this.location.sub(ray.location);
-        if (vec.isEqualTo(XYZ.zero)) return this.location;
+        let vec = this.origin.sub(ray.location);
+        if (vec.isEqualTo(XYZ.zero)) return this.origin;
         let len = vec.dot(this.normal);
         let dot = ray.direction.dot(this.normal);
         if (MathUtils.almostEqual(dot, 0)) return MathUtils.almostEqual(len, 0) ? ray.location : undefined;

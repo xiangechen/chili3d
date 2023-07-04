@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Result, Serialize } from "../base";
+import { Logger, Result, Serialize, Serialized } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
@@ -171,8 +171,6 @@ export class GeometryModel extends Model {
     editors() {
         return [...this._editors];
     }
-
-    protected handleTransformChanged() {}
 }
 
 export class ModelGroup extends Model<ICompound> implements IModelGroup {
@@ -188,5 +186,10 @@ export class ModelGroup extends Model<ICompound> implements IModelGroup {
 
     protected onParentVisibleChanged(): void {
         this._children.forEach((x) => (x.parentVisible = this.visible && this.parentVisible));
+    }
+
+    override clone(): this {
+        // todo
+        return this;
     }
 }

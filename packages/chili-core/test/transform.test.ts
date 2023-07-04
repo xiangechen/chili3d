@@ -2,7 +2,7 @@
 
 import "reflect-metadata";
 
-import { Matrix4, XYZ } from "../src";
+import { Matrix4, Plane, XYZ } from "../src";
 
 describe("test Transform", () => {
     test("test constructor", () => {
@@ -19,7 +19,7 @@ describe("test Transform", () => {
     });
 
     test("test operation", () => {
-        let t1 = Matrix4.translationTransform(10, 0, 0);
+        let t1 = Matrix4.createTranslation(10, 0, 0);
         let p1 = XYZ.zero;
         let v1 = XYZ.unitY;
         let p2 = t1.ofPoint(p1);
@@ -32,7 +32,10 @@ describe("test Transform", () => {
         let t3 = Matrix4.rotationZTransform(Math.PI * 0.5);
         expect(t3.ofVector(v1).isEqualTo(new XYZ(-1, 0, 0))).toBeTruthy();
 
-        let t4 = Matrix4.scalingTransform(0.5, 1.5, 0);
+        let rotate = Matrix4.createRotationAt(new XYZ(1, 1, 0), XYZ.unitZ, Math.PI * 0.5);
+        expect(rotate.ofPoint(XYZ.unitX)).toStrictEqual(new XYZ(2, 1, 0));
+
+        let t4 = Matrix4.createScale(0.5, 1.5, 0);
         let p3 = new XYZ(1, 1, 0);
         expect(t4.ofPoint(p3)).toStrictEqual(new XYZ(0.5, 1.5, 0));
 
@@ -40,5 +43,13 @@ describe("test Transform", () => {
         expect(t5.ofPoint(XYZ.unitY).isEqualTo(new XYZ(9, 0, 0))).toBeTruthy();
         let t6 = t5.invert();
         expect(t6!.ofPoint(new XYZ(9, 0, 0)).isEqualTo(XYZ.unitY)).toBeTruthy();
+    });
+
+    test("test mirror", () => {
+        let mirror = Matrix4.createMirrorWithPlane(new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY));
+        expect(mirror.ofPoint(new XYZ(-1, 0, 0)).isEqualTo(XYZ.unitX)).toBeTruthy();
+
+        mirror = Matrix4.createMirrorWithPlane(new Plane(XYZ.unitX, XYZ.unitX, XYZ.unitY));
+        expect(mirror.ofPoint(new XYZ(-1, 0, 0)).isEqualTo(new XYZ(3, 0, 0))).toBeTruthy();
     });
 });

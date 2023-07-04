@@ -17,6 +17,7 @@ export interface INode extends IPropertyChanged, ISerialize, IDisposable {
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
+    clone(): this;
 }
 
 export interface INodeLinkedList extends INode {
@@ -64,6 +65,7 @@ export abstract class Node extends HistoryObservable implements INode {
     previousSibling: INode | undefined;
 
     @Serialize.property()
+    @Serialize.deserializeSkip()
     nextSibling: INode | undefined;
 
     @Serialize.property()
@@ -101,6 +103,13 @@ export abstract class Node extends HistoryObservable implements INode {
 
     set parentVisible(value: boolean) {
         this.setProperty("parentVisible", value, () => this.onParentVisibleChanged());
+    }
+
+    clone(): this {
+        let serialized = Serialize.serialize(this);
+        serialized["id"] = Id.new();
+        serialized["name"] = this.name + "_copy";
+        return Serialize.nodeDeserialize(this.document, this.parent!, serialized);
     }
 
     protected abstract onParentVisibleChanged(): void;

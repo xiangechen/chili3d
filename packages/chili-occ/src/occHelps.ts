@@ -45,17 +45,17 @@ export class OccHelps {
 
     static toAx2(plane: Plane): gp_Ax2 {
         return new occ.gp_Ax2_2(
-            OccHelps.toPnt(plane.location),
+            OccHelps.toPnt(plane.origin),
             OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.x)
+            OccHelps.toDir(plane.xvec)
         );
     }
 
     static toAx3(plane: Plane): gp_Ax3 {
         return new occ.gp_Ax3_3(
-            OccHelps.toPnt(plane.location),
+            OccHelps.toPnt(plane.origin),
             OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.x)
+            OccHelps.toDir(plane.xvec)
         );
     }
 

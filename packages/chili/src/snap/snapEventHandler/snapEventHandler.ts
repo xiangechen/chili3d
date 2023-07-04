@@ -156,7 +156,7 @@ export abstract class SnapEventHandler implements IEventHandler {
             this.cancel(view);
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", (text: string) => {
-                let error = this.getErrorMessage(text);
+                let error = this.inputError(text);
                 if (error === undefined) {
                     this.handleText(view, text);
                     return Result.ok(undefined);
@@ -178,5 +178,5 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
-    protected abstract getErrorMessage(text: string): keyof I18n | undefined;
+    protected abstract inputError(text: string): keyof I18n | undefined;
 }
