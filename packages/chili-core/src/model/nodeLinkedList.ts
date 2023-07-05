@@ -6,7 +6,7 @@ import {
     NodeLinkedListHistoryRecord,
     NodeRecord,
     PubSub,
-    Serialize,
+    Serializer,
     Transaction,
 } from "../base";
 import { IDocument } from "../document";
@@ -18,8 +18,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     private _firstChild: INode | undefined;
 
-    @Serialize.property()
-    @Serialize.deserializeSkip()
+    @Serializer.enable()
     get firstChild(): INode | undefined {
         return this._firstChild;
     }
@@ -33,7 +32,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         super(document, name, id);
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({ document, name, id }: { document: IDocument; name: string; id?: string }) {
         return new NodeLinkedList(document, name, id ?? Id.new());
     }

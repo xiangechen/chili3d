@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
-import { ISerialize, Serialize } from "../base/serialize";
+import { ISerialize, Serializer } from "../base/serialize";
 import { property } from "../decorators";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
@@ -64,11 +64,10 @@ export abstract class Node extends HistoryObservable implements INode {
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
 
-    @Serialize.property()
-    @Serialize.deserializeSkip()
+    @Serializer.enable()
     nextSibling: INode | undefined;
 
-    @Serialize.property()
+    @Serializer.enable()
     readonly id: string;
 
     constructor(document: IDocument, private _name: string, id: string = Id.new()) {
@@ -76,7 +75,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.id = id;
     }
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("common.name")
     get name() {
         return this._name;
@@ -86,7 +85,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setProperty("name", value);
     }
 
-    @Serialize.property()
+    @Serializer.enable()
     get visible(): boolean {
         return this._visible;
     }
@@ -106,10 +105,11 @@ export abstract class Node extends HistoryObservable implements INode {
     }
 
     clone(): this {
-        let serialized = Serialize.serialize(this);
+        let serialized = Serializer.serialize(this);
         serialized["id"] = Id.new();
         serialized["name"] = this.name + "_copy";
-        return Serialize.nodeDeserialize(this.document, this.parent!, serialized);
+        serialized["parent"] = this.parent;
+        return Serializer.deserialize(this.document, serialized);
     }
 
     protected abstract onParentVisibleChanged(): void;

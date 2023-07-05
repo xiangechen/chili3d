@@ -9,7 +9,7 @@ import {
     Matrix4,
     property,
     Result,
-    Serialize,
+    Serializer,
     XYZ,
 } from "chili-core";
 
@@ -20,7 +20,7 @@ export class CircleBody extends Body {
 
     private _center: XYZ;
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("circle.center")
     get center() {
         return this._center;
@@ -31,7 +31,7 @@ export class CircleBody extends Body {
 
     private _radius: number;
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("circle.radius")
     get radius() {
         return this._radius;
@@ -42,7 +42,7 @@ export class CircleBody extends Body {
 
     private _normal: XYZ;
 
-    @Serialize.property()
+    @Serializer.enable()
     get normal() {
         return this._normal;
     }
@@ -56,7 +56,7 @@ export class CircleBody extends Body {
         this._radius = radius;
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({
         document,
         normal,

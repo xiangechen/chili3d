@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Serialize, Serialized } from "../base";
+import { ISerialize, Serialized, Serializer } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
@@ -43,7 +43,7 @@ export class Plane implements ISerialize {
         };
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from(data: { origin: XYZ; normal: XYZ; xvec: XYZ }) {
         return new Plane(data.origin, data.normal, data.xvec);
     }

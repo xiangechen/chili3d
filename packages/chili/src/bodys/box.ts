@@ -10,7 +10,7 @@ import {
     Plane,
     property,
     Result,
-    Serialize,
+    Serializer,
 } from "chili-core";
 
 export class BoxBody extends Body {
@@ -19,7 +19,7 @@ export class BoxBody extends Body {
 
     private _dx: number;
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("box.dx")
     get dx() {
         return this._dx;
@@ -30,7 +30,7 @@ export class BoxBody extends Body {
 
     private _dy: number;
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("box.dy")
     get dy() {
         return this._dy;
@@ -41,7 +41,7 @@ export class BoxBody extends Body {
 
     private _dz: number;
 
-    @Serialize.property()
+    @Serializer.enable()
     @property("box.dz")
     get dz() {
         return this._dz;
@@ -52,7 +52,7 @@ export class BoxBody extends Body {
 
     private _plane: Plane;
 
-    @Serialize.property()
+    @Serializer.enable()
     get plane() {
         return this._plane;
     }
@@ -66,7 +66,7 @@ export class BoxBody extends Body {
         this._dz = dz;
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({
         document,
         plane,

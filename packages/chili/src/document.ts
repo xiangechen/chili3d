@@ -18,8 +18,8 @@ import {
     Observable,
     PubSub,
     SelectionManager,
-    Serialize,
     Serialized,
+    Serializer,
 } from "chili-core";
 
 export class Document extends Observable implements IDocument, ISerialize {
@@ -114,16 +114,9 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     private static load(data: Serialized) {
         let document = new Document(data["name"], data["id"]);
-        let rootData = data["rootNode"];
-        let rootNode = new NodeLinkedList(document, rootData["name"], rootData["id"]);
-        document._rootNode = rootNode;
-        try {
-            document.history.disabled = true;
-            if (rootData["firstChild"])
-                Serialize.nodeDeserialize(document, rootNode, rootData["firstChild"]);
-        } finally {
-            document.history.disabled = false;
-        }
+        document.history.disabled = true;
+        document._rootNode = Serializer.deserialize(document, data["rootNode"]);
+        document.history.disabled = false;
         return document;
     }
 

@@ -5,8 +5,8 @@ import { IDocument } from "../document";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
+import { ISerialize, Serialized, Serializer } from "./serialize";
 import { Transaction } from "./transaction";
-import { ISerialize, Serialize, Serialized } from "./serialize";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 
@@ -25,7 +25,7 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
     }
 
     serialize(): Serialized {
-        return Serialize.serialize(this);
+        return Serializer.serialize(this);
     }
 
     protected privateKeyMap(pubKey: string) {

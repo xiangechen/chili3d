@@ -6,27 +6,19 @@ import { INodeLinkedList } from "../model";
 export type Serialized = {
     className: string;
     [property: string]: any;
-    deserializeSkips?: Set<string>;
 };
 
 export interface ISerialize {
     serialize(): Serialized;
 }
 
-export namespace Serialize {
+export namespace Serializer {
     const serializeKeyMap = new Map<new (...args: any[]) => any, Set<string>>();
-    const deSkipKeyMap = new Map<new (...args: any[]) => any, Set<string>>();
     const deserializeMap = new Map<string, (...args: any[]) => any>();
 
-    export function property() {
+    export function enable() {
         return (target: any, property: string) => {
             saveKey(serializeKeyMap, target, property);
-        };
-    }
-
-    export function deserializeSkip() {
-        return (target: any, property: string) => {
-            saveKey(deSkipKeyMap, target, property);
         };
     }
 
@@ -45,11 +37,45 @@ export namespace Serialize {
         };
     }
 
+    /**
+     * Deserialize an object
+     *
+     * @param document Document that contains the object.
+     * @param data Serialize the data. If the serialized data does not contain
+     * the parameters required by the deserialization function, these parameters
+     * should be added to the serialized data, for example:
+     * ```
+     * data[“parent”] = node.
+     * ```
+     * @returns Deserialized object
+     */
     export function deserialize(document: IDocument, data: Serialized) {
+        if ("firstChild" in data || "nextSibling" in data) {
+            return nodeDescrialize(document, data, data["parent"]);
+        } else {
+            return deserializeWithSkips(document, data);
+        }
+    }
+
+    function nodeDescrialize(
+        document: IDocument,
+        data: Serialized,
+        parent?: INodeLinkedList,
+        addSibling?: boolean
+    ) {
+        if (data === undefined) return;
+        let node = deserializeWithSkips(document, data, ["firstChild", "nextSibling"]);
+        parent?.add(node);
+        if (data["firstChild"]) nodeDescrialize(document, data["firstChild"], node, true);
+        if (addSibling && data["nextSibling"]) nodeDescrialize(document, data["nextSibling"], parent, true);
+        return node;
+    }
+
+    function deserializeWithSkips(document: IDocument, data: Serialized, skips?: string[]) {
         data["document"] = document;
         let deserialized = {} as any;
         for (const key of Object.keys(data)) {
-            if (data.deserializeSkips?.has(key)) continue;
+            if (skips?.includes(key)) continue;
             deserialized[key] = data[key].className ? deserialize(document, data[key]) : data[key];
         }
         let instance = deserializeMap.get(data.className)?.(deserialized);
@@ -57,29 +83,9 @@ export namespace Serialize {
         return instance;
     }
 
-    export function nodeDeserialize(document: IDocument, parent: INodeLinkedList, data: Serialized) {
-        return nodeAndSiblingDescrialize(document, parent, data, false);
-    }
-
-    function nodeAndSiblingDescrialize(
-        document: IDocument,
-        parent: INodeLinkedList,
-        data: Serialized,
-        addSibling: boolean
-    ) {
-        if (data === undefined) return;
-        let node = deserialize(document, data);
-        parent.add(node);
-        if (data["firstChild"]) nodeAndSiblingDescrialize(document, node, data["firstChild"], true);
-        if (addSibling && data["nextSibling"])
-            nodeAndSiblingDescrialize(document, parent, data["nextSibling"], true);
-        return node;
-    }
-
     export function serialize(target: ISerialize): Serialized {
         let data: Serialized = {
             className: target.constructor.name,
-            deserializeSkips: getKeys(target, deSkipKeyMap),
         };
         let keys = getKeys(target, serializeKeyMap);
         for (const key of keys) {

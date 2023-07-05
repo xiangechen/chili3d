@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Serialize, Serialized } from "../base";
+import { ISerialize, Serialized, Serializer } from "../base";
 import { MathUtils } from "./mathUtils";
 import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -39,7 +39,7 @@ export class Matrix4 implements ISerialize {
         };
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({ array }: { array: number[] }) {
         return Matrix4.fromArray(array);
     }

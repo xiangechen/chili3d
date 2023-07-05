@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Result, Serialize, Serialized } from "../base";
+import { Logger, Result, Serializer } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
@@ -11,7 +11,7 @@ import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serialize.property()
+    @Serializer.enable()
     readonly body: Body;
 
     protected _shape: T | undefined;
@@ -22,7 +22,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 
     protected _matrix: Matrix4 = Matrix4.identity();
 
-    @Serialize.property()
+    @Serializer.enable()
     get matrix(): Matrix4 {
         return this._matrix;
     }
@@ -61,7 +61,7 @@ export class GeometryModel extends Model {
         body.onShapeChanged(this.onShapeChanged);
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({
         document,
         name,

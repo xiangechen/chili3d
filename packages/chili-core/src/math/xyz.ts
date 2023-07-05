@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Precision, Serialize, Serialized } from "../base";
+import { ISerialize, Precision, Serialized, Serializer } from "../base";
 import { MathUtils } from "./mathUtils";
 
 export class XYZ implements ISerialize {
@@ -21,7 +21,7 @@ export class XYZ implements ISerialize {
         };
     }
 
-    @Serialize.deserializer()
+    @Serializer.deserializer()
     static from({ x, y, z }: { x: number; y: number; z: number }) {
         return new XYZ(x, y, z);
     }
