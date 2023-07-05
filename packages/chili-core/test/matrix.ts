@@ -29,20 +29,20 @@ describe("test Transform", () => {
         let t2 = t1.invert();
         expect(t2!.ofPoint(p2)).toStrictEqual(p1);
 
-        let t3 = Matrix4.rotationZTransform(Math.PI * 0.5);
+        let t3 = Matrix4.createRotationAt(XYZ.zero, XYZ.unitZ, Math.PI * 0.5);
         expect(t3.ofVector(v1).isEqualTo(new XYZ(-1, 0, 0))).toBeTruthy();
-
-        let rotate = Matrix4.createRotationAt(new XYZ(1, 1, 0), XYZ.unitZ, Math.PI * 0.5);
-        expect(rotate.ofPoint(XYZ.unitX)).toStrictEqual(new XYZ(2, 1, 0));
 
         let t4 = Matrix4.createScale(0.5, 1.5, 0);
         let p3 = new XYZ(1, 1, 0);
         expect(t4.ofPoint(p3)).toStrictEqual(new XYZ(0.5, 1.5, 0));
 
         let t5 = t1.multiply(t3);
-        expect(t5.ofPoint(XYZ.unitY).isEqualTo(new XYZ(9, 0, 0))).toBeTruthy();
+        expect(t5.ofPoint(XYZ.unitY).isEqualTo(new XYZ(-1, 10, 0))).toBeTruthy();
         let t6 = t5.invert();
-        expect(t6!.ofPoint(new XYZ(9, 0, 0)).isEqualTo(XYZ.unitY)).toBeTruthy();
+        expect(t6!.ofPoint(new XYZ(-1, 10, 0)).isEqualTo(XYZ.unitY)).toBeTruthy();
+
+        let rotate = Matrix4.createRotationAt(new XYZ(1, 1, 0), XYZ.unitZ, Math.PI * 0.5);
+        expect(rotate.ofPoint(XYZ.unitX).isEqualTo(new XYZ(2, 1, 0))).toBeTruthy();
     });
 
     test("test mirror", () => {

@@ -258,7 +258,7 @@ export class Matrix4 implements ISerialize {
     }
 
     static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Matrix4 {
-        let transform = new Matrix4();
+        let matrix = new Matrix4();
         const { x, y, z, w } = rotation;
         const x2 = x + x,
             y2 = y + y,
@@ -276,94 +276,24 @@ export class Matrix4 implements ISerialize {
             sy = scale.y,
             sz = scale.z;
 
-        transform.array[0] = (1 - (yy + zz)) * sx;
-        transform.array[1] = (xy + wz) * sx;
-        transform.array[2] = (xz - wy) * sx;
+        matrix.array[0] = (1 - (yy + zz)) * sx;
+        matrix.array[1] = (xy + wz) * sx;
+        matrix.array[2] = (xz - wy) * sx;
 
-        transform.array[4] = (xy - wz) * sy;
-        transform.array[5] = (1 - (xx + zz)) * sy;
-        transform.array[6] = (yz + wx) * sy;
+        matrix.array[4] = (xy - wz) * sy;
+        matrix.array[5] = (1 - (xx + zz)) * sy;
+        matrix.array[6] = (yz + wx) * sy;
 
-        transform.array[8] = (xz + wy) * sz;
-        transform.array[9] = (yz - wx) * sz;
-        transform.array[10] = (1 - (xx + yy)) * sz;
+        matrix.array[8] = (xz + wy) * sz;
+        matrix.array[9] = (yz - wx) * sz;
+        matrix.array[10] = (1 - (xx + yy)) * sz;
 
-        transform.array[12] = translation.x;
-        transform.array[13] = translation.y;
-        transform.array[14] = translation.z;
-        transform.array[15] = 1;
+        matrix.array[12] = translation.x;
+        matrix.array[13] = translation.y;
+        matrix.array[14] = translation.z;
+        matrix.array[15] = 1;
 
-        return transform;
-    }
-
-    public static rotationXTransform(angle: number): Matrix4 {
-        let result = new Matrix4();
-        let s = Math.sin(angle);
-        let c = Math.cos(angle);
-        result.array[0] = 1.0;
-        result.array[15] = 1.0;
-        result.array[5] = c;
-        result.array[10] = c;
-        result.array[9] = -s;
-        result.array[6] = s;
-        return result;
-    }
-
-    public static rotationYTransform(angle: number): Matrix4 {
-        let result = new Matrix4();
-        let s = Math.sin(angle);
-        let c = Math.cos(angle);
-        result.array[5] = 1.0;
-        result.array[15] = 1.0;
-        result.array[0] = c;
-        result.array[2] = -s;
-        result.array[8] = s;
-        result.array[10] = c;
-        return result;
-    }
-
-    public static rotationZTransform(angle: number): Matrix4 {
-        let result = new Matrix4();
-        let s = Math.sin(angle);
-        let c = Math.cos(angle);
-        result.array[10] = 1.0;
-        result.array[15] = 1.0;
-        result.array[0] = c;
-        result.array[1] = s;
-        result.array[4] = -s;
-        result.array[5] = c;
-        return result;
-    }
-
-    public static createRotation(vector: XYZ, angle: number): Matrix4 {
-        let unit = vector.normalize();
-        if (unit === undefined) throw new TypeError("invalid vector");
-
-        let { x, y, z } = unit;
-        let s = Math.sin(-angle);
-        let c = Math.cos(-angle);
-        let t = 1 - c;
-
-        const array = [
-            t * x * x + c,
-            t * x * y - z * s,
-            t * x * z + y * s,
-            0,
-            t * x * y + z * s,
-            t * y * y + c,
-            t * y * z - x * s,
-            0,
-            t * x * z - y * s,
-            t * y * z + x * s,
-            t * z * z + c,
-            0,
-            0,
-            0,
-            0,
-            1,
-        ];
-
-        return Matrix4.fromArray(array);
+        return matrix;
     }
 
     public static createRotationAt(center: XYZ, normal: XYZ, angle: number): Matrix4 {
@@ -388,15 +318,15 @@ export class Matrix4 implements ISerialize {
             t * y * z + x * s,
             t * z * z + c,
             0,
-            center.x,
-            center.y,
-            center.z,
+            0,
+            0,
+            0,
             1,
         ];
 
-        array[12] -= center.x * array[0] + center.y * array[4] + center.z * array[8];
-        array[13] -= center.x * array[1] + center.y * array[5] + center.z * array[9];
-        array[14] -= center.x * array[2] + center.y * array[6] + center.z * array[10];
+        array[12] = center.x - center.x * array[0] - center.y * array[4] - center.z * array[8];
+        array[13] = center.y - center.x * array[1] - center.y * array[5] - center.z * array[9];
+        array[14] = center.z - center.x * array[2] - center.y * array[6] - center.z * array[10];
 
         return Matrix4.fromArray(array);
     }
