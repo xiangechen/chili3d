@@ -37,9 +37,12 @@ export class Plane implements ISerialize {
     serialize(): Serialized {
         return {
             className: Plane.name,
-            origin: this.origin.serialize(),
-            normal: this.normal.serialize(),
-            xvec: this.xvec.serialize(),
+            constructorParameters: {
+                origin: this.origin.serialize(),
+                normal: this.normal.serialize(),
+                xvec: this.xvec.serialize(),
+            },
+            properties: {},
         };
     }
 

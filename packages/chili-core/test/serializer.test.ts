@@ -2,20 +2,24 @@
 
 import "reflect-metadata";
 
-import { IDocument, ISerialize, NodeLinkedList, Serialized, Serializer, History } from "../src";
+import { History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
 
 class TestObject implements ISerialize {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @Serializer.enable()
+    @Serializer.constructorParameter()
+    private k1: string;
+    @Serializer.property()
     private k4: string = "k4";
-    @Serializer.enable()
+    @Serializer.property()
     protected k5: string = "k5";
-    @Serializer.enable()
+    @Serializer.property()
     public k6: string = "k6";
 
-    constructor(private k1: string) {}
+    constructor(k1: string) {
+        this.k1 = k1;
+    }
 
     serialize(): Serialized {
         return Serializer.serialize(this);
@@ -30,11 +34,11 @@ class TestObject implements ISerialize {
 test("test Serializer", () => {
     let obj = new TestObject("111");
     let s = obj.serialize();
-    expect("k1" in s).toBeFalsy();
-    expect("k4" in s).toBeTruthy();
-    expect("k5" in s).toBeTruthy();
-    expect("k6" in s).toBeTruthy();
-    s["k1"] = "222";
+    expect("k1" in s.properties).toBeFalsy();
+    expect("k4" in s.properties).toBeTruthy();
+    expect("k5" in s.properties).toBeTruthy();
+    expect("k6" in s.properties).toBeTruthy();
+    s.constructorParameters["k1"] = "222";
     let obj2 = Serializer.deserialize({} as any, s);
     expect(obj2.k1).toBe("222");
 });

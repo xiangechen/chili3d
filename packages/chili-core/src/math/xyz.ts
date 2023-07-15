@@ -15,9 +15,12 @@ export class XYZ implements ISerialize {
     serialize(): Serialized {
         return {
             className: XYZ.name,
-            x: this.x,
-            y: this.y,
-            z: this.z,
+            constructorParameters: {
+                x: this.x,
+                y: this.y,
+                z: this.z,
+            },
+            properties: {},
         };
     }
 

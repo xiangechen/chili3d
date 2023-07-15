@@ -19,7 +19,7 @@ export class RectBody extends Body {
     private readonly initialPlane: Plane;
 
     private _dx: number;
-    @Serializer.enable()
+    @Serializer.constructorParameter()
     @property("rect.dx")
     get dx() {
         return this._dx;
@@ -29,7 +29,7 @@ export class RectBody extends Body {
     }
 
     private _dy: number;
-    @Serializer.enable()
+    @Serializer.constructorParameter()
     @property("rect.dy")
     get dy() {
         return this._dy;
@@ -39,7 +39,7 @@ export class RectBody extends Body {
     }
 
     private _plane: Plane;
-    @Serializer.enable()
+    @Serializer.constructorParameter()
     get plane() {
         return this._plane;
     }

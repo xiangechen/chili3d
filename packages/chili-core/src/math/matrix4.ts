@@ -35,7 +35,10 @@ export class Matrix4 implements ISerialize {
     serialize(): Serialized {
         return {
             className: Matrix4.name,
-            array: this.toArray(),
+            constructorParameters: {
+                array: this.toArray(),
+            },
+            properties: {},
         };
     }
 

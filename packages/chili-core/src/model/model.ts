@@ -11,7 +11,7 @@ import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serializer.enable()
+    @Serializer.constructorParameter()
     readonly body: Body;
 
     protected _shape: T | undefined;
@@ -22,7 +22,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 
     protected _matrix: Matrix4 = Matrix4.identity();
 
-    @Serializer.enable()
+    @Serializer.property()
     get matrix(): Matrix4 {
         return this._matrix;
     }
@@ -33,7 +33,6 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
             value,
             () => {
                 this._shape?.setMatrix(value);
-                this.body.setMatrix(value);
             },
             {
                 equals: (left, right) => left.equals(right),

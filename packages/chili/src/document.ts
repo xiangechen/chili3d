@@ -68,10 +68,13 @@ export class Document extends Observable implements IDocument, ISerialize {
     override serialize(): Serialized {
         return {
             className: Document.name,
-            id: this.id,
-            name: this.name,
-            image: this.visual.viewer.activeView?.toImage(),
-            rootNode: this.rootNode.serialize(),
+            constructorParameters: {
+                id: this.id,
+                name: this.name,
+            },
+            properties: {
+                rootNode: this.rootNode.serialize(),
+            },
         };
     }
 
@@ -113,9 +116,9 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     private static load(data: Serialized) {
-        let document = new Document(data["name"], data["id"]);
+        let document = new Document(data.constructorParameters["name"], data.constructorParameters["id"]);
         document.history.disabled = true;
-        document._rootNode = Serializer.deserialize(document, data["rootNode"]);
+        document._rootNode = Serializer.deserialize(document, data.properties["rootNode"]);
         document.history.disabled = false;
         return document;
     }
