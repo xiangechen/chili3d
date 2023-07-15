@@ -1,23 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Application,
-    Body,
-    I18n,
-    IDocument,
-    IShape,
-    Matrix4,
-    property,
-    Result,
-    Serializer,
-    XYZ,
-} from "chili-core";
+import { Application, Body, I18n, IDocument, IShape, property, Result, Serializer, XYZ } from "chili-core";
 
 export class LineBody extends Body {
     readonly name: keyof I18n = "body.line";
-
-    private readonly initialStart: XYZ;
-    private readonly initialEnd: XYZ;
 
     private _start: XYZ;
 
@@ -43,8 +29,6 @@ export class LineBody extends Body {
 
     constructor(document: IDocument, start: XYZ, end: XYZ) {
         super(document);
-        this.initialStart = start;
-        this.initialEnd = end;
         this._start = start;
         this._end = end;
     }
@@ -56,10 +40,5 @@ export class LineBody extends Body {
 
     protected generateShape(): Result<IShape, string> {
         return Application.instance.shapeFactory.line(this._start, this._end);
-    }
-
-    override setMatrix(matrix: Matrix4): void {
-        this._start = matrix.ofPoint(this.initialStart);
-        this._end = matrix.ofPoint(this.initialEnd);
     }
 }

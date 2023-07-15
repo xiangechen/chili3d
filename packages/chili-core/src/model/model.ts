@@ -116,7 +116,8 @@ export class GeometryModel extends Model {
         } else {
             shape = startIndex === 0 ? this.body.shape : this._editors[startIndex - 1].shape;
         }
-        this.setShape(shape);
+        this._shape = shape.value;
+        this._error = shape.error;
 
         if (this._shape === undefined) return;
         for (let i = startIndex; i < this._editors.length; i++) {
@@ -128,11 +129,6 @@ export class GeometryModel extends Model {
             }
             this._shape = this._editors[i].shape.value;
         }
-    }
-
-    private setShape(shape: Result<IShape>) {
-        this._shape = shape.value;
-        this._error = shape.error;
     }
 
     removeEditor(editor: Feature) {

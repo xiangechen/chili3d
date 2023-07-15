@@ -64,8 +64,4 @@ export class TestBody extends Body {
     protected generateShape(): Result<IShape> {
         return Result.ok(new TestEdge(this.start, this.end));
     }
-
-    override setMatrix(matrix: Matrix4): void {
-        throw new Error("Method not implemented.");
-    }
 }

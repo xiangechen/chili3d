@@ -3,6 +3,4 @@
 import { Matrix4 } from "../math";
 import { Entity } from "./entity";
 
-export abstract class Body extends Entity {
-    abstract setMatrix(matrix: Matrix4): void;
-}
+export abstract class Body extends Entity {}

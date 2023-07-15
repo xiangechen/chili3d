@@ -1,21 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Application,
-    Body,
-    I18n,
-    IDocument,
-    IShape,
-    Matrix4,
-    Plane,
-    property,
-    Result,
-    Serializer,
-} from "chili-core";
+import { Application, Body, I18n, IDocument, IShape, Plane, property, Result, Serializer } from "chili-core";
 
 export class BoxBody extends Body {
     readonly name: keyof I18n = "body.box";
-    private readonly initialPlane: Plane;
 
     private _dx: number;
 
@@ -59,7 +47,6 @@ export class BoxBody extends Body {
 
     constructor(document: IDocument, plane: Plane, dx: number, dy: number, dz: number) {
         super(document);
-        this.initialPlane = plane;
         this._plane = plane;
         this._dx = dx;
         this._dy = dy;
@@ -85,9 +72,5 @@ export class BoxBody extends Body {
 
     protected generateShape(): Result<IShape> {
         return Application.instance.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
-    }
-
-    override setMatrix(matrix: Matrix4): void {
-        this._plane = this.initialPlane.transformed(matrix);
     }
 }
