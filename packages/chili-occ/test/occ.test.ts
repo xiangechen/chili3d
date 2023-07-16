@@ -183,11 +183,10 @@ describe("curve test", () => {
             let pe = new occ.gp_Pnt_3(10, 10, 0);
             let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
             let shape = new OccEdge(e1);
-            let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
             shape.setMatrix(Matrix4.createTranslation(10, 20, 30));
+            let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
             let p2 = shape.asCurve().value?.point(0);
             expect(p2?.x).toBeCloseTo(20);
-
             expect(edge.asCurve().value?.point(0).x).toBeCloseTo(20);
         });
     });
