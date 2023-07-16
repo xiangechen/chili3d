@@ -47,7 +47,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 }
 
 export class GeometryModel extends Model {
-    private readonly _editors: Feature[] = [];
+    private readonly _features: Feature[] = [];
 
     private _error: string | undefined;
     error() {
@@ -56,7 +56,7 @@ export class GeometryModel extends Model {
 
     constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
         super(document, name, body, id);
-        this.generate();
+        this.drawShape();
         body.onShapeChanged(this.onShapeChanged);
     }
 
@@ -77,16 +77,16 @@ export class GeometryModel extends Model {
 
     private onShapeChanged = (entity: Entity) => {
         if (entity === this.body) {
-            this.generate();
+            this.drawShape();
         } else {
             let editor = entity as Feature;
-            let i = this._editors.indexOf(editor);
+            let i = this._features.indexOf(editor);
             this.applyFeatures(i);
         }
-        this.redraw();
+        this.redrawModel();
     };
 
-    generate() {
+    drawShape() {
         if (!this.body.generate()) {
             Logger.error(`Body of ${this.name} is null: ${this.body.shape.error}`);
             return;
@@ -103,68 +103,56 @@ export class GeometryModel extends Model {
         this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }
 
-    private redraw() {
+    private redrawModel() {
         this.document.visual.context.redrawModel([this]);
         Logger.debug(`model ${this.name} redraw`);
     }
 
     private applyFeatures(startIndex: number) {
-        if (this._editors.length === 0 || startIndex < 0) return;
-        let shape: Result<IShape>;
-        if (startIndex >= this._editors.length) {
-            shape = this._editors.at(-1)!.shape;
-        } else {
-            shape = startIndex === 0 ? this.body.shape : this._editors[startIndex - 1].shape;
-        }
-        this._shape = shape.value;
-        this._error = shape.error;
-
-        if (this._shape === undefined) return;
-        for (let i = startIndex; i < this._editors.length; i++) {
-            this._editors[i].origin = this._shape;
-            this._editors[i].generate();
-            if (this._editors[i].shape.hasError()) {
-                this._error = this._editors[i].shape.error;
+        if (startIndex < 0) return;
+        for (let i = startIndex; i < this._features.length; i++) {
+            this._features[i].generate();
+            if (this._features[i].shape.hasError()) {
+                this._error = this._features[i].shape.error;
                 return;
             }
-            this._shape = this._editors[i].shape.value;
+            this._shape = this._features[i].shape.value;
         }
+        this._shape?.setMatrix(this._matrix);
     }
 
-    removeEditor(editor: Feature) {
-        const index = this._editors.indexOf(editor, 0);
+    removeFeature(feature: Feature) {
+        const index = this._features.indexOf(feature, 0);
         if (index > -1) {
-            this._editors.splice(index, 1);
-            editor.removeShapeChanged(this.onShapeChanged);
+            this._features.splice(index, 1);
+            feature.removeShapeChanged(this.onShapeChanged);
+            this._features[index].origin =
+                index === 0 ? this.body.shape.value : this._features[index - 1].shape.value;
             this.applyFeatures(index);
-            this.redraw();
+            this.redrawModel();
         }
     }
 
-    addEditor(editor: Feature) {
-        if (this._editors.indexOf(editor) > -1) return;
-        this._editors.push(editor);
-        editor.onShapeChanged(this.onShapeChanged);
+    addFeature(feature: Feature) {
+        if (this._features.indexOf(feature) > -1) return;
+        this._features.push(feature);
+        feature.onShapeChanged(this.onShapeChanged);
         if (this._shape !== undefined) {
-            editor.origin = this._shape;
-            editor.generate();
-            this._error = editor.shape.error;
-            if (this._error === undefined) {
-                this._shape = editor.shape.value;
-            }
-            this.redraw();
+            feature.origin = this._shape;
+            this.applyFeatures(this._features.length - 1);
+            this.redrawModel();
         }
     }
 
-    getEditor(index: number) {
-        if (index < this._editors.length) {
-            return this._editors[index];
+    getFeature(index: number) {
+        if (index < this._features.length) {
+            return this._features[index];
         }
         return undefined;
     }
 
-    editors() {
-        return [...this._editors];
+    features() {
+        return [...this._features];
     }
 }
 

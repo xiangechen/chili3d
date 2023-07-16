@@ -49,7 +49,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         this.positions = [];
         this.models.forEach((model) => {
             let ps = model.shape()?.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
+            if (ps) this.positions = this.positions!.concat(ps);
         });
 
         return true;

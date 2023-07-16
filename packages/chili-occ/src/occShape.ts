@@ -70,18 +70,7 @@ export class OccShape implements IShape {
     setMatrix(matrix: Matrix4): void {
         let trsf = OccHelps.convertMatrix(matrix);
         this.shape.Location_2(new occ.TopLoc_Location_2(trsf), false);
-        this.resetGroupShapes(ShapeType.Face, this._mesh?.faces);
-        this.resetGroupShapes(ShapeType.Edge, this._mesh?.edges);
-    }
-
-    private resetGroupShapes(type: ShapeType, data?: ShapeMeshData) {
-        if (data) {
-            let index = 0;
-            let shapes = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(type), true);
-            for (const shape of shapes) {
-                (data.groups.at(index++)?.shape as OccShape)?.resetShape(shape, false);
-            }
-        }
+        this._mesh = undefined;
     }
 
     toJson(): string {
