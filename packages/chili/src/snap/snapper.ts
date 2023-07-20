@@ -18,8 +18,7 @@ import {
 export abstract class Snapper {
     protected abstract getEventHandler(token: AsyncState): SnapEventHandler;
 
-    async snap(document: IDocument, tip: keyof I18n): Promise<SnapedData | undefined> {
-        let token: AsyncState = new AsyncState();
+    async snap(document: IDocument, tip: keyof I18n, token: AsyncState): Promise<SnapedData | undefined> {
         let executorHandler = this.getEventHandler(token);
         await Selection.pickAsync(document, executorHandler, tip, token, false, CursorType.Drawing);
         return executorHandler.snaped;

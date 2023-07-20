@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    AsyncState,
     Config,
     EdgeMeshData,
     IDocument,
@@ -37,11 +38,11 @@ export abstract class TransformedCommand extends MultistepCommand {
         return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Solid);
     }
 
-    protected override async beforeExcute(document: IDocument): Promise<boolean> {
+    protected override async beforeExcute(document: IDocument, token: AsyncState): Promise<boolean> {
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
-            this.models = await Selection.pickModel(document, "prompt.select.models");
-            if (this.models.length === 0) {
+            this.models = await Selection.pickModel(document, "prompt.select.models", token);
+            if (this.restarting || this.models.length === 0) {
                 alert(i18n["prompt.select.noModelSelected"]);
                 return false;
             }

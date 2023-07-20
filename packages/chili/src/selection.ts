@@ -34,14 +34,12 @@ export class Selection {
     static async pickModel(
         document: IDocument,
         prompt: keyof I18n,
+        token: AsyncState,
         multiMode: boolean = true,
         showControl: boolean = true
     ) {
-        let token: AsyncState = new AsyncState();
         let handler = new ModelSelectionHandler(document, multiMode, token);
-        await this.pickAsync(document, handler, prompt, token, showControl);
-        handler.dispose();
-        token.dispose();
+        await this.pickAsync(document, handler, prompt, token, showControl).finally(() => handler.dispose());
         return document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
     }
 
@@ -62,9 +60,8 @@ export class Selection {
             token.onCompleted(resolve);
             token.onCancelled(reject);
         })
-            .catch((e) => Logger.info(e))
+            .catch((e) => Logger.info("pick status: ", e))
             .finally(() => {
-                token.dispose();
                 if (showControl) PubSub.default.pub("clearSelectionControl");
                 PubSub.default.pub("clearStatusBarTip");
                 document.visual.eventHandler = oldHandler;

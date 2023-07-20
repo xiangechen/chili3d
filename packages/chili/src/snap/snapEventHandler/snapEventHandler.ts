@@ -17,8 +17,8 @@ import {
 import { ISnapper, MouseAndDetected, SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 
 export abstract class SnapEventHandler implements IEventHandler {
-    private _tempPointId?: number;
-    private _tempShapeIds?: number[];
+    private _tempPoint?: [IView, number];
+    private _tempShapes?: [IView, number[]];
     protected _snaped?: SnapedData;
 
     constructor(
@@ -26,7 +26,11 @@ export abstract class SnapEventHandler implements IEventHandler {
         readonly snaps: ISnapper[],
         readonly validator?: SnapValidator,
         readonly preview?: SnapPreviewer
-    ) {}
+    ) {
+        token.onCancelled((s) => {
+            this.cancel();
+        });
+    }
 
     get snaped() {
         return this._snaped;
@@ -36,22 +40,24 @@ export abstract class SnapEventHandler implements IEventHandler {
         this._snaped = undefined;
     }
 
-    private finish(view: IView) {
+    private finish() {
         this.token.success();
-        this.clean(view);
+        this.clean();
     }
 
-    private cancel(view: IView) {
-        this.token.fail();
-        this.clean(view);
+    #cancelled: boolean = false;
+    private cancel() {
+        if (this.#cancelled) return;
+        this.#cancelled = true;
+        this.token.cancel();
+        this.clean();
     }
 
-    private clean(view: IView) {
+    private clean() {
         this.clearSnapTip();
         this.removeInput();
-        this.removeTempShapes(view);
+        this.removeTempShapes();
         this.snaps.forEach((x) => x.clear());
-        view.viewer.redraw();
     }
 
     private removeInput() {
@@ -113,7 +119,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private removeTempObject(view: IView) {
-        this.removeTempShapes(view);
+        this.removeTempShapes();
         this.snaps.forEach((x) => x.removeDynamicObject());
     }
 
@@ -123,27 +129,34 @@ export abstract class SnapEventHandler implements IEventHandler {
             Config.instance.visual.temporaryVertexSize,
             Config.instance.visual.temporaryVertexColor
         );
-        this._tempPointId = view.viewer.visual.context.displayShapeMesh(data);
+        this._tempPoint = [view, view.viewer.visual.context.displayShapeMesh(data)];
         let shapes = this.preview?.(point);
-        this._tempShapeIds = shapes?.map((shape) => {
-            return view.viewer.visual.context.displayShapeMesh(shape);
-        });
+        this._tempShapes = shapes
+            ? [
+                  view,
+                  shapes.map((shape) => {
+                      return view.viewer.visual.context.displayShapeMesh(shape);
+                  }),
+              ]
+            : undefined;
     }
 
-    private removeTempShapes(view: IView) {
-        if (this._tempPointId) {
-            view.viewer.visual.context.removeShapeMesh(this._tempPointId);
-            this._tempPointId = undefined;
+    private removeTempShapes() {
+        let view = this._tempPoint?.[0] ?? this._tempShapes?.[0];
+        if (this._tempPoint) {
+            this._tempPoint[0].viewer.visual.context.removeShapeMesh(this._tempPoint[1]);
+            this._tempPoint = undefined;
         }
-        this._tempShapeIds?.forEach((x) => {
-            view.viewer.visual.context.removeShapeMesh(x);
+        this._tempShapes?.[1].forEach((x) => {
+            this._tempShapes?.[0].viewer.visual.context.removeShapeMesh(x);
         });
-        this._tempShapeIds = undefined;
+        view?.viewer.redraw();
+        this._tempShapes = undefined;
     }
 
     pointerDown(view: IView, event: MouseEvent): void {
         if (event.button === 0) {
-            this.finish(view);
+            this.finish();
         }
     }
     pointerUp(view: IView, event: MouseEvent): void {}
@@ -153,7 +166,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
             this._snaped = undefined;
-            this.cancel(view);
+            this.cancel();
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", (text: string) => {
                 let error = this.inputError(text);
@@ -173,7 +186,7 @@ export abstract class SnapEventHandler implements IEventHandler {
             point: this.getPointFromInput(view, text),
             shapes: [],
         };
-        this.finish(view);
+        this.finish();
     };
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;

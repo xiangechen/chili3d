@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    AsyncState,
     Config,
     CursorType,
     I18n,
@@ -57,7 +58,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     async pointerUp(view: IView, event: PointerEvent) {
         if (this.snaped === undefined) return;
         let snapper = this.getSnapper(this.snaped);
-        let data = await snapper?.snap(this.document, this.snaped.tip);
+        let data = await snapper?.snap(this.document, this.snaped.tip, new AsyncState());
         if (data?.point === undefined) return;
         this.setNewPoint(this.snaped, data.point);
         view.viewer.redraw();

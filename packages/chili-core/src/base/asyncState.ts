@@ -17,6 +17,10 @@ export class AsyncState implements IDisposable {
         return this._state;
     }
 
+    resetState() {
+        this._state = undefined;
+    }
+
     fail = (prompt?: string) => {
         this.handle(this._failHandles, "fail", prompt);
     };
