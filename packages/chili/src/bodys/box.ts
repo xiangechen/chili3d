@@ -7,7 +7,7 @@ export class BoxBody extends Body {
 
     private _dx: number;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("box.dx")
     get dx() {
         return this._dx;
@@ -18,7 +18,7 @@ export class BoxBody extends Body {
 
     private _dy: number;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("box.dy")
     get dy() {
         return this._dy;
@@ -29,7 +29,7 @@ export class BoxBody extends Body {
 
     private _dz: number;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("box.dz")
     get dz() {
         return this._dz;
@@ -40,7 +40,7 @@ export class BoxBody extends Body {
 
     private _plane: Plane;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     get plane() {
         return this._plane;
     }

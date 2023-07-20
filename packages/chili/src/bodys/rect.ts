@@ -6,7 +6,7 @@ export class RectBody extends Body {
     readonly name: keyof I18n = "body.rect";
 
     private _dx: number;
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("rect.dx")
     get dx() {
         return this._dx;
@@ -16,7 +16,7 @@ export class RectBody extends Body {
     }
 
     private _dy: number;
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("rect.dy")
     get dy() {
         return this._dy;
@@ -26,7 +26,7 @@ export class RectBody extends Body {
     }
 
     private _plane: Plane;
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     get plane() {
         return this._plane;
     }

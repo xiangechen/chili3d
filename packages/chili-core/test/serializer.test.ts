@@ -8,7 +8,7 @@ class TestObject implements ISerialize {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     private k1: string;
     @Serializer.property()
     private k4: string = "k4";

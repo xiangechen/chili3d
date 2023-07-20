@@ -7,7 +7,7 @@ export class CircleBody extends Body {
 
     private _center: XYZ;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("circle.center")
     get center() {
         return this._center;
@@ -18,7 +18,7 @@ export class CircleBody extends Body {
 
     private _radius: number;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("circle.radius")
     get radius() {
         return this._radius;
@@ -29,7 +29,7 @@ export class CircleBody extends Body {
 
     private _normal: XYZ;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     get normal() {
         return this._normal;
     }

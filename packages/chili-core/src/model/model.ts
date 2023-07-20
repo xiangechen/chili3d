@@ -11,7 +11,7 @@ import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     readonly body: Body;
 
     protected _shape: T | undefined;

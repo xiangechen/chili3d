@@ -7,7 +7,7 @@ export class LineBody extends Body {
 
     private _start: XYZ;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("line.start")
     get start() {
         return this._start;
@@ -18,7 +18,7 @@ export class LineBody extends Body {
 
     private _end: XYZ;
 
-    @Serializer.constructorParameter()
+    @Serializer.property("constructor")
     @property("line.end")
     get end() {
         return this._end;
