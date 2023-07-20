@@ -38,10 +38,11 @@ export abstract class TransformedCommand extends MultistepCommand {
         return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Solid);
     }
 
-    protected override async beforeExcute(document: IDocument, token: AsyncState): Promise<boolean> {
+    protected override async beforeExcute(document: IDocument): Promise<boolean> {
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
-            this.models = await Selection.pickModel(document, "prompt.select.models", token);
+            this.token = new AsyncState();
+            this.models = await Selection.pickModel(document, "prompt.select.models", this.token);
             if (this.restarting || this.models.length === 0) {
                 alert(i18n["prompt.select.noModelSelected"]);
                 return false;

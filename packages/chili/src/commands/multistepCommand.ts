@@ -5,18 +5,13 @@ import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
 export abstract class MultistepCommand implements ICommand {
-    private token: AsyncState;
-
     protected restarting: boolean = false;
     protected stepDatas: SnapedData[] = [];
-
-    constructor() {
-        this.token = new AsyncState();
-    }
+    protected token?: AsyncState;
 
     async restart() {
         this.restarting = true;
-        this.token.cancel();
+        this.token?.cancel();
     }
 
     async excute(application: Application): Promise<void> {
@@ -26,12 +21,8 @@ export abstract class MultistepCommand implements ICommand {
     protected async excuteFrom(document: IDocument, step: number): Promise<void> {
         if (this.restarting) {
             this.restarting = false;
-            this.token.resetState();
         }
-        if (
-            (await this.beforeExcute(document, this.token)) &&
-            (await this.collectStepDatas(document, step, this.token))
-        ) {
+        if ((await this.beforeExcute(document)) && (await this.collectStepDatas(document, step))) {
             this.excuting(document);
             await this.afterExcute(document);
         } else if (this.restarting) {
@@ -39,20 +30,16 @@ export abstract class MultistepCommand implements ICommand {
         }
     }
 
-    private async collectStepDatas(
-        document: IDocument,
-        startIndex: number,
-        token: AsyncState
-    ): Promise<boolean> {
+    private async collectStepDatas(document: IDocument, startIndex: number): Promise<boolean> {
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
-            let data = await steps[i].perform(document, token);
+            this.token = new AsyncState();
+            let data = await steps[i].perform(document, this.token);
             if (this.restarting || data === undefined) {
                 this.stepDatas.length = 0;
                 return false;
             }
             this.stepDatas.push(data);
-            this.token.resetState();
         }
         return true;
     }
@@ -61,7 +48,7 @@ export abstract class MultistepCommand implements ICommand {
 
     protected abstract excuting(document: IDocument): void;
 
-    protected beforeExcute(document: IDocument, token: AsyncState): Promise<boolean> {
+    protected beforeExcute(document: IDocument): Promise<boolean> {
         return Promise.resolve(true);
     }
 
