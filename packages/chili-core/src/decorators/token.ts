@@ -1,6 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-const TokenMetaKey = Symbol("TokenMetaKey");
+const TokenMap = new Map<Constructor, Token>();
+
+export type Constructor = new (...args: any[]) => any;
 
 export class Token {
     static readonly VisulizationFactory = new Token("VisulizationFactory");
@@ -8,12 +10,12 @@ export class Token {
 
     static set(token: Token) {
         return (ctor: new (...args: any[]) => any) => {
-            Reflect.defineMetadata(TokenMetaKey, token, ctor);
+            TokenMap.set(ctor, token);
         };
     }
 
-    static get(ctor: new (...args: any[]) => any): Token | undefined {
-        return Reflect.getMetadata(TokenMetaKey, ctor);
+    static get(ctor: Constructor): Token | undefined {
+        return TokenMap.get(ctor);
     }
 
     constructor(readonly token: string) {}

@@ -9,14 +9,14 @@ export interface Property {
     converter?: IConverter;
 }
 
-const PropertyKey = Symbol("PropertyKey");
+const PropertyKeyMap = new Map<Object, Map<keyof I18n, Property>>();
 
 export function property(display: keyof I18n, converter?: IConverter) {
-    return (target: any, name: string) => {
-        if (!Reflect.hasMetadata(PropertyKey, target)) {
-            Reflect.defineMetadata(PropertyKey, new Map<keyof I18n, Property>(), target);
+    return (target: Object, name: string) => {
+        if (!PropertyKeyMap.has(target)) {
+            PropertyKeyMap.set(target, new Map<keyof I18n, Property>());
         }
-        let props: Map<keyof I18n, Property> = Reflect.getMetadata(PropertyKey, target);
+        let props: Map<keyof I18n, Property> = PropertyKeyMap.get(target)!;
         props.set(display, {
             display,
             name,
@@ -27,12 +27,23 @@ export function property(display: keyof I18n, converter?: IConverter) {
 
 export namespace Property {
     export function getAll(target: any): Property[] {
-        if (target === undefined) return [];
-        return Reflect.getMetadata(PropertyKey, target) ?? [];
+        let result: Property[] = [];
+        getAllKeysOfPrototypeChain(target, result);
+        return result;
+    }
+
+    function getAllKeysOfPrototypeChain(target: Object, properties: Property[]) {
+        let map = PropertyKeyMap.get(target);
+        if (map) {
+            for (const p of map.values()) {
+                properties.push(p);
+            }
+        }
+        if (target) getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties);
     }
 
     export function get(target: any, display: keyof I18n): Property | undefined {
         if (target === undefined) return undefined;
-        return Reflect.getMetadata(PropertyKey, target)?.get(display);
+        return PropertyKeyMap.get(target)?.get(display);
     }
 }
