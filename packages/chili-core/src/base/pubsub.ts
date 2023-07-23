@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands } from "../command";
+import { CommandOptions } from "../command/commandOption";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { IModel, INode } from "../model";
@@ -29,6 +30,8 @@ export interface PubSubEventMap {
     clearInput: () => void;
     showSelectionControl: (token: AsyncState) => void;
     clearSelectionControl: () => void;
+    openContextTab: (options: CommandOptions) => void;
+    closeContextTab: () => void;
 }
 
 export class PubSub implements IDisposable {

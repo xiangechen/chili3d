@@ -22,9 +22,13 @@ export class Line extends CreateCommand {
     }
 
     override afterExcute(document: IDocument): Promise<void> {
-        this.stepDatas[0] = this.stepDatas[1];
-        this.stepDatas.length = 1;
-        return this.excuteFrom(document, 1);
+        if (this.stepDatas.length > 1) {
+            this.stepDatas[0] = this.stepDatas[1];
+            this.stepDatas.length = 1;
+            return this.excuteFrom(document, 1);
+        } else {
+            return super.afterExcute(document);
+        }
     }
 
     getSteps(): IStep[] {

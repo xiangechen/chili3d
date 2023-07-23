@@ -39,6 +39,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     }
 
     protected override async beforeExcute(document: IDocument): Promise<boolean> {
+        await super.beforeExcute(document);
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.token = new AsyncState();

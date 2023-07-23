@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, Logger, PubSub } from "chili-core";
+import { AsyncState, CommandOptions, Logger, PubSub } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { DefaultRibbon } from "../profile/ribbon";
 import { RibbonData } from "./ribbonData";
@@ -32,13 +32,41 @@ export class Ribbon extends Control {
 
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.sub("openContextTab", this.openContextTab);
+        PubSub.default.sub("closeContextTab", this.closeContextTab);
     }
 
     override dispose(): void {
         super.dispose();
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.remove("openContextTab", this.openContextTab);
+        PubSub.default.remove("closeContextTab", this.closeContextTab);
     }
+
+    private openContextTab = (options: CommandOptions) => {
+        if (this._selected !== undefined) {
+            this._selected.header.removeClass(style.selectedTab);
+            this._ribbonPanel.clearChildren();
+        }
+
+        let tab = new RibbonTab("axis.x");
+        for (const g of options.groups) {
+            let group = new RibbonGroup("axis.x");
+            for (const c of g.options) {
+                group.add(new RibbonButton("axis.x", "icon-line", RibbonButtonSize.Normal, c.onClick));
+            }
+            tab.add(group);
+        }
+        tab.header.addClass(style.selectedTab);
+        this._ribbonPanel.append(tab);
+    };
+
+    private closeContextTab = () => {
+        this._ribbonPanel.clearChildren();
+        this._selected!.header.addClass(style.selectedTab);
+        this._ribbonPanel.append(this._selected!);
+    };
 
     private showSelectionControl = (token: AsyncState) => {
         this._selectionControl = this.newSelectionGroup(token);
