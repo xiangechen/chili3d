@@ -19,7 +19,7 @@ export class RibbonButton extends Control {
             return undefined;
         }
         return new RibbonButton(data.display, data.icon, size, () => {
-            PubSub.default.pub("excuteCommand", commandName);
+            PubSub.default.pub("executeCommand", commandName);
         });
     }
 

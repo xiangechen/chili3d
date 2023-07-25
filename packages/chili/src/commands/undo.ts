@@ -8,7 +8,7 @@ import { Application, command, ICommand } from "chili-core";
     icon: "icon-undo",
 })
 export class Undo implements ICommand {
-    async excute(application: Application): Promise<void> {
+    async execute(application: Application): Promise<void> {
         let document = application.activeDocument!;
         document.selection.clearSelected();
         document.history.undo();

@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, I18n, IDocument, IEventHandler, XYZ } from "chili-core";
+import { AsyncState, I18n, IDocument, XYZ } from "chili-core";
 
 import { SnapedData, Snapper, SnapValidator } from "../snap";
 
 export interface IStep {
-    perform(document: IDocument, token: AsyncState): Promise<SnapedData | undefined>;
+    execute(document: IDocument, token: AsyncState): Promise<SnapedData | undefined>;
 }
 
 export interface ValidatorData {
@@ -19,7 +19,7 @@ export abstract class StepBase<D extends ValidatorData> implements IStep {
         readonly disableDefaultValidator = false
     ) {}
 
-    async perform(document: IDocument, token: AsyncState): Promise<SnapedData | undefined> {
+    async execute(document: IDocument, token: AsyncState): Promise<SnapedData | undefined> {
         let data = this.handleData();
         if (!this.disableDefaultValidator && data.validator === undefined) {
             data.validator = (p) => this.validator(data, p);

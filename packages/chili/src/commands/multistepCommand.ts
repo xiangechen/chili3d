@@ -27,28 +27,31 @@ export abstract class MultistepCommand implements ICommand {
         this.token?.cancel();
     }
 
-    async excute(application: Application): Promise<void> {
-        await this.excuteFrom(application.activeDocument!, 0);
+    async execute(application: Application): Promise<void> {
+        await this.executeFromStep(application.activeDocument!, 0);
     }
 
-    protected async excuteFrom(document: IDocument, step: number): Promise<void> {
+    protected async executeFromStep(document: IDocument, stepIndex: number): Promise<void> {
         if (this.restarting) {
             this.restarting = false;
         }
-        if ((await this.beforeExcute(document)) && (await this.collectStepDatas(document, step))) {
-            this.excuting(document);
+        try {
+            if ((await this.beforeExecute(document)) && (await this.executeSteps(document, stepIndex))) {
+                this.executeMainTask(document);
+            }
+        } finally {
+            await this.afterExecute(document);
         }
-        await this.afterExcute(document);
         if (this.restarting) {
-            await this.excuteFrom(document, 0);
+            await this.executeFromStep(document, 0);
         }
     }
 
-    private async collectStepDatas(document: IDocument, startIndex: number): Promise<boolean> {
+    private async executeSteps(document: IDocument, startIndex: number): Promise<boolean> {
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
             this.token = new AsyncState();
-            let data = await steps[i].perform(document, this.token);
+            let data = await steps[i].execute(document, this.token);
             if (this.restarting || data === undefined) {
                 this.stepDatas.length = 0;
                 return false;
@@ -60,19 +63,19 @@ export abstract class MultistepCommand implements ICommand {
 
     protected abstract getSteps(): IStep[];
 
-    protected abstract excuting(document: IDocument): void;
+    protected abstract executeMainTask(document: IDocument): void;
 
     protected options(): CommandOptions | undefined {
         return undefined;
     }
 
-    protected beforeExcute(document: IDocument): Promise<boolean> {
+    protected beforeExecute(document: IDocument): Promise<boolean> {
         let options = this.options();
         if (options) PubSub.default.pub("openContextTab", options);
         return Promise.resolve(true);
     }
 
-    protected afterExcute(document: IDocument): Promise<void> {
+    protected afterExecute(document: IDocument): Promise<void> {
         PubSub.default.pub("closeContextTab");
         this.token?.dispose();
         return Promise.resolve();

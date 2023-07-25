@@ -3,7 +3,7 @@
 import { Commands, ICommand } from "../command";
 import { I18n } from "../i18n";
 
-let commandMap = new Map<string, new (...args: any[]) => ICommand>();
+const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
 
 export interface CommandData {
     name: keyof Commands;
@@ -15,7 +15,7 @@ export interface CommandData {
 
 export function command<T extends new (...args: any[]) => ICommand>(commandData: CommandData) {
     return (ctor: T) => {
-        commandMap.set(commandData.name, ctor);
+        CommandMap.set(commandData.name, ctor);
         ctor.prototype.data = commandData;
     };
 }
@@ -25,7 +25,7 @@ export namespace CommandData {
         command: string | ICommand | (new (...args: any[]) => ICommand)
     ): CommandData | undefined {
         if (typeof command === "string") {
-            let c = commandMap.get(command);
+            let c = CommandMap.get(command);
             return c?.prototype.data;
         } else if (typeof command === "function") {
             return command.prototype.data;

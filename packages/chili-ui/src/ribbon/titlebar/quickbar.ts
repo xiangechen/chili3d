@@ -20,7 +20,7 @@ export class QuickToolbar extends Control {
             }
             let button = new Svg(data.icon)
                 .addClass(style.icon)
-                .onClick(() => PubSub.default.pub("excuteCommand", command as any));
+                .onClick(() => PubSub.default.pub("executeCommand", command as any));
             buttons.push(button);
         }
 

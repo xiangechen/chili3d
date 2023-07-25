@@ -21,13 +21,13 @@ export class Line extends CreateCommand {
         return new GeometryModel(document, `Line ${Line.count++}`, body);
     }
 
-    override afterExcute(document: IDocument): Promise<void> {
+    override afterExecute(document: IDocument): Promise<void> {
         if (this.stepDatas.length > 1) {
             this.stepDatas[0] = this.stepDatas[1];
             this.stepDatas.length = 1;
-            return this.excuteFrom(document, 1);
+            return this.executeFromStep(document, 1);
         } else {
-            return super.afterExcute(document);
+            return super.afterExecute(document);
         }
     }
 

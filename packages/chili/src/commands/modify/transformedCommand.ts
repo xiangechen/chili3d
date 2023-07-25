@@ -38,8 +38,8 @@ export abstract class TransformedCommand extends MultistepCommand {
         return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Solid);
     }
 
-    protected override async beforeExcute(document: IDocument): Promise<boolean> {
-        await super.beforeExcute(document);
+    protected override async beforeExecute(document: IDocument): Promise<boolean> {
+        await super.beforeExecute(document);
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.token = new AsyncState();
@@ -58,7 +58,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         return true;
     }
 
-    protected excuting(document: IDocument): void {
+    protected executeMainTask(document: IDocument): void {
         Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let transform = this.transfrom(this.stepDatas.at(-1)!.point);
             let models = this.models;

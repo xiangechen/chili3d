@@ -4,7 +4,7 @@ import { GeometryModel, IDocument, Transaction } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class CreateCommand extends MultistepCommand {
-    protected override excuting(document: IDocument) {
+    protected override executeMainTask(document: IDocument) {
         Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let model = this.create(document);
             document.addNode(model);

@@ -69,7 +69,7 @@ export class HotkeyService implements IService {
         e.preventDefault();
         let command = this.getCommand(e);
         if (command !== undefined) {
-            PubSub.default.pub("excuteCommand", command);
+            PubSub.default.pub("executeCommand", command);
         }
     };
 

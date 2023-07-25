@@ -11,7 +11,7 @@ export class CommandService implements IService {
     }
 
     private _lastCommand: keyof Commands | undefined;
-    private _excutingCommand: keyof Commands | undefined;
+    private _executingCommand: keyof Commands | undefined;
 
     private _app: Application | undefined;
 
@@ -25,12 +25,12 @@ export class CommandService implements IService {
     private constructor() {}
 
     start(): void {
-        PubSub.default.sub("excuteCommand", this.excuteCommand);
+        PubSub.default.sub("executeCommand", this.executeCommand);
         Logger.info(`${CommandService.name} started`);
     }
 
     stop(): void {
-        PubSub.default.remove("excuteCommand", this.excuteCommand);
+        PubSub.default.remove("executeCommand", this.executeCommand);
         Logger.info(`${CommandService.name} stoped`);
     }
 
@@ -40,34 +40,34 @@ export class CommandService implements IService {
     }
 
     get isExcuting(): boolean {
-        return this._excutingCommand !== undefined;
+        return this._executingCommand !== undefined;
     }
 
-    private excuteCommand = async (commandName: keyof Commands) => {
+    private executeCommand = async (commandName: keyof Commands) => {
         let command = commandName === "LastCommand" ? this._lastCommand : commandName;
         if (command === undefined) return;
-        if (!this.canExcute(command)) return;
-        Logger.info(`excuting command ${command}`);
-        await this.excuteAsync(command);
+        if (!this.canExecute(command)) return;
+        Logger.info(`executing command ${command}`);
+        await this.executeAsync(command);
     };
 
-    private async excuteAsync(commandName: keyof Commands) {
+    private async executeAsync(commandName: keyof Commands) {
         let command = this.app.resolve.resolve<ICommand>(new Token(commandName))!;
-        this._excutingCommand = commandName;
+        this._executingCommand = commandName;
         await command
-            .excute(this.app)
+            .execute(this.app)
             .catch((err) => {
                 Logger.error(err);
             })
             .finally(() => {
                 this._lastCommand = commandName;
-                this._excutingCommand = undefined;
+                this._executingCommand = undefined;
             });
     }
 
-    private canExcute(commandName: string) {
-        if (this._excutingCommand) {
-            Logger.warn(`command ${this._excutingCommand} is excuting`);
+    private canExecute(commandName: string) {
+        if (this._executingCommand) {
+            Logger.warn(`command ${this._executingCommand} is executing`);
             return false;
         }
         if (

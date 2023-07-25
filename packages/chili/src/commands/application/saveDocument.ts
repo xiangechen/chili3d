@@ -8,7 +8,7 @@ import { Application, command, ICommand } from "chili-core";
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {
-    async excute(app: Application): Promise<void> {
+    async execute(app: Application): Promise<void> {
         let document = app.activeDocument!;
         await document.save();
     }

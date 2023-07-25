@@ -3,5 +3,5 @@
 import { Application } from "../application";
 
 export interface ICommand {
-    excute(application: Application): Promise<void>;
+    execute(application: Application): Promise<void>;
 }

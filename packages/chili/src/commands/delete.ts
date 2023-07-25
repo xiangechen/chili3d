@@ -8,7 +8,7 @@ import { Application, command, ICommand, Transaction } from "chili-core";
     icon: "icon-redo",
 })
 export class Delete implements ICommand {
-    async excute(app: Application): Promise<void> {
+    async execute(app: Application): Promise<void> {
         let document = app.activeDocument;
         if (document === undefined) return;
         Transaction.excute(document, "delete", () => {

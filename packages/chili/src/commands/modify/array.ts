@@ -60,7 +60,7 @@ export class Array extends MultistepCommand {
         ];
     };
 
-    protected override async beforeExcute(document: IDocument): Promise<boolean> {
+    protected override async beforeExecute(document: IDocument): Promise<boolean> {
         this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.token = new AsyncState();
@@ -75,7 +75,7 @@ export class Array extends MultistepCommand {
         return true;
     }
 
-    protected excuting(document: IDocument): void {
+    protected executeMainTask(document: IDocument): void {
         Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let vec = this.stepDatas[1].point.sub(this.stepDatas[0].point);
             let transform = Matrix4.createTranslation(vec.x, vec.y, vec.z);

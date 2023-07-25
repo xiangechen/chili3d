@@ -20,7 +20,7 @@ export class Copy extends Move {
     icon: "icon-copy",
 })
 export class CopyInplace implements ICommand {
-    async excute(application: Application): Promise<void> {
+    async execute(application: Application): Promise<void> {
         let document = application.activeDocument;
         if (document === undefined) return;
         Transaction.excute(document, "copy", () => {

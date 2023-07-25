@@ -9,7 +9,7 @@ import { Document } from "../../document";
     icon: "icon-new",
 })
 export class NewDocument implements ICommand {
-    async excute(app: Application): Promise<void> {
+    async execute(app: Application): Promise<void> {
         if (app.activeDocument) {
             await app.activeDocument.save();
             await app.activeDocument.close();

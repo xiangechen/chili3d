@@ -10,7 +10,7 @@ let index: number = 1;
     icon: "icon-folder-plus",
 })
 export class NewFolder implements ICommand {
-    async excute(app: Application): Promise<void> {
+    async execute(app: Application): Promise<void> {
         let document = app.activeDocument!;
         let folder = new NodeLinkedList(document, `Folder${index++}`);
         document.addNode(folder);

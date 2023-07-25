@@ -83,7 +83,7 @@ export class AppBuilder {
             for (const element of keys) {
                 let command = commands[element];
                 let data = CommandData.get(command);
-                if (command.prototype?.excute !== undefined && data !== undefined) {
+                if (command.prototype?.execute !== undefined && data !== undefined) {
                     this._register.register(new Token(data.name), command);
                 }
             }

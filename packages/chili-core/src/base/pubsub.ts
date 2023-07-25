@@ -13,7 +13,7 @@ import { MessageType } from "./messageType";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
-    excuteCommand: (commandName: keyof Commands) => void;
+    executeCommand: (commandName: keyof Commands) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     documentClosed: (document: IDocument) => void;
