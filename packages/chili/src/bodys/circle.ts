@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, Body, I18n, IDocument, IShape, property, Result, Serializer, XYZ } from "chili-core";
+import { Application, Body, I18n, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
 export class CircleBody extends Body {
     readonly name: keyof I18n = "body.circle";
@@ -8,7 +8,7 @@ export class CircleBody extends Body {
     private _center: XYZ;
 
     @Serializer.property("constructor")
-    @property("circle.center")
+    @Property.define("circle.center")
     get center() {
         return this._center;
     }
@@ -19,7 +19,7 @@ export class CircleBody extends Body {
     private _radius: number;
 
     @Serializer.property("constructor")
-    @property("circle.radius")
+    @Property.define("circle.radius")
     get radius() {
         return this._radius;
     }

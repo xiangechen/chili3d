@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, Body, I18n, IDocument, IShape, Plane, property, Result, Serializer } from "chili-core";
+import { Application, Body, I18n, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
 
 export class BoxBody extends Body {
     readonly name: keyof I18n = "body.box";
@@ -8,7 +8,7 @@ export class BoxBody extends Body {
     private _dx: number;
 
     @Serializer.property("constructor")
-    @property("box.dx")
+    @Property.define("box.dx")
     get dx() {
         return this._dx;
     }
@@ -19,7 +19,7 @@ export class BoxBody extends Body {
     private _dy: number;
 
     @Serializer.property("constructor")
-    @property("box.dy")
+    @Property.define("box.dy")
     get dy() {
         return this._dy;
     }
@@ -30,7 +30,7 @@ export class BoxBody extends Body {
     private _dz: number;
 
     @Serializer.property("constructor")
-    @property("box.dz")
+    @Property.define("box.dz")
     get dz() {
         return this._dz;
     }

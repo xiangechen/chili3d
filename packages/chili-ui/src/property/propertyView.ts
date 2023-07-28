@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
+import { GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
-import style from "./propertyView.module.css";
 import { MatrixConverter } from "./matrixConverter";
+import style from "./propertyView.module.css";
 
 export class PropertyView extends Control {
     private panel = new Panel(style.panel);
@@ -25,7 +25,7 @@ export class PropertyView extends Control {
     };
 
     private addDefault(document: IDocument, nodes: INode[]) {
-        this.appendProperty(this.panel, document, nodes, Property.get(nodes.at(0), "common.name"));
+        this.appendProperty(this.panel, document, nodes, Property.getProperty(nodes.at(0), "common.name"));
     }
 
     private addBody(nodes: INode[], document: IDocument) {
@@ -34,7 +34,7 @@ export class PropertyView extends Control {
         let body = new Expander(bodies[0].name);
         this.panel.append(body);
         body.classList.add(style.expander);
-        Property.getAll(bodies[0]).forEach((x) => {
+        Property.getProperties(bodies[0]).forEach((x) => {
             this.appendProperty(body.contenxtPanel, document, bodies, x);
         });
     }

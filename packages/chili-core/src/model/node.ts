@@ -2,7 +2,7 @@
 
 import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
 import { ISerialize, Serializer } from "../base/serialize";
-import { property } from "../decorators";
+import { Property } from "../decorators";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
 import { Id } from "../id";
@@ -76,7 +76,7 @@ export abstract class Node extends HistoryObservable implements INode {
     }
 
     @Serializer.property("constructor")
-    @property("common.name")
+    @Property.define("common.name")
     get name() {
         return this._name;
     }

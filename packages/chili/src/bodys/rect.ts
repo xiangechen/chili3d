@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, Body, I18n, IDocument, IShape, Plane, property, Result, Serializer } from "chili-core";
+import { Application, Body, I18n, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
 
 export class RectBody extends Body {
     readonly name: keyof I18n = "body.rect";
 
     private _dx: number;
     @Serializer.property("constructor")
-    @property("rect.dx")
+    @Property.define("rect.dx")
     get dx() {
         return this._dx;
     }
@@ -17,7 +17,7 @@ export class RectBody extends Body {
 
     private _dy: number;
     @Serializer.property("constructor")
-    @property("rect.dy")
+    @Property.define("rect.dy")
     get dy() {
         return this._dy;
     }

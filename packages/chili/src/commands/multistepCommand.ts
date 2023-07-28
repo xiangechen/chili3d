@@ -1,8 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, AsyncState, CommandOptions, ICommand, IDocument, PubSub } from "chili-core";
+import { Application, AsyncState, I18n, ICommand, IDocument, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
+
+const PropertiesCache: Map<keyof I18n, any> = new Map();
 
 export abstract class MultistepCommand implements ICommand {
     protected restarting: boolean = false;
@@ -23,7 +25,11 @@ export abstract class MultistepCommand implements ICommand {
         this.token?.cancel();
     }
 
-    protected cancel() {
+    @Property.define("axis.z", "axis.y")
+    continuousOperation: boolean = false;
+
+    @Property.define("axis.x", "common.cancel")
+    cancel() {
         this.token?.cancel();
     }
 
@@ -65,19 +71,32 @@ export abstract class MultistepCommand implements ICommand {
 
     protected abstract executeMainTask(document: IDocument): void;
 
-    protected options(): CommandOptions | undefined {
-        return undefined;
-    }
-
     protected beforeExecute(document: IDocument): Promise<boolean> {
-        let options = this.options();
-        if (options) PubSub.default.pub("openContextTab", options);
+        this.readProperties();
+        PubSub.default.pub("openContextTab", this);
         return Promise.resolve(true);
     }
 
     protected afterExecute(document: IDocument): Promise<void> {
+        this.saveProperties();
         PubSub.default.pub("closeContextTab");
         this.token?.dispose();
         return Promise.resolve();
+    }
+
+    private readProperties() {
+        Property.getProperties(this).forEach((x) => {
+            if (PropertiesCache.has(x.display)) {
+                (this as any)[x.display] = PropertiesCache.get(x.display);
+            }
+        });
+    }
+
+    private saveProperties() {
+        Property.getProperties(this).forEach((x) => {
+            let prop = (this as any)[x.display];
+            if (typeof prop === "function") return;
+            PropertiesCache.set(x.display, prop);
+        });
     }
 }

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, CommandOptions, Logger, PubSub } from "chili-core";
+import { AsyncState, ICommand, Logger, Property, PubSub } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { DefaultRibbon } from "../profile/ribbon";
 import { RibbonData } from "./ribbonData";
@@ -44,18 +44,20 @@ export class Ribbon extends Control {
         PubSub.default.remove("closeContextTab", this.closeContextTab);
     }
 
-    private openContextTab = (options: CommandOptions) => {
+    private openContextTab = (command: ICommand) => {
         if (this._selected !== undefined) {
             this._selected.header.removeClass(style.selectedTab);
             this._ribbonPanel.clearChildren();
         }
 
-        let tab = new RibbonTab("axis.x");
-        for (const g of options.groups) {
-            let group = new RibbonGroup("axis.x");
-            for (const c of g.options) {
-                group.add(new RibbonButton("axis.x", "icon-line", RibbonButtonSize.Normal, c.onClick));
-            }
+        let properties = Property.getProperties(command);
+        let tab = new RibbonTab(Object.getPrototypeOf(command).name);
+        for (const g of properties) {
+            let group = new RibbonGroup(g.display);
+            // for (const c of g.options) {
+            //     if (c instanceof ButtonOption)
+            //         group.add(new RibbonButton(g.name, "icon-line", RibbonButtonSize.Normal, c.onClick));
+            // }
             tab.add(group);
         }
         tab.header.addClass(style.selectedTab);
