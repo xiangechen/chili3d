@@ -9,6 +9,7 @@ import {
     INode,
     LineType,
     Matrix4,
+    Property,
     Transaction,
     XYZ,
     i18n,
@@ -20,8 +21,17 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected models?: IModel[];
     protected positions?: number[];
 
+    private _isClone: boolean = false;
+    @Property.define("common.clone", "common.mode", "icon-copy")
+    get isClone() {
+        return this._isClone;
+    }
+
+    set isClone(value: boolean) {
+        this.setProperty("isClone", value);
+    }
+
     protected abstract transfrom(p2: XYZ): Matrix4;
-    protected abstract isClone(): boolean;
 
     protected transformPreview = (point: XYZ) => {
         let transform = this.transfrom(point);
@@ -62,7 +72,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let transform = this.transfrom(this.stepDatas.at(-1)!.point);
             let models = this.models;
-            if (this.isClone()) {
+            if (this.isClone) {
                 models = models?.map((x) => x.clone());
             }
             models?.forEach((x) => {

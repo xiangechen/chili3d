@@ -39,7 +39,7 @@ export namespace Property {
     function getAllKeysOfPrototypeChain(target: any, properties: Property[]) {
         if (!target) return;
         if (PropertyKeyMap.has(target)) {
-            properties.push(...PropertyKeyMap.get(target)!.values());
+            properties.splice(0, 0, ...PropertyKeyMap.get(target)!.values());
         }
         getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties);
     }

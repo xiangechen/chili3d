@@ -9,6 +9,7 @@ let zh: I18n = {
     "common.matrix": "矩阵",
     "common.normal": "法向量",
     "common.mode": "模式",
+    "common.clone": "复制对象",
     "common.repeat": "重复操作",
     "ribbon.tab.file": "文件",
     "ribbon.tab.startup": "开始",

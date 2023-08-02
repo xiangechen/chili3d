@@ -8,6 +8,7 @@ let en: I18n = {
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
     "common.normal": "Normal",
+    "common.clone": "Clone",
     "common.mode": "Mode",
     "common.repeat": "Repeat",
     "ribbon.tab.file": "File",

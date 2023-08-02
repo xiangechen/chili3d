@@ -10,6 +10,7 @@ type Keys =
     | "common.cancel"
     | "common.mode"
     | "common.repeat"
+    | "common.clone"
     | "body.line"
     | "body.rect"
     | "body.circle"

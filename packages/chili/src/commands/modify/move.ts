@@ -11,10 +11,6 @@ import { TransformedCommand } from "./transformedCommand";
     icon: "icon-move",
 })
 export class Move extends TransformedCommand {
-    protected override isClone(): boolean {
-        return false;
-    }
-
     getSteps(): IStep[] {
         let firstStep = new PointStep("operate.pickFistPoint");
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);

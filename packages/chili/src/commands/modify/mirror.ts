@@ -20,10 +20,6 @@ export class Mirror extends TransformedCommand {
         return Matrix4.createMirrorWithPlane(plane);
     }
 
-    protected override isClone(): boolean {
-        return false;
-    }
-
     getSteps(): IStep[] {
         let firstStep = new PointStep("operate.pickFistPoint");
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);

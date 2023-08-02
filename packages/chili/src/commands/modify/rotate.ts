@@ -26,10 +26,6 @@ export class Rotate extends TransformedCommand {
         return { normal, angle };
     }
 
-    protected override isClone(): boolean {
-        return false;
-    }
-
     getSteps(): IStep[] {
         let firstStep = new PointStep("operate.pickFistPoint");
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
