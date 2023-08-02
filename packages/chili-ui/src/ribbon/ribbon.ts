@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, ICommand, Logger, Property, PubSub } from "chili-core";
+import { AsyncState, CommandData, Config, I18n, ICommand, Logger, Property, PubSub } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { DefaultRibbon } from "../profile/ribbon";
 import { RibbonData } from "./ribbonData";
@@ -11,6 +11,7 @@ import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
 import { RibbonGroup } from "./ribbonGroup";
+import { RibbonToggleButton } from "./ribbonToggleButton";
 
 export class Ribbon extends Control {
     readonly titlebar: TitleBar = new TitleBar();
@@ -20,6 +21,8 @@ export class Ribbon extends Control {
     private readonly startup: Label = new Label().i18nText("ribbon.tab.file").addClass(style.startup);
     private _selected?: RibbonTab;
     private _selectionControl?: RibbonGroup;
+    private _contextTab?: RibbonTab;
+    private _preSelectedTab?: RibbonTab;
 
     constructor() {
         super(style.root);
@@ -45,29 +48,17 @@ export class Ribbon extends Control {
     }
 
     private openContextTab = (command: ICommand) => {
-        if (this._selected !== undefined) {
-            this._selected.header.removeClass(style.selectedTab);
-            this._ribbonPanel.clearChildren();
-        }
-
-        let properties = Property.getProperties(command);
-        let tab = new RibbonTab(Object.getPrototypeOf(command).name);
-        for (const g of properties) {
-            let group = new RibbonGroup(g.display);
-            // for (const c of g.options) {
-            //     if (c instanceof ButtonOption)
-            //         group.add(new RibbonButton(g.name, "icon-line", RibbonButtonSize.Normal, c.onClick));
-            // }
-            tab.add(group);
-        }
-        tab.header.addClass(style.selectedTab);
-        this._ribbonPanel.append(tab);
+        this._preSelectedTab = this._selected;
+        this._contextTab = this.initContextTab(command);
+        this.addTab(this._contextTab);
+        this.selectTab(this._contextTab);
     };
 
     private closeContextTab = () => {
-        this._ribbonPanel.clearChildren();
-        this._selected!.header.addClass(style.selectedTab);
-        this._ribbonPanel.append(this._selected!);
+        if (this._preSelectedTab) this.selectTab(this._preSelectedTab);
+        if (this._contextTab) this.removeTab(this._contextTab!);
+        this._preSelectedTab = undefined;
+        this._contextTab = undefined;
     };
 
     private showSelectionControl = (token: AsyncState) => {
@@ -81,6 +72,50 @@ export class Ribbon extends Control {
             this._selectionControl = undefined;
         }
     };
+
+    private initContextTab(command: ICommand) {
+        let tab = new RibbonTab(CommandData.get(command)!.display);
+        let groupMap: Map<keyof I18n, RibbonGroup> = new Map();
+        for (const g of Property.getProperties(command)) {
+            if (!g.group) continue;
+            let group = this.findGroup(groupMap, g, tab);
+            let item = this.createRibbonItem(command, g);
+            group.add(item);
+        }
+        return tab;
+    }
+
+    private createRibbonItem(command: ICommand, g: Property) {
+        let noType = command as any;
+        let type = typeof noType[g.name];
+        if (type === "function") {
+            return new RibbonButton(g.display, g.icon!, RibbonButtonSize.Normal, () => {
+                noType[g.name]();
+            });
+        } else if (type === "boolean") {
+            return new RibbonToggleButton(
+                g.display,
+                g.icon!,
+                RibbonButtonSize.Normal,
+                noType[g.name],
+                () => {
+                    noType[g.name] = !noType[g.name];
+                }
+            );
+        } else {
+            return new RibbonButton(g.display, g.icon!, RibbonButtonSize.Normal, () => {});
+        }
+    }
+
+    private findGroup(groupMap: Map<keyof I18n, RibbonGroup>, prop: Property, tab: RibbonTab) {
+        let group = groupMap.get(prop.group!);
+        if (group === undefined) {
+            group = new RibbonGroup(prop.group!);
+            groupMap.set(prop.group!, group);
+            tab.add(group);
+        }
+        return group;
+    }
 
     private newSelectionGroup(token: AsyncState) {
         let group = new RibbonGroup("ribbon.group.selection");
@@ -117,6 +152,14 @@ export class Ribbon extends Control {
         if (this._selected === undefined) {
             this.selectTab(tab);
         }
+    }
+
+    removeTab(tab: RibbonTab) {
+        let index = this._tabs.indexOf(tab);
+        if (index > 0) {
+            this._tabs.splice(index, 1);
+        }
+        this._ribbonHeader.removeChild(tab.header);
     }
 
     private initRibbon(configs: RibbonData) {

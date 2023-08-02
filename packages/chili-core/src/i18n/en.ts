@@ -8,6 +8,8 @@ let en: I18n = {
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
     "common.normal": "Normal",
+    "common.mode": "Mode",
+    "common.repeat": "Repeat",
     "ribbon.tab.file": "File",
     "ribbon.tab.startup": "Startup",
     "ribbon.tab.draw": "Drawing",

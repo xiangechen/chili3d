@@ -1,14 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, AsyncState, I18n, ICommand, IDocument, Property, PubSub } from "chili-core";
+import { Application, AsyncState, ICommand, IDocument, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
-const PropertiesCache: Map<keyof I18n, any> = new Map();
+const PropertiesCache: Map<string, any> = new Map(); // 所有命令共享
 
-export abstract class MultistepCommand implements ICommand {
-    protected restarting: boolean = false;
+export abstract class MultistepCommand extends Observable implements ICommand {
     protected stepDatas: SnapedData[] = [];
+
+    private _restarting: boolean = false;
+    protected get restarting() {
+        return this._restarting;
+    }
 
     private _token?: AsyncState;
     protected get token() {
@@ -21,16 +25,23 @@ export abstract class MultistepCommand implements ICommand {
     }
 
     protected restart() {
-        this.restarting = true;
+        this._restarting = true;
         this.token?.cancel();
     }
 
-    @Property.define("axis.z", "axis.y")
-    continuousOperation: boolean = false;
-
-    @Property.define("axis.x", "common.cancel")
+    @Property.define("common.cancel", "common.mode", "icon-cancel")
     cancel() {
         this.token?.cancel();
+    }
+
+    private _continuousOperation: boolean = false;
+    @Property.define("common.repeat", "common.mode", "icon-rotate")
+    get continuousOperation() {
+        return this._continuousOperation;
+    }
+
+    set continuousOperation(value: boolean) {
+        this.setProperty("continuousOperation", value);
     }
 
     async execute(application: Application): Promise<void> {
@@ -38,28 +49,31 @@ export abstract class MultistepCommand implements ICommand {
     }
 
     protected async executeFromStep(document: IDocument, stepIndex: number): Promise<void> {
-        if (this.restarting) {
-            this.restarting = false;
+        if (this._restarting) {
+            this._restarting = false;
         }
+        let isCancel = false;
         try {
             if ((await this.beforeExecute(document)) && (await this.executeSteps(document, stepIndex))) {
                 this.executeMainTask(document);
+            } else {
+                isCancel = true;
             }
         } finally {
             await this.afterExecute(document);
         }
-        if (this.restarting) {
+        if (this._restarting || (this.continuousOperation && !isCancel)) {
             await this.executeFromStep(document, 0);
         }
     }
 
     private async executeSteps(document: IDocument, startIndex: number): Promise<boolean> {
+        this.stepDatas.length = 0;
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
             this.token = new AsyncState();
             let data = await steps[i].execute(document, this.token);
-            if (this.restarting || data === undefined) {
-                this.stepDatas.length = 0;
+            if (this._restarting || data === undefined) {
                 return false;
             }
             this.stepDatas.push(data);
@@ -86,17 +100,23 @@ export abstract class MultistepCommand implements ICommand {
 
     private readProperties() {
         Property.getProperties(this).forEach((x) => {
-            if (PropertiesCache.has(x.display)) {
-                (this as any)[x.display] = PropertiesCache.get(x.display);
+            let key = this.cacheKeyOfProperty(x);
+            if (PropertiesCache.has(key)) {
+                (this as any)[key] = PropertiesCache.get(key);
             }
         });
     }
 
     private saveProperties() {
         Property.getProperties(this).forEach((x) => {
-            let prop = (this as any)[x.display];
+            let key = this.cacheKeyOfProperty(x);
+            let prop = (this as any)[key];
             if (typeof prop === "function") return;
-            PropertiesCache.set(x.display, prop);
+            PropertiesCache.set(key, prop);
         });
+    }
+
+    private cacheKeyOfProperty(property: Property) {
+        return property.name;
     }
 }

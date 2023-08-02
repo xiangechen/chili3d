@@ -8,6 +8,8 @@ let zh: I18n = {
     "common.name": "名称",
     "common.matrix": "矩阵",
     "common.normal": "法向量",
+    "common.mode": "模式",
+    "common.repeat": "重复操作",
     "ribbon.tab.file": "文件",
     "ribbon.tab.startup": "开始",
     "ribbon.tab.draw": "绘图",

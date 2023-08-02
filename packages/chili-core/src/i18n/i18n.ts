@@ -8,6 +8,8 @@ type Keys =
     | "common.normal"
     | "common.confirm"
     | "common.cancel"
+    | "common.mode"
+    | "common.repeat"
     | "body.line"
     | "body.rect"
     | "body.circle"

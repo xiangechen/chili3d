@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, IDocument, Property, XYZ, command } from "chili-core";
-import { Application } from "chili-core/src/application";
-
+import { Application, GeometryModel, IDocument, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
@@ -19,16 +17,6 @@ export class Line extends CreateCommand {
     create(document: IDocument): GeometryModel {
         let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
         return new GeometryModel(document, `Line ${Line.count++}`, body);
-    }
-
-    override afterExecute(document: IDocument): Promise<void> {
-        if (this.stepDatas.length > 1) {
-            this.stepDatas[0] = this.stepDatas[1];
-            this.stepDatas.length = 1;
-            return this.executeFromStep(document, 1);
-        } else {
-            return super.afterExecute(document);
-        }
     }
 
     getSteps(): IStep[] {
