@@ -56,7 +56,7 @@ export class Ribbon extends Control {
 
     private closeContextTab = () => {
         if (this._preSelectedTab) this.selectTab(this._preSelectedTab);
-        if (this._contextTab) this.removeTab(this._contextTab!);
+        if (this._contextTab) this.removeTab(this._contextTab);
         this._preSelectedTab = undefined;
         this._contextTab = undefined;
     };
@@ -93,15 +93,7 @@ export class Ribbon extends Control {
                 noType[g.name]();
             });
         } else if (type === "boolean") {
-            return new RibbonToggleButton(
-                g.display,
-                g.icon!,
-                RibbonButtonSize.Normal,
-                noType[g.name],
-                () => {
-                    noType[g.name] = !noType[g.name];
-                }
-            );
+            return new RibbonToggleButton(command, g, RibbonButtonSize.Normal);
         } else {
             return new RibbonButton(g.display, g.icon!, RibbonButtonSize.Normal, () => {});
         }

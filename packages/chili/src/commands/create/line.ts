@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, GeometryModel, IDocument, XYZ, command } from "chili-core";
+import { Application, GeometryModel, IDocument, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
@@ -14,6 +14,32 @@ import { CreateCommand } from "./createCommand";
 export class Line extends CreateCommand {
     private static count: number = 1;
 
+    private _isLine: boolean = true;
+    @Property.define("line.type.line", "common.type", "icon-line")
+    get isLine() {
+        return this._isLine;
+    }
+    set isLine(value: boolean) {
+        if (!this._isXLine || !value) return;
+        this._isLine = true;
+        this._isXLine = false;
+        this.emitPropertyChanged("isLine", false);
+        this.emitPropertyChanged("isXLine", true);
+    }
+
+    private _isXLine: boolean = false;
+    @Property.define("line.type.xline", "common.type", "icon-line")
+    get isXLine() {
+        return this._isXLine;
+    }
+    set isXLine(value: boolean) {
+        if (!this._isLine || !value) return;
+        this._isLine = false;
+        this._isXLine = true;
+        this.emitPropertyChanged("isLine", true);
+        this.emitPropertyChanged("isXLine", false);
+    }
+
     create(document: IDocument): GeometryModel {
         let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
         return new GeometryModel(document, `Line ${Line.count++}`, body);
@@ -26,14 +52,30 @@ export class Line extends CreateCommand {
     }
 
     private getSecondPointData = (): SnapPointData => {
+        let preview = this._isLine ? this.linePreview : this.xlinePreview;
         return {
             refPoint: this.stepDatas[0].point,
             dimension: Dimension.D1D2D3,
-            preview: this.linePreview,
+            validator: (point: XYZ) => {
+                return this.stepDatas[0].point.distanceTo(point) > Precision.Confusion;
+            },
+            preview,
         };
     };
 
     private linePreview = (point: XYZ) => {
         return [Application.instance.shapeFactory.line(this.stepDatas[0].point, point).value?.mesh.edges!];
     };
+
+    private xlinePreview = (point: XYZ) => {
+        let line = this.createXline(point);
+        return [line?.mesh.edges!];
+    };
+
+    private createXline(point: XYZ) {
+        let vector = point.sub(this.stepDatas[0].point).normalize()!.multiply(1e6);
+        let start = this.stepDatas[0].point.sub(vector);
+        let end = this.stepDatas[0].point.add(vector);
+        return Application.instance.shapeFactory.line(start, end).value;
+    }
 }
