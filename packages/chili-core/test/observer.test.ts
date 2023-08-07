@@ -16,7 +16,7 @@ class TestClass extends Observable {
 
 test("test observer", () => {
     let t = new TestClass();
-    t.onPropertyChanged((s, p, o) => {
+    t.onPropertyChanged((p, s, o) => {
         expect(p).toBe("test");
         expect(s[p]).toBe(2);
     });

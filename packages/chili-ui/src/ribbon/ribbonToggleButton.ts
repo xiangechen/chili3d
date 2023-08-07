@@ -14,7 +14,7 @@ export class RibbonToggleButton extends RibbonButton {
         source.onPropertyChanged(this.onPropertyChanged);
     }
 
-    private onPropertyChanged = (s: any, prop: string) => {
+    private onPropertyChanged = (prop: string) => {
         if (prop !== this.property.name) return;
         this.setCheckedStyle(this.source[prop]);
     };

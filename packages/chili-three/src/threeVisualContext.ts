@@ -148,7 +148,7 @@ export class ThreeVisualContext implements IVisualContext {
         return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
-    private handleTransformChanged = (model: IModel, property: keyof IModel) => {
+    private handleTransformChanged = (property: keyof IModel, model: IModel) => {
         let shape = this.getShape(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {

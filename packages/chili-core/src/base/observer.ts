@@ -10,7 +10,7 @@ import { Transaction } from "./transaction";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
 
-export type PropertyChangedHandler<T, K extends keyof T> = (source: T, property: K, oldValue: T[K]) => void;
+export type PropertyChangedHandler<T, K extends keyof T> = (property: K, source: T, oldValue: T[K]) => void;
 
 export interface IPropertyChanged {
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
@@ -64,7 +64,7 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
-        this.eventEmitter.emit(PropertyChangedEvent, this, property, oldValue);
+        this.eventEmitter.emit(PropertyChangedEvent, property, this, oldValue);
     }
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
