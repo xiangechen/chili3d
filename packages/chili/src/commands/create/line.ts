@@ -40,6 +40,17 @@ export class Line extends CreateCommand {
         this.emitPropertyChanged("isXLine", false);
     }
 
+    private _isContinue: boolean = false;
+    @Property.dependence("isLine", true)
+    @Property.dependence("repeatOperation", true)
+    @Property.define("line.end", "common.type", "icon-line")
+    get isContinue() {
+        return this._isContinue;
+    }
+    set isContinue(value: boolean) {
+        this.setProperty("isContinue", value);
+    }
+
     create(document: IDocument): GeometryModel {
         let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
         return new GeometryModel(document, `Line ${Line.count++}`, body);

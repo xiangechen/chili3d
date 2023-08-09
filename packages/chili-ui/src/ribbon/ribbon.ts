@@ -78,6 +78,16 @@ export class Ribbon extends Control {
         let groupMap: Map<keyof I18n, RibbonGroup> = new Map();
         for (const g of Property.getProperties(command)) {
             if (!g.group) continue;
+            if (g.dependencies) {
+                let show = true;
+                for (const d of g.dependencies) {
+                    if ((command as any)[d.property] !== d.value) {
+                        show = false;
+                        break;
+                    }
+                }
+                if (!show) continue;
+            }
             let group = this.findGroup(groupMap, g, tab);
             let item = this.createRibbonItem(command, g);
             group.add(item);

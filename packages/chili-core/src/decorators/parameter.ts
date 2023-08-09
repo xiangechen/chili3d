@@ -4,30 +4,50 @@ import { IConverter } from "../converter";
 import { I18n } from "../i18n";
 
 export interface Property {
-    display: keyof I18n;
     name: string;
+    display: keyof I18n;
     converter?: IConverter;
     group?: keyof I18n;
     icon?: string;
+    dependencies?: {
+        property: string | number | symbol;
+        value: any;
+    }[];
 }
 
-const PropertyKeyMap = new Map<Object, Map<keyof I18n, Property>>();
+const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
 
 export namespace Property {
-    export function define(display: keyof I18n, group?: keyof I18n, icon?: string, converter?: IConverter) {
+    export function define(display: keyof I18n, group?: keyof I18n, icon?: string) {
         return (target: Object, name: string) => {
-            if (!PropertyKeyMap.has(target)) {
-                PropertyKeyMap.set(target, new Map<keyof I18n, Property>());
-            }
-            let props: Map<keyof I18n, Property> = PropertyKeyMap.get(target)!;
-            props.set(display, {
-                display,
-                name,
-                converter,
-                group,
-                icon,
-            });
+            setProperty(target, name, { display, group, icon });
         };
+    }
+
+    export function converter(converter: IConverter) {
+        return (target: Object, name: string) => {
+            setProperty(target, name, { converter });
+        };
+    }
+
+    export function dependence<T extends object, K extends keyof T>(property: K, value: T[K]) {
+        return (target: T, name: string) => {
+            let dependencies = PropertyKeyMap.get(target)?.get(name)?.dependencies ?? [];
+            dependencies.push({ property, value });
+            setProperty(target, name, { dependencies });
+        };
+    }
+
+    function setProperty(target: Object, name: string, property: any) {
+        if (!PropertyKeyMap.has(target)) {
+            PropertyKeyMap.set(target, new Map());
+        }
+        let propMap = PropertyKeyMap.get(target)!;
+        propMap.set(name, {
+            name,
+            ...property,
+            ...propMap.get(name),
+        });
     }
 
     export function getProperties(target: any): Property[] {
@@ -44,8 +64,8 @@ export namespace Property {
         getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties);
     }
 
-    export function getProperty(target: any, display: keyof I18n): Property | undefined {
+    export function getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
         if (target === undefined) return undefined;
-        return PropertyKeyMap.get(target)?.get(display);
+        return PropertyKeyMap.get(target)?.get(property);
     }
 }

@@ -34,14 +34,14 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         this.token?.cancel();
     }
 
-    private _continuousOperation: boolean = false;
+    private _repeatOperation: boolean = false;
     @Property.define("common.repeat", "common.mode", "icon-rotate")
-    get continuousOperation() {
-        return this._continuousOperation;
+    get repeatOperation() {
+        return this._repeatOperation;
     }
 
-    set continuousOperation(value: boolean) {
-        this.setProperty("continuousOperation", value);
+    set repeatOperation(value: boolean) {
+        this.setProperty("repeatOperation", value);
     }
 
     async execute(application: Application): Promise<void> {
@@ -62,13 +62,13 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         } finally {
             await this.afterExecute(document);
         }
-        if (this._restarting || (this.continuousOperation && !isCancel)) {
+        if (this._restarting || (this.repeatOperation && !isCancel)) {
             await this.executeFromStep(document, 0);
         }
     }
 
     private async executeSteps(document: IDocument, startIndex: number): Promise<boolean> {
-        this.stepDatas.length = 0;
+        this.stepDatas.length = startIndex;
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
             this.token = new AsyncState();
