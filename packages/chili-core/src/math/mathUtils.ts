@@ -4,11 +4,11 @@ import { Precision } from "../base";
 
 export class MathUtils {
     static anyEqualZero(...numbers: number[]) {
-        return numbers.some((x) => Math.abs(x) < Precision.Resolution);
+        return numbers.some((x) => Math.abs(x) < Precision.Number);
     }
 
     static allEqualZero(...numbers: number[]) {
-        return !numbers.some((x) => Math.abs(x) > Precision.Resolution);
+        return !numbers.some((x) => Math.abs(x) > Precision.Number);
     }
 
     static almostEqual(left: number, right: number, tolerance: number = 1e-8) {

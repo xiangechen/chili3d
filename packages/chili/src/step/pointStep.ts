@@ -26,6 +26,6 @@ export class PointStep extends StepBase<SnapPointData> {
 
     protected validator(data: SnapPointData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
-        return data.refPoint.distanceTo(point) > Precision.Confusion;
+        return data.refPoint.distanceTo(point) > Precision.Length;
     }
 }

@@ -46,7 +46,7 @@ export class XYZ implements ISerialize {
     }
 
     divided(scalar: number): XYZ | undefined {
-        if (Math.abs(scalar) < Precision.Resolution) {
+        if (Math.abs(scalar) < Precision.Number) {
             return undefined;
         }
         return new XYZ(this.x / scalar, this.y / scalar, this.z / scalar);
@@ -70,7 +70,7 @@ export class XYZ implements ISerialize {
 
     normalize(): XYZ | undefined {
         let d = this.length();
-        if (d < Precision.Resolution) {
+        if (d < Precision.Number) {
             return undefined;
         }
         return new XYZ(this.x / d, this.y / d, this.z / d);

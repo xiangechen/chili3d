@@ -21,7 +21,7 @@ export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
     }
 
     protected validator(data: SnapLengthAtAxisData, point: XYZ): boolean {
-        return Math.abs(point.sub(data.point).dot(data.direction)) > Precision.Confusion;
+        return Math.abs(point.sub(data.point).dot(data.direction)) > Precision.Length;
     }
 }
 
