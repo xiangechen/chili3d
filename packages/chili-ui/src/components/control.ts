@@ -1,12 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable, IPropertyChanged, PropertyChangedHandler } from "chili-core";
+import { IDisposable, IPropertyChanged } from "chili-core";
 
 export abstract class Control extends HTMLElement implements IDisposable {
     private onConnectedCallbacks: (() => void)[] = [];
     private onDisconnectedCallbacks: (() => void)[] = [];
 
-    protected readonly propertyHandlers: [IPropertyChanged, PropertyChangedHandler<any, any>][] = [];
+    protected readonly propertyHandlers: [
+        IPropertyChanged,
+        (property: string | number | symbol, source: any, oldValue: any) => void
+    ][] = [];
 
     constructor(className?: string) {
         super();

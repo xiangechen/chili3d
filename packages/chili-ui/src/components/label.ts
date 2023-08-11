@@ -24,7 +24,7 @@ export class Label extends Control {
         this.textContent = this.convertToString<T>(source, property, converter);
         this.propertyHandlers.push([
             source,
-            (source, p, oldValue) => {
+            (p, source) => {
                 if (property === p) {
                     this.textContent = source[p];
                 }
