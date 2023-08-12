@@ -1,13 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Binding } from "./binding";
+import { Localize } from "./localize";
 
 /**
  * The setting parameters for HTMLElement, where each key corresponds to a key in the HTMLElement.
  */
 export interface Options {
     id?: string | Binding;
-    textContent?: string | Binding;
+    textContent?: string | Binding | Localize;
     className?: string | Binding;
     onclick?: (e: MouseEvent) => void;
 }
@@ -34,6 +35,8 @@ function setOptions<K extends keyof HTMLElementTagNameMap>(options: Options, dom
         const value = (options as any)[key];
         if (value instanceof Binding) {
             value.add(dom, key as any);
+        } else if (value instanceof Localize && key === "textContent") {
+            value.set(dom);
         } else {
             (dom as any)[key] = value;
         }
