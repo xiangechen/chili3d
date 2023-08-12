@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CommandData, I18n, ICommand, Observable, Property } from "chili-core";
-import { RibbonTab } from "./ribbonTab";
-import { RibbonGroup } from "./ribbonGroup";
+import { Control } from "../components";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
+import { RibbonGroup } from "./ribbonGroup";
+import { RibbonTab } from "./ribbonTab";
 import { RibbonToggleButton } from "./ribbonToggleButton";
-import { Control } from "../components";
 
 export class CommandContextTab extends RibbonTab {
     private readonly propMap: Map<string | number | symbol, [Property, Control]> = new Map();
