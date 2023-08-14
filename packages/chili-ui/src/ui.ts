@@ -18,7 +18,7 @@ export class UI {
         this.setTheme("light");
         root.className = style.root;
         root.append(
-            //new Home(storage),
+            //Home(storage),
             new Editor()
         );
     }

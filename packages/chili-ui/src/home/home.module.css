@@ -1,4 +1,4 @@
-.panel {
+.root {
     position: fixed;
     display: flex;
     top: 0;
@@ -6,25 +6,57 @@
     width: 100%;
     height: 100%;
     z-index: 9999;
-    flex-direction: column;
+    flex-direction: row;
     background-color: var(--panel-background-color);
 }
 
-.header {
-    flex: 0 1 auto;
-    height: 160px;
+.left {
+    display: flex;
+    flex: 0 0 320px;
+    flex-direction: column;
+    background-color: var(--background-color);
+}
+
+.right {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+}
+
+.logo {
+    margin-top: 32px;
+    margin-bottom: 32px;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    flex-direction: row;
+}
+
+.button {
+    display: inline-block;
+    height: 48px;
+    font-size: 16px;
+    margin: 8px 32px;
+    padding: 0px 32px;
+    border-radius: 8px;
+    border-width: 0px;
+    background-color: var(--panel-background-color);
+
+    &:hover {
+        background-color: var(--hover-background-color);
+    }
 }
 
 .welcome {
-    font-size: 24px;
-    justify-content: center;
+    font-size: 48px;
+    margin: 24px 0px;
 }
 
-.content {
+.recent {
+    display: flex;
+    flex-direction: column;
     flex: 1 0 auto;
-}
-
-.hidden {
-    visibility: hidden;
 }
