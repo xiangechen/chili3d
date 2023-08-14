@@ -13,10 +13,15 @@ export interface Options {
     onclick?: (e: MouseEvent) => void;
 }
 
-export type ChildDom = string | Node;
+export interface ImgOptions extends Options {
+    src?: string | Binding;
+}
 
-function createFunction<K extends keyof HTMLElementTagNameMap>(tag: K) {
-    return function (options?: Options | ChildDom, ...children: readonly ChildDom[]) {
+export type ChildDom = string | Node;
+type Tags = keyof HTMLElementTagNameMap;
+
+function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
+    return function (options?: O | ChildDom, ...children: readonly ChildDom[]) {
         let dom: HTMLElementTagNameMap[K] = document.createElement(tag);
         if (options) {
             if (typeof options === "string" || options instanceof Node) {
@@ -30,7 +35,7 @@ function createFunction<K extends keyof HTMLElementTagNameMap>(tag: K) {
     };
 }
 
-function setOptions<K extends keyof HTMLElementTagNameMap>(options: Options, dom: HTMLElementTagNameMap[K]) {
+function setOptions<K extends Tags>(options: Options, dom: HTMLElementTagNameMap[K]) {
     for (const key of Object.keys(options)) {
         const value = (options as any)[key];
         if (value instanceof Binding) {
@@ -51,7 +56,7 @@ export const textarea = createFunction("textarea");
 export const select = createFunction("select");
 export const option = createFunction("option");
 export const label = createFunction("label");
-export const img = createFunction("img");
+export const img = createFunction<"img", ImgOptions>("img");
 export const a = createFunction("a");
 export const br = createFunction("br");
 export const hr = createFunction("hr");

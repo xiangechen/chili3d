@@ -1,14 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDisposable } from "chili-core";
+import { IConverter, IDisposable } from "chili-core";
+
+export type Key = string | number | symbol;
+
+export type Mode = "one-way" | "two-way";
 
 export class Binding implements IDisposable {
     static #bindins = new WeakMap<any, Set<Binding>>();
-    #cache = new Set<[any, string | number | symbol]>();
+    #cache = new Set<[any, Key]>();
 
-    constructor(readonly dataContext: any, readonly path: string | number | symbol) {
-        this.dataContext.onPropertyChanged?.(this.onPropertyChanged);
+    constructor(
+        readonly dataContext: any,
+        readonly path: Key,
+        readonly converter?: IConverter,
+        readonly mode?: Mode
+    ) {
         this.cacheBinding(dataContext);
+        this.dataContext.onPropertyChanged?.(this.onPropertyChanged);
     }
 
     private cacheBinding(dataContext: any) {
@@ -26,9 +35,9 @@ export class Binding implements IDisposable {
         }
     }
 
-    add<T>(target: T, key: keyof T) {
+    add<T extends HTMLElement>(target: T, key: keyof T) {
         this.#cache.add([target, key]);
-        target[key] = this.dataContext[this.path];
+        this.setValue(target, key);
     }
 
     remove<T>(target: T, key: keyof T) {
@@ -38,10 +47,18 @@ export class Binding implements IDisposable {
     private onPropertyChanged = (prop: string) => {
         if (prop === this.path) {
             this.#cache.forEach(([target, key]) => {
-                target[key] = this.dataContext[this.path];
+                this.setValue(target, key);
             });
         }
     };
+
+    private setValue(target: any, key: Key) {
+        let value = this.dataContext[this.path];
+        if (this.converter) {
+            value = this.converter.convert(value);
+        }
+        target[key] = value;
+    }
 
     dispose() {
         this.dataContext.removePropertyChanged?.(this.onPropertyChanged);
@@ -49,6 +66,6 @@ export class Binding implements IDisposable {
     }
 }
 
-export function bind<T>(dataContext: T, path: keyof T) {
-    return new Binding(dataContext, path);
+export function bind<T>(dataContext: T, path: keyof T, converter?: IConverter, mode: Mode = "one-way") {
+    return new Binding(dataContext, path, converter, mode);
 }
