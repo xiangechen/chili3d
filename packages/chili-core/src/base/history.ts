@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { INode, INodeLinkedList } from "../model";
-import { CollectionAction, ICollection } from "./collection";
 import { IDisposable } from "./disposable";
 
 export interface IHistoryRecord {
@@ -84,33 +83,6 @@ export class PropertyHistoryRecord implements IHistoryRecord {
 
     redo(): void {
         this.object[this.property] = this.newValue;
-    }
-}
-
-export class CollectionHistoryRecord<T> implements IHistoryRecord {
-    readonly name: string;
-    constructor(
-        readonly collection: ICollection<T>,
-        readonly action: CollectionAction,
-        readonly items: T[]
-    ) {
-        this.name = `collection ${action}`;
-    }
-
-    undo(): void {
-        if (this.action === CollectionAction.add) {
-            this.collection.remove(...this.items);
-        } else if (this.action === CollectionAction.remove) {
-            this.collection.add(...this.items);
-        }
-    }
-
-    redo(): void {
-        if (this.action === CollectionAction.add) {
-            this.collection.add(...this.items);
-        } else if (this.action === CollectionAction.remove) {
-            this.collection.remove(...this.items);
-        }
     }
 }
 
