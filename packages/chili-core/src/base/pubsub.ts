@@ -32,6 +32,7 @@ export interface PubSubEventMap {
     clearSelectionControl: () => void;
     openContextTab: (command: ICommand) => void;
     closeContextTab: () => void;
+    showHome: () => void;
 }
 
 export class PubSub implements IDisposable {

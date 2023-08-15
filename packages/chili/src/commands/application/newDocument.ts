@@ -5,13 +5,13 @@ import { Document } from "../../document";
 
 @command({
     name: "NewDocument",
-    display: "command.open",
+    display: "command.document.new",
     icon: "icon-new",
 })
 export class NewDocument implements ICommand {
     async execute(app: Application): Promise<void> {
         if (app.activeDocument) {
-            await app.activeDocument.save();
+            //await app.activeDocument.save();
             await app.activeDocument.close();
         }
         let document = new Document("test");

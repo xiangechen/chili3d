@@ -4,7 +4,7 @@ import { Application, command, ICommand } from "chili-core";
 
 @command({
     name: "SaveDocument",
-    display: "command.save",
+    display: "command.document.save",
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {

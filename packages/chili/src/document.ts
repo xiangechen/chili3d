@@ -94,7 +94,7 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     async close() {
-        await this.save();
+        // await this.save();
         this.dispose();
         Logger.info(`document: ${this._name} closed`);
         PubSub.default.pub("documentClosed", this);

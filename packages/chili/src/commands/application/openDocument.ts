@@ -5,7 +5,7 @@ import { Document } from "../../document";
 
 @command({
     name: "OpenDocument",
-    display: "command.open",
+    display: "command.document.open",
     icon: "icon-open",
 })
 export class OpenDocument implements ICommand {
