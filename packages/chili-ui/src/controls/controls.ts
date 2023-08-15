@@ -26,8 +26,10 @@ function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
         if (options) {
             if (typeof options === "string" || options instanceof Node) {
                 dom.append(options);
-            } else {
+            } else if (typeof options === "object") {
                 setOptions<K>(options, dom);
+            } else {
+                throw new Error("Invalid options");
             }
         }
         dom.append(...children);
