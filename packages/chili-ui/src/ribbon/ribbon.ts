@@ -11,13 +11,14 @@ import { RibbonData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 import { RibbonTab } from "./ribbonTab";
 import { TitleBar } from "./titlebar";
+import { label, localize } from "../controls";
 
 export class Ribbon extends Control {
     readonly titlebar: TitleBar = new TitleBar();
     private readonly _tabs: Array<RibbonTab> = [];
     private readonly _ribbonPanel: Panel;
     private readonly _ribbonHeader: Panel;
-    private readonly startup: Label = new Label().i18nText("ribbon.tab.file").addClass(style.startup);
+    private readonly startup: HTMLLabelElement;
     private _selected?: RibbonTab;
     private _selectionControl?: RibbonGroup;
     private _contextTab?: RibbonTab;
@@ -25,6 +26,11 @@ export class Ribbon extends Control {
 
     constructor() {
         super(style.root);
+        this.startup = label({
+            className: style.startup,
+            textContent: localize("ribbon.tab.file"),
+            onclick: () => PubSub.default.pub("showHome"),
+        });
         this._ribbonHeader = new Panel().addClass(style.headerPanel).addItem(this.startup);
         this._ribbonPanel = new Panel().addClass(style.contentPanel);
         this.append(this.titlebar, this._ribbonHeader, this._ribbonPanel);

@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, Constants, ICommand, command } from "chili-core";
+import { ICommand, Serialized, command } from "chili-core";
 import { Document } from "../../document";
+import { Application } from "../../application";
 
 @command({
     name: "OpenDocument",
@@ -10,13 +11,26 @@ import { Document } from "../../document";
 })
 export class OpenDocument implements ICommand {
     async execute(app: Application): Promise<void> {
-        if (app.activeDocument) {
-            await app.activeDocument.save();
-            await app.activeDocument.close();
-        }
-        let data = (await app.storage.page(Constants.DBName, Constants.DocumentTableName, 0)).at(-1);
-        let document = await Document.open(data.id);
-
-        app.activeDocument = document;
+        let input = document.createElement("input");
+        input.setAttribute("type", "file");
+        input.setAttribute("style", "visibility:hidden");
+        input.setAttribute("accept", ".cd");
+        input.onchange = () => {
+            let file = input.files?.item(0);
+            if (file) {
+                let reader = new FileReader();
+                reader.onload = async (e) => {
+                    let data = e.target?.result as string;
+                    let json: Serialized = JSON.parse(data);
+                    if (app.activeDocument) {
+                        await app.activeDocument.close();
+                    }
+                    app.activeDocument = Document.load(json);
+                };
+                reader.readAsText(file);
+            }
+        };
+        document.body.appendChild(input);
+        input.click();
     }
 }

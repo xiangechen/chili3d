@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, AsyncState, ICommand, IDocument, Observable, Property, PubSub } from "chili-core";
+import { AsyncState, ICommand, IDocument, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
+import { Application } from "../application";
 
 const PropertiesCache: Map<string, any> = new Map(); // 所有命令共享
 

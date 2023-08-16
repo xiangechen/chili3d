@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IResolve, IStorage, Logger, PubSub, Token } from "chili-core";
+import { IDocument, IResolve, IService, IStorage, Logger, PubSub, Token } from "chili-core";
 import { IShapeFactory } from "chili-geo";
-import { IndexedDBStorage } from "chili-storage";
 import { IVisualFactory } from "chili-vis";
-import { IService } from "./service";
+import { Document } from "chili";
 
 export class Application {
     private static _instance: Application | undefined;
@@ -37,6 +36,10 @@ export class Application {
         this.shapeFactory = this.resolveOrThrow<IShapeFactory>(Token.ShapeFactory);
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
+
+        PubSub.default.sub("openDocument", async (id) => {
+            this.activeDocument = await Document.open(id);
+        });
     }
 
     private resolveOrThrow<T>(token: Token): T {

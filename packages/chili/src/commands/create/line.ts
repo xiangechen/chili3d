@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, GeometryModel, IDocument, Precision, Property, XYZ, command } from "chili-core";
+import { GeometryModel, IDocument, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
+import { Application } from "../../application";
 
 @command({
     name: "Line",

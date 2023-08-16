@@ -77,6 +77,21 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         }
     }
 
+    clear() {
+        let items = this.#items;
+        this.#items = [];
+        this.#callbacks.forEach((callback) =>
+            callback({
+                action: CollectionAction.remove,
+                items,
+            })
+        );
+    }
+
+    get length() {
+        return this.#items.length;
+    }
+
     replace(index: number, ...items: T[]) {
         if (index >= 0 && index < this.#items.length) {
             let item = this.#items[index];

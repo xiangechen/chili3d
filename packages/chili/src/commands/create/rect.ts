@@ -1,12 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { GeometryModel, IDocument, MathUtils, Plane, XYZ, command } from "chili-core";
-import { Application } from "chili-core/src/application";
-
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
+import { Application } from "../../application";
 
 export interface RectData {
     plane: Plane;

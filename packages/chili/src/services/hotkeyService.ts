@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, Commands, Lazy, Logger, PubSub, IService } from "chili-core";
+import { Commands, Lazy, Logger, PubSub, IService } from "chili-core";
+import { Application } from "../application";
 
 export interface Keys {
     key: string;

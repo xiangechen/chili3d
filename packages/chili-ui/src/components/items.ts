@@ -1,25 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
-import { Options, ul } from "../controls";
+import { Options, div } from "../controls";
 
 export interface ItemsOption extends Options {
     sources: ObservableCollection<any>;
-    template: (item: any) => HTMLLIElement;
+    template: (item: any) => HTMLDivElement;
 }
 
 export const Items = (option: ItemsOption) => {
-    const itemMap = new Map<any, HTMLLIElement>();
-    let container = ul({ ...option }, ...mapItems(option.sources.items, option.template, itemMap));
+    const itemMap = new Map<any, HTMLDivElement>();
+    let container = div({ ...option }, ...mapItems(option.sources.items, option.template, itemMap));
     const onCollectionChanged = collectionChangedFunction(container, option, itemMap);
     option.sources.onCollectionChanged(onCollectionChanged);
     return container;
 };
 
 function collectionChangedFunction(
-    container: HTMLUListElement,
+    container: HTMLDivElement,
     option: ItemsOption,
-    itemMap: Map<any, HTMLLIElement>
+    itemMap: Map<any, HTMLDivElement>
 ) {
     return (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
@@ -36,18 +36,18 @@ function collectionChangedFunction(
     };
 }
 
-function moveItem(container: HTMLUListElement, from: number, to: number) {
+function moveItem(container: HTMLDivElement, from: number, to: number) {
     let item1 = container.children.item(from);
     let item2 = container.children.item(to);
     if (item1 && item2) container.insertBefore(item1, item2);
 }
 
 function replaceItem(
-    container: HTMLUListElement,
+    container: HTMLDivElement,
     item: any,
     items: any[],
-    template: (item: any) => HTMLLIElement,
-    itemMap: Map<any, HTMLLIElement>
+    template: (item: any) => HTMLDivElement,
+    itemMap: Map<any, HTMLDivElement>
 ) {
     let child = itemMap.get(item);
     if (child) {
@@ -60,7 +60,7 @@ function replaceItem(
     }
 }
 
-function mapItems(items: any[], template: (item: any) => HTMLLIElement, itemMap: Map<any, HTMLLIElement>) {
+function mapItems(items: any[], template: (item: any) => HTMLDivElement, itemMap: Map<any, HTMLDivElement>) {
     return items.map((item) => {
         if (itemMap.has(item)) return itemMap.get(item)!;
         let e = template(item);
@@ -69,7 +69,7 @@ function mapItems(items: any[], template: (item: any) => HTMLLIElement, itemMap:
     });
 }
 
-function removeItem(container: HTMLUListElement, items: any[], itemMap: Map<any, HTMLLIElement>) {
+function removeItem(container: HTMLDivElement, items: any[], itemMap: Map<any, HTMLDivElement>) {
     items.forEach((item) => {
         if (itemMap.has(item)) {
             container.removeChild(itemMap.get(item)!);

@@ -94,8 +94,11 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return renderer;
     }
 
-    toImage(): string {
-        return this.renderer.domElement.toDataURL();
+    toImage(): Promise<string> {
+        return new Promise((resolve, reject) => {
+            this._renderer.render(this._scene, this._camera);
+            resolve(this.renderer.domElement.toDataURL());
+        });
     }
 
     lookAt(eye: XYZ, target: XYZ): void {

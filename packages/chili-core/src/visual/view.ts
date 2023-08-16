@@ -15,7 +15,7 @@ export interface IView extends IPropertyChanged {
     workplane: Plane;
     redraw(): void;
     up(): XYZ;
-    toImage(): string;
+    toImage(): Promise<string>;
     direction(): XYZ;
     lookAt(cameraLocation: XYZ, target: XYZ): void;
     rayAt(mx: number, my: number): Ray;

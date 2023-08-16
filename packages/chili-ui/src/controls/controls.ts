@@ -17,6 +17,10 @@ export interface ImgOptions extends Options {
     src?: string | Binding;
 }
 
+export interface AOptions extends Options {
+    href?: string | Binding;
+}
+
 export type ChildDom = string | Node;
 type Tags = keyof HTMLElementTagNameMap;
 
@@ -59,7 +63,7 @@ export const select = createFunction("select");
 export const option = createFunction("option");
 export const label = createFunction("label");
 export const img = createFunction<"img", ImgOptions>("img");
-export const a = createFunction("a");
+export const a = createFunction<"a", AOptions>("a");
 export const br = createFunction("br");
 export const hr = createFunction("hr");
 export const pre = createFunction("pre");

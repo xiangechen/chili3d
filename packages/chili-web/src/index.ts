@@ -2,8 +2,7 @@
 
 import "reflect-metadata"; // 使用依赖注入时，必须导入
 
-import { Application, Logger } from "chili-core";
-import { Document } from "chili";
+import { Logger } from "chili-core";
 import { AppBuilder } from "./appBuilder";
 import { Loading } from "./loading";
 
@@ -19,7 +18,6 @@ new AppBuilder()
     .build()
     .then(x => {
         document.body.removeChild(loading)
-        Application.instance.activeDocument = new Document("test")
     })
     .catch((err) => {
         Logger.error(err);

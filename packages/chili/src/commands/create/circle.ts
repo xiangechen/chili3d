@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, GeometryModel, IDocument, Plane, XYZ, command, injectable } from "chili-core";
+import { GeometryModel, IDocument, Plane, XYZ, command, injectable } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
+import { Application } from "../../application";
 
 @injectable()
 @command({

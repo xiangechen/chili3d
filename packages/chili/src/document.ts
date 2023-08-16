@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    Application,
     Constants,
     History,
     IDocument,
@@ -21,6 +20,7 @@ import {
     Serialized,
     Serializer,
 } from "chili-core";
+import { Application } from "./application";
 
 export class Document extends Observable implements IDocument, ISerialize {
     readonly visual: IVisual;
@@ -90,11 +90,18 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     async save() {
         let data = this.serialize();
-        await Application.instance.storage.put(Constants.DBName, Constants.DocumentTableName, this.id, data);
+        await Application.instance.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
+        let image = await this.visual.viewer.activeView?.toImage();
+        await Application.instance.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
+            id: this.id,
+            name: this.name,
+            date: Date.now(),
+            image,
+        });
     }
 
     async close() {
-        // await this.save();
+        await this.save();
         this.dispose();
         Logger.info(`document: ${this._name} closed`);
         PubSub.default.pub("documentClosed", this);
@@ -103,7 +110,7 @@ export class Document extends Observable implements IDocument, ISerialize {
     static async open(id: string) {
         let data = (await Application.instance.storage.get(
             Constants.DBName,
-            Constants.DocumentTableName,
+            Constants.DocumentTable,
             id
         )) as Serialized;
         if (data === undefined) {
@@ -115,7 +122,7 @@ export class Document extends Observable implements IDocument, ISerialize {
         return document;
     }
 
-    private static load(data: Serialized) {
+    static load(data: Serialized) {
         let document = new Document(data.constructorParameters["name"], data.constructorParameters["id"]);
         document.history.disabled = true;
         document._rootNode = Serializer.deserialize(document, data.properties["rootNode"]);

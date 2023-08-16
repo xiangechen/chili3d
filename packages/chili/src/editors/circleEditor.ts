@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IDocument, Plane, XYZ } from "chili-core";
-import { Application } from "chili-core/src/application";
 import { CircleBody } from "../bodys";
 import { Dimension, LengthAtPlaneSnapper, PointSnapper, Snapper } from "../snap";
 import { EditorEventHandler, FeaturePoint } from "./eventHandler";
+import { Application } from "../application";
 
 export class CircleEditorEventHandler extends EditorEventHandler {
     private xVector: XYZ;

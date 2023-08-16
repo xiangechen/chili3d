@@ -1,16 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Application,
-    CommandData,
-    Container,
-    IRegister,
-    IService,
-    IStorage,
-    Logger,
-    Token,
-} from "chili-core";
 import { CommandService, EditorService, HotkeyService } from "chili";
+import { CommandData, Container, IRegister, IService, IStorage, Logger, Token } from "chili-core";
+import { Application } from "chili/src/application";
 
 export class AppBuilder {
     private _inits: (() => Promise<void>)[];
@@ -69,7 +61,7 @@ export class AppBuilder {
             }
 
             let ui = await import("chili-ui");
-            ui.UI.instance.init(this.storage(), root);
+            ui.MainWindow.instance.init(this.storage(), root);
         });
         return this;
     }

@@ -2,4 +2,4 @@
 
 export * from "./controls/controls";
 export * from "./dialog";
-export * from "./ui";
+export * from "./mainWindow";

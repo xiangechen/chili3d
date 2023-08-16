@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application, command, ICommand, NodeLinkedList } from "chili-core";
+import { command, ICommand, NodeLinkedList } from "chili-core";
+import { Application } from "../application";
 
 let index: number = 1;
 
