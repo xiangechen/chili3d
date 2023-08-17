@@ -1,11 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, IDocument, GeometryModel, Plane, XYZ } from "chili-core";
+import { GeometryModel, Plane, XYZ, command } from "chili-core";
 import { BoxBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
-import { Application } from "../../application";
 
 @command({
     name: "Box",
@@ -32,20 +31,16 @@ export class Box extends RectCommandBase {
     private previewBox = (end: XYZ) => {
         let data = this.getRectData(end);
         return [
-            Application.instance.shapeFactory.box(
-                data.plane,
-                data.dx,
-                data.dy,
-                this.getHeight(data.plane, end)
-            ).value?.mesh.edges!,
+            this.application.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
+                .value?.mesh.edges!,
         ];
     };
 
-    protected create(document: IDocument): GeometryModel {
+    protected create(): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
         let dz = this.getHeight(rect.plane, this.stepDatas[2].point);
-        let body = new BoxBody(document, rect.plane, rect.dx, rect.dy, dz);
-        return new GeometryModel(document, `Box ${Box.count++}`, body);
+        let body = new BoxBody(this.document, rect.plane, rect.dx, rect.dy, dz);
+        return new GeometryModel(this.document, `Box ${Box.count++}`, body);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

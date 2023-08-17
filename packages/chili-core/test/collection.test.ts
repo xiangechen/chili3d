@@ -1,5 +1,4 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
-import "reflect-metadata";
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "../src";
 
 describe("ObservableCollection test", () => {
@@ -44,7 +43,7 @@ describe("ObservableCollection test", () => {
                 expect(collection.items).toStrictEqual([1, 3, 2, 3]);
                 expect(arg.items).toStrictEqual([3, 2]);
                 expect(arg.items.length).toBe(2);
-                expect(arg.item).toBe(1);
+                expect(arg.item).toBe(2);
             }
         });
         collection.replace(1, 3, 2);

@@ -5,6 +5,8 @@ import { I18n } from "../i18n";
 
 const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
 
+export type CommandConstructor = new (...args: any[]) => ICommand;
+
 export interface CommandData {
     name: keyof Commands;
     display: keyof I18n;
@@ -13,17 +15,15 @@ export interface CommandData {
     helpUrl?: string;
 }
 
-export function command<T extends new (...args: any[]) => ICommand>(commandData: CommandData) {
+export function command<T extends CommandConstructor>(commandData: CommandData) {
     return (ctor: T) => {
         CommandMap.set(commandData.name, ctor);
         ctor.prototype.data = commandData;
     };
 }
 
-export namespace CommandData {
-    export function get(
-        command: string | ICommand | (new (...args: any[]) => ICommand)
-    ): CommandData | undefined {
+export namespace Command {
+    export function getData(command: string | ICommand | CommandConstructor): CommandData | undefined {
         if (typeof command === "string") {
             let c = CommandMap.get(command);
             return c?.prototype.data;
@@ -32,5 +32,9 @@ export namespace CommandData {
         } else {
             return Object.getPrototypeOf(command).data;
         }
+    }
+
+    export function get(name: keyof Commands): CommandConstructor | undefined {
+        return CommandMap.get(name);
     }
 }

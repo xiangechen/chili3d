@@ -340,8 +340,8 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return detecteds;
     }
 
-    detected(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean): VisualShapeData[] {
-        let intersections = this.findIntersections(shapeType, mx, my, firstHitOnly);
+    detected(shapeType: ShapeType, mx: number, my: number): VisualShapeData[] {
+        let intersections = this.findIntersections(shapeType, mx, my);
         return shapeType === ShapeType.Shape
             ? this.detectThreeShapes(intersections)
             : this.detectSubShapes(shapeType, intersections);
@@ -393,8 +393,8 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return { groupIndex, groups };
     }
 
-    private findIntersections(shapeType: ShapeType, mx: number, my: number, firstHitOnly: boolean) {
-        let raycaster = this.initRaycaster(mx, my, firstHitOnly);
+    private findIntersections(shapeType: ShapeType, mx: number, my: number) {
+        let raycaster = this.initRaycaster(mx, my);
         let shapes = this.initIntersectableObjects(shapeType);
         return raycaster.intersectObjects(shapes, false);
     }
@@ -416,13 +416,12 @@ export class ThreeView extends Observable implements IView, IDisposable {
         return shapes;
     }
 
-    private initRaycaster(mx: number, my: number, firstHitOnly: boolean) {
+    private initRaycaster(mx: number, my: number) {
         let threshold = Constants.RaycasterThreshold * this.scale;
         let raycaster = new Raycaster();
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         let ray = this.rayAt(mx, my);
         raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
-        raycaster.firstHitOnly = firstHitOnly;
         return raycaster;
     }
 }

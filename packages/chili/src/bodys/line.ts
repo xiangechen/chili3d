@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Body, I18n, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
-import { Application } from "../application";
 
 export class LineBody extends Body {
     readonly name: keyof I18n = "body.line";
@@ -40,6 +39,6 @@ export class LineBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return Application.instance.shapeFactory.line(this._start, this._end);
+        return this.document.application.shapeFactory.line(this._start, this._end);
     }
 }

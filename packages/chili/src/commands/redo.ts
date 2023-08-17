@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand } from "chili-core";
-import { Application } from "../application";
+import { command, IApplication, ICommand } from "chili-core";
 
 @command({
     name: "Redo",
@@ -9,7 +8,7 @@ import { Application } from "../application";
     icon: "icon-redo",
 })
 export class Redo implements ICommand {
-    async execute(app: Application): Promise<void> {
+    async execute(app: IApplication): Promise<void> {
         let document = app.activeDocument!;
         document.selection.clearSelected();
         document.history.redo();

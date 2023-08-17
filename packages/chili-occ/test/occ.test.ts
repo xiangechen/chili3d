@@ -1,7 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata";
-
 import { expect, jest, test } from "@jest/globals";
 import { CurveType, Id, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";

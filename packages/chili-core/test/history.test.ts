@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata";
-
-import { ArrayRecord, PropertyHistoryRecord, History } from "chili-core";
+import { ArrayRecord, History, PropertyHistoryRecord } from "chili-core";
 
 describe("test history", () => {
     class TestClass {

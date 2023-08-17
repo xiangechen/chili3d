@@ -5,7 +5,6 @@ import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
-import { Application } from "../../application";
 
 export interface RectData {
     plane: Plane;
@@ -50,7 +49,7 @@ export abstract class RectCommandBase extends CreateCommand {
 
     private previewRect = (end: XYZ) => {
         let data = this.getRectData(end);
-        return [Application.instance.shapeFactory.rect(data.plane, data.dx, data.dy).value?.mesh.edges!];
+        return [this.application.shapeFactory.rect(data.plane, data.dx, data.dy).value?.mesh.edges!];
     };
 
     protected getRectData(point: XYZ): RectData {
@@ -67,10 +66,10 @@ export abstract class RectCommandBase extends CreateCommand {
 export class Rect extends RectCommandBase {
     private static count: number = 1;
 
-    protected create(document: IDocument): GeometryModel {
+    protected create(): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
-        let body = new RectBody(document, rect.plane, rect.dx, rect.dy);
-        return new GeometryModel(document, `Rect ${Rect.count++}`, body);
+        let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
+        return new GeometryModel(this.document, `Rect ${Rect.count++}`, body);
     }
 
     constructor() {

@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ICommand, command } from "chili-core";
-import { Document } from "../../document";
-import { Application } from "../../application";
+import { IApplication, ICommand, command } from "chili-core";
 
 let count = 1;
 
@@ -12,11 +10,7 @@ let count = 1;
     icon: "icon-new",
 })
 export class NewDocument implements ICommand {
-    async execute(app: Application): Promise<void> {
-        if (app.activeDocument) {
-            await app.activeDocument.close();
-        }
-        let document = new Document(`undefined ${count}`);
-        app.activeDocument = document;
+    async execute(app: IApplication): Promise<void> {
+        app.newDocument(`undefined ${count}`);
     }
 }

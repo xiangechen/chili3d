@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, PubSub, IService, Logger, Lazy, INode } from "chili-core";
+import { IApplication, IDocument, INode, IService, Lazy, Logger, PubSub } from "chili-core";
 import { CircleBody, LineBody } from "../bodys";
 import { EditorEventHandler, LineEditorEventHandler } from "../editors";
 import { CircleEditorEventHandler } from "../editors/circleEditor";
-import { Application } from "../application";
 
 export class EditorService implements IService {
     private static readonly _lazy = new Lazy(() => new EditorService());
@@ -15,7 +14,7 @@ export class EditorService implements IService {
 
     private handler?: EditorEventHandler;
 
-    register(_app: Application): void {
+    register(_app: IApplication): void {
         Logger.info(`${EditorService.name} registed`);
     }
 

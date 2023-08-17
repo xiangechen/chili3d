@@ -2,7 +2,7 @@
 
 import {
     Constants,
-    IStorage,
+    IApplication,
     Lazy,
     Observable,
     ObservableCollection,
@@ -34,7 +34,7 @@ export class MainWindow {
         return this.#lazy.value;
     }
 
-    #storage?: IStorage;
+    #app?: IApplication;
     #home: HTMLElement;
     #editor: HTMLElement;
     readonly #vm: MainWindowViewModel = new MainWindowViewModel();
@@ -45,8 +45,8 @@ export class MainWindow {
         this.#editor = new Editor();
     }
 
-    async init(storage: IStorage, root: HTMLElement) {
-        this.#storage = storage;
+    async init(app: IApplication, root: HTMLElement) {
+        this.#app = app;
         this.setTheme("light");
         root.append(this.#home, this.#editor);
 
@@ -55,7 +55,7 @@ export class MainWindow {
     }
 
     private onDocumentClick = (document: RecentDocumentDTO) => {
-        PubSub.default.pub("openDocument", document.id);
+        this.#app?.openDocument(document.id);
     };
 
     private onPropertyChanged = (p: keyof MainWindowViewModel) => {
@@ -66,9 +66,9 @@ export class MainWindow {
 
     private async setHomeDisplay() {
         this.#home.style.display = this.#vm.displayHome ? "" : "none";
-        if (this.#vm.displayHome && this.#storage) {
+        if (this.#vm.displayHome && this.#app) {
             this.#documents.clear();
-            let datas = await this.#storage.page(Constants.DBName, Constants.RecentTable, 0);
+            let datas = await this.#app.storage.page(Constants.DBName, Constants.RecentTable, 0);
             this.#documents.add(...datas);
         }
     }

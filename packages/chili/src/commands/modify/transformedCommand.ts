@@ -48,12 +48,14 @@ export abstract class TransformedCommand extends MultistepCommand {
         return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Solid);
     }
 
-    protected override async beforeExecute(document: IDocument): Promise<boolean> {
-        await super.beforeExecute(document);
-        this.models = document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
+    protected override async beforeExecute(): Promise<boolean> {
+        await super.beforeExecute();
+        this.models = this.document.selection
+            .getSelectedNodes()
+            .filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.token = new AsyncState();
-            this.models = await Selection.pickModel(document, "prompt.select.models", this.token);
+            this.models = await Selection.pickModel(this.document, "prompt.select.models", this.token);
             if (this.restarting || this.models.length === 0) {
                 alert(i18n["prompt.select.noModelSelected"]);
                 return false;
@@ -68,8 +70,8 @@ export abstract class TransformedCommand extends MultistepCommand {
         return true;
     }
 
-    protected executeMainTask(document: IDocument): void {
-        Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+    protected executeMainTask(): void {
+        Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let transform = this.transfrom(this.stepDatas.at(-1)!.point);
             let models = this.models;
             if (this.isClone) {
@@ -78,7 +80,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             models?.forEach((x) => {
                 x.matrix = x.matrix.multiply(transform);
             });
-            document.visual.viewer.redraw();
+            this.document.visual.viewer.redraw();
         });
     }
 }

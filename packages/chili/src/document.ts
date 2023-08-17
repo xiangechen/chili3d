@@ -3,6 +3,7 @@
 import {
     Constants,
     History,
+    IApplication,
     IDocument,
     IModel,
     INode,
@@ -20,7 +21,6 @@ import {
     Serialized,
     Serializer,
 } from "chili-core";
-import { Application } from "./application";
 
 export class Document extends Observable implements IDocument, ISerialize {
     readonly visual: IVisual;
@@ -28,7 +28,6 @@ export class Document extends Observable implements IDocument, ISerialize {
     readonly selection: SelectionManager;
 
     private _name: string;
-
     get name(): string {
         return this._name;
     }
@@ -37,7 +36,6 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     private _rootNode: INodeLinkedList | undefined;
-
     get rootNode(): INodeLinkedList {
         if (this._rootNode === undefined) {
             this._rootNode = new NodeLinkedList(this, this._name);
@@ -46,20 +44,18 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     private _currentNode?: INodeLinkedList;
-
     get currentNode(): INodeLinkedList | undefined {
         return this._currentNode;
     }
-
     set currentNode(value: INodeLinkedList | undefined) {
         this.setProperty("currentNode", value);
     }
 
-    constructor(name: string, readonly id: string = Id.new()) {
+    constructor(readonly application: IApplication, name: string, readonly id: string = Id.new()) {
         super();
         this._name = name;
         this.history = new History();
-        this.visual = Application.instance.visualFactory.create(this);
+        this.visual = application.visualFactory.create(this);
         this.selection = new SelectionManager(this);
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`new document: ${name}`);
@@ -90,9 +86,9 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     async save() {
         let data = this.serialize();
-        await Application.instance.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
+        await this.application.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
         let image = await this.visual.viewer.activeView?.toImage();
-        await Application.instance.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
+        await this.application.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
             id: this.id,
             name: this.name,
             date: Date.now(),
@@ -105,10 +101,11 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.dispose();
         Logger.info(`document: ${this._name} closed`);
         PubSub.default.pub("documentClosed", this);
+        this.application.activeDocument = undefined;
     }
 
-    static async open(id: string) {
-        let data = (await Application.instance.storage.get(
+    static async open(application: IApplication, id: string) {
+        let data = (await application.storage.get(
             Constants.DBName,
             Constants.DocumentTable,
             id
@@ -117,13 +114,17 @@ export class Document extends Observable implements IDocument, ISerialize {
             Logger.warn(`document: ${id} not find`);
             return;
         }
-        let document = this.load(data);
+        let document = this.load(application, data);
         Logger.info(`document: ${document.name} opened`);
         return document;
     }
 
-    static load(data: Serialized) {
-        let document = new Document(data.constructorParameters["name"], data.constructorParameters["id"]);
+    static load(app: IApplication, data: Serialized) {
+        let document = new Document(
+            app,
+            data.constructorParameters["name"],
+            data.constructorParameters["id"]
+        );
         document.history.disabled = true;
         document._rootNode = Serializer.deserialize(document, data.properties["rootNode"]);
         document.history.disabled = false;

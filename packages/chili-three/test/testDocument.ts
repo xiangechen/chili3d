@@ -2,6 +2,7 @@
 
 import {
     History,
+    IApplication,
     IDocument,
     INode,
     INodeLinkedList,
@@ -12,6 +13,7 @@ import {
 import { ThreeVisual } from "../src/threeVisual";
 
 export class TestDocument implements IDocument {
+    application: IApplication;
     name: string;
     currentNode: INodeLinkedList | undefined;
     id: string;
@@ -41,6 +43,7 @@ export class TestDocument implements IDocument {
         this.history = {} as any;
         this.selection = {} as any;
         this.rootNode = {} as any;
+        this.application = {} as any;
     }
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");

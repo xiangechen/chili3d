@@ -1,13 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, IDocument, Plane, XYZ, command, injectable } from "chili-core";
+import { GeometryModel, Plane, XYZ, command } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
-import { Application } from "../../application";
 
-@injectable()
 @command({
     name: "Circle",
     display: "command.circle",
@@ -34,18 +32,18 @@ export class Circle extends CreateCommand {
         };
     };
 
-    create(document: IDocument): GeometryModel {
+    create(): GeometryModel {
         let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
         let plane = this.stepDatas[0].view.workplane;
-        let body = new CircleBody(document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
-        return new GeometryModel(document, `Circle ${Circle.count++}`, body);
+        let body = new CircleBody(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        return new GeometryModel(this.document, `Circle ${Circle.count++}`, body);
     }
 
     private circlePreview = (point: XYZ) => {
         let start = this.stepDatas[0].point;
         let plane = this.stepDatas[0].view.workplane;
         return [
-            Application.instance.shapeFactory.circle(
+            this.application.shapeFactory.circle(
                 plane.normal,
                 start,
                 this.getDistanceAtPlane(plane, start, point)

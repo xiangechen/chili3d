@@ -4,7 +4,6 @@ import { IDocument, XYZ } from "chili-core";
 import { LineBody } from "../bodys";
 import { Dimension, PointSnapper, Snapper } from "../snap";
 import { EditorEventHandler, FeaturePoint } from "./eventHandler";
-import { Application } from "../application";
 
 export class LineEditorEventHandler extends EditorEventHandler {
     protected points: FeaturePoint[];
@@ -42,6 +41,6 @@ export class LineEditorEventHandler extends EditorEventHandler {
     }
 
     private linePreview = (s: XYZ, e: XYZ) => {
-        return [Application.instance.shapeFactory.line(s, e).value!.mesh.edges!];
+        return [this.document.application.shapeFactory.line(s, e).value!.mesh.edges!];
     };
 }

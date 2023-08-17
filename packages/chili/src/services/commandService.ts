@@ -1,8 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, ICommand, IService, Lazy, Logger, PubSub, Token } from "chili-core";
+import {
+    Command,
+    Commands,
+    IApplication,
+    ICommand,
+    IService,
+    Lazy,
+    Logger,
+    PubSub,
+    Token,
+} from "chili-core";
 import { NewDocument, OpenDocument } from "../commands";
-import { Application } from "../application";
 
 export class CommandService implements IService {
     private static readonly _lazy = new Lazy(() => new CommandService());
@@ -14,9 +23,9 @@ export class CommandService implements IService {
     private _lastCommand: keyof Commands | undefined;
     private _executingCommand: keyof Commands | undefined;
 
-    private _app: Application | undefined;
+    private _app: IApplication | undefined;
 
-    private get app(): Application {
+    private get app(): IApplication {
         if (this._app === undefined) {
             throw new Error("Executor is not initialized");
         }
@@ -35,7 +44,7 @@ export class CommandService implements IService {
         Logger.info(`${CommandService.name} stoped`);
     }
 
-    register(app: Application) {
+    register(app: IApplication) {
         this._app = app;
         Logger.info(`${CommandService.name} registed`);
     }
@@ -53,7 +62,8 @@ export class CommandService implements IService {
     };
 
     private async executeAsync(commandName: keyof Commands) {
-        let command = this.app.resolve.resolve<ICommand>(new Token(commandName))!;
+        let commandCtor = Command.get(commandName)!;
+        let command = new commandCtor();
         this._executingCommand = commandName;
         await command
             .execute(this.app)
@@ -66,20 +76,18 @@ export class CommandService implements IService {
             });
     }
 
-    private canExecute(commandName: string) {
+    private canExecute(commandName: keyof Commands) {
         if (this._executingCommand) {
             Logger.warn(`command ${this._executingCommand} is executing`);
             return false;
         }
-        if (
-            ![OpenDocument.name, NewDocument.name].includes(commandName) &&
-            this.app.activeDocument === undefined
-        ) {
+        let appCommands: (keyof Commands)[] = ["OpenDocument", "NewDocument"];
+        if (!appCommands.includes(commandName) && this.app.activeDocument === undefined) {
             Logger.error("No active document");
             return false;
         }
-        if (!this.app.resolve.has(new Token(commandName))) {
-            Logger.error(`Unregistered dependency token: ${commandName}`);
+        if (!Command.get(commandName)) {
+            Logger.error(`Can not find ${commandName} command`);
             return false;
         }
         return true;

@@ -16,7 +16,6 @@ export interface PubSubEventMap {
     executeCommand: (commandName: keyof Commands) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
-    openDocument: (id: string) => void;
     documentClosed: (document: IDocument) => void;
     modelUpdate: (model: IModel) => void;
     visibleChanged: (model: IModel) => void;

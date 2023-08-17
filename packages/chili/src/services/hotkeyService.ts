@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, Lazy, Logger, PubSub, IService } from "chili-core";
-import { Application } from "../application";
+import { IApplication, Commands, IService, Lazy, Logger, PubSub } from "chili-core";
 
 export interface Keys {
     key: string;
@@ -29,7 +28,7 @@ export class HotkeyService implements IService {
         return this._lazy.value;
     }
 
-    private app?: Application;
+    private app?: IApplication;
     private readonly _keyMap = new Map<string, keyof Commands>();
 
     private constructor() {
@@ -38,7 +37,7 @@ export class HotkeyService implements IService {
         this.addMap(DefaultKeyMap);
     }
 
-    register(app: Application): void {
+    register(app: IApplication): void {
         this.app = app;
         Logger.info(`${HotkeyService.name} registed`);
     }

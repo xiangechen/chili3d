@@ -1,5 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
+export * from "./application";
 export * from "./base";
 export * from "./command";
 export * from "./config";
@@ -12,10 +13,8 @@ export * from "./editor";
 export * from "./geometry";
 export * from "./i18n";
 export * from "./id";
-export * from "./ioc";
 export * from "./math";
 export * from "./model";
-export * from "./module";
 export * from "./selectionManager";
 export * from "./service";
 export * from "./snapType";

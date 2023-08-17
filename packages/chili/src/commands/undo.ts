@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand } from "chili-core";
-import { Application } from "../application";
+import { command, IApplication, ICommand } from "chili-core";
 
 @command({
     name: "Undo",
@@ -9,7 +8,7 @@ import { Application } from "../application";
     icon: "icon-undo",
 })
 export class Undo implements ICommand {
-    async execute(application: Application): Promise<void> {
+    async execute(application: IApplication): Promise<void> {
         let document = application.activeDocument!;
         document.selection.clearSelected();
         document.history.undo();

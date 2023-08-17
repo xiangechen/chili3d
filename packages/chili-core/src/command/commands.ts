@@ -21,14 +21,4 @@ export class Commands {
     Mirror = "Mirror";
     Rotate = "Rotate";
     Array = "Array";
-
-    private constructor() {}
-
-    private static _instance: Commands | undefined;
-    static get instance() {
-        if (this._instance === undefined) {
-            this._instance = new Commands();
-        }
-        return this._instance;
-    }
 }

@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Application } from "chili/src/application";
+import { IApplication } from "./application";
 
 export interface IService {
-    register(app: Application): void;
+    register(app: IApplication): void;
     start(): void;
     stop(): void;
 }

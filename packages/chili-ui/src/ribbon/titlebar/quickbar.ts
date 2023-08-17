@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, Logger, PubSub } from "chili-core";
+import { Command, Logger, PubSub } from "chili-core";
 import { Control, Svg } from "../../components";
 
 import style from "./quickbar.module.css";
@@ -13,7 +13,7 @@ export class QuickToolbar extends Control {
     addButton(...commands: string[]) {
         let buttons: Svg[] = [];
         for (const command of commands) {
-            let data = CommandData.get(command);
+            let data = Command.getData(command);
             if (data === undefined) {
                 Logger.warn("commandData is undefined");
                 continue;

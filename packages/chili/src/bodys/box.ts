@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Body, I18n, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
-import { Application } from "../application";
 
 export class BoxBody extends Body {
     readonly name: keyof I18n = "body.box";
@@ -72,6 +71,6 @@ export class BoxBody extends Body {
     }
 
     protected generateShape(): Result<IShape> {
-        return Application.instance.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
+        return this.document.application.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
     }
 }

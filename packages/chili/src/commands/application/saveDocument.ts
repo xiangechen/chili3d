@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { command, ICommand } from "chili-core";
-import { Application } from "../../application";
+import { command, IApplication, ICommand } from "chili-core";
 
 @command({
     name: "SaveDocument",
@@ -9,8 +8,7 @@ import { Application } from "../../application";
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {
-    async execute(app: Application): Promise<void> {
-        let document = app.activeDocument!;
-        await document.save();
+    async execute(app: IApplication): Promise<void> {
+        await app.activeDocument?.save();
     }
 }

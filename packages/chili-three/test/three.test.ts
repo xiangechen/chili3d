@@ -1,12 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata";
-import { expect, jest, test } from "@jest/globals";
-import { GeometryModel, Model, Plane, ShapeType, XY, XYZ } from "chili-core";
+import { expect, test } from "@jest/globals";
+import { GeometryModel, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
+import { TestBody } from "./testEdge";
 import { TestView } from "./testView";
-import { TestBody, TestEdge } from "./testEdge";
-import { shaderFunctions } from "three-mesh-bvh";
 
 describe("three test", () => {
     let doc = new TestDocument();
@@ -27,7 +25,7 @@ describe("three test", () => {
         context.addModel([model]);
         expect(context.getShape(model)).not.toBeNull();
         let mouse = view.worldToScreen(new XYZ(100, 0, 0));
-        let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y, false);
+        let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y);
         expect(shapes.length).toEqual(1);
         expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
 
@@ -36,6 +34,6 @@ describe("three test", () => {
         expect(context.getModel(shape!)).toEqual(model);
 
         context.removeModel([model]);
-        expect(view.detected(ShapeType.Shape, mouse.x, mouse.y, false).length).toEqual(0);
+        expect(view.detected(ShapeType.Shape, mouse.x, mouse.y).length).toEqual(0);
     });
 });

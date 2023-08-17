@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CommandData, I18n, ICommand, Observable, Property } from "chili-core";
+import { Command, I18n, ICommand, Observable, Property } from "chili-core";
 import { Control } from "../components";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -12,7 +12,7 @@ export class CommandContextTab extends RibbonTab {
     private readonly propMap: Map<string | number | symbol, [Property, Control]> = new Map();
 
     constructor(readonly command: ICommand) {
-        super(CommandData.get(command)!.display);
+        super(Command.getData(command)!.display);
         this.initContext();
         if (command instanceof Observable) {
             this.addConnectedCallback(() => {

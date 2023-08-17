@@ -1,14 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, ICommand, IDocument, Observable, Property, PubSub } from "chili-core";
+import { AsyncState, IApplication, ICommand, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
-import { Application } from "../application";
 
 const PropertiesCache: Map<string, any> = new Map(); // 所有命令共享
 
 export abstract class MultistepCommand extends Observable implements ICommand {
     protected stepDatas: SnapedData[] = [];
+
+    #application: IApplication | undefined;
+    get application() {
+        if (!this.#application) {
+            throw new Error("application is not set");
+        }
+        return this.#application;
+    }
+
+    get document() {
+        return this.#application!.activeDocument!;
+    }
 
     private _restarting: boolean = false;
     protected get restarting() {
@@ -45,35 +56,37 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         this.setProperty("repeatOperation", value);
     }
 
-    async execute(application: Application): Promise<void> {
-        await this.executeFromStep(application.activeDocument!, 0);
+    async execute(application: IApplication): Promise<void> {
+        if (!application.activeDocument) return;
+        this.#application = application;
+        await this.executeFromStep(0);
     }
 
-    protected async executeFromStep(document: IDocument, stepIndex: number): Promise<void> {
+    protected async executeFromStep(stepIndex: number): Promise<void> {
         if (this._restarting) {
             this._restarting = false;
         }
         let isCancel = false;
         try {
-            if ((await this.beforeExecute(document)) && (await this.executeSteps(document, stepIndex))) {
-                this.executeMainTask(document);
+            if ((await this.beforeExecute()) && (await this.executeSteps(stepIndex))) {
+                this.executeMainTask();
             } else {
                 isCancel = true;
             }
         } finally {
-            await this.afterExecute(document);
+            await this.afterExecute();
         }
         if (this._restarting || (this.repeatOperation && !isCancel)) {
-            await this.executeFromStep(document, 0);
+            await this.executeFromStep(0);
         }
     }
 
-    private async executeSteps(document: IDocument, startIndex: number): Promise<boolean> {
+    private async executeSteps(startIndex: number): Promise<boolean> {
         this.stepDatas.length = startIndex;
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
             this.token = new AsyncState();
-            let data = await steps[i].execute(document, this.token);
+            let data = await steps[i].execute(this.document, this.token);
             if (this._restarting || data === undefined) {
                 return false;
             }
@@ -84,15 +97,15 @@ export abstract class MultistepCommand extends Observable implements ICommand {
 
     protected abstract getSteps(): IStep[];
 
-    protected abstract executeMainTask(document: IDocument): void;
+    protected abstract executeMainTask(): void;
 
-    protected beforeExecute(document: IDocument): Promise<boolean> {
+    protected beforeExecute(): Promise<boolean> {
         this.readProperties();
         PubSub.default.pub("openContextTab", this);
         return Promise.resolve(true);
     }
 
-    protected afterExecute(document: IDocument): Promise<void> {
+    protected afterExecute(): Promise<void> {
         this.saveProperties();
         PubSub.default.pub("closeContextTab");
         this.token?.dispose();

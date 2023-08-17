@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata";
-
-import { IDocument, History, PropertyHistoryRecord, Transaction } from "../src";
+import { History, IDocument, PropertyHistoryRecord, Transaction } from "../src";
 
 describe("test Transaction", () => {
     test("test static methods", () => {

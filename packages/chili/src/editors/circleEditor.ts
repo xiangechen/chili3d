@@ -4,7 +4,6 @@ import { IDocument, Plane, XYZ } from "chili-core";
 import { CircleBody } from "../bodys";
 import { Dimension, LengthAtPlaneSnapper, PointSnapper, Snapper } from "../snap";
 import { EditorEventHandler, FeaturePoint } from "./eventHandler";
-import { Application } from "../application";
 
 export class CircleEditorEventHandler extends EditorEventHandler {
     private xVector: XYZ;
@@ -62,7 +61,7 @@ export class CircleEditorEventHandler extends EditorEventHandler {
     };
 
     private circlePreview = (c: XYZ, r: number) => {
-        return [Application.instance.shapeFactory.circle(this.circle.normal, c, r).value!.mesh.edges!];
+        return [this.document.application.shapeFactory.circle(this.circle.normal, c, r).value!.mesh.edges!];
     };
 
     private getRadiusPoint() {

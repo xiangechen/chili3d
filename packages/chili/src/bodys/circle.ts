@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Body, I18n, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
-import { Application } from "../application";
 
 export class CircleBody extends Body {
     readonly name: keyof I18n = "body.circle";
@@ -58,6 +57,6 @@ export class CircleBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return Application.instance.shapeFactory.circle(this.normal, this._center, this._radius);
+        return this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
     }
 }

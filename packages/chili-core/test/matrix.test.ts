@@ -1,7 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import "reflect-metadata";
-
 import { Matrix4, Plane, XYZ } from "../src";
 
 describe("test Transform", () => {

@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Body, I18n, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
-import { Application } from "../application";
 
 export class RectBody extends Body {
     readonly name: keyof I18n = "body.rect";
@@ -45,6 +44,6 @@ export class RectBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return Application.instance.shapeFactory.rect(this.plane, this._dx, this._dy);
+        return this.document.application.shapeFactory.rect(this.plane, this._dx, this._dy);
     }
 }

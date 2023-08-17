@@ -1,11 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, IDocument, Precision, Property, XYZ, command } from "chili-core";
+import { GeometryModel, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
-import { Application } from "../../application";
 
 @command({
     name: "Line",
@@ -52,9 +51,9 @@ export class Line extends CreateCommand {
         this.setProperty("isContinue", value);
     }
 
-    create(document: IDocument): GeometryModel {
-        let body = new LineBody(document, this.stepDatas[0].point, this.stepDatas[1].point);
-        return new GeometryModel(document, `Line ${Line.count++}`, body);
+    create(): GeometryModel {
+        let body = new LineBody(this.document, this.stepDatas[0].point, this.stepDatas[1].point);
+        return new GeometryModel(this.document, `Line ${Line.count++}`, body);
     }
 
     getSteps(): IStep[] {
@@ -76,7 +75,7 @@ export class Line extends CreateCommand {
     };
 
     private linePreview = (point: XYZ) => {
-        return [Application.instance.shapeFactory.line(this.stepDatas[0].point, point).value?.mesh.edges!];
+        return [this.application.shapeFactory.line(this.stepDatas[0].point, point).value?.mesh.edges!];
     };
 
     private xlinePreview = (point: XYZ) => {
@@ -88,6 +87,6 @@ export class Line extends CreateCommand {
         let vector = point.sub(this.stepDatas[0].point).normalize()!.multiply(1e6);
         let start = this.stepDatas[0].point.sub(vector);
         let end = this.stepDatas[0].point.add(vector);
-        return Application.instance.shapeFactory.line(start, end).value;
+        return this.application.shapeFactory.line(start, end).value;
     }
 }
