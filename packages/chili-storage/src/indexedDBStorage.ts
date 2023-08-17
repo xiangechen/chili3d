@@ -3,7 +3,7 @@
 import { IStorage, Logger } from "chili-core";
 
 export class IndexedDBStorage implements IStorage {
-    readonly version: number = 2;
+    readonly version: number = 3;
 
     async get(database: string, table: string, id: string): Promise<any> {
         let db = await IndexedDBStorage.open(database, table, this.version);

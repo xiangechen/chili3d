@@ -18,15 +18,6 @@ export class TitleBar extends Control {
         this.quickToolBar = new QuickToolbar();
         this.titleBar = new Title();
         this.append(this.quickToolBar, this.titleBar, this.right);
-
-        let i18n = new Panel().addClass(style.i18n);
-        let svg = new Svg("icon-i18n").addClass(style.i18nIcon);
-        let select = new ComboBox(Language.Languages).addClass(style.i18nSelect);
-        i18n.append(svg, select);
-        this.right.append(i18n);
-        select.onSelectionChanged((e: number) => {
-            Language.set(e);
-        });
     }
 
     add(...controls: HTMLElement[]) {

@@ -12,6 +12,8 @@ type Keys =
     | "common.repeat"
     | "common.clone"
     | "common.type"
+    | "home.welcome"
+    | "home.recent"
     | "body.line"
     | "body.rect"
     | "body.circle"

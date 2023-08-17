@@ -6,6 +6,7 @@ export * from "./comboBox";
 export * from "./control";
 export * from "./expander";
 export * from "./flyout";
+export * from "./languageSelector";
 export * from "./iconButton";
 export * from "./label";
 export * from "./panel";

@@ -12,6 +12,8 @@ let zh: I18n = {
     "common.clone": "复制对象",
     "common.repeat": "重复操作",
     "common.type": "类型",
+    "home.welcome": "欢迎使用 chili",
+    "home.recent": "最近使用",
     "ribbon.tab.file": "文件",
     "ribbon.tab.startup": "开始",
     "ribbon.tab.draw": "绘图",

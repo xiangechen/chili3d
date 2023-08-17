@@ -6,7 +6,7 @@ export type Key = string | number | symbol;
 
 export class Binding implements IDisposable {
     static #bindings = new WeakMap<IPropertyChanged, Set<Binding>>();
-    #cache = new Map<HTMLElement, Set<Key>>();
+    #cache = new Map<Element, Set<Key>>();
 
     constructor(
         readonly dataContext: IPropertyChanged,
@@ -32,7 +32,7 @@ export class Binding implements IDisposable {
         }
     }
 
-    add<T extends HTMLElement, K extends keyof T>(target: T, key: K) {
+    add<T extends Element, K extends keyof T>(target: T, key: K) {
         if (!this.#cache.has(target)) {
             this.#cache.set(target, new Set());
         }
@@ -40,7 +40,7 @@ export class Binding implements IDisposable {
         this.setValue(target, key);
     }
 
-    remove<T extends HTMLElement, K extends keyof T>(target: T, key: K) {
+    remove<T extends Element, K extends keyof T>(target: T, key: K) {
         this.#cache.get(target)?.delete(key);
     }
 
@@ -52,7 +52,7 @@ export class Binding implements IDisposable {
         }
     };
 
-    private setValue<T extends HTMLElement, K extends keyof T>(target: T, key: K) {
+    private setValue<T extends Element, K extends keyof T>(target: T, key: K) {
         let value = (this.dataContext as any)[this.path];
         if (this.converter) {
             value = this.converter.convert(value);

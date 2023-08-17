@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { ObservableCollection, PubSub, RecentDocumentDTO } from "chili-core";
+import { LanguageSelector } from "../components";
 import { Items } from "../components/items";
 import { a, button, div, img, label, localize, span } from "../controls";
 import style from "./home.module.css";
@@ -44,8 +45,8 @@ export const Home = (options: HomeOption) => {
         ),
         div(
             { className: style.right },
-            label({ className: style.welcome, textContent: "Welcome to Chili 3D" }),
-            div({ className: style.recent }, span("Recent Documents")),
+            label({ className: style.welcome, textContent: localize("home.welcome") }),
+            div({ className: style.recent, textContent: localize("home.recent") }),
             Items({
                 className: style.documents,
                 sources: options.documents,
@@ -66,6 +67,7 @@ export const Home = (options: HomeOption) => {
                         )
                     ),
             })
-        )
+        ),
+        LanguageSelector({ className: style.language })
     );
 };

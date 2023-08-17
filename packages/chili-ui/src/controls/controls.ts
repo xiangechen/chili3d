@@ -21,6 +21,10 @@ export interface AOptions extends Options {
     href?: string | Binding;
 }
 
+export interface SelectOptions extends Options {
+    onchange?: (e: Event) => void;
+}
+
 export type ChildDom = string | Node;
 type Tags = keyof HTMLElementTagNameMap;
 
@@ -31,7 +35,7 @@ function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
             if (typeof options === "string" || options instanceof Node) {
                 dom.append(options);
             } else if (typeof options === "object") {
-                setOptions<K>(options, dom);
+                setOptions(options, dom);
             } else {
                 throw new Error("Invalid options");
             }
@@ -41,14 +45,17 @@ function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
     };
 }
 
-function setOptions<K extends Tags>(options: Options, dom: HTMLElementTagNameMap[K]) {
+function setOptions<O extends Options, K extends Tags>(
+    options: O,
+    dom: HTMLElementTagNameMap[K] | SVGElement
+) {
     for (const key of Object.keys(options)) {
         const value = (options as any)[key];
         if (value instanceof Binding) {
             value.add(dom, key as any);
-        } else if (value instanceof Localize && key === "textContent") {
+        } else if (value instanceof Localize && dom instanceof HTMLElement && key === "textContent") {
             value.set(dom);
-        } else {
+        } else if (key in dom) {
             (dom as any)[key] = value;
         }
     }
@@ -59,7 +66,7 @@ export const span = createFunction("span");
 export const button = createFunction("button");
 export const input = createFunction("input");
 export const textarea = createFunction("textarea");
-export const select = createFunction("select");
+export const select = createFunction<"select", SelectOptions>("select");
 export const option = createFunction("option");
 export const label = createFunction("label");
 export const img = createFunction<"img", ImgOptions>("img");
@@ -77,3 +84,19 @@ export const h6 = createFunction("h6");
 export const p = createFunction("p");
 export const ul = createFunction("ul");
 export const li = createFunction("li");
+
+export interface SvgOptions extends Options {
+    icon: string;
+}
+
+export function svg(option: SvgOptions) {
+    const ns = "http://www.w3.org/2000/svg";
+    const childNS = "http://www.w3.org/1999/xlink";
+    const child = document.createElementNS(ns, "use");
+    child.setAttributeNS(childNS, "xlink:href", `#${option.icon}`);
+    let svg = document.createElementNS(ns, "svg");
+    svg.append(child);
+    setOptions(option, svg);
+
+    return svg;
+}
