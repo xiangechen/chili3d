@@ -6,36 +6,36 @@ import { Localize } from "./localize";
 /**
  * The setting parameters for HTMLElement, where each key corresponds to a key in the HTMLElement.
  */
-export interface Options {
+export interface Props {
     id?: string | Binding;
     textContent?: string | Binding | Localize;
     className?: string | Binding;
     onclick?: (e: MouseEvent) => void;
 }
 
-export interface ImgOptions extends Options {
+export interface ImgProps extends Props {
     src?: string | Binding;
 }
 
-export interface AOptions extends Options {
+export interface AProps extends Props {
     href?: string | Binding;
 }
 
-export interface SelectOptions extends Options {
+export interface SelectProps extends Props {
     onchange?: (e: Event) => void;
 }
 
 export type ChildDom = string | Node;
 type Tags = keyof HTMLElementTagNameMap;
 
-function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
+function createFunction<K extends Tags, O extends Props = Props>(tag: K) {
     return function (options?: O | ChildDom, ...children: readonly ChildDom[]) {
         let dom: HTMLElementTagNameMap[K] = document.createElement(tag);
         if (options) {
             if (typeof options === "string" || options instanceof Node) {
                 dom.append(options);
             } else if (typeof options === "object") {
-                setOptions(options, dom);
+                setProps(options, dom);
             } else {
                 throw new Error("Invalid options");
             }
@@ -45,12 +45,9 @@ function createFunction<K extends Tags, O extends Options = Options>(tag: K) {
     };
 }
 
-function setOptions<O extends Options, K extends Tags>(
-    options: O,
-    dom: HTMLElementTagNameMap[K] | SVGElement
-) {
-    for (const key of Object.keys(options)) {
-        const value = (options as any)[key];
+function setProps<O extends Props, K extends Tags>(props: O, dom: HTMLElementTagNameMap[K] | SVGElement) {
+    for (const key of Object.keys(props)) {
+        const value = (props as any)[key];
         if (value instanceof Binding) {
             value.add(dom, key as any);
         } else if (value instanceof Localize && dom instanceof HTMLElement && key === "textContent") {
@@ -66,11 +63,11 @@ export const span = createFunction("span");
 export const button = createFunction("button");
 export const input = createFunction("input");
 export const textarea = createFunction("textarea");
-export const select = createFunction<"select", SelectOptions>("select");
+export const select = createFunction<"select", SelectProps>("select");
 export const option = createFunction("option");
 export const label = createFunction("label");
-export const img = createFunction<"img", ImgOptions>("img");
-export const a = createFunction<"a", AOptions>("a");
+export const img = createFunction<"img", ImgProps>("img");
+export const a = createFunction<"a", AProps>("a");
 export const br = createFunction("br");
 export const hr = createFunction("hr");
 export const pre = createFunction("pre");
@@ -85,18 +82,18 @@ export const p = createFunction("p");
 export const ul = createFunction("ul");
 export const li = createFunction("li");
 
-export interface SvgOptions extends Options {
+export interface SvgProps extends Props {
     icon: string;
 }
 
-export function svg(option: SvgOptions) {
+export function svg(props: SvgProps) {
     const ns = "http://www.w3.org/2000/svg";
     const childNS = "http://www.w3.org/1999/xlink";
     const child = document.createElementNS(ns, "use");
-    child.setAttributeNS(childNS, "xlink:href", `#${option.icon}`);
+    child.setAttributeNS(childNS, "xlink:href", `#${props.icon}`);
     let svg = document.createElementNS(ns, "svg");
     svg.append(child);
-    setOptions(option, svg);
+    setProps(props, svg);
 
     return svg;
 }

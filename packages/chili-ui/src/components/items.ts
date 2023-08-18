@@ -1,35 +1,35 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
-import { Options, div } from "../controls";
+import { Props, div } from "../controls";
 
-export interface ItemsOption extends Options {
+export interface ItemsProps extends Props {
     sources: ObservableCollection<any>;
     template: (item: any) => HTMLDivElement;
 }
 
-export const Items = (option: ItemsOption) => {
+export const Items = (props: ItemsProps) => {
     const itemMap = new Map<any, HTMLDivElement>();
-    let container = div({ ...option }, ...mapItems(option.sources.items, option.template, itemMap));
-    const onCollectionChanged = collectionChangedFunction(container, option, itemMap);
-    option.sources.onCollectionChanged(onCollectionChanged);
+    let container = div({ ...props }, ...mapItems(props.sources.items, props.template, itemMap));
+    const onCollectionChanged = collectionChangedFunction(container, props, itemMap);
+    props.sources.onCollectionChanged(onCollectionChanged);
     return container;
 };
 
 function collectionChangedFunction(
     container: HTMLDivElement,
-    option: ItemsOption,
+    props: ItemsProps,
     itemMap: Map<any, HTMLDivElement>
 ) {
     return (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
-            container.append(...mapItems(args.items, option.template, itemMap));
+            container.append(...mapItems(args.items, props.template, itemMap));
         } else if (args.action === CollectionAction.remove) {
             removeItem(container, args.items, itemMap);
         } else if (args.action === CollectionAction.move) {
             moveItem(container, args.from, args.to);
         } else if (args.action === CollectionAction.replace) {
-            replaceItem(container, args.item, args.items, option.template, itemMap);
+            replaceItem(container, args.item, args.items, props.template, itemMap);
         } else {
             throw new Error("Unknown collection action");
         }
