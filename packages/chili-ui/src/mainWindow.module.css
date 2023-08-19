@@ -1,0 +1,17 @@
+.toast {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 10000;
+    margin-top: -9em;
+    border-radius: 0.8em;
+    background: #000;
+    opacity: 0.75;
+}
+
+.toastText {
+    color: #fff;
+    font-size: 1.2em;
+    line-height: 1.2em;
+    margin: 1em;
+}

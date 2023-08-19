@@ -57,6 +57,8 @@ let zh: I18n = {
     "snap.center": "圆心",
     "snap.intersection": "交点",
     "snap.perpendicular": "垂点",
+    "toast.command.excuting": "其他命令正在执行",
+    "toast.document.saved": "文档已保存",
     "prompt.default": "鼠标中键平移视图，右键旋转视图，中键滚动缩放视图",
     "prompt.select.models": "请选择模型",
     "prompt.select.noModelSelected": "未选择任何模型",

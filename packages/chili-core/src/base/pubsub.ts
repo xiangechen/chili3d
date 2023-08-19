@@ -33,6 +33,7 @@ export interface PubSubEventMap {
     openCommandContext: (command: ICommand) => void;
     closeCommandContext: () => void;
     showHome: () => void;
+    showToast: (message: keyof I18n) => void;
 }
 
 export class PubSub implements IDisposable {

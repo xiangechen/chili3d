@@ -80,6 +80,8 @@ type Keys =
     | "axis.x"
     | "axis.y"
     | "axis.z"
+    | "toast.command.excuting"
+    | "toast.document.saved"
     | "prompt.default"
     | "prompt.select.models"
     | "prompt.select.noModelSelected"

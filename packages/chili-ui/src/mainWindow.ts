@@ -2,15 +2,19 @@
 
 import {
     Constants,
+    I18n,
     IApplication,
     Lazy,
     Observable,
     ObservableCollection,
     PubSub,
     RecentDocumentDTO,
+    i18n,
 } from "chili-core";
 import { Editor } from "./editor";
 import { Home } from "./home";
+import { div, localize } from "./controls";
+import style from "./mainWindow.module.css";
 
 class MainWindowViewModel extends Observable {
     private _displayHome: boolean = true;
@@ -37,22 +41,39 @@ export class MainWindow {
     #app?: IApplication;
     #home: HTMLElement;
     #editor: HTMLElement;
+    #toastContainer = div({ className: style.toast });
+    #toastText = div({ className: style.toastText });
+    #toastTimeoutId: NodeJS.Timeout | undefined;
     readonly #vm: MainWindowViewModel = new MainWindowViewModel();
     readonly #documents = new ObservableCollection<RecentDocumentDTO>();
 
     private constructor() {
         this.#home = Home({ documents: this.#documents, onDocumentClick: this.onDocumentClick });
         this.#editor = Editor();
+        this.#toastContainer.style.display = "none";
     }
 
     async init(app: IApplication, root: HTMLElement) {
         this.#app = app;
         this.setTheme("light");
-        root.append(this.#home, this.#editor);
+        this.#toastContainer.appendChild(this.#toastText);
+        root.append(this.#home, this.#editor, this.#toastContainer);
 
         this.#vm.onPropertyChanged(this.onPropertyChanged);
         this.setHomeDisplay();
+
+        PubSub.default.sub("showToast", this.showToast);
     }
+
+    private showToast = (message: keyof I18n) => {
+        if (this.#toastTimeoutId) clearTimeout(this.#toastTimeoutId);
+        this.#toastText.textContent = i18n[message];
+        this.#toastContainer.style.display = "";
+        this.#toastTimeoutId = setTimeout(() => {
+            this.#toastTimeoutId = undefined;
+            this.#toastContainer.style.display = "none";
+        }, 2000);
+    };
 
     private onDocumentClick = (document: RecentDocumentDTO) => {
         this.#app?.openDocument(document.id);

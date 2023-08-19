@@ -78,6 +78,7 @@ export class CommandService implements IService {
 
     private canExecute(commandName: keyof Commands) {
         if (this._executingCommand) {
+            PubSub.default.pub("showToast", "toast.command.excuting");
             Logger.warn(`command ${this._executingCommand} is executing`);
             return false;
         }
