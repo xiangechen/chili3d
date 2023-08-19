@@ -41,3 +41,13 @@
     color: white;
     background-color: var(--primary-color);
 }
+
+.context {
+    display: flex;
+    flex-direction: row;
+    justify-content: stretch;
+    flex: 1 1 auto;
+    height: 32px;
+    background-color: var(--panel-background-color);
+    border-bottom: 1px solid var(--border-color);
+}

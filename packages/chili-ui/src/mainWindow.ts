@@ -42,7 +42,7 @@ export class MainWindow {
 
     private constructor() {
         this.#home = Home({ documents: this.#documents, onDocumentClick: this.onDocumentClick });
-        this.#editor = new Editor();
+        this.#editor = Editor();
     }
 
     async init(app: IApplication, root: HTMLElement) {

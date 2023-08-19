@@ -30,8 +30,8 @@ export interface PubSubEventMap {
     clearInput: () => void;
     showSelectionControl: (token: AsyncState) => void;
     clearSelectionControl: () => void;
-    openContextTab: (command: ICommand) => void;
-    closeContextTab: () => void;
+    openCommandContext: (command: ICommand) => void;
+    closeCommandContext: () => void;
     showHome: () => void;
 }
 

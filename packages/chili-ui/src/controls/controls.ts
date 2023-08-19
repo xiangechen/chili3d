@@ -25,6 +25,11 @@ export interface SelectProps extends Props {
     onchange?: (e: Event) => void;
 }
 
+export interface CheckboxProps extends Props {
+    type: "checkbox";
+    checked: boolean | Binding;
+}
+
 export type ChildDom = string | Node;
 type Tags = keyof HTMLElementTagNameMap;
 
@@ -61,7 +66,7 @@ function setProps<O extends Props, K extends Tags>(props: O, dom: HTMLElementTag
 export const div = createFunction("div");
 export const span = createFunction("span");
 export const button = createFunction("button");
-export const input = createFunction("input");
+export const input = createFunction<"input", CheckboxProps>("input");
 export const textarea = createFunction("textarea");
 export const select = createFunction<"select", SelectProps>("select");
 export const option = createFunction("option");
@@ -93,7 +98,9 @@ export function svg(props: SvgProps) {
     child.setAttributeNS(childNS, "xlink:href", `#${props.icon}`);
     let svg = document.createElementNS(ns, "svg");
     svg.append(child);
+    let className = String(props.className);
+    delete props.className;
     setProps(props, svg);
-
+    svg.classList.add(className);
     return svg;
 }

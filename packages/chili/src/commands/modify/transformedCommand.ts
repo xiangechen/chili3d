@@ -22,7 +22,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected positions?: number[];
 
     private _isClone: boolean = false;
-    @Property.define("common.clone", "common.mode", "icon-copy")
+    @Property.define("common.clone")
     get isClone() {
         return this._isClone;
     }

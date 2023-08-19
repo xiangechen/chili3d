@@ -41,13 +41,13 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         this.token?.cancel();
     }
 
-    @Property.define("common.cancel", "common.mode", "icon-cancel")
+    @Property.define("common.cancel")
     cancel() {
         this.token?.cancel();
     }
 
     private _repeatOperation: boolean = false;
-    @Property.define("common.repeat", "common.mode", "icon-rotate")
+    @Property.define("command.mode.repeat")
     get repeatOperation() {
         return this._repeatOperation;
     }
@@ -66,19 +66,25 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         if (this._restarting) {
             this._restarting = false;
         }
-        let isCancel = false;
+        let isSuccess = false;
         try {
             if ((await this.beforeExecute()) && (await this.executeSteps(stepIndex))) {
                 this.executeMainTask();
-            } else {
-                isCancel = true;
+                isSuccess = true;
             }
         } finally {
             await this.afterExecute();
         }
-        if (this._restarting || (this.repeatOperation && !isCancel)) {
+
+        if (this._restarting) {
             await this.executeFromStep(0);
+        } else if (this.repeatOperation && isSuccess) {
+            await this.repeatCommand();
         }
+    }
+
+    protected async repeatCommand() {
+        await this.executeFromStep(0);
     }
 
     private async executeSteps(startIndex: number): Promise<boolean> {
@@ -101,13 +107,13 @@ export abstract class MultistepCommand extends Observable implements ICommand {
 
     protected beforeExecute(): Promise<boolean> {
         this.readProperties();
-        PubSub.default.pub("openContextTab", this);
+        PubSub.default.pub("openCommandContext", this);
         return Promise.resolve(true);
     }
 
     protected afterExecute(): Promise<void> {
         this.saveProperties();
-        PubSub.default.pub("closeContextTab");
+        PubSub.default.pub("closeCommandContext");
         this.token?.dispose();
         return Promise.resolve();
     }

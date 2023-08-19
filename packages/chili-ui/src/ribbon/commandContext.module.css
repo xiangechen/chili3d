@@ -1,0 +1,30 @@
+.panel {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    margin: 2px 8px;
+    gap: 12px;
+}
+
+.title {
+    font-weight: bold;
+}
+
+.group {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.button {
+    padding: 4px 8px;
+    font-size: 14px;
+}
+
+.icon {
+    width: 14px;
+    height: 14px;
+}

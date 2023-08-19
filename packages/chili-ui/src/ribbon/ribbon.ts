@@ -11,7 +11,8 @@ import { RibbonData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 import { RibbonTab } from "./ribbonTab";
 import { TitleBar } from "./titlebar";
-import { label, localize } from "../controls";
+import { div, label, localize } from "../controls";
+import { CommandContext } from "./commandContext";
 
 export class Ribbon extends Control {
     readonly titlebar: TitleBar = new TitleBar();
@@ -21,8 +22,8 @@ export class Ribbon extends Control {
     private readonly startup: HTMLLabelElement;
     private _selected?: RibbonTab;
     private _selectionControl?: RibbonGroup;
-    private _contextTab?: RibbonTab;
-    private _preSelectedTab?: RibbonTab;
+    private _contextContainer: HTMLDivElement;
+    private _contextTab?: Control;
 
     constructor() {
         super(style.root);
@@ -31,40 +32,39 @@ export class Ribbon extends Control {
             textContent: localize("ribbon.tab.file"),
             onclick: () => PubSub.default.pub("showHome"),
         });
+        this._contextContainer = div({ className: style.context });
         this._ribbonHeader = new Panel().addClass(style.headerPanel).addItem(this.startup);
         this._ribbonPanel = new Panel().addClass(style.contentPanel);
-        this.append(this.titlebar, this._ribbonHeader, this._ribbonPanel);
+        this.append(this.titlebar, this._ribbonHeader, this._ribbonPanel, this._contextContainer);
 
         this.initRibbon(DefaultRibbon);
         this.initQuickBar([/*"NewDocument", "OpenDocument",*/ "SaveDocument", "Undo", "Redo"]);
 
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
-        PubSub.default.sub("openContextTab", this.openContextTab);
-        PubSub.default.sub("closeContextTab", this.closeContextTab);
+        PubSub.default.sub("openCommandContext", this.openContext);
+        PubSub.default.sub("closeCommandContext", this.closeContext);
     }
 
     override dispose(): void {
         super.dispose();
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
-        PubSub.default.remove("openContextTab", this.openContextTab);
-        PubSub.default.remove("closeContextTab", this.closeContextTab);
+        PubSub.default.remove("openCommandContext", this.openContext);
+        PubSub.default.remove("closeCommandContext", this.closeContext);
     }
 
-    private openContextTab = (command: ICommand) => {
-        this._preSelectedTab = this._selected;
-        this._contextTab = new CommandContextTab(command);
-        this.addTab(this._contextTab);
-        this.selectTab(this._contextTab);
+    private openContext = (command: ICommand) => {
+        this._contextTab = new CommandContext(command);
+        this._contextContainer.append(this._contextTab);
     };
 
-    private closeContextTab = () => {
-        if (this._preSelectedTab) this.selectTab(this._preSelectedTab);
-        if (this._contextTab) this.removeTab(this._contextTab);
-        this._preSelectedTab = undefined;
-        this._contextTab?.dispose();
-        this._contextTab = undefined;
+    private closeContext = () => {
+        if (this._contextTab) {
+            this._contextContainer.removeChild(this._contextTab);
+            this._contextTab?.dispose();
+            this._contextTab = undefined;
+        }
     };
 
     private showSelectionControl = (token: AsyncState) => {
