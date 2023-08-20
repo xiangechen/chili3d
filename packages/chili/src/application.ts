@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Document } from "chili";
 import { IApplication, IDocument, IService, IStorage, Logger, PubSub, Serialized } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
+import { Document } from "./document";
 
 export class Application implements IApplication {
     static #instance: Application | undefined;
@@ -55,12 +55,16 @@ export class Application implements IApplication {
 
     async newDocument(name: string): Promise<IDocument> {
         await this.saveAndCloseActiveDocument();
-        return (this.activeDocument = new Document(this, name));
+        let document = new Document(this, name);
+        this.activeDocument = document;
+        return document;
     }
 
     async loadDocument(data: Serialized): Promise<IDocument> {
         await this.saveAndCloseActiveDocument();
-        return (this.activeDocument = Document.load(this, data));
+        let document = Document.load(this, data);
+        this.activeDocument = document;
+        return document;
     }
 
     private async saveAndCloseActiveDocument() {
