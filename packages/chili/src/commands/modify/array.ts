@@ -18,7 +18,7 @@ import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "Array",
+    name: "doc.modify.array",
     display: "command.array",
     icon: "icon-array",
 })

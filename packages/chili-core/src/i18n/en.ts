@@ -59,6 +59,7 @@ let en: I18n = {
     "snap.perpendicular": "Perpendicular",
     "toast.command.excuting": "Other commands are running",
     "toast.document.saved": "Document saved",
+    "toast.document.noActived": "No document actived",
     "prompt.default":
         "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
     "prompt.select.models": "Please select models",

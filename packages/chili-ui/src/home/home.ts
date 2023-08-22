@@ -21,12 +21,12 @@ export const Home = (options: HomeOption) => {
                 button({
                     className: style.button,
                     textContent: localize("command.document.new"),
-                    onclick: () => PubSub.default.pub("executeCommand", "NewDocument"),
+                    onclick: () => PubSub.default.pub("executeCommand", "app.doc.new"),
                 }),
                 button({
                     className: style.button,
                     textContent: localize("command.document.open"),
-                    onclick: () => PubSub.default.pub("executeCommand", "OpenDocument"),
+                    onclick: () => PubSub.default.pub("executeCommand", "app.doc.open"),
                 })
             ),
             div(

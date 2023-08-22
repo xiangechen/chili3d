@@ -6,7 +6,7 @@ import { IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "Mirror",
+    name: "doc.modify.mirror",
     display: "command.mirror",
     icon: "icon-mirror",
 })

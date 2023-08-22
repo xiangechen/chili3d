@@ -3,13 +3,17 @@
 import { command, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
-    name: "SaveDocument",
+    name: "app.doc.save",
     display: "command.document.save",
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        await app.activeDocument?.save();
-        PubSub.default.pub("showToast", "toast.document.saved");
+        if (app.activeDocument) {
+            await app.activeDocument.save();
+            PubSub.default.pub("showToast", "toast.document.saved");
+        } else {
+            PubSub.default.pub("showToast", "toast.document.noActived");
+        }
     }
 }

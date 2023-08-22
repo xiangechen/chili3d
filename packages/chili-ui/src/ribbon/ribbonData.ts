@@ -1,6 +1,6 @@
-import { I18n } from "chili-core";
+import { Commands, I18n } from "chili-core";
 
-export type RibbonCommandData = string | string[];
+export type RibbonCommandData = Commands | Commands[];
 
 export interface RibbonGroupData {
     groupName: keyof I18n;

@@ -1,17 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Command,
-    Commands,
-    IApplication,
-    ICommand,
-    IService,
-    Lazy,
-    Logger,
-    PubSub,
-    Token,
-} from "chili-core";
-import { NewDocument, OpenDocument } from "../commands";
+import { Command, Commands, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
 
 export class CommandService implements IService {
     private static readonly _lazy = new Lazy(() => new CommandService());
@@ -20,8 +9,8 @@ export class CommandService implements IService {
         return this._lazy.value;
     }
 
-    private _lastCommand: keyof Commands | undefined;
-    private _executingCommand: keyof Commands | undefined;
+    private _lastCommand: Commands | undefined;
+    private _executingCommand: Commands | undefined;
 
     private _app: IApplication | undefined;
 
@@ -53,15 +42,15 @@ export class CommandService implements IService {
         return this._executingCommand !== undefined;
     }
 
-    private executeCommand = async (commandName: keyof Commands) => {
-        let command = commandName === "LastCommand" ? this._lastCommand : commandName;
+    private executeCommand = async (commandName: Commands) => {
+        let command = commandName === "doc.cmd.last" ? this._lastCommand : commandName;
         if (command === undefined) return;
         if (!this.canExecute(command)) return;
         Logger.info(`executing command ${command}`);
         await this.executeAsync(command);
     };
 
-    private async executeAsync(commandName: keyof Commands) {
+    private async executeAsync(commandName: Commands) {
         let commandCtor = Command.get(commandName)!;
         let command = new commandCtor();
         this._executingCommand = commandName;
@@ -76,21 +65,22 @@ export class CommandService implements IService {
             });
     }
 
-    private canExecute(commandName: keyof Commands) {
+    private canExecute(commandName: Commands) {
+        if (!Command.get(commandName)) {
+            Logger.error(`Can not find ${commandName} command`);
+            return false;
+        }
+        if (commandName.startsWith("app.")) return true;
         if (this._executingCommand) {
             PubSub.default.pub("showToast", "toast.command.excuting");
             Logger.warn(`command ${this._executingCommand} is executing`);
             return false;
         }
-        let appCommands: (keyof Commands)[] = ["OpenDocument", "NewDocument"];
-        if (!appCommands.includes(commandName) && this.app.activeDocument === undefined) {
+        if (this.app.activeDocument === undefined) {
             Logger.error("No active document");
             return false;
         }
-        if (!Command.get(commandName)) {
-            Logger.error(`Can not find ${commandName} command`);
-            return false;
-        }
+
         return true;
     }
 }

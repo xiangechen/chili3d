@@ -7,7 +7,7 @@ import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 
 @command({
-    name: "Circle",
+    name: "doc.create.circle",
     display: "command.circle",
     icon: "icon-circle",
 })

@@ -8,7 +8,7 @@ const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
 export type CommandConstructor = new (...args: any[]) => ICommand;
 
 export interface CommandData {
-    name: keyof Commands;
+    name: Commands;
     display: keyof I18n;
     icon: string;
     helpText?: string;
@@ -34,7 +34,7 @@ export namespace Command {
         }
     }
 
-    export function get(name: keyof Commands): CommandConstructor | undefined {
+    export function get(name: Commands): CommandConstructor | undefined {
         return CommandMap.get(name);
     }
 }

@@ -6,7 +6,7 @@ import { AngleStep, IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "Rotate",
+    name: "doc.modify.rotate",
     display: "command.rotate",
     icon: "icon-rotate",
 })

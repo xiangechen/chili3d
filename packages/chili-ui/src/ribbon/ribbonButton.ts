@@ -12,7 +12,7 @@ export class RibbonButton extends Control {
         this.addEventListener("click", onClick);
     }
 
-    static fromCommandName(commandName: keyof Commands, size: RibbonButtonSize) {
+    static fromCommandName(commandName: Commands, size: RibbonButtonSize) {
         let data = Command.getData(commandName);
         if (data === undefined) {
             Logger.warn(`commandData of ${commandName} is undefined`);

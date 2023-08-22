@@ -5,7 +5,7 @@ import { IApplication, ICommand, command } from "chili-core";
 let count = 1;
 
 @command({
-    name: "NewDocument",
+    name: "app.doc.new",
     display: "command.document.new",
     icon: "icon-new",
 })

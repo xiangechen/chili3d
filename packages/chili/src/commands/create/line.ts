@@ -7,7 +7,7 @@ import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 
 @command({
-    name: "Line",
+    name: "doc.create.line",
     display: "command.line",
     icon: "icon-line",
 })

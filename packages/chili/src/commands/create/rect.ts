@@ -59,7 +59,7 @@ export abstract class RectCommandBase extends CreateCommand {
 }
 
 @command({
-    name: "Rect",
+    name: "doc.create.rect",
     display: "command.rect",
     icon: "icon-rect",
 })

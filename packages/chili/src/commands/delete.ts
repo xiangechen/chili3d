@@ -3,9 +3,9 @@
 import { command, IApplication, ICommand, Transaction } from "chili-core";
 
 @command({
-    name: "Delete",
+    name: "doc.modify.delete",
     display: "command.delete",
-    icon: "icon-redo",
+    icon: "icon-delete",
 })
 export class Delete implements ICommand {
     async execute(app: IApplication): Promise<void> {

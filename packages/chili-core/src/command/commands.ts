@@ -1,24 +1,21 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export class Commands {
-    NewDocument = "NewDocument";
-    SaveDocument = "SaveDocument";
-    OpenDocument = "OpenDocument";
-    LastCommand = "LastCommand";
-    NewFolder = "NewFolder";
-    NewGroup = "NewGroup";
-    Line = "Line";
-    PLine = "PLine";
-    Circle = "Circle";
-    Rect = "Rect";
-    Box = "Box";
-    Delete = "Delete";
-    Undo = "Undo";
-    Redo = "Redo";
-    Move = "Move";
-    Copy = "Copy";
-    CopyInplace = "CopyInplace";
-    Mirror = "Mirror";
-    Rotate = "Rotate";
-    Array = "Array";
-}
+export type Commands =
+    | `app.doc.new`
+    | "app.doc.save"
+    | "app.doc.open"
+    | "doc.cmd.last"
+    | "doc.cmd.undo"
+    | "doc.cmd.redo"
+    | "doc.create.box"
+    | "doc.create.line"
+    | "doc.create.circle"
+    | "doc.create.rect"
+    | "doc.create.folder"
+    | "doc.create.group"
+    | "doc.create.polygon"
+    | "doc.modify.array"
+    | "doc.modify.move"
+    | "doc.modify.rotate"
+    | "doc.modify.mirror"
+    | "doc.modify.delete";

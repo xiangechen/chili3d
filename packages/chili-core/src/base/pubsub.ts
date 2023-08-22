@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands, ICommand } from "../command";
-import { Property } from "../decorators";
 import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { IModel, INode } from "../model";
@@ -13,7 +12,7 @@ import { MessageType } from "./messageType";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
-    executeCommand: (commandName: keyof Commands) => void;
+    executeCommand: (commandName: Commands) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     documentClosed: (document: IDocument) => void;
