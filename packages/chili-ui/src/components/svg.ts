@@ -31,7 +31,7 @@ export class Svg extends Control {
     }
 
     onClick(listener: (e: MouseEvent) => void) {
-        this.svg.addEventListener("click", listener);
+        this.addEventListener("click", listener);
         return this;
     }
 }
