@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, Commands, ICommand, Logger, PubSub } from "chili-core";
-import { Control, Label, Panel } from "../components";
+import { AsyncController, Commands, ICommand, Logger, PubSub } from "chili-core";
+import { Control, Panel } from "../components";
+import { div, label, localize } from "../controls";
 import { DefaultRibbon } from "../profile/ribbon";
-import { CommandContextTab } from "./commandContextTab";
+import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -11,8 +12,6 @@ import { RibbonData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 import { RibbonTab } from "./ribbonTab";
 import { TitleBar } from "./titlebar";
-import { div, label, localize } from "../controls";
-import { CommandContext } from "./commandContext";
 
 export class Ribbon extends Control {
     readonly titlebar: TitleBar = new TitleBar();
@@ -67,8 +66,8 @@ export class Ribbon extends Control {
         }
     };
 
-    private showSelectionControl = (token: AsyncState) => {
-        this._selectionControl = this.newSelectionGroup(token);
+    private showSelectionControl = (controller: AsyncController) => {
+        this._selectionControl = this.newSelectionGroup(controller);
         this._selected?.add(this._selectionControl);
     };
 
@@ -79,12 +78,14 @@ export class Ribbon extends Control {
         }
     };
 
-    private newSelectionGroup(token: AsyncState) {
+    private newSelectionGroup(controller: AsyncController) {
         let group = new RibbonGroup("ribbon.group.selection");
         group.add(
-            new RibbonButton("common.confirm", "icon-confirm", RibbonButtonSize.Normal, token.success)
+            new RibbonButton("common.confirm", "icon-confirm", RibbonButtonSize.Normal, controller.success)
         );
-        group.add(new RibbonButton("common.cancel", "icon-cancel", RibbonButtonSize.Normal, token.cancel));
+        group.add(
+            new RibbonButton("common.cancel", "icon-cancel", RibbonButtonSize.Normal, controller.cancel)
+        );
         return group;
     }
 

@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, IDocument, IModel, IView, ShapeType, VisualShapeData } from "chili-core";
+import { AsyncController, IDocument, IModel, IView, ShapeType, VisualShapeData } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ModelSelectionHandler extends SelectionHandler {
-    constructor(document: IDocument, multiMode: boolean, token?: AsyncState) {
-        super(document, ShapeType.Shape, multiMode, token);
+    constructor(document: IDocument, multiMode: boolean, controller?: AsyncController) {
+        super(document, ShapeType.Shape, multiMode, controller);
     }
 
     protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void {

@@ -1,9 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    AsyncState,
+    AsyncController,
     Config,
-    IDocument,
     IModel,
     INode,
     LineType,
@@ -65,8 +64,8 @@ export class Array extends MultistepCommand {
             .getSelectedNodes()
             .filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
-            this.token = new AsyncState();
-            this.models = await Selection.pickModel(this.document, "axis.x", this.token);
+            this.controller = new AsyncController();
+            this.models = await Selection.pickModel(this.document, "axis.x", this.controller);
             if (this.restarting || this.models.length === 0) return false;
         }
         this.positions = [];

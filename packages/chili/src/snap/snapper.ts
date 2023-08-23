@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, CursorType, I18n, IDocument, XYZ } from "chili-core";
+import { AsyncController, CursorType, I18n, IDocument, XYZ } from "chili-core";
 
 import { Selection } from "../selection";
 import { SnapedData } from "./interfaces";
@@ -16,12 +16,16 @@ import {
 } from "./snapEventHandler";
 
 export abstract class Snapper {
-    protected abstract getEventHandler(token: AsyncState): SnapEventHandler;
+    protected abstract getEventHandler(controller: AsyncController): SnapEventHandler;
 
-    async snap(document: IDocument, tip: keyof I18n, token: AsyncState): Promise<SnapedData | undefined> {
-        let executorHandler = this.getEventHandler(token);
-        await Selection.pickAsync(document, executorHandler, tip, token, false, CursorType.Drawing);
-        return token.state?.status === "success" ? executorHandler.snaped : undefined;
+    async snap(
+        document: IDocument,
+        tip: keyof I18n,
+        controller: AsyncController
+    ): Promise<SnapedData | undefined> {
+        let executorHandler = this.getEventHandler(controller);
+        await Selection.pickAsync(document, executorHandler, tip, controller, false, CursorType.Drawing);
+        return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
 }
 
@@ -30,8 +34,8 @@ export class AngleSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: AsyncState): SnapEventHandler {
-        return new SnapAngleEventHandler(token, this.center, this.p1);
+    protected getEventHandler(controller: AsyncController): SnapEventHandler {
+        return new SnapAngleEventHandler(controller, this.center, this.p1);
     }
 }
 
@@ -40,8 +44,8 @@ export class PointSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: AsyncState): SnapEventHandler {
-        return new SnapPointEventHandler(token, this.data);
+    protected getEventHandler(controller: AsyncController): SnapEventHandler {
+        return new SnapPointEventHandler(controller, this.data);
     }
 }
 
@@ -50,8 +54,8 @@ export class LengthAtAxisSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: AsyncState): SnapEventHandler {
-        return new SnapLengthAtAxisHandler(token, this.data);
+    protected getEventHandler(controller: AsyncController): SnapEventHandler {
+        return new SnapLengthAtAxisHandler(controller, this.data);
     }
 }
 
@@ -60,7 +64,7 @@ export class LengthAtPlaneSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(token: AsyncState): SnapEventHandler {
-        return new SnapLengthAtPlaneHandler(token, this.data);
+    protected getEventHandler(controller: AsyncController): SnapEventHandler {
+        return new SnapLengthAtPlaneHandler(controller, this.data);
     }
 }

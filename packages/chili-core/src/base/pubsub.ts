@@ -5,7 +5,7 @@ import { IDocument } from "../document";
 import { I18n } from "../i18n";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
-import { AsyncState } from "./asyncState";
+import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
 import { MessageType } from "./messageType";
@@ -27,7 +27,7 @@ export interface PubSubEventMap {
     clearFloatTip: () => void;
     showInput: (handler: (text: string) => Result<undefined, keyof I18n>) => void;
     clearInput: () => void;
-    showSelectionControl: (token: AsyncState) => void;
+    showSelectionControl: (controller: AsyncController) => void;
     clearSelectionControl: () => void;
     openCommandContext: (command: ICommand) => void;
     closeCommandContext: () => void;

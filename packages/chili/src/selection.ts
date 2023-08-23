@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    AsyncState,
+    AsyncController,
     CursorType,
     I18n,
     IDocument,
@@ -22,24 +22,26 @@ export class Selection {
         multiMode: boolean = true,
         showControl: boolean = true
     ) {
-        let token: AsyncState = new AsyncState();
-        let handler = new ShapeSelectionHandler(document, shapeType, multiMode, token);
-        await this.pickAsync(document, handler, prompt, token, showControl);
+        let controller: AsyncController = new AsyncController();
+        let handler = new ShapeSelectionHandler(document, shapeType, multiMode, controller);
+        await this.pickAsync(document, handler, prompt, controller, showControl);
         let shapes = handler.shapes();
         handler.dispose();
-        token.dispose();
+        controller.dispose();
         return shapes;
     }
 
     static async pickModel(
         document: IDocument,
         prompt: keyof I18n,
-        token: AsyncState,
+        controller: AsyncController,
         multiMode: boolean = true,
         showControl: boolean = true
     ) {
-        let handler = new ModelSelectionHandler(document, multiMode, token);
-        await this.pickAsync(document, handler, prompt, token, showControl).finally(() => handler.dispose());
+        let handler = new ModelSelectionHandler(document, multiMode, controller);
+        await this.pickAsync(document, handler, prompt, controller, showControl).finally(() =>
+            handler.dispose()
+        );
         return document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
     }
 
@@ -47,7 +49,7 @@ export class Selection {
         document: IDocument,
         handler: IEventHandler,
         prompt: keyof I18n,
-        token: AsyncState,
+        controller: AsyncController,
         showControl: boolean,
         cursor: CursorType = CursorType.Selection
     ) {
@@ -55,10 +57,10 @@ export class Selection {
         document.visual.eventHandler = handler;
         document.visual.viewer.setCursor(cursor);
         PubSub.default.pub("statusBarTip", prompt);
-        if (showControl) PubSub.default.pub("showSelectionControl", token);
+        if (showControl) PubSub.default.pub("showSelectionControl", controller);
         await new Promise((resolve, reject) => {
-            token.onCompleted(resolve);
-            token.onCancelled(reject);
+            controller.onCompleted(resolve);
+            controller.onCancelled(reject);
         })
             .catch((e) => Logger.info("pick status: ", e))
             .finally(() => {

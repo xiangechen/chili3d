@@ -1,40 +1,40 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState } from "../src";
+import { AsyncController } from "../src";
 
 test("test cancel", async () => {
-    let token = new AsyncState();
-    expect(token.state?.status === "cancel").toBeFalsy();
+    let controller = new AsyncController();
+    expect(controller.result?.status === "cancel").toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
-            token.cancel();
+            controller.cancel();
             r("resolved");
         }, 30);
     });
-    expect(token.state?.status === "cancel").toBeTruthy();
+    expect(controller.result?.status === "cancel").toBeTruthy();
 });
 
 test("test fail", async () => {
-    let token = new AsyncState();
-    expect(token.state?.status === "fail").toBeFalsy();
+    let controller = new AsyncController();
+    expect(controller.result?.status === "fail").toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
-            token.fail("fail msg");
+            controller.fail("fail msg");
             r("resolved");
         }, 30);
     });
-    expect(token.state?.status === "fail").toBeTruthy();
-    expect(token.state?.prompt).toBe("fail msg");
+    expect(controller.result?.status === "fail").toBeTruthy();
+    expect(controller.result?.message).toBe("fail msg");
 });
 
 test("test complete", async () => {
-    let token = new AsyncState();
-    expect(token.state?.status === "success").toBeFalsy();
+    let controller = new AsyncController();
+    expect(controller.result?.status === "success").toBeFalsy();
     await new Promise((r, s) => {
         setTimeout(() => {
-            token.success();
+            controller.success();
             r("resolved");
         }, 30);
     });
-    expect(token.state?.status === "success").toBeTruthy();
+    expect(controller.result?.status === "success").toBeTruthy();
 });

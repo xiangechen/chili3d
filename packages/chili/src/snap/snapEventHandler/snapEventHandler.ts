@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    AsyncState,
+    AsyncController,
     Config,
     I18n,
     IEventHandler,
@@ -22,12 +22,12 @@ export abstract class SnapEventHandler implements IEventHandler {
     protected _snaped?: SnapedData;
 
     constructor(
-        readonly token: AsyncState,
+        readonly controller: AsyncController,
         readonly snaps: ISnapper[],
         readonly validator?: SnapValidator,
         readonly preview?: SnapPreviewer
     ) {
-        token.onCancelled((s) => {
+        controller.onCancelled((s) => {
             this.cancel();
         });
     }
@@ -41,7 +41,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private finish() {
-        this.token.success();
+        this.controller.success();
         this.clean();
     }
 
@@ -49,7 +49,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     private cancel() {
         if (this.#cancelled) return;
         this.#cancelled = true;
-        this.token.cancel();
+        this.controller.cancel();
         this.clean();
     }
 

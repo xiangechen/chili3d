@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, IApplication, ICommand, Observable, Property, PubSub } from "chili-core";
+import { AsyncController, IApplication, ICommand, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
@@ -26,24 +26,24 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         return this._restarting;
     }
 
-    private _token?: AsyncState;
-    protected get token() {
-        return this._token;
+    private _controller?: AsyncController;
+    protected get controller() {
+        return this._controller;
     }
-    protected set token(value: AsyncState | undefined) {
-        if (this._token === value) return;
-        this._token?.dispose();
-        this._token = value;
+    protected set controller(value: AsyncController | undefined) {
+        if (this._controller === value) return;
+        this._controller?.dispose();
+        this._controller = value;
     }
 
     protected restart() {
         this._restarting = true;
-        this.token?.cancel();
+        this.controller?.cancel();
     }
 
     @Property.define("common.cancel")
     cancel() {
-        this.token?.cancel();
+        this.controller?.cancel();
     }
 
     private _repeatOperation: boolean = false;
@@ -91,8 +91,8 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         this.stepDatas.length = startIndex;
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {
-            this.token = new AsyncState();
-            let data = await steps[i].execute(this.document, this.token);
+            this.controller = new AsyncController();
+            let data = await steps[i].execute(this.document, this.controller);
             if (this._restarting || data === undefined) {
                 return false;
             }
@@ -114,7 +114,7 @@ export abstract class MultistepCommand extends Observable implements ICommand {
     protected afterExecute(): Promise<void> {
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
-        this.token?.dispose();
+        this.controller?.dispose();
         return Promise.resolve();
     }
 

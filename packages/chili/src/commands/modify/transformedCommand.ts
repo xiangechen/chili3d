@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    AsyncState,
+    AsyncController,
     Config,
     EdgeMeshData,
-    IDocument,
     IModel,
     INode,
     LineType,
@@ -54,8 +53,8 @@ export abstract class TransformedCommand extends MultistepCommand {
             .getSelectedNodes()
             .filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
-            this.token = new AsyncState();
-            this.models = await Selection.pickModel(this.document, "prompt.select.models", this.token);
+            this.controller = new AsyncController();
+            this.models = await Selection.pickModel(this.document, "prompt.select.models", this.controller);
             if (this.restarting || this.models.length === 0) {
                 alert(i18n["prompt.select.noModelSelected"]);
                 return false;

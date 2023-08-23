@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
-    AsyncState,
+    AsyncController,
     IDocument,
     IEventHandler,
     IView,
@@ -39,9 +39,9 @@ export abstract class SelectionHandler implements IEventHandler {
         readonly document: IDocument,
         readonly shapeType: ShapeType,
         readonly multiMode: boolean,
-        readonly token?: AsyncState
+        readonly controller?: AsyncController
     ) {
-        token?.onCancelled((s) => {
+        controller?.onCancelled((s) => {
             this.clearSelected(document);
             this.cleanHighlights();
         });
@@ -169,15 +169,15 @@ export abstract class SelectionHandler implements IEventHandler {
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            if (this.token) {
-                this.token.cancel();
+            if (this.controller) {
+                this.controller.cancel();
             } else {
                 this.clearSelected(view.viewer.visual.document);
                 this.cleanHighlights();
             }
         } else if (event.key === "Enter") {
             this.cleanHighlights();
-            this.token?.success();
+            this.controller?.success();
         } else if (event.key === "Tab") {
             event.preventDefault();
             this.highlightNext(view);

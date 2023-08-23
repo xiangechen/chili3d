@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncState, Config, I18n, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, I18n, IView, Plane, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
 import { SnapPreviewer, SnapValidator } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
@@ -17,12 +17,12 @@ export interface SnapPointData {
 }
 
 export class SnapPointEventHandler extends SnapEventHandler {
-    constructor(token: AsyncState, protected pointData: SnapPointData) {
+    constructor(controller: AsyncController, protected pointData: SnapPointData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(token, snaps, pointData.validator, pointData.preview);
+        super(controller, snaps, pointData.validator, pointData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
