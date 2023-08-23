@@ -5,9 +5,9 @@ import { IConverter } from "./converter";
 
 export class StringConverter implements IConverter<string> {
     convert(value: string): Result<string> {
-        return Result.ok(value);
+        return Result.success(value);
     }
     convertBack(value: string): Result<string> {
-        return Result.ok(value);
+        return Result.success(value);
     }
 }

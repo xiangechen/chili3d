@@ -13,28 +13,28 @@ describe("converter test", () => {
         let converter = new XYZConverter();
         let xyz = XYZ.unitX;
         let c = converter.convert(xyz);
-        expect(c.value).toStrictEqual("1,0,0");
-        expect(converter.convertBack(c.value!).value?.x).toBe(1);
-        expect(converter.convertBack("1").value).toBeUndefined();
-        expect(converter.convertBack("1, 1, 1, 1").value).toBeUndefined();
-        expect(converter.convertBack("1, 1, 1").value).toStrictEqual(new XYZ(1, 1, 1));
+        expect(c.unwrap()).toStrictEqual("1,0,0");
+        expect(converter.convertBack(c.unwrap()).unwrap().x).toBe(1);
+        expect(converter.convertBack("1").status).toBe("error");
+        expect(converter.convertBack("1, 1, 1, 1").status).toBe("error");
+        expect(converter.convertBack("1, 1, 1").unwrap()).toStrictEqual(new XYZ(1, 1, 1));
     });
 
     test("test NumberConverter", () => {
         let converter = new NumberConverter();
-        expect(converter.convert(Number.NaN).value).toBeUndefined();
-        expect(converter.convert(-20).value).toBe("-20");
-        expect(converter.convert(20).value).toBe("20");
-        expect(converter.convert(1e3).value).toBe("1000");
-        expect(converter.convertBack("NaN").value).toBeUndefined();
-        expect(converter.convertBack("1a").value).toBeUndefined();
-        expect(converter.convertBack("1E-3").value).toBe(0.001);
-        expect(converter.convertBack("-3").value).toBe(-3);
+        expect(converter.convert(Number.NaN).status).toBe("error");
+        expect(converter.convert(-20).unwrap()).toBe("-20");
+        expect(converter.convert(20).unwrap()).toBe("20");
+        expect(converter.convert(1e3).unwrap()).toBe("1000");
+        expect(converter.convertBack("NaN").status).toBe("error");
+        expect(converter.convertBack("1a").status).toBe("error");
+        expect(converter.convertBack("1E-3").unwrap()).toBe(0.001);
+        expect(converter.convertBack("-3").unwrap()).toBe(-3);
     });
 
     test("test StringConverter", () => {
         let converter = new StringConverter();
-        expect(converter.convert("").value).toBe("");
-        expect(converter.convertBack("").value).toBe("");
+        expect(converter.convert("").unwrap()).toBe("");
+        expect(converter.convertBack("").unwrap()).toBe("");
     });
 });

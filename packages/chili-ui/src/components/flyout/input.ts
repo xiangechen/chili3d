@@ -14,7 +14,7 @@ export class Input extends Control implements IDisposable {
     private readonly textbox: TextBox;
     private tip?: Label;
 
-    constructor(readonly handler: (text: string) => Result<undefined, keyof I18n>) {
+    constructor(readonly handler: (text: string) => Result<string, keyof I18n>) {
         super(style.panel);
         this.textbox = new TextBox();
         this.append(this.textbox);
@@ -61,12 +61,12 @@ export class Input extends Control implements IDisposable {
     private onKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Enter") {
             this.textbox.setReadOnly(true);
-            let error = this.handler(this.textbox.text).error;
-            if (error === undefined) {
+            let error = this.handler(this.textbox.text);
+            if (error.status === "success") {
                 this._completedCallbacks.forEach((x) => x());
             } else {
                 this.textbox.setReadOnly(false);
-                this.showTip(error);
+                this.showTip(error.error);
             }
         } else if (e.key === "Escape") {
             this._cancelledCallbacks.forEach((x) => x());

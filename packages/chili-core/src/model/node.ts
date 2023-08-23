@@ -2,11 +2,11 @@
 
 import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
 import { ISerialize, Serializer } from "../base/serialize";
-import { Property } from "../decorators";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
+import { Property } from "../property";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged, ISerialize, IDisposable {

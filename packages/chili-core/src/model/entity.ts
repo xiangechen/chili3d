@@ -17,7 +17,7 @@ export abstract class Entity extends HistoryObservable implements ISerialize {
 
     generate(): boolean {
         this._shape = this.generateShape();
-        return this._shape.isOk();
+        return this._shape.status === "success";
     }
 
     protected setPropertyAndUpdate<K extends keyof this>(

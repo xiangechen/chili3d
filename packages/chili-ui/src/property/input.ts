@@ -72,7 +72,8 @@ export class InputProperty extends PropertyBase {
 
     private getValueString(obj: any): string {
         let value = obj[this.property.name];
-        return this.converter?.convert(value).value ?? String(value);
+        let cvalue = this.converter?.convert(value);
+        return cvalue?.status === "success" ? cvalue.value : String(value);
     }
 
     private getDefaultValue() {
@@ -91,14 +92,14 @@ export class InputProperty extends PropertyBase {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
             let newValue = this.converter.convertBack(this.valueBox.text);
-            if (newValue.hasError()) {
+            if (newValue.status === "error") {
                 this.error.text(newValue.error ?? "error");
                 this.error.addClass(style.hidden);
                 return;
             }
             Transaction.excute(this.document, "modify property", () => {
                 this.objects.forEach((x) => {
-                    x[this.property.name] = newValue.value;
+                    x[this.property.name] = newValue.unwrap();
                 });
                 this.document.visual.viewer.redraw();
             });

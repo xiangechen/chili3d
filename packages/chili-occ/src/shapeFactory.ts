@@ -13,7 +13,7 @@ export class ShapeFactory implements IShapeFactory {
             make.Add_1(OccHelps.toPnt(x));
         });
         if (make.IsDone()) {
-            return Result.ok(new OccWire(make.Wire()));
+            return Result.success(new OccWire(make.Wire()));
         }
         return Result.error("Create polygon error");
     }
@@ -26,7 +26,7 @@ export class ShapeFactory implements IShapeFactory {
         let circ = new occ.gp_Circ_2(ax2, radius);
         let make = new occ.BRepBuilderAPI_MakeEdge_8(circ);
         if (make.IsDone()) {
-            return Result.ok(new OccEdge(make.Edge()));
+            return Result.success(new OccEdge(make.Edge()));
         }
         return Result.error("Create circle error");
     }
@@ -38,7 +38,7 @@ export class ShapeFactory implements IShapeFactory {
         let pln = OccHelps.toPln(plane);
         let make = new occ.BRepBuilderAPI_MakeFace_9(pln, 0, dx, 0, dy);
         if (make.IsDone()) {
-            return Result.ok(new OccFace(make.Face()));
+            return Result.success(new OccFace(make.Face()));
         }
         return Result.error("Create rectangle error");
     }
@@ -54,7 +54,7 @@ export class ShapeFactory implements IShapeFactory {
             vec.Scale(dz);
             let prismMake = new occ.BRepPrimAPI_MakePrism_1(faceMake.Face(), vec, false, false);
             if (prismMake.IsDone()) {
-                return Result.ok(new OccSolid(prismMake.Shape()));
+                return Result.success(new OccSolid(prismMake.Shape()));
             }
         }
         return Result.error("Create box error");
@@ -63,7 +63,7 @@ export class ShapeFactory implements IShapeFactory {
     point(point: XYZ): Result<IVertex, string> {
         let build = new occ.BRepBuilderAPI_MakeVertex(OccHelps.toPnt(point));
         if (build.IsDone()) {
-            return Result.ok(new OccVertex(build.Vertex()));
+            return Result.success(new OccVertex(build.Vertex()));
         }
         return Result.error("error");
     }
@@ -71,7 +71,7 @@ export class ShapeFactory implements IShapeFactory {
     line(start: XYZ, end: XYZ): Result<IEdge> {
         let make = new occ.BRepBuilderAPI_MakeEdge_3(OccHelps.toPnt(start), OccHelps.toPnt(end));
         if (make.IsDone()) {
-            return Result.ok(new OccEdge(make.Edge()));
+            return Result.success(new OccEdge(make.Edge()));
         }
         return Result.error("error");
     }

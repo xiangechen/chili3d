@@ -1,34 +1,34 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-const DefaultUndefinedValue = Symbol();
-const DefaultUndifinedError = Symbol();
+export type Result<T, E = string> = {
+    unwrap(): T;
+} & (
+    | {
+          readonly status: "success";
+          readonly value: T;
+      }
+    | {
+          readonly status: "error";
+          readonly error: E;
+      }
+);
 
-export class Result<T, E = string> {
-    get value(): T | undefined {
-        if (this._value === DefaultUndefinedValue) return undefined;
-        return this._value as T;
+export namespace Result {
+    export function success<T>(value: T): Result<T, never> {
+        return {
+            status: "success",
+            value,
+            unwrap: () => value,
+        };
     }
 
-    get error(): E | undefined {
-        if (this._err === DefaultUndifinedError) return undefined;
-        return this._err as E;
-    }
-
-    private constructor(private _value: T | symbol, private _err: E | symbol) {}
-
-    static ok<T, E = string>(value: T): Result<T, E> {
-        return new Result<T, E>(value, DefaultUndifinedError);
-    }
-
-    static error<T, E = string>(error: E): Result<T, E> {
-        return new Result<T, E>(DefaultUndefinedValue, error);
-    }
-
-    isOk() {
-        return this._value !== DefaultUndefinedValue;
-    }
-
-    hasError() {
-        return this._err !== DefaultUndifinedError;
+    export function error<E>(error: E): Result<never, E> {
+        return {
+            status: "error",
+            error,
+            unwrap: () => {
+                throw error;
+            },
+        };
     }
 }

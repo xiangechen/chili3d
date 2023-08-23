@@ -31,8 +31,9 @@ export class Box extends RectCommandBase {
     private previewBox = (end: XYZ) => {
         let data = this.getRectData(end);
         return [
-            this.application.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
-                .value?.mesh.edges!,
+            this.application.shapeFactory
+                .box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
+                .unwrap().mesh.edges!,
         ];
     };
 

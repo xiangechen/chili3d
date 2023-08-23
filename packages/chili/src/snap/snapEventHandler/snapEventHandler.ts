@@ -172,7 +172,7 @@ export abstract class SnapEventHandler implements IEventHandler {
                 let error = this.inputError(text);
                 if (error === undefined) {
                     this.handleText(view, text);
-                    return Result.ok(undefined);
+                    return Result.success(text);
                 } else {
                     return Result.error(error);
                 }

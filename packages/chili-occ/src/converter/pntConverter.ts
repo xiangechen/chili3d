@@ -5,7 +5,7 @@ import { gp_Pnt } from "opencascade.js";
 
 export class PntConverter implements IConverter<gp_Pnt> {
     convert(value: gp_Pnt): Result<string> {
-        return Result.ok(`${value.X()},${value.Y()},${value.Z()}`);
+        return Result.success(`${value.X()},${value.Y()},${value.Z()}`);
     }
     convertBack(value: string): Result<gp_Pnt> {
         let vs = value
@@ -15,6 +15,6 @@ export class PntConverter implements IConverter<gp_Pnt> {
         if (vs.length !== 3) {
             return Result.error(`${value} convert to XYZ error`);
         }
-        return Result.ok(new occ.gp_Pnt_3(vs[0], vs[1], vs[2]));
+        return Result.success(new occ.gp_Pnt_3(vs[0], vs[1], vs[2]));
     }
 }

@@ -62,6 +62,6 @@ export class TestBody extends Body {
     }
 
     protected generateShape(): Result<IShape> {
-        return Result.ok(new TestEdge(this.start, this.end));
+        return Result.success(new TestEdge(this.start, this.end));
     }
 }

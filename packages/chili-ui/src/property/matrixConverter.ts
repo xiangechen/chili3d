@@ -10,7 +10,7 @@ export abstract class MatrixConverter implements IConverter<Matrix4, string>, ID
     convert(value: Matrix4): Result<string, string> {
         this.matrix = value;
         const from = this.convertFrom(value);
-        return Result.ok(`${from[0].toFixed(2)}, ${from[1].toFixed(2)}, ${from[2].toFixed(2)}`);
+        return Result.success(`${from[0].toFixed(2)}, ${from[1].toFixed(2)}, ${from[2].toFixed(2)}`);
     }
 
     protected abstract convertFrom(value: Matrix4): [number, number, number];
@@ -25,7 +25,7 @@ export abstract class MatrixConverter implements IConverter<Matrix4, string>, ID
         if (values.length !== 3) return Result.error("invalid number of values");
         let matrix = this.convertTo(this.matrix!, [values[0], values[1], values[2]]);
         this.onMatrixChangeds.forEach((x) => x(matrix));
-        return Result.ok(matrix);
+        return Result.success(matrix);
     }
 
     onMatrixChanged(callback: (matrix: Matrix4) => void): void {

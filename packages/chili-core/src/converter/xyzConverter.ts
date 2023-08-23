@@ -6,7 +6,7 @@ import { IConverter } from "./converter";
 
 export class XYZConverter implements IConverter<XYZ> {
     convert(value: XYZ) {
-        return Result.ok(`${value.x},${value.y},${value.z}`);
+        return Result.success(`${value.x},${value.y},${value.z}`);
     }
 
     convertBack(value: string): Result<XYZ> {
@@ -17,6 +17,6 @@ export class XYZConverter implements IConverter<XYZ> {
         if (vs.length !== 3) {
             return Result.error(`${value} convert to XYZ error`);
         }
-        return Result.ok(new XYZ(vs[0], vs[1], vs[2]));
+        return Result.success(new XYZ(vs[0], vs[1], vs[2]));
     }
 }

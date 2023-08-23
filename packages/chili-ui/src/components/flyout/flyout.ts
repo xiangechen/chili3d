@@ -36,7 +36,7 @@ export class Flyout extends Control {
         }
     };
 
-    private displayInput = (handler: (text: string) => Result<undefined, keyof I18n>) => {
+    private displayInput = (handler: (text: string) => Result<string, keyof I18n>) => {
         if (this._input === undefined) {
             this.lastFocus = document.activeElement as HTMLElement;
             this._input = new Input(handler);

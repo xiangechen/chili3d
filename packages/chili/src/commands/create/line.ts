@@ -56,6 +56,6 @@ export class Line extends CreateCommand {
     };
 
     private linePreview = (point: XYZ) => {
-        return [this.application.shapeFactory.line(this.stepDatas[0].point, point).value?.mesh.edges!];
+        return [this.application.shapeFactory.line(this.stepDatas[0].point, point).unwrap().mesh.edges!];
     };
 }

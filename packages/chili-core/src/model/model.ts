@@ -88,10 +88,10 @@ export class GeometryModel extends Model {
 
     drawShape() {
         if (!this.body.generate()) {
-            Logger.error(`Body of ${this.name} is null: ${this.body.shape.error}`);
+            Logger.error(`Body of ${this.name} is null: ${this.body.shape}`); // todo
             return;
         }
-        this._shape = this.body.shape.value;
+        this._shape = this.body.shape.unwrap();
         this.applyFeatures(0);
     }
 
@@ -112,11 +112,12 @@ export class GeometryModel extends Model {
         if (startIndex < 0) return;
         for (let i = startIndex; i < this._features.length; i++) {
             this._features[i].generate();
-            if (this._features[i].shape.hasError()) {
-                this._error = this._features[i].shape.error;
+            let shape = this._features[i].shape;
+            if (shape.status === "error") {
+                this._error = shape.error;
                 return;
             }
-            this._shape = this._features[i].shape.value;
+            this._shape = shape.value;
         }
         this._shape?.setMatrix(this._matrix);
     }
@@ -127,7 +128,7 @@ export class GeometryModel extends Model {
             this._features.splice(index, 1);
             feature.removeShapeChanged(this.onShapeChanged);
             this._features[index].origin =
-                index === 0 ? this.body.shape.value : this._features[index - 1].shape.value;
+                index === 0 ? this.body.shape.unwrap() : this._features[index - 1].shape.unwrap(); // todo
             this.applyFeatures(index);
             this.redrawModel();
         }

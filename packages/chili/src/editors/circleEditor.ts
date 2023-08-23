@@ -61,7 +61,9 @@ export class CircleEditorEventHandler extends EditorEventHandler {
     };
 
     private circlePreview = (c: XYZ, r: number) => {
-        return [this.document.application.shapeFactory.circle(this.circle.normal, c, r).value!.mesh.edges!];
+        return [
+            this.document.application.shapeFactory.circle(this.circle.normal, c, r).unwrap().mesh.edges!,
+        ];
     };
 
     private getRadiusPoint() {

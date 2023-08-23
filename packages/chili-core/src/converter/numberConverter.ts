@@ -6,7 +6,7 @@ import { IConverter } from "./converter";
 export class NumberConverter implements IConverter<number> {
     convert(value: number): Result<string> {
         if (Number.isNaN(value)) return Result.error("Number is NaN");
-        return Result.ok(String(value));
+        return Result.success(String(value));
     }
 
     convertBack(value: string): Result<number> {
@@ -14,6 +14,6 @@ export class NumberConverter implements IConverter<number> {
         if (Number.isNaN(n)) {
             return Result.error(`${value} can not convert to number`);
         }
-        return Result.ok(n);
+        return Result.success(n);
     }
 }

@@ -144,10 +144,10 @@ export class ObjectSnap implements ISnapper {
     private showInvisibleSnaps(view: IView, shape: VisualShapeData) {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape.shape as IEdge).asCurve().value;
-            if (curve === undefined) return;
-            if (ICurve.isCircle(curve)) {
-                this.showCircleCenter(curve, view, shape);
+            let curve = (shape.shape as IEdge).asCurve();
+            if (curve.status === "error") return;
+            if (ICurve.isCircle(curve.value)) {
+                this.showCircleCenter(curve.value, view, shape);
             }
         }
     }
@@ -203,9 +203,9 @@ export class ObjectSnap implements ISnapper {
             this.referencePoint === undefined
         )
             return result;
-        let curve = (shape.shape as IEdge).asCurve().value;
-        if (curve === undefined) return result;
-        let point = curve.project(this.referencePoint).at(0);
+        let curve = (shape.shape as IEdge).asCurve();
+        if (curve.status === "error") return result;
+        let point = curve.value.project(this.referencePoint).at(0);
         if (point === undefined) return result;
         result.push({
             view,
@@ -267,10 +267,10 @@ export class ObjectSnap implements ISnapper {
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
-        let curve = (shape.shape as IEdge).asCurve().value;
-        if (curve === undefined) return;
-        let start = curve.point(curve.firstParameter());
-        let end = curve.point(curve.lastParameter());
+        let curve = (shape.shape as IEdge).asCurve();
+        if (curve.status === "error") return;
+        let start = curve.value.point(curve.value.firstParameter());
+        let end = curve.value.point(curve.value.lastParameter());
         let addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, i18n["snap.end"]);
@@ -278,7 +278,7 @@ export class ObjectSnap implements ISnapper {
         }
         if (
             ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) &&
-            curve.curveType === CurveType.Line
+            curve.value.curveType === CurveType.Line
         ) {
             addPoint(XYZ.center(start, end), i18n["snap.mid"]);
         }

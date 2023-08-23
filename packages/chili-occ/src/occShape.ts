@@ -18,7 +18,6 @@ import {
     Matrix4,
     Ray,
     Result,
-    ShapeMeshData,
     ShapeType,
     XYZ,
 } from "chili-core";
@@ -185,12 +184,12 @@ export class OccEdge extends OccShape implements IEdge {
         let curve = occ.BRep_Tool.Curve_2(this.shape, s, e).get();
         let curveType = OccHelps.getCurveType(curve);
         if (curveType === CurveType.Line) {
-            return Result.ok(new OccLine(curve as Geom_Line, s.current, e.current));
+            return Result.success(new OccLine(curve as Geom_Line, s.current, e.current));
         } else if (curveType === CurveType.Circle) {
-            return Result.ok(new OccCircle(curve as Geom_Circle, s.current, e.current));
+            return Result.success(new OccCircle(curve as Geom_Circle, s.current, e.current));
         } else {
             Logger.warn("Unsupported curve type");
-            return Result.ok(new OccCurve(curve, s.current, e.current));
+            return Result.success(new OccCurve(curve, s.current, e.current));
         }
     }
 }
@@ -203,7 +202,7 @@ export class OccWire extends OccShape implements IWire {
     toFace(): Result<IFace> {
         let make = new occ.BRepBuilderAPI_MakeFace_15(this.shape, true);
         if (make.IsDone()) {
-            return Result.ok(new OccFace(make.Face()));
+            return Result.success(new OccFace(make.Face()));
         }
         return Result.error("Wire to face error");
     }
