@@ -17,6 +17,10 @@ export class Binding implements IDisposable {
         this.dataContext.onPropertyChanged(this.onPropertyChanged);
     }
 
+    get value() {
+        return (this.dataContext as any)[this.path];
+    }
+
     private cacheBinding(dataContext: any) {
         if (Binding.#bindings.has(dataContext)) {
             Binding.#bindings.get(dataContext)!.add(this);
@@ -37,7 +41,7 @@ export class Binding implements IDisposable {
             this.#cache.set(target, new Set());
         }
         this.#cache.get(target)!.add(key);
-        this.setValue(target, key);
+        this.setValue(target, this.#cache.get(target)!);
     }
 
     remove<T extends Element, K extends keyof T>(target: T, key: K) {
@@ -46,18 +50,21 @@ export class Binding implements IDisposable {
 
     private onPropertyChanged = (prop: string) => {
         if (prop === this.path) {
-            this.#cache.forEach((key, target) => {
-                this.setValue(target, key as any);
+            this.#cache.forEach((keys, target) => {
+                this.setValue(target, keys);
             });
         }
     };
 
-    private setValue<T extends Element, K extends keyof T>(target: T, key: K) {
+    private setValue<T extends Element>(target: T, keys: Set<any>) {
         let value = (this.dataContext as any)[this.path];
         if (this.converter) {
             value = this.converter.convert(value);
         }
-        if (value !== target[key]) target[key] = value;
+        keys.forEach((key) => {
+            let scope: any = target;
+            if (value !== scope[key]) scope[key] = value;
+        });
     }
 
     dispose() {

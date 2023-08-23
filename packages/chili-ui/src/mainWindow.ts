@@ -13,8 +13,9 @@ import {
 } from "chili-core";
 import { Editor } from "./editor";
 import { Home } from "./home";
-import { div, localize } from "./controls";
+import { div, span } from "./controls";
 import style from "./mainWindow.module.css";
+import { useState } from "./controls/state";
 
 class MainWindowViewModel extends Observable {
     private _displayHome: boolean = true;
@@ -41,8 +42,8 @@ export class MainWindow {
     #app?: IApplication;
     #home: HTMLElement;
     #editor: HTMLElement;
-    #toastContainer = div({ className: style.toast });
-    #toastText = div({ className: style.toastText });
+    #toastContainer: HTMLElement;
+    #toastText = useState("");
     #toastTimeoutId: NodeJS.Timeout | undefined;
     readonly #vm: MainWindowViewModel = new MainWindowViewModel();
     readonly #documents = new ObservableCollection<RecentDocumentDTO>();
@@ -50,13 +51,21 @@ export class MainWindow {
     private constructor() {
         this.#home = Home({ documents: this.#documents, onDocumentClick: this.onDocumentClick });
         this.#editor = Editor();
-        this.#toastContainer.style.display = "none";
+        this.#toastContainer = div(
+            {
+                className: style.toast,
+            },
+            div({
+                className: style.toastText,
+                textContent: this.#toastText[0],
+            })
+        );
     }
 
     async init(app: IApplication, root: HTMLElement) {
         this.#app = app;
         this.setTheme("light");
-        this.#toastContainer.appendChild(this.#toastText);
+        this.#toastContainer.style.display = "none";
         root.append(this.#home, this.#editor, this.#toastContainer);
 
         this.#vm.onPropertyChanged(this.onPropertyChanged);
@@ -67,7 +76,7 @@ export class MainWindow {
 
     private showToast = (message: keyof I18n) => {
         if (this.#toastTimeoutId) clearTimeout(this.#toastTimeoutId);
-        this.#toastText.textContent = i18n[message];
+        this.#toastText[1](i18n[message]);
         this.#toastContainer.style.display = "";
         this.#toastTimeoutId = setTimeout(() => {
             this.#toastTimeoutId = undefined;
