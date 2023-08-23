@@ -11,11 +11,10 @@ import {
     RecentDocumentDTO,
     i18n,
 } from "chili-core";
+import { div, useState } from "./controls";
 import { Editor } from "./editor";
 import { Home } from "./home";
-import { div, span } from "./controls";
 import style from "./mainWindow.module.css";
-import { useState } from "./controls/state";
 
 class MainWindowViewModel extends Observable {
     private _displayHome: boolean = true;
