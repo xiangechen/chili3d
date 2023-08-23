@@ -4,21 +4,17 @@ import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 
 export type Key = string | number | symbol;
 
-export class Binding implements IDisposable {
+export class Binding<T extends IPropertyChanged = any, K extends keyof T = any> implements IDisposable {
     static #bindings = new WeakMap<IPropertyChanged, Set<Binding>>();
     #cache = new Map<Element, Set<Key>>();
 
-    constructor(
-        readonly dataContext: IPropertyChanged,
-        readonly path: Key,
-        readonly converter?: IConverter
-    ) {
+    constructor(readonly dataContext: T, readonly path: K, readonly converter?: IConverter) {
         this.cacheBinding(dataContext);
         this.dataContext.onPropertyChanged(this.onPropertyChanged);
     }
 
     get value() {
-        return (this.dataContext as any)[this.path];
+        return this.dataContext[this.path];
     }
 
     private cacheBinding(dataContext: any) {
@@ -48,7 +44,7 @@ export class Binding implements IDisposable {
         this.#cache.get(target)?.delete(key);
     }
 
-    private onPropertyChanged = (prop: string) => {
+    private onPropertyChanged = (prop: K) => {
         if (prop === this.path) {
             this.#cache.forEach((keys, target) => {
                 this.setValue(target, keys);
@@ -57,13 +53,13 @@ export class Binding implements IDisposable {
     };
 
     private setValue<T extends Element>(target: T, keys: Set<any>) {
-        let value = (this.dataContext as any)[this.path];
+        let value: any = this.dataContext[this.path];
         if (this.converter) {
             value = this.converter.convert(value);
         }
         keys.forEach((key) => {
             let scope: any = target;
-            if (value !== scope[key]) scope[key] = value;
+            if (value !== scope[key] && key in scope) scope[key] = value;
         });
     }
 

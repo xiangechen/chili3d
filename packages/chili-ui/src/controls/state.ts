@@ -1,7 +1,7 @@
 import { IPropertyChanged, PropertyChangedHandler } from "chili-core";
-import { Binding, bind } from "./binding";
+import { Binding } from "./binding";
 
-class InternalState<T> implements IPropertyChanged {
+export class State<T> implements IPropertyChanged {
     #handlers: PropertyChangedHandler<any, any>[] = [];
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
@@ -31,8 +31,8 @@ class InternalState<T> implements IPropertyChanged {
     }
 }
 
-export function useState<T>(initialValue: T): [Binding, (newValue: T) => void] {
-    const state = new InternalState(initialValue);
+export function useState<T>(initialValue: T): [Binding<State<T>, "value">, (newValue: T) => void] {
+    const state = new State(initialValue);
     const setState = (newValue: T) => (state.value = newValue);
-    return [bind(state, "value"), setState];
+    return [new Binding(state, "value"), setState];
 }
