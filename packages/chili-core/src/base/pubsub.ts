@@ -2,7 +2,7 @@
 
 import { Commands, ICommand } from "../command";
 import { IDocument } from "../document";
-import { I18n } from "../i18n";
+import { I18nKeys } from "../i18n";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
 import { AsyncController } from "./asyncController";
@@ -21,18 +21,18 @@ export interface PubSubEventMap {
     parentVisibleChanged: (model: IModel) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
     snapTypeChanged: (snapeType: ObjectSnapType) => void;
-    statusBarTip: (tip: keyof I18n) => void;
+    statusBarTip: (tip: I18nKeys) => void;
     clearStatusBarTip: () => void;
     showFloatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
-    showInput: (handler: (text: string) => Result<string, keyof I18n>) => void;
+    showInput: (handler: (text: string) => Result<string, I18nKeys>) => void;
     clearInput: () => void;
     showSelectionControl: (controller: AsyncController) => void;
     clearSelectionControl: () => void;
     openCommandContext: (command: ICommand) => void;
     closeCommandContext: () => void;
     showHome: () => void;
-    showToast: (message: keyof I18n) => void;
+    showToast: (message: I18nKeys, ...args: any[]) => void;
 }
 
 export class PubSub implements IDisposable {

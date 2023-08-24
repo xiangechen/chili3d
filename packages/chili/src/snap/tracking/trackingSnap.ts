@@ -3,7 +3,7 @@
 import {
     Config,
     EdgeMeshData,
-    i18n,
+    I18n,
     IDocument,
     IEdge,
     IView,
@@ -112,7 +112,7 @@ export class TrackingSnap implements ISnapper {
         return {
             view: data.view,
             point: point.intersect,
-            info: i18n["snap.intersection"],
+            info: I18n.translate("snap.intersection"),
             shapes: [data.shapes[0]],
         };
     }

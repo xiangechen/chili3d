@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, Config, I18n, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, I18nKeys, IView, Plane, XYZ } from "chili-core";
 
 import { AxisSnap } from "../axisSnap";
 import { SnapPreviewer, SnapValidator } from "../interfaces";
@@ -34,7 +34,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         return this.lengthData.point.add(this.lengthData.direction.multiply(Number(text)));
     }
 
-    protected inputError(text: string): keyof I18n | undefined {
+    protected inputError(text: string): I18nKeys | undefined {
         let n = Number(text);
         if (Number.isNaN(n)) return "error.input.invalidNumber";
         return undefined;
@@ -60,7 +60,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
             .add(this.lengthData.plane.yvec.multiply(ns[1]));
     }
 
-    protected inputError(text: string): keyof I18n | undefined {
+    protected inputError(text: string): I18nKeys | undefined {
         let ns = text.split(",").map((x) => Number(x));
         if (ns.some((x) => Number.isNaN(x))) return "error.input.invalidNumber";
         if (ns.length !== 1 && ns.length !== 2) {

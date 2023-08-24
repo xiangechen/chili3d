@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Commands, ICommand } from ".";
-import { I18n } from "../i18n";
+import { I18nKeys } from "../i18n";
 
 const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
 
@@ -9,7 +9,7 @@ export type CommandConstructor = new (...args: any[]) => ICommand;
 
 export interface CommandData {
     name: Commands;
-    display: keyof I18n;
+    display: I18nKeys;
     icon: string;
     helpText?: string;
     helpUrl?: string;

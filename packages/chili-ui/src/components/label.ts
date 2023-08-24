@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, I18n, i18n, IConverter, IPropertyChanged } from "chili-core";
+import { I18n, I18nKeys, IConverter, IPropertyChanged } from "chili-core";
 import { Control } from "./control";
 import style from "./label.module.css";
 
@@ -14,9 +14,8 @@ export class Label extends Control {
         return this;
     }
 
-    i18nText(key: keyof I18n) {
-        this.textContent = i18n[key];
-        this.dataset[Constants.I18nIdAttribute] = key;
+    i18nText(key: I18nKeys) {
+        I18n.set(this, key);
         return this;
     }
 

@@ -3,7 +3,7 @@
 import {
     AsyncController,
     CursorType,
-    I18n,
+    I18nKeys,
     IDocument,
     IEventHandler,
     IModel,
@@ -18,7 +18,7 @@ export class Selection {
     static async pickShape(
         document: IDocument,
         shapeType: ShapeType,
-        prompt: keyof I18n,
+        prompt: I18nKeys,
         multiMode: boolean = true,
         showControl: boolean = true
     ) {
@@ -33,7 +33,7 @@ export class Selection {
 
     static async pickModel(
         document: IDocument,
-        prompt: keyof I18n,
+        prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
         showControl: boolean = true
@@ -48,7 +48,7 @@ export class Selection {
     static async pickAsync(
         document: IDocument,
         handler: IEventHandler,
-        prompt: keyof I18n,
+        prompt: I18nKeys,
         controller: AsyncController,
         showControl: boolean,
         cursor: CursorType = CursorType.Selection

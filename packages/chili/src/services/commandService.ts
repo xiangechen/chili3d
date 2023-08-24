@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Command, Commands, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
+import { Command, Commands, I18n, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
 
 export class CommandService implements IService {
     private static readonly _lazy = new Lazy(() => new CommandService());
@@ -72,7 +72,8 @@ export class CommandService implements IService {
         }
         if (commandName.startsWith("app.")) return true;
         if (this._executingCommand) {
-            PubSub.default.pub("showToast", "toast.command.excuting");
+            let excuting = Command.getData(this._executingCommand)!;
+            PubSub.default.pub("showToast", "toast.command.{0}excuting", I18n.translate(excuting.display));
             Logger.warn(`command ${this._executingCommand} is executing`);
             return false;
         }

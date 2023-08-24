@@ -1,7 +1,7 @@
 import {
     Body,
     Color,
-    I18n,
+    I18nKeys,
     ICurve,
     IDocument,
     IEdge,
@@ -56,7 +56,7 @@ export class TestEdge implements IEdge {
 }
 
 export class TestBody extends Body {
-    name: keyof I18n = "body.line";
+    name: I18nKeys = "body.line";
     constructor(document: IDocument, readonly start: XYZ, readonly end: XYZ) {
         super(document);
     }

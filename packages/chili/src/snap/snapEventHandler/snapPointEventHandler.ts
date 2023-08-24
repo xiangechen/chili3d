@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, Config, I18n, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, I18nKeys, IView, Plane, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
 import { SnapPreviewer, SnapValidator } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
@@ -43,7 +43,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         return result;
     }
 
-    protected inputError(text: string): keyof I18n | undefined {
+    protected inputError(text: string): I18nKeys | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
         if (!Dimension.contains(this.pointData.dimension, dimension)) {

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, PubSub } from "chili-core";
+import { I18nKeys, PubSub } from "chili-core";
 import { Control, Label } from "../components";
 
 import style from "./statusbar.module.css";
@@ -15,7 +15,7 @@ export class Statusbar extends Control {
         PubSub.default.sub("clearStatusBarTip", this.clearStatusBarTip);
     }
 
-    private statusBarTip = (tip: keyof I18n) => {
+    private statusBarTip = (tip: I18nKeys) => {
         this.tip.i18nText(tip);
     };
 

@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { IConverter } from "./converter";
-import { I18n } from "./i18n";
+import { I18nKeys } from "./i18n";
 
 export interface Property {
     name: string;
-    display: keyof I18n;
+    display: I18nKeys;
     converter?: IConverter;
-    group?: keyof I18n;
+    group?: I18nKeys;
     icon?: string;
     dependencies?: {
         property: string | number | symbol;
@@ -18,7 +18,7 @@ export interface Property {
 const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
 
 export namespace Property {
-    export function define(display: keyof I18n, group?: keyof I18n, icon?: string) {
+    export function define(display: I18nKeys, group?: I18nKeys, icon?: string) {
         return (target: Object, name: string) => {
             setProperty(target, name, { display, group, icon });
         };

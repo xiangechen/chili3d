@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, I18n, IDocument, XYZ } from "chili-core";
+import { AsyncController, I18nKeys, IDocument, XYZ } from "chili-core";
 
 import { SnapedData, Snapper, SnapValidator } from "../snap";
 
@@ -14,7 +14,7 @@ export interface ValidatorData {
 
 export abstract class StepBase<D extends ValidatorData> implements IStep {
     constructor(
-        readonly tip: keyof I18n,
+        readonly tip: I18nKeys,
         readonly handleData: () => D,
         readonly disableDefaultValidator = false
     ) {}

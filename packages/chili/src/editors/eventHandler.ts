@@ -4,7 +4,7 @@ import {
     AsyncController,
     Config,
     CursorType,
-    I18n,
+    I18nKeys,
     IDisposable,
     IDocument,
     IEventHandler,
@@ -18,7 +18,7 @@ export interface FeaturePoint {
     point: XYZ;
     preview: SnapPreviewer;
     displayed: number;
-    tip: keyof I18n;
+    tip: I18nKeys;
     setter: (newPoint: XYZ) => void;
 }
 

@@ -3,7 +3,7 @@
 import {
     Config,
     CurveType,
-    i18n,
+    I18n,
     ICircle,
     ICurve,
     IDocument,
@@ -165,7 +165,7 @@ export class ObjectSnap implements ISnapper {
                 {
                     view,
                     point: curve.center,
-                    info: i18n["snap.center"],
+                    info: I18n.translate("snap.center"),
                     shapes: [shape],
                 },
             ],
@@ -210,7 +210,7 @@ export class ObjectSnap implements ISnapper {
         result.push({
             view,
             point,
-            info: i18n["snap.perpendicular"],
+            info: I18n.translate("snap.perpendicular"),
             shapes: [shape],
         });
 
@@ -248,7 +248,7 @@ export class ObjectSnap implements ISnapper {
             return {
                 view,
                 point,
-                info: i18n["snap.intersection"],
+                info: I18n.translate("snap.intersection"),
                 shapes: [s1, s2],
             };
         });
@@ -273,14 +273,14 @@ export class ObjectSnap implements ISnapper {
         let end = curve.value.point(curve.value.lastParameter());
         let addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
-            addPoint(start, i18n["snap.end"]);
-            addPoint(end, i18n["snap.end"]);
+            addPoint(start, I18n.translate("snap.end"));
+            addPoint(end, I18n.translate("snap.end"));
         }
         if (
             ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint) &&
             curve.value.curveType === CurveType.Line
         ) {
-            addPoint(XYZ.center(start, end), i18n["snap.mid"]);
+            addPoint(XYZ.center(start, end), I18n.translate("snap.mid"));
         }
     }
 }

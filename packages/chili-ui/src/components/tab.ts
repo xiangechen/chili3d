@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "chili-core";
+import { I18nKeys } from "chili-core";
 
 import { Control, Label, Panel, Row } from ".";
 import style from "./tab.module.css";
@@ -9,7 +9,7 @@ export class Tab extends Control {
     readonly itemsPanel: Panel;
     readonly toolsPanel: Panel;
 
-    constructor(name: keyof I18n) {
+    constructor(name: I18nKeys) {
         super(style.root);
         let text = new Label().addClass(style.headerText).i18nText(name);
         this.toolsPanel = new Panel().addClass(style.headerTools);

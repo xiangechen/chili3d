@@ -4,6 +4,7 @@ import {
     AsyncController,
     Config,
     EdgeMeshData,
+    I18n,
     IModel,
     INode,
     LineType,
@@ -11,7 +12,6 @@ import {
     Property,
     Transaction,
     XYZ,
-    i18n,
 } from "chili-core";
 import { Selection } from "../../selection";
 import { MultistepCommand } from "../multistepCommand";
@@ -56,7 +56,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             this.controller = new AsyncController();
             this.models = await Selection.pickModel(this.document, "prompt.select.models", this.controller);
             if (this.restarting || this.models.length === 0) {
-                alert(i18n["prompt.select.noModelSelected"]);
+                alert(I18n.translate("prompt.select.noModelSelected"));
                 return false;
             }
         }

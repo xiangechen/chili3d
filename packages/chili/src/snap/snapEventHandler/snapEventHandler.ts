@@ -3,7 +3,7 @@
 import {
     AsyncController,
     Config,
-    I18n,
+    I18nKeys,
     IEventHandler,
     IView,
     MessageType,
@@ -191,5 +191,5 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
-    protected abstract inputError(text: string): keyof I18n | undefined;
+    protected abstract inputError(text: string): I18nKeys | undefined;
 }

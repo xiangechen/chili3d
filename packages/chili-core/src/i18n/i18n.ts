@@ -1,93 +1,44 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-export type I18n = Record<Keys, string>;
+import en from "./en";
+import { I18nKeys } from "./local";
+import zh from "./zh-cn";
 
-type Keys =
-    | "common.name"
-    | "common.matrix"
-    | "common.normal"
-    | "common.confirm"
-    | "common.cancel"
-    | "common.clone"
-    | "common.type"
-    | "home.welcome"
-    | "home.recent"
-    | "body.line"
-    | "body.rect"
-    | "body.circle"
-    | "body.box"
-    | "body.polygon"
-    | "ribbon.tab.file"
-    | "ribbon.tab.draw"
-    | "ribbon.tab.startup"
-    | "ribbon.group.draw"
-    | "ribbon.group.modify"
-    | "ribbon.group.selection"
-    | "items.header"
-    | "items.tool.newFolder"
-    | "items.tool.expandAll"
-    | "items.tool.unexpandAll"
-    | "items.tool.delete"
-    | "properties.header"
-    | "properties.multivalue"
-    | "properties.group.transform"
-    | "model.translation"
-    | "model.rotation"
-    | "model.scale"
-    | "model.visible"
-    | "vertex.point"
-    | "line.type.line"
-    | "line.type.xline"
-    | "line.start"
-    | "line.end"
-    | "circle.center"
-    | "circle.radius"
-    | "box.dx"
-    | "box.dy"
-    | "box.dz"
-    | "rect.dx"
-    | "rect.dy"
-    | "command.document.save"
-    | "command.document.saveAs"
-    | "command.document.new"
-    | "command.document.open"
-    | "command.delete"
-    | "command.redo"
-    | "command.newGroup"
-    | "command.newFolder"
-    | "command.undo"
-    | "command.line"
-    | "command.line.isConnected"
-    | "command.box"
-    | "command.circle"
-    | "command.rect"
-    | "command.move"
-    | "command.copy"
-    | "command.mirror"
-    | "command.array"
-    | "command.rotate"
-    | "command.polygon"
-    | "command.mode.repeat"
-    | "operate.pickFistPoint"
-    | "operate.pickNextPoint"
-    | "operate.pickCircleCenter"
-    | "operate.pickRadius"
-    | "snap.end"
-    | "snap.mid"
-    | "snap.center"
-    | "snap.intersection"
-    | "snap.perpendicular"
-    | "axis.x"
-    | "axis.y"
-    | "axis.z"
-    | "toast.command.excuting"
-    | "toast.document.saved"
-    | "toast.document.noActived"
-    | "prompt.default"
-    | "prompt.select.models"
-    | "prompt.select.noModelSelected"
-    | "error.default"
-    | "error.input.unsupportedInputs"
-    | "error.input.invalidNumber"
-    | "error.input.threeNumberCanBeInput"
-    | "error.input.cannotInputANumber";
+const I18nId = "chili18n";
+const I18nArgs = new WeakMap<HTMLElement, any[]>();
+
+export namespace I18n {
+    let language = navigator.language.toLowerCase() === "zh-cn" ? zh : en;
+
+    export const languages = [zh, en];
+
+    export function translate(key: I18nKeys, ...args: any[]) {
+        let text = language.translation[key];
+        if (args.length > 0) {
+            text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
+        }
+        return text;
+    }
+
+    export function set(dom: HTMLElement, key: I18nKeys, ...args: any[]) {
+        dom.textContent = translate(key, ...args);
+        dom.dataset[I18nId] = key;
+        if (args.length > 0) {
+            I18nArgs.set(dom, args);
+        }
+    }
+
+    export function changeLanguage(idx: number): boolean {
+        if (idx < 0 || idx >= languages.length || language === languages[idx]) return false;
+        language = languages[idx];
+        document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
+            let html = e as HTMLElement;
+            let id = html?.dataset[I18nId] as I18nKeys;
+            if (id === undefined) return;
+            let args = I18nArgs.get(html) ?? [];
+            html.textContent = translate(id, ...args);
+        });
+
+        return true;
+    }
+}

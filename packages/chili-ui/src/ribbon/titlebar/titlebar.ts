@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Language } from "chili-core";
-import { ComboBox, Control, Panel, Svg } from "../../components";
+import { Control, Panel } from "../../components";
 
 import { QuickToolbar } from "./quickbar";
 import { Title } from "./title";

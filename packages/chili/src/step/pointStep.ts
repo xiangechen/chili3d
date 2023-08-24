@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, Precision, XYZ } from "chili-core";
+import { I18nKeys, Precision, XYZ } from "chili-core";
 
 import { Dimension, PointSnapper, SnapPointData, Snapper } from "../snap";
 import { StepBase } from "./step";
@@ -13,7 +13,7 @@ function defaultSnapedData(): SnapPointData {
 
 export class PointStep extends StepBase<SnapPointData> {
     constructor(
-        tip: keyof I18n,
+        tip: I18nKeys,
         handleData: () => SnapPointData = defaultSnapedData,
         disableDefaultValidator = false
     ) {

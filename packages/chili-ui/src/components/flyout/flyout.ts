@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, MessageType, PubSub, Result } from "chili-core";
+import { I18nKeys, MessageType, PubSub, Result } from "chili-core";
 import { Control } from "../control";
 import style from "./flyout.module.css";
 import { Input } from "./input";
@@ -36,7 +36,7 @@ export class Flyout extends Control {
         }
     };
 
-    private displayInput = (handler: (text: string) => Result<string, keyof I18n>) => {
+    private displayInput = (handler: (text: string) => Result<string, I18nKeys>) => {
         if (this._input === undefined) {
             this.lastFocus = document.activeElement as HTMLElement;
             this._input = new Input(handler);

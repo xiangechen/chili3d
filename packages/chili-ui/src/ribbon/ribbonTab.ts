@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "chili-core";
+import { I18nKeys } from "chili-core";
 import { Control, Label } from "../components";
 import { RibbonTabData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
@@ -9,7 +9,7 @@ import style from "./ribbonTab.module.css";
 export class RibbonTab extends Control {
     readonly header: Label;
 
-    constructor(name: keyof I18n) {
+    constructor(name: I18nKeys) {
         super(style.panel);
         this.header = new Label().addClass(style.header).i18nText(name);
     }

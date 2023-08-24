@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Command, I18n, ICommand, Observable, Property } from "chili-core";
+import { Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
 import { Control } from "../components";
 import { bind, button, div, input, label, localize, svg } from "../controls";
 import style from "./commandContext.module.css";
@@ -34,7 +34,7 @@ export class CommandContext extends Control {
     };
 
     private initContext() {
-        let groupMap: Map<keyof I18n, HTMLDivElement> = new Map();
+        let groupMap: Map<I18nKeys, HTMLDivElement> = new Map();
         for (const g of Property.getProperties(this.command)) {
             let group = this.findGroup(groupMap, g);
             let item = this.createRibbonItem(this.command, g);
@@ -95,7 +95,7 @@ export class CommandContext extends Control {
         }
     }
 
-    private findGroup(groupMap: Map<keyof I18n, HTMLDivElement>, prop: Property) {
+    private findGroup(groupMap: Map<I18nKeys, HTMLDivElement>, prop: Property) {
         let group = groupMap.get(prop.group!);
         if (group === undefined) {
             group = div({ className: style.group });

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, I18n, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
+import { GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
@@ -58,7 +58,7 @@ export class PropertyView extends Control {
         if (nodes.length === 0) return;
         let transform = new Expander("properties.group.transform").addClass(style.expander);
         this.panel.append(transform);
-        const addMatrix = (display: keyof I18n, converter: IConverter) => {
+        const addMatrix = (display: I18nKeys, converter: IConverter) => {
             this.appendProperty(transform, document, nodes, {
                 name: "matrix",
                 display,

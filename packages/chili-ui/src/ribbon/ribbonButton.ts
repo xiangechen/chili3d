@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Command, Commands, I18n, Logger, PubSub } from "chili-core";
+import { Command, Commands, I18nKeys, Logger, PubSub } from "chili-core";
 import { Control, Label, Svg } from "../components";
 import style from "./ribbonButton.module.css";
 import { RibbonButtonSize } from "./ribbonButtonSize";
 
 export class RibbonButton extends Control {
-    constructor(display: keyof I18n, icon: string, size: RibbonButtonSize, readonly onClick: () => void) {
+    constructor(display: I18nKeys, icon: string, size: RibbonButtonSize, readonly onClick: () => void) {
         super();
         this.initHTML(display, icon, size);
         this.addEventListener("click", onClick);
@@ -28,7 +28,7 @@ export class RibbonButton extends Control {
         this.removeEventListener("click", this.onClick);
     }
 
-    private initHTML(display: keyof I18n, icon: string, size: RibbonButtonSize) {
+    private initHTML(display: I18nKeys, icon: string, size: RibbonButtonSize) {
         let image = new Svg(icon);
         if (size === RibbonButtonSize.Normal) {
             image.addClass(style.icon);

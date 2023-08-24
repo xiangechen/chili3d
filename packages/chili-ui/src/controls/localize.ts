@@ -1,16 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Constants, I18n, i18n } from "chili-core";
+import { I18n, I18nKeys } from "chili-core";
 
 export class Localize {
-    constructor(readonly key: keyof I18n) {}
+    constructor(readonly key: I18nKeys) {}
 
     set(e: HTMLElement) {
-        e.textContent = i18n[this.key];
-        e.dataset[Constants.I18nIdAttribute] = this.key;
+        I18n.set(e, this.key);
     }
 }
 
-export function localize(key: keyof I18n) {
+export function localize(key: I18nKeys) {
     return new Localize(key);
 }

@@ -2,12 +2,12 @@
 
 import { HistoryObservable, IEqualityComparer, ISerialize, Result } from "../base";
 import { IShape } from "../geometry";
-import { I18n } from "../i18n";
+import { I18nKeys } from "../i18n";
 
 const ShapeChangedEvent = "PropertyChangedEvent";
 
 export abstract class Entity extends HistoryObservable implements ISerialize {
-    abstract name: keyof I18n;
+    abstract name: I18nKeys;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
 

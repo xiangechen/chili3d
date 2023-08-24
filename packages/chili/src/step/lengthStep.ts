@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, Precision, XYZ } from "chili-core";
+import { I18nKeys, Precision, XYZ } from "chili-core";
 
 import {
     LengthAtAxisSnapper,
@@ -12,7 +12,7 @@ import {
 import { StepBase } from "./step";
 
 export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
-    constructor(tip: keyof I18n, handleData: () => SnapLengthAtAxisData, disableDefaultValidator = false) {
+    constructor(tip: I18nKeys, handleData: () => SnapLengthAtAxisData, disableDefaultValidator = false) {
         super(tip, handleData, disableDefaultValidator);
     }
 
@@ -26,7 +26,7 @@ export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
 }
 
 export class LengthAtPlaneStep extends StepBase<SnapLengthAtPlaneData> {
-    constructor(tip: keyof I18n, handleData: () => SnapLengthAtPlaneData, disableDefaultValidator = false) {
+    constructor(tip: I18nKeys, handleData: () => SnapLengthAtPlaneData, disableDefaultValidator = false) {
         super(tip, handleData, disableDefaultValidator);
     }
 

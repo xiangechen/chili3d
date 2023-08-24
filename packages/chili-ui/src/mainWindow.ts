@@ -3,13 +3,13 @@
 import {
     Constants,
     I18n,
+    I18nKeys,
     IApplication,
     Lazy,
     Observable,
     ObservableCollection,
     PubSub,
     RecentDocumentDTO,
-    i18n,
 } from "chili-core";
 import { div, useState } from "./controls";
 import { Editor } from "./editor";
@@ -75,9 +75,9 @@ export class MainWindow {
         PubSub.default.sub("showToast", this.showToast);
     }
 
-    private showToast = (message: keyof I18n) => {
+    private showToast = (message: I18nKeys, ...args: any[]) => {
         if (this.#toastTimeoutId) clearTimeout(this.#toastTimeoutId);
-        this.#toastText[1](i18n[message]);
+        this.#toastText[1](I18n.translate(message, ...args));
         this.#toastContainer.style.display = "";
         this.#toastTimeoutId = setTimeout(() => {
             this.#toastTimeoutId = undefined;

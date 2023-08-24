@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, CursorType, I18n, IDocument, XYZ } from "chili-core";
+import { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
 
 import { Selection } from "../selection";
 import { SnapedData } from "./interfaces";
@@ -20,7 +20,7 @@ export abstract class Snapper {
 
     async snap(
         document: IDocument,
-        tip: keyof I18n,
+        tip: I18nKeys,
         controller: AsyncController
     ): Promise<SnapedData | undefined> {
         let executorHandler = this.getEventHandler(controller);

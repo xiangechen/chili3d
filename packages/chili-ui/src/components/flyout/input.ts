@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n, IDisposable, Result } from "chili-core";
+import { I18nKeys, IDisposable, Result } from "chili-core";
 import { Control } from "../control";
 import { Label } from "../label";
 import { TextBox } from "../textbox";
@@ -14,7 +14,7 @@ export class Input extends Control implements IDisposable {
     private readonly textbox: TextBox;
     private tip?: Label;
 
-    constructor(readonly handler: (text: string) => Result<string, keyof I18n>) {
+    constructor(readonly handler: (text: string) => Result<string, I18nKeys>) {
         super(style.panel);
         this.textbox = new TextBox();
         this.append(this.textbox);
@@ -43,7 +43,7 @@ export class Input extends Control implements IDisposable {
         this._completedCallbacks.length = 0;
     }
 
-    private showTip(tip: keyof I18n) {
+    private showTip(tip: I18nKeys) {
         if (this.tip === undefined) {
             this.tip = new Label().i18nText(tip).addClass(style.error);
             this.append(this.tip);

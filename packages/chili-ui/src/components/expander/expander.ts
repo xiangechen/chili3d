@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { I18n } from "chili-core";
+import { I18nKeys } from "chili-core";
 import { Control } from "../control";
 import { Label } from "../label";
 import { Panel } from "../panel";
@@ -13,7 +13,7 @@ export class Expander extends Control {
     private readonly headerPanel = new Panel(style.headerPanel);
     readonly contenxtPanel = new Panel(style.contextPanel);
 
-    constructor(header: keyof I18n) {
+    constructor(header: I18nKeys) {
         super(style.rootPanel);
         this.expanderIcon = new Svg(this.getExpanderIcon())
             .addClass(style.expanderIcon)

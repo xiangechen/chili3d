@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Command, I18n, ICommand, Observable, Property } from "chili-core";
+import { Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
 import { Control } from "../components";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -32,7 +32,7 @@ export class CommandContextTab extends RibbonTab {
     };
 
     private initContext() {
-        let groupMap: Map<keyof I18n, RibbonGroup> = new Map();
+        let groupMap: Map<I18nKeys, RibbonGroup> = new Map();
         for (const g of Property.getProperties(this.command)) {
             if (!g.group) continue;
             let group = this.findGroup(groupMap, g, this);
@@ -78,7 +78,7 @@ export class CommandContextTab extends RibbonTab {
         }
     }
 
-    private findGroup(groupMap: Map<keyof I18n, RibbonGroup>, prop: Property, tab: RibbonTab) {
+    private findGroup(groupMap: Map<I18nKeys, RibbonGroup>, prop: Property, tab: RibbonTab) {
         let group = groupMap.get(prop.group!);
         if (group === undefined) {
             group = new RibbonGroup(prop.group!);

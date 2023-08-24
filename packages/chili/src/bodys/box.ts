@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18n, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
+import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
 
 export class BoxBody extends Body {
-    readonly name: keyof I18n = "body.box";
+    readonly name: I18nKeys = "body.box";
 
     private _dx: number;
 

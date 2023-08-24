@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { i18n, IView, Plane, XYZ } from "chili-core";
+import { I18n, IView, Plane, XYZ } from "chili-core";
 
 import { Axis } from "./axis";
 
@@ -28,8 +28,8 @@ export class AxesTracking {
                 testAngle += angle;
             }
             if (this.trackingZ) {
-                result.push(new Axis(referencePoint, plane.normal, i18n["axis.z"]));
-                result.push(new Axis(referencePoint, plane.normal.reverse(), i18n["axis.z"]));
+                result.push(new Axis(referencePoint, plane.normal, I18n.translate("axis.z")));
+                result.push(new Axis(referencePoint, plane.normal.reverse(), I18n.translate("axis.z")));
             }
             return result;
         }
