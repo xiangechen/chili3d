@@ -10,8 +10,13 @@ export interface Props {
     id?: string | Binding;
     textContent?: string | Binding | Localize;
     className?: string | Binding;
+    style?: StyleProps;
     onclick?: (e: MouseEvent) => void;
 }
+
+export type StyleProps = {
+    [P in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[P] | Binding;
+};
 
 export interface ImgProps extends Props {
     src?: string | Binding;
@@ -53,13 +58,28 @@ function createFunction<K extends Tags, O extends Props = Props>(tag: K) {
 function setProps<O extends Props, K extends Tags>(props: O, dom: HTMLElementTagNameMap[K] | SVGElement) {
     for (const key of Object.keys(props)) {
         const value = (props as any)[key];
-        if (value instanceof Binding) {
-            value.add(dom, key as any);
+        if (key === "style") {
+            setStyle(dom, value);
         } else if (value instanceof Localize && dom instanceof HTMLElement && key === "textContent") {
             value.set(dom);
         } else if (key in dom) {
-            (dom as any)[key] = value;
+            bindOrSetProperty(dom, key as any, value);
         }
+    }
+}
+
+function bindOrSetProperty<T extends object>(dom: T, key: keyof T, value: any) {
+    if (value instanceof Binding) {
+        value.add(dom, key);
+    } else {
+        dom[key] = value;
+    }
+}
+
+function setStyle(dom: HTMLElement | SVGElement, style: StyleProps) {
+    for (const key of Object.keys(style)) {
+        const value = (style as any)[key];
+        bindOrSetProperty(dom.style, key as any, value);
     }
 }
 

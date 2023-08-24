@@ -53,6 +53,9 @@ export class MainWindow {
         this.#toastContainer = div(
             {
                 className: style.toast,
+                style: {
+                    display: "none",
+                },
             },
             div({
                 className: style.toastText,
@@ -64,7 +67,6 @@ export class MainWindow {
     async init(app: IApplication, root: HTMLElement) {
         this.#app = app;
         this.setTheme("light");
-        this.#toastContainer.style.display = "none";
         root.append(this.#home, this.#editor, this.#toastContainer);
 
         this.#vm.onPropertyChanged(this.onPropertyChanged);
