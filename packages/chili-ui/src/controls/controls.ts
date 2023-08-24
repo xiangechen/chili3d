@@ -30,6 +30,10 @@ export interface SelectProps extends Props {
     onchange?: (e: Event) => void;
 }
 
+export interface OptionProps extends Props {
+    selected?: boolean | Binding;
+}
+
 export interface CheckboxProps extends Props {
     type: "checkbox";
     checked: boolean | Binding;
@@ -89,7 +93,7 @@ export const button = createFunction("button");
 export const input = createFunction<"input", CheckboxProps>("input");
 export const textarea = createFunction("textarea");
 export const select = createFunction<"select", SelectProps>("select");
-export const option = createFunction("option");
+export const option = createFunction<"option", OptionProps>("option");
 export const label = createFunction("label");
 export const img = createFunction<"img", ImgProps>("img");
 export const a = createFunction<"a", AProps>("a");

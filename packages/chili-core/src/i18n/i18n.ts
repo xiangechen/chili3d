@@ -8,12 +8,16 @@ const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
 
 export namespace I18n {
-    let language = navigator.language.toLowerCase() === "zh-cn" ? zh : en;
+    let languageIndex = navigator.language.toLowerCase() === "zh-cn" ? 0 : 1;
 
     export const languages = [zh, en];
 
+    export function currentIndex() {
+        return languageIndex;
+    }
+
     export function translate(key: I18nKeys, ...args: any[]) {
-        let text = language.translation[key];
+        let text = languages[languageIndex].translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }
@@ -29,8 +33,8 @@ export namespace I18n {
     }
 
     export function changeLanguage(idx: number): boolean {
-        if (idx < 0 || idx >= languages.length || language === languages[idx]) return false;
-        language = languages[idx];
+        if (idx < 0 || idx >= languages.length || languageIndex === idx) return false;
+        languageIndex = idx;
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
             let html = e as HTMLElement;
             let id = html?.dataset[I18nId] as I18nKeys;
