@@ -3,7 +3,7 @@
 import { command, IApplication, ICommand, Transaction } from "chili-core";
 
 @command({
-    name: "doc.modify.delete",
+    name: "modify.delete",
     display: "command.delete",
     icon: "icon-delete",
 })

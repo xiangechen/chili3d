@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, ICommand } from ".";
+import { CommandKeys, ICommand } from ".";
 import { I18nKeys } from "../i18n";
 
 const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
@@ -8,7 +8,7 @@ const CommandMap = new Map<string, new (...args: any[]) => ICommand>();
 export type CommandConstructor = new (...args: any[]) => ICommand;
 
 export interface CommandData {
-    name: Commands;
+    name: CommandKeys;
     display: I18nKeys;
     icon: string;
     helpText?: string;
@@ -34,7 +34,7 @@ export namespace Command {
         }
     }
 
-    export function get(name: Commands): CommandConstructor | undefined {
+    export function get(name: CommandKeys): CommandConstructor | undefined {
         return CommandMap.get(name);
     }
 }

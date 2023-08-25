@@ -7,16 +7,16 @@ export const DefaultRibbon: RibbonData = [
             {
                 groupName: "ribbon.group.draw",
                 items: [
-                    "doc.create.line",
-                    "doc.create.rect",
-                    "doc.create.circle",
-                    "doc.create.box",
-                    ["doc.create.rect", "doc.create.circle"],
+                    "create.line",
+                    "create.rect",
+                    "create.circle",
+                    "create.box",
+                    ["create.rect", "create.circle"],
                 ],
             },
             {
                 groupName: "ribbon.group.modify",
-                items: ["doc.modify.move", "doc.modify.rotate", "doc.modify.mirror", "doc.modify.delete"],
+                items: ["modify.move", "modify.rotate", "modify.mirror", "modify.delete"],
             },
         ],
     },
@@ -25,11 +25,11 @@ export const DefaultRibbon: RibbonData = [
         groups: [
             {
                 groupName: "ribbon.group.draw",
-                items: ["doc.create.line", "doc.create.rect", "doc.create.circle", "doc.create.box"],
+                items: ["create.line", "create.rect", "create.circle", "create.box"],
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["doc.create.line", "doc.create.rect", "doc.create.circle", "doc.create.box"],
+                items: ["create.line", "create.rect", "create.circle", "create.box"],
             },
         ],
     },

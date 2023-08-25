@@ -5,7 +5,7 @@ import { command, IApplication, ICommand, NodeLinkedList } from "chili-core";
 let index: number = 1;
 
 @command({
-    name: "doc.create.folder",
+    name: "create.folder",
     display: "command.newFolder",
     icon: "icon-folder-plus",
 })

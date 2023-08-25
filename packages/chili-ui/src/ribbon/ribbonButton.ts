@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Command, Commands, I18nKeys, Logger, PubSub } from "chili-core";
+import { Command, CommandKeys, I18nKeys, Logger, PubSub } from "chili-core";
 import { Control, Label, Svg } from "../components";
 import style from "./ribbonButton.module.css";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -12,7 +12,7 @@ export class RibbonButton extends Control {
         this.addEventListener("click", onClick);
     }
 
-    static fromCommandName(commandName: Commands, size: RibbonButtonSize) {
+    static fromCommandName(commandName: CommandKeys, size: RibbonButtonSize) {
         let data = Command.getData(commandName);
         if (data === undefined) {
             Logger.warn(`commandData of ${commandName} is undefined`);

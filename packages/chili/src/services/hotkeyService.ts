@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
+import { CommandKeys, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
 
 export interface Keys {
     key: string;
@@ -10,16 +10,16 @@ export interface Keys {
 }
 
 export interface HotkeyMap {
-    [key: string]: Commands;
+    [key: string]: CommandKeys;
 }
 
 const DefaultKeyMap: HotkeyMap = {
-    Delete: "doc.modify.delete",
-    Backspace: "doc.modify.delete",
-    " ": "doc.cmd.last",
-    Enter: "doc.cmd.last",
-    "ctrl+z": "doc.cmd.undo",
-    "ctrl+y": "doc.cmd.redo",
+    Delete: "modify.delete",
+    Backspace: "modify.delete",
+    " ": "special.last",
+    Enter: "special.last",
+    "ctrl+z": "edit.undo",
+    "ctrl+y": "edit.redo",
 };
 
 export class HotkeyService implements IService {
@@ -30,7 +30,7 @@ export class HotkeyService implements IService {
     }
 
     private app?: IApplication;
-    private readonly _keyMap = new Map<string, Commands>();
+    private readonly _keyMap = new Map<string, CommandKeys>();
 
     private constructor() {
         this.addMap(DefaultKeyMap);
@@ -80,12 +80,12 @@ export class HotkeyService implements IService {
         return key;
     }
 
-    map(command: Commands, keys: Keys) {
+    map(command: CommandKeys, keys: Keys) {
         let key = this.getKey(keys);
         this._keyMap.set(key, command);
     }
 
-    getCommand(keys: Keys): Commands | undefined {
+    getCommand(keys: Keys): CommandKeys | undefined {
         let key = this.getKey(keys);
         return this._keyMap.get(key);
     }

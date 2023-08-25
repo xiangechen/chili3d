@@ -25,7 +25,7 @@ export class ToolBar extends Control {
     }
 
     private newGroup = () => {
-        PubSub.default.pub("executeCommand", "doc.create.folder");
+        PubSub.default.pub("executeCommand", "create.folder");
     };
 
     private expandAll = () => {
@@ -41,7 +41,7 @@ export class ToolBar extends Control {
     }
 
     private deleteModel = () => {
-        PubSub.default.pub("executeCommand", "doc.modify.delete");
+        PubSub.default.pub("executeCommand", "modify.delete");
     };
 }
 

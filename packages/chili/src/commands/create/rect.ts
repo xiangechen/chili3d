@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, IDocument, MathUtils, Plane, XYZ, command } from "chili-core";
+import { GeometryModel, MathUtils, Plane, XYZ, command } from "chili-core";
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -59,7 +59,7 @@ export abstract class RectCommandBase extends CreateCommand {
 }
 
 @command({
-    name: "doc.create.rect",
+    name: "create.rect",
     display: "command.rect",
     icon: "icon-rect",
 })

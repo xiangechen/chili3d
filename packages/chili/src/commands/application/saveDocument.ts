@@ -3,7 +3,7 @@
 import { command, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
-    name: "app.doc.save",
+    name: "doc.save",
     display: "command.document.save",
     icon: "icon-save",
 })

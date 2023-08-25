@@ -1,13 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, Precision, Property, XYZ, command } from "chili-core";
-import { LineBody } from "../../bodys";
-import { Dimension, SnapPointData } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { GeometryModel, command } from "chili-core";
+import { IStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 
 @command({
-    name: "doc.create.polygon",
+    name: "create.polygon",
     display: "command.polygon",
     icon: "icon-polygon",
 })

@@ -6,7 +6,7 @@ import { IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "doc.modify.move",
+    name: "modify.move",
     display: "command.move",
     icon: "icon-move",
 })

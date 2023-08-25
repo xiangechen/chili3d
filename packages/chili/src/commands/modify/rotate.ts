@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Color, EdgeMeshData, LineType, Matrix4, ShapeMeshData, XYZ, command } from "chili-core";
+import { Matrix4, ShapeMeshData, XYZ, command } from "chili-core";
 import { Dimension, SnapPointData } from "../../snap";
 import { AngleStep, IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "doc.modify.rotate",
+    name: "modify.rotate",
     display: "command.rotate",
     icon: "icon-rotate",
 })

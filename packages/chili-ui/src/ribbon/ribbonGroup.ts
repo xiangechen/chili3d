@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Commands, I18nKeys } from "chili-core";
+import { CommandKeys, I18nKeys } from "chili-core";
 import { Control, Label, Panel } from "../components";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -30,11 +30,11 @@ export class RibbonGroup extends Control {
         let items = data.items
             .map((item) => {
                 if (typeof item === "string") {
-                    return RibbonButton.fromCommandName(item as Commands, RibbonButtonSize.Normal);
+                    return RibbonButton.fromCommandName(item as CommandKeys, RibbonButtonSize.Normal);
                 } else {
                     let stack = new RibbonStack();
                     item.forEach((b) => {
-                        let button = RibbonButton.fromCommandName(b as Commands, RibbonButtonSize.Mini);
+                        let button = RibbonButton.fromCommandName(b as CommandKeys, RibbonButtonSize.Mini);
                         if (button) stack.append(button);
                     });
                     return stack;

@@ -3,7 +3,7 @@
 import { command, IApplication, ICommand } from "chili-core";
 
 @command({
-    name: "doc.cmd.undo",
+    name: "edit.undo",
     display: "command.undo",
     icon: "icon-undo",
 })

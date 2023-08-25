@@ -7,7 +7,7 @@ import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
 @command({
-    name: "doc.create.box",
+    name: "create.box",
     display: "command.box",
     icon: "icon-box",
 })

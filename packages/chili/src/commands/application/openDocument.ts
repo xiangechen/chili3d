@@ -3,7 +3,7 @@
 import { IApplication, ICommand, Serialized, command } from "chili-core";
 
 @command({
-    name: "app.doc.open",
+    name: "doc.open",
     display: "command.document.open",
     icon: "icon-open",
 })

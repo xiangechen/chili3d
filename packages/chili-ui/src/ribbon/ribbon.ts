@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, Commands, ICommand, Logger, PubSub } from "chili-core";
+import { AsyncController, CommandKeys, ICommand, Logger, PubSub } from "chili-core";
 import { Control, Panel } from "../components";
 import { div, label, localize } from "../controls";
 import { DefaultRibbon } from "../profile/ribbon";
@@ -37,7 +37,7 @@ export class Ribbon extends Control {
         this.append(this.titlebar, this._ribbonHeader, this._ribbonPanel, this._contextContainer);
 
         this.initRibbon(DefaultRibbon);
-        this.initQuickBar(["app.doc.save", "doc.cmd.undo", "doc.cmd.redo"]);
+        this.initQuickBar(["doc.save", "edit.undo", "edit.redo"]);
 
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
@@ -132,7 +132,7 @@ export class Ribbon extends Control {
         });
     }
 
-    private initQuickBar(buttons: Commands[]) {
+    private initQuickBar(buttons: CommandKeys[]) {
         this.titlebar.quickToolBar.addButton(...buttons);
     }
 }

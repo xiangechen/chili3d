@@ -3,7 +3,7 @@
 import { command, IApplication, ICommand } from "chili-core";
 
 @command({
-    name: "doc.cmd.redo",
+    name: "edit.redo",
     display: "command.redo",
     icon: "icon-redo",
 })
