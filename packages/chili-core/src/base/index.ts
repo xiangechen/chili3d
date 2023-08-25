@@ -7,6 +7,7 @@ export * from "./disposable";
 export * from "./equalityComparer";
 export * from "./history";
 export * from "./lazy";
+export * from "./linkedList";
 export * from "./logger";
 export * from "./messageType";
 export * from "./observer";
