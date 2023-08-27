@@ -90,7 +90,7 @@ export namespace Serializer {
         document: IDocument,
         data: Serialized,
         parent?: INodeLinkedList,
-        addSibling?: boolean
+        addSibling?: boolean,
     ) {
         let node = deserializeInstance(document, data.className, data.constructorParameters);
         parent?.add(node);
@@ -112,12 +112,21 @@ export namespace Serializer {
         let parameters: Properties = {};
         parameters["document"] = document;
         for (const key of Object.keys(constructorParameters)) {
-            let v = constructorParameters[key];
-            parameters[key] = v.className ? deserialize(document, v) : v;
+            parameters[key] = deserialValue(document, constructorParameters[key]);
         }
         let instance = deserializeMap.get(className)?.(parameters);
         if (instance === undefined) throw new Error(`${className} cannot be deserialized`);
         return instance;
+    }
+
+    function deserialValue(document: IDocument, value: any) {
+        if (Array.isArray(value)) {
+            return value.map((v) => {
+                return typeof v === "object" ? deserialize(document, v) : v;
+            });
+        } else {
+            return value.className ? deserialize(document, value) : value;
+        }
     }
 
     function deserializeProperties(document: IDocument, instance: any, properties: Properties) {
@@ -127,10 +136,7 @@ export namespace Serializer {
     }
 
     function setPropertyValue(document: IDocument, instance: any, key: string, value: any) {
-        let ivalue = value;
-        if (value?.className) {
-            ivalue = deserialize(document, value);
-        }
+        let ivalue = deserialValue(document, value);
         let setter = setters.get(value?.className)?.get(key);
         if (setter) {
             setter(instance, ivalue);
@@ -155,20 +161,28 @@ export namespace Serializer {
     function serializeProperties(data: Properties, target: ISerialize, keys: Set<string>) {
         for (const key of keys) {
             let value = (target as any)[key];
-            let type = typeof value;
-            if (type === "object" && (value as ISerialize).serialize.length === 0) {
-                data[key] = value.serialize();
-            } else if (type !== "function" && type !== "symbol") {
-                data[key] = value;
+            if (Array.isArray(value)) {
+                data[key] = value.map((v) => serializeObject(v));
             } else {
-                throw new Error("Unsupported serialized object");
+                data[key] = serializeObject(value);
             }
+        }
+    }
+
+    function serializeObject(value: any) {
+        let type = typeof value;
+        if (type === "object" && (value as ISerialize).serialize.length === 0) {
+            return value.serialize();
+        } else if (type !== "function" && type !== "symbol") {
+            return value;
+        } else {
+            throw new Error("Unsupported serialized object");
         }
     }
 
     function getAllKeysOfPrototypeChain(
         target: ISerialize,
-        map: Map<new (...args: any[]) => any, Set<string>>
+        map: Map<new (...args: any[]) => any, Set<string>>,
     ) {
         let keys: string[] = [];
         let prototype = Object.getPrototypeOf(target);
