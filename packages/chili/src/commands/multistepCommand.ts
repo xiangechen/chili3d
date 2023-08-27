@@ -21,12 +21,12 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         return this.#application!.activeDocument!;
     }
 
-    private _restarting: boolean = false;
+    protected _restarting: boolean = false;
     protected get restarting() {
         return this._restarting;
     }
 
-    private _controller?: AsyncController;
+    protected _controller?: AsyncController;
     protected get controller() {
         return this._controller;
     }
@@ -87,7 +87,7 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         await this.executeFromStep(0);
     }
 
-    private async executeSteps(startIndex: number): Promise<boolean> {
+    protected async executeSteps(startIndex: number): Promise<boolean> {
         this.stepDatas.length = startIndex;
         let steps = this.getSteps();
         for (let i = startIndex; i < steps.length; i++) {

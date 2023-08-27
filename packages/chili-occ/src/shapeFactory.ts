@@ -8,7 +8,7 @@ import { OccEdge, OccFace, OccSolid, OccVertex, OccWire } from "./occShape";
 
 export class ShapeFactory implements IShapeFactory {
     polygon(...points: XYZ[]): Result<IWire, string> {
-        let make = new occ.BRepBuilderAPI_MakePolygon();
+        let make = new occ.BRepBuilderAPI_MakePolygon_1();
         points.forEach((x) => {
             make.Add_1(OccHelps.toPnt(x));
         });

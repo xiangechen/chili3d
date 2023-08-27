@@ -11,7 +11,7 @@ export const DefaultRibbon: RibbonData = [
                     "create.rect",
                     "create.circle",
                     "create.box",
-                    ["create.rect", "create.circle"],
+                    ["create.polygon", "create.circle"],
                 ],
             },
             {
