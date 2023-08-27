@@ -37,6 +37,7 @@ export default {
         "line.type.xline": "XLine",
         "line.start": "Start",
         "line.end": "End",
+        "polygon.points": "Points",
         "command.document.open": "Open Document",
         "command.document.save": "Save",
         "command.document.saveAs": "Save As",
@@ -65,6 +66,7 @@ export default {
         "prompt.default":
             "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",
+        "prompt.polygon.close": "Close",
         "prompt.select.noModelSelected": "No model selected",
         "error.default": "",
         "error.input.unsupportedInputs": "Exceeds the maximum number of inputs",

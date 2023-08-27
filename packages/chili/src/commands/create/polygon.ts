@@ -6,6 +6,7 @@ import {
     EdgeMeshData,
     EdgeMeshDataBuilder,
     GeometryModel,
+    I18n,
     LineType,
     MessageType,
     Precision,
@@ -17,7 +18,7 @@ import {
 } from "chili-core";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, SnapPointData, SnapedData } from "../../snap";
 import { PolygonBody } from "../../bodys";
 
 @command({
@@ -45,10 +46,17 @@ export class Polygon extends CreateCommand {
                 break;
             }
             this.stepDatas.push(data);
+            if (this.isClose(data)) break;
             i++;
         }
 
         return this._restarting === false;
+    }
+
+    private isClose(data: SnapedData) {
+        return (
+            this.stepDatas.length > 1 && this.stepDatas[0].point.distanceTo(data.point) <= Precision.Length
+        );
     }
 
     protected override getSteps(): IStep[] {
@@ -63,15 +71,17 @@ export class Polygon extends CreateCommand {
             dimension: Dimension.D1D2D3,
             validators: [this.validator],
             preview: this.preview,
+            featurePoints: [
+                {
+                    point: this.stepDatas.at(0)!.point,
+                    prompt: I18n.translate("prompt.polygon.close"),
+                    when: () => this.stepDatas.length > 2,
+                },
+            ],
         };
     };
 
     private preview = (point: XYZ): ShapeMeshData[] => {
-        let first = this.stepDatas.at(0)?.point;
-        if (first && point.distanceTo(first) < 5) {
-            point = first;
-            console.log("todo");
-        }
         let edges = new EdgeMeshDataBuilder();
         this.stepDatas.forEach((data) => edges.addPosition(data.point.x, data.point.y, data.point.z));
         edges.addPosition(point.x, point.y, point.z);

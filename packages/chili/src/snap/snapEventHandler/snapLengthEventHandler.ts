@@ -30,7 +30,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
     ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
-        super(controller, [objectSnap, axisSnap], lengthData.validators, lengthData.preview);
+        super(controller, [objectSnap, axisSnap], lengthData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -52,7 +52,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane);
-        super(controller, [objectSnap, trackingSnap, planeSnap], lengthData.validators, lengthData.preview);
+        super(controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

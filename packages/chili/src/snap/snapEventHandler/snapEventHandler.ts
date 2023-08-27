@@ -14,7 +14,8 @@ import {
     XYZ,
 } from "chili-core";
 
-import { ISnapper, MouseAndDetected, SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
+import { ISnapper, MouseAndDetected, SnapValidator, SnapedData } from "../interfaces";
+import { SnapPointData } from "./snapPointEventHandler";
 
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPoint?: [IView, number];
@@ -25,11 +26,10 @@ export abstract class SnapEventHandler implements IEventHandler {
     constructor(
         readonly controller: AsyncController,
         readonly snaps: ISnapper[],
-        validators?: SnapValidator[],
-        readonly preview?: SnapPreviewer,
+        readonly data: SnapPointData,
     ) {
-        if (validators) {
-            this.validators.push(...validators);
+        if (data.validators) {
+            this.validators.push(...data.validators);
         }
         controller.onCancelled((s) => {
             this.cancel();
@@ -81,10 +81,44 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
-        this._snaped = this.findSnaped(ShapeType.Edge, view, event);
-        this.snaps.forEach((x) => {
-            x.handleSnaped?.(view.viewer.visual.document, this._snaped);
+        if (!this.snapToFeaturePoint(view, event)) {
+            this._snaped = this.findSnaped(ShapeType.Edge, view, event);
+            this.snaps.forEach((x) => {
+                x.handleSnaped?.(view.viewer.visual.document, this._snaped);
+            });
+        }
+    }
+
+    private snapToFeaturePoint(view: IView, event: MouseEvent) {
+        let minDist = Number.MAX_VALUE;
+        let snapFeaturePoint: { point: XYZ; prompt: string } | undefined = undefined;
+        this.data.featurePoints?.forEach((x) => {
+            if (x.when !== undefined && !x.when()) {
+                return;
+            }
+            let dist = this.distanceToMouse(view, event.offsetX, event.offsetY, x.point);
+            if (dist < minDist) {
+                minDist = dist;
+                snapFeaturePoint = x;
+            }
         });
+        if (minDist < Config.instance.SnapDistance) {
+            this._snaped = {
+                view,
+                point: snapFeaturePoint!.point,
+                info: snapFeaturePoint!.prompt,
+                shapes: [],
+            };
+            return true;
+        }
+        return false;
+    }
+
+    private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
+        let xy = view.worldToScreen(point);
+        let dx = xy.x - x;
+        let dy = xy.y - y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 
     private findSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {
@@ -141,7 +175,7 @@ export abstract class SnapEventHandler implements IEventHandler {
             Config.instance.visual.temporaryVertexColor,
         );
         this._tempPoint = [view, view.viewer.visual.context.displayShapeMesh(data)];
-        let shapes = this.preview?.(point);
+        let shapes = this.data.preview?.(point);
         this._tempShapes = shapes
             ? [
                   view,

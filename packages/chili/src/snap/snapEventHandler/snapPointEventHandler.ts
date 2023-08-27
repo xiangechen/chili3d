@@ -9,11 +9,16 @@ import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapPointData {
-    dimension: Dimension;
+    dimension?: Dimension;
     refPoint?: XYZ;
     validators?: SnapValidator[];
     preview?: SnapPreviewer;
     plane?: Plane;
+    featurePoints?: {
+        point: XYZ;
+        prompt: string;
+        when?: () => boolean;
+    }[];
 }
 
 export class SnapPointEventHandler extends SnapEventHandler {
@@ -25,7 +30,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(controller, snaps, pointData.validators, pointData.preview);
+        super(controller, snaps, pointData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -49,7 +54,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
     protected inputError(text: string): I18nKeys | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
-        if (!Dimension.contains(this.pointData.dimension, dimension)) {
+        if (!Dimension.contains(this.pointData.dimension!, dimension)) {
             return "error.input.unsupportedInputs";
         } else if (dims.some((x) => Number.isNaN(x))) {
             return "error.input.invalidNumber";
