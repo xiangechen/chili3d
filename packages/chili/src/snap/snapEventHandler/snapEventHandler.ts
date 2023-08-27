@@ -20,13 +20,17 @@ export abstract class SnapEventHandler implements IEventHandler {
     private _tempPoint?: [IView, number];
     private _tempShapes?: [IView, number[]];
     protected _snaped?: SnapedData;
+    private validators: SnapValidator[] = [];
 
     constructor(
         readonly controller: AsyncController,
         readonly snaps: ISnapper[],
-        readonly validator?: SnapValidator,
-        readonly preview?: SnapPreviewer
+        validators?: SnapValidator[],
+        readonly preview?: SnapPreviewer,
     ) {
+        if (validators) {
+            this.validators.push(...validators);
+        }
         controller.onCancelled((s) => {
             this.cancel();
         });
@@ -88,12 +92,19 @@ export abstract class SnapEventHandler implements IEventHandler {
         for (const snap of this.snaps) {
             let snaped = snap.snap(data);
             if (snaped === undefined) continue;
-            if (this.validator?.(snaped.point)) {
-                return snaped;
-            }
+            if (this.validateSnaped(snaped)) return snaped;
         }
 
         return undefined;
+    }
+
+    private validateSnaped(snaped: SnapedData) {
+        for (const validator of this.validators) {
+            if (!validator(snaped.point)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
@@ -127,7 +138,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         let data = VertexMeshData.from(
             point,
             Config.instance.visual.temporaryVertexSize,
-            Config.instance.visual.temporaryVertexColor
+            Config.instance.visual.temporaryVertexColor,
         );
         this._tempPoint = [view, view.viewer.visual.context.displayShapeMesh(data)];
         let shapes = this.preview?.(point);

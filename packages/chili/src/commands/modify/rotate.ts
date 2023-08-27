@@ -32,7 +32,7 @@ export class Rotate extends TransformedCommand {
         let thirdStep = new AngleStep(
             "operate.pickNextPoint",
             () => this.stepDatas[1].point,
-            this.getThirdPointData
+            this.getThirdPointData,
         );
         return [firstStep, secondStep, thirdStep];
     }
@@ -42,7 +42,7 @@ export class Rotate extends TransformedCommand {
             refPoint: this.stepDatas[0].point,
             dimension: Dimension.D1D2D3,
             preview: this.linePreview,
-            validator: (p) => p.distanceTo(this.stepDatas[0].point) > 1e-6,
+            validators: [(p) => p.distanceTo(this.stepDatas[0].point) > 1e-6],
         };
     };
 
@@ -52,13 +52,15 @@ export class Rotate extends TransformedCommand {
             dimension: Dimension.D1D2D3,
             preview: this.rotatePreview,
             plane: this.stepDatas[0].view.workplane,
-            validator: (p) => {
-                return (
-                    p.distanceTo(this.stepDatas[0].point) > 1e-3 &&
-                    p.distanceTo(this.stepDatas[1].point) > 1e-3 &&
-                    this.normalAndAngle(p).angle > 1e-3
-                );
-            },
+            validators: [
+                (p) => {
+                    return (
+                        p.distanceTo(this.stepDatas[0].point) > 1e-3 &&
+                        p.distanceTo(this.stepDatas[1].point) > 1e-3 &&
+                        this.normalAndAngle(p).angle > 1e-3
+                    );
+                },
+            ],
         };
     };
 

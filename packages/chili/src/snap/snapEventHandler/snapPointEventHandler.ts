@@ -11,18 +11,21 @@ import { SnapEventHandler } from "./snapEventHandler";
 export interface SnapPointData {
     dimension: Dimension;
     refPoint?: XYZ;
-    validator?: SnapValidator;
+    validators?: SnapValidator[];
     preview?: SnapPreviewer;
     plane?: Plane;
 }
 
 export class SnapPointEventHandler extends SnapEventHandler {
-    constructor(controller: AsyncController, protected pointData: SnapPointData) {
+    constructor(
+        controller: AsyncController,
+        protected pointData: SnapPointData,
+    ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
         let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(controller, snaps, pointData.validator, pointData.preview);
+        super(controller, snaps, pointData.validators, pointData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

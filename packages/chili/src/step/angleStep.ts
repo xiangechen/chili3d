@@ -16,9 +16,8 @@ export class AngleStep extends StepBase<SnapPointData> {
         tip: I18nKeys,
         private handleP1: () => XYZ,
         handleCenter: () => SnapPointData = defaultSnapedData,
-        disableDefaultValidator = false
     ) {
-        super(tip, handleCenter, disableDefaultValidator);
+        super(tip, handleCenter);
     }
 
     protected override snapper(data: SnapPointData): Snapper {

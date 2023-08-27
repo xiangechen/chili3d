@@ -37,7 +37,7 @@ export abstract class RectCommandBase extends CreateCommand {
             point,
             preview: this.previewRect,
             plane: this.stepDatas[0].view.workplane.translateTo(point),
-            validator: this.handleValid,
+            validators: [this.handleValid],
         };
     };
 

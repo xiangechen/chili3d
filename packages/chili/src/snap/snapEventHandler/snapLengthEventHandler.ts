@@ -12,22 +12,25 @@ import { SnapEventHandler } from "./snapEventHandler";
 export interface SnapLengthAtAxisData {
     point: XYZ;
     direction: XYZ;
-    validator?: SnapValidator;
+    validators?: SnapValidator[];
     preview: SnapPreviewer;
 }
 
 export interface SnapLengthAtPlaneData {
     point: XYZ;
     plane: Plane;
-    validator?: SnapValidator;
+    validators?: SnapValidator[];
     preview: SnapPreviewer;
 }
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {
-    constructor(controller: AsyncController, readonly lengthData: SnapLengthAtAxisData) {
+    constructor(
+        controller: AsyncController,
+        readonly lengthData: SnapLengthAtAxisData,
+    ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
-        super(controller, [objectSnap, axisSnap], lengthData.validator, lengthData.preview);
+        super(controller, [objectSnap, axisSnap], lengthData.validators, lengthData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -42,11 +45,14 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
 }
 
 export class SnapLengthAtPlaneHandler extends SnapEventHandler {
-    constructor(controller: AsyncController, readonly lengthData: SnapLengthAtPlaneData) {
+    constructor(
+        controller: AsyncController,
+        readonly lengthData: SnapLengthAtPlaneData,
+    ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane);
-        super(controller, [objectSnap, trackingSnap, planeSnap], lengthData.validator, lengthData.preview);
+        super(controller, [objectSnap, trackingSnap, planeSnap], lengthData.validators, lengthData.preview);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

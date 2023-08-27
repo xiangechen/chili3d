@@ -9,21 +9,19 @@ export interface IStep {
 }
 
 export interface ValidatorData {
-    validator?: SnapValidator;
+    validators?: SnapValidator[];
 }
 
 export abstract class StepBase<D extends ValidatorData> implements IStep {
     constructor(
         readonly tip: I18nKeys,
         readonly handleData: () => D,
-        readonly disableDefaultValidator = false
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         let data = this.handleData();
-        if (!this.disableDefaultValidator && data.validator === undefined) {
-            data.validator = (p) => this.validator(data, p);
-        }
+        if (data.validators === undefined) data.validators = [];
+        data.validators.push((point) => this.validator(data, point));
         let snapper = this.snapper(data);
         return await snapper.snap(document, this.tip, controller);
     }

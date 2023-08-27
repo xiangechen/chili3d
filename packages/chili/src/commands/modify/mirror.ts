@@ -31,7 +31,7 @@ export class Mirror extends TransformedCommand {
             refPoint: this.stepDatas[0].point,
             dimension: Dimension.D1D2D3,
             preview: this.mirrorPreview,
-            validator: (p) => p.distanceTo(this.stepDatas[0].point) > 1e-3,
+            validators: [(p) => p.distanceTo(this.stepDatas[0].point) > 1e-3],
         };
     };
 
