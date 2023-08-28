@@ -35,7 +35,10 @@ export class ObjectSnap implements ISnapper {
     private _lastDetected?: [IView, SnapedData];
     private _hintVertex?: [IVisualContext, number];
 
-    constructor(private _snapType: ObjectSnapType, readonly referencePoint?: XYZ) {
+    constructor(
+        private _snapType: ObjectSnapType,
+        readonly referencePoint?: XYZ,
+    ) {
         this._featureInfos = new Map();
         this._intersectionInfos = new Map();
         this._invisibleInfos = new Map();
@@ -107,7 +110,7 @@ export class ObjectSnap implements ISnapper {
         let data = VertexMeshData.from(
             shape.point,
             Config.instance.visual.hintVertexSize,
-            Config.instance.visual.hintVertexColor
+            Config.instance.visual.hintVertexColor,
         );
         this._hintVertex = [view.viewer.visual.context, view.viewer.visual.context.displayShapeMesh(data)];
     }
@@ -125,7 +128,7 @@ export class ObjectSnap implements ISnapper {
     private getNearestInvisibleSnap(
         view: IView,
         x: number,
-        y: number
+        y: number,
     ): { minDistance: number; snap?: SnapedData } {
         let snap: SnapedData | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
@@ -145,7 +148,7 @@ export class ObjectSnap implements ISnapper {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
             let curve = (shape.shape as IEdge).asCurve();
-            if (curve.status === "error") return;
+            if (!curve.success) return;
             if (ICurve.isCircle(curve.value)) {
                 this.showCircleCenter(curve.value, view, shape);
             }
@@ -156,7 +159,7 @@ export class ObjectSnap implements ISnapper {
         let temporary = VertexMeshData.from(
             curve.center,
             Config.instance.visual.hintVertexSize,
-            Config.instance.visual.hintVertexColor
+            Config.instance.visual.hintVertexColor,
         );
         let id = view.viewer.visual.context.displayShapeMesh(temporary);
         this._invisibleInfos.set(shape, {
@@ -204,7 +207,7 @@ export class ObjectSnap implements ISnapper {
         )
             return result;
         let curve = (shape.shape as IEdge).asCurve();
-        if (curve.status === "error") return result;
+        if (!curve.success) return result;
         let point = curve.value.project(this.referencePoint).at(0);
         if (point === undefined) return result;
         result.push({
@@ -268,7 +271,7 @@ export class ObjectSnap implements ISnapper {
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
         let curve = (shape.shape as IEdge).asCurve();
-        if (curve.status === "error") return;
+        if (!curve.success) return;
         let start = curve.value.point(curve.value.firstParameter());
         let end = curve.value.point(curve.value.lastParameter());
         let addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });

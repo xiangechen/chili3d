@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Result, Serializer } from "../base";
+import { Logger, Serializer } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
@@ -36,7 +36,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
             },
             {
                 equals: (left, right) => left.equals(right),
-            }
+            },
         );
     }
 
@@ -87,11 +87,7 @@ export class GeometryModel extends Model {
     };
 
     drawShape() {
-        if (!this.body.generate()) {
-            Logger.error(`Body of ${this.name} is null: ${this.body.shape}`); // todo
-            return;
-        }
-        this._shape = this.body.shape.unwrap();
+        this._shape = this.body.shape.getValue();
         this.applyFeatures(0);
     }
 
@@ -111,9 +107,8 @@ export class GeometryModel extends Model {
     private applyFeatures(startIndex: number) {
         if (startIndex < 0) return;
         for (let i = startIndex; i < this._features.length; i++) {
-            this._features[i].generate();
             let shape = this._features[i].shape;
-            if (shape.status === "error") {
+            if (!shape.success) {
                 this._error = shape.error;
                 return;
             }

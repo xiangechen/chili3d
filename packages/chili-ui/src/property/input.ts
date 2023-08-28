@@ -23,7 +23,11 @@ export class InputProperty extends PropertyBase {
     readonly error: Label;
     readonly converter: IConverter | undefined;
 
-    constructor(readonly document: IDocument, objects: any[], readonly property: Property) {
+    constructor(
+        readonly document: IDocument,
+        objects: any[],
+        readonly property: Property,
+    ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
         this.valueBox = new TextBox()
@@ -73,7 +77,7 @@ export class InputProperty extends PropertyBase {
     private getValueString(obj: any): string {
         let value = obj[this.property.name];
         let cvalue = this.converter?.convert(value);
-        return cvalue?.status === "success" ? cvalue.value : String(value);
+        return cvalue?.success ? cvalue.value : String(value);
     }
 
     private getDefaultValue() {
@@ -92,7 +96,7 @@ export class InputProperty extends PropertyBase {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
             let newValue = this.converter.convertBack(this.valueBox.text);
-            if (newValue.status === "error") {
+            if (!newValue.success) {
                 this.error.text(newValue.error ?? "error");
                 this.error.addClass(style.hidden);
                 return;

@@ -62,7 +62,7 @@ export class Input extends Control implements IDisposable {
         if (e.key === "Enter") {
             this.textbox.setReadOnly(true);
             let error = this.handler(this.textbox.text);
-            if (error.status === "success") {
+            if (error.success) {
                 this._completedCallbacks.forEach((x) => x());
             } else {
                 this.textbox.setReadOnly(false);

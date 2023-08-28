@@ -35,10 +35,10 @@ export class Label extends Control {
     private convertToString<T extends IPropertyChanged>(
         source: T,
         property: keyof T,
-        converter?: IConverter
+        converter?: IConverter,
     ): string | null {
         let cvalue = converter?.convert(source[property]);
-        return cvalue?.status === "success" ? cvalue.value : String(source[property]);
+        return cvalue?.success ? cvalue.value : String(source[property]);
     }
 }
 

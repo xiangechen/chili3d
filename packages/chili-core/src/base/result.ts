@@ -2,12 +2,15 @@
 
 export type Result<T, E = string> = {
     unwrap(): T;
+    getValue(): T | undefined;
 } & (
     | {
+          readonly success: true;
           readonly status: "success";
           readonly value: T;
       }
     | {
+          readonly success: false;
           readonly status: "error";
           readonly error: E;
       }
@@ -19,6 +22,8 @@ export namespace Result {
             status: "success",
             value,
             unwrap: () => value,
+            success: true,
+            getValue: () => value,
         };
     }
 
@@ -29,6 +34,8 @@ export namespace Result {
             unwrap: () => {
                 throw error;
             },
+            success: false,
+            getValue: () => undefined,
         };
     }
 }
