@@ -4022,6 +4022,70 @@ export declare class STEPControl_Writer {
     constructor(WS: Handle_XSControl_WorkSession, scratch: Standard_Boolean);
   }
 
+export declare class ShapeAnalysis_Edge {
+  constructor()
+  HasCurve3d(edge: TopoDS_Edge): Standard_Boolean;
+  Curve3d(edge: TopoDS_Edge, C3d: Handle_Geom_Curve, cf: Standard_Real, cl: Standard_Real, orient: Standard_Boolean): Standard_Boolean;
+  IsClosed3d(edge: TopoDS_Edge): Standard_Boolean;
+  HasPCurve_1(edge: TopoDS_Edge, face: TopoDS_Face): Standard_Boolean;
+  HasPCurve_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location): Standard_Boolean;
+  PCurve_1(edge: TopoDS_Edge, face: TopoDS_Face, C2d: Handle_Geom2d_Curve, cf: Standard_Real, cl: Standard_Real, orient: Standard_Boolean): Standard_Boolean;
+  PCurve_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location, C2d: Handle_Geom2d_Curve, cf: Standard_Real, cl: Standard_Real, orient: Standard_Boolean): Standard_Boolean;
+  BoundUV_1(edge: TopoDS_Edge, face: TopoDS_Face, first: gp_Pnt2d, last: gp_Pnt2d): Standard_Boolean;
+  BoundUV_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location, first: gp_Pnt2d, last: gp_Pnt2d): Standard_Boolean;
+  IsSeam_1(edge: TopoDS_Edge, face: TopoDS_Face): Standard_Boolean;
+  IsSeam_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location): Standard_Boolean;
+  FirstVertex(edge: TopoDS_Edge): TopoDS_Vertex;
+  LastVertex(edge: TopoDS_Edge): TopoDS_Vertex;
+  GetEndTangent2d_1(edge: TopoDS_Edge, face: TopoDS_Face, atEnd: Standard_Boolean, pos: gp_Pnt2d, tang: gp_Vec2d, dparam: Standard_Real): Standard_Boolean;
+  GetEndTangent2d_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location, atEnd: Standard_Boolean, pos: gp_Pnt2d, tang: gp_Vec2d, dparam: Standard_Real): Standard_Boolean;
+  CheckVerticesWithCurve3d(edge: TopoDS_Edge, preci: Standard_Real, vtx: Graphic3d_ZLayerId): Standard_Boolean;
+  CheckVerticesWithPCurve_1(edge: TopoDS_Edge, face: TopoDS_Face, preci: Standard_Real, vtx: Graphic3d_ZLayerId): Standard_Boolean;
+  CheckVerticesWithPCurve_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location, preci: Standard_Real, vtx: Graphic3d_ZLayerId): Standard_Boolean;
+  CheckVertexTolerance_1(edge: TopoDS_Edge, face: TopoDS_Face, toler1: Standard_Real, toler2: Standard_Real): Standard_Boolean;
+  CheckVertexTolerance_2(edge: TopoDS_Edge, toler1: Standard_Real, toler2: Standard_Real): Standard_Boolean;
+  CheckCurve3dWithPCurve_1(edge: TopoDS_Edge, face: TopoDS_Face): Standard_Boolean;
+  CheckCurve3dWithPCurve_2(edge: TopoDS_Edge, surface: Handle_Geom_Surface, location: TopLoc_Location): Standard_Boolean;
+  Status(status: ShapeExtend_Status): Standard_Boolean;
+  CheckSameParameter_1(edge: TopoDS_Edge, maxdev: Standard_Real, NbControl: Graphic3d_ZLayerId): Standard_Boolean;
+  CheckSameParameter_2(theEdge: TopoDS_Edge, theFace: TopoDS_Face, theMaxdev: Standard_Real, theNbControl: Graphic3d_ZLayerId): Standard_Boolean;
+  CheckPCurveRange(theFirst: Standard_Real, theLast: Standard_Real, thePC: Handle_Geom2d_Curve): Standard_Boolean;
+  CheckOverlapping(theEdge1: TopoDS_Edge, theEdge2: TopoDS_Edge, theTolOverlap: Standard_Real, theDomainDist: Standard_Real): Standard_Boolean;
+  delete(): void;
+}
+
+export declare class ShapeAnalysis_WireOrder {
+  SetMode(mode3d: Standard_Boolean, tol: Standard_Real): void;
+  Tolerance(): Standard_Real;
+  Clear(): void;
+  Add_1(start3d: gp_XYZ, end3d: gp_XYZ): void;
+  Add_2(start2d: gp_XY, end2d: gp_XY): void;
+  NbEdges(): Graphic3d_ZLayerId;
+  KeepLoopsMode(): Standard_Boolean;
+  Perform(closed: Standard_Boolean): void;
+  IsDone(): Standard_Boolean;
+  Status(): Graphic3d_ZLayerId;
+  Ordered(n: Graphic3d_ZLayerId): Graphic3d_ZLayerId;
+  XYZ(num: Graphic3d_ZLayerId, start3d: gp_XYZ, end3d: gp_XYZ): void;
+  XY(num: Graphic3d_ZLayerId, start2d: gp_XY, end2d: gp_XY): void;
+  Gap(num: Graphic3d_ZLayerId): Standard_Real;
+  SetChains(gap: Standard_Real): void;
+  NbChains(): Graphic3d_ZLayerId;
+  Chain(num: Graphic3d_ZLayerId, n1: Graphic3d_ZLayerId, n2: Graphic3d_ZLayerId): void;
+  SetCouples(gap: Standard_Real): void;
+  NbCouples(): Graphic3d_ZLayerId;
+  Couple(num: Graphic3d_ZLayerId, n1: Graphic3d_ZLayerId, n2: Graphic3d_ZLayerId): void;
+  delete(): void;
+}
+
+  export declare class ShapeAnalysis_WireOrder_1 extends ShapeAnalysis_WireOrder {
+    constructor();
+  }
+
+  export declare class ShapeAnalysis_WireOrder_2 extends ShapeAnalysis_WireOrder {
+    constructor(mode3d: Standard_Boolean, tol: Standard_Real);
+  }
+
 export declare class ShapeFix_EdgeConnect {
   constructor()
   Add_1(aFirst: TopoDS_Edge, aSecond: TopoDS_Edge): void;
@@ -6619,6 +6683,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   STEPControl_Writer: typeof STEPControl_Writer;
   STEPControl_Writer_1: typeof STEPControl_Writer_1;
   STEPControl_Writer_2: typeof STEPControl_Writer_2;
+  ShapeAnalysis_Edge: typeof ShapeAnalysis_Edge;
+  ShapeAnalysis_WireOrder: typeof ShapeAnalysis_WireOrder;
+  ShapeAnalysis_WireOrder_1: typeof ShapeAnalysis_WireOrder_1;
+  ShapeAnalysis_WireOrder_2: typeof ShapeAnalysis_WireOrder_2;
   ShapeFix_EdgeConnect: typeof ShapeFix_EdgeConnect;
   ShapeFix_Face: typeof ShapeFix_Face;
   ShapeFix_Face_1: typeof ShapeFix_Face_1;

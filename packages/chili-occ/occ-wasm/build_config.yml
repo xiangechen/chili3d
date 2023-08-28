@@ -160,6 +160,8 @@ mainBuild:
     - symbol: Poly_Triangulation
     - symbol: Precision
     - symbol: ProjLib
+    - symbol: ShapeAnalysis_Edge
+    - symbol: ShapeAnalysis_WireOrder
     - symbol: ShapeFix_EdgeConnect
     - symbol: ShapeFix_Face
     - symbol: ShapeFix_Root
