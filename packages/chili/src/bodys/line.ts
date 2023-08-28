@@ -39,6 +39,6 @@ export class LineBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.line(this._start, this._end);
+        return this.shapeFactory.line(this._start, this._end);
     }
 }

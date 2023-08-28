@@ -53,6 +53,7 @@ export type I18nKeys =
     | "rect.dx"
     | "rect.dy"
     | "polygon.points"
+    | "command.faceable.isFace"
     | "command.document.save"
     | "command.document.saveAs"
     | "command.document.new"

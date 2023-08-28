@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
-export class PolygonBody extends Body {
+export class PolygonBody extends FaceableBody {
     readonly name: I18nKeys = "body.polygon";
 
     private _points: XYZ[];
@@ -26,6 +26,8 @@ export class PolygonBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.polygon(...this._points);
+        let wire = this.shapeFactory.polygon(...this._points);
+        if (!wire.success || !this.isFace) return wire;
+        return wire.value.toFace();
     }
 }

@@ -5,6 +5,7 @@ import { IShapeFactory } from "chili-geo";
 
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccSolid, OccVertex, OccWire } from "./occShape";
+import { BRepBuilderAPI_MakeWire } from "opencascade.js";
 
 export class ShapeFactory implements IShapeFactory {
     polygon(...points: XYZ[]): Result<IWire, string> {
@@ -74,5 +75,49 @@ export class ShapeFactory implements IShapeFactory {
             return Result.success(new OccEdge(make.Edge()));
         }
         return Result.error("error");
+    }
+
+    wire(...edges: IEdge[]): Result<IWire> {
+        if (edges.length === 0) return Result.error("empty edges");
+        let builder = new occ.BRepBuilderAPI_MakeWire_1();
+        if (edges.length === 1) {
+            builder.Add_1((edges[0] as OccEdge).shape);
+        } else {
+            this.addOrderedEdges(builder, edges);
+        }
+        switch (builder.Error()) {
+            case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_DisconnectedWire:
+                return Result.error(
+                    "The last edge which you attempted to add was not connected to the wire.",
+                );
+            case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_NonManifoldWire:
+                return Result.error("The wire with some singularity");
+            case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_EmptyWire:
+                return Result.error("The wire is empty");
+            default:
+                return Result.success(new OccWire(builder.Wire()));
+        }
+    }
+
+    private addOrderedEdges(builder: BRepBuilderAPI_MakeWire, edges: IEdge[]) {
+        let wireOrder = new occ.ShapeAnalysis_WireOrder_1();
+        let edgeAnalyser = new occ.ShapeAnalysis_Edge();
+        for (let edge of edges) {
+            if (edge instanceof OccEdge) {
+                let start = occ.BRep_Tool.Pnt(edgeAnalyser.FirstVertex(edge.shape));
+                let end = occ.BRep_Tool.Pnt(edgeAnalyser.LastVertex(edge.shape));
+                wireOrder.Add_1(start.XYZ(), end.XYZ());
+            } else {
+                throw new Error("The OCC kernel only supports OCC geometries.");
+            }
+        }
+        wireOrder.Perform(true);
+        if (wireOrder.IsDone()) {
+            for (let i = 1; i <= wireOrder.NbEdges(); i++) {
+                let index = wireOrder.Ordered(i);
+                let edge = (edges[Math.abs(index) - 1] as OccEdge).shape;
+                builder.Add_1(index > 0 ? edge : edge.Reversed());
+            }
+        }
     }
 }

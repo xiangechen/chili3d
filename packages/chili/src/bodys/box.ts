@@ -71,6 +71,6 @@ export class BoxBody extends Body {
     }
 
     protected generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
+        return this.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
     }
 }

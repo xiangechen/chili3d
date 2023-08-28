@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
-export class CircleBody extends Body {
+export class CircleBody extends FaceableBody {
     readonly name: I18nKeys = "body.circle";
 
     private _center: XYZ;
@@ -57,6 +57,9 @@ export class CircleBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
+        let circle = this.shapeFactory.circle(this.normal, this._center, this._radius);
+        if (!circle.success || !this.isFace) return circle;
+        let wire = this.shapeFactory.wire(circle.value);
+        return wire.success ? wire.value.toFace() : circle;
     }
 }

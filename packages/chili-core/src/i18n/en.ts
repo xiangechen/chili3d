@@ -38,6 +38,7 @@ export default {
         "line.start": "Start",
         "line.end": "End",
         "polygon.points": "Points",
+        "command.faceable.isFace": "Face",
         "command.document.open": "Open Document",
         "command.document.save": "Save",
         "command.document.saveAs": "Save As",

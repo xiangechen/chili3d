@@ -38,6 +38,7 @@ export default {
         "line.start": "起点",
         "line.end": "终点",
         "polygon.points": "点",
+        "command.faceable.isFace": "面",
         "command.document.open": "打开文档",
         "command.document.save": "保存文档",
         "command.document.saveAs": "另存为",

@@ -9,4 +9,5 @@ export interface IShapeFactory {
     rect(plane: Plane, dx: number, dy: number): Result<IFace>;
     polygon(...points: XYZ[]): Result<IWire>;
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid>;
+    wire(...edges: IEdge[]): Result<IWire>;
 }

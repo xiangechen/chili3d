@@ -1,8 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
+import {
+    FaceableBody,
+    I18nKeys,
+    IDocument,
+    IShape,
+    Plane,
+    Property,
+    Result,
+    Serializer,
+    XYZ,
+} from "chili-core";
 
-export class RectBody extends Body {
+export class RectBody extends FaceableBody {
     readonly name: I18nKeys = "body.rect";
 
     private _dx: number;
@@ -44,6 +54,20 @@ export class RectBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.rect(this.plane, this._dx, this._dy);
+        let points = RectBody.points(this.plane, this._dx, this._dy);
+        let wire = this.shapeFactory.polygon(...points);
+        if (!wire.success || !this.isFace) return wire;
+        return wire.value.toFace();
+    }
+
+    static points(plane: Plane, dx: number, dy: number): XYZ[] {
+        let start = plane.origin;
+        return [
+            start,
+            start.add(plane.xvec.multiply(dx)),
+            start.add(plane.xvec.multiply(dx)).add(plane.yvec.multiply(dy)),
+            start.add(plane.yvec.multiply(dy)),
+            start,
+        ];
     }
 }

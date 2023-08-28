@@ -4,14 +4,14 @@ import { GeometryModel, Plane, XYZ, command } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
+import { CreateFaceableCommand } from "./createCommand";
 
 @command({
     name: "create.circle",
     display: "command.circle",
     icon: "icon-circle",
 })
-export class Circle extends CreateCommand {
+export class Circle extends CreateFaceableCommand {
     private static count: number = 1;
     constructor() {
         super();
@@ -36,6 +36,7 @@ export class Circle extends CreateCommand {
         let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
         let plane = this.stepDatas[0].view.workplane;
         let body = new CircleBody(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        body.isFace = this.isFace;
         return new GeometryModel(this.document, `Circle ${Circle.count++}`, body);
     }
 

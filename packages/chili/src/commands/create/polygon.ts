@@ -2,35 +2,30 @@
 
 import {
     AsyncController,
-    Colors,
-    EdgeMeshData,
     EdgeMeshDataBuilder,
     GeometryModel,
     I18n,
-    LineType,
-    MessageType,
     Precision,
-    PubSub,
     ShapeMeshData,
-    VertexMeshData,
     XYZ,
     command,
 } from "chili-core";
-import { IStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
-import { Dimension, SnapPointData, SnapedData } from "../../snap";
 import { PolygonBody } from "../../bodys";
+import { Dimension, SnapPointData, SnapedData } from "../../snap";
+import { IStep, PointStep } from "../../step";
+import { CreateFaceableCommand } from "./createCommand";
 
 @command({
     name: "create.polygon",
     display: "command.polygon",
     icon: "icon-polygon",
 })
-export class Polygon extends CreateCommand {
+export class Polygon extends CreateFaceableCommand {
     static count = 0;
 
     protected override create(): GeometryModel {
         let body = new PolygonBody(this.document, ...this.stepDatas.map((step) => step.point));
+        body.isFace = this.isFace;
         return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
     }
 
@@ -42,9 +37,7 @@ export class Polygon extends CreateCommand {
             let step = i === 0 ? steps[0] : steps[1];
             this.controller = new AsyncController();
             let data = await step.execute(this.document, this.controller);
-            if (data === undefined) {
-                break;
-            }
+            if (data === undefined) break;
             this.stepDatas.push(data);
             if (this.isClose(data)) break;
             i++;

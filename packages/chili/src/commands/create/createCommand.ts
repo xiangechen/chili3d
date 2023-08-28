@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, Transaction } from "chili-core";
+import { GeometryModel, Property, Transaction } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class CreateCommand extends MultistepCommand {
@@ -13,4 +13,15 @@ export abstract class CreateCommand extends MultistepCommand {
     }
 
     protected abstract create(): GeometryModel;
+}
+
+export abstract class CreateFaceableCommand extends CreateCommand {
+    protected _isFace: boolean = false;
+    @Property.define("command.faceable.isFace")
+    public get isFace() {
+        return this._isFace;
+    }
+    public set isFace(value: boolean) {
+        this.setProperty("isFace", value);
+    }
 }

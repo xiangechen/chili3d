@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { GeometryModel, MathUtils, Plane, XYZ, command } from "chili-core";
+import { GeometryModel, MathUtils, Plane, Property, XYZ, command } from "chili-core";
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand, CreateFaceableCommand } from "./createCommand";
 
 export interface RectData {
     plane: Plane;
@@ -66,13 +66,19 @@ export abstract class RectCommandBase extends CreateCommand {
 export class Rect extends RectCommandBase {
     private static count: number = 1;
 
+    protected _isFace: boolean = false;
+    @Property.define("command.faceable.isFace")
+    public get isFace() {
+        return this._isFace;
+    }
+    public set isFace(value: boolean) {
+        this.setProperty("isFace", value);
+    }
+
     protected create(): GeometryModel {
         let rect = this.getRectData(this.stepDatas[1].point);
         let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
+        body.isFace = this._isFace;
         return new GeometryModel(this.document, `Rect ${Rect.count++}`, body);
-    }
-
-    constructor() {
-        super();
     }
 }
