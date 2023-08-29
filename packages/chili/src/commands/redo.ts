@@ -10,7 +10,6 @@ import { command, IApplication, ICommand } from "chili-core";
 export class Redo implements ICommand {
     async execute(app: IApplication): Promise<void> {
         let document = app.activeDocument!;
-        document.selection.clearSelected();
         document.history.redo();
         document.visual.viewer.redraw();
     }
