@@ -32,15 +32,22 @@ export class Document extends Observable implements IDocument, ISerialize {
         return this._name;
     }
     set name(name: string) {
+        if (this.name === name) return;
         this.setProperty("name", name);
+        if (this.#rootNode) this.#rootNode.name = name;
     }
 
-    private _rootNode: INodeLinkedList | undefined;
+    #rootNode: INodeLinkedList | undefined;
     get rootNode(): INodeLinkedList {
-        if (this._rootNode === undefined) {
-            this._rootNode = new NodeLinkedList(this, this._name);
+        if (this.#rootNode === undefined) {
+            this.#rootNode = new NodeLinkedList(this, this._name);
+            this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
         }
-        return this._rootNode;
+        return this.#rootNode;
+    }
+    private set rootNode(value: INodeLinkedList) {
+        this.#rootNode = value;
+        this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
     private _currentNode?: INodeLinkedList;
@@ -51,7 +58,11 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.setProperty("currentNode", value);
     }
 
-    constructor(readonly application: IApplication, name: string, readonly id: string = Id.new()) {
+    constructor(
+        readonly application: IApplication,
+        name: string,
+        readonly id: string = Id.new(),
+    ) {
         super();
         this._name = name;
         this.history = new History();
@@ -60,6 +71,12 @@ export class Document extends Observable implements IDocument, ISerialize {
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`new document: ${name}`);
     }
+
+    private handleRootNodeNameChanged = (prop: string) => {
+        if (prop === "name") {
+            this.name = this.rootNode.name;
+        }
+    };
 
     override serialize(): Serialized {
         return {
@@ -79,8 +96,9 @@ export class Document extends Observable implements IDocument, ISerialize {
         this.visual.dispose();
         this.history.dispose();
         this.selection.dispose();
-        this._rootNode?.dispose();
-        this._rootNode = undefined;
+        this.#rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
+        this.#rootNode?.dispose();
+        this.#rootNode = undefined;
         this._currentNode = undefined;
     }
 
@@ -108,7 +126,7 @@ export class Document extends Observable implements IDocument, ISerialize {
         let data = (await application.storage.get(
             Constants.DBName,
             Constants.DocumentTable,
-            id
+            id,
         )) as Serialized;
         if (data === undefined) {
             Logger.warn(`document: ${id} not find`);
@@ -123,10 +141,10 @@ export class Document extends Observable implements IDocument, ISerialize {
         let document = new Document(
             app,
             data.constructorParameters["name"],
-            data.constructorParameters["id"]
+            data.constructorParameters["id"],
         );
         document.history.disabled = true;
-        document._rootNode = Serializer.deserialize(document, data.properties["rootNode"]);
+        document.rootNode = Serializer.deserialize(document, data.properties["rootNode"]);
         document.history.disabled = false;
         return document;
     }

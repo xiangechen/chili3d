@@ -3,6 +3,7 @@
 import {
     IConverter,
     IDocument,
+    IPropertyChanged,
     NumberConverter,
     Property,
     Quaternion,
@@ -33,8 +34,7 @@ export class InputProperty extends PropertyBase {
         this.valueBox = new TextBox()
             .addClass(style.box)
             .setText(this.getDefaultValue())
-            .setReadOnly(this.isReadOnly())
-            .onKeyDown(this.handleKeyDown);
+            .setReadOnly(this.isReadOnly());
         let name = new Label()
             .i18nText(property.display)
             .addClass(commonStyle.propertyName)
@@ -42,7 +42,26 @@ export class InputProperty extends PropertyBase {
         this.error = new Label().i18nText("error.default").addClass(style.error, style.hidden);
         let panel = new Panel().addClass(style.panel).addItem(name, this.valueBox);
         this.append(panel, this.error);
+
+        this.addConnectedCallback(this.onConnected);
+        this.addDisconnectedCallback(this.onDisconnected);
     }
+
+    private onConnected = () => {
+        this.valueBox.addEventListener("keydown", this.handleKeyDown);
+        (this.objects.at(0) as IPropertyChanged)?.onPropertyChanged(this.handlePropertyChanged);
+    };
+
+    private onDisconnected = () => {
+        this.valueBox.removeEventListener("keydown", this.handleKeyDown);
+        (this.objects.at(0) as IPropertyChanged)?.removePropertyChanged(this.handlePropertyChanged);
+    };
+
+    private handlePropertyChanged = (property: string) => {
+        if (property === this.property.name) {
+            this.valueBox.setText(this.getValueString(this.objects[0]));
+        }
+    };
 
     private isReadOnly(): boolean {
         let des = Object.getOwnPropertyDescriptor(this.objects[0], this.property.name);
