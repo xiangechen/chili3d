@@ -35,10 +35,9 @@ export namespace Serializer {
         return (target: any, property: string) => {
             if (setter === "constructor") {
                 saveKey(constructorParametersMap, target, property);
-            } else {
+            } else if (setter === "assignment") {
                 saveKey(propertiesMap, target, property);
-            }
-            if (typeof setter === "function") {
+            } else {
                 let map = setters.get(target.name);
                 if (map === undefined) {
                     map = new Map();
