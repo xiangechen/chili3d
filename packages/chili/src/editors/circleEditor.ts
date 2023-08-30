@@ -7,11 +7,12 @@ import { EditorEventHandler, FeaturePoint } from "./eventHandler";
 
 export class CircleEditorEventHandler extends EditorEventHandler {
     private xVector: XYZ;
-    protected points: FeaturePoint[];
-    constructor(document: IDocument, readonly circle: CircleBody) {
+    constructor(
+        document: IDocument,
+        readonly circle: CircleBody,
+    ) {
         super(document);
         this.xVector = this.getXVector();
-        this.points = this.getFeaturePoints();
     }
 
     private getXVector(): XYZ {
@@ -34,7 +35,7 @@ export class CircleEditorEventHandler extends EditorEventHandler {
         });
     }
 
-    getFeaturePoints(): FeaturePoint[] {
+    featurePoints(): FeaturePoint[] {
         let radiusPoint = this.getRadiusPoint();
         return [
             {

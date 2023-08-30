@@ -6,11 +6,11 @@ import { Dimension, PointSnapper, Snapper } from "../snap";
 import { EditorEventHandler, FeaturePoint } from "./eventHandler";
 
 export class LineEditorEventHandler extends EditorEventHandler {
-    protected points: FeaturePoint[];
-
-    constructor(document: IDocument, readonly line: LineBody) {
+    constructor(
+        document: IDocument,
+        readonly line: LineBody,
+    ) {
         super(document);
-        this.points = this.getFeaturePoints();
     }
 
     protected getSnapper(point: FeaturePoint): Snapper {
@@ -21,7 +21,7 @@ export class LineEditorEventHandler extends EditorEventHandler {
         });
     }
 
-    private getFeaturePoints(): FeaturePoint[] {
+    protected featurePoints(): FeaturePoint[] {
         return [
             {
                 point: this.line.start,

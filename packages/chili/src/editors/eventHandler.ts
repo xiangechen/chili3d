@@ -24,15 +24,24 @@ export interface FeaturePoint {
 
 export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     private snaped?: FeaturePoint;
-    protected abstract points: FeaturePoint[];
+
+    #points?: FeaturePoint[];
+    protected get points() {
+        if (this.#points === undefined) {
+            this.#points = this.featurePoints();
+        }
+        return this.#points;
+    }
 
     constructor(readonly document: IDocument) {}
+
+    protected abstract featurePoints(): FeaturePoint[];
 
     protected showPoint(point: XYZ): number {
         let start = VertexMeshData.from(
             point,
             Config.instance.visual.editVertexSize,
-            Config.instance.visual.editVertexColor
+            Config.instance.visual.editVertexColor,
         );
         return this.document.visual.context.displayShapeMesh(start);
     }
@@ -45,7 +54,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     }
     pointerMove(view: IView, event: PointerEvent): void {
         for (let point of this.points) {
-            if (this.distanceToMouse(view, event.offsetX, event.offsetY, point.point) < 4) {
+            if (IView.screenDistance(view, event.offsetX, event.offsetY, point.point) < 4) {
                 view.viewer.setCursor(CursorType.Drawing);
                 this.snaped = point;
                 return;
@@ -73,13 +82,6 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     }
 
     protected abstract getSnapper(point: FeaturePoint): Snapper | undefined;
-
-    private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
-        let xy = view.worldToScreen(point);
-        let dx = xy.x - x;
-        let dy = xy.y - y;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
