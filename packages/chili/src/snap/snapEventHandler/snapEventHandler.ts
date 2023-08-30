@@ -96,7 +96,7 @@ export abstract class SnapEventHandler implements IEventHandler {
             if (x.when !== undefined && !x.when()) {
                 return;
             }
-            let dist = this.distanceToMouse(view, event.offsetX, event.offsetY, x.point);
+            let dist = IView.screenDistance(view, event.offsetX, event.offsetY, x.point);
             if (dist < minDist) {
                 minDist = dist;
                 snapFeaturePoint = x;
@@ -112,13 +112,6 @@ export abstract class SnapEventHandler implements IEventHandler {
             return true;
         }
         return false;
-    }
-
-    private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
-        let xy = view.worldToScreen(point);
-        let dx = xy.x - x;
-        let dy = xy.y - y;
-        return Math.sqrt(dx * dx + dy * dy);
     }
 
     private findSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {

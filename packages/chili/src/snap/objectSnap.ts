@@ -95,7 +95,7 @@ export class ObjectSnap implements ISnapper {
             .concat(intersections)
             .sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length === 0) return undefined;
-        let dist = this.distanceToMouse(view, x, y, ordered[0].point);
+        let dist = IView.screenDistance(view, x, y, ordered[0].point);
         if (dist < Config.instance.SnapDistance) {
             this.hilighted(view, ordered[0].shapes);
             return ordered[0];
@@ -134,7 +134,7 @@ export class ObjectSnap implements ISnapper {
         let minDistance = Number.MAX_VALUE;
         this._invisibleInfos.forEach((info) => {
             info.snaps.forEach((s) => {
-                let dist = this.distanceToMouse(view, x, y, s.point);
+                let dist = IView.screenDistance(view, x, y, s.point);
                 if (dist < minDistance) {
                     minDistance = dist;
                     snap = s;
@@ -188,15 +188,8 @@ export class ObjectSnap implements ISnapper {
         this._hilightedShapes.length = 0;
     }
 
-    private distanceToMouse(view: IView, x: number, y: number, point: XYZ) {
-        let xy = view.worldToScreen(point);
-        let dx = xy.x - x;
-        let dy = xy.y - y;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-
     private sortSnaps(view: IView, x: number, y: number, a: SnapedData, b: SnapedData): number {
-        return this.distanceToMouse(view, x, y, a.point) - this.distanceToMouse(view, x, y, b.point);
+        return IView.screenDistance(view, x, y, a.point) - IView.screenDistance(view, x, y, b.point);
     }
 
     private findPerpendicular(view: IView, shape: VisualShapeData): SnapedData[] {

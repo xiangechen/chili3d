@@ -35,7 +35,10 @@ export class TrackingSnap implements ISnapper {
     private readonly _objectTracking: ObjectTracking;
     private readonly _tempLines: Map<IView, number[]> = new Map();
 
-    constructor(readonly referencePoint: XYZ | undefined, trackingAxisZ: boolean) {
+    constructor(
+        readonly referencePoint: XYZ | undefined,
+        trackingAxisZ: boolean,
+    ) {
         this._axisTracking = new AxesTracking(trackingAxisZ);
         this._objectTracking = new ObjectTracking(trackingAxisZ);
         PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
@@ -94,14 +97,14 @@ export class TrackingSnap implements ISnapper {
             start,
             newEnd,
             Config.instance.visual.temporaryEdgeColor,
-            LineType.Dash
+            LineType.Dash,
         );
         return view.viewer.visual.context.displayShapeMesh(lineDats);
     }
 
     private shapeIntersectTracking(
         data: MouseAndDetected,
-        trackingDatas: TrackingData[]
+        trackingDatas: TrackingData[],
     ): SnapedData | undefined {
         if (data.shapes.length === 0 || data.shapes[0].shape.shapeType !== ShapeType.Edge) return undefined;
         let point = this.findIntersection(data, trackingDatas);
@@ -125,7 +128,7 @@ export class TrackingSnap implements ISnapper {
                 points.push({ intersect: p, location: x.axis.location });
             });
         });
-        points.sort((p) => this.pointDistanceAtScreen(data.view, data.mx, data.my, p.intersect));
+        points.sort((p) => IView.screenDistance(data.view, data.mx, data.my, p.intersect));
         return points.at(0);
     }
 
@@ -147,7 +150,7 @@ export class TrackingSnap implements ISnapper {
         view: IView,
         x: number,
         y: number,
-        snapedName: string | undefined
+        snapedName: string | undefined,
     ) {
         let result: TrackingData[] = [];
         for (const axis of axes) {
@@ -177,12 +180,6 @@ export class TrackingSnap implements ISnapper {
         let dir = end.sub(start).normalize()!;
         let dot = vector.dot(dir);
         return Math.sqrt(vector.lengthSq() - dot * dot);
-    }
-
-    private pointDistanceAtScreen(view: IView, x: number, y: number, point: XYZ): number {
-        let p = view.worldToScreen(point);
-        let vector = new XY(p.x - x, p.y - y);
-        return vector.length();
     }
 
     removeDynamicObject(): void {

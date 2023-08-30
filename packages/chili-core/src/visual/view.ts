@@ -29,3 +29,12 @@ export interface IView extends IPropertyChanged {
     detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): VisualShapeData[];
     rectDetected(shapeType: ShapeType, x1: number, y1: number, x2: number, y2: number): VisualShapeData[];
 }
+
+export namespace IView {
+    export function screenDistance(view: IView, mx: number, my: number, point: XYZ) {
+        let xy = view.worldToScreen(point);
+        let dx = xy.x - mx;
+        let dy = xy.y - my;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+}
