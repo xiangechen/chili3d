@@ -1,13 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IShape, IView, VisualShapeData } from "chili-core";
+import { IDocument, IShape, IView, VisualShapeData, VisualState } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ShapeSelectionHandler extends SelectionHandler {
-    private _shapes: Set<IShape> = new Set();
+    private _shapes: Set<VisualShapeData> = new Set();
 
-    shapes(): readonly IShape[] {
-        return [...this._shapes.values()];
+    shapes(): IShape[] {
+        let shapes: IShape[] = [];
+        for (const shape of this._shapes.values()) {
+            shapes.push(shape.shape);
+        }
+        return shapes;
     }
 
     override dispose(): void {
@@ -15,22 +19,37 @@ export class ShapeSelectionHandler extends SelectionHandler {
         this._shapes.clear();
     }
 
-    override clearSelected(document: IDocument): void {}
+    override clearSelected(document: IDocument): void {
+        for (const shape of this._shapes.values()) {
+            shape.owner.removeState(VisualState.selected, shape.shape.shapeType, shape.index);
+        }
+        this._shapes.clear();
+    }
 
     protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void {
         if (event.shiftKey) {
             shapes.forEach((x) => {
-                if (this._shapes.has(x.shape)) {
-                    this._shapes.delete(x.shape);
+                if (this._shapes.has(x)) {
+                    this.removeSelected(x);
                 } else {
-                    this._shapes.add(x.shape);
+                    this.addSelected(x);
                 }
             });
         } else {
-            this._shapes.clear();
+            this.clearSelected(view.viewer.visual.document);
             shapes.forEach((x) => {
-                this._shapes.add(x.shape);
+                this.addSelected(x);
             });
         }
+    }
+
+    private removeSelected(shape: VisualShapeData) {
+        this._shapes.delete(shape);
+        shape.owner.removeState(VisualState.selected, shape.shape.shapeType, shape.index);
+    }
+
+    private addSelected(shape: VisualShapeData) {
+        shape.owner.addState(VisualState.selected, shape.shape.shapeType, shape.index);
+        this._shapes.add(shape);
     }
 }

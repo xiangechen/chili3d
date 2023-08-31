@@ -39,7 +39,7 @@ export abstract class SelectionHandler implements IEventHandler {
         readonly document: IDocument,
         readonly shapeType: ShapeType,
         readonly multiMode: boolean,
-        readonly controller?: AsyncController
+        readonly controller?: AsyncController,
     ) {
         controller?.onCancelled((s) => {
             this.clearSelected(document);
@@ -48,6 +48,7 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     dispose() {
+        this.clearSelected(this.document);
         this._visualShapes = undefined;
         this._detects = undefined;
     }
@@ -67,11 +68,11 @@ export abstract class SelectionHandler implements IEventHandler {
         let detecteds: VisualShapeData[] = [];
         if (this.rect) {
             detecteds = detecteds.concat(
-                view.rectDetected(this.shapeType, this.mouse.x, this.mouse.y, event.offsetX, event.offsetY)
+                view.rectDetected(this.shapeType, this.mouse.x, this.mouse.y, event.offsetX, event.offsetY),
             );
         } else {
             // 每次鼠标移动，就获得鼠标处的所有对象，用户可以通过键盘切换要选择的对象
-            this._detects = view.detected(this.shapeType, event.offsetX, event.offsetY, true);
+            this._detects = view.detected(this.shapeType, event.offsetX, event.offsetY);
             // 获得当前 detectingIndex 下的对象
             let detected = this.getDetecting();
             if (detected) detecteds.push(detected);
@@ -90,10 +91,11 @@ export abstract class SelectionHandler implements IEventHandler {
 
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this._visualShapes?.forEach((x) => {
-            if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType);
+            if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType, x.index);
         });
         detecteds.forEach((x) => {
-            if (!this._visualShapes?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType);
+            if (!this._visualShapes?.includes(x))
+                x.owner.addState(VisualState.hilight, this.shapeType, x.index);
         });
         this._visualShapes = detecteds;
         view.viewer.redraw();

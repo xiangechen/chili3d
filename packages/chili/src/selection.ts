@@ -19,15 +19,14 @@ export class Selection {
         document: IDocument,
         shapeType: ShapeType,
         prompt: I18nKeys,
+        controller: AsyncController,
         multiMode: boolean = true,
-        showControl: boolean = true
+        showControl: boolean = true,
     ) {
-        let controller: AsyncController = new AsyncController();
         let handler = new ShapeSelectionHandler(document, shapeType, multiMode, controller);
         await this.pickAsync(document, handler, prompt, controller, showControl);
         let shapes = handler.shapes();
         handler.dispose();
-        controller.dispose();
         return shapes;
     }
 
@@ -36,11 +35,11 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
-        showControl: boolean = true
+        showControl: boolean = true,
     ) {
         let handler = new ModelSelectionHandler(document, multiMode, controller);
         await this.pickAsync(document, handler, prompt, controller, showControl).finally(() =>
-            handler.dispose()
+            handler.dispose(),
         );
         return document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
     }
@@ -51,7 +50,7 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         showControl: boolean,
-        cursor: CursorType = CursorType.Selection
+        cursor: CursorType = CursorType.Selection,
     ) {
         let oldHandler = document.visual.eventHandler;
         document.visual.eventHandler = handler;

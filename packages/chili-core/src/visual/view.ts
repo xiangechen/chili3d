@@ -26,7 +26,7 @@ export interface IView extends IPropertyChanged {
     pan(dx: number, dy: number): void;
     rotation(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
-    detected(shapeType: ShapeType, x: number, y: number, firstHitOnly: boolean): VisualShapeData[];
+    detected(shapeType: ShapeType, x: number, y: number): VisualShapeData[];
     rectDetected(shapeType: ShapeType, x1: number, y1: number, x2: number, y2: number): VisualShapeData[];
 }
 
