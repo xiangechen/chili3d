@@ -67,6 +67,9 @@ export default {
         "prompt.default":
             "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",
+        "prompt.select.edges": "Please select edges",
+        "prompt.select.faces": "Please select faces",
+        "prompt.select.vertexs": "Please select vertexs",
         "prompt.polygon.close": "Close",
         "prompt.select.noModelSelected": "No model selected",
         "error.default": "",
@@ -89,6 +92,7 @@ export default {
         "body.circle": "Circle",
         "body.box": "Box",
         "body.polygon": "Polygon",
+        "body.wire": "Wire",
         "command.box": "Box",
         "command.circle": "Circle",
         "command.rect": "Rectangle",

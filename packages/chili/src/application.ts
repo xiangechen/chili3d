@@ -18,7 +18,7 @@ export class Application implements IApplication {
         visualFactory: IVisualFactory,
         shapeFactory: IShapeFactory,
         services: IService[],
-        storage: IStorage
+        storage: IStorage,
     ): Application {
         if (this.#instance) {
             Logger.warn("Application has been built");
@@ -42,7 +42,7 @@ export class Application implements IApplication {
         readonly visualFactory: IVisualFactory,
         readonly shapeFactory: IShapeFactory,
         readonly services: IService[],
-        readonly storage: IStorage
+        readonly storage: IStorage,
     ) {
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
@@ -50,7 +50,9 @@ export class Application implements IApplication {
 
     async openDocument(id: string): Promise<IDocument | undefined> {
         await this.saveAndCloseActiveDocument();
-        return (this.activeDocument = await Document.open(this, id));
+        let document = await Document.open(this, id);
+        this.activeDocument = document;
+        return document;
     }
 
     async newDocument(name: string): Promise<IDocument> {

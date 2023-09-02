@@ -14,6 +14,7 @@ export type CommandKeys =
     | "create.folder"
     | "create.group"
     | "create.polygon"
+    | "convert.combine"
     | "modify.array"
     | "modify.move"
     | "modify.rotate"

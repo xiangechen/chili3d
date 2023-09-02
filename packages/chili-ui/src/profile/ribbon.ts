@@ -18,6 +18,10 @@ export const DefaultRibbon: RibbonData = [
                 groupName: "ribbon.group.modify",
                 items: ["modify.move", "modify.rotate", "modify.mirror", "modify.delete"],
             },
+            {
+                groupName: "ribbon.group.modify",
+                items: ["convert.combine"],
+            },
         ],
     },
     {
