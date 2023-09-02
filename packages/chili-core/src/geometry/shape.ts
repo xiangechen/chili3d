@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Result } from "../base";
+import { ISerialize, Result } from "../base";
 import { Matrix4, Ray, XYZ } from "../math";
 import { ICurve } from "./geometry";
 import { IShapeMeshData } from "./meshData";
@@ -32,12 +32,11 @@ export enum SurfaceType {
     OtherSurface,
 }
 
-export interface IShape {
+export interface IShape extends ISerialize {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;
     setMatrix(matrix: Matrix4): void;
-    toJson(): string;
     isEqual(other: IShape): boolean;
 }
 

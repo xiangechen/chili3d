@@ -141,6 +141,9 @@ mainBuild:
     - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
     - symbol: IFSelect_ReturnStatus
+    - symbol: IGESControl_Reader
+    - symbol: IGESControl_Writer
+    - symbol: IGESControl_Controller
     - symbol: Interface_Static
     - symbol: Interface_TypedValue
     - symbol: Law_BSpFunc

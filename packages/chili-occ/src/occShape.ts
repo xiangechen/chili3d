@@ -18,13 +18,14 @@ import {
     Matrix4,
     Ray,
     Result,
+    Serialized,
+    Serializer,
     ShapeType,
     XYZ,
 } from "chili-core";
 import {
     Geom_Circle,
     Geom_Line,
-    STEPControl_StepModelType,
     TopoDS_Edge,
     TopoDS_Shape,
     TopoDS_Vertex,
@@ -34,10 +35,11 @@ import {
 import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
+import { OccShapeConverter } from "./occConverter";
 
 export class OccShape implements IShape {
-    readonly id: string;
     readonly shapeType: ShapeType;
+    readonly id: string;
 
     private _shape: TopoDS_Shape;
     get shape() {
@@ -72,31 +74,15 @@ export class OccShape implements IShape {
         this._mesh = undefined;
     }
 
-    toJson(): string {
-        throw new Error("没有实现 toJson");
-    }
-
-    blobStep() {
-        const filename = "blob.step";
-        const writer = new occ.STEPControl_Writer_1();
-        occ.Interface_Static.SetIVal("write.step.schema", 5);
-        writer.Model(true);
-        const progress = new occ.Message_ProgressRange_1();
-        writer.Transfer(
-            this.shape,
-            occ.STEPControl_StepModelType.STEPControl_AsIs as STEPControl_StepModelType,
-            true,
-            progress
-        );
-
-        const done = writer.Write(filename);
-        if (done === occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
-            const file = occ.FS.readFile("/" + filename);
-            occ.FS.unlink("/" + filename);
-            return new Blob([file], { type: "application/STEP" });
-        } else {
-            throw new Error("WRITE STEP FILE FAILED.");
-        }
+    serialize(): Serialized {
+        return {
+            className: this.constructor.name,
+            properties: {},
+            constructorParameters: {
+                shape: new OccShapeConverter().convertToIGES(this).unwrap(),
+                id: this.id,
+            },
+        };
     }
 
     findSubShapes(shapeType: ShapeType, unique: boolean = false): IShape[] {
@@ -141,6 +127,12 @@ export class OccEdge extends OccShape implements IEdge {
         let trimmed = new occ.Handle_Geom_TrimmedCurve_2(curve.curve);
         let edge = new occ.BRepBuilderAPI_MakeEdge_24(trimmed);
         return new OccEdge(edge.Edge());
+    }
+
+    @Serializer.deserializer()
+    static from({ shape, id }: { shape: string; id: string }) {
+        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
+        return new OccEdge((tshape[0] as OccEdge).shape, id);
     }
 
     intersect(other: IEdge | Ray): XYZ[] {
@@ -205,6 +197,12 @@ export class OccWire extends OccShape implements IWire {
             return Result.success(new OccFace(make.Face()));
         }
         return Result.error("Wire to face error");
+    }
+
+    @Serializer.deserializer()
+    static from({ shape, id }: { shape: string; id: string }) {
+        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
+        return new OccWire((tshape[0] as OccWire).shape, id);
     }
 }
 

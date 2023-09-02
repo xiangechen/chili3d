@@ -5,3 +5,4 @@ export * from "./lineType";
 export * from "./meshData";
 export * from "./shape";
 export * from "./shapeType";
+export * from "./shapeConverter";

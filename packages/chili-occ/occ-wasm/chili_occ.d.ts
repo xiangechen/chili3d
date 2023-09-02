@@ -3402,6 +3402,61 @@ export declare type IFSelect_ReturnStatus = {
   IFSelect_RetStop: {};
 }
 
+export declare class IGESControl_Controller extends XSControl_Controller {
+  constructor(modefnes: Standard_Boolean)
+  NewModel(): Handle_Interface_InterfaceModel;
+  ActorRead(model: Handle_Interface_InterfaceModel): Handle_Transfer_ActorOfTransientProcess;
+  TransferWriteShape(shape: TopoDS_Shape, FP: Handle_Transfer_FinderProcess, model: Handle_Interface_InterfaceModel, modetrans: Graphic3d_ZLayerId, theProgress: Message_ProgressRange): IFSelect_ReturnStatus;
+  static Init(): Standard_Boolean;
+  Customise(WS: Handle_XSControl_WorkSession): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class IGESControl_Reader extends XSControl_Reader {
+  SetReadVisible(ReadRoot: Standard_Boolean): void;
+  GetReadVisible(): Standard_Boolean;
+  IGESModel(): Handle_IGESData_IGESModel;
+  NbRootsForTransfer(): Graphic3d_ZLayerId;
+  PrintTransferInfo(failwarn: IFSelect_PrintFail, mode: IFSelect_PrintCount): void;
+  delete(): void;
+}
+
+  export declare class IGESControl_Reader_1 extends IGESControl_Reader {
+    constructor();
+  }
+
+  export declare class IGESControl_Reader_2 extends IGESControl_Reader {
+    constructor(WS: Handle_XSControl_WorkSession, scratch: Standard_Boolean);
+  }
+
+export declare class IGESControl_Writer {
+  Model(): Handle_IGESData_IGESModel;
+  TransferProcess(): Handle_Transfer_FinderProcess;
+  SetTransferProcess(TP: Handle_Transfer_FinderProcess): void;
+  AddShape(sh: TopoDS_Shape, theProgress: Message_ProgressRange): Standard_Boolean;
+  AddGeom(geom: Handle_Standard_Transient): Standard_Boolean;
+  AddEntity(ent: Handle_IGESData_IGESEntity): Standard_Boolean;
+  ComputeModel(): void;
+  Write_1(S: Standard_OStream, fnes: Standard_Boolean): Standard_Boolean;
+  Write_2(file: Standard_CString, fnes: Standard_Boolean): Standard_Boolean;
+  delete(): void;
+}
+
+  export declare class IGESControl_Writer_1 extends IGESControl_Writer {
+    constructor();
+  }
+
+  export declare class IGESControl_Writer_2 extends IGESControl_Writer {
+    constructor(unit: Standard_CString, modecr: Graphic3d_ZLayerId);
+  }
+
+  export declare class IGESControl_Writer_3 extends IGESControl_Writer {
+    constructor(model: Handle_IGESData_IGESModel, modecr: Graphic3d_ZLayerId);
+  }
+
 export declare class Interface_Static extends Interface_TypedValue {
   PrintStatic(S: Standard_OStream): void;
   Family(): Standard_CString;
@@ -6615,6 +6670,14 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GeomAbs_SurfaceType: GeomAbs_SurfaceType;
   GeomLib: typeof GeomLib;
   IFSelect_ReturnStatus: IFSelect_ReturnStatus;
+  IGESControl_Controller: typeof IGESControl_Controller;
+  IGESControl_Reader: typeof IGESControl_Reader;
+  IGESControl_Reader_1: typeof IGESControl_Reader_1;
+  IGESControl_Reader_2: typeof IGESControl_Reader_2;
+  IGESControl_Writer: typeof IGESControl_Writer;
+  IGESControl_Writer_1: typeof IGESControl_Writer_1;
+  IGESControl_Writer_2: typeof IGESControl_Writer_2;
+  IGESControl_Writer_3: typeof IGESControl_Writer_3;
   Interface_Static: typeof Interface_Static;
   Interface_Static_1: typeof Interface_Static_1;
   Interface_Static_2: typeof Interface_Static_2;

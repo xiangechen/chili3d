@@ -116,7 +116,7 @@ export class ShapeFactory implements IShapeFactory {
             for (let i = 1; i <= wireOrder.NbEdges(); i++) {
                 let index = wireOrder.Ordered(i);
                 let edge = (edges[Math.abs(index) - 1] as OccEdge).shape;
-                builder.Add_1(index > 0 ? edge : edge.Reversed());
+                builder.Add_1(index > 0 ? edge : OccHelps.getActualShape(edge.Reversed()));
             }
         }
     }

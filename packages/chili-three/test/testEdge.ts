@@ -11,12 +11,16 @@ import {
     Matrix4,
     Ray,
     Result,
+    Serialized,
     ShapeType,
     XYZ,
 } from "chili-core";
 
 export class TestEdge implements IEdge {
-    constructor(readonly start: XYZ, readonly end: XYZ) {}
+    constructor(
+        readonly start: XYZ,
+        readonly end: XYZ,
+    ) {}
 
     intersect(other: IEdge | Ray): XYZ[] {
         return [];
@@ -44,8 +48,12 @@ export class TestEdge implements IEdge {
             faces: undefined,
         };
     }
-    toJson(): string {
-        return "json";
+    serialize(): Serialized {
+        return {
+            className: this.constructor.name,
+            constructorParameters: {},
+            properties: {},
+        };
     }
     isEqual(other: IShape): boolean {
         if (other instanceof TestEdge) {
@@ -57,7 +65,11 @@ export class TestEdge implements IEdge {
 
 export class TestBody extends Body {
     name: I18nKeys = "body.line";
-    constructor(document: IDocument, readonly start: XYZ, readonly end: XYZ) {
+    constructor(
+        document: IDocument,
+        readonly start: XYZ,
+        readonly end: XYZ,
+    ) {
         super(document);
     }
 
