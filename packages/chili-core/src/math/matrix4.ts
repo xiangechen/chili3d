@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Serialized, Serializer } from "../base";
+import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -9,6 +9,7 @@ import { XYZ } from "./xyz";
 /**
  * Matrix in column-major order
  */
+@ClassMap.key("Matrix4")
 export class Matrix4 implements ISerialize {
     private readonly array: Float32Array = new Float32Array(16);
 
@@ -34,7 +35,7 @@ export class Matrix4 implements ISerialize {
 
     serialize(): Serialized {
         return {
-            className: Matrix4.name,
+            classKey: "Matrix4",
             constructorParameters: {
                 array: this.toArray(),
             },
@@ -141,7 +142,7 @@ export class Matrix4 implements ISerialize {
         return new XYZ(
             sx,
             Math.sqrt(m21 * m21 + m22 * m22 + m23 * m23),
-            Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33)
+            Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33),
         );
     }
 

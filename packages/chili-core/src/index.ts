@@ -16,6 +16,7 @@ export * from "./math";
 export * from "./model";
 export * from "./property";
 export * from "./selectionManager";
+export * from "./serialize";
 export * from "./service";
 export * from "./snapType";
 export * from "./visual";

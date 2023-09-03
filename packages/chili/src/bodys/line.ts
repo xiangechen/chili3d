@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import { Body, ClassMap, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
+@ClassMap.key("LineBody")
 export class LineBody extends Body {
     readonly name: I18nKeys = "body.line";
 

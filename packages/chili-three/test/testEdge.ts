@@ -50,7 +50,7 @@ export class TestEdge implements IEdge {
     }
     serialize(): Serialized {
         return {
-            className: this.constructor.name,
+            classKey: "Shape",
             constructorParameters: {},
             properties: {},
         };

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { CurveType, IShape, Matrix4, Plane, ShapeType, XYZ } from "chili-core";
+import { CurveType, IShape, Id, Matrix4, Plane, ShapeType, XYZ } from "chili-core";
 import {
     Geom_Curve,
     TopAbs_ShapeEnum,
@@ -47,7 +47,7 @@ export class OccHelps {
         return new occ.gp_Ax2_2(
             OccHelps.toPnt(plane.origin),
             OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xvec)
+            OccHelps.toDir(plane.xvec),
         );
     }
 
@@ -55,7 +55,7 @@ export class OccHelps {
         return new occ.gp_Ax3_3(
             OccHelps.toPnt(plane.origin),
             OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xvec)
+            OccHelps.toDir(plane.xvec),
         );
     }
 
@@ -82,7 +82,7 @@ export class OccHelps {
             arr[2],
             arr[6],
             arr[10],
-            arr[14]
+            arr[14],
         );
         return trsf;
     }
@@ -146,26 +146,26 @@ export class OccHelps {
         }
     }
 
-    static getShape(shape: TopoDS_Shape): IShape {
+    static getShape(shape: TopoDS_Shape, id: string = Id.new()): IShape {
         switch (shape.ShapeType()) {
             case occ.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                return new OccCompound(occ.TopoDS.Compound_1(shape));
+                return new OccCompound(occ.TopoDS.Compound_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                return new OccCompoundSolid(occ.TopoDS.CompSolid_1(shape));
+                return new OccCompoundSolid(occ.TopoDS.CompSolid_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_SOLID:
-                return new OccSolid(occ.TopoDS.Solid_1(shape));
+                return new OccSolid(occ.TopoDS.Solid_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_SHELL:
-                return new OccShell(occ.TopoDS.Shell_1(shape));
+                return new OccShell(occ.TopoDS.Shell_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_FACE:
-                return new OccFace(occ.TopoDS.Face_1(shape));
+                return new OccFace(occ.TopoDS.Face_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_WIRE:
-                return new OccWire(occ.TopoDS.Wire_1(shape));
+                return new OccWire(occ.TopoDS.Wire_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_EDGE:
-                return new OccEdge(occ.TopoDS.Edge_1(shape));
+                return new OccEdge(occ.TopoDS.Edge_1(shape), id);
             case occ.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                return new OccVertex(occ.TopoDS.Vertex_1(shape));
+                return new OccVertex(occ.TopoDS.Vertex_1(shape), id);
             default:
-                return new OccShape(shape);
+                return new OccShape(shape, id);
         }
     }
 
@@ -208,12 +208,12 @@ export class OccHelps {
     static *findSubShapes(
         shape: TopoDS_Shape,
         shapeType: TopAbs_ShapeEnum,
-        unique: boolean
+        unique: boolean,
     ): IterableIterator<TopoDS_Shape> {
         const explorer = new occ.TopExp_Explorer_2(
             shape,
             shapeType,
-            occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum
+            occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum,
         );
         const hashes = unique ? new Map() : undefined;
         while (explorer.More()) {

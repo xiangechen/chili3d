@@ -1,8 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { HistoryObservable, IEqualityComparer, ISerialize, Result } from "../base";
+import { HistoryObservable, IEqualityComparer, Result } from "../base";
 import { IShape } from "../geometry";
 import { I18nKeys } from "../i18n";
+import { ISerialize } from "../serialize";
 
 const ShapeChangedEvent = "ShapeChangedEvent";
 

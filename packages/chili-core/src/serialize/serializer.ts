@@ -2,6 +2,8 @@
 
 import { IDocument } from "../document";
 import { INodeLinkedList } from "../model";
+import { ClassKey } from "./classKey";
+import { ClassMap } from "./classMap";
 
 export type Properties = {
     [key: string]: any;
@@ -10,7 +12,7 @@ export type Properties = {
 export type PropertySetter = "constructor" | "assignment" | ((obj: any, value: any) => void);
 
 export type Serialized = {
-    className: string;
+    classKey: ClassKey;
     properties: Properties;
     constructorParameters: Properties;
 };
@@ -22,7 +24,7 @@ export interface ISerialize {
 export namespace Serializer {
     const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
     const constructorParametersMap = new Map<new (...args: any[]) => any, Set<string>>();
-    const deserializeMap = new Map<string, (...args: any[]) => any>();
+    const deserializeMap = new Map<Function, (...args: any[]) => any>();
     const setters = new Map<string, Map<string, (obj: any, value: any) => void>>();
 
     /**
@@ -59,7 +61,7 @@ export namespace Serializer {
 
     export function deserializer() {
         return (target: any, name: string) => {
-            deserializeMap.set(target.name, target[name]);
+            deserializeMap.set(target, target[name]);
         };
     }
 
@@ -79,7 +81,7 @@ export namespace Serializer {
         if ("firstChild" in data.properties || "nextSibling" in data.properties) {
             return nodeDescrialize(document, data, data.properties["parent"]);
         } else {
-            let instance = deserializeInstance(document, data.className, data.constructorParameters);
+            let instance = deserializeInstance(document, data.classKey, data.constructorParameters);
             deserializeProperties(document, instance, data.properties);
             return instance;
         }
@@ -91,7 +93,7 @@ export namespace Serializer {
         parent?: INodeLinkedList,
         addSibling?: boolean,
     ) {
-        let node = deserializeInstance(document, data.className, data.constructorParameters);
+        let node = deserializeInstance(document, data.classKey, data.constructorParameters);
         parent?.add(node);
         for (const key of Object.keys(data.properties)) {
             let value = data.properties[key];
@@ -107,13 +109,18 @@ export namespace Serializer {
         return node;
     }
 
-    function deserializeInstance(document: IDocument, className: string, constructorParameters: Properties) {
+    function deserializeInstance(
+        document: IDocument,
+        className: ClassKey,
+        constructorParameters: Properties,
+    ) {
         let parameters: Properties = {};
         parameters["document"] = document;
         for (const key of Object.keys(constructorParameters)) {
             parameters[key] = deserialValue(document, constructorParameters[key]);
         }
-        let instance = deserializeMap.get(className)?.(parameters);
+        let proto = ClassMap.getClass(className);
+        let instance = deserializeMap.get(proto)?.(parameters);
         if (instance === undefined) throw new Error(`${className} cannot be deserialized`);
         return instance;
     }
@@ -124,7 +131,7 @@ export namespace Serializer {
                 return typeof v === "object" ? deserialize(document, v) : v;
             });
         } else {
-            return value.className ? deserialize(document, value) : value;
+            return (value as Serialized).classKey ? deserialize(document, value) : value;
         }
     }
 
@@ -145,8 +152,13 @@ export namespace Serializer {
     }
 
     export function serialize(target: ISerialize): Serialized {
+        let key = ClassMap.getKey(target.constructor as any);
+        if (key === undefined)
+            throw new Error(
+                `Type ${target.constructor.name} is not registered, please add the @ClassMap.key("**") decorator.`,
+            );
         let data: Serialized = {
-            className: target.constructor.name,
+            classKey: key,
             properties: {},
             constructorParameters: {},
         };

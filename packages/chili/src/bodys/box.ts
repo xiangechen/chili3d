@@ -1,7 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
+import { ClassMap } from "chili-core/src/serialize/classMap";
 
+@ClassMap.key("BoxBody")
 export class BoxBody extends Body {
     readonly name: I18nKeys = "body.box";
 

@@ -2,10 +2,10 @@
 
 import { EventEmitter } from "events";
 import { IDocument } from "../document";
+import { ISerialize, Serialized, Serializer } from "../serialize";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
-import { ISerialize, Serialized, Serializer } from "./serialize";
 import { Transaction } from "./transaction";
 
 const PropertyChangedEvent = "PropertyChangedEvent";
@@ -39,7 +39,7 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
         property: K,
         newValue: this[K],
         onPropertyChanged?: (property: K, oldValue: this[K]) => void,
-        equals?: IEqualityComparer<this[K]>
+        equals?: IEqualityComparer<this[K]>,
     ): boolean {
         let priKey = this.privateKeyMap(String(property));
         let obj = this as unknown as any;
@@ -54,7 +54,7 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
     private isEuqals<K extends keyof this>(
         oldValue: this[K],
         newValue: this[K],
-        equals?: IEqualityComparer<this[K]>
+        equals?: IEqualityComparer<this[K]>,
     ): boolean {
         if (equals !== undefined) {
             return equals.equals(oldValue, newValue);
@@ -91,7 +91,7 @@ export abstract class HistoryObservable extends Observable {
         property: K,
         newValue: this[K],
         onPropertyChanged?: (property: K, oldValue: this[K]) => void,
-        equals?: IEqualityComparer<this[K]> | undefined
+        equals?: IEqualityComparer<this[K]> | undefined,
     ): boolean {
         return super.setProperty(
             property,
@@ -100,10 +100,10 @@ export abstract class HistoryObservable extends Observable {
                 onPropertyChanged?.(property, oldValue);
                 Transaction.add(
                     this.document,
-                    new PropertyHistoryRecord(this, property, oldValue, newValue)
+                    new PropertyHistoryRecord(this, property, oldValue, newValue),
                 );
             },
-            equals
+            equals,
         );
     }
 }

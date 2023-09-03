@@ -1,7 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    ClassMap,
+    FaceableBody,
+    I18nKeys,
+    IDocument,
+    IShape,
+    Property,
+    Result,
+    Serializer,
+    XYZ,
+} from "chili-core";
 
+@ClassMap.key("CircleBody")
 export class CircleBody extends FaceableBody {
     readonly name: I18nKeys = "body.circle";
 

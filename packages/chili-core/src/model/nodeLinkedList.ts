@@ -1,18 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import {
-    Logger,
-    NodeAction,
-    NodeLinkedListHistoryRecord,
-    NodeRecord,
-    PubSub,
-    Serializer,
-    Transaction,
-} from "../base";
+import { Logger, NodeAction, NodeLinkedListHistoryRecord, NodeRecord, PubSub, Transaction } from "../base";
 import { IDocument } from "../document";
 import { Id } from "../id";
+import { Serializer } from "../serialize";
+import { ClassMap } from "../serialize/classMap";
 import { INode, INodeLinkedList, Node } from "./node";
 
+@ClassMap.key("NodeLinkedList")
 export class NodeLinkedList extends Node implements INodeLinkedList {
     private _count: number = 0;
 

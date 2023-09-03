@@ -1,8 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { ISerialize, Precision, Serialized, Serializer } from "../base";
+import { Precision } from "../base";
+import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
+@ClassMap.key("XYZ")
 export class XYZ implements ISerialize {
     static readonly zero = new XYZ(0, 0, 0);
     static readonly unitX = new XYZ(1, 0, 0);
@@ -10,11 +12,15 @@ export class XYZ implements ISerialize {
     static readonly unitZ = new XYZ(0, 0, 1);
     static readonly one = new XYZ(1, 1, 1);
 
-    constructor(readonly x: number, readonly y: number, readonly z: number) {}
+    constructor(
+        readonly x: number,
+        readonly y: number,
+        readonly z: number,
+    ) {}
 
     serialize(): Serialized {
         return {
-            className: XYZ.name,
+            classKey: "XYZ",
             constructorParameters: {
                 x: this.x,
                 y: this.y,
@@ -37,7 +43,7 @@ export class XYZ implements ISerialize {
         return new XYZ(
             this.y * right.z - this.z * right.y,
             this.z * right.x - this.x * right.z,
-            this.x * right.y - this.y * right.x
+            this.x * right.y - this.y * right.x,
         );
     }
 

@@ -80,7 +80,7 @@ export class Document extends Observable implements IDocument, ISerialize {
 
     override serialize(): Serialized {
         return {
-            className: Document.name,
+            classKey: "Document",
             constructorParameters: {
                 id: this.id,
                 name: this.name,

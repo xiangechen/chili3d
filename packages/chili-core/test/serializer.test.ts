@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
+import { ClassMap, History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
 
+@ClassMap.key("BoxBody")
 class TestObject implements ISerialize {
     protected k2: string = "k2";
     public k3: string = "k3";

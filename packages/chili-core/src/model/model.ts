@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { Logger, Serializer } from "../base";
+import { Logger } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
+import { ClassMap, Serializer } from "../serialize";
 import { Body } from "./body";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
@@ -46,6 +47,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
     }
 }
 
+@ClassMap.key("GeometryModel")
 export class GeometryModel extends Model {
     private readonly _features: Feature[] = [];
 

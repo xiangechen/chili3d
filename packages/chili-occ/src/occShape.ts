@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import {
+    ClassMap,
     CurveType,
     ICompound,
     ICompoundSolid,
@@ -32,11 +33,12 @@ import {
     TopoDS_Wire,
 } from "opencascade.js";
 
+import { OccShapeConverter } from "./occConverter";
 import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
-import { OccShapeConverter } from "./occConverter";
 
+@ClassMap.key("Shape")
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
     readonly id: string;
@@ -76,13 +78,19 @@ export class OccShape implements IShape {
 
     serialize(): Serialized {
         return {
-            className: this.constructor.name,
+            classKey: "Shape",
             properties: {},
             constructorParameters: {
                 shape: new OccShapeConverter().convertToIGES(this).unwrap(),
                 id: this.id,
             },
         };
+    }
+
+    @Serializer.deserializer()
+    static from({ shape, id }: { shape: string; id: string }) {
+        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
+        return OccHelps.getShape((tshape[0] as any).shape, id);
     }
 
     findSubShapes(shapeType: ShapeType, unique: boolean = false): IShape[] {
@@ -127,12 +135,6 @@ export class OccEdge extends OccShape implements IEdge {
         let trimmed = new occ.Handle_Geom_TrimmedCurve_2(curve.curve);
         let edge = new occ.BRepBuilderAPI_MakeEdge_24(trimmed);
         return new OccEdge(edge.Edge());
-    }
-
-    @Serializer.deserializer()
-    static from({ shape, id }: { shape: string; id: string }) {
-        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
-        return new OccEdge((tshape[0] as OccEdge).shape, id);
     }
 
     intersect(other: IEdge | Ray): XYZ[] {
@@ -197,12 +199,6 @@ export class OccWire extends OccShape implements IWire {
             return Result.success(new OccFace(make.Face()));
         }
         return Result.error("Wire to face error");
-    }
-
-    @Serializer.deserializer()
-    static from({ shape, id }: { shape: string; id: string }) {
-        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
-        return new OccWire((tshape[0] as OccWire).shape, id);
     }
 }
 

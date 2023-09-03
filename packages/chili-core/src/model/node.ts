@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
 import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
-import { ISerialize, Serializer } from "../base/serialize";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
+import { ISerialize, Serializer } from "../serialize";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged, ISerialize, IDisposable {
@@ -70,7 +70,11 @@ export abstract class Node extends HistoryObservable implements INode {
     @Serializer.property("constructor")
     readonly id: string;
 
-    constructor(document: IDocument, private _name: string, id: string = Id.new()) {
+    constructor(
+        document: IDocument,
+        private _name: string,
+        id: string = Id.new(),
+    ) {
         super(document);
         this.id = id;
     }
