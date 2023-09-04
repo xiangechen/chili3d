@@ -1,35 +1,35 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IStorage, Logger } from "chili-core";
+import { Constants, IStorage, Logger } from "chili-core";
 
 export class IndexedDBStorage implements IStorage {
     readonly version: number = 3;
 
     async get(database: string, table: string, id: string): Promise<any> {
-        let db = await IndexedDBStorage.open(database, table, this.version);
+        let db = await this.open(database, table, this.version);
         return await IndexedDBStorage.get(db, table, id).finally(() => db.close());
     }
 
     async put(database: string, table: string, id: string, value: any): Promise<boolean> {
-        let db = await IndexedDBStorage.open(database, table, this.version);
+        let db = await this.open(database, table, this.version);
         return await IndexedDBStorage.put(db, table, id, value).finally(() => db.close());
     }
 
     async delete(database: string, table: string, id: string): Promise<boolean> {
-        let db = await IndexedDBStorage.open(database, table, this.version);
+        let db = await this.open(database, table, this.version);
         return await IndexedDBStorage.delete(db, table, id).finally(() => db.close());
     }
 
     async page(database: string, table: string, page: number): Promise<any[]> {
-        let db = await IndexedDBStorage.open(database, table, this.version);
+        let db = await this.open(database, table, this.version);
         return await IndexedDBStorage.getPage(db, table, page).finally(() => db.close());
     }
 
-    private static open(
+    private open(
         dbName: string,
         storeName: string,
         version: number,
-        options?: IDBObjectStoreParameters
+        options?: IDBObjectStoreParameters,
     ): Promise<IDBDatabase> {
         let request = window.indexedDB.open(dbName, version);
         return new Promise((resolve, reject) => {
@@ -46,9 +46,12 @@ export class IndexedDBStorage implements IStorage {
             request.onupgradeneeded = (e) => {
                 Logger.info(`upgrade ${dbName}`);
                 let db: IDBDatabase = (e.target as unknown as any).result;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    db.createObjectStore(storeName, options);
-                }
+                [Constants.DocumentTable, Constants.RecentTable].forEach((store) => {
+                    if (!db.objectStoreNames.contains(store)) {
+                        Logger.info(`create store ${store}`);
+                        db.createObjectStore(store, options);
+                    }
+                });
             };
         });
     }
@@ -81,7 +84,7 @@ export class IndexedDBStorage implements IStorage {
         db: IDBDatabase,
         storeName: string,
         page: number,
-        count: number = 20
+        count: number = 20,
     ): Promise<any[]> {
         let result: any[] = [];
         let index = 0;
