@@ -23,7 +23,7 @@ export class OccShapeConverter implements IShapeConverter {
         return success ? Result.success(file) : Result.error("export IGES error");
     }
 
-    convertFromIGES(data: string): Result<IShape[]> {
+    convertFromIGES(data: string): Result<IShape> {
         return this.convertFrom("iges", data);
     }
 
@@ -51,11 +51,11 @@ export class OccShapeConverter implements IShapeConverter {
         }
     }
 
-    convertFromSTEP(data: string): Result<IShape[]> {
+    convertFromSTEP(data: string): Result<IShape> {
         return this.convertFrom("step", data);
     }
 
-    private convertFrom(format: "step" | "iges", data: string): Result<IShape[]> {
+    private convertFrom(format: "step" | "iges", data: string): Result<IShape> {
         const fileName = `blob.${format}`;
         let reader = format === "step" ? new occ.STEPControl_Reader_1() : new occ.IGESControl_Reader_1();
         occ.FS.createDataFile("/", fileName, data, true, true, true);
@@ -64,13 +64,7 @@ export class OccShapeConverter implements IShapeConverter {
         if (readResult === occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
             const progress = new occ.Message_ProgressRange_1();
             reader.TransferRoots(progress);
-            let shapes: IShape[] = [];
-            for (let i = 1; i <= reader.NbShapes(); i++) {
-                shapes.push(OccHelps.getShape(reader.Shape(i)));
-            }
-            console.trace(shapes);
-
-            return Result.success(shapes);
+            return Result.success(OccHelps.getShape(reader.OneShape()));
         } else {
             return Result.error(`Cannot load ${format}`);
         }

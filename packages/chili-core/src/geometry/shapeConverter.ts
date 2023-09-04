@@ -5,7 +5,7 @@ import { IShape } from "./shape";
 
 export interface IShapeConverter {
     convertToIGES(...shapes: IShape[]): Result<string>;
-    convertFromIGES(iges: string): Result<IShape[]>;
+    convertFromIGES(iges: string): Result<IShape>;
     convertToSTEP(...shapes: IShape[]): Result<string>;
-    convertFromSTEP(step: string): Result<IShape[]>;
+    convertFromSTEP(step: string): Result<IShape>;
 }

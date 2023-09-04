@@ -41,7 +41,11 @@ import { OccMesh } from "./occMesh";
 @ClassMap.key("Shape")
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
-    readonly id: string;
+
+    private _id: string;
+    get id() {
+        return this._id;
+    }
 
     private _shape: TopoDS_Shape;
     get shape() {
@@ -57,7 +61,7 @@ export class OccShape implements IShape {
     }
 
     constructor(shape: TopoDS_Shape, id?: string) {
-        this.id = id ?? Id.new();
+        this._id = id ?? Id.new();
         this._shape = shape;
         this.shapeType = OccHelps.getShapeType(shape);
     }
@@ -89,8 +93,9 @@ export class OccShape implements IShape {
 
     @Serializer.deserializer()
     static from({ shape, id }: { shape: string; id: string }) {
-        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap();
-        return OccHelps.getShape((tshape[0] as any).shape, id);
+        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap() as OccShape;
+        tshape._id = id;
+        return tshape;
     }
 
     findSubShapes(shapeType: ShapeType, unique: boolean = false): IShape[] {
