@@ -62,7 +62,7 @@ export class TreeGroup extends TreeItem {
     }
 
     override removeChild<T extends Node>(child: T): T {
-        this.items.removeChild(child);
+        if (child.parentNode === this.items) this.items.removeChild(child);
         return child;
     }
 

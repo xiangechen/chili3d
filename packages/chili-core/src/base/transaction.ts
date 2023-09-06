@@ -7,7 +7,10 @@ import { Logger } from "./logger";
 export class Transaction {
     private static readonly _transactionMap: WeakMap<IDocument, ArrayRecord> = new WeakMap();
 
-    constructor(readonly document: IDocument, readonly name: string) {}
+    constructor(
+        readonly document: IDocument,
+        readonly name: string,
+    ) {}
 
     static add(document: IDocument, record: IHistoryRecord) {
         if (document.history.disabled) return;
@@ -39,7 +42,7 @@ export class Transaction {
     start(name?: string) {
         let transactionName = name ?? this.name;
         if (Transaction._transactionMap.get(this.document) !== undefined) {
-            throw new Error("The document has started a transaction");
+            throw new Error(`The document has started a transaction ${this.name}`);
         }
         Transaction._transactionMap.set(this.document, new ArrayRecord(transactionName));
     }
@@ -54,9 +57,7 @@ export class Transaction {
     }
 
     rollback() {
-        let arrayRecord = Transaction._transactionMap.get(this.document);
-        if (arrayRecord == undefined) return;
-        arrayRecord.undo();
+        Transaction._transactionMap.get(this.document)?.undo();
         Transaction._transactionMap.delete(this.document);
     }
 }
