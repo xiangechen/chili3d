@@ -9,11 +9,11 @@ import { CreateFaceableCommand } from "./createCommand";
 let count = 1;
 
 @command({
-    name: "convert.combine",
-    display: "command.circle",
+    name: "convert.toPolygon",
+    display: "command.toPoly",
     icon: "icon-circle",
 })
-export class Combine extends CreateFaceableCommand {
+export class ConverterToPoly extends CreateFaceableCommand {
     #shapes: IShape[] | undefined;
 
     protected override create(): GeometryModel {

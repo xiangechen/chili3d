@@ -2,7 +2,8 @@
 
 export * from "./box";
 export * from "./circle";
-export * from "./combine";
+export * from "./toPoly";
 export * from "./line";
 export * from "./polygon";
+export * from "./prism";
 export * from "./rect";

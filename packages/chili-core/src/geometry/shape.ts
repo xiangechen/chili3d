@@ -53,7 +53,9 @@ export interface IWire extends IShape {
     toFace(): Result<IFace>;
 }
 
-export interface IFace extends IShape {}
+export interface IFace extends IShape {
+    normal(u: number, v: number): [point: XYZ, normal: XYZ];
+}
 
 export interface IShell extends IShape {}
 

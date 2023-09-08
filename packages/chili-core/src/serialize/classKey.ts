@@ -3,6 +3,7 @@
 export type ClassKey =
     | "BoxBody"
     | "CircleBody"
+    | "PrismBody"
     | "Document"
     | "GeometryModel"
     | "LineBody"

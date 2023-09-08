@@ -31,6 +31,7 @@ export class SelectionManager extends Observable {
             this.removeSelectedPublish(this._selectedNodes, false);
             this.addSelectPublish(nodes, true);
         }
+        return this._selectedNodes.length;
     }
 
     deselect(nodes: INode[]) {

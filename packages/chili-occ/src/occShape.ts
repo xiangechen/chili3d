@@ -28,6 +28,7 @@ import {
     Geom_Circle,
     Geom_Line,
     TopoDS_Edge,
+    TopoDS_Face,
     TopoDS_Shape,
     TopoDS_Vertex,
     TopoDS_Wire,
@@ -207,7 +208,19 @@ export class OccWire extends OccShape implements IWire {
     }
 }
 
-export class OccFace extends OccShape implements IFace {}
+export class OccFace extends OccShape implements IFace {
+    constructor(shape: TopoDS_Face, id?: string) {
+        super(shape, id);
+    }
+
+    normal(u: number, v: number): [point: XYZ, normal: XYZ] {
+        let pnt = new occ.gp_Pnt_1();
+        let dir = new occ.gp_Vec_1();
+        let a = new occ.BRepGProp_Face_2(this.shape, false);
+        a.Normal(u, v, pnt, dir);
+        return [OccHelps.toXYZ(pnt), OccHelps.toXYZ(dir).normalize()!];
+    }
+}
 
 export class OccShell extends OccShape implements IShell {}
 

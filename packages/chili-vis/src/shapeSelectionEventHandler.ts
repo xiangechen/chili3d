@@ -26,7 +26,7 @@ export class ShapeSelectionHandler extends SelectionHandler {
         this._shapes.clear();
     }
 
-    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void {
+    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
         if (event.shiftKey) {
             shapes.forEach((x) => {
                 if (this._shapes.has(x)) {
@@ -41,6 +41,7 @@ export class ShapeSelectionHandler extends SelectionHandler {
                 this.addSelected(x);
             });
         }
+        return this._shapes.size;
     }
 
     private removeSelected(shape: VisualShapeData) {

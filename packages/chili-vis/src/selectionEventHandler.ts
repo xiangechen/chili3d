@@ -102,6 +102,7 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     pointerDown(view: IView, event: PointerEvent): void {
+        event.preventDefault();
         if (event.button === 0) {
             this.mouse = {
                 isDown: true,
@@ -142,18 +143,20 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     pointerUp(view: IView, event: PointerEvent): void {
+        event.preventDefault();
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            this.select(view, this._visualShapes ?? [], event);
+            let count = this.select(view, this._visualShapes ?? [], event);
+            this.cleanHighlights();
+            view.viewer.redraw();
+            if (count > 0 && !this.multiMode) this.controller?.success();
         }
-        this.cleanHighlights();
-        view.viewer.redraw();
     }
 
     protected abstract clearSelected(document: IDocument): void;
 
-    protected abstract select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void;
+    protected abstract select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number;
 
     private removeRect(view: IView) {
         if (this.rect) {

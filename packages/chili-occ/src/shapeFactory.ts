@@ -1,13 +1,26 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEdge, IFace, ISolid, IVertex, IWire, MathUtils, Plane, Result, XYZ } from "chili-core";
+import { IEdge, IFace, IShape, ISolid, IVertex, IWire, MathUtils, Plane, Result, XYZ } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { OccHelps } from "./occHelps";
-import { OccEdge, OccFace, OccSolid, OccVertex, OccWire } from "./occShape";
+import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
 import { BRepBuilderAPI_MakeWire } from "opencascade.js";
 
 export class ShapeFactory implements IShapeFactory {
+    prism(shape: IShape, vec: XYZ): Result<IShape> {
+        if (shape instanceof OccShape) {
+            let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);
+            if (builder.IsDone()) {
+                return Result.success(OccHelps.getShape(builder.Shape()));
+            } else {
+                return Result.error("Cannot create prism");
+            }
+        } else {
+            return Result.error("Unsupported shape");
+        }
+    }
+
     polygon(...points: XYZ[]): Result<IWire, string> {
         let make = new occ.BRepBuilderAPI_MakePolygon_1();
         points.forEach((x) => {

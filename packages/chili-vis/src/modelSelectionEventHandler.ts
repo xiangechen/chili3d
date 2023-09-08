@@ -8,17 +8,17 @@ export class ModelSelectionHandler extends SelectionHandler {
         super(document, ShapeType.Shape, multiMode, controller);
     }
 
-    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): void {
+    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
         if (shapes.length === 0) {
             view.viewer.visual.document.selection.clearSelected();
-        } else {
-            let nodes: IModel[] = [];
-            shapes.forEach((x) => {
-                let model = view.viewer.visual.context.getModel(x.owner);
-                if (model) nodes.push(model);
-            });
-            view.viewer.visual.document.selection.select(nodes, event.shiftKey);
+            return 0;
         }
+        let nodes: IModel[] = [];
+        shapes.forEach((x) => {
+            let model = view.viewer.visual.context.getModel(x.owner);
+            if (model) nodes.push(model);
+        });
+        return view.viewer.visual.document.selection.select(nodes, event.shiftKey);
     }
 
     override clearSelected(document: IDocument): void {
