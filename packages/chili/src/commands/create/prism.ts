@@ -4,17 +4,17 @@ import {
     AsyncController,
     GeometryModel,
     IFace,
-    IShape,
     Precision,
     ShapeType,
-    XYZ,
+    VisualShapeData,
     command,
 } from "chili-core";
+import { PrismBody } from "../../bodys";
 import { Selection } from "../../selection";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { CreateCommand } from "./createCommand";
-import { PrismBody } from "../../bodys";
+import { SelectStep } from "../../step/selectStep";
 
 let count = 1;
 
@@ -24,22 +24,23 @@ let count = 1;
     icon: "icon-circle",
 })
 export class Prism extends CreateCommand {
-    #shapes: IShape[] | undefined;
-
     protected override create(): GeometryModel {
-        let shape = this.#shapes?.at(0) as IFace; // todo assert
+        let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);
-        let dist = this.stepDatas[0].point.sub(point).dot(normal);
+        let dist = this.stepDatas[1].point!.sub(point).dot(normal);
         let body = new PrismBody(this.document, shape, dist);
         return new GeometryModel(this.document, `prism${count++}`, body);
     }
 
     protected override getSteps(): IStep[] {
-        return [new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData)];
+        return [
+            new SelectStep(ShapeType.Face, "prompt.select.faces", false),
+            new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData),
+        ];
     }
 
     private getLengthStepData = (): SnapLengthAtAxisData => {
-        let shape = this.#shapes?.at(0) as IFace; // todo assert
+        let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);
         return {
             point,
@@ -52,18 +53,4 @@ export class Prism extends CreateCommand {
             },
         };
     };
-
-    protected override async beforeExecute(): Promise<boolean> {
-        if (!(await super.beforeExecute())) return false;
-        let controller: AsyncController = new AsyncController();
-        this.#shapes = await Selection.pickShape(
-            this.document,
-            ShapeType.Face,
-            "prompt.select.faces",
-            controller,
-            false,
-            false,
-        );
-        return !this.restarting && this.#shapes.length > 0;
-    }
 }

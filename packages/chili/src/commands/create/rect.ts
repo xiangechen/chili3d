@@ -4,7 +4,7 @@ import { GeometryModel, MathUtils, Plane, Property, XYZ, command } from "chili-c
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateCommand, CreateFaceableCommand } from "./createCommand";
+import { CreateCommand } from "./createCommand";
 
 export interface RectData {
     plane: Plane;
@@ -32,7 +32,7 @@ export abstract class RectCommandBase extends CreateCommand {
     }
 
     private nextSnapData = (): SnapLengthAtPlaneData => {
-        let point = this.stepDatas[0].point;
+        let point = this.stepDatas[0].point!;
         return {
             point,
             preview: this.previewRect,
@@ -53,7 +53,7 @@ export abstract class RectCommandBase extends CreateCommand {
     };
 
     protected getRectData(point: XYZ): RectData {
-        let [p1, p2] = [this.stepDatas[0].point, point];
+        let [p1, p2] = [this.stepDatas[0].point!, point];
         return RectData.get(this.stepDatas[0].view.workplane, p1, p2);
     }
 }
@@ -76,7 +76,7 @@ export class Rect extends RectCommandBase {
     }
 
     protected create(): GeometryModel {
-        let rect = this.getRectData(this.stepDatas[1].point);
+        let rect = this.getRectData(this.stepDatas[1].point!);
         let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
         body.isFace = this._isFace;
         return new GeometryModel(this.document, `Rect ${Rect.count++}`, body);

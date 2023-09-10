@@ -1,17 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IDocument, IShape, IView, VisualShapeData, VisualState } from "chili-core";
+import { IDocument, IView, VisualShapeData, VisualState } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ShapeSelectionHandler extends SelectionHandler {
     private _shapes: Set<VisualShapeData> = new Set();
 
-    shapes(): IShape[] {
-        let shapes: IShape[] = [];
-        for (const shape of this._shapes.values()) {
-            shapes.push(shape.shape);
-        }
-        return shapes;
+    shapes(): VisualShapeData[] {
+        return [...this._shapes];
     }
 
     override dispose(): void {

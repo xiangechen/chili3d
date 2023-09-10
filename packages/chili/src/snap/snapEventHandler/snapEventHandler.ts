@@ -72,7 +72,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeTempObject(view);
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
-            this.showTempShape(this._snaped.point, view);
+            this.showTempShape(this._snaped.point!, view);
             this.switchSnapedTip(this._snaped.info);
         } else {
             this.clearSnapTip();
@@ -127,7 +127,7 @@ export abstract class SnapEventHandler implements IEventHandler {
 
     private validateSnaped(snaped: SnapedData) {
         for (const validator of this.validators) {
-            if (!validator(snaped.point)) {
+            if (!validator(snaped.point!)) {
                 return false;
             }
         }

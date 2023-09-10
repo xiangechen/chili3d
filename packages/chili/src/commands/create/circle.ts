@@ -24,7 +24,7 @@ export class Circle extends CreateFaceableCommand {
     }
 
     private getRadiusData = (): SnapLengthAtPlaneData => {
-        let point = this.stepDatas[0].point;
+        let point = this.stepDatas[0].point!;
         return {
             point,
             preview: this.circlePreview,
@@ -33,7 +33,7 @@ export class Circle extends CreateFaceableCommand {
     };
 
     create(): GeometryModel {
-        let [p1, p2] = [this.stepDatas[0].point, this.stepDatas[1].point];
+        let [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
         let body = new CircleBody(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
         body.isFace = this.isFace;
@@ -41,7 +41,7 @@ export class Circle extends CreateFaceableCommand {
     }
 
     private circlePreview = (point: XYZ) => {
-        let start = this.stepDatas[0].point;
+        let start = this.stepDatas[0].point!;
         let plane = this.stepDatas[0].view.workplane;
         return [
             this.application.shapeFactory

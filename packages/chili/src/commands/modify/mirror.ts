@@ -12,7 +12,7 @@ import { TransformedCommand } from "./transformedCommand";
 })
 export class Mirror extends TransformedCommand {
     protected override transfrom(point: XYZ): Matrix4 {
-        let center = this.stepDatas[0].point;
+        let center = this.stepDatas[0].point!;
         let xvec = this.stepDatas[0].view.workplane.normal;
         let yvec = point.sub(center);
         let normal = yvec.cross(xvec);
@@ -28,17 +28,17 @@ export class Mirror extends TransformedCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.mirrorPreview,
-            validators: [(p) => p.distanceTo(this.stepDatas[0].point) > 1e-3],
+            validators: [(p) => p.distanceTo(this.stepDatas[0].point!) > 1e-3],
         };
     };
 
     private mirrorPreview = (point: XYZ): ShapeMeshData[] => {
         let shape = this.transformPreview(point);
-        let offset = point.sub(this.stepDatas[0].point).normalize()!.multiply(1e6);
-        let line = this.getTempLineData(this.stepDatas[0].point.sub(offset), point.add(offset));
+        let offset = point.sub(this.stepDatas[0].point!).normalize()!.multiply(1e6);
+        let line = this.getTempLineData(this.stepDatas[0].point!.sub(offset), point.add(offset));
         return [shape, line];
     };
 }

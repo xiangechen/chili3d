@@ -95,7 +95,7 @@ export class ObjectSnap implements ISnapper {
             .concat(intersections)
             .sort((a, b) => this.sortSnaps(view, x, y, a, b));
         if (ordered.length === 0) return undefined;
-        let dist = IView.screenDistance(view, x, y, ordered[0].point);
+        let dist = IView.screenDistance(view, x, y, ordered[0].point!);
         if (dist < Config.instance.SnapDistance) {
             this.hilighted(view, ordered[0].shapes);
             return ordered[0];
@@ -108,7 +108,7 @@ export class ObjectSnap implements ISnapper {
     private displayHint(view: IView, shape: SnapedData) {
         this.hilighted(view, shape.shapes);
         let data = VertexMeshData.from(
-            shape.point,
+            shape.point!,
             Config.instance.visual.hintVertexSize,
             Config.instance.visual.hintVertexColor,
         );
@@ -134,7 +134,7 @@ export class ObjectSnap implements ISnapper {
         let minDistance = Number.MAX_VALUE;
         this._invisibleInfos.forEach((info) => {
             info.snaps.forEach((s) => {
-                let dist = IView.screenDistance(view, x, y, s.point);
+                let dist = IView.screenDistance(view, x, y, s.point!);
                 if (dist < minDistance) {
                     minDistance = dist;
                     snap = s;
@@ -189,7 +189,7 @@ export class ObjectSnap implements ISnapper {
     }
 
     private sortSnaps(view: IView, x: number, y: number, a: SnapedData, b: SnapedData): number {
-        return IView.screenDistance(view, x, y, a.point) - IView.screenDistance(view, x, y, b.point);
+        return IView.screenDistance(view, x, y, a.point!) - IView.screenDistance(view, x, y, b.point!);
     }
 
     private findPerpendicular(view: IView, shape: VisualShapeData): SnapedData[] {
@@ -267,7 +267,8 @@ export class ObjectSnap implements ISnapper {
         if (!curve.success) return;
         let start = curve.value.point(curve.value.firstParameter());
         let end = curve.value.point(curve.value.lastParameter());
-        let addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
+        let addPoint = (point: XYZ, info: string) =>
+            infos.push({ view, point: point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));
             addPoint(end, I18n.translate("snap.end"));

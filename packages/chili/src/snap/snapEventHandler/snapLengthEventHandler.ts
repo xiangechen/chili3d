@@ -58,7 +58,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
     protected getPointFromInput(view: IView, text: string): XYZ {
         let ns = text.split(",").map((x) => Number(x));
         if (ns.length === 1) {
-            let vector = this._snaped?.point.sub(this.lengthData.point).normalize();
+            let vector = this._snaped?.point!.sub(this.lengthData.point).normalize();
             return this.lengthData.point.add(vector!.multiply(ns[0]));
         }
         return this.lengthData.point

@@ -36,7 +36,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
     protected getPointFromInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.pointData.refPoint ?? XYZ.zero;
-        let end = this._snaped!.point;
+        let end = this._snaped!.point!;
         if (dims.length === 1 && end !== undefined) {
             let vector = end.sub(this.pointData.refPoint!).normalize()!;
             result = result.add(vector.multiply(dims[0]));
@@ -66,7 +66,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
             } else {
                 if (
                     dims.length === 1 &&
-                    (this._snaped === undefined || this._snaped.point.isEqualTo(this.pointData.refPoint))
+                    (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint))
                 ) {
                     return "error.input.cannotInputANumber";
                 }

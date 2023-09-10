@@ -71,7 +71,7 @@ export abstract class TransformedCommand extends MultistepCommand {
 
     protected executeMainTask(): void {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let transform = this.transfrom(this.stepDatas.at(-1)!.point);
+            let transform = this.transfrom(this.stepDatas.at(-1)!.point!);
             let models = this.models;
             if (this.isClone) {
                 models = models?.map((x) => x.clone());

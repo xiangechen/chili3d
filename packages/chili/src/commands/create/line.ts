@@ -25,7 +25,7 @@ export class Line extends CreateCommand {
     }
 
     create(): GeometryModel {
-        let body = new LineBody(this.document, this.stepDatas[0].point, this.stepDatas[1].point);
+        let body = new LineBody(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
         return new GeometryModel(this.document, `Line ${Line.count++}`, body);
     }
 
@@ -46,11 +46,11 @@ export class Line extends CreateCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             validators: [
                 (point: XYZ) => {
-                    return this.stepDatas[0].point.distanceTo(point) > Precision.Length;
+                    return this.stepDatas[0].point!.distanceTo(point) > Precision.Length;
                 },
             ],
             preview: this.linePreview,
@@ -58,6 +58,6 @@ export class Line extends CreateCommand {
     };
 
     private linePreview = (point: XYZ) => {
-        return [this.application.shapeFactory.line(this.stepDatas[0].point, point).unwrap().mesh.edges!];
+        return [this.application.shapeFactory.line(this.stepDatas[0].point!, point).unwrap().mesh.edges!];
     };
 }

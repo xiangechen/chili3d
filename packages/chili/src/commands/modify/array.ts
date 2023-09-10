@@ -33,14 +33,14 @@ export class Array extends MultistepCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.movePreview,
         };
     };
 
     private movePreview = (point: XYZ) => {
-        let start = this.stepDatas[0].point;
+        let start = this.stepDatas[0].point!;
         let positions = [...this.positions!];
         let { x, y, z } = point.sub(start);
         for (let i = 0; i < this.positions!.length; i++) {
@@ -78,7 +78,7 @@ export class Array extends MultistepCommand {
 
     protected executeMainTask(): void {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let vec = this.stepDatas[1].point.sub(this.stepDatas[0].point);
+            let vec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
             let transform = Matrix4.createTranslation(vec.x, vec.y, vec.z);
             this.models?.forEach((x) => {
                 x.matrix = x.matrix.multiply(transform);

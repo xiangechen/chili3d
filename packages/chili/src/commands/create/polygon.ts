@@ -24,7 +24,7 @@ export class Polygon extends CreateFaceableCommand {
     static count = 0;
 
     protected override create(): GeometryModel {
-        let body = new PolygonBody(this.document, ...this.stepDatas.map((step) => step.point));
+        let body = new PolygonBody(this.document, ...this.stepDatas.map((step) => step.point!));
         body.isFace = this.isFace;
         return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
     }
@@ -48,7 +48,7 @@ export class Polygon extends CreateFaceableCommand {
 
     private isClose(data: SnapedData) {
         return (
-            this.stepDatas.length > 1 && this.stepDatas[0].point.distanceTo(data.point) <= Precision.Length
+            this.stepDatas.length > 1 && this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Length
         );
     }
 
@@ -60,13 +60,13 @@ export class Polygon extends CreateFaceableCommand {
 
     private getNextData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas.at(-1)!.point,
+            refPoint: this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
             validators: [this.validator],
             preview: this.preview,
             featurePoints: [
                 {
-                    point: this.stepDatas.at(0)!.point,
+                    point: this.stepDatas.at(0)!.point!,
                     prompt: I18n.translate("prompt.polygon.close"),
                     when: () => this.stepDatas.length > 2,
                 },
@@ -76,14 +76,14 @@ export class Polygon extends CreateFaceableCommand {
 
     private preview = (point: XYZ): ShapeMeshData[] => {
         let edges = new EdgeMeshDataBuilder();
-        this.stepDatas.forEach((data) => edges.addPosition(data.point.x, data.point.y, data.point.z));
+        this.stepDatas.forEach((data) => edges.addPosition(data.point!.x, data.point!.y, data.point!.z));
         edges.addPosition(point.x, point.y, point.z);
         return [edges.build()];
     };
 
     private validator = (point: XYZ): boolean => {
         for (const data of this.stepDatas) {
-            if (point.distanceTo(data.point) < 0.001) {
+            if (point.distanceTo(data.point!) < 0.001) {
                 return false;
             }
         }

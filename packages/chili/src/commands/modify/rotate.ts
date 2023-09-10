@@ -13,12 +13,12 @@ import { TransformedCommand } from "./transformedCommand";
 export class Rotate extends TransformedCommand {
     protected override transfrom(point: XYZ): Matrix4 {
         let { normal, angle } = this.normalAndAngle(point);
-        return Matrix4.createRotationAt(this.stepDatas[0].point, normal, angle);
+        return Matrix4.createRotationAt(this.stepDatas[0].point!, normal, angle);
     }
 
     private normalAndAngle(point: XYZ) {
-        let center = this.stepDatas[0].point;
-        let p1 = this.stepDatas[1].point;
+        let center = this.stepDatas[0].point!;
+        let p1 = this.stepDatas[1].point!;
         let v1 = p1.sub(center);
         let v2 = point.sub(center);
         let normal = v1.cross(v2);
@@ -31,7 +31,7 @@ export class Rotate extends TransformedCommand {
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
         let thirdStep = new AngleStep(
             "operate.pickNextPoint",
-            () => this.stepDatas[1].point,
+            () => this.stepDatas[1].point!,
             this.getThirdPointData,
         );
         return [firstStep, secondStep, thirdStep];
@@ -39,24 +39,24 @@ export class Rotate extends TransformedCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.linePreview,
-            validators: [(p) => p.distanceTo(this.stepDatas[0].point) > 1e-6],
+            validators: [(p) => p.distanceTo(this.stepDatas[0].point!) > 1e-6],
         };
     };
 
     private getThirdPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.rotatePreview,
             plane: this.stepDatas[0].view.workplane,
             validators: [
                 (p) => {
                     return (
-                        p.distanceTo(this.stepDatas[0].point) > 1e-3 &&
-                        p.distanceTo(this.stepDatas[1].point) > 1e-3 &&
+                        p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
+                        p.distanceTo(this.stepDatas[1].point!) > 1e-3 &&
                         this.normalAndAngle(p).angle > 1e-3
                     );
                 },
@@ -66,18 +66,18 @@ export class Rotate extends TransformedCommand {
 
     private rotatePreview = (point: XYZ): ShapeMeshData[] => {
         let shape = this.transformPreview(point);
-        let l1 = this.getRayData(this.stepDatas[1].point);
+        let l1 = this.getRayData(this.stepDatas[1].point!);
         let l2 = this.getRayData(point);
         return [shape, l1, l2];
     };
 
     private getRayData(end: XYZ) {
-        let start = this.stepDatas[0].point;
+        let start = this.stepDatas[0].point!;
         let e = start.add(end.sub(start).normalize()!.multiply(1e6));
         return this.getTempLineData(start, e);
     }
 
     private linePreview = (point: XYZ): ShapeMeshData[] => {
-        return [this.getTempLineData(this.stepDatas[0].point, point)];
+        return [this.getTempLineData(this.stepDatas[0].point!, point)];
     };
 }

@@ -38,7 +38,7 @@ export class ObjectTracking {
     getTrackingRays(view: IView) {
         let result: ObjectTrackingAxis[] = [];
         this.trackings.get(view.viewer.visual.document)?.map((x) => {
-            let axes = Axis.getAxiesAtPlane(x.snap.point, view.workplane, this.trackingZ);
+            let axes = Axis.getAxiesAtPlane(x.snap.point!, view.workplane, this.trackingZ);
             result.push({ axes, objectName: x.snap.info });
         });
         return result;
@@ -61,7 +61,7 @@ export class ObjectTracking {
             this.trackings.set(document, []);
         }
         let currentTrackings = this.trackings.get(document)!;
-        let s = currentTrackings.find((x) => x.snap.point.isEqualTo(snap.point));
+        let s = currentTrackings.find((x) => x.snap.point!.isEqualTo(snap.point!));
         if (s !== undefined) {
             this.removeTrackingPoint(document, s, currentTrackings);
         } else {
@@ -74,15 +74,15 @@ export class ObjectTracking {
         document.visual.context.removeShapeMesh(s.shapeId);
         this.trackings.set(
             document,
-            snaps.filter((x) => x !== s)
+            snaps.filter((x) => x !== s),
         );
     }
 
     private addTrackingPoint(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
         let data = VertexMeshData.from(
-            snap.point,
+            snap.point!,
             Config.instance.visual.trackingVertexSize,
-            Config.instance.visual.trackingVertexColor
+            Config.instance.visual.trackingVertexColor,
         );
         let pointId = document.visual.context.displayShapeMesh(data);
         snaps.push({ shapeId: pointId, snap });

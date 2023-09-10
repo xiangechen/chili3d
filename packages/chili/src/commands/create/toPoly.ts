@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { AsyncController, GeometryModel, IEdge, IShape, ShapeType, command } from "chili-core";
+import {
+    AsyncController,
+    GeometryModel,
+    IEdge,
+    IShape,
+    ShapeType,
+    VisualShapeData,
+    command,
+} from "chili-core";
 import { WireBody } from "../../bodys/wire";
 import { Selection } from "../../selection";
 import { IStep } from "../../step";
@@ -14,10 +22,10 @@ let count = 1;
     icon: "icon-circle",
 })
 export class ConverterToPoly extends CreateFaceableCommand {
-    #shapes: IShape[] | undefined;
+    #shapes: VisualShapeData[] | undefined;
 
     protected override create(): GeometryModel {
-        let edges = this.#shapes as IEdge[];
+        let edges = this.#shapes?.map((x) => x.shape) as IEdge[];
         let wireBody = new WireBody(this.document, edges);
         wireBody.isFace = this.isFace;
         return new GeometryModel(this.document, `Wire ${count++}`, wireBody);

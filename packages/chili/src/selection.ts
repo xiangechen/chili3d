@@ -21,10 +21,9 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
-        showControl: boolean = true,
     ) {
         let handler = new ShapeSelectionHandler(document, shapeType, multiMode, controller);
-        await this.pickAsync(document, handler, prompt, controller, showControl);
+        await this.pickAsync(document, handler, prompt, controller, multiMode === true);
         let shapes = handler.shapes();
         handler.dispose();
         return shapes;

@@ -19,7 +19,7 @@ export class Move extends TransformedCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point,
+            refPoint: this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.movePreview,
         };
@@ -27,12 +27,12 @@ export class Move extends TransformedCommand {
 
     private movePreview = (point: XYZ) => {
         let models = this.transformPreview(point);
-        let line = this.getTempLineData(this.stepDatas[0].point, point);
+        let line = this.getTempLineData(this.stepDatas[0].point!, point);
         return [models, line];
     };
 
     protected override transfrom(point: XYZ): Matrix4 {
-        let vector = point.sub(this.stepDatas[0].point);
+        let vector = point.sub(this.stepDatas[0].point!);
         return Matrix4.createTranslation(vector.x, vector.y, vector.z);
     }
 }

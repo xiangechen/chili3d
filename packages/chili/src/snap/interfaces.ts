@@ -8,7 +8,7 @@ export type SnapPreviewer = (point: XYZ) => ShapeMeshData[];
 
 export interface SnapedData {
     view: IView;
-    point: XYZ;
+    point?: XYZ;
     info?: string;
     shapes: VisualShapeData[];
 }
