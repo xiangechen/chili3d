@@ -1,6 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
 
-import { IEdge, IFace, IShape, ISolid, IVertex, IWire, MathUtils, Plane, Result, XYZ } from "chili-core";
+import {
+    IEdge,
+    IFace,
+    ILine,
+    IShape,
+    ISolid,
+    IVertex,
+    IWire,
+    MathUtils,
+    Plane,
+    Result,
+    XYZ,
+} from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
 import { OccHelps } from "./occHelps";
@@ -8,6 +20,30 @@ import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occS
 import { BRepBuilderAPI_MakeWire } from "opencascade.js";
 
 export class ShapeFactory implements IShapeFactory {
+    fuse(bottom: IShape, top: IShape): Result<IShape> {
+        throw new Error("Method not implemented.");
+    }
+
+    sweep(profile: IShape, path: IWire): Result<IShape> {
+        let twire = (path as OccWire).shape;
+        let tprofile = (profile as OccShape).shape;
+        let builder = new occ.BRepOffsetAPI_MakePipe_1(twire, tprofile);
+        if (builder.IsDone()) {
+            return Result.success(OccHelps.getShape(builder.Shape()));
+        }
+        return Result.error("Failed to create a shape from a profile and a path");
+    }
+
+    revolve(profile: IShape, axis: ILine, angle: number): Result<IShape> {
+        let tprofile = (profile as OccShape).shape;
+        let ax1 = new occ.gp_Ax1_2(OccHelps.toPnt(axis.start), OccHelps.toDir(axis.direction));
+        let builder = new occ.BRepPrimAPI_MakeRevol_1(tprofile, ax1, MathUtils.degToRad(angle), false);
+        if (builder.IsDone()) {
+            return Result.success(OccHelps.getShape(builder.Shape()));
+        }
+        return Result.error("Failed to revolve profile");
+    }
+
     prism(shape: IShape, vec: XYZ): Result<IShape> {
         if (shape instanceof OccShape) {
             let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);

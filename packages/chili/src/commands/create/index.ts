@@ -2,8 +2,11 @@
 
 export * from "./box";
 export * from "./circle";
-export * from "./toPoly";
+export * from "./fuse";
 export * from "./line";
 export * from "./polygon";
 export * from "./prism";
 export * from "./rect";
+export * from "./revolve";
+export * from "./sweep";
+export * from "./toPoly";

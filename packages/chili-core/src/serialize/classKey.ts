@@ -14,4 +14,7 @@ export type ClassKey =
     | "NodeLinkedList"
     | "RectBody"
     | "WireBody"
-    | "Shape";
+    | "Shape"
+    | "RevolveBody"
+    | "SweepBody"
+    | "FuseBody";

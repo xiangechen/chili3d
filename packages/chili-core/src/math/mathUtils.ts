@@ -3,6 +3,14 @@
 import { Precision } from "../base";
 
 export class MathUtils {
+    static degToRad(degrees: number) {
+        return (degrees * Math.PI) / 180;
+    }
+
+    static radToDeg(radians: number) {
+        return (radians * 180) / Math.PI;
+    }
+
     static anyEqualZero(...numbers: number[]) {
         return numbers.some((x) => Math.abs(x) < Precision.Number);
     }

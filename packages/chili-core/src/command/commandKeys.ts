@@ -17,6 +17,7 @@ export type CommandKeys =
     | "convert.toPolygon"
     | "convert.prism"
     | "convert.revol"
+    | "convert.sweep"
     | "convert.fuse"
     | "modify.array"
     | "modify.move"

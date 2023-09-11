@@ -10,11 +10,11 @@ import { CreateCommand } from "./createCommand";
 let count = 1;
 
 @command({
-    name: "convert.prism",
-    display: "command.prism",
+    name: "convert.fuse",
+    display: "command.fuse",
     icon: "icon-circle",
 })
-export class Prism extends CreateCommand {
+export class Fuse extends CreateCommand {
     protected override create(): GeometryModel {
         let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);

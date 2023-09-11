@@ -20,7 +20,7 @@ export const DefaultRibbon: RibbonData = [
             },
             {
                 groupName: "ribbon.group.converter",
-                items: ["convert.toPolygon", "convert.prism"],
+                items: ["convert.toPolygon", "convert.prism", "convert.sweep", "convert.revol"],
             },
         ],
     },
