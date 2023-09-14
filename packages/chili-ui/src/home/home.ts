@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { ObservableCollection, PubSub, RecentDocumentDTO } from "chili-core";
 import { LanguageSelector } from "../components";
@@ -27,7 +27,7 @@ export const Home = (options: HomeOption) => {
                     className: style.button,
                     textContent: localize("command.document.open"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
-                })
+                }),
             ),
             div(
                 { className: style.bottom },
@@ -40,8 +40,8 @@ export const Home = (options: HomeOption) => {
                     className: style.link,
                     textContent: "Gitee",
                     href: "https://gitee.com/chenxiange/chili3d",
-                })
-            )
+                }),
+            ),
         ),
         div(
             { className: style.right },
@@ -63,11 +63,11 @@ export const Home = (options: HomeOption) => {
                             span({
                                 className: style.date,
                                 textContent: new Date(item.date).toLocaleDateString(),
-                            })
-                        )
+                            }),
+                        ),
                     ),
-            })
+            }),
         ),
-        LanguageSelector({ className: style.language })
+        LanguageSelector({ className: style.language }),
     );
 };

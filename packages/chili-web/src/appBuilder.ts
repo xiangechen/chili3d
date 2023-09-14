@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Application, CommandService, EditorService, HotkeyService } from "chili";
 import { IService, IStorage, Logger } from "chili-core";
@@ -58,7 +58,7 @@ export class AppBuilder {
             this.#visualFactory!,
             this.#shapeFactory!,
             this.getServices(),
-            this.#storage!
+            this.#storage!,
         );
         await this.loadUI(app);
 

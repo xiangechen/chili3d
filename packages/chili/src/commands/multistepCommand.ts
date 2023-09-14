@@ -1,6 +1,6 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IApplication, ICommand, IShape, Observable, Property, PubSub } from "chili-core";
+import { AsyncController, IApplication, ICommand, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 

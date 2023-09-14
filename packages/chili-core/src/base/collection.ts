@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable } from "./disposable";
 
@@ -48,7 +48,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
             callback({
                 action: CollectionAction.add,
                 items,
-            })
+            }),
         );
     }
 
@@ -58,7 +58,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
             callback({
                 action: CollectionAction.remove,
                 items,
-            })
+            }),
         );
     }
 
@@ -72,7 +72,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
                     action: CollectionAction.move,
                     from,
                     to,
-                })
+                }),
             );
         }
     }
@@ -84,7 +84,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
             callback({
                 action: CollectionAction.remove,
                 items,
-            })
+            }),
         );
     }
 
@@ -101,7 +101,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
                     action: CollectionAction.replace,
                     item,
                     items,
-                })
+                }),
             );
         }
     }

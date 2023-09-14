@@ -1,11 +1,16 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 /**
  * Color, RGBA format.
  * [0, 0, 0, 0] ~ [1, 1, 1, 1
  */
 export class Color {
-    constructor(readonly r: number, readonly g: number, readonly b: number, readonly a: number) {}
+    constructor(
+        readonly r: number,
+        readonly g: number,
+        readonly b: number,
+        readonly a: number,
+    ) {}
 
     /**
      *

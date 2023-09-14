@@ -1,14 +1,6 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    AsyncController,
-    GeometryModel,
-    IEdge,
-    IShape,
-    ShapeType,
-    VisualShapeData,
-    command,
-} from "chili-core";
+import { AsyncController, GeometryModel, IEdge, ShapeType, VisualShapeData, command } from "chili-core";
 import { WireBody } from "../../bodys/wire";
 import { Selection } from "../../selection";
 import { IStep } from "../../step";

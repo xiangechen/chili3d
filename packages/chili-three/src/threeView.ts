@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
     CursorType,
@@ -53,7 +53,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
-        scene: Scene
+        scene: Scene,
     ) {
         super();
         this._name = name;
@@ -77,7 +77,7 @@ export class ThreeView extends Observable implements IView, IDisposable {
             this.container.clientHeight / 2,
             -this.container.clientHeight / 2,
             0.01,
-            3000
+            3000,
         );
         camera.position.set(1000, 1000, 1000);
         camera.lookAt(this._target);

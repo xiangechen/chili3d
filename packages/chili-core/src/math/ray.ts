@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Plane, XYZ } from "chili-core";
 
@@ -8,7 +8,10 @@ export class Ray {
      */
     readonly direction: XYZ;
 
-    constructor(readonly location: XYZ, direction: XYZ) {
+    constructor(
+        readonly location: XYZ,
+        direction: XYZ,
+    ) {
         let n = direction.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("direction can not be zero");

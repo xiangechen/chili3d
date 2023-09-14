@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Precision } from "../base";
 import { MathUtils } from "./mathUtils";
@@ -8,7 +8,10 @@ export class XY {
     static readonly unitX = new XY(1, 0);
     static readonly unitY = new XY(0, 1);
 
-    constructor(readonly x: number, readonly y: number) {}
+    constructor(
+        readonly x: number,
+        readonly y: number,
+    ) {}
 
     cross(right: XY): number {
         return this.x * right.y - this.y * right.x;

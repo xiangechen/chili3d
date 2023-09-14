@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
     Color,
@@ -122,7 +122,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     private initColor(
         meshData: ShapeMeshData,
         geometry: BufferGeometry,
-        material: LineBasicMaterial | MeshBasicMaterial
+        material: LineBasicMaterial | MeshBasicMaterial,
     ) {
         if (meshData.color instanceof Array) {
             material.vertexColors = true;

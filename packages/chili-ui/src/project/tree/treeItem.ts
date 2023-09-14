@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, INode, Transaction } from "chili-core";
 import { Control, Label, Svg } from "../../components";
@@ -8,7 +8,10 @@ export abstract class TreeItem extends Control {
     readonly name: Label;
     readonly visibleIcon: Svg;
 
-    constructor(readonly document: IDocument, readonly node: INode) {
+    constructor(
+        readonly document: IDocument,
+        readonly node: INode,
+    ) {
         super();
         this.draggable = true;
         this.name = new Label().textBinding(node, "name").addClass(style.name);

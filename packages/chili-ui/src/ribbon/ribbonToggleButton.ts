@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Property } from "chili-core";
 import { RibbonButton } from "./ribbonButton";
@@ -6,7 +6,11 @@ import { RibbonButtonSize } from "./ribbonButtonSize";
 import style from "./ribbonToggleButton.module.css";
 
 export class RibbonToggleButton extends RibbonButton {
-    constructor(readonly source: any, readonly property: Property, size: RibbonButtonSize) {
+    constructor(
+        readonly source: any,
+        readonly property: Property,
+        size: RibbonButtonSize,
+    ) {
         super(property.display, property.icon!, size, () => {
             source[property.name] = !source[property.name];
         });

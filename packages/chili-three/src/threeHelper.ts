@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Color, XYZ } from "chili-core";
 import { Camera, OrthographicCamera, PerspectiveCamera, Color as ThreeColor, Vector3 } from "three";

@@ -1,11 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISerialize } from "../serialize";
+import { Result } from "../base";
 import { Matrix4, Ray, XYZ } from "../math";
+import { ISerialize } from "../serialize";
 import { ICurve } from "./geometry";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
-import { Result } from "../base";
 
 export enum CurveType {
     Line,

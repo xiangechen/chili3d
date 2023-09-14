@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
 import { Control } from "../components";
@@ -13,7 +13,7 @@ export class CommandContext extends Control {
         let data = Command.getData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
-            label({ className: style.title, textContent: localize(data!.display) }, `: `)
+            label({ className: style.title, textContent: localize(data!.display) }, `: `),
         );
         this.initContext();
         if (command instanceof Observable) {
@@ -83,11 +83,11 @@ export class CommandContext extends Control {
                     onclick: () => {
                         noType[g.name] = !noType[g.name];
                     },
-                })
+                }),
             );
         } else {
             return div(
-                label({ textContent: localize(g.display) })
+                label({ textContent: localize(g.display) }),
                 // input({type: "text", value: bind(noType, g.name), onchange: () => {
                 //     noType[g.name] = (noType[g.name] as any).toString();
                 // }})

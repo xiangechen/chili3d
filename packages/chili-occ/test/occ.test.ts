@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, jest, test } from "@jest/globals";
 import { CurveType, Id, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
@@ -26,7 +26,10 @@ describe("shape test", () => {
         expect(make1.IsDone()).toBeTruthy();
         let edge1 = new OccEdge(make1.Edge());
         expect(edge1.shapeType).toBe(ShapeType.Edge);
-        let ps = edge1.asCurve().unwrap()!.project(new XYZ(5, 0, 0));
+        let ps = edge1
+            .asCurve()
+            .unwrap()!
+            .project(new XYZ(5, 0, 0));
         expect(ps.length).toBe(1);
         expect(ps[0].x).toBe(5);
 

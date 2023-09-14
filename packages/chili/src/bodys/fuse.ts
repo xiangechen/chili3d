@@ -1,6 +1,6 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, ILine, IShape, Result, Serializer } from "chili-core";
+import { Body, ClassMap, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
 
 @ClassMap.key("FuseBody")
 export class FuseBody extends Body {

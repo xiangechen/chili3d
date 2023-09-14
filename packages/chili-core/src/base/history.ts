@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { INode, INodeLinkedList } from "../model";
 import { IDisposable } from "./disposable";
@@ -72,7 +72,7 @@ export class PropertyHistoryRecord implements IHistoryRecord {
         readonly object: any,
         readonly property: string | symbol | number,
         readonly oldValue: any,
-        readonly newValue: any
+        readonly newValue: any,
     ) {
         this.name = `change ${String(property)} property`;
     }

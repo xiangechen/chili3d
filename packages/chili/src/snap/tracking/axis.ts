@@ -1,9 +1,13 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18n, Plane, Ray, XYZ } from "chili-core";
 
 export class Axis extends Ray {
-    constructor(location: XYZ, direction: XYZ, readonly name: string) {
+    constructor(
+        location: XYZ,
+        direction: XYZ,
+        readonly name: string,
+    ) {
         super(location, direction);
     }
 
@@ -17,7 +21,7 @@ export class Axis extends Ray {
         if (containsZ) {
             axies.push(
                 new Axis(location, plane.normal, I18n.translate("axis.z")),
-                new Axis(location, plane.normal.reverse(), I18n.translate("axis.z"))
+                new Axis(location, plane.normal.reverse(), I18n.translate("axis.z")),
             );
         }
 

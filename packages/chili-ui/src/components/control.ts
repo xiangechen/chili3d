@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable, IPropertyChanged } from "chili-core";
 
@@ -8,7 +8,7 @@ export abstract class Control extends HTMLElement implements IDisposable {
 
     protected readonly propertyHandlers: [
         IPropertyChanged,
-        (property: string | number | symbol, source: any, oldValue: any) => void
+        (property: string | number | symbol, source: any, oldValue: any) => void,
     ][] = [];
 
     constructor(className?: string) {

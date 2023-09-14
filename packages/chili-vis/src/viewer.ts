@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CursorType, IView, IViewer, IVisual, Plane } from "chili-core";
 
@@ -87,7 +87,7 @@ export abstract class Viewer implements IViewer {
         container: HTMLElement | Window,
         view: IView,
         type: keyof HTMLElementEventMap,
-        listener: (this: HTMLElement, e: any) => any
+        listener: (this: HTMLElement, e: any) => any,
     ) {
         container.addEventListener(type, listener);
         if (this._eventCaches.get(view) === undefined) {

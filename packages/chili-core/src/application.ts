@@ -1,11 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { IStorage } from "./base";
 import { IDocument } from "./document";
-import { IService } from "./service";
 import { Serialized } from "./serialize";
+import { IService } from "./service";
 
 export interface IApplication {
     readonly visualFactory: IVisualFactory;

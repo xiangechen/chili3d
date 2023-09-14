@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Control } from "./control";
 import style from "./textbox.module.css";
@@ -18,36 +18,36 @@ export class TextBox extends Control {
     override addEventListener<K extends keyof HTMLElementEventMap>(
         type: K,
         listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any,
-        options?: boolean | AddEventListenerOptions | undefined
+        options?: boolean | AddEventListenerOptions | undefined,
     ): void;
     override addEventListener(
         type: string,
         listener: EventListenerOrEventListenerObject,
-        options?: boolean | AddEventListenerOptions | undefined
+        options?: boolean | AddEventListenerOptions | undefined,
     ): void;
     override addEventListener(type: unknown, listener: unknown, options?: unknown): void {
         this.input.addEventListener(
             type as string,
             listener as EventListenerOrEventListenerObject,
-            options as boolean | AddEventListenerOptions
+            options as boolean | AddEventListenerOptions,
         );
     }
 
     override removeEventListener<K extends keyof HTMLElementEventMap>(
         type: K,
         listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any,
-        options?: boolean | EventListenerOptions | undefined
+        options?: boolean | EventListenerOptions | undefined,
     ): void;
     override removeEventListener(
         type: string,
         listener: EventListenerOrEventListenerObject,
-        options?: boolean | EventListenerOptions | undefined
+        options?: boolean | EventListenerOptions | undefined,
     ): void;
     override removeEventListener(type: unknown, listener: unknown, options?: unknown): void {
         this.input.removeEventListener(
             type as string,
             listener as EventListenerOrEventListenerObject,
-            options as boolean | EventListenerOptions
+            options as boolean | EventListenerOptions,
         );
     }
 

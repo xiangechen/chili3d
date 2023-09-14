@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { XY, XYZ } from "../src";
 
@@ -55,7 +55,7 @@ describe("test xyz", () => {
         let v = XYZ.unitX.add(XYZ.unitZ);
         expect(v.rotate(v, 90)?.isEqualTo(v)).toBeTruthy();
         expect(
-            XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 4)?.isEqualTo(new XYZ(1, 1, 0).normalize()!)
+            XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 4)?.isEqualTo(new XYZ(1, 1, 0).normalize()!),
         ).toBeTruthy();
         expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 2)?.isEqualTo(new XYZ(0, 1, 0))).toBeTruthy();
         expect(XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 1)?.isEqualTo(new XYZ(-1, 0, 0))).toBeTruthy();

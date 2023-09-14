@@ -1,10 +1,14 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, IView, XYZ } from "chili-core";
 import { SnapPointData, SnapPointEventHandler } from "./snapPointEventHandler";
 
 export class SnapAngleEventHandler extends SnapPointEventHandler {
-    constructor(controller: AsyncController, center: SnapPointData, private p1: XYZ) {
+    constructor(
+        controller: AsyncController,
+        center: SnapPointData,
+        private p1: XYZ,
+    ) {
         super(controller, center);
     }
 

@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
     IEdge,
@@ -15,9 +15,9 @@ import {
 } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
+import { BRepBuilderAPI_MakeWire } from "opencascade.js";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
-import { BRepBuilderAPI_MakeWire } from "opencascade.js";
 
 export class ShapeFactory implements IShapeFactory {
     fuse(bottom: IShape, top: IShape): Result<IShape> {

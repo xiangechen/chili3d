@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { div } from "./controls";
 import style from "./editor.module.css";
@@ -17,9 +17,9 @@ export const Editor = () =>
             div(
                 { className: style.sidebar },
                 new ProjectView().addClass(style.sidebarItem),
-                new PropertyView().addClass(style.sidebarItem)
+                new PropertyView().addClass(style.sidebarItem),
             ),
-            new Viewport().addClass(style.viewport)
+            new Viewport().addClass(style.viewport),
         ),
-        new Statusbar().addClass(style.statusbar)
+        new Statusbar().addClass(style.statusbar),
     );

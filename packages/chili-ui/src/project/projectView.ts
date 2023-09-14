@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, PubSub } from "chili-core";
 import { Control, Label, Panel, Row } from "../components";
@@ -19,7 +19,7 @@ export class ProjectView extends Control {
             new Row()
                 .addClass(style.headerPanel)
                 .addItems(new Label().addClass(style.header).i18nText("items.header"), new ToolBar()),
-            this.panel
+            this.panel,
         );
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
         PubSub.default.sub("documentClosed", this.handleDocumentClosed);

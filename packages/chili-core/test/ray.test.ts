@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Ray, XYZ } from "../src";
 
@@ -16,7 +16,7 @@ describe("test ray", () => {
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitZ.reverse()))).toStrictEqual(XYZ.zero);
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX.add(XYZ.unitZ)))).toStrictEqual(new XYZ(-1, 0, 0));
         expect(r1.nearestTo(new Ray(XYZ.unitZ, XYZ.unitX.add(XYZ.unitZ.reverse())))).toStrictEqual(
-            new XYZ(1, 0, 0)
+            new XYZ(1, 0, 0),
         );
         expect(r1.nearestTo(new Ray(new XYZ(0.5, -0.5, 0), XYZ.unitY))).toStrictEqual(new XYZ(0.5, 0, 0));
     });

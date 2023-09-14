@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, test } from "@jest/globals";
 import { GeometryModel, ShapeType, XY, XYZ } from "chili-core";

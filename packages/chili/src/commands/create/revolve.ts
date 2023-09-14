@@ -1,9 +1,8 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IEdge, IFace, ILine, Precision, Property, ShapeType, command } from "chili-core";
-import { PrismBody, RevolveBody } from "../../bodys";
-import { SnapLengthAtAxisData } from "../../snap";
-import { IStep, LengthAtAxisStep } from "../../step";
+import { GeometryModel, IEdge, ILine, ShapeType, command } from "chili-core";
+import { RevolveBody } from "../../bodys";
+import { IStep } from "../../step";
 import { SelectStep } from "../../step/selectStep";
 import { CreateCommand } from "./createCommand";
 

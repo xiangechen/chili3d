@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
@@ -53,7 +53,7 @@ export class PubSub implements IDisposable {
 
     sub<T extends PubSubEventMap, K extends keyof T>(
         event: K,
-        callback: T[K] extends (...args: any[]) => any ? T[K] : never
+        callback: T[K] extends (...args: any[]) => any ? T[K] : never,
     ) {
         if (!this._events.has(event)) {
             this._events.set(event, new Set<(...args: any[]) => void>());
@@ -72,7 +72,7 @@ export class PubSub implements IDisposable {
 
     remove<T extends PubSubEventMap, K extends keyof T>(
         event: K,
-        callback: T[K] extends (...args: any[]) => any ? T[K] : never
+        callback: T[K] extends (...args: any[]) => any ? T[K] : never,
     ) {
         let callbacks = this._events.get(event);
         if (callbacks?.has(callback)) {

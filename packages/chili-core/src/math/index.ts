@@ -1,9 +1,9 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 export * from "./mathUtils";
+export * from "./matrix4";
 export * from "./plane";
 export * from "./quaternion";
 export * from "./ray";
-export * from "./matrix4";
 export * from "./xy";
 export * from "./xyz";

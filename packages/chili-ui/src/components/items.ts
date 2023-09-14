@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
 import { Props, div } from "../controls";
@@ -19,7 +19,7 @@ export const Items = (props: ItemsProps) => {
 function collectionChangedFunction(
     container: HTMLDivElement,
     props: ItemsProps,
-    itemMap: Map<any, HTMLDivElement>
+    itemMap: Map<any, HTMLDivElement>,
 ) {
     return (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
@@ -47,7 +47,7 @@ function replaceItem(
     item: any,
     items: any[],
     template: (item: any) => HTMLDivElement,
-    itemMap: Map<any, HTMLDivElement>
+    itemMap: Map<any, HTMLDivElement>,
 ) {
     let child = itemMap.get(item);
     if (child) {

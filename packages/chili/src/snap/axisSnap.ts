@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Config, EdgeMeshData, IView, LineType, Plane, XYZ } from "chili-core";
 
@@ -7,7 +7,10 @@ import { ISnapper, MouseAndDetected, SnapedData } from ".";
 export class AxisSnap implements ISnapper {
     private _tempLines?: [IView, number];
 
-    constructor(readonly point: XYZ, readonly direction: XYZ) {}
+    constructor(
+        readonly point: XYZ,
+        readonly direction: XYZ,
+    ) {}
 
     snap(data: MouseAndDetected): SnapedData | undefined {
         let right = data.view.up().cross(data.view.direction()).normalize();
@@ -34,7 +37,7 @@ export class AxisSnap implements ISnapper {
             this.point,
             this.point.add(this.direction.multiply(dist)),
             Config.instance.visual.temporaryEdgeColor,
-            LineType.Dash
+            LineType.Dash,
         );
         let id = view.viewer.visual.context.displayShapeMesh(lineDats);
         this._tempLines = [view, id];

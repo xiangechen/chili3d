@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, CommandKeys, ICommand, Logger, PubSub } from "chili-core";
 import { Control, Panel } from "../components";
@@ -81,10 +81,10 @@ export class Ribbon extends Control {
     private newSelectionGroup(controller: AsyncController) {
         let group = new RibbonGroup("ribbon.group.selection");
         group.add(
-            new RibbonButton("common.confirm", "icon-confirm", RibbonButtonSize.Normal, controller.success)
+            new RibbonButton("common.confirm", "icon-confirm", RibbonButtonSize.Normal, controller.success),
         );
         group.add(
-            new RibbonButton("common.cancel", "icon-cancel", RibbonButtonSize.Normal, controller.cancel)
+            new RibbonButton("common.cancel", "icon-cancel", RibbonButtonSize.Normal, controller.cancel),
         );
         return group;
     }

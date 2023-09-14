@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
 
@@ -21,7 +21,7 @@ export abstract class Snapper {
     async snap(
         document: IDocument,
         tip: I18nKeys,
-        controller: AsyncController
+        controller: AsyncController,
     ): Promise<SnapedData | undefined> {
         let executorHandler = this.getEventHandler(controller);
         await Selection.pickAsync(document, executorHandler, tip, controller, false, CursorType.Drawing);
@@ -30,7 +30,10 @@ export abstract class Snapper {
 }
 
 export class AngleSnapper extends Snapper {
-    constructor(readonly center: SnapPointData, readonly p1: XYZ) {
+    constructor(
+        readonly center: SnapPointData,
+        readonly p1: XYZ,
+    ) {
         super();
     }
 

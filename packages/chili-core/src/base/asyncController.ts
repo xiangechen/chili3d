@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable } from "./disposable";
 
@@ -35,7 +35,7 @@ export class AsyncController implements IDisposable {
     private handle(
         handlers: ((result: AsyncResult) => void)[],
         status: "success" | "cancel" | "fail",
-        message?: string
+        message?: string,
     ) {
         if (this.#result === undefined) {
             this.#result = { status, message };

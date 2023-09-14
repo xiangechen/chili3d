@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CurveType, ICircle, ICurve, IDisposable, ILine, XYZ } from "chili-core";
 import { Geom_Circle, Geom_Curve, Geom_Line, Geom_TrimmedCurve } from "opencascade.js";
@@ -38,7 +38,7 @@ export class OccCurve implements ICurve, IDisposable {
             OccHelps.toPnt(point),
             this.curve.BasisCurve(),
             this.firstParameter(),
-            this.lastParameter()
+            this.lastParameter(),
         );
         for (let i = 1; i <= api.NbPoints(); i++) {
             let point = api.Point(i);
@@ -54,7 +54,11 @@ export class OccCurve implements ICurve, IDisposable {
 }
 
 export class OccLine extends OccCurve implements ILine {
-    constructor(private line: Geom_Line, start: number, end: number) {
+    constructor(
+        private line: Geom_Line,
+        start: number,
+        end: number,
+    ) {
         super(line, start, end);
     }
 
@@ -88,7 +92,11 @@ export class OccLine extends OccCurve implements ILine {
 }
 
 export class OccCircle extends OccCurve implements ICircle {
-    constructor(private circle: Geom_Circle, start: number, end: number) {
+    constructor(
+        private circle: Geom_Circle,
+        start: number,
+        end: number,
+    ) {
         super(circle, start, end);
     }
 

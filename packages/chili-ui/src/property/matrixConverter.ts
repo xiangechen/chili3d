@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IConverter, IDisposable, Matrix4, Result } from "chili-core";
 
@@ -91,7 +91,7 @@ export class RotateConverter extends MatrixConverter {
         return matrix.eulerAngles(
             (values[0] * Math.PI) / 180,
             (values[1] * Math.PI) / 180,
-            (values[2] * Math.PI) / 180
+            (values[2] * Math.PI) / 180,
         );
     }
 }

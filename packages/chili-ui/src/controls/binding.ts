@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable, IPropertyChanged } from "chili-core";
 
@@ -10,7 +10,10 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged, K extends ke
     static #bindings = new WeakMap<IPropertyChanged, Set<Binding>>();
     #cache = new Map<object, Set<Key>>();
 
-    constructor(readonly dataContext: T, readonly path: K) {
+    constructor(
+        readonly dataContext: T,
+        readonly path: K,
+    ) {
         this.cacheBinding(dataContext);
         this.dataContext.onPropertyChanged(this.onPropertyChanged);
     }

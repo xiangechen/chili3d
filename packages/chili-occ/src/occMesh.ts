@@ -1,4 +1,4 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. MPL-2.0 license.
+// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
     EdgeMeshData,
@@ -69,7 +69,7 @@ export class OccMesh implements IShapeMeshData {
         let shapes = OccHelps.findSubShapes(
             shape,
             occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
-            true
+            true,
         );
         let builder = new EdgeMeshDataBuilder();
         for (const e of shapes) {
@@ -87,7 +87,7 @@ export class OccMesh implements IShapeMeshData {
             0.1,
             2,
             1.0e-9,
-            1.0e-7
+            1.0e-7,
         );
         builder.newGroup();
         for (let i = 0; i < tangDef.NbPoints(); i++) {
@@ -101,7 +101,7 @@ export class OccMesh implements IShapeMeshData {
         let shapes = OccHelps.findSubShapes(
             shape,
             occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
-            true
+            true,
         );
         let builder = new FaceMeshDataBuilder();
         for (const f of shapes) {
@@ -127,7 +127,7 @@ export class OccMesh implements IShapeMeshData {
     private addTriangles(
         poly: Poly_Triangulation,
         orientation: TopAbs_Orientation,
-        builder: FaceMeshDataBuilder
+        builder: FaceMeshDataBuilder,
     ) {
         for (let index = 1; index <= poly.NbTriangles(); index++) {
             let triangle = poly.Triangle(index);
@@ -152,7 +152,7 @@ export class OccMesh implements IShapeMeshData {
         transform: gp_Trsf,
         face: TopoDS_Face,
         length: number,
-        builder: FaceMeshDataBuilder
+        builder: FaceMeshDataBuilder,
     ) {
         let array = new occ.TColgp_Array1OfDir_2(1, length);
         let pc = new occ.Poly_Connect_2(poly);
