@@ -40,12 +40,14 @@ export class Document extends Observable implements IDocument, ISerialize {
     #rootNode: INodeLinkedList | undefined;
     get rootNode(): INodeLinkedList {
         if (this.#rootNode === undefined) {
-            this.#rootNode = new NodeLinkedList(this, this._name);
-            this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
+            this.setRootNode(new NodeLinkedList(this, this._name));
         }
-        return this.#rootNode;
+        return this.#rootNode!;
     }
-    private set rootNode(value: INodeLinkedList) {
+
+    private setRootNode(value: INodeLinkedList) {
+        if (this.#rootNode === value) return;
+        this.#rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
         this.#rootNode = value;
         this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
@@ -144,7 +146,7 @@ export class Document extends Observable implements IDocument, ISerialize {
             data.constructorParameters["id"],
         );
         document.history.disabled = true;
-        document.rootNode = Serializer.deserialize(document, data.properties["rootNode"]);
+        document.setRootNode(Serializer.deserialize(document, data.properties["rootNode"]));
         document.history.disabled = false;
         return document;
     }

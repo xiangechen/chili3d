@@ -49,30 +49,27 @@ export class Application implements IApplication {
     }
 
     async openDocument(id: string): Promise<IDocument | undefined> {
-        await this.saveAndCloseActiveDocument();
         let document = await Document.open(this, id);
-        this.activeDocument = document;
-        return document;
+        if (document === undefined) return;
+        return await this.#changeDocument(document);
     }
 
     async newDocument(name: string): Promise<IDocument> {
-        await this.saveAndCloseActiveDocument();
         let document = new Document(this, name);
-        this.activeDocument = document;
-        return document;
+        return await this.#changeDocument(document);
     }
 
     async loadDocument(data: Serialized): Promise<IDocument> {
-        await this.saveAndCloseActiveDocument();
         let document = Document.load(this, data);
-        this.activeDocument = document;
-        return document;
+        return await this.#changeDocument(document);
     }
 
-    private async saveAndCloseActiveDocument() {
+    async #changeDocument(newDocument: IDocument) {
         if (this.activeDocument) {
             await this.activeDocument.save();
             await this.activeDocument.close();
         }
+        this.activeDocument = newDocument;
+        return newDocument;
     }
 }

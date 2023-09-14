@@ -28,12 +28,19 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
         return Serializer.serialize(this);
     }
 
-    protected privateKeyMap(pubKey: string) {
-        return `_${pubKey}`;
+    protected setPrivatePropertyValue<K extends keyof this>(pubKey: K, newValue: this[K]) {
+        let privateKey = `_${String(pubKey)}`;
+        if (privateKey in this) {
+            (this as any)[privateKey] = newValue;
+        } else {
+            throw new Error(`property ${privateKey} dose not exist in ${this.constructor.name}`);
+        }
     }
 
     /**
-     * Checks if a property already matches a desired value. Sets the property and notifies listeners only when necessary.
+     * Set the value of a private property, and if successful, execute emitPropertyChanged.
+     *
+     * Note: The private property name must be the public property name with the prefix _, i.e., age->_age(private property name).
      */
     protected setProperty<K extends keyof this>(
         property: K,
@@ -41,13 +48,11 @@ export class Observable implements IPropertyChanged, IDisposable, ISerialize {
         onPropertyChanged?: (property: K, oldValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]>,
     ): boolean {
-        let priKey = this.privateKeyMap(String(property));
-        let obj = this as unknown as any;
-        let oldValue = obj[priKey];
+        let oldValue = this[property];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
-        obj[priKey] = newValue;
+        this.setPrivatePropertyValue(property, newValue);
         onPropertyChanged?.(property, oldValue);
-        this.emitPropertyChanged(property as any, oldValue);
+        this.emitPropertyChanged(property, oldValue);
         return true;
     }
 
