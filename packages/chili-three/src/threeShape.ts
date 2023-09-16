@@ -170,12 +170,13 @@ export class ThreeShape extends Object3D implements IVisualShape {
             setFaceState();
             setEdgeState();
         } else if (index !== undefined) {
-            if (ShapeType.hasEdge(type)) {
+            if (ShapeType.hasFace(type)) {
                 setFaceState();
             }
-            if (ShapeType.hasEdge(type) && this._edges) {
+            if ((ShapeType.hasEdge(type) || ShapeType.hasWire(type)) && this._edges) {
                 setEdgeState();
             }
+            // TODO: other shape
         }
     }
 
