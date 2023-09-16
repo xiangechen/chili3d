@@ -141,8 +141,10 @@ export class OccHelps {
                 return occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum;
             case ShapeType.Vertex:
                 return occ.TopAbs_ShapeEnum.TopAbs_VERTEX as TopAbs_ShapeEnum;
-            default:
+            case ShapeType.Shape:
                 return occ.TopAbs_ShapeEnum.TopAbs_SHAPE as TopAbs_ShapeEnum;
+            default:
+                throw new Error("Unknown shape type: " + shapeType);
         }
     }
 
@@ -218,14 +220,14 @@ export class OccHelps {
         const hashes = unique ? new Map() : undefined;
         while (explorer.More()) {
             const item = explorer.Current();
-            if (!unique) {
-                yield item;
-            } else {
+            if (unique) {
                 const hash = OccHelps.hashCode(item);
-                if (!hashes?.has(hash)) {
-                    hashes?.set(hash, true);
+                if (!hashes!.has(hash)) {
+                    hashes!.set(hash, true);
                     yield this.getActualShape(item);
                 }
+            } else {
+                yield item;
             }
             explorer.Next();
         }

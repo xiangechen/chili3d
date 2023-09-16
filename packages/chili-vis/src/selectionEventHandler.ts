@@ -5,6 +5,7 @@ import {
     IDocument,
     IEventHandler,
     IShape,
+    IShapeFilter,
     IView,
     ShapeType,
     VisualShapeData,
@@ -41,6 +42,7 @@ export abstract class SelectionHandler implements IEventHandler {
         readonly shapeType: ShapeType,
         readonly multiMode: boolean,
         readonly controller?: AsyncController,
+        readonly filter?: IShapeFilter,
     ) {
         controller?.onCancelled((s) => {
             this.clearSelected(document);
@@ -67,10 +69,17 @@ export abstract class SelectionHandler implements IEventHandler {
         let detecteds: VisualShapeData[] = [];
         if (this.rect) {
             detecteds = detecteds.concat(
-                view.rectDetected(this.shapeType, this.mouse.x, this.mouse.y, event.offsetX, event.offsetY),
+                view.rectDetected(
+                    this.shapeType,
+                    this.mouse.x,
+                    this.mouse.y,
+                    event.offsetX,
+                    event.offsetY,
+                    this.filter,
+                ),
             );
         } else {
-            this._detectAtMouse = view.detected(this.shapeType, event.offsetX, event.offsetY);
+            this._detectAtMouse = view.detected(this.shapeType, event.offsetX, event.offsetY, this.filter);
             let detected = this.getDetecting();
             if (detected) detecteds.push(detected);
         }
@@ -91,10 +100,12 @@ export abstract class SelectionHandler implements IEventHandler {
 
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this._selected?.forEach((x) => {
-            if (!detecteds.includes(x)) x.owner.removeState(VisualState.hilight, this.shapeType, x.index);
+            if (!detecteds.includes(x))
+                x.owner.removeState(VisualState.hilight, this.shapeType, ...x.indexes);
         });
         detecteds.forEach((x) => {
-            if (!this._selected?.includes(x)) x.owner.addState(VisualState.hilight, this.shapeType, x.index);
+            if (!this._selected?.includes(x))
+                x.owner.addState(VisualState.hilight, this.shapeType, ...x.indexes);
         });
         this._selected = detecteds;
         view.viewer.redraw();

@@ -3,6 +3,7 @@
 export * from "./cursorType";
 export * from "./detectedData";
 export * from "./eventHandler";
+export * from "./shapeFilter";
 export * from "./view";
 export * from "./viewer";
 export * from "./visual";

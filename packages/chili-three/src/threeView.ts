@@ -3,6 +3,8 @@
 import {
     CursorType,
     IDisposable,
+    IShape,
+    IShapeFilter,
     IView,
     IViewer,
     Observable,
@@ -334,63 +336,115 @@ export class ThreeView extends Observable implements IView, IDisposable {
                 detecteds.push({
                     owner: shape.parent,
                     shape: shape.parent.shape,
+                    indexes: [],
                 });
             }
         }
         return detecteds;
     }
 
-    detected(shapeType: ShapeType, mx: number, my: number): VisualShapeData[] {
+    detected(shapeType: ShapeType, mx: number, my: number, shapeFilter?: IShapeFilter): VisualShapeData[] {
         let intersections = this.findIntersections(shapeType, mx, my);
         return shapeType === ShapeType.Shape
-            ? this.detectThreeShapes(intersections)
-            : this.detectSubShapes(shapeType, intersections);
+            ? this.detectThreeShapes(intersections, shapeFilter)
+            : this.detectSubShapes(shapeType, intersections, shapeFilter);
     }
 
-    private detectThreeShapes(intersections: Intersection<Object3D>[]) {
+    private detectThreeShapes(intersections: Intersection<Object3D>[], shapeFilter?: IShapeFilter) {
         let result: VisualShapeData[] = [];
         for (const element of intersections) {
             const parent = element.object.parent;
             if (parent instanceof ThreeShape) {
+                if (shapeFilter && !shapeFilter.allow(parent.shape)) {
+                    continue;
+                }
                 result.push({
                     owner: parent,
                     shape: parent.shape,
+                    indexes: [],
                 });
             }
         }
         return result;
     }
 
-    private detectSubShapes(shapeType: ShapeType, intersections: Intersection<Object3D>[]) {
+    private detectSubShapes(
+        shapeType: ShapeType,
+        intersections: Intersection<Object3D>[],
+        shapeFilter?: IShapeFilter,
+    ) {
         let result: VisualShapeData[] = [];
-        for (const element of intersections) {
-            const parent = element.object.parent;
-            if (!(parent instanceof ThreeShape)) continue;
-            let { groupIndex, groups } = this.getGroupInfo(shapeType, parent, element);
-            if (groupIndex !== undefined && groups) {
+        for (const intersected of intersections) {
+            const visualShape = intersected.object.parent;
+            if (!(visualShape instanceof ThreeShape)) continue;
+            let { shape, indexes } = this.getShape(shapeType, visualShape, intersected);
+            if (shape) {
+                if (shapeFilter && !shapeFilter.allow(shape)) {
+                    continue;
+                }
                 result.push({
-                    owner: parent,
-                    shape: groups[groupIndex].shape,
-                    index: groupIndex,
+                    owner: visualShape,
+                    shape: shape,
+                    indexes,
                 });
             }
         }
         return result;
     }
 
-    private getGroupInfo(shapeType: ShapeType, parent: ThreeShape, element: Intersection) {
-        let groups: ShapeMeshGroup[] | undefined = undefined;
-        let groupIndex: number | undefined = undefined;
-        if (shapeType === ShapeType.Face) {
-            groups = parent.shape.mesh.faces?.groups;
-            if (groups && element.faceIndex !== undefined)
-                groupIndex = ThreeHelper.findGroupIndex(groups, element.faceIndex * 3)!;
-        } else {
-            groups = parent.shape.mesh.edges?.groups;
-            if (groups && element.index !== undefined)
-                groupIndex = ThreeHelper.findGroupIndex(groups, element.index);
+    private getShape(
+        shapeType: ShapeType,
+        parent: ThreeShape,
+        element: Intersection,
+    ): {
+        shape: IShape | undefined;
+        indexes: number[];
+    } {
+        let { shape, index, groups } = this.findShapeAndIndex(parent, element);
+        if (!shape) return { shape: undefined, indexes: [] };
+        if (ShapeType.hasWire(shapeType)) {
+            let wire = this.getWireAndIndexes(shape, groups!, parent);
+            if (wire.shape) return wire;
         }
-        return { groupIndex, groups };
+        // TODO: other type
+
+        return { shape, indexes: [index!] };
+    }
+
+    private getWireAndIndexes(shape: IShape, groups: ShapeMeshGroup[], parent: ThreeShape) {
+        let wire = shape.findAncestor(ShapeType.Wire, parent.shape).at(0);
+        let indexes: number[] = [];
+        if (wire) {
+            let edges = wire.findSubShapes(ShapeType.Edge, true);
+            for (const edge of edges) {
+                for (let i = 0; i < groups!.length; i++) {
+                    if (edge.isEqual(groups![i].shape)) {
+                        indexes.push(i);
+                    }
+                }
+            }
+        }
+        return { shape: wire, indexes };
+    }
+
+    private findShapeAndIndex(parent: ThreeShape, element: Intersection) {
+        let shape: IShape | undefined = undefined;
+        let index: number | undefined = undefined;
+        let groups: ShapeMeshGroup[] | undefined = undefined;
+        if (element.faceIndex !== null) {
+            groups = parent.shape.mesh.faces?.groups;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
+                shape = groups[index].shape;
+            }
+        } else if (element.index !== null) {
+            groups = parent.shape.mesh.edges?.groups;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, element.index!)!;
+                shape = groups[index].shape;
+            }
+        }
+        return { shape, index, groups };
     }
 
     private findIntersections(shapeType: ShapeType, mx: number, my: number) {
@@ -406,12 +460,23 @@ export class ThreeView extends Observable implements IView, IDisposable {
         };
         this.viewer.visual.context.shapes().forEach((x) => {
             if (!(x instanceof ThreeShape)) return;
-            if (shapeType === ShapeType.Face || shapeType === ShapeType.Shape) {
+            if (
+                shapeType === ShapeType.Shape ||
+                ShapeType.hasCompound(shapeType) ||
+                ShapeType.hasCompoundSolid(shapeType) ||
+                ShapeType.hasSolid(shapeType)
+            ) {
+                addObject(x.faces());
+                addObject(x.edges());
+                return;
+            }
+            if (ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
                 addObject(x.faces());
             }
-            if (shapeType !== ShapeType.Face) {
+            if (ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
                 addObject(x.edges());
             }
+            // TODO: vertex
         });
         return shapes;
     }

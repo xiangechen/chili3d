@@ -5,6 +5,7 @@ import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { CursorType } from "./cursorType";
 import { VisualShapeData } from "./detectedData";
+import { IShapeFilter } from "./shapeFilter";
 import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged {
@@ -26,8 +27,15 @@ export interface IView extends IPropertyChanged {
     pan(dx: number, dy: number): void;
     rotation(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
-    detected(shapeType: ShapeType, x: number, y: number): VisualShapeData[];
-    rectDetected(shapeType: ShapeType, x1: number, y1: number, x2: number, y2: number): VisualShapeData[];
+    detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
+    rectDetected(
+        shapeType: ShapeType,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        shapeFilter?: IShapeFilter,
+    ): VisualShapeData[];
 }
 
 export namespace IView {

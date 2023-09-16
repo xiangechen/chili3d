@@ -22,6 +22,14 @@ export class TestEdge implements IEdge {
         readonly end: XYZ,
     ) {}
 
+    findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
+        throw new Error("Method not implemented.");
+    }
+
+    findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[] {
+        throw new Error("Method not implemented.");
+    }
+
     intersect(other: IEdge | Ray): XYZ[] {
         return [];
     }

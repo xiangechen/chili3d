@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IEdge, ILine, ShapeType, command } from "chili-core";
+import { GeometryModel, ICurve, IEdge, ILine, IShape, IShapeFilter, ShapeType, command } from "chili-core";
 import { RevolveBody } from "../../bodys";
 import { IStep } from "../../step";
 import { SelectStep } from "../../step/selectStep";
@@ -33,7 +33,19 @@ export class Revolve extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectStep(ShapeType.Edge, "prompt.select.edges", false),
+            new SelectStep(ShapeType.Edge, "prompt.select.edges", false, new LineFilter()),
         ];
+    }
+}
+
+class LineFilter implements IShapeFilter {
+    allow(shape: IShape): boolean {
+        if (shape.shapeType === ShapeType.Edge) {
+            let edge = shape as IEdge;
+            let curve = edge.asCurve().getValue();
+            if (curve === undefined) return false;
+            return ICurve.isLine(curve);
+        }
+        return false;
     }
 }

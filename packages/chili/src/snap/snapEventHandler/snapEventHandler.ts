@@ -5,6 +5,7 @@ import {
     Config,
     I18nKeys,
     IEventHandler,
+    IShapeFilter,
     IView,
     MessageType,
     PubSub,
@@ -27,6 +28,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         readonly controller: AsyncController,
         readonly snaps: ISnapper[],
         readonly data: SnapPointData,
+        readonly filter?: IShapeFilter,
     ) {
         if (data.validators) {
             this.validators.push(...data.validators);
@@ -135,7 +137,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view.detected(shapeType, event.offsetX, event.offsetY);
+        let shapes = view.detected(shapeType, event.offsetX, event.offsetY, this.filter);
         return {
             shapes,
             view,

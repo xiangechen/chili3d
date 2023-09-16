@@ -6,5 +6,5 @@ import { IVisualShape } from "./visualShape";
 export interface VisualShapeData {
     shape: IShape;
     owner: IVisualShape;
-    index?: number;
+    indexes: number[];
 }

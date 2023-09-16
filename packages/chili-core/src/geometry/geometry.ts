@@ -28,4 +28,9 @@ export namespace ICurve {
         let circle = curve as ICircle;
         return circle.center !== undefined && circle.radius !== undefined;
     }
+
+    export function isLine(curve: ICurve): curve is ILine {
+        let line = curve as ILine;
+        return line.direction !== undefined;
+    }
 }

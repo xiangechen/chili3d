@@ -99,7 +99,15 @@ export class OccShape implements IShape {
         return tshape;
     }
 
-    findSubShapes(shapeType: ShapeType, unique: boolean = false): IShape[] {
+    findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
+        if (!(fromShape instanceof OccShape)) {
+            throw new Error(`${fromShape} is not an OccShape`);
+        }
+        let occType = OccHelps.getShapeEnum(ancestorType);
+        return OccHelps.findAncestors(this.shape, fromShape.shape, occType).map((x) => OccHelps.getShape(x));
+    }
+
+    findSubShapes(shapeType: ShapeType, unique: boolean): IShape[] {
         let result = new Array<IShape>();
         let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
         for (const it of iter) {

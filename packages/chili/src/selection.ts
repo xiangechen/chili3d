@@ -8,6 +8,7 @@ import {
     IEventHandler,
     IModel,
     INode,
+    IShapeFilter,
     Logger,
     PubSub,
     ShapeType,
@@ -21,8 +22,9 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
+        filter?: IShapeFilter,
     ) {
-        let handler = new ShapeSelectionHandler(document, shapeType, multiMode, controller);
+        let handler = new ShapeSelectionHandler(document, shapeType, multiMode, controller, filter);
         await this.pickAsync(document, handler, prompt, controller, multiMode === true);
         let shapes = handler.shapes();
         handler.dispose();

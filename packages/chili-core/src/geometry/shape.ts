@@ -39,6 +39,8 @@ export interface IShape extends ISerialize {
     get mesh(): IShapeMeshData;
     setMatrix(matrix: Matrix4): void;
     isEqual(other: IShape): boolean;
+    findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
+    findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[];
 }
 
 export interface IVertex extends IShape {}

@@ -32,7 +32,7 @@ export interface VisualGroup {
 
 export interface IVisualShape extends IVisualObject {
     get shape(): IShape;
-    addState(state: VisualState, type: ShapeType, index?: number): void;
-    removeState(state: VisualState, type: ShapeType, index?: number): void;
+    addState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
+    removeState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     resetState(): void;
 }

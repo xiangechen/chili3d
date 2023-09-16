@@ -17,7 +17,7 @@ export class ShapeSelectionHandler extends SelectionHandler {
 
     override clearSelected(document: IDocument): void {
         for (const shape of this._shapes.values()) {
-            shape.owner.removeState(VisualState.selected, shape.shape.shapeType, shape.index);
+            shape.owner.removeState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
         }
         this._shapes.clear();
     }
@@ -42,11 +42,11 @@ export class ShapeSelectionHandler extends SelectionHandler {
 
     private removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape);
-        shape.owner.removeState(VisualState.selected, shape.shape.shapeType, shape.index);
+        shape.owner.removeState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
     }
 
     private addSelected(shape: VisualShapeData) {
-        shape.owner.addState(VisualState.selected, shape.shape.shapeType, shape.index);
+        shape.owner.addState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
         this._shapes.add(shape);
     }
 }

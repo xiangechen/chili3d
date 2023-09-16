@@ -132,17 +132,34 @@ export class ThreeShape extends Object3D implements IVisualShape {
         }
     }
 
-    addState(state: VisualState, type: ShapeType, index?: number) {
-        let newState = this.updateState("add", state, type, index);
-        this.setState(type, newState, index);
+    addState(state: VisualState, type: ShapeType, ...indexes: number[]) {
+        this.removeOrAddState("add", state, type, ...indexes);
     }
 
-    removeState(state: VisualState, type: ShapeType, index?: number) {
-        let newState = this.updateState("remove", state, type, index);
-        this.setState(type, newState, index);
+    removeState(state: VisualState, type: ShapeType, ...indexes: number[]) {
+        this.removeOrAddState("remove", state, type, ...indexes);
     }
 
-    private setState(type: ShapeType, newState: VisualState, index: number | undefined) {
+    private removeOrAddState(
+        action: "remove" | "add",
+        state: VisualState,
+        type: ShapeType,
+        ...indexes: number[]
+    ) {
+        const setState = (index?: number) => {
+            let newState = this.updateState(action, state, type, index);
+            this.setState(type, newState, index);
+        };
+        if (indexes.length === 0) {
+            setState();
+        } else {
+            indexes.forEach((index) => {
+                setState(index);
+            });
+        }
+    }
+
+    private setState(type: ShapeType, newState: VisualState, index?: number) {
         const setFaceState = () => {
             if (this._faces) this.setGroupsMaterial(this._faces.geometry, newState, index);
         };
@@ -153,9 +170,10 @@ export class ThreeShape extends Object3D implements IVisualShape {
             setFaceState();
             setEdgeState();
         } else if (index !== undefined) {
-            if (type === ShapeType.Face) {
+            if (ShapeType.hasEdge(type)) {
                 setFaceState();
-            } else if (type === ShapeType.Edge && this._edges) {
+            }
+            if (ShapeType.hasEdge(type) && this._edges) {
                 setEdgeState();
             }
         }
