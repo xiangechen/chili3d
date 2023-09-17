@@ -10,6 +10,7 @@ import {
     IWire,
     MathUtils,
     Plane,
+    Ray,
     Result,
     XYZ,
 } from "chili-core";
@@ -34,9 +35,9 @@ export class ShapeFactory implements IShapeFactory {
         return Result.error("Failed to create a shape from a profile and a path");
     }
 
-    revolve(profile: IShape, axis: ILine, angle: number): Result<IShape> {
+    revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {
         let tprofile = (profile as OccShape).shape;
-        let ax1 = new occ.gp_Ax1_2(OccHelps.toPnt(axis.start), OccHelps.toDir(axis.direction));
+        let ax1 = new occ.gp_Ax1_2(OccHelps.toPnt(axis.location), OccHelps.toDir(axis.direction));
         let builder = new occ.BRepPrimAPI_MakeRevol_1(tprofile, ax1, MathUtils.degToRad(angle), false);
         if (builder.IsDone()) {
             return Result.success(OccHelps.getShape(builder.Shape()));

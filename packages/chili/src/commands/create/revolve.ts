@@ -1,6 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, ICurve, IEdge, ILine, IShape, IShapeFilter, ShapeType, command } from "chili-core";
+import {
+    GeometryModel,
+    ICurve,
+    IEdge,
+    ILine,
+    IShape,
+    IShapeFilter,
+    Ray,
+    ShapeType,
+    command,
+} from "chili-core";
 import { RevolveBody } from "../../bodys";
 import { IStep } from "../../step";
 import { SelectStep } from "../../step/selectStep";
@@ -26,7 +36,8 @@ export class Revolve extends CreateCommand {
     protected override create(): GeometryModel {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
         let edge = (this.stepDatas[1].shapes[0].shape as IEdge).asCurve().getValue() as ILine;
-        let body = new RevolveBody(this.document, shape, edge, this._angle);
+        let axis = new Ray(edge.start, edge.direction);
+        let body = new RevolveBody(this.document, shape, axis, this._angle);
         return new GeometryModel(this.document, `Revolve ${count++}`, body);
     }
 

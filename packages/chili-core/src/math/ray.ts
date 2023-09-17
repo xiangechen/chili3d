@@ -1,8 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Plane, XYZ } from "chili-core";
+import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
+import { Plane } from "./plane";
+import { XYZ } from "./xyz";
 
-export class Ray {
+@ClassMap.key("Ray")
+export class Ray implements ISerialize {
     /**
      * unit vector
      */
@@ -17,6 +20,22 @@ export class Ray {
             throw new Error("direction can not be zero");
         }
         this.direction = n;
+    }
+
+    serialize(): Serialized {
+        return {
+            classKey: "Ray",
+            constructorParameters: {
+                location: this.location.serialize(),
+                direction: this.direction.serialize(),
+            },
+            properties: {},
+        };
+    }
+
+    @Serializer.deserializer()
+    static from({ direction, location }: { direction: XYZ; location: XYZ }) {
+        return new Ray(location, direction);
     }
 
     intersect(right: Ray): XYZ | undefined {

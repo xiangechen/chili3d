@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, ILine, IShape, Result, Serializer } from "chili-core";
+import { Body, ClassMap, I18nKeys, IDocument, ILine, IShape, Ray, Result, Serializer } from "chili-core";
 
 @ClassMap.key("RevolveBody")
 export class RevolveBody extends Body {
@@ -15,12 +15,12 @@ export class RevolveBody extends Body {
         this.setPropertyAndUpdate("profile", value);
     }
 
-    private _axis: ILine;
+    private _axis: Ray;
     @Serializer.property("constructor")
     get axis() {
         return this._axis;
     }
-    set axis(value: ILine) {
+    set axis(value: Ray) {
         this.setPropertyAndUpdate("axis", value);
     }
 
@@ -33,7 +33,7 @@ export class RevolveBody extends Body {
         this.setPropertyAndUpdate("angle", value);
     }
 
-    constructor(document: IDocument, profile: IShape, axis: ILine, angle: number) {
+    constructor(document: IDocument, profile: IShape, axis: Ray, angle: number) {
         super(document);
         this._profile = profile;
         this._axis = axis;
@@ -49,7 +49,7 @@ export class RevolveBody extends Body {
     }: {
         document: IDocument;
         profile: IShape;
-        axis: ILine;
+        axis: Ray;
         angle: number;
     }) {
         return new RevolveBody(document, profile, axis, angle);

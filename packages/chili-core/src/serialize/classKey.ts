@@ -12,6 +12,7 @@ export type ClassKey =
     | "Plane"
     | "PolygonBody"
     | "NodeLinkedList"
+    | "Ray"
     | "RectBody"
     | "WireBody"
     | "Shape"

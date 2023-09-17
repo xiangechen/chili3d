@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IEdge, IFace, ILine, IShape, ISolid, IVertex, IWire, Plane, Result, XYZ } from "chili-core";
+import { IEdge, IFace, ILine, IShape, ISolid, IVertex, IWire, Plane, Ray, Result, XYZ } from "chili-core";
 
 export interface IShapeFactory {
     point(point: XYZ): Result<IVertex>;
@@ -13,5 +13,5 @@ export interface IShapeFactory {
     prism(shape: IShape, vec: XYZ): Result<IShape>;
     fuse(bottom: IShape, top: IShape): Result<IShape>;
     sweep(profile: IShape, path: IWire): Result<IShape>;
-    revolve(profile: IShape, axis: ILine, angle: number): Result<IShape>;
+    revolve(profile: IShape, axis: Ray, angle: number): Result<IShape>;
 }
