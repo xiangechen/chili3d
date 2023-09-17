@@ -55,6 +55,12 @@ export class OccShapeConverter implements IShapeConverter {
         return this.convertFrom("step", data);
     }
 
+    /**
+     * 如果原 IWire 仅由一个 IEdge 组成，则从 IWre 反序列化时，会变为 IEdge。暂时认为不是 bug！！！
+     * @param format
+     * @param data
+     * @returns
+     */
     private convertFrom(format: "step" | "iges", data: string): Result<IShape> {
         const fileName = `blob.${format}`;
         let reader = format === "step" ? new occ.STEPControl_Reader_1() : new occ.IGESControl_Reader_1();

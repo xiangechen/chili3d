@@ -1,6 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, IShape, IWire, Result, Serializer } from "chili-core";
+import {
+    Body,
+    ClassMap,
+    I18nKeys,
+    IDocument,
+    IEdge,
+    IShape,
+    IWire,
+    Result,
+    Serializer,
+    ShapeType,
+} from "chili-core";
 
 @ClassMap.key("SweepBody")
 export class SweepBody extends Body {
@@ -24,10 +35,13 @@ export class SweepBody extends Body {
         this.setPropertyAndUpdate("path", value);
     }
 
-    constructor(document: IDocument, profile: IShape, path: IWire) {
+    constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
         super(document);
         this._profile = profile;
-        this._path = path;
+        this._path =
+            path.shapeType === ShapeType.Wire
+                ? (path as IWire)
+                : document.application.shapeFactory.wire(path as unknown as IEdge).getValue()!;
     }
 
     @Serializer.deserializer()

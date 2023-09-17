@@ -25,9 +25,9 @@ export class ShapeFactory implements IShapeFactory {
     }
 
     sweep(profile: IShape, path: IWire): Result<IShape> {
-        let twire = (path as OccWire).shape;
+        let spine = (path as OccWire).shape;
         let tprofile = (profile as OccShape).shape;
-        let builder = new occ.BRepOffsetAPI_MakePipe_1(twire, tprofile);
+        let builder = new occ.BRepOffsetAPI_MakePipe_1(spine, tprofile);
         if (builder.IsDone()) {
             return Result.success(OccHelps.getShape(builder.Shape()));
         }

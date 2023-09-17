@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IEdge, ShapeType, command } from "chili-core";
+import { GeometryModel, IEdge, IWire, ShapeType, command } from "chili-core";
 import { SweepBody } from "../../bodys";
 import { IStep } from "../../step";
 import { SelectStep } from "../../step/selectStep";
@@ -16,9 +16,8 @@ let count = 1;
 export class Sweep extends CreateCommand {
     protected override create(): GeometryModel {
         let shape = this.stepDatas[0].shapes[0].shape;
-        let edge = this.stepDatas[1].shapes[0].shape as IEdge;
-        let wire = this.application.shapeFactory.wire(edge).getValue()!;
-        let body = new SweepBody(this.document, shape, wire);
+        let path = this.stepDatas[1].shapes[0].shape;
+        let body = new SweepBody(this.document, shape, path as IWire);
         return new GeometryModel(this.document, `Sweep ${count++}`, body);
     }
 
