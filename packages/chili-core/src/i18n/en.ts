@@ -62,7 +62,7 @@ export default {
         "command.prism": "Prism",
         "command.revol": "Revol",
         "command.sweep": "Sweep",
-        "command.toPoly": "To Polygon",
+        "command.toPoly": "To Polyline",
         "command.fuse": "Fuse",
         "snap.end": "End",
         "snap.mid": "Middle",

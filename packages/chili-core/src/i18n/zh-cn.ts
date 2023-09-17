@@ -63,7 +63,7 @@ export default {
         "command.revol": "旋转",
         "command.sweep": "扫略",
         "command.fuse": "合并",
-        "command.toPoly": "转成多边形",
+        "command.toPoly": "转多段线",
         "snap.end": "端点",
         "snap.mid": "中点",
         "snap.center": "圆心",
