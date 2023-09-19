@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, ILine, IShape, Ray, Result, Serializer } from "chili-core";
+import { Body, I18nKeys, IDocument, IShape, Ray, Result, Serializer } from "chili-core";
 
-@ClassMap.key("RevolveBody")
+@Serializer.register("RevolveBody", ["document", "profile", "axis", "angle"])
 export class RevolveBody extends Body {
     override name: I18nKeys = "body.revol";
 
     private _profile: IShape;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get profile() {
         return this._profile;
     }
@@ -16,7 +16,7 @@ export class RevolveBody extends Body {
     }
 
     private _axis: Ray;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get axis() {
         return this._axis;
     }
@@ -25,7 +25,7 @@ export class RevolveBody extends Body {
     }
 
     private _angle: number;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get angle() {
         return this._angle;
     }
@@ -38,21 +38,6 @@ export class RevolveBody extends Body {
         this._profile = profile;
         this._axis = axis;
         this._angle = angle;
-    }
-
-    @Serializer.deserializer()
-    static from({
-        document,
-        profile,
-        axis,
-        angle,
-    }: {
-        document: IDocument;
-        profile: IShape;
-        axis: Ray;
-        angle: number;
-    }) {
-        return new RevolveBody(document, profile, axis, angle);
     }
 
     protected override generateShape(): Result<IShape> {

@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
+import { Body, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
 
-@ClassMap.key("FuseBody")
+@Serializer.register("FuseBody", ["document", "bottom", "top"])
 export class FuseBody extends Body {
     override name: I18nKeys = "body.fuse";
 
     private _bottom: IShape;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get bottom(): IShape {
         return this._bottom;
     }
@@ -16,7 +16,7 @@ export class FuseBody extends Body {
     }
 
     private _top: IShape;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get top(): IShape {
         return this._top;
     }
@@ -28,11 +28,6 @@ export class FuseBody extends Body {
         super(document);
         this._bottom = bottom;
         this._top = top;
-    }
-
-    @Serializer.deserializer()
-    static from({ document, bottom, top }: { document: IDocument; bottom: IShape; top: IShape }) {
-        return new FuseBody(document, bottom, top);
     }
 
     protected override generateShape(): Result<IShape> {

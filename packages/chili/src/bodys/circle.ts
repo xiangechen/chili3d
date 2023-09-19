@@ -1,24 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    ClassMap,
-    FaceableBody,
-    I18nKeys,
-    IDocument,
-    IShape,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
-} from "chili-core";
+import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
-@ClassMap.key("CircleBody")
+@Serializer.register("CircleBody", ["document", "normal", "center", "radius"])
 export class CircleBody extends FaceableBody {
     readonly name: I18nKeys = "body.circle";
 
     private _center: XYZ;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("circle.center")
     get center() {
         return this._center;
@@ -29,7 +19,7 @@ export class CircleBody extends FaceableBody {
 
     private _radius: number;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("circle.radius")
     get radius() {
         return this._radius;
@@ -40,7 +30,7 @@ export class CircleBody extends FaceableBody {
 
     private _normal: XYZ;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     get normal() {
         return this._normal;
     }
@@ -50,21 +40,6 @@ export class CircleBody extends FaceableBody {
         this._normal = normal;
         this._center = center;
         this._radius = radius;
-    }
-
-    @Serializer.deserializer()
-    static from({
-        document,
-        normal,
-        center,
-        radius,
-    }: {
-        document: IDocument;
-        normal: XYZ;
-        center: XYZ;
-        radius: number;
-    }) {
-        return new CircleBody(document, normal, center, radius);
     }
 
     protected generateShape(): Result<IShape, string> {

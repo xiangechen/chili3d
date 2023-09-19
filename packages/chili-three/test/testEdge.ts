@@ -59,7 +59,6 @@ export class TestEdge implements IEdge {
     serialize(): Serialized {
         return {
             classKey: "Shape",
-            constructorParameters: {},
             properties: {},
         };
     }

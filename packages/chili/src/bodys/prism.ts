@@ -1,23 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Body,
-    ClassMap,
-    I18nKeys,
-    IDocument,
-    IFace,
-    IShape,
-    Property,
-    Result,
-    Serializer,
-} from "chili-core";
+import { Body, I18nKeys, IDocument, IFace, IShape, Property, Result, Serializer } from "chili-core";
 
-@ClassMap.key("PrismBody")
+@Serializer.register("PrismBody", ["document", "face", "length"])
 export class PrismBody extends Body {
     override name: I18nKeys = "body.prism";
 
     private _face: IFace;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get face(): IFace {
         return this._face;
     }
@@ -26,7 +16,7 @@ export class PrismBody extends Body {
     }
 
     private _length: number;
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("common.length")
     get length(): number {
         return this._length;
@@ -39,19 +29,6 @@ export class PrismBody extends Body {
         super(document);
         this._face = face;
         this._length = length;
-    }
-
-    @Serializer.deserializer()
-    static create({
-        document,
-        face,
-        length,
-    }: {
-        document: IDocument;
-        face: IFace;
-        length: number;
-    }): PrismBody {
-        return new PrismBody(document, face, length);
     }
 
     protected override generateShape(): Result<IShape> {

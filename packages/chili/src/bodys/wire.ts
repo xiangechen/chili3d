@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassMap, FaceableBody, I18nKeys, IDocument, IEdge, IShape, Result, Serializer } from "chili-core";
+import { FaceableBody, I18nKeys, IDocument, IEdge, IShape, Result, Serializer } from "chili-core";
 
-@ClassMap.key("WireBody")
+@Serializer.register("WireBody", ["document", "edges"])
 export class WireBody extends FaceableBody {
     override name: I18nKeys = "body.wire";
 
     private _edges: IEdge[];
-    @Serializer.property("constructor")
+    @Serializer.property()
     get edges(): IEdge[] {
         return this._edges;
     }
@@ -18,11 +18,6 @@ export class WireBody extends FaceableBody {
     constructor(document: IDocument, edges: IEdge[]) {
         super(document);
         this._edges = [...edges];
-    }
-
-    @Serializer.deserializer()
-    static from({ document, edges }: { document: IDocument; edges: IEdge[] }) {
-        return new WireBody(document, edges);
     }
 
     protected override generateShape(): Result<IShape> {

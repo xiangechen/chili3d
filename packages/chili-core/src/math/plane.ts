@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
+import { ISerialize, Serialized, Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
-@ClassMap.key("Plane")
+@Serializer.register("Plane", ["origin", "normal", "xvec"])
 export class Plane implements ISerialize {
     static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
     static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
@@ -42,18 +42,12 @@ export class Plane implements ISerialize {
     serialize(): Serialized {
         return {
             classKey: "Plane",
-            constructorParameters: {
+            properties: {
                 origin: this.origin.serialize(),
                 normal: this.normal.serialize(),
                 xvec: this.xvec.serialize(),
             },
-            properties: {},
         };
-    }
-
-    @Serializer.deserializer()
-    static from(data: { origin: XYZ; normal: XYZ; xvec: XYZ }) {
-        return new Plane(data.origin, data.normal, data.xvec);
     }
 
     translateTo(origin: XYZ) {

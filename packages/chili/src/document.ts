@@ -83,11 +83,9 @@ export class Document extends Observable implements IDocument, ISerialize {
     override serialize(): Serialized {
         return {
             classKey: "Document",
-            constructorParameters: {
+            properties: {
                 id: this.id,
                 name: this.name,
-            },
-            properties: {
                 rootNode: this.rootNode.serialize(),
             },
         };
@@ -140,11 +138,7 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     static load(app: IApplication, data: Serialized) {
-        let document = new Document(
-            app,
-            data.constructorParameters["name"],
-            data.constructorParameters["id"],
-        );
+        let document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
         document.setRootNode(Serializer.deserialize(document, data.properties["rootNode"]));
         document.history.disabled = false;

@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    ClassMap,
     FaceableBody,
     I18nKeys,
     IDocument,
@@ -13,12 +12,12 @@ import {
     XYZ,
 } from "chili-core";
 
-@ClassMap.key("RectBody")
+@Serializer.register("RectBody", ["document", "plane", "dx", "dy"])
 export class RectBody extends FaceableBody {
     readonly name: I18nKeys = "body.rect";
 
     private _dx: number;
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("rect.dx")
     get dx() {
         return this._dx;
@@ -28,7 +27,7 @@ export class RectBody extends FaceableBody {
     }
 
     private _dy: number;
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("rect.dy")
     get dy() {
         return this._dy;
@@ -38,7 +37,7 @@ export class RectBody extends FaceableBody {
     }
 
     private _plane: Plane;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get plane() {
         return this._plane;
     }
@@ -48,11 +47,6 @@ export class RectBody extends FaceableBody {
         this._plane = plane;
         this._dx = dx;
         this._dy = dy;
-    }
-
-    @Serializer.deserializer()
-    static from({ document, plane, dx, dy }: { document: IDocument; plane: Plane; dx: number; dy: number }) {
-        return new RectBody(document, plane, dx, dy);
     }
 
     protected generateShape(): Result<IShape, string> {

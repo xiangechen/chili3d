@@ -1,24 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Body,
-    ClassMap,
-    I18nKeys,
-    IDocument,
-    IEdge,
-    IShape,
-    IWire,
-    Result,
-    Serializer,
-    ShapeType,
-} from "chili-core";
+import { Body, I18nKeys, IDocument, IEdge, IShape, IWire, Result, Serializer, ShapeType } from "chili-core";
 
-@ClassMap.key("SweepBody")
+@Serializer.register("SweepBody", ["document", "profile", "path"])
 export class SweepBody extends Body {
     override name: I18nKeys = "body.sweep";
 
     private _profile: IShape;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get profile() {
         return this._profile;
     }
@@ -27,7 +16,7 @@ export class SweepBody extends Body {
     }
 
     private _path: IWire;
-    @Serializer.property("constructor")
+    @Serializer.property()
     get path() {
         return this._path;
     }
@@ -42,11 +31,6 @@ export class SweepBody extends Body {
             path.shapeType === ShapeType.Wire
                 ? (path as IWire)
                 : document.application.shapeFactory.wire(path as unknown as IEdge).getValue()!;
-    }
-
-    @Serializer.deserializer()
-    static from({ document, profile, path }: { document: IDocument; profile: IShape; path: IWire }) {
-        return new SweepBody(document, profile, path);
     }
 
     protected override generateShape(): Result<IShape> {

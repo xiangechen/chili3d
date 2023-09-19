@@ -4,10 +4,9 @@ import { Logger, NodeAction, NodeLinkedListHistoryRecord, NodeRecord, PubSub, Tr
 import { IDocument } from "../document";
 import { Id } from "../id";
 import { Serializer } from "../serialize";
-import { ClassMap } from "../serialize/classMap";
 import { INode, INodeLinkedList, Node } from "./node";
 
-@ClassMap.key("NodeLinkedList")
+@Serializer.register("NodeLinkedList", ["document", "name", "id"])
 export class NodeLinkedList extends Node implements INodeLinkedList {
     private _count: number = 0;
 
@@ -25,11 +24,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     constructor(document: IDocument, name: string, id: string = Id.new()) {
         super(document, name, id);
-    }
-
-    @Serializer.deserializer()
-    static from({ document, name, id }: { document: IDocument; name: string; id?: string }) {
-        return new NodeLinkedList(document, name, id ?? Id.new());
     }
 
     get count() {

@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    ClassMap,
     CurveType,
     ICompound,
     ICompoundSolid,
@@ -39,7 +38,11 @@ import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
-@ClassMap.key("Shape")
+@Serializer.register("Shape", ["shape", "id"], (shape: string, id: string) => {
+    let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap() as OccShape;
+    tshape._id = id;
+    return tshape;
+})
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
 
@@ -84,19 +87,11 @@ export class OccShape implements IShape {
     serialize(): Serialized {
         return {
             classKey: "Shape",
-            properties: {},
-            constructorParameters: {
+            properties: {
                 shape: new OccShapeConverter().convertToIGES(this).unwrap(),
                 id: this.id,
             },
         };
-    }
-
-    @Serializer.deserializer()
-    static from({ shape, id }: { shape: string; id: string }) {
-        let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap() as OccShape;
-        tshape._id = id;
-        return tshape;
     }
 
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {

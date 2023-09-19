@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
+import { ISerialize, Serialized, Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -9,7 +9,9 @@ import { XYZ } from "./xyz";
 /**
  * Matrix in column-major order
  */
-@ClassMap.key("Matrix4")
+@Serializer.register("Matrix4", ["array" as any], (array: Float32Array) => {
+    return Matrix4.fromArray(array);
+})
 export class Matrix4 implements ISerialize {
     private readonly array: Float32Array = new Float32Array(16);
 
@@ -36,16 +38,10 @@ export class Matrix4 implements ISerialize {
     serialize(): Serialized {
         return {
             classKey: "Matrix4",
-            constructorParameters: {
+            properties: {
                 array: this.toArray(),
             },
-            properties: {},
         };
-    }
-
-    @Serializer.deserializer()
-    static from({ array }: { array: number[] }) {
-        return Matrix4.fromArray(array);
     }
 
     public toArray(): readonly number[] {

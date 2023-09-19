@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassMap, ISerialize, Serialized, Serializer } from "../serialize";
+import { ISerialize, Serialized, Serializer } from "../serialize";
 import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
-@ClassMap.key("Ray")
+@Serializer.register("Ray", ["location", "direction"])
 export class Ray implements ISerialize {
     /**
      * unit vector
@@ -25,17 +25,11 @@ export class Ray implements ISerialize {
     serialize(): Serialized {
         return {
             classKey: "Ray",
-            constructorParameters: {
+            properties: {
                 location: this.location.serialize(),
                 direction: this.direction.serialize(),
             },
-            properties: {},
         };
-    }
-
-    @Serializer.deserializer()
-    static from({ direction, location }: { direction: XYZ; location: XYZ }) {
-        return new Ray(location, direction);
     }
 
     intersect(right: Ray): XYZ | undefined {

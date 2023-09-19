@@ -24,7 +24,10 @@ export class Polygon extends CreateFaceableCommand {
     static count = 0;
 
     protected override create(): GeometryModel {
-        let body = new PolygonBody(this.document, ...this.stepDatas.map((step) => step.point!));
+        let body = new PolygonBody(
+            this.document,
+            this.stepDatas.map((step) => step.point!),
+        );
         body.isFace = this.isFace;
         return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
     }

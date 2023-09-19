@@ -67,7 +67,7 @@ export abstract class Node extends HistoryObservable implements INode {
     @Serializer.property()
     nextSibling: INode | undefined;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     readonly id: string;
 
     constructor(
@@ -79,7 +79,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.id = id;
     }
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("common.name")
     get name() {
         return this._name;
@@ -110,8 +110,8 @@ export abstract class Node extends HistoryObservable implements INode {
 
     clone(): this {
         let serialized = Serializer.serialize(this);
-        serialized.constructorParameters["id"] = Id.new();
-        serialized.constructorParameters["name"] = `${this._name}_copy`;
+        serialized.properties["id"] = Id.new();
+        serialized.properties["name"] = `${this._name}_copy`;
         serialized.properties["parent"] = this.parent;
         return Serializer.deserialize(this.document, serialized);
     }

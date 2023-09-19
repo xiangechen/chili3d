@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, ClassMap, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
-@ClassMap.key("LineBody")
+@Serializer.register("LineBody", ["document", "start", "end"])
 export class LineBody extends Body {
     readonly name: I18nKeys = "body.line";
 
     private _start: XYZ;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("line.start")
     get start() {
         return this._start;
@@ -19,7 +19,7 @@ export class LineBody extends Body {
 
     private _end: XYZ;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("line.end")
     get end() {
         return this._end;
@@ -32,11 +32,6 @@ export class LineBody extends Body {
         super(document);
         this._start = start;
         this._end = end;
-    }
-
-    @Serializer.deserializer()
-    static from({ document, start, end }: { document: IDocument; start: XYZ; end: XYZ }) {
-        return new LineBody(document, start, end);
     }
 
     protected generateShape(): Result<IShape, string> {

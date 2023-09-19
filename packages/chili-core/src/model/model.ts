@@ -5,14 +5,14 @@ import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
-import { ClassMap, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { Body } from "./body";
 import { Entity } from "./entity";
 import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serializer.property("constructor")
+    @Serializer.property()
     readonly body: Body;
 
     protected _shape: T | undefined;
@@ -47,7 +47,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
     }
 }
 
-@ClassMap.key("GeometryModel")
+@Serializer.register("GeometryModel", ["document", "name", "body", "id"])
 export class GeometryModel extends Model {
     private readonly _features: Feature[] = [];
 
@@ -60,21 +60,6 @@ export class GeometryModel extends Model {
         super(document, name, body, id);
         this.drawShape();
         body.onShapeChanged(this.onShapeChanged);
-    }
-
-    @Serializer.deserializer()
-    static from({
-        document,
-        name,
-        body,
-        id,
-    }: {
-        document: IDocument;
-        name: string;
-        body: Body;
-        id?: string;
-    }) {
-        return new GeometryModel(document, name, body, id ?? Id.new());
     }
 
     private onShapeChanged = (entity: Entity) => {

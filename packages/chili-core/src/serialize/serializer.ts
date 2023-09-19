@@ -2,66 +2,57 @@
 
 import { IDocument } from "../document";
 import { INodeLinkedList } from "../model";
-import { ClassKey } from "./classKey";
 import { ClassMap } from "./classMap";
 
 export type Properties = {
     [key: string]: any;
 };
 
-export type PropertySetter = "constructor" | "assignment" | ((obj: any, value: any) => void);
-
 export type Serialized = {
-    classKey: ClassKey;
+    classKey: string;
     properties: Properties;
-    constructorParameters: Properties;
 };
 
 export interface ISerialize {
     serialize(): Serialized;
 }
 
+export interface RefelectData {
+    ctor: new (...args: any[]) => any;
+    parameterNames: string[];
+    deserializer?: (...args: any[]) => any;
+}
+
 export namespace Serializer {
     const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
-    const constructorParametersMap = new Map<new (...args: any[]) => any, Set<string>>();
-    const deserializeMap = new Map<Function, (...args: any[]) => any>();
-    const setters = new Map<string, Map<string, (obj: any, value: any) => void>>();
+    const reflectMap = new Map<string, RefelectData>();
 
     /**
      * Decorator used to indicate whether a property is serialized
-     * @param setter The way to set properties during deserialization.
-     * The default value is "assignment".
-     * @returns decorator
      */
-    export function property(setter: PropertySetter = "assignment") {
+    export function property() {
         return (target: any, property: string) => {
-            if (setter === "constructor") {
-                saveKey(constructorParametersMap, target, property);
-            } else if (setter === "assignment") {
-                saveKey(propertiesMap, target, property);
-            } else {
-                let map = setters.get(target.name);
-                if (map === undefined) {
-                    map = new Map();
-                    setters.set(target.name, map);
-                }
-                map.set(property, setter);
+            let keys = propertiesMap.get(target);
+            if (keys === undefined) {
+                keys = new Set();
+                propertiesMap.set(target, keys);
             }
+            keys.add(property);
         };
     }
 
-    function saveKey(map: Map<new (...args: any[]) => any, Set<any>>, target: any, property: string) {
-        let keys = map.get(target);
-        if (keys === undefined) {
-            keys = new Set();
-            map.set(target, keys);
-        }
-        keys.add(property);
-    }
-
-    export function deserializer() {
-        return (target: any, name: string) => {
-            deserializeMap.set(target, target[name]);
+    export function register<T extends ISerialize>(
+        className: string,
+        parameterNames: (keyof T & string)[],
+        deserializer?: (...args: any[]) => T,
+    ) {
+        return (target: new (...args: any[]) => T) => {
+            ClassMap.save(className, target);
+            reflectMap.set(className, {
+                ctor: target,
+                parameterNames,
+                deserializer,
+            });
         };
     }
 
@@ -81,8 +72,8 @@ export namespace Serializer {
         if ("firstChild" in data.properties || "nextSibling" in data.properties) {
             return nodeDescrialize(document, data, data.properties["parent"]);
         } else {
-            let instance = deserializeInstance(document, data.classKey, data.constructorParameters);
-            deserializeProperties(document, instance, data.properties);
+            let instance = deserializeInstance(document, data.classKey, data.properties);
+            deserializeProperties(document, instance, data);
             return instance;
         }
     }
@@ -93,36 +84,53 @@ export namespace Serializer {
         parent?: INodeLinkedList,
         addSibling?: boolean,
     ) {
-        let node = deserializeInstance(document, data.classKey, data.constructorParameters);
+        let node = deserializeInstance(document, data.classKey, data.properties);
         parent?.add(node);
-        for (const key of Object.keys(data.properties)) {
-            let value = data.properties[key];
+        let nodeProperties: (keyof INodeLinkedList)[] = ["firstChild", "nextSibling"];
+        for (const p of nodeProperties) {
+            let value = data.properties[p];
             if (value === undefined) continue;
-            if (key === "firstChild") {
+            if (p === "firstChild") {
                 nodeDescrialize(document, value, node, true);
-            } else if (addSibling && key === "nextSibling") {
+            } else if (addSibling && p === "nextSibling") {
                 nodeDescrialize(document, value, parent, true);
-            } else {
-                setPropertyValue(document, node, key, value);
             }
         }
+        deserializeProperties(document, node, data, nodeProperties);
         return node;
     }
 
-    function deserializeInstance(
-        document: IDocument,
-        className: ClassKey,
-        constructorParameters: Properties,
-    ) {
-        let parameters: Properties = {};
-        parameters["document"] = document;
-        for (const key of Object.keys(constructorParameters)) {
-            parameters[key] = deserialValue(document, constructorParameters[key]);
+    function deserializeInstance(document: IDocument, className: string, properties: Properties) {
+        if (!reflectMap.has(className))
+            throw new Error(
+                `${className} cannot be deserialize. Did you forget to add the decorator @Serializer.register?`,
+            );
+
+        const { ctor, parameterNames, deserializer } = reflectMap.get(className)!;
+        const parameters = deserilizeParameters(document, parameterNames, properties, className);
+        if (deserializer) {
+            return deserializer(...parameterNames.map((x) => parameters[x]));
+        } else {
+            return new ctor(...parameterNames.map((x) => parameters[x]));
         }
-        let proto = ClassMap.getClass(className);
-        let instance = deserializeMap.get(proto)?.(parameters);
-        if (instance === undefined) throw new Error(`${className} cannot be deserialized`);
-        return instance;
+    }
+
+    function deserilizeParameters(
+        document: IDocument,
+        parameterNames: any[],
+        properties: Properties,
+        className: string,
+    ) {
+        const parameters: Properties = {};
+        parameters["document"] = document;
+        for (const key of parameterNames) {
+            if (key in properties) {
+                parameters[key] = deserialValue(document, properties[key]);
+            } else if (key !== "document") {
+                throw new Error(`${className} constructor parameter ${key} is missing`);
+            }
+        }
+        return parameters;
     }
 
     function deserialValue(document: IDocument, value: any) {
@@ -135,19 +143,21 @@ export namespace Serializer {
         }
     }
 
-    function deserializeProperties(document: IDocument, instance: any, properties: Properties) {
-        for (const key of Object.keys(properties)) {
-            setPropertyValue(document, instance, key, properties[key]);
-        }
-    }
-
-    function setPropertyValue(document: IDocument, instance: any, key: string, value: any) {
-        let ivalue = deserialValue(document, value);
-        let setter = setters.get(value?.className)?.get(key);
-        if (setter) {
-            setter(instance, ivalue);
-        } else {
-            instance[key] = ivalue;
+    function deserializeProperties(
+        document: IDocument,
+        instance: any,
+        data: Serialized,
+        ignores?: string[],
+    ) {
+        let { parameterNames: constructorParameterNames } = reflectMap.get(data.classKey)!;
+        const filter = (key: string) => {
+            if (constructorParameterNames.includes(key)) return false;
+            if (ignores?.includes(key)) return false;
+            return true;
+        };
+        let keys = Object.keys(data.properties).filter(filter);
+        for (const key of keys) {
+            instance[key] = deserialValue(document, data.properties[key]);
         }
     }
 
@@ -155,17 +165,14 @@ export namespace Serializer {
         let key = ClassMap.getKey(target.constructor as any);
         if (key === undefined)
             throw new Error(
-                `Type ${target.constructor.name} is not registered, please add the @ClassMap.key("**") decorator.`,
+                `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );
         let data: Serialized = {
             classKey: key,
             properties: {},
-            constructorParameters: {},
         };
         let properties = getAllKeysOfPrototypeChain(target, propertiesMap);
-        let parameters = getAllKeysOfPrototypeChain(target, constructorParametersMap);
         serializeProperties(data.properties, target, properties);
-        serializeProperties(data.constructorParameters, target, parameters);
         return data;
     }
 

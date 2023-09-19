@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassMap, History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
+import { History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
 
-@ClassMap.key("BoxBody")
+@Serializer.register("BoxBody", ["k1" as any])
 class TestObject implements ISerialize {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     private k1: string;
     @Serializer.property()
     private k4: string = "k4";
@@ -23,21 +23,16 @@ class TestObject implements ISerialize {
     serialize(): Serialized {
         return Serializer.serialize(this);
     }
-
-    @Serializer.deserializer()
-    static from({ k1 }: { k1: string }) {
-        return new TestObject(k1);
-    }
 }
 
 test("test Serializer", () => {
     let obj = new TestObject("111");
     let s = obj.serialize();
-    expect("k1" in s.properties).toBeFalsy();
+    expect("k1" in s.properties).toBeTruthy();
     expect("k4" in s.properties).toBeTruthy();
     expect("k5" in s.properties).toBeTruthy();
     expect("k6" in s.properties).toBeTruthy();
-    s.constructorParameters["k1"] = "222";
+    s.properties["k1"] = "222";
     let obj2 = Serializer.deserialize({} as any, s);
     expect(obj2.k1).toBe("222");
 });

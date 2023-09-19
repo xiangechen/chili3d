@@ -1,15 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
-import { ClassMap } from "chili-core/src/serialize/classMap";
 
-@ClassMap.key("BoxBody")
+@Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
 export class BoxBody extends Body {
     readonly name: I18nKeys = "body.box";
 
     private _dx: number;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("box.dx")
     get dx() {
         return this._dx;
@@ -20,7 +19,7 @@ export class BoxBody extends Body {
 
     private _dy: number;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("box.dy")
     get dy() {
         return this._dy;
@@ -31,7 +30,7 @@ export class BoxBody extends Body {
 
     private _dz: number;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     @Property.define("box.dz")
     get dz() {
         return this._dz;
@@ -42,7 +41,7 @@ export class BoxBody extends Body {
 
     private _plane: Plane;
 
-    @Serializer.property("constructor")
+    @Serializer.property()
     get plane() {
         return this._plane;
     }
@@ -53,23 +52,6 @@ export class BoxBody extends Body {
         this._dx = dx;
         this._dy = dy;
         this._dz = dz;
-    }
-
-    @Serializer.deserializer()
-    static from({
-        document,
-        plane,
-        dx,
-        dy,
-        dz,
-    }: {
-        document: IDocument;
-        plane: Plane;
-        dx: number;
-        dy: number;
-        dz: number;
-    }) {
-        return new BoxBody(document, plane, dx, dy, dz);
     }
 
     protected generateShape(): Result<IShape> {

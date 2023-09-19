@@ -1,30 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ClassKey } from "./classKey";
-
-const keyToClass = new Map<ClassKey, new (...args: any[]) => any>();
-const classToKey = new Map<new (...args: any[]) => any, ClassKey>();
+const keyToClass = new Map<string, new (...args: any[]) => any>();
+const classToKey = new Map<new (...args: any[]) => any, string>();
 
 export namespace ClassMap {
-    export function key(classKey: ClassKey) {
-        return (ctor: new (...args: any) => any) => {
-            if (keyToClass.has(classKey)) throw new Error(`Class ${classKey} already registered`);
-            keyToClass.set(classKey, ctor);
-            classToKey.set(ctor, classKey);
-        };
+    export function save(className: string, ctor: new (...args: any) => any) {
+        if (keyToClass.has(className)) throw new Error(`Class ${className} already registered`);
+        keyToClass.set(className, ctor);
+        classToKey.set(ctor, className);
     }
 
-    export function getClass(key: ClassKey): new (...args: any[]) => any {
+    export function getClass(key: string): new (...args: any[]) => any {
         let cls = keyToClass.get(key);
         if (cls) return cls;
-        throw new Error(`Type ${key} is not find, please add the @ClassMap.key("**") decorator.`);
+        throw new Error(`Type ${key} is not find, please add the @Serializer.register decorator.`);
     }
 
-    export function getKey(ctor: new (...args: any[]) => any): ClassKey {
+    export function getKey(ctor: new (...args: any[]) => any): string {
         let key = classToKey.get(ctor);
         if (key) return key;
-        throw new Error(
-            `Type ${ctor.name} is not registered, please add the @ClassMap.key("**") decorator.`,
-        );
+        throw new Error(`${ctor.name} is not registered, please add the @Serializer.register decorator.`);
     }
 }
