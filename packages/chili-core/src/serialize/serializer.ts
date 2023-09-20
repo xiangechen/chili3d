@@ -189,12 +189,15 @@ export namespace Serializer {
 
     function serializeObject(value: any) {
         let type = typeof value;
-        if (type === "object" && (value as ISerialize).serialize.length === 0) {
-            return value.serialize();
+        if (type === "object") {
+            if ((value as ISerialize).serialize?.length === 0) return value.serialize();
+            throw new Error(
+                `${value.constructor.name} cannot be serialized, please implement the ISerialize interface`,
+            );
         } else if (type !== "function" && type !== "symbol") {
             return value;
         } else {
-            throw new Error("Unsupported serialized object");
+            throw new Error(`Unsupported serialized object: ${value}`);
         }
     }
 
