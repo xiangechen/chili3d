@@ -5,15 +5,12 @@ import { Control, Flyout, Panel } from "../components";
 import style from "./viewport.module.css";
 
 export class Viewport extends Control {
-    readonly viewTop: Panel = new Panel(style.view);
-    readonly viewFront: Panel = new Panel(style.view);
-    readonly view3D: Panel = new Panel(style.view);
-    readonly viewRight: Panel = new Panel(style.view);
     readonly flyout: Flyout = new Flyout();
+    readonly viewDoms: Panel[] = [];
 
     constructor() {
         super(style.root);
-        this.append(this.viewTop, this.view3D, this.viewFront, this.viewRight, this.flyout);
+        this.append(this.flyout);
         this.addEventListener("mousemove", this.handleMouseMove);
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
         PubSub.default.sub("documentClosed", (d) => this.clearViews());
@@ -25,27 +22,29 @@ export class Viewport extends Control {
     }
 
     private clearViews() {
-        this.viewTop.clearChildren();
-        this.viewFront.clearChildren();
-        this.view3D.clearChildren();
-        this.viewRight.clearChildren();
+        this.viewDoms.forEach((v) => v.clearChildren());
+        this.viewDoms.length = 0;
+    }
+
+    private createViews(document: IDocument) {
+        let viewInfos: [string, Plane, XYZ][] = [
+            // ["Top", Plane.XY, new XYZ(0, 0, 1000)],
+            // ["Front", Plane.ZX, new XYZ(0, 1000, 0)],
+            ["3D", Plane.XY, new XYZ(1000, 1000, 1000)],
+            // ["Right", Plane.YZ, new XYZ(1000, 0, 0)],
+        ];
+        viewInfos.forEach((info) => {
+            let dom = new Panel(style.view);
+            this.append(dom);
+            document.visual.viewer.createView(info[0], info[1], dom).lookAt(info[2], XYZ.zero);
+        });
+        document.visual.viewer.redraw();
     }
 
     private handleActiveDocumentChanged = (document: IDocument | undefined) => {
         this.clearViews();
-
         if (document !== undefined) {
-            document.visual.viewer
-                .createView("Top", Plane.XY, this.viewTop)
-                .lookAt(new XYZ(0, 0, 1000), XYZ.zero);
-            document.visual.viewer.createView("3D", Plane.XY, this.view3D);
-            document.visual.viewer
-                .createView("Front", Plane.ZX, this.viewFront)
-                .lookAt(new XYZ(0, 1000, 0), XYZ.zero);
-            document.visual.viewer
-                .createView("Right", Plane.YZ, this.viewRight)
-                .lookAt(new XYZ(1000, 0, 0), XYZ.zero);
-            document.visual.viewer.redraw();
+            this.createViews(document);
         }
     };
 }
