@@ -12,13 +12,6 @@
     opacity: 0.56;
 }
 
-.panel {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    position: relative;
-}
-
 .box {
     font-size: 14px;
     border: 1px solid var(--border-color);

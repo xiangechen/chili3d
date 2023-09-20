@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color } from "../base";
+import { Color, Colors } from "../base";
 import { Config } from "../config";
 import { XYZ } from "../math";
 import { LineType } from "./lineType";
@@ -167,7 +167,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
 
     constructor() {
         super();
-        this._color = Color.random();
+        this._color = Colors.Gray;
     }
 
     override newGroup() {

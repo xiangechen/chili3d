@@ -39,6 +39,12 @@ export interface CheckboxProps extends Props {
     checked: boolean | Binding;
 }
 
+export interface ColorProps extends Props {
+    type: "color";
+    value?: string | Binding;
+    onchange?: (e: Event) => void;
+}
+
 export type ChildDom = string | Node;
 type Tags = keyof HTMLElementTagNameMap;
 
@@ -90,7 +96,7 @@ function setStyle(dom: HTMLElement | SVGElement, style: StyleProps) {
 export const div = createFunction("div");
 export const span = createFunction("span");
 export const button = createFunction("button");
-export const input = createFunction<"input", CheckboxProps>("input");
+export const input = createFunction<"input", CheckboxProps | ColorProps>("input");
 export const textarea = createFunction("textarea");
 export const select = createFunction<"select", SelectProps>("select");
 export const option = createFunction<"option", OptionProps>("option");

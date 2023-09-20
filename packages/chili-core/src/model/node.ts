@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { HistoryObservable, IDisposable, IPropertyChanged } from "../base";
+import { Color, HistoryObservable, IDisposable, IPropertyChanged } from "../base";
 import { IDocument } from "../document";
 import { IShape } from "../geometry";
 import { Id } from "../id";
@@ -35,6 +35,7 @@ export interface IModel extends INode {
     readonly document: IDocument;
     readonly body: Entity;
     matrix: Matrix4;
+    color: Color;
     shape(): IShape | undefined;
 }
 

@@ -5,6 +5,7 @@ import { Locale } from "./local";
 export default {
     language: "English",
     translation: {
+        "common.color": "Color",
         "common.name": "Name",
         "common.matrix": "Matrix",
         "common.cancel": "Cancel",

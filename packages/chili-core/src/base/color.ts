@@ -1,16 +1,30 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { ISerialize, Serialized, Serializer } from "../serialize";
+
 /**
  * Color, RGBA format.
  * [0, 0, 0, 0] ~ [1, 1, 1, 1
  */
-export class Color {
+@Serializer.register("Color", ["r", "g", "b", "a"])
+export class Color implements ISerialize {
     constructor(
         readonly r: number,
         readonly g: number,
         readonly b: number,
         readonly a: number,
     ) {}
+    serialize(): Serialized {
+        return {
+            classKey: "Color",
+            properties: {
+                r: this.r,
+                g: this.g,
+                b: this.b,
+                a: this.a,
+            },
+        };
+    }
 
     /**
      *
@@ -30,6 +44,9 @@ export class Color {
      * @returns
      */
     static fromHexStr(hex: string): Color {
+        if (hex.startsWith("#")) {
+            hex = hex.substring(1);
+        }
         return Color.fromHex(parseInt(hex, 16));
     }
 

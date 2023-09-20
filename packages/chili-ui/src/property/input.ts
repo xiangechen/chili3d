@@ -40,7 +40,7 @@ export class InputProperty extends PropertyBase {
             .addClass(commonStyle.propertyName)
             .setTitle(property.display);
         this.error = new Label().i18nText("error.default").addClass(style.error, style.hidden);
-        let panel = new Panel().addClass(style.panel).addItem(name, this.valueBox);
+        let panel = new Panel().addClass(commonStyle.panel).addItem(name, this.valueBox);
         this.append(panel, this.error);
 
         this.addConnectedCallback(this.onConnected);

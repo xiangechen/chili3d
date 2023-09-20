@@ -8,6 +8,7 @@ export type Locale = {
 export type Translation = Record<I18nKeys, string>;
 
 export type I18nKeys =
+    | "common.color"
     | "common.name"
     | "common.matrix"
     | "common.normal"

@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Logger } from "../base";
+import { Color, Colors, Logger } from "../base";
 import { IDocument } from "../document";
 import { ICompound, IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
+import { Property } from "../property";
 import { Serializer } from "../serialize";
 import { Body } from "./body";
 import { Entity } from "./entity";
@@ -39,6 +40,17 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
                 equals: (left, right) => left.equals(right),
             },
         );
+    }
+
+    private _color: Color = Colors.Gray;
+
+    @Serializer.property()
+    @Property.define("common.color")
+    get color() {
+        return this._color;
+    }
+    set color(value: Color) {
+        this.setProperty("color", value);
     }
 
     constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {

@@ -136,7 +136,7 @@ export class ThreeVisualContext implements IVisualContext {
                 let modelShape = model.shape();
                 if (modelShape === undefined) return;
                 let threeShape = new ThreeShape(modelShape);
-                model.onPropertyChanged(this.handleTransformChanged);
+                model.onPropertyChanged(this.handleModelPropertyChanged);
                 this.modelShapes.add(threeShape);
                 this._shapeModelMap.set(threeShape, model);
                 this._modelShapeMap.set(model, threeShape);
@@ -148,12 +148,14 @@ export class ThreeVisualContext implements IVisualContext {
         return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
-    private handleTransformChanged = (property: keyof IModel, model: IModel) => {
+    private handleModelPropertyChanged = (property: keyof IModel, model: IModel) => {
         let shape = this.getShape(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {
             shape.matrix.copy(this.convertMatrix(model.matrix));
             shape.matrixWorldNeedsUpdate = true;
+        } else if (property === "color") {
+            shape.color = model[property];
         }
     };
 

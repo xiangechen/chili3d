@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
+import { Color, GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
 import { CheckProperty } from "./check";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
+import { ColorProperty } from "./colorProperty";
 
 export class PropertyView extends Control {
     private panel = new Panel(style.panel);
@@ -27,6 +28,8 @@ export class PropertyView extends Control {
     private addDefault(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
         this.appendProperty(this.panel, document, nodes, Property.getProperty(nodes[0], "name"));
+        if (INode.isModelNode(nodes[0]))
+            this.appendProperty(this.panel, document, nodes, Property.getProperty(nodes[0], "color"));
     }
 
     private addBody(nodes: INode[], document: IDocument) {
@@ -74,9 +77,14 @@ export class PropertyView extends Control {
 
     private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
         if (prop === undefined) return;
-        const type = typeof (objs[0] as unknown as any)[prop.name];
+        const propValue = (objs[0] as unknown as any)[prop.name];
+        const type = typeof propValue;
         if (type === "object" || type === "string" || type === "number") {
-            container.append(new InputProperty(document, objs, prop));
+            if (propValue instanceof Color) {
+                container.append(new ColorProperty(document, objs, prop));
+            } else {
+                container.append(new InputProperty(document, objs, prop));
+            }
         } else if (type === "boolean") {
             container.append(new CheckProperty(objs, prop));
         }
