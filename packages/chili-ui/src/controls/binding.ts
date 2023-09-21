@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable, IPropertyChanged } from "chili-core";
+import { IConverter, IDisposable, IPropertyChanged, PubSub, Result } from "chili-core";
 
 export type Key = string | number | symbol;
 
@@ -13,6 +13,7 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged, K extends ke
     constructor(
         readonly dataContext: T,
         readonly path: K,
+        readonly converter?: IConverter,
     ) {
         this.cacheBinding(dataContext);
         this.dataContext.onPropertyChanged(this.onPropertyChanged);
@@ -59,6 +60,14 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged, K extends ke
 
     private setValue<T extends object>(target: T, keys: Set<Key>) {
         let value: any = this.dataContext[this.path];
+        if (this.converter) {
+            let result = this.converter.convert(value);
+            if (!result.success) {
+                PubSub.default.pub("showToast", "toast.converter.error");
+                return;
+            }
+            value = result.value;
+        }
         keys.forEach((key) => {
             let scope: any = target;
             if (value !== scope[key] && key in scope) scope[key] = value;
@@ -71,6 +80,6 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged, K extends ke
     }
 }
 
-export function bind<T extends IPropertyChanged>(dataContext: T, path: keyof T) {
-    return new Binding(dataContext, path);
+export function bind<T extends IPropertyChanged>(dataContext: T, path: keyof T, converter?: IConverter) {
+    return new Binding(dataContext, path, converter);
 }

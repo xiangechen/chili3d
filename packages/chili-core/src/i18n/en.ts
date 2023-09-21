@@ -73,6 +73,8 @@ export default {
         "toast.command.{0}excuting": "Command {0} is runing",
         "toast.document.saved": "Document saved",
         "toast.document.noActived": "No document actived",
+        "toast.converter.invalidColor": "The color is invalid",
+        "toast.converter.error": "Converter error",
         "prompt.default":
             "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",

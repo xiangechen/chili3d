@@ -3,11 +3,12 @@
 import { Color, GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Control, Expander, Label, Panel } from "../components";
 
+import { div } from "../controls";
 import { CheckProperty } from "./check";
+import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
-import { ColorProperty } from "./colorProperty";
 
 export class PropertyView extends Control {
     private panel = new Panel(style.panel);
@@ -27,9 +28,15 @@ export class PropertyView extends Control {
 
     private addDefault(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
-        this.appendProperty(this.panel, document, nodes, Property.getProperty(nodes[0], "name"));
-        if (INode.isModelNode(nodes[0]))
-            this.appendProperty(this.panel, document, nodes, Property.getProperty(nodes[0], "color"));
+        let nameProperty = Property.getProperty(nodes[0], "name");
+        let colorProperty = Property.getProperty(nodes[0], "color" as any);
+        this.panel.append(
+            div(
+                { className: style.colorName },
+                colorProperty ? new ColorProperty(document, nodes, colorProperty, false) : "",
+                nameProperty ? new InputProperty(document, nodes, nameProperty, false) : "",
+            ),
+        );
     }
 
     private addBody(nodes: INode[], document: IDocument) {

@@ -66,9 +66,8 @@ export namespace Property {
 
     export function getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
         if (target === undefined) return undefined;
-        if (PropertyKeyMap.has(target)) {
-            return PropertyKeyMap.get(target)!.get(property);
-        }
+        let map = PropertyKeyMap.get(target);
+        if (map?.has(property)) return map.get(property);
         return getProperty(Object.getPrototypeOf(target), property);
     }
 }

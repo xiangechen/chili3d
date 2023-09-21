@@ -73,6 +73,8 @@ export default {
         "toast.command.{0}excuting": "{0}命令正在执行",
         "toast.document.saved": "文档已保存",
         "toast.document.noActived": "未打开任何文档",
+        "toast.converter.invalidColor": "无效的颜色",
+        "toast.converter.error": "转换错误",
         "prompt.default": "鼠标中键平移视图，右键旋转视图，中键滚动缩放视图",
         "prompt.polygon.close": "闭合",
         "prompt.select.models": "请选择模型",

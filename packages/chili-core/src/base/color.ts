@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Result } from "./result";
 
 /**
  * Color, RGBA format.
@@ -40,14 +41,16 @@ export class Color implements ISerialize {
 
     /**
      *
-     * @param hex 0xRRGGBB
+     * @param hex #RRGGBB
      * @returns
      */
-    static fromHexStr(hex: string): Color {
+    static fromHexStr(hex: string): Result<Color> {
         if (hex.startsWith("#")) {
             hex = hex.substring(1);
         }
-        return Color.fromHex(parseInt(hex, 16));
+        let value = parseInt(hex, 16);
+        if (Number.isNaN(value)) return Result.error("Invalid hex string: " + hex);
+        return Result.success(Color.fromHex(value));
     }
 
     static fromRGB(r: number, g: number, b: number): Color {

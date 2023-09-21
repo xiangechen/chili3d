@@ -28,6 +28,7 @@ export class InputProperty extends PropertyBase {
         readonly document: IDocument,
         objects: any[],
         readonly property: Property,
+        readonly showTitle: boolean = true,
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
@@ -40,7 +41,9 @@ export class InputProperty extends PropertyBase {
             .addClass(commonStyle.propertyName)
             .setTitle(property.display);
         this.error = new Label().i18nText("error.default").addClass(style.error, style.hidden);
-        let panel = new Panel().addClass(commonStyle.panel).addItem(name, this.valueBox);
+        let panel = new Panel().addClass(commonStyle.panel);
+        if (showTitle) panel.addItem(name);
+        panel.addItem(this.valueBox);
         this.append(panel, this.error);
 
         this.addConnectedCallback(this.onConnected);
