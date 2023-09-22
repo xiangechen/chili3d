@@ -5,6 +5,27 @@ import { OccHelps } from "./occHelps";
 import { OccShape } from "./occShape";
 
 export class OccShapeConverter implements IShapeConverter {
+    convertToBrep(shape: IShape): Result<string> {
+        if (!(shape instanceof OccShape)) return Result.error("shape is not an OccShape");
+        const fileName = "blob.brep";
+        const progress = new occ.Message_ProgressRange_1();
+        occ.BRepTools.Write_3(shape.shape, fileName, progress);
+        const file = occ.FS.readFile("/" + fileName, { encoding: "utf8" });
+        occ.FS.unlink("/" + fileName);
+        return Result.success(file);
+    }
+
+    convertFromBrep(brep: string): Result<IShape> {
+        const fileName = `blob.brep`;
+        occ.FS.createDataFile("/", fileName, brep, true, true, true);
+        const progress = new occ.Message_ProgressRange_1();
+        const builder = new occ.BRep_Builder();
+        const shape = new occ.TopoDS_Shape();
+        occ.BRepTools.Read_2(shape, fileName, builder, progress);
+        occ.FS.unlink("/" + fileName);
+        return Result.success(OccHelps.getShape(shape));
+    }
+
     convertToIGES(...shapes: IShape[]): Result<string> {
         const fileName = "blob.iges";
         let writer = new occ.IGESControl_Writer_1();

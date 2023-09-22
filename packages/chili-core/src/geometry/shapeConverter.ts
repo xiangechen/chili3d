@@ -8,4 +8,6 @@ export interface IShapeConverter {
     convertFromIGES(iges: string): Result<IShape>;
     convertToSTEP(...shapes: IShape[]): Result<string>;
     convertFromSTEP(step: string): Result<IShape>;
+    convertToBrep(shape: IShape): Result<string>;
+    convertFromBrep(brep: string): Result<IShape>;
 }
