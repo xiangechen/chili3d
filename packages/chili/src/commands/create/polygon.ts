@@ -46,7 +46,7 @@ export class Polygon extends CreateFaceableCommand {
             i++;
         }
 
-        return this._restarting === false;
+        return this.stepDatas.length > startIndex;
     }
 
     private isClose(data: SnapedData) {
