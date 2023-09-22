@@ -2,7 +2,6 @@
 
 import { Result } from "../base";
 import { Matrix4, Ray, XYZ } from "../math";
-import { ISerialize } from "../serialize";
 import { ICurve } from "./geometry";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
@@ -33,7 +32,7 @@ export enum SurfaceType {
     OtherSurface,
 }
 
-export interface IShape extends ISerialize {
+export interface IShape {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;

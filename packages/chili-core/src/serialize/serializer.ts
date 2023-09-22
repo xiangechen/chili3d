@@ -4,33 +4,27 @@ import { IDocument } from "../document";
 import { INodeLinkedList } from "../model";
 import { ClassMap } from "./classMap";
 
-export type Properties = {
-    [key: string]: any;
-};
-
 export type Serialized = {
     classKey: string;
-    properties: Properties;
+    properties: SerializedProperties<any>;
 };
 
-export interface ISerialize {
-    serialize(): Serialized;
+export type SerializedProperties<T> = {
+    [P in keyof T]?: any;
+};
+
+interface RefelectData {
+    ctor: new (...args: any[]) => any;
+    ctorParamNames: string[];
+    serialize?: (target: any) => SerializedProperties<any>;
+    deserialize?: (...args: any[]) => any;
 }
 
-export interface RefelectData {
-    ctor: new (...args: any[]) => any;
-    parameterNames: string[];
-    deserializer?: (...args: any[]) => any;
-}
+const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
+const reflectMap = new Map<string, RefelectData>();
 
 export namespace Serializer {
-    const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
-    const reflectMap = new Map<string, RefelectData>();
-
-    /**
-     * Decorator used to indicate whether a property is serialized
-     */
-    export function property() {
+    export function serialze() {
         return (target: any, property: string) => {
             let keys = propertiesMap.get(target);
             if (keys === undefined) {
@@ -41,21 +35,25 @@ export namespace Serializer {
         };
     }
 
-    export function register<T extends ISerialize>(
+    export function register<T>(
         className: string,
-        parameterNames: (keyof T & string)[],
-        deserializer?: (...args: any[]) => T,
+        ctorParamNames: (keyof T & string)[],
+        deserialize?: (...args: any[]) => T,
+        serialize?: (target: T) => SerializedProperties<T>,
     ) {
         return (target: new (...args: any[]) => T) => {
             ClassMap.save(className, target);
             reflectMap.set(className, {
                 ctor: target,
-                parameterNames,
-                deserializer,
+                ctorParamNames,
+                serialize,
+                deserialize,
             });
         };
     }
+}
 
+export namespace Serializer {
     /**
      * Deserialize an object
      *
@@ -68,7 +66,7 @@ export namespace Serializer {
      * ```
      * @returns Deserialized object
      */
-    export function deserialize(document: IDocument, data: Serialized) {
+    export function deserializeObject(document: IDocument, data: Serialized) {
         if ("firstChild" in data.properties || "nextSibling" in data.properties) {
             return nodeDescrialize(document, data, data.properties["parent"]);
         } else {
@@ -100,30 +98,35 @@ export namespace Serializer {
         return node;
     }
 
-    function deserializeInstance(document: IDocument, className: string, properties: Properties) {
-        if (!reflectMap.has(className))
+    function deserializeInstance(
+        document: IDocument,
+        className: string,
+        properties: SerializedProperties<any>,
+    ) {
+        if (!reflectMap.has(className)) {
             throw new Error(
                 `${className} cannot be deserialize. Did you forget to add the decorator @Serializer.register?`,
             );
+        }
 
-        const { ctor, parameterNames, deserializer } = reflectMap.get(className)!;
-        const parameters = deserilizeParameters(document, parameterNames, properties, className);
-        if (deserializer) {
-            return deserializer(...parameterNames.map((x) => parameters[x]));
+        const { ctor, ctorParamNames, deserialize } = reflectMap.get(className)!;
+        const parameters = deserilizeParameters(document, ctorParamNames, properties, className);
+        if (deserialize) {
+            return deserialize(...ctorParamNames.map((x) => parameters[x]));
         } else {
-            return new ctor(...parameterNames.map((x) => parameters[x]));
+            return new ctor(...ctorParamNames.map((x) => parameters[x]));
         }
     }
 
     function deserilizeParameters(
         document: IDocument,
-        parameterNames: any[],
-        properties: Properties,
+        ctorParamNames: any[],
+        properties: SerializedProperties<any>,
         className: string,
     ) {
-        const parameters: Properties = {};
+        const parameters: SerializedProperties<any> = {};
         parameters["document"] = document;
-        for (const key of parameterNames) {
+        for (const key of ctorParamNames) {
             if (key in properties) {
                 parameters[key] = deserialValue(document, properties[key]);
             } else if (key !== "document") {
@@ -136,10 +139,10 @@ export namespace Serializer {
     function deserialValue(document: IDocument, value: any) {
         if (Array.isArray(value)) {
             return value.map((v) => {
-                return typeof v === "object" ? deserialize(document, v) : v;
+                return typeof v === "object" ? deserializeObject(document, v) : v;
             });
         } else {
-            return (value as Serialized).classKey ? deserialize(document, value) : value;
+            return (value as Serialized).classKey ? deserializeObject(document, value) : value;
         }
     }
 
@@ -149,9 +152,9 @@ export namespace Serializer {
         data: Serialized,
         ignores?: string[],
     ) {
-        let { parameterNames: constructorParameterNames } = reflectMap.get(data.classKey)!;
+        let { ctorParamNames } = reflectMap.get(data.classKey)!;
         const filter = (key: string) => {
-            if (constructorParameterNames.includes(key)) return false;
+            if (ctorParamNames.includes(key)) return false;
             if (ignores?.includes(key)) return false;
             return true;
         };
@@ -160,8 +163,10 @@ export namespace Serializer {
             instance[key] = deserialValue(document, data.properties[key]);
         }
     }
+}
 
-    export function serialize(target: ISerialize): Serialized {
+export namespace Serializer {
+    export function serializeObject(target: Object): Serialized {
         let key = ClassMap.getKey(target.constructor as any);
         if (key === undefined)
             throw new Error(
@@ -176,24 +181,21 @@ export namespace Serializer {
         return data;
     }
 
-    function serializeProperties(data: Properties, target: ISerialize, keys: Set<string>) {
+    function serializeProperties(data: SerializedProperties<any>, target: Object, keys: Set<string>) {
         for (const key of keys) {
             let value = (target as any)[key];
             if (Array.isArray(value)) {
-                data[key] = value.map((v) => serializeObject(v));
+                data[key] = value.map((v) => serializePropertyValue(v));
             } else {
-                data[key] = serializeObject(value);
+                data[key] = serializePropertyValue(value);
             }
         }
     }
 
-    function serializeObject(value: any) {
+    function serializePropertyValue(value: any) {
         let type = typeof value;
         if (type === "object") {
-            if ((value as ISerialize).serialize?.length === 0) return value.serialize();
-            throw new Error(
-                `${value.constructor.name} cannot be serialized, please implement the ISerialize interface`,
-            );
+            return serializeObjectType(value);
         } else if (type !== "function" && type !== "symbol") {
             return value;
         } else {
@@ -201,10 +203,23 @@ export namespace Serializer {
         }
     }
 
-    function getAllKeysOfPrototypeChain(
-        target: ISerialize,
-        map: Map<new (...args: any[]) => any, Set<string>>,
-    ) {
+    function serializeObjectType(target: Object) {
+        let key = ClassMap.getKey(target.constructor as any);
+        if (key === undefined || !reflectMap.has(key)) {
+            throw new Error(`Unsupported serialized object: ${target.constructor.name}`);
+        }
+        let data = reflectMap.get(key)!;
+        if (data.serialize) {
+            return {
+                classKey: key,
+                properties: data.serialize(target),
+            };
+        } else {
+            return serializeObject(target);
+        }
+    }
+
+    function getAllKeysOfPrototypeChain(target: Object, map: Map<new (...args: any[]) => any, Set<string>>) {
         let keys: string[] = [];
         let prototype = Object.getPrototypeOf(target);
         while (prototype !== null) {

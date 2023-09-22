@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { Result } from "./result";
 
 /**
@@ -8,23 +8,24 @@ import { Result } from "./result";
  * [0, 0, 0, 0] ~ [1, 1, 1, 1
  */
 @Serializer.register("Color", ["r", "g", "b", "a"])
-export class Color implements ISerialize {
-    constructor(
-        readonly r: number,
-        readonly g: number,
-        readonly b: number,
-        readonly a: number,
-    ) {}
-    serialize(): Serialized {
-        return {
-            classKey: "Color",
-            properties: {
-                r: this.r,
-                g: this.g,
-                b: this.b,
-                a: this.a,
-            },
-        };
+export class Color {
+    @Serializer.serialze()
+    readonly r: number;
+
+    @Serializer.serialze()
+    readonly g: number;
+
+    @Serializer.serialze()
+    readonly b: number;
+
+    @Serializer.serialze()
+    readonly a: number;
+
+    constructor(r: number, g: number, b: number, a: number) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
     }
 
     /**

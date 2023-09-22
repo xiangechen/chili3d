@@ -2,7 +2,6 @@
 
 import { EventEmitter } from "events";
 import { IDocument } from "../document";
-import { ISerialize, Serialized, Serializer } from "../serialize";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
@@ -17,15 +16,11 @@ export interface IPropertyChanged {
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
 }
 
-export class Observable implements IPropertyChanged, IDisposable, ISerialize {
+export class Observable implements IPropertyChanged, IDisposable {
     protected readonly eventEmitter: EventEmitter;
 
     constructor() {
         this.eventEmitter = new EventEmitter();
-    }
-
-    serialize(): Serialized {
-        return Serializer.serialize(this);
     }
 
     protected setPrivatePropertyValue<K extends keyof this>(pubKey: K, newValue: this[K]) {

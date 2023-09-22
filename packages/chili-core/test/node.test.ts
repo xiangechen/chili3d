@@ -26,7 +26,6 @@ describe("test node", () => {
             nextSibling: undefined,
             onPropertyChanged: () => {},
             removePropertyChanged: () => {},
-            serialize: () => ({}) as any,
             clone: () => ({}) as any,
             dispose() {},
         };

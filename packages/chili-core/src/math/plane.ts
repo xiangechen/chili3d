@@ -1,28 +1,29 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
 @Serializer.register("Plane", ["origin", "normal", "xvec"])
-export class Plane implements ISerialize {
+export class Plane {
     static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
     static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
     static readonly ZX: Plane = new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ);
 
+    @Serializer.serialze()
+    readonly origin: XYZ;
     /**
      * unit vector
      */
+    @Serializer.serialze()
     readonly normal: XYZ;
+    @Serializer.serialze()
     readonly xvec: XYZ;
     readonly yvec: XYZ;
-    constructor(
-        readonly origin: XYZ,
-        normal: XYZ,
-        xvec: XYZ,
-    ) {
+    constructor(origin: XYZ, normal: XYZ, xvec: XYZ) {
+        this.origin = origin;
         let n = normal.normalize(),
             x = xvec.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
@@ -37,17 +38,6 @@ export class Plane implements ISerialize {
         this.normal = n;
         this.xvec = x;
         this.yvec = n.cross(x).normalize()!;
-    }
-
-    serialize(): Serialized {
-        return {
-            classKey: "Plane",
-            properties: {
-                origin: this.origin.serialize(),
-                normal: this.normal.serialize(),
-                xvec: this.xvec.serialize(),
-            },
-        };
     }
 
     translateTo(origin: XYZ) {

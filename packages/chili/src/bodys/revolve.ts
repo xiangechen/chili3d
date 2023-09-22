@@ -7,7 +7,7 @@ export class RevolveBody extends Body {
     override name: I18nKeys = "body.revol";
 
     private _profile: IShape;
-    @Serializer.property()
+    @Serializer.serialze()
     get profile() {
         return this._profile;
     }
@@ -16,7 +16,7 @@ export class RevolveBody extends Body {
     }
 
     private _axis: Ray;
-    @Serializer.property()
+    @Serializer.serialze()
     get axis() {
         return this._axis;
     }
@@ -25,7 +25,7 @@ export class RevolveBody extends Body {
     }
 
     private _angle: number;
-    @Serializer.property()
+    @Serializer.serialze()
     get angle() {
         return this._angle;
     }

@@ -6,10 +6,10 @@ import { IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
-import { ISerialize, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { Entity } from "./entity";
 
-export interface INode extends IPropertyChanged, ISerialize, IDisposable {
+export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
     visible: boolean;
     parentVisible: boolean;
@@ -65,10 +65,10 @@ export abstract class Node extends HistoryObservable implements INode {
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
 
-    @Serializer.property()
+    @Serializer.serialze()
     nextSibling: INode | undefined;
 
-    @Serializer.property()
+    @Serializer.serialze()
     readonly id: string;
 
     constructor(
@@ -80,7 +80,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.id = id;
     }
 
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("common.name")
     get name() {
         return this._name;
@@ -90,7 +90,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setProperty("name", value);
     }
 
-    @Serializer.property()
+    @Serializer.serialze()
     get visible(): boolean {
         return this._visible;
     }
@@ -110,11 +110,11 @@ export abstract class Node extends HistoryObservable implements INode {
     }
 
     clone(): this {
-        let serialized = Serializer.serialize(this);
+        let serialized = Serializer.serializeObject(this);
         serialized.properties["id"] = Id.new();
         serialized.properties["name"] = `${this._name}_copy`;
         serialized.properties["parent"] = this.parent;
-        return Serializer.deserialize(this.document, serialized);
+        return Serializer.deserializeObject(this.document, serialized);
     }
 
     protected abstract onParentVisibleChanged(): void;

@@ -7,7 +7,7 @@ export class FuseBody extends Body {
     override name: I18nKeys = "body.fuse";
 
     private _bottom: IShape;
-    @Serializer.property()
+    @Serializer.serialze()
     get bottom(): IShape {
         return this._bottom;
     }
@@ -16,7 +16,7 @@ export class FuseBody extends Body {
     }
 
     private _top: IShape;
-    @Serializer.property()
+    @Serializer.serialze()
     get top(): IShape {
         return this._top;
     }

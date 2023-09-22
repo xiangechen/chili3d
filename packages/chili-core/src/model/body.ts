@@ -16,7 +16,7 @@ export abstract class Body extends Entity {
 
 export abstract class FaceableBody extends Body {
     private _isFace: boolean = false;
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("command.faceable.isFace")
     get isFace() {
         return this._isFace;

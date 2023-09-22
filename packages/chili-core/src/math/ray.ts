@@ -1,35 +1,26 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
 @Serializer.register("Ray", ["location", "direction"])
-export class Ray implements ISerialize {
+export class Ray {
+    @Serializer.serialze()
+    readonly location: XYZ;
     /**
      * unit vector
      */
+    @Serializer.serialze()
     readonly direction: XYZ;
 
-    constructor(
-        readonly location: XYZ,
-        direction: XYZ,
-    ) {
+    constructor(location: XYZ, direction: XYZ) {
+        this.location = location;
         let n = direction.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("direction can not be zero");
         }
         this.direction = n;
-    }
-
-    serialize(): Serialized {
-        return {
-            classKey: "Ray",
-            properties: {
-                location: this.location.serialize(),
-                direction: this.direction.serialize(),
-            },
-        };
     }
 
     intersect(right: Ray): XYZ | undefined {

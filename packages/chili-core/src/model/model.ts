@@ -13,7 +13,7 @@ import { Feature } from "./feature";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model<T extends IShape = IShape> extends Node implements IModel {
-    @Serializer.property()
+    @Serializer.serialze()
     readonly body: Body;
 
     protected _shape: T | undefined;
@@ -24,7 +24,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 
     protected _matrix: Matrix4 = Matrix4.identity();
 
-    @Serializer.property()
+    @Serializer.serialze()
     get matrix(): Matrix4 {
         return this._matrix;
     }
@@ -44,7 +44,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
 
     private _color: Color = Colors.Gray;
 
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("common.color")
     get color() {
         return this._color;

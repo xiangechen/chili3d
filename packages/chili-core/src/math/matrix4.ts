@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -9,17 +9,21 @@ import { XYZ } from "./xyz";
 /**
  * Matrix in column-major order
  */
-@Serializer.register("Matrix4", ["array" as any], (array: Float32Array) => {
+@Serializer.register("Matrix4", ["array"], (array: Float32Array) => {
     return Matrix4.fromArray(array);
 })
-export class Matrix4 implements ISerialize {
-    private readonly array: Float32Array = new Float32Array(16);
+export class Matrix4 {
+    private readonly _array: Float32Array = new Float32Array(16);
+    @Serializer.serialze()
+    get array(): ReadonlyArray<number> {
+        return [...this._array];
+    }
 
     public determinant(): number {
-        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
-        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
-        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
-        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
+        let [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
+        let [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
+        let [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
+        let [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
 
         let b0 = a00 * a11 - a01 * a10;
         let b1 = a00 * a12 - a02 * a10;
@@ -35,32 +39,23 @@ export class Matrix4 implements ISerialize {
         return a13 * b6 - a03 * b7 + a33 * b8 - a23 * b9;
     }
 
-    serialize(): Serialized {
-        return {
-            classKey: "Matrix4",
-            properties: {
-                array: this.toArray(),
-            },
-        };
-    }
-
     public toArray(): readonly number[] {
-        return [...this.array];
+        return [...this._array];
     }
 
     public add(other: Matrix4): Matrix4 {
         let result = new Matrix4();
         for (let index = 0; index < 16; index++) {
-            result.array[index] = this.array[index] + other.array[index];
+            result._array[index] = this._array[index] + other._array[index];
         }
         return result;
     }
 
     public invert(): Matrix4 | undefined {
-        let [a00, a01, a02, a03] = [this.array[0], this.array[1], this.array[2], this.array[3]];
-        let [a10, a11, a12, a13] = [this.array[4], this.array[5], this.array[6], this.array[7]];
-        let [a20, a21, a22, a23] = [this.array[8], this.array[9], this.array[10], this.array[11]];
-        let [a30, a31, a32, a33] = [this.array[12], this.array[13], this.array[14], this.array[15]];
+        let [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
+        let [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
+        let [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
+        let [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
         let b00 = a00 * a11 - a01 * a10;
         let b01 = a00 * a12 - a02 * a10;
         let b02 = a00 * a13 - a03 * a10;
@@ -100,34 +95,34 @@ export class Matrix4 implements ISerialize {
 
     position(x: number, y: number, z: number): Matrix4 {
         let transform = this.clone();
-        transform.array[12] = x;
-        transform.array[13] = y;
-        transform.array[14] = z;
+        transform._array[12] = x;
+        transform._array[13] = y;
+        transform._array[14] = z;
         return transform;
     }
 
     getPosition(): XYZ {
-        return new XYZ(this.array[12], this.array[13], this.array[14]);
+        return new XYZ(this._array[12], this._array[13], this._array[14]);
     }
 
     scale(x: number, y: number, z: number) {
         let matrix = this.clone();
-        matrix.array[0] = x;
-        matrix.array[5] = y;
-        matrix.array[10] = z;
+        matrix._array[0] = x;
+        matrix._array[5] = y;
+        matrix._array[10] = z;
         return matrix;
     }
 
     getScale(): XYZ {
-        let m11 = this.array[0];
-        let m12 = this.array[1];
-        let m13 = this.array[2];
-        let m21 = this.array[4];
-        let m22 = this.array[5];
-        let m23 = this.array[6];
-        let m31 = this.array[8];
-        let m32 = this.array[9];
-        let m33 = this.array[10];
+        let m11 = this._array[0];
+        let m12 = this._array[1];
+        let m13 = this._array[2];
+        let m21 = this._array[4];
+        let m22 = this._array[5];
+        let m23 = this._array[6];
+        let m31 = this._array[8];
+        let m32 = this._array[9];
+        let m33 = this._array[10];
 
         let sx = Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13);
         const det = this.determinant();
@@ -150,41 +145,41 @@ export class Matrix4 implements ISerialize {
         const cy = Math.cos(yaw);
         const sr = Math.sin(roll);
         const cr = Math.cos(roll);
-        matrix.array[0] = cy * cr + sy * sp * sr;
-        matrix.array[1] = cp * sr;
-        matrix.array[2] = -sy * cr + cy * sp * sr;
-        matrix.array[4] = cy * sr - sy * sp * cr;
-        matrix.array[5] = cp * cr;
-        matrix.array[6] = sy * sr + cy * sp * cr;
-        matrix.array[8] = sy * cp;
-        matrix.array[9] = -sp;
-        matrix.array[10] = cy * cp;
+        matrix._array[0] = cy * cr + sy * sp * sr;
+        matrix._array[1] = cp * sr;
+        matrix._array[2] = -sy * cr + cy * sp * sr;
+        matrix._array[4] = cy * sr - sy * sp * cr;
+        matrix._array[5] = cp * cr;
+        matrix._array[6] = sy * sr + cy * sp * cr;
+        matrix._array[8] = sy * cp;
+        matrix._array[9] = -sp;
+        matrix._array[10] = cy * cp;
         return matrix;
     }
 
     getEulerAngles(): { pitch: number; yaw: number; roll: number } {
-        const pitch = -Math.asin(this.array[9]);
+        const pitch = -Math.asin(this._array[9]);
         let yaw = 0.0,
             roll = 0.0;
-        if (this.array[9] < 1.0) {
-            if (this.array[9] > -1.0) {
-                yaw = Math.atan2(this.array[8], this.array[10]);
-                roll = Math.atan2(this.array[1], this.array[5]);
+        if (this._array[9] < 1.0) {
+            if (this._array[9] > -1.0) {
+                yaw = Math.atan2(this._array[8], this._array[10]);
+                roll = Math.atan2(this._array[1], this._array[5]);
             } else {
-                yaw = -Math.atan2(-this.array[2], this.array[0]);
+                yaw = -Math.atan2(-this._array[2], this._array[0]);
                 roll = 0.0;
             }
         } else {
-            yaw = Math.atan2(-this.array[2], this.array[0]);
+            yaw = Math.atan2(-this._array[2], this._array[0]);
             roll = 0.0;
         }
         return { pitch, yaw, roll };
     }
 
     getRotation() {
-        const [m11, m12, m13] = [this.array[0], this.array[4], this.array[8]];
-        const [m21, m22, m23] = [this.array[1], this.array[5], this.array[9]];
-        const [m31, m32, m33] = [this.array[2], this.array[6], this.array[10]];
+        const [m11, m12, m13] = [this._array[0], this._array[4], this._array[8]];
+        const [m21, m22, m23] = [this._array[1], this._array[5], this._array[9]];
+        const [m31, m32, m33] = [this._array[2], this._array[6], this._array[10]];
         const trace = m11 + m22 + m33;
         let s, x, y, z, w;
         if (trace > 0) {
@@ -221,7 +216,7 @@ export class Matrix4 implements ISerialize {
         for (let i = 0; i < 4; i++) {
             for (let j = 0; j < 4; j++) {
                 for (let k = 0; k < 4; k++) {
-                    array[i * 4 + j] += this.array[i * 4 + k] * other.array[k * 4 + j];
+                    array[i * 4 + j] += this._array[i * 4 + k] * other._array[k * 4 + j];
                 }
             }
         }
@@ -230,19 +225,19 @@ export class Matrix4 implements ISerialize {
 
     public equals(value: Matrix4): boolean {
         for (let i = 0; i < 16; i++) {
-            if (!MathUtils.almostEqual(this.array[i], value.array[i])) return false;
+            if (!MathUtils.almostEqual(this._array[i], value._array[i])) return false;
         }
         return true;
     }
 
     public clone(): Matrix4 {
-        return Matrix4.fromArray([...this.array]);
+        return Matrix4.fromArray([...this._array]);
     }
 
     public static fromArray(array: ArrayLike<number>): Matrix4 {
         let result = new Matrix4();
         for (let index = 0; index < 16; index++) {
-            result.array[index] = array[index];
+            result._array[index] = array[index];
         }
         return result;
     }
@@ -276,22 +271,22 @@ export class Matrix4 implements ISerialize {
             sy = scale.y,
             sz = scale.z;
 
-        matrix.array[0] = (1 - (yy + zz)) * sx;
-        matrix.array[1] = (xy + wz) * sx;
-        matrix.array[2] = (xz - wy) * sx;
+        matrix._array[0] = (1 - (yy + zz)) * sx;
+        matrix._array[1] = (xy + wz) * sx;
+        matrix._array[2] = (xz - wy) * sx;
 
-        matrix.array[4] = (xy - wz) * sy;
-        matrix.array[5] = (1 - (xx + zz)) * sy;
-        matrix.array[6] = (yz + wx) * sy;
+        matrix._array[4] = (xy - wz) * sy;
+        matrix._array[5] = (1 - (xx + zz)) * sy;
+        matrix._array[6] = (yz + wx) * sy;
 
-        matrix.array[8] = (xz + wy) * sz;
-        matrix.array[9] = (yz - wx) * sz;
-        matrix.array[10] = (1 - (xx + yy)) * sz;
+        matrix._array[8] = (xz + wy) * sz;
+        matrix._array[9] = (yz - wx) * sz;
+        matrix._array[10] = (1 - (xx + yy)) * sz;
 
-        matrix.array[12] = translation.x;
-        matrix.array[13] = translation.y;
-        matrix.array[14] = translation.z;
-        matrix.array[15] = 1;
+        matrix._array[12] = translation.x;
+        matrix._array[13] = translation.y;
+        matrix._array[14] = translation.z;
+        matrix._array[15] = 1;
 
         return matrix;
     }
@@ -369,25 +364,25 @@ export class Matrix4 implements ISerialize {
 
     public transpose(): Matrix4 {
         let result = new Matrix4();
-        result.array[0] = this.array[0];
-        result.array[1] = this.array[4];
-        result.array[2] = this.array[8];
-        result.array[3] = this.array[12];
+        result._array[0] = this._array[0];
+        result._array[1] = this._array[4];
+        result._array[2] = this._array[8];
+        result._array[3] = this._array[12];
 
-        result.array[4] = this.array[1];
-        result.array[5] = this.array[5];
-        result.array[6] = this.array[9];
-        result.array[7] = this.array[13];
+        result._array[4] = this._array[1];
+        result._array[5] = this._array[5];
+        result._array[6] = this._array[9];
+        result._array[7] = this._array[13];
 
-        result.array[8] = this.array[2];
-        result.array[9] = this.array[6];
-        result.array[10] = this.array[10];
-        result.array[11] = this.array[14];
+        result._array[8] = this._array[2];
+        result._array[9] = this._array[6];
+        result._array[10] = this._array[10];
+        result._array[11] = this._array[14];
 
-        result.array[12] = this.array[3];
-        result.array[13] = this.array[7];
-        result.array[14] = this.array[11];
-        result.array[15] = this.array[15];
+        result._array[12] = this._array[3];
+        result._array[13] = this._array[7];
+        result._array[14] = this._array[11];
+        result._array[15] = this._array[15];
 
         return result;
     }
@@ -396,25 +391,25 @@ export class Matrix4 implements ISerialize {
         let result: number[] = [];
         for (let i = 0; i < points.length / 3; i++) {
             let x =
-                points[3 * i] * this.array[0] +
-                points[3 * i + 1] * this.array[4] +
-                points[3 * i + 2] * this.array[8] +
-                this.array[12];
+                points[3 * i] * this._array[0] +
+                points[3 * i + 1] * this._array[4] +
+                points[3 * i + 2] * this._array[8] +
+                this._array[12];
             let y =
-                points[3 * i] * this.array[1] +
-                points[3 * i + 1] * this.array[5] +
-                points[3 * i + 2] * this.array[9] +
-                this.array[13];
+                points[3 * i] * this._array[1] +
+                points[3 * i + 1] * this._array[5] +
+                points[3 * i + 2] * this._array[9] +
+                this._array[13];
             let z =
-                points[3 * i] * this.array[2] +
-                points[3 * i + 1] * this.array[6] +
-                points[3 * i + 2] * this.array[10] +
-                this.array[14];
+                points[3 * i] * this._array[2] +
+                points[3 * i + 1] * this._array[6] +
+                points[3 * i + 2] * this._array[10] +
+                this._array[14];
             let w =
-                points[3 * i] * this.array[3] +
-                points[3 * i + 1] * this.array[7] +
-                points[3 * i + 2] * this.array[11] +
-                this.array[15];
+                points[3 * i] * this._array[3] +
+                points[3 * i + 1] * this._array[7] +
+                points[3 * i + 2] * this._array[11] +
+                this._array[15];
             result.push(x / w, y / w, z / w);
         }
         return result;
@@ -426,9 +421,9 @@ export class Matrix4 implements ISerialize {
     }
 
     public ofVector(vector: XYZ): XYZ {
-        let x = vector.x * this.array[0] + vector.y * this.array[4] + vector.z * this.array[8];
-        let y = vector.x * this.array[1] + vector.y * this.array[5] + vector.z * this.array[9];
-        let z = vector.x * this.array[2] + vector.y * this.array[6] + vector.z * this.array[10];
+        let x = vector.x * this._array[0] + vector.y * this._array[4] + vector.z * this._array[8];
+        let y = vector.x * this._array[1] + vector.y * this._array[5] + vector.z * this._array[9];
+        let z = vector.x * this._array[2] + vector.y * this._array[6] + vector.z * this._array[10];
         return new XYZ(x, y, z);
     }
 }

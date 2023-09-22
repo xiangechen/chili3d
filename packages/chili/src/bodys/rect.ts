@@ -17,7 +17,7 @@ export class RectBody extends FaceableBody {
     readonly name: I18nKeys = "body.rect";
 
     private _dx: number;
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("rect.dx")
     get dx() {
         return this._dx;
@@ -27,7 +27,7 @@ export class RectBody extends FaceableBody {
     }
 
     private _dy: number;
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("rect.dy")
     get dy() {
         return this._dy;
@@ -37,7 +37,7 @@ export class RectBody extends FaceableBody {
     }
 
     private _plane: Plane;
-    @Serializer.property()
+    @Serializer.serialze()
     get plane() {
         return this._plane;
     }

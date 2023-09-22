@@ -18,7 +18,7 @@ import {
     Matrix4,
     Ray,
     Result,
-    Serialized,
+    SerializedProperties,
     Serializer,
     ShapeType,
     XYZ,
@@ -38,11 +38,7 @@ import { OccCircle, OccCurve, OccLine } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
-@Serializer.register("Shape", ["shape", "id"], (shape: string, id: string) => {
-    let tshape = new OccShapeConverter().convertFromIGES(shape).unwrap() as OccShape;
-    tshape._id = id;
-    return tshape;
-})
+@Serializer.register("Shape", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
 
@@ -84,14 +80,17 @@ export class OccShape implements IShape {
         this._mesh = undefined;
     }
 
-    serialize(): Serialized {
+    static serialize(target: OccShape): SerializedProperties<OccShape> {
         return {
-            classKey: "Shape",
-            properties: {
-                shape: new OccShapeConverter().convertToIGES(this).unwrap(),
-                id: this.id,
-            },
+            shape: new OccShapeConverter().convertToSTEP(target).unwrap(),
+            id: target.id,
         };
+    }
+
+    static deserialize(shape: string, id: string) {
+        let tshape = new OccShapeConverter().convertFromSTEP(shape).unwrap() as OccShape;
+        tshape._id = id;
+        return tshape;
     }
 
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
@@ -124,6 +123,7 @@ export class OccShape implements IShape {
     }
 }
 
+@Serializer.register("Vertex", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccVertex extends OccShape implements IVertex {
     constructor(shape: TopoDS_Vertex, id?: string) {
         super(shape, id);
@@ -135,6 +135,7 @@ export class OccVertex extends OccShape implements IVertex {
     }
 }
 
+@Serializer.register("Edge", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccEdge extends OccShape implements IEdge {
     constructor(shape: TopoDS_Edge, id?: string) {
         super(shape, id);
@@ -197,6 +198,7 @@ export class OccEdge extends OccShape implements IEdge {
     }
 }
 
+@Serializer.register("Wire", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccWire extends OccShape implements IWire {
     constructor(shape: TopoDS_Wire, id?: string) {
         super(shape, id);
@@ -211,6 +213,7 @@ export class OccWire extends OccShape implements IWire {
     }
 }
 
+@Serializer.register("Face", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccFace extends OccShape implements IFace {
     constructor(shape: TopoDS_Face, id?: string) {
         super(shape, id);
@@ -225,10 +228,14 @@ export class OccFace extends OccShape implements IFace {
     }
 }
 
+@Serializer.register("Shell", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShell extends OccShape implements IShell {}
 
+@Serializer.register("Solid", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccSolid extends OccShape implements ISolid {}
 
+@Serializer.register("Compound", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccCompound extends OccShape implements ICompound {}
 
+@Serializer.register("CompoundSolid", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccCompoundSolid extends OccShape implements ICompoundSolid {}

@@ -7,7 +7,7 @@ export class WireBody extends FaceableBody {
     override name: I18nKeys = "body.wire";
 
     private _edges: IEdge[];
-    @Serializer.property()
+    @Serializer.serialze()
     get edges(): IEdge[] {
         return this._edges;
     }

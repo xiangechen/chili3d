@@ -8,7 +8,7 @@ export class CircleBody extends FaceableBody {
 
     private _center: XYZ;
 
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("circle.center")
     get center() {
         return this._center;
@@ -19,7 +19,7 @@ export class CircleBody extends FaceableBody {
 
     private _radius: number;
 
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("circle.radius")
     get radius() {
         return this._radius;
@@ -30,7 +30,7 @@ export class CircleBody extends FaceableBody {
 
     private _normal: XYZ;
 
-    @Serializer.property()
+    @Serializer.serialze()
     get normal() {
         return this._normal;
     }

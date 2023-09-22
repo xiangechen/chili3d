@@ -7,7 +7,7 @@ export class PrismBody extends Body {
     override name: I18nKeys = "body.prism";
 
     private _face: IFace;
-    @Serializer.property()
+    @Serializer.serialze()
     get face(): IFace {
         return this._face;
     }
@@ -16,7 +16,7 @@ export class PrismBody extends Body {
     }
 
     private _length: number;
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("common.length")
     get length(): number {
         return this._length;

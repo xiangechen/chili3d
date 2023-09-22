@@ -7,7 +7,7 @@ export class PolygonBody extends FaceableBody {
     readonly name: I18nKeys = "body.polygon";
 
     private _points: XYZ[];
-    @Serializer.property()
+    @Serializer.serialze()
     @Property.define("polygon.points")
     get points() {
         return this._points;

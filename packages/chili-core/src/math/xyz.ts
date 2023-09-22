@@ -1,32 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Precision } from "../base";
-import { ISerialize, Serialized, Serializer } from "../serialize";
+import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
 @Serializer.register("XYZ", ["x", "y", "z"])
-export class XYZ implements ISerialize {
+export class XYZ {
     static readonly zero = new XYZ(0, 0, 0);
     static readonly unitX = new XYZ(1, 0, 0);
     static readonly unitY = new XYZ(0, 1, 0);
     static readonly unitZ = new XYZ(0, 0, 1);
     static readonly one = new XYZ(1, 1, 1);
 
-    constructor(
-        readonly x: number,
-        readonly y: number,
-        readonly z: number,
-    ) {}
+    @Serializer.serialze()
+    readonly x: number;
+    @Serializer.serialze()
+    readonly y: number;
+    @Serializer.serialze()
+    readonly z: number;
 
-    serialize(): Serialized {
-        return {
-            classKey: "XYZ",
-            properties: {
-                x: this.x,
-                y: this.y,
-                z: this.z,
-            },
-        };
+    constructor(x: number, y: number, z: number) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
 
     toString() {

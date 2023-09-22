@@ -8,7 +8,6 @@ import {
     IModel,
     INode,
     INodeLinkedList,
-    ISerialize,
     IVisual,
     Id,
     Logger,
@@ -22,7 +21,7 @@ import {
     Serializer,
 } from "chili-core";
 
-export class Document extends Observable implements IDocument, ISerialize {
+export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: SelectionManager;
@@ -38,6 +37,7 @@ export class Document extends Observable implements IDocument, ISerialize {
     }
 
     #rootNode: INodeLinkedList | undefined;
+    @Serializer.serialze()
     get rootNode(): INodeLinkedList {
         if (this.#rootNode === undefined) {
             this.setRootNode(new NodeLinkedList(this, this._name));
@@ -80,13 +80,13 @@ export class Document extends Observable implements IDocument, ISerialize {
         }
     };
 
-    override serialize(): Serialized {
+    serialize(): Serialized {
         return {
             classKey: "Document",
             properties: {
                 id: this.id,
                 name: this.name,
-                rootNode: this.rootNode.serialize(),
+                rootNode: Serializer.serializeObject(this.rootNode),
             },
         };
     }
@@ -140,7 +140,7 @@ export class Document extends Observable implements IDocument, ISerialize {
     static load(app: IApplication, data: Serialized) {
         let document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
-        document.setRootNode(Serializer.deserialize(document, data.properties["rootNode"]));
+        document.setRootNode(Serializer.deserializeObject(document, data.properties["rootNode"]));
         document.history.disabled = false;
         return document;
     }

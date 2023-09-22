@@ -7,7 +7,7 @@ export class SweepBody extends Body {
     override name: I18nKeys = "body.sweep";
 
     private _profile: IShape;
-    @Serializer.property()
+    @Serializer.serialze()
     get profile() {
         return this._profile;
     }
@@ -16,7 +16,7 @@ export class SweepBody extends Body {
     }
 
     private _path: IWire;
-    @Serializer.property()
+    @Serializer.serialze()
     get path() {
         return this._path;
     }

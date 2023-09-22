@@ -1,19 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { History, IDocument, ISerialize, NodeLinkedList, Serialized, Serializer } from "../src";
+import { History, IDocument, NodeLinkedList, Serialized, Serializer } from "../src";
 
 @Serializer.register("BoxBody", ["k1" as any])
-class TestObject implements ISerialize {
+class TestObject {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @Serializer.property()
+    @Serializer.serialze()
     private k1: string;
-    @Serializer.property()
+    @Serializer.serialze()
     private k4: string = "k4";
-    @Serializer.property()
+    @Serializer.serialze()
     protected k5: string = "k5";
-    @Serializer.property()
+    @Serializer.serialze()
     public k6: string = "k6";
 
     constructor(k1: string) {
@@ -21,7 +21,7 @@ class TestObject implements ISerialize {
     }
 
     serialize(): Serialized {
-        return Serializer.serialize(this);
+        return Serializer.serializeObject(this);
     }
 }
 
@@ -33,7 +33,7 @@ test("test Serializer", () => {
     expect("k5" in s.properties).toBeTruthy();
     expect("k6" in s.properties).toBeTruthy();
     s.properties["k1"] = "222";
-    let obj2 = Serializer.deserialize({} as any, s);
+    let obj2 = Serializer.deserializeObject({} as any, s);
     expect(obj2.k1).toBe("222");
 });
 
@@ -45,8 +45,8 @@ test("test Node Serializer", () => {
     let n4 = new NodeLinkedList(doc, "n4");
     n1.add(n2, n3);
     n2.add(n4);
-    let s = n1.serialize();
-    let n11 = Serializer.deserialize(doc, s);
+    let s = Serializer.serializeObject(n1);
+    let n11 = Serializer.deserializeObject(doc, s);
     expect(n11.firstChild.name).toBe("n2");
     expect(n11.firstChild.nextSibling.name).toBe("n3");
     expect(n11.firstChild.firstChild.name).toBe("n4");

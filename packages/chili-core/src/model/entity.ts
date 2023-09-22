@@ -3,11 +3,10 @@
 import { HistoryObservable, IEqualityComparer, Result } from "../base";
 import { IShape } from "../geometry";
 import { I18nKeys } from "../i18n";
-import { ISerialize } from "../serialize";
 
 const ShapeChangedEvent = "ShapeChangedEvent";
 
-export abstract class Entity extends HistoryObservable implements ISerialize {
+export abstract class Entity extends HistoryObservable {
     #retryCount: number = 0;
     protected shouldRegenerate: boolean = true;
     abstract name: I18nKeys;

@@ -12,7 +12,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     private _firstChild: INode | undefined;
 
-    @Serializer.property()
+    @Serializer.serialze()
     get firstChild(): INode | undefined {
         return this._firstChild;
     }
