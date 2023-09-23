@@ -11,7 +11,7 @@ let count = 1;
 @command({
     name: "convert.sweep",
     display: "command.sweep",
-    icon: "icon-circle",
+    icon: "icon-sweep",
 })
 export class Sweep extends CreateCommand {
     protected override create(): GeometryModel {

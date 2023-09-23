@@ -11,7 +11,7 @@ let count = 1;
 @command({
     name: "convert.toPolygon",
     display: "command.toPoly",
-    icon: "icon-circle",
+    icon: "icon-toPoly",
 })
 export class ConverterToPoly extends CreateFaceableCommand {
     #shapes: VisualShapeData[] | undefined;

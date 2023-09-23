@@ -6,13 +6,7 @@ export const DefaultRibbon: RibbonData = [
         groups: [
             {
                 groupName: "ribbon.group.draw",
-                items: [
-                    "create.line",
-                    "create.rect",
-                    "create.circle",
-                    "create.box",
-                    ["create.polygon", "create.circle"],
-                ],
+                items: ["create.line", "create.rect", "create.circle", "create.polygon", "create.box"],
             },
             {
                 groupName: "ribbon.group.modify",

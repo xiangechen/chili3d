@@ -21,7 +21,7 @@ let count = 1;
 @command({
     name: "convert.revol",
     display: "command.revol",
-    icon: "icon-circle",
+    icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {
     private _angle: number = 360;

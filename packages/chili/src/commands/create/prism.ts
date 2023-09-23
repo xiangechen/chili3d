@@ -12,7 +12,7 @@ let count = 1;
 @command({
     name: "convert.prism",
     display: "command.prism",
-    icon: "icon-circle",
+    icon: "icon-prism",
 })
 export class Prism extends CreateCommand {
     protected override create(): GeometryModel {
