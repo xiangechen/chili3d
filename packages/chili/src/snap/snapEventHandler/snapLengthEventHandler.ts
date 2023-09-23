@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, I18nKeys, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, Constants, I18nKeys, IView, Plane, XYZ } from "chili-core";
 
 import { AxisSnap } from "../axisSnap";
 import { SnapPreviewer, SnapValidator } from "../interfaces";
@@ -33,8 +33,12 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         super(controller, [objectSnap, axisSnap], lengthData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
-        return this.lengthData.point.add(this.lengthData.direction.multiply(Number(text)));
+    protected getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ {
+        let dist = Number(text);
+        if (snaped && snaped.sub(this.lengthData.point).dot(this.lengthData.direction) < -Constants.length) {
+            dist = -dist;
+        }
+        return this.lengthData.point.add(this.lengthData.direction.multiply(dist));
     }
 
     protected inputError(text: string): I18nKeys | undefined {
@@ -55,7 +59,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         super(controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ {
         let ns = text.split(",").map((x) => Number(x));
         if (ns.length === 1) {
             let vector = this._snaped?.point!.sub(this.lengthData.point).normalize();

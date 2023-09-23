@@ -33,7 +33,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         super(controller, snaps, pointData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.pointData.refPoint ?? XYZ.zero;
         let end = this._snaped!.point!;

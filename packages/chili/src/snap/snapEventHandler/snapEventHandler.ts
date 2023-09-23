@@ -223,13 +223,13 @@ export abstract class SnapEventHandler implements IEventHandler {
     private handleText = (view: IView, text: string) => {
         this._snaped = {
             view,
-            point: this.getPointFromInput(view, text),
+            point: this.getPointFromInput(view, text, this._snaped?.point),
             shapes: [],
         };
         this.finish();
     };
 
-    protected abstract getPointFromInput(view: IView, text: string): XYZ;
+    protected abstract getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ;
 
     protected abstract inputError(text: string): I18nKeys | undefined;
 }
