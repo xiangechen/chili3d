@@ -13,7 +13,7 @@ import {
 } from "chili-core";
 import { RevolveBody } from "../../bodys";
 import { IStep } from "../../step";
-import { SelectStep } from "../../step/selectStep";
+import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "./createCommand";
 
 let count = 1;
@@ -43,8 +43,8 @@ export class Revolve extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectStep(ShapeType.Edge, "prompt.select.edges", false, new LineFilter()),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", false, new LineFilter()),
         ];
     }
 }

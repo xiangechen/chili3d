@@ -36,13 +36,12 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
-        showControl: boolean = true,
     ) {
-        let handler = new ModelSelectionHandler(document, multiMode, controller);
-        await this.pickAsync(document, handler, prompt, controller, showControl).finally(() =>
-            handler.dispose(),
-        );
-        return document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
+        let handler = new ModelSelectionHandler(document, multiMode, true, controller);
+        await this.pickAsync(document, handler, prompt, controller, multiMode === true);
+        let models = handler.models();
+        handler.dispose();
+        return models;
     }
 
     static async pickAsync(

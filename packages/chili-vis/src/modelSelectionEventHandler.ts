@@ -4,7 +4,18 @@ import { AsyncController, IDocument, IModel, IView, ShapeType, VisualShapeData }
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ModelSelectionHandler extends SelectionHandler {
-    constructor(document: IDocument, multiMode: boolean, controller?: AsyncController) {
+    private _models: Set<IModel> = new Set();
+
+    models(): IModel[] {
+        return [...this._models];
+    }
+
+    constructor(
+        document: IDocument,
+        multiMode: boolean,
+        readonly toSelect: boolean,
+        controller?: AsyncController,
+    ) {
         super(document, ShapeType.Shape, multiMode, controller);
     }
 
@@ -13,12 +24,14 @@ export class ModelSelectionHandler extends SelectionHandler {
             view.viewer.visual.document.selection.clearSelected();
             return 0;
         }
-        let nodes: IModel[] = [];
         shapes.forEach((x) => {
             let model = view.viewer.visual.context.getModel(x.owner);
-            if (model) nodes.push(model);
+            if (model) this._models.add(model);
         });
-        return view.viewer.visual.document.selection.select(nodes, event.shiftKey);
+        if (this.toSelect) {
+            view.viewer.visual.document.selection.select(this.models(), event.shiftKey);
+        }
+        return this._models.size;
     }
 
     override clearSelected(document: IDocument): void {

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, IView, ShapeMeshData, VisualShapeData, XYZ } from "chili-core";
+import { IDocument, IModel, IView, ShapeMeshData, VisualShapeData, XYZ } from "chili-core";
 
 export type SnapValidator = (point: XYZ) => boolean;
 
@@ -11,6 +11,7 @@ export interface SnapedData {
     point?: XYZ;
     info?: string;
     shapes: VisualShapeData[];
+    models?: IModel[];
 }
 
 export interface MouseAndDetected {

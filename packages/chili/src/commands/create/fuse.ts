@@ -4,7 +4,7 @@ import { GeometryModel, IFace, Precision, ShapeType, command } from "chili-core"
 import { PrismBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
-import { SelectStep } from "../../step/selectStep";
+import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "./createCommand";
 
 let count = 1;
@@ -25,7 +25,7 @@ export class Fuse extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectStep(ShapeType.Face, "prompt.select.faces", false),
+            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false),
             new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData),
         ];
     }

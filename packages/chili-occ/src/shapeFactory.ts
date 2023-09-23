@@ -3,8 +3,8 @@
 import {
     IEdge,
     IFace,
-    ILine,
     IShape,
+    IShapeConverter,
     ISolid,
     IVertex,
     IWire,
@@ -16,11 +16,19 @@ import {
 } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 
-import { BRepBuilderAPI_MakeWire } from "opencascade.js";
+import {
+    BRepAlgoAPI_BooleanOperation,
+    BRepBuilderAPI_MakeWire,
+    Message_ProgressRange,
+    TopoDS_Shape,
+} from "opencascade.js";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
+import { OccShapeConverter } from "./occConverter";
 
 export class ShapeFactory implements IShapeFactory {
+    readonly converter: IShapeConverter = new OccShapeConverter();
+
     fuse(bottom: IShape, top: IShape): Result<IShape> {
         throw new Error("Method not implemented.");
     }
@@ -169,5 +177,44 @@ export class ShapeFactory implements IShapeFactory {
                 builder.Add_1(index > 0 ? edge : OccHelps.getActualShape(edge.Reversed()));
             }
         }
+    }
+
+    booleanCommon(shape1: IShape, shape2: IShape): Result<IShape> {
+        return this.booleanOperate(shape1, shape2, occ.BRepAlgoAPI_Common_3);
+    }
+
+    booleanCut(shape1: IShape, shape2: IShape): Result<IShape> {
+        return this.booleanOperate(shape1, shape2, occ.BRepAlgoAPI_Cut_3);
+    }
+
+    booleanFuse(shape1: IShape, shape2: IShape): Result<IShape> {
+        return this.booleanOperate(shape1, shape2, occ.BRepAlgoAPI_Fuse_3);
+    }
+
+    private booleanOperate(
+        shape1: IShape,
+        shape2: IShape,
+        ctor: new (
+            shape1: TopoDS_Shape,
+            shape2: TopoDS_Shape,
+            progress: Message_ProgressRange,
+        ) => BRepAlgoAPI_BooleanOperation,
+    ) {
+        let shapes = ShapeFactory.ensureOccShape(shape1, shape2);
+        const progress = new occ.Message_ProgressRange_1();
+        let operate = new ctor(shapes[0], shapes[1], progress);
+        if (operate.IsDone()) {
+            return Result.success(OccHelps.getShape(operate.Shape()));
+        }
+        return Result.error("Failed to perform boolean operation.");
+    }
+
+    static ensureOccShape(...shapes: IShape[]): TopoDS_Shape[] {
+        return shapes.map((x) => {
+            if (!(x instanceof OccShape)) {
+                throw new Error("The OCC kernel only supports OCC geometries.");
+            }
+            return x.shape;
+        });
     }
 }

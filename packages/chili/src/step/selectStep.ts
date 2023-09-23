@@ -5,7 +5,7 @@ import { Selection } from "../selection";
 import { SnapedData } from "../snap";
 import { IStep } from "./step";
 
-export class SelectStep implements IStep {
+export class SelectShapeStep implements IStep {
     constructor(
         readonly snapeType: ShapeType,
         readonly prompt: I18nKeys,
@@ -14,7 +14,7 @@ export class SelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        var shapes = await Selection.pickShape(
+        let shapes = await Selection.pickShape(
             document,
             this.snapeType,
             this.prompt,
@@ -25,6 +25,23 @@ export class SelectStep implements IStep {
         return {
             view: document.visual.viewer.activeView!,
             shapes,
+        };
+    }
+}
+
+export class SelectModelStep implements IStep {
+    constructor(
+        readonly prompt: I18nKeys,
+        readonly multiple: boolean = false,
+        readonly filter?: IShapeFilter,
+    ) {}
+
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+        let models = await Selection.pickModel(document, this.prompt, controller, this.multiple);
+        return {
+            view: document.visual.viewer.activeView!,
+            shapes: [],
+            models,
         };
     }
 }
