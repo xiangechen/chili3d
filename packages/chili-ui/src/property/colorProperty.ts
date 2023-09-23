@@ -1,18 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Color,
-    ColorConverter,
-    IDocument,
-    IPropertyChanged,
-    Property,
-    PubSub,
-    Transaction,
-} from "chili-core";
+import { Color, ColorConverter, IDocument, Property, PubSub, Transaction } from "chili-core";
 import { Binding, bind, div, input, label, localize } from "../controls";
+import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
-import colorStyle from "./colorPorperty.module.css";
 
 export class ColorProperty extends PropertyBase {
     readonly converter = new ColorConverter();
@@ -53,7 +45,7 @@ export class ColorProperty extends PropertyBase {
         this.binding.dispose();
     };
 
-    private setColor(e: Event) {
+    private setColor = (e: Event) => {
         let value = (e.target as any).value;
         let color = Color.fromHexStr(value).getValue();
         if (color === undefined) {
@@ -65,7 +57,7 @@ export class ColorProperty extends PropertyBase {
                 x[this.property.name] = color;
             });
         });
-    }
+    };
 }
 
 customElements.define("chili-color-property", ColorProperty);
