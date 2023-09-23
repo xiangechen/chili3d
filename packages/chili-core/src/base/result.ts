@@ -3,6 +3,7 @@
 export type Result<T, E = string> = {
     unwrap(): T;
     getValue(): T | undefined;
+    expect(msg: string): T;
 } & (
     | {
           readonly success: true;
@@ -24,6 +25,7 @@ export namespace Result {
             unwrap: () => value,
             success: true,
             getValue: () => value,
+            expect: (msg: string) => value,
         };
     }
 
@@ -36,6 +38,9 @@ export namespace Result {
             },
             success: false,
             getValue: () => undefined,
+            expect: (msg: string) => {
+                throw new Error(msg);
+            },
         };
     }
 }
