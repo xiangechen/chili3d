@@ -25,7 +25,7 @@ export interface PubSubEventMap {
     clearStatusBarTip: () => void;
     showFloatTip: (level: MessageType, msg: string) => void;
     clearFloatTip: () => void;
-    showInput: (handler: (text: string) => Result<string, I18nKeys>) => void;
+    showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
     clearInput: () => void;
     showSelectionControl: (controller: AsyncController) => void;
     clearSelectionControl: () => void;

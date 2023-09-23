@@ -14,9 +14,13 @@ export class Input extends Control implements IDisposable {
     private readonly textbox: TextBox;
     private tip?: Label;
 
-    constructor(readonly handler: (text: string) => Result<string, I18nKeys>) {
+    constructor(
+        text: string,
+        readonly handler: (text: string) => Result<string, I18nKeys>,
+    ) {
         super(style.panel);
         this.textbox = new TextBox();
+        this.textbox.setText(text);
         this.append(this.textbox);
         this.textbox.addEventListener("keydown", this.onKeyDown);
     }
