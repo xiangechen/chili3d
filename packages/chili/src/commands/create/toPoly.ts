@@ -3,7 +3,7 @@
 import { AsyncController, GeometryModel, IEdge, ShapeType, VisualShapeData, command } from "chili-core";
 import { WireBody } from "../../bodys/wire";
 import { Selection } from "../../selection";
-import { IStep } from "../../step";
+import { IStep, SelectModelStep } from "../../step";
 import { CreateFaceableCommand } from "./createCommand";
 
 let count = 1;
@@ -14,28 +14,22 @@ let count = 1;
     icon: "icon-toPoly",
 })
 export class ConverterToPoly extends CreateFaceableCommand {
-    #shapes: VisualShapeData[] | undefined;
-
     protected override create(): GeometryModel {
-        let edges = this.#shapes?.map((x) => x.shape) as IEdge[];
+        let models = this.stepDatas[0].models!;
+        let edges = models.map((x) => x.shape()) as IEdge[];
         let wireBody = new WireBody(this.document, edges);
         wireBody.isFace = this.isFace;
+        models.forEach((x) => x.parent?.remove(x));
         return new GeometryModel(this.document, `Wire ${count++}`, wireBody);
     }
 
     protected override getSteps(): IStep[] {
-        return [];
-    }
-
-    protected override async beforeExecute(): Promise<boolean> {
-        if (!(await super.beforeExecute())) return false;
-        let controller: AsyncController = new AsyncController();
-        this.#shapes = await Selection.pickShape(
-            this.document,
-            ShapeType.Edge,
-            "prompt.select.edges",
-            controller,
-        );
-        return !this.restarting && this.#shapes.length > 0;
+        return [
+            new SelectModelStep("prompt.select.edges", true, {
+                allow: (shape) => {
+                    return shape.shapeType === ShapeType.Edge;
+                },
+            }),
+        ];
     }
 }

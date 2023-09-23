@@ -37,7 +37,13 @@ export class SelectModelStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let models = await Selection.pickModel(document, this.prompt, controller, this.multiple);
+        let models = await Selection.pickModel(
+            document,
+            this.prompt,
+            controller,
+            this.multiple,
+            this.filter,
+        );
         return {
             view: document.visual.viewer.activeView!,
             shapes: [],

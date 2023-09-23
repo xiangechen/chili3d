@@ -15,6 +15,7 @@ export * from "./id";
 export * from "./math";
 export * from "./model";
 export * from "./property";
+export * from "./selectionFilter";
 export * from "./selectionManager";
 export * from "./serialize";
 export * from "./service";

@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IDocument, IModel, IView, ShapeType, VisualShapeData } from "chili-core";
+import {
+    AsyncController,
+    IDocument,
+    IModel,
+    IShapeFilter,
+    IView,
+    ShapeType,
+    VisualShapeData,
+} from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ModelSelectionHandler extends SelectionHandler {
@@ -15,11 +23,18 @@ export class ModelSelectionHandler extends SelectionHandler {
         multiMode: boolean,
         readonly toSelect: boolean,
         controller?: AsyncController,
+        filter?: IShapeFilter,
     ) {
-        super(document, ShapeType.Shape, multiMode, controller);
+        super(document, ShapeType.Shape, multiMode, controller, filter);
+    }
+
+    override dispose(): void {
+        super.dispose();
+        this._models.clear();
     }
 
     protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
+        this._models.clear();
         if (shapes.length === 0) {
             view.viewer.visual.document.selection.clearSelected();
             return 0;

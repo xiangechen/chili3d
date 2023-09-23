@@ -6,8 +6,6 @@ import {
     I18nKeys,
     IDocument,
     IEventHandler,
-    IModel,
-    INode,
     IShapeFilter,
     Logger,
     PubSub,
@@ -36,8 +34,9 @@ export class Selection {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean = true,
+        filter?: IShapeFilter,
     ) {
-        let handler = new ModelSelectionHandler(document, multiMode, true, controller);
+        let handler = new ModelSelectionHandler(document, multiMode, true, controller, filter);
         await this.pickAsync(document, handler, prompt, controller, multiMode === true);
         let models = handler.models();
         handler.dispose();

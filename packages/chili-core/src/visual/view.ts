@@ -3,9 +3,9 @@
 import { IPropertyChanged } from "../base";
 import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
+import { IShapeFilter } from "../selectionFilter";
 import { CursorType } from "./cursorType";
 import { VisualShapeData } from "./detectedData";
-import { IShapeFilter } from "./shapeFilter";
 import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged {
