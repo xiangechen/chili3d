@@ -41,7 +41,7 @@ export abstract class BooleanOperate extends CreateCommand {
 @command({
     name: "boolean.common",
     display: "command.boolean.common",
-    icon: "icon-sweep",
+    icon: "icon-booleanCommon",
 })
 export class BooleanCommon extends BooleanOperate {
     protected override getBooleanOperateType(): "common" | "cut" | "fuse" {
@@ -52,7 +52,7 @@ export class BooleanCommon extends BooleanOperate {
 @command({
     name: "boolean.cut",
     display: "command.boolean.cut",
-    icon: "icon-sweep",
+    icon: "icon-booleanCut",
 })
 export class BooleanCut extends BooleanOperate {
     protected override getBooleanOperateType(): "common" | "cut" | "fuse" {
@@ -63,7 +63,7 @@ export class BooleanCut extends BooleanOperate {
 @command({
     name: "boolean.fuse",
     display: "command.boolean.fuse",
-    icon: "icon-sweep",
+    icon: "icon-booleanFuse",
 })
 export class BooleanFuse extends BooleanOperate {
     protected override getBooleanOperateType(): "common" | "cut" | "fuse" {
