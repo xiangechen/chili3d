@@ -20,4 +20,5 @@ export * from "./selectionManager";
 export * from "./serialize";
 export * from "./service";
 export * from "./snapType";
+export * from "./utils";
 export * from "./visual";

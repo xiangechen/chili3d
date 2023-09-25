@@ -20,6 +20,10 @@ export const DefaultRibbon: RibbonData = [
                 groupName: "ribbon.group.boolean",
                 items: ["boolean.common", "boolean.cut", "boolean.fuse"],
             },
+            {
+                groupName: "ribbon.group.importExport",
+                items: ["file.import", "file.export.iges", "file.export.stp"],
+            },
         ],
     },
     {
