@@ -5,6 +5,8 @@ import {
     GeometryModel,
     IApplication,
     ICommand,
+    IModel,
+    INode,
     IShape,
     PubSub,
     Result,
@@ -75,14 +77,12 @@ abstract class Export implements ICommand {
     }
 
     protected async convertShapeAsync(application: IApplication, type: "iges" | "step") {
-        let controller = new AsyncController();
-        let step = new SelectModelStep("prompt.select.models", true);
-        let data = await step.execute(application.activeDocument!, controller);
-        if (!data?.models) {
-            PubSub.default.pub("showToast", "prompt.select.noModelSelected");
+        let models = await this.selectModelsAsync(application);
+        if (!models || models.length === 0) {
+            PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
-        let shapes = data.models.map((x) => x.shape()!);
+        let shapes = models.map((x) => x.shape()!);
         let shapeString =
             type === "iges"
                 ? application.shapeFactory.converter.convertToIGES(...shapes)
@@ -92,9 +92,26 @@ abstract class Export implements ICommand {
             return;
         }
         return {
-            name: `${data.models[0].name}.${type}`,
+            name: `${models[0].name}.${type}`,
             data: shapeString.value,
         };
+    }
+
+    private async selectModelsAsync(application: IApplication) {
+        let models = application
+            .activeDocument!.selection.getSelectedNodes()
+            .filter((x) => INode.isModelNode(x)) as IModel[];
+        if (models?.length === 0) {
+            let controller = new AsyncController();
+            let step = new SelectModelStep("prompt.select.models", true);
+            let data = await step.execute(application.activeDocument!, controller);
+            if (!data?.models) {
+                PubSub.default.pub("showToast", "prompt.select.noModelSelected");
+                return;
+            }
+            models = data.models;
+        }
+        return models;
     }
 }
 

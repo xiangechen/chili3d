@@ -117,6 +117,7 @@ export type I18nKeys =
     | "toast.converter.invalidColor"
     | "toast.converter.error"
     | "toast.read.error"
+    | "toast.select.noSelected"
     | "prompt.default"
     | "prompt.select.models"
     | "prompt.select.edges"
