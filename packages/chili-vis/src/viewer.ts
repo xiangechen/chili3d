@@ -30,7 +30,7 @@ export abstract class Viewer implements IViewer {
     createView(name: string, workplane: Plane, dom: HTMLElement): IView {
         let view = this.handleCreateView(name, workplane, dom);
         this._views.add(view);
-        this.initEvent(view.container, view);
+        this.initEvent(view);
         if (this._activeView === undefined) this._activeView = view;
         return view;
     }
@@ -40,7 +40,9 @@ export abstract class Viewer implements IViewer {
     removeView(view: IView) {
         this.removeEvents(view);
         this._views.delete(view);
-        if (this._activeView === view) this._activeView = undefined;
+        if (this._activeView === view) {
+            this._activeView = [...this._views].at(0);
+        }
     }
 
     views(): readonly IView[] {
@@ -69,31 +71,45 @@ export abstract class Viewer implements IViewer {
         this._ResizeObserverMap.clear();
     }
 
-    private initEvent(container: HTMLElement, view: IView) {
+    private initEvent(view: IView) {
+        let container = view.container;
         const resizeObserver = new ResizeObserver((entries) => {
-            view.resize(container.offsetWidth, container.offsetHeight);
+            if (entries[0].target === container) {
+                view.resize(container.offsetWidth, container.offsetHeight);
+            }
         });
         resizeObserver.observe(container);
         this._ResizeObserverMap.set(view, resizeObserver);
 
-        this.addEventListener(container, view, "pointerdown", (e) => this.pointerDown(view, e));
-        this.addEventListener(container, view, "pointermove", (e) => this.pointerMove(view, e));
-        this.addEventListener(container, view, "pointerout", (e) => this.pointerOut(view, e));
-        this.addEventListener(container, view, "pointerup", (e) => this.pointerUp(view, e));
-        this.addEventListener(container, view, "wheel", (e) => this.mouseWheel(view, e));
+        let events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
+            ["pointerdown", this.pointerDown],
+            ["pointermove", this.pointerMove],
+            ["pointerout", this.pointerOut],
+            ["pointerup", this.pointerUp],
+            ["wheel", this.mouseWheel],
+        ];
+        events.forEach((v) => {
+            this.addEventListener(container, view, v[0], v[1]);
+        });
     }
 
     private addEventListener(
         container: HTMLElement | Window,
         view: IView,
         type: keyof HTMLElementEventMap,
-        listener: (this: HTMLElement, e: any) => any,
+        handler: (view: IView, e: any) => any,
     ) {
+        let listener = (e: any) => {
+            e.preventDefault();
+            handler(view, e);
+        };
         container.addEventListener(type, listener);
-        if (this._eventCaches.get(view) === undefined) {
-            this._eventCaches.set(view, []);
+        let cache = this._eventCaches.get(view);
+        if (cache === undefined) {
+            cache = [];
+            this._eventCaches.set(view, cache);
         }
-        this._eventCaches.get(view)?.push({
+        cache.push({
             container,
             callback: listener,
             type,
@@ -106,32 +122,33 @@ export abstract class Viewer implements IViewer {
             x.container.removeEventListener(x.type, x.callback);
         });
         this._eventCaches.delete(view);
+        this._ResizeObserverMap.get(view)?.disconnect();
+        this._ResizeObserverMap.delete(view);
     }
 
-    private pointerMove(view: IView, event: PointerEvent): void {
+    private pointerMove = (view: IView, event: PointerEvent) => {
         this.visual.eventHandler.pointerMove(view, event);
         this.visual.viewHandler.pointerMove(view, event);
-    }
+    };
 
-    private pointerDown(view: IView, event: PointerEvent): void {
-        event.preventDefault();
+    private pointerDown = (view: IView, event: PointerEvent) => {
         this.acitveView = view;
         this.visual.eventHandler.pointerDown(view, event);
         this.visual.viewHandler.pointerDown(view, event);
-    }
+    };
 
-    private pointerUp(view: IView, event: PointerEvent): void {
+    private pointerUp = (view: IView, event: PointerEvent) => {
         this.visual.eventHandler.pointerUp(view, event);
         this.visual.viewHandler.pointerUp(view, event);
-    }
+    };
 
-    private pointerOut(view: IView, event: PointerEvent): void {
+    private pointerOut = (view: IView, event: PointerEvent) => {
         this.visual.eventHandler.pointerOut?.(view, event);
         this.visual.viewHandler.pointerOut?.(view, event);
-    }
+    };
 
-    private mouseWheel(view: IView, event: WheelEvent): void {
+    private mouseWheel = (view: IView, event: WheelEvent) => {
         this.visual.eventHandler.mouseWheel?.(view, event);
         this.visual.viewHandler.mouseWheel?.(view, event);
-    }
+    };
 }

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IPropertyChanged } from "../base";
+import { IDisposable, IPropertyChanged } from "../base";
 import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";
@@ -8,7 +8,7 @@ import { CursorType } from "./cursorType";
 import { VisualShapeData } from "./detectedData";
 import { IViewer } from "./viewer";
 
-export interface IView extends IPropertyChanged {
+export interface IView extends IPropertyChanged, IDisposable {
     readonly viewer: IViewer;
     readonly container: HTMLElement;
     name: string;

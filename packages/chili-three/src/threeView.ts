@@ -36,7 +36,7 @@ import { Constants } from "./constants";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 
-export class ThreeView extends Observable implements IView, IDisposable {
+export class ThreeView extends Observable implements IView {
     private _name: string;
     private _scene: Scene;
     private _renderer: Renderer;
