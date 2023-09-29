@@ -16,6 +16,8 @@ import { Editor } from "./editor";
 import { Home } from "./home";
 import style from "./mainWindow.module.css";
 
+document.oncontextmenu = (e) => e.preventDefault();
+
 class MainWindowViewModel extends Observable {
     private _displayHome: boolean = true;
     get displayHome() {

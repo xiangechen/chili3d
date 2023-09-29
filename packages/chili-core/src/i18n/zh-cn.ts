@@ -85,7 +85,7 @@ export default {
         "toast.converter.error": "转换错误",
         "toast.read.error": "读取错误",
         "toast.select.noSelected": "未选择任何对象",
-        "prompt.default": "鼠标中键平移视图，右键旋转视图，中键滚动缩放视图",
+        "prompt.default": "鼠标中键平移视图，Shift + 中键旋转视图，中键滚动缩放视图",
         "prompt.polygon.close": "闭合",
         "prompt.select.models": "请选择模型",
         "prompt.select.edges": "请选择边",

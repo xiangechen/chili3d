@@ -86,7 +86,7 @@ export default {
         "toast.read.error": "Read error",
         "toast.select.noSelected": "No selected",
         "prompt.default":
-            "Middle mouse button to pan the view, right button to rotate the view, middle button to scroll the zoom view",
+            "Middle mouse button to pan the view, Shift + Middle button to rotate the view, Middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",
         "prompt.select.edges": "Please select edges",
         "prompt.select.wires": "Please select wires",

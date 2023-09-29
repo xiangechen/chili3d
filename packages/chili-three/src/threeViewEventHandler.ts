@@ -2,8 +2,6 @@
 
 import { IEventHandler, IView } from "chili-core";
 
-document.oncontextmenu = (e) => e.preventDefault();
-
 export class ThreeViewHandler implements IEventHandler {
     private mouse: { isDown: boolean; x: number; y: number };
 
@@ -19,13 +17,12 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
-        event.preventDefault();
         if (this.mouse.isDown) {
             let dx = this.mouse.x - event.offsetX;
             let dy = event.offsetY - this.mouse.y;
-            if (event.buttons === 4) {
+            if (event.buttons === 4 && event.shiftKey) {
                 view.pan(dx, dy);
-            } else if (event.buttons === 2) {
+            } else if (event.buttons === 4 && !event.shiftKey) {
                 view.rotation(dx, dy);
             }
             this.mouse.x = event.offsetX;
