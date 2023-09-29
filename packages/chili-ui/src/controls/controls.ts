@@ -24,6 +24,7 @@ export interface ImgProps extends Props {
 
 export interface AProps extends Props {
     href?: string | Binding;
+    target: "_blank" | "_self";
 }
 
 export interface SelectProps extends Props {

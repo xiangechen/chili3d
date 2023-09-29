@@ -35,11 +35,13 @@ export const Home = (options: HomeOption) => {
                     className: style.link,
                     textContent: "Github",
                     href: "https://github.com/xiangechen/chili3d",
+                    target: "_blank",
                 }),
                 a({
                     className: style.link,
                     textContent: "Gitee",
                     href: "https://gitee.com/chenxiange/chili3d",
+                    target: "_blank",
                 }),
             ),
         ),
