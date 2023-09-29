@@ -27,7 +27,9 @@ export class SnapPointEventHandler extends SnapEventHandler {
         protected pointData: SnapPointData,
     ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
-        let workplaneSnap = pointData.plane ? new PlaneSnap(pointData.plane) : new WorkplaneSnap();
+        let workplaneSnap = pointData.plane
+            ? new PlaneSnap(pointData.plane, pointData.refPoint)
+            : new WorkplaneSnap(pointData.refPoint);
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
         super(controller, snaps, pointData);

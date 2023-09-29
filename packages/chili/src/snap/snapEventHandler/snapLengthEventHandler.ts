@@ -55,7 +55,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
     ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
-        let planeSnap = new PlaneSnap(lengthData.plane);
+        let planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
         super(controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
