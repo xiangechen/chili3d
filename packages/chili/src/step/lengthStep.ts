@@ -36,6 +36,6 @@ export class LengthAtPlaneStep extends StepBase<SnapLengthAtPlaneData> {
 
     protected validator(data: SnapLengthAtPlaneData, point: XYZ): boolean {
         let pointAtPlane = data.plane.project(point);
-        return pointAtPlane.distanceTo(data.point) > 0;
+        return pointAtPlane.distanceTo(data.point) > Precision.Length;
     }
 }
