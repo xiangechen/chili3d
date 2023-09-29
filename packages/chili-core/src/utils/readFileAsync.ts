@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Result } from "./base";
+import { Result } from "../base";
 
 export interface FileData {
     fileName: string;
@@ -53,7 +53,7 @@ async function resolveFiles(
     resolve(Result.success(result));
 }
 
-export function asyncFileReader(file: File): Promise<Result<string>> {
+function asyncFileReader(file: File): Promise<Result<string>> {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = (e) => {
