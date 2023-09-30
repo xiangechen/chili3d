@@ -1,17 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18n, I18nKeys, PubSub } from "chili-core";
+import { I18n, I18nKeys, INode, INodeLinkedList, PubSub } from "chili-core";
 import { Control, Svg } from "../components";
 
 import style from "./toolBar.module.css";
+import { ProjectView } from "./projectView";
+import { Tree } from "./tree";
+import { TreeGroup } from "./tree/treeItemGroup";
+import { li } from "../controls";
 
 export class ToolBar extends Control {
-    constructor() {
+    constructor(readonly projectView: ProjectView) {
         super(style.panel);
         this.newIconButton("icon-folder-plus", "items.tool.newFolder", this.newGroup);
         this.newIconButton("icon-unexpand", "items.tool.unexpandAll", this.unExpandAll);
         this.newIconButton("icon-expand", "items.tool.expandAll", this.expandAll);
-        this.newIconButton("icon-delete", "items.tool.delete", this.deleteModel);
     }
 
     private newIconButton(icon: string, tip: I18nKeys, command: () => void) {
@@ -37,12 +40,24 @@ export class ToolBar extends Control {
     };
 
     private setExpand(expand: boolean) {
-        console.log("todo");
+        let tree = this.projectView.activeTree();
+        if (!tree) return;
+        let first = this.projectView.activeDocument?.rootNode.firstChild;
+        if (first) this.setNodeExpand(tree, first, expand);
     }
 
-    private deleteModel = () => {
-        PubSub.default.pub("executeCommand", "modify.delete");
-    };
+    private setNodeExpand(tree: Tree, list: INode, expand: boolean) {
+        let item = tree.treeItem(list);
+        if (item instanceof TreeGroup) {
+            item.isExpanded = expand;
+        }
+        if (INode.isLinkedListNode(list) && list.firstChild) {
+            this.setNodeExpand(tree, list.firstChild, expand);
+        }
+        if (list.nextSibling) {
+            this.setNodeExpand(tree, list.nextSibling, expand);
+        }
+    }
 }
 
 customElements.define("chili-toolbar", ToolBar);

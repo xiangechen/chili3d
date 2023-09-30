@@ -1,6 +1,10 @@
 .name {
     flex: 1;
     font-size: 12px;
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
 }
 
 .icon {

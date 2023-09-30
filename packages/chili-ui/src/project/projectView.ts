@@ -6,44 +6,60 @@ import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
 
 import style from "./projectView.module.css";
+import { div, localize, span } from "../controls";
 
 export class ProjectView extends Control {
-    private documentTreeMap = new WeakMap<IDocument, Tree>();
-    private activeDocument: IDocument | undefined;
+    readonly #documentTreeMap = new WeakMap<IDocument, Tree>();
+
+    #activeDocument: IDocument | undefined;
+    get activeDocument() {
+        return this.#activeDocument;
+    }
+
     private panel: Panel;
 
     constructor() {
         super(style.root);
         this.panel = new Panel().addClass(style.itemsPanel);
         this.append(
-            new Row()
-                .addClass(style.headerPanel)
-                .addItems(new Label().addClass(style.header).i18nText("items.header"), new ToolBar()),
+            div(
+                { className: style.headerPanel },
+                span({
+                    className: style.header,
+                    textContent: localize("items.header"),
+                }),
+                new ToolBar(this),
+            ),
             this.panel,
         );
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
         PubSub.default.sub("documentClosed", this.handleDocumentClosed);
     }
 
+    activeTree() {
+        if (!this.#activeDocument) return undefined;
+        return this.#documentTreeMap.get(this.#activeDocument);
+    }
+
     private handleDocumentClosed = (document: IDocument) => {
-        let tree = this.documentTreeMap.get(document);
+        let tree = this.#documentTreeMap.get(document);
         if (tree) this.panel.removeChild(tree);
-        this.documentTreeMap.delete(document);
-        this.activeDocument = undefined;
+        this.#documentTreeMap.delete(document);
+        this.#activeDocument = undefined;
     };
 
     private handleActiveDocumentChanged = (document: IDocument | undefined) => {
-        if (this.activeDocument !== undefined && this.documentTreeMap.has(this.activeDocument)) {
-            let tree = this.documentTreeMap.get(this.activeDocument)!;
+        if (this.#activeDocument !== undefined && this.#documentTreeMap.has(this.#activeDocument)) {
+            let tree = this.#documentTreeMap.get(this.#activeDocument)!;
             this.panel.removeChild(tree);
         }
-        this.activeDocument = document;
+        this.#activeDocument = document;
         if (document === undefined) return;
 
-        let tree = this.documentTreeMap.get(document);
+        let tree = this.#documentTreeMap.get(document);
         if (tree === undefined) {
             tree = new Tree(document);
-            this.documentTreeMap.set(document, tree);
+            this.#documentTreeMap.set(document, tree);
         }
         this.panel.append(tree);
     };

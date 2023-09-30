@@ -27,6 +27,10 @@ export class Tree extends Control {
         this.addEvents(this);
     }
 
+    treeItem(node: INode): TreeItem | undefined {
+        return this.nodeMap.get(node);
+    }
+
     override dispose(): void {
         super.dispose();
         this.lastClicked = undefined;
