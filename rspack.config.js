@@ -19,9 +19,18 @@ module.exports = (env, arg) => {
                 patterns: [
                     {
                         from: "./public",
+                        globOptions: {
+                            ignore: ["**/**/index.html"],
+                        },
                     },
                 ],
             },
+            html: [
+                {
+                    template: "./public/index.html",
+                    inject: "body",
+                },
+            ],
         },
         resolve: {
             extensions: [".tsx", ".ts", ".js"],
@@ -36,7 +45,7 @@ module.exports = (env, arg) => {
         },
         plugins: [new ForkTsCheckerWebpackPlugin()],
         output: {
-            filename: "bundle.js",
+            filename: "[contenthash].bundle.js",
             path: path.resolve(__dirname, "build"),
         },
     };
