@@ -25,7 +25,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     resize(width: number, heigth: number): void;
     setCursor(cursor: CursorType): void;
     pan(dx: number, dy: number): void;
-    rotation(dx: number, dy: number): void;
+    rotate(dx: number, dy: number): void;
     fitContent(): void;
     zoom(x: number, y: number, delta: number): void;
     detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];

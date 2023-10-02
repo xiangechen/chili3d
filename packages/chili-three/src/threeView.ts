@@ -2,7 +2,6 @@
 
 import {
     CursorType,
-    IDisposable,
     IShape,
     IShapeFilter,
     IView,
@@ -154,7 +153,7 @@ export class ThreeView extends Observable implements IView {
         return { x, y };
     }
 
-    rotation(dx: number, dy: number): void {
+    rotate(dx: number, dy: number): void {
         const rotationX = dx * 0.01;
         const rotationY = dy * 0.01;
         const position = this._camera.position.clone();

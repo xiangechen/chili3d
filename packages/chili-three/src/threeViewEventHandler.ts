@@ -30,7 +30,7 @@ export class ThreeViewHandler implements IEventHandler {
             if (event.shiftKey) {
                 view.pan(dx, dy);
             } else if (!event.shiftKey) {
-                view.rotation(dx, dy);
+                view.rotate(dx, dy);
             }
             this.lastDown.x = event.offsetX;
             this.lastDown.y = event.offsetY;
