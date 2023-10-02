@@ -12,6 +12,6 @@ export interface IViewer extends IDisposable {
     createView(name: string, workplane: Plane, dom: HTMLElement): IView;
     removeView(view: IView): void;
     views(): readonly IView[];
-    redraw(): void;
+    update(): void;
     setCursor(cursor: CursorType): void;
 }

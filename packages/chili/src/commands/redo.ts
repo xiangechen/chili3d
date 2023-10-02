@@ -11,6 +11,6 @@ export class Redo implements ICommand {
     async execute(app: IApplication): Promise<void> {
         let document = app.activeDocument!;
         document.history.redo();
-        document.visual.viewer.redraw();
+        document.visual.viewer.update();
     }
 }

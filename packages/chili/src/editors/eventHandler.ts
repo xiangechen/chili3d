@@ -70,7 +70,7 @@ export abstract class EditorEventHandler implements IEventHandler, IDisposable {
         let data = await snapper?.snap(this.document, this.snaped.tip, new AsyncController());
         if (data?.point === undefined) return;
         this.setNewPoint(this.snaped, data.point);
-        view.viewer.redraw();
+        view.viewer.update();
         this.snaped = undefined;
     }
 

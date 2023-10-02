@@ -20,7 +20,7 @@ export class ThreeViewHandler implements IEventHandler {
 
     mouseWheel(view: IView, event: WheelEvent): void {
         view.zoom(event.offsetX, event.offsetY, event.deltaY);
-        view.redraw();
+        view.update();
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
@@ -35,7 +35,7 @@ export class ThreeViewHandler implements IEventHandler {
             this.lastDown.x = event.offsetX;
             this.lastDown.y = event.offsetY;
         }
-        view.redraw();
+        view.update();
     }
 
     pointerDown(view: IView, event: PointerEvent): void {
@@ -47,7 +47,7 @@ export class ThreeViewHandler implements IEventHandler {
         if (this.checkDoubleClick(event)) {
             isDoubleClick = true;
             view.fitContent();
-            view.redraw();
+            view.update();
         }
         this.lastDown = {
             x: event.offsetX,

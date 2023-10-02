@@ -43,7 +43,7 @@ export class ThreeView extends Observable implements IView {
     private _camera: Camera;
     private _target: Vector3;
     private _scale: number = 1;
-    private _needRedraw: boolean = false;
+    private _needsUpdate: boolean = false;
 
     panSpeed: number = 0.3;
     zoomSpeed: number = 1.3;
@@ -105,7 +105,7 @@ export class ThreeView extends Observable implements IView {
         this._camera.position.set(eye.x, eye.y, eye.z);
         this._camera.lookAt(this._target);
         this._camera.updateMatrixWorld(true);
-        this.redraw();
+        this.update();
     }
 
     pan(dx: number, dy: number) {
@@ -119,7 +119,7 @@ export class ThreeView extends Observable implements IView {
 
     set eye(value: XYZ) {
         this._camera.position.set(value.x, value.y, value.z);
-        this.redraw();
+        this.update();
     }
 
     private translate(dvx: number, dvy: number) {
@@ -232,14 +232,14 @@ export class ThreeView extends Observable implements IView {
         requestAnimationFrame(() => {
             this.animate();
         });
-        if (this._needRedraw) {
+        if (this._needsUpdate) {
             this._renderer.render(this._scene, this._camera);
-            this._needRedraw = false;
+            this._needsUpdate = false;
         }
     }
 
-    redraw() {
-        this._needRedraw = true;
+    update() {
+        this._needsUpdate = true;
     }
 
     get camera(): Camera {
@@ -258,7 +258,7 @@ export class ThreeView extends Observable implements IView {
             this._camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
-        this.redraw();
+        this.update();
     }
 
     get name(): string {

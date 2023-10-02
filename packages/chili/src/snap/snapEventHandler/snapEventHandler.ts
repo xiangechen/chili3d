@@ -79,7 +79,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         } else {
             this.clearSnapTip();
         }
-        view.viewer.redraw();
+        view.viewer.update();
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
@@ -190,7 +190,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         this._tempShapes?.[1].forEach((x) => {
             this._tempShapes?.[0].viewer.visual.context.removeShapeMesh(x);
         });
-        view?.viewer.redraw();
+        view?.viewer.update();
         this._tempShapes = undefined;
     }
 
@@ -201,7 +201,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
     pointerUp(view: IView, event: MouseEvent): void {}
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.viewer.redraw();
+        view.viewer.update();
     }
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {

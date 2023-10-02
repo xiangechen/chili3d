@@ -35,7 +35,7 @@ export class Import implements ICommand {
         let body = new ImportedBody(document, shape.value);
         let model = new GeometryModel(document, `Imported ${count++}`, body);
         document.addNode(model);
-        document.visual.viewer.redraw();
+        document.visual.viewer.update();
     }
 
     private async readShape(application: IApplication) {

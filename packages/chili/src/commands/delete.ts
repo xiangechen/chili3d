@@ -15,7 +15,7 @@ export class Delete implements ICommand {
             let models = document!.selection.getSelectedNodes();
             document!.selection.clearSelected();
             models.forEach((model) => model.parent?.remove(model));
-            document!.visual.viewer.redraw();
+            document!.visual.viewer.update();
         });
     }
 }

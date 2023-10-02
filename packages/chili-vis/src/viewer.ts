@@ -53,9 +53,9 @@ export abstract class Viewer implements IViewer {
         this._views.forEach((x) => x.setCursor(cursor));
     }
 
-    redraw() {
+    update() {
         this._views.forEach((v) => {
-            v.redraw();
+            v.update();
         });
     }
 

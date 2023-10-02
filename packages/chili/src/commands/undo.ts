@@ -11,6 +11,6 @@ export class Undo implements ICommand {
     async execute(application: IApplication): Promise<void> {
         let document = application.activeDocument!;
         document.history.undo();
-        document.visual.viewer.redraw();
+        document.visual.viewer.update();
     }
 }

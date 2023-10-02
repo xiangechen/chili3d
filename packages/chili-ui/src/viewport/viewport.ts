@@ -29,7 +29,7 @@ export class Viewport extends Control {
         document.visual.viewer
             .createView("3D", Plane.XY, this.viewDom)
             .lookAt(new XYZ(1000, 1000, 1000), XYZ.zero);
-        document.visual.viewer.redraw();
+        document.visual.viewer.update();
     }
 
     private handleActiveDocumentChanged = (document: IDocument | undefined) => {

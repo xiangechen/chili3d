@@ -67,7 +67,7 @@ export class ObjectTracking {
         } else {
             this.addTrackingPoint(snap, document, currentTrackings);
         }
-        document.visual.viewer.redraw();
+        document.visual.viewer.update();
     }
 
     private removeTrackingPoint(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
