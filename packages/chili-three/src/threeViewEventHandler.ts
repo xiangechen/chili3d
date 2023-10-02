@@ -2,12 +2,19 @@
 
 import { IEventHandler, IView } from "chili-core";
 
-export class ThreeViewHandler implements IEventHandler {
-    private mouse: { isDown: boolean; x: number; y: number };
+interface MouseDownData {
+    x: number;
+    y: number;
+    time: number;
+    key: number;
+    isDoubleClick: boolean;
+}
 
-    constructor() {
-        this.mouse = { isDown: false, x: 0, y: 0 };
-    }
+const MIDDLE = 4;
+
+export class ThreeViewHandler implements IEventHandler {
+    private lastDown: MouseDownData | undefined;
+    private _clearDownId: any;
 
     dispose() {}
 
@@ -17,34 +24,60 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
-        if (this.mouse.isDown) {
-            let dx = this.mouse.x - event.offsetX;
-            let dy = event.offsetY - this.mouse.y;
-            if (event.buttons === 4 && event.shiftKey) {
+        if (this.lastDown && event.buttons === MIDDLE) {
+            let dx = this.lastDown.x - event.offsetX;
+            let dy = event.offsetY - this.lastDown.y;
+            if (event.shiftKey) {
                 view.pan(dx, dy);
-            } else if (event.buttons === 4 && !event.shiftKey) {
+            } else if (!event.shiftKey) {
                 view.rotation(dx, dy);
             }
-            this.mouse.x = event.offsetX;
-            this.mouse.y = event.offsetY;
+            this.lastDown.x = event.offsetX;
+            this.lastDown.y = event.offsetY;
         }
         view.redraw();
     }
 
     pointerDown(view: IView, event: PointerEvent): void {
-        if (event.button === 1 || event.button === 2) {
-            this.mouse = {
-                isDown: true,
-                x: event.offsetX,
-                y: event.offsetY,
-            };
+        if (this._clearDownId) {
+            clearTimeout(this._clearDownId);
+            this._clearDownId = undefined;
         }
+        let isDoubleClick = false;
+        if (this.checkDoubleClick(event)) {
+            isDoubleClick = true;
+            view.fitContent();
+            view.redraw();
+        }
+        this.lastDown = {
+            x: event.offsetX,
+            y: event.offsetY,
+            time: Date.now(),
+            key: event.buttons,
+            isDoubleClick,
+        };
+    }
+
+    pointerOut(view: IView, event: PointerEvent): void {
+        this.lastDown = undefined;
+    }
+
+    private checkDoubleClick(event: PointerEvent) {
+        return (
+            this.lastDown &&
+            !this.lastDown.isDoubleClick &&
+            this.lastDown.key === event.buttons &&
+            this.lastDown.time + 500 > Date.now() &&
+            event.buttons === MIDDLE &&
+            !event.shiftKey
+        );
     }
 
     pointerUp(view: IView, event: PointerEvent): void {
-        if (this.mouse.isDown && event.button === 1) {
-            this.mouse.isDown = false;
-        }
+        this._clearDownId = setTimeout(() => {
+            this.lastDown = undefined;
+            this._clearDownId = undefined;
+        }, 500);
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {}

@@ -96,11 +96,9 @@ export class ThreeView extends Observable implements IView {
         return renderer;
     }
 
-    toImage(): Promise<string> {
-        return new Promise((resolve, reject) => {
-            this._renderer.render(this._scene, this._camera);
-            resolve(this.renderer.domElement.toDataURL());
-        });
+    toImage(): string {
+        this._renderer.render(this._scene, this._camera);
+        return this.renderer.domElement.toDataURL();
     }
 
     lookAt(eye: XYZ, target: XYZ): void {
@@ -180,6 +178,8 @@ export class ThreeView extends Observable implements IView {
     private fovTan(fov: number) {
         return Math.tan((fov * 0.5 * Math.PI) / 180.0);
     }
+
+    fitContent(): void {}
 
     zoom(mx: number, my: number, delta: number): void {
         let scale = delta > 0 ? 0.9 : 1 / 0.9;

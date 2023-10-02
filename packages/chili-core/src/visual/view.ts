@@ -16,7 +16,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     workplane: Plane;
     redraw(): void;
     up(): XYZ;
-    toImage(): Promise<string>;
+    toImage(): string;
     direction(): XYZ;
     lookAt(cameraLocation: XYZ, target: XYZ): void;
     rayAt(mx: number, my: number): Ray;
@@ -26,6 +26,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     setCursor(cursor: CursorType): void;
     pan(dx: number, dy: number): void;
     rotation(dx: number, dy: number): void;
+    fitContent(): void;
     zoom(x: number, y: number, delta: number): void;
     detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
     rectDetected(
