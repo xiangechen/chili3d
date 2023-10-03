@@ -11,6 +11,7 @@ export type I18nKeys =
     | "common.color"
     | "common.name"
     | "common.matrix"
+    | "common.opacity"
     | "common.normal"
     | "common.confirm"
     | "common.cancel"

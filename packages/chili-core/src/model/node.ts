@@ -36,6 +36,7 @@ export interface IModel extends INode {
     readonly body: Entity;
     matrix: Matrix4;
     color: Color;
+    opacity: number;
     shape(): IShape | undefined;
 }
 

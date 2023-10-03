@@ -6,6 +6,7 @@ export default {
     language: "English",
     translation: {
         "common.color": "Color",
+        "common.opacity": "Opacity",
         "common.name": "Name",
         "common.matrix": "Matrix",
         "common.cancel": "Cancel",

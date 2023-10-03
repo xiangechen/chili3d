@@ -53,6 +53,17 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         this.setProperty("color", value);
     }
 
+    private _opacity: number = 1;
+
+    @Serializer.serialze()
+    @Property.define("common.opacity")
+    get opacity() {
+        return this._opacity;
+    }
+    set opacity(value: number) {
+        this.setProperty("opacity", value);
+    }
+
     constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
         super(document, name, id);
         this.body = body;

@@ -30,13 +30,19 @@ export class PropertyView extends Control {
         if (nodes.length === 0) return;
         let nameProperty = Property.getProperty(nodes[0], "name");
         let colorProperty = Property.getProperty(nodes[0], "color" as any);
+        let opacityProperty = Property.getProperty(nodes[0], "opacity" as any);
+        let properties = div();
         this.panel.append(
             div(
-                { className: style.colorName },
-                colorProperty ? new ColorProperty(document, nodes, colorProperty, false) : "",
-                nameProperty ? new InputProperty(document, nodes, nameProperty, false) : "",
+                div(
+                    { className: style.colorName },
+                    colorProperty ? new ColorProperty(document, nodes, colorProperty, false) : "",
+                    nameProperty ? new InputProperty(document, nodes, nameProperty, false) : "",
+                ),
+                properties,
             ),
         );
+        if (opacityProperty) this.appendProperty(properties, document, nodes, opacityProperty);
     }
 
     private addBody(nodes: INode[], document: IDocument) {

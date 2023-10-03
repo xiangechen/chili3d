@@ -84,7 +84,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initCamera(container: HTMLElement) {
-        let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 1e12);
+        let camera = new PerspectiveCamera(5, container.clientWidth / container.clientHeight, 0.001, 1e12);
         // let camera = new OrthographicCamera(
         //     -container.clientWidth / 2,
         //     container.clientWidth / 2,
@@ -100,7 +100,11 @@ export class ThreeView extends Observable implements IView {
     }
 
     protected initRender(container: HTMLElement): Renderer {
-        let renderer = new WebGLRenderer({ antialias: true });
+        let renderer = new WebGLRenderer({
+            antialias: true,
+            logarithmicDepthBuffer: true,
+            powerPreference: "high-performance",
+        });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
         container.append(renderer.domElement);

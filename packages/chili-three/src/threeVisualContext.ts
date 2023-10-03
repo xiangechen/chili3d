@@ -164,6 +164,8 @@ export class ThreeVisualContext implements IVisualContext {
             shape.matrixWorldNeedsUpdate = true;
         } else if (property === "color") {
             shape.color = model[property];
+        } else if (property === "opacity") {
+            shape.opacity = model[property];
         }
     };
 

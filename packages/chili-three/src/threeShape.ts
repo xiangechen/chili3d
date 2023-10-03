@@ -37,12 +37,14 @@ let hilightFaceMaterial = new MeshBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.highlightFaceColor),
     side: DoubleSide,
     transparent: true,
+    opacity: 0.8,
 });
 
 let selectedFaceMaterial = new MeshBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.selectedFaceColor),
     side: DoubleSide,
     transparent: true,
+    opacity: 0.5,
 });
 
 export class ThreeShape extends Object3D implements IVisualShape {
@@ -63,11 +65,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
         return ThreeHelper.toColor(this._faceMaterial.color);
     }
 
-    get transparency() {
+    get opacity() {
         return this._faceMaterial.opacity;
     }
 
-    set transparency(value: number) {
+    set opacity(value: number) {
         this._faceMaterial.opacity = value;
     }
 

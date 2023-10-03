@@ -6,6 +6,7 @@ export default {
     language: "简体中文",
     translation: {
         "common.color": "颜色",
+        "common.opacity": "不透明度",
         "common.cancel": "取消",
         "common.confirm": "确定",
         "common.name": "名称",

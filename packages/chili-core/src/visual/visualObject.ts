@@ -5,5 +5,5 @@ import { Color, IDisposable } from "chili-core";
 export interface IVisualObject extends IDisposable {
     visible: boolean;
     color: Color;
-    transparency: number;
+    opacity: number;
 }
