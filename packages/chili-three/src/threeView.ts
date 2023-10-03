@@ -16,13 +16,11 @@ import {
     XYZ,
 } from "chili-core";
 import {
-    Camera,
     Intersection,
     LineSegments,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
-    Quaternion,
     Raycaster,
     Renderer,
     Scene,
@@ -30,39 +28,54 @@ import {
     WebGLRenderer,
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
-
+import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
+import { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeView extends Observable implements IView {
-    private _name: string;
     private _scene: Scene;
     private _renderer: Renderer;
     private _workplane: Plane;
-    private _camera: Camera;
-    private _target: Vector3;
-    private _scale: number = 1;
     private _needsUpdate: boolean = false;
+    readonly cameraController: CameraController;
 
-    panSpeed: number = 0.3;
-    zoomSpeed: number = 1.3;
-    rotateSpeed: number = 1.0;
+    private _name: string;
+    get name(): string {
+        return this._name;
+    }
+    set name(name: string) {
+        this._name = name;
+    }
+
+    private _camera: OrthographicCamera | PerspectiveCamera;
+    get camera(): PerspectiveCamera | OrthographicCamera {
+        return this._camera;
+    }
+    set camera(camera: PerspectiveCamera | OrthographicCamera) {
+        this._camera = camera;
+        this.cameraController.setCamera(camera);
+    }
 
     constructor(
         readonly viewer: IViewer,
         name: string,
         workplane: Plane,
         readonly container: HTMLElement,
-        scene: Scene,
+        readonly content: ThreeVisualContext,
     ) {
         super();
         this._name = name;
-        this._scene = scene;
-        this._target = new Vector3();
+        this._scene = content.scene;
         this._workplane = workplane;
         this._camera = this.initCamera(container);
         this._renderer = this.initRender(container);
+        this.cameraController = new CameraController(
+            this._camera!,
+            this._renderer.domElement,
+            content.visualShapes,
+        );
         this.animate();
     }
 
@@ -71,17 +84,17 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initCamera(container: HTMLElement) {
-        //let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 4000);
-        let camera = new OrthographicCamera(
-            -this.container.clientWidth / 2,
-            this.container.clientWidth / 2,
-            this.container.clientHeight / 2,
-            -this.container.clientHeight / 2,
-            0.01,
-            3000,
-        );
+        let camera = new PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.001, 1e12);
+        // let camera = new OrthographicCamera(
+        //     -container.clientWidth / 2,
+        //     container.clientWidth / 2,
+        //     container.clientHeight / 2,
+        //     -container.clientHeight / 2,
+        //     0.01,
+        //     1e12,
+        // );
         camera.position.set(1000, 1000, 1000);
-        camera.lookAt(this._target);
+        camera.lookAt(new Vector3());
         camera.updateMatrixWorld(true);
         return camera;
     }
@@ -98,113 +111,6 @@ export class ThreeView extends Observable implements IView {
     toImage(): string {
         this._renderer.render(this._scene, this._camera);
         return this.renderer.domElement.toDataURL();
-    }
-
-    lookAt(eye: XYZ, target: XYZ): void {
-        this._target.set(target.x, target.y, target.z);
-        this._camera.position.set(eye.x, eye.y, eye.z);
-        this._camera.lookAt(this._target);
-        this._camera.updateMatrixWorld(true);
-        this.update();
-    }
-
-    pan(dx: number, dy: number) {
-        let { x, y } = this.convert(dx, dy);
-        this.translate(x, y);
-    }
-
-    get eye(): XYZ {
-        return new XYZ(this._camera.position.x, this._camera.position.y, this._camera.position.z);
-    }
-
-    set eye(value: XYZ) {
-        this._camera.position.set(value.x, value.y, value.z);
-        this.update();
-    }
-
-    private translate(dvx: number, dvy: number) {
-        let vx = new Vector3().setFromMatrixColumn(this.camera.matrix, 0).multiplyScalar(dvx);
-        let vy = new Vector3().setFromMatrixColumn(this.camera.matrix, 1).multiplyScalar(dvy);
-        let vector = new Vector3().add(vx).add(vy);
-        this._target.add(vector);
-        this.camera.position.add(vector);
-        this.camera.lookAt(this._target);
-    }
-
-    private convert(dx: number, dy: number) {
-        let x = 0,
-            y = 0;
-        if (ThreeHelper.isPerspectiveCamera(this._camera)) {
-            let distance = this._camera.position.distanceTo(this._target);
-            // half of the fov is center to top of screen
-            distance *= this.fovTan(this._camera.fov);
-            x = (2 * dx * distance) / this.container.clientHeight;
-            y = (2 * dy * distance) / this.container.clientHeight;
-        } else if (ThreeHelper.isOrthographicCamera(this._camera)) {
-            x =
-                (dx * (this._camera.right - this._camera.left)) /
-                this._camera.zoom /
-                this.container.clientWidth;
-            y =
-                (dy * (this._camera.top - this._camera.bottom)) /
-                this._camera.zoom /
-                this.container.clientHeight;
-        }
-        return { x, y };
-    }
-
-    rotate(dx: number, dy: number): void {
-        const rotationX = dx * 0.01;
-        const rotationY = dy * 0.01;
-        const position = this._camera.position.clone();
-        position.sub(this._target);
-        const quaternionX = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), rotationX);
-        const quaternionY = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), rotationY);
-        position.applyQuaternion(quaternionX);
-        position.applyQuaternion(quaternionY);
-        position.add(this._target);
-        this._camera.position.copy(position);
-        this._camera.up.set(0, 0, 1);
-        this._camera.lookAt(this._target);
-    }
-
-    startRotation(dx: number, dy: number): void {}
-
-    get scale(): number {
-        return this._scale;
-    }
-
-    private fovTan(fov: number) {
-        return Math.tan((fov * 0.5 * Math.PI) / 180.0);
-    }
-
-    fitContent(): void {}
-
-    zoom(mx: number, my: number, delta: number): void {
-        let scale = delta > 0 ? 0.9 : 1 / 0.9;
-        this._scale *= scale;
-        let point = this.mouseToWorld(mx, my);
-        if (ThreeHelper.isOrthographicCamera(this._camera)) {
-            this._camera.zoom /= scale;
-            let vec = point.clone().sub(this._target);
-            let xvec = new Vector3().setFromMatrixColumn(this._camera.matrix, 0);
-            let yvec = new Vector3().setFromMatrixColumn(this._camera.matrix, 1);
-            let x = vec.clone().dot(xvec);
-            let y = vec.clone().dot(yvec);
-            let aDxv = x / scale;
-            let aDyv = y / scale;
-            this.translate(aDxv - x, aDyv - y);
-            this._camera.updateProjectionMatrix();
-        } else if (ThreeHelper.isPerspectiveCamera(this._camera)) {
-            let direction = this._camera.position.clone().sub(this._target);
-            let vector = this._camera.position.clone().sub(point).normalize();
-            let angle = vector.angleTo(direction);
-            let length = direction.length() * (scale - 1);
-            let moveVector = vector.clone().multiplyScalar(length / Math.cos(angle));
-            this._camera.position.add(moveVector);
-            this._target.add(moveVector.sub(direction.clone().setLength(length)));
-            this._camera.lookAt(this._target);
-        }
     }
 
     get workplane(): Plane {
@@ -228,6 +134,10 @@ export class ThreeView extends Observable implements IView {
         if (CursorType.Drawing === cursorType) this.container.classList.add("drawingCursor");
     }
 
+    update() {
+        this._needsUpdate = true;
+    }
+
     private animate() {
         requestAnimationFrame(() => {
             this.animate();
@@ -236,18 +146,6 @@ export class ThreeView extends Observable implements IView {
             this._renderer.render(this._scene, this._camera);
             this._needsUpdate = false;
         }
-    }
-
-    update() {
-        this._needsUpdate = true;
-    }
-
-    get camera(): Camera {
-        return this._camera;
-    }
-
-    set camera(camera: Camera) {
-        this._camera = camera;
     }
 
     resize(width: number, heigth: number) {
@@ -259,14 +157,6 @@ export class ThreeView extends Observable implements IView {
         }
         this._renderer.setSize(width, heigth);
         this.update();
-    }
-
-    get name(): string {
-        return this._name;
-    }
-
-    set name(name: string) {
-        this._name = name;
     }
 
     get width(): number {
@@ -353,16 +243,14 @@ export class ThreeView extends Observable implements IView {
         let result: VisualShapeData[] = [];
         for (const element of intersections) {
             const parent = element.object.parent;
-            if (parent instanceof ThreeShape) {
-                if (shapeFilter && !shapeFilter.allow(parent.shape)) {
-                    continue;
-                }
-                result.push({
-                    owner: parent,
-                    shape: parent.shape,
-                    indexes: [],
-                });
+            if (!(parent instanceof ThreeShape) || (shapeFilter && !shapeFilter.allow(parent.shape))) {
+                continue;
             }
+            result.push({
+                owner: parent,
+                shape: parent.shape,
+                indexes: [],
+            });
         }
         return result;
     }
@@ -377,16 +265,14 @@ export class ThreeView extends Observable implements IView {
             const visualShape = intersected.object.parent;
             if (!(visualShape instanceof ThreeShape)) continue;
             let { shape, indexes } = this.getShape(shapeType, visualShape, intersected);
-            if (shape) {
-                if (shapeFilter && !shapeFilter.allow(shape)) {
-                    continue;
-                }
-                result.push({
-                    owner: visualShape,
-                    shape: shape,
-                    indexes,
-                });
+            if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
+                continue;
             }
+            result.push({
+                owner: visualShape,
+                shape: shape,
+                indexes,
+            });
         }
         return result;
     }
@@ -481,11 +367,10 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initRaycaster(mx: number, my: number) {
-        let threshold = Constants.RaycasterThreshold * this.scale;
-        let raycaster = new Raycaster();
-        raycaster.params = { Line: { threshold }, Points: { threshold } };
         let ray = this.rayAt(mx, my);
-        raycaster.set(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        let threshold = Constants.RaycasterThreshold / this.camera.zoom;
+        let raycaster = new Raycaster(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        raycaster.params = { Line: { threshold }, Points: { threshold } };
         return raycaster;
     }
 }

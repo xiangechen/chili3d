@@ -28,7 +28,7 @@ export class Viewport extends Control {
     private createView(document: IDocument) {
         document.visual.viewer
             .createView("3D", Plane.XY, this.viewDom)
-            .lookAt(new XYZ(1000, 1000, 1000), XYZ.zero);
+            .cameraController.lookAt(new XYZ(1000, 1000, 1000), XYZ.zero);
         document.visual.viewer.update();
     }
 

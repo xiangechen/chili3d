@@ -23,7 +23,7 @@ export class ThreeViewHandler implements IEventHandler {
     pointerMove(view: IView, event: PointerEvent): void {
         if (event.buttons === MIDDLE) {
             if (event.shiftKey) {
-                view.cameraController.pan(-event.movementX, event.movementY);
+                view.cameraController.pan(-event.movementX, -event.movementY);
             } else if (!event.shiftKey) {
                 view.cameraController.rotate(-event.movementX, -event.movementY);
             }

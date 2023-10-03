@@ -1,19 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IVisual, Plane } from "chili-core";
+import { Plane } from "chili-core";
 import { Viewer } from "chili-vis";
-import { Scene } from "three";
 import { ThreeView } from "./threeView";
+import { ThreeVisual } from "./threeVisual";
 
 export class ThreeViwer extends Viewer {
-    constructor(
-        visual: IVisual,
-        private scene: Scene,
-    ) {
-        super(visual);
+    constructor(readonly threeVisual: ThreeVisual) {
+        super(threeVisual);
     }
 
     protected handleCreateView(name: string, workplane: Plane, dom: HTMLElement) {
-        return new ThreeView(this.visual.viewer, name, workplane, dom, this.scene);
+        return new ThreeView(this.visual.viewer, name, workplane, dom, this.threeVisual.context);
     }
 }

@@ -97,7 +97,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
         this.initColor(data, buff, this._edgeMaterial);
         data.groups.forEach((x) => buff.addGroup(x.start, x.count));
-        buff.computeBoundingSphere();
+        buff.computeBoundingBox();
         this._edges = new LineSegments(buff, [
             this._edgeMaterial,
             hilightEdgeMaterial,
@@ -114,7 +114,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         buff.setIndex(data.indices);
         data.groups.forEach((x) => buff.addGroup(x.start, x.count, 0));
         this.initColor(data, buff, this._faceMaterial);
-        buff.computeBoundingSphere();
+        buff.computeBoundingBox();
         this._faces = new Mesh(buff, [this._faceMaterial, hilightFaceMaterial, selectedFaceMaterial]);
         return this._faces;
     }
@@ -185,12 +185,10 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let newState = this._stateMap.get(key);
         if (!newState) {
             newState = state;
+        } else if (mode === "add") {
+            newState = VisualState.addState(newState, state);
         } else {
-            if (mode === "add") {
-                newState = VisualState.addState(newState, state);
-            } else {
-                newState = VisualState.removeState(newState, state);
-            }
+            newState = VisualState.removeState(newState, state);
         }
         this._stateMap.set(key, newState);
         return newState;

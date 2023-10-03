@@ -82,9 +82,7 @@ export class ThreeVisualContext implements IVisualContext {
         let group = shape as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getThreeShapes(shapes, x));
-        } else {
-            if (shape instanceof ThreeShape) shapes.push(shape);
-        }
+        } else if (shape instanceof ThreeShape) shapes.push(shape);
     }
 
     displayShapeMesh(...datas: ShapeMeshData[]): number {

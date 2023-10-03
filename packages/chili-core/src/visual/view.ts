@@ -4,6 +4,7 @@ import { IDisposable, IPropertyChanged } from "../base";
 import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";
+import { ICameraController } from "./cameraController";
 import { CursorType } from "./cursorType";
 import { VisualShapeData } from "./detectedData";
 import { IViewer } from "./viewer";
@@ -11,23 +12,18 @@ import { IViewer } from "./viewer";
 export interface IView extends IPropertyChanged, IDisposable {
     readonly viewer: IViewer;
     readonly container: HTMLElement;
+    readonly cameraController: ICameraController;
     name: string;
-    scale: number;
     workplane: Plane;
     update(): void;
     up(): XYZ;
     toImage(): string;
     direction(): XYZ;
-    lookAt(cameraLocation: XYZ, target: XYZ): void;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
     resize(width: number, heigth: number): void;
     setCursor(cursor: CursorType): void;
-    pan(dx: number, dy: number): void;
-    rotate(dx: number, dy: number): void;
-    fitContent(): void;
-    zoom(x: number, y: number, delta: number): void;
     detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
     rectDetected(
         shapeType: ShapeType,

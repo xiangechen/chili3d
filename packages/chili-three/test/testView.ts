@@ -2,6 +2,7 @@ import { IViewer, Plane } from "chili-core";
 import * as THREE from "three";
 import { Renderer, Scene } from "three";
 import { ThreeView } from "../src/threeView";
+import { ThreeVisualContext } from "../src/threeVisualContext";
 
 class TestWebGLRenderer implements THREE.Renderer {
     constructor(readonly domElement = document.createElement("canvas")) {}
@@ -58,8 +59,8 @@ Object.defineProperties(container, {
 });
 
 export class TestView extends ThreeView {
-    constructor(viewer: IViewer, scene: Scene) {
-        super(viewer, "test", Plane.XY, container, scene);
+    constructor(viewer: IViewer, content: ThreeVisualContext) {
+        super(viewer, "test", Plane.XY, container, content);
     }
 
     protected override initRender(container: HTMLElement): Renderer {
