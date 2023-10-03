@@ -2,6 +2,7 @@
 
 import {
     Color,
+    EdgeMeshData,
     IDisposable,
     IModel,
     INode,
@@ -11,6 +12,7 @@ import {
     Matrix4,
     ShapeMeshData,
     ShapeType,
+    VertexMeshData,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -32,22 +34,25 @@ export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
     private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
 
-    readonly modelShapes: Group;
+    readonly visualShapes: Group;
     readonly tempShapes: Group;
 
     constructor(readonly scene: Scene) {
-        this.modelShapes = new Group();
+        this.visualShapes = new Group();
         this.tempShapes = new Group();
-        scene.add(this.modelShapes, this.tempShapes);
+        scene.add(this.visualShapes, this.tempShapes);
     }
 
     dispose() {
-        this.modelShapes.traverse((x) => {
+        this.visualShapes.traverse((x) => {
+            if (x instanceof ThreeShape) {
+                this._shapeModelMap.get(x)?.removePropertyChanged(this.handleModelPropertyChanged);
+            }
             if (IDisposable.isDisposable(x)) x.dispose();
         });
-        this.modelShapes.clear();
+        this.visualShapes.clear();
         this.tempShapes.clear();
-        this.scene.remove(this.modelShapes, this.tempShapes);
+        this.scene.remove(this.visualShapes, this.tempShapes);
     }
 
     getModel(shape: IVisualShape): IModel | undefined {
@@ -60,7 +65,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     get shapeCount() {
-        return this.modelShapes.children.length;
+        return this.visualShapes.children.length;
     }
 
     getShape(model: IModel): IVisualShape | undefined {
@@ -69,7 +74,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     shapes(): IVisualShape[] {
         let shapes = new Array<ThreeShape>();
-        this.modelShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
+        this.visualShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
         return shapes;
     }
 
@@ -84,31 +89,38 @@ export class ThreeVisualContext implements IVisualContext {
 
     displayShapeMesh(...datas: ShapeMeshData[]): number {
         let group = new Group();
-
         datas.forEach((data) => {
-            let geometry: Object3D | undefined = undefined;
-            let buff = new BufferGeometry();
-            buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-            let color = ThreeHelper.fromColor(data.color as Color);
             if (ShapeMeshData.isVertex(data)) {
-                let material = new PointsMaterial({
-                    size: data.size,
-                    sizeAttenuation: false,
-                    color,
-                });
-                geometry = new Points(buff, material);
+                group.add(this.createVertexGeometry(data));
             } else if (ShapeMeshData.isEdge(data)) {
-                let material: LineBasicMaterial =
-                    data.lineType === LineType.Dash
-                        ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
-                        : new LineBasicMaterial({ color });
-                geometry = new LineSegments(buff, material).computeLineDistances();
+                group.add(this.createEdgeGeometry(data));
             }
-            if (geometry !== undefined) group.add(geometry);
         });
-
         this.tempShapes.add(group);
         return group.id;
+    }
+
+    private createEdgeGeometry(data: EdgeMeshData) {
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+        let color = ThreeHelper.fromColor(data.color as Color);
+        let material: LineBasicMaterial =
+            data.lineType === LineType.Dash
+                ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
+                : new LineBasicMaterial({ color });
+        return new LineSegments(buff, material).computeLineDistances();
+    }
+
+    private createVertexGeometry(data: VertexMeshData) {
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+        let color = ThreeHelper.fromColor(data.color as Color);
+        let material = new PointsMaterial({
+            size: data.size,
+            sizeAttenuation: false,
+            color,
+        });
+        return new Points(buff, material);
     }
 
     removeShapeMesh(id: number) {
@@ -129,18 +141,16 @@ export class ThreeVisualContext implements IVisualContext {
             if (INode.isModelGroup(model)) {
                 let childGroup = new Group();
                 childGroup.name = model.id;
-                this.modelShapes.add(childGroup);
-            } else {
-                let shape = this.getShape(model);
-                if (shape !== undefined) return shape;
-                let modelShape = model.shape();
-                if (modelShape === undefined) return;
-                let threeShape = new ThreeShape(modelShape);
-                model.onPropertyChanged(this.handleModelPropertyChanged);
-                this.modelShapes.add(threeShape);
-                this._shapeModelMap.set(threeShape, model);
-                this._modelShapeMap.set(model, threeShape);
+                this.visualShapes.add(childGroup);
+                return;
             }
+            let modelShape = model.shape();
+            if (modelShape === undefined) return;
+            let threeShape = new ThreeShape(modelShape);
+            model.onPropertyChanged(this.handleModelPropertyChanged);
+            this.visualShapes.add(threeShape);
+            this._shapeModelMap.set(threeShape, model);
+            this._modelShapeMap.set(model, threeShape);
         });
     }
 
@@ -160,41 +170,39 @@ export class ThreeVisualContext implements IVisualContext {
     };
 
     removeModel(models: IModel[]) {
-        let shapes = models
-            .map((model) => {
-                return this._modelShapeMap.get(model) as ThreeShape;
-            })
-            .filter((x) => x !== undefined);
-        // https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
-        this.modelShapes.remove(...shapes);
-        shapes.forEach((obj) => {
-            this._modelShapeMap.delete(this._shapeModelMap.get(obj) as IModel);
-            this._shapeModelMap.delete(obj);
-            obj.traverse((child) => {
-                if (child instanceof BufferGeometry) {
-                    child.dispose();
-                }
-            });
+        models.forEach((m) => {
+            m.removePropertyChanged(this.handleModelPropertyChanged);
+            let shape = this._modelShapeMap.get(m);
+            this._modelShapeMap.delete(m);
+            if (!shape) return;
+            this._shapeModelMap.delete(shape);
+            if (shape instanceof ThreeShape) {
+                // https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
+                this.visualShapes.remove(shape);
+                shape.traverse((child) => {
+                    if (child instanceof BufferGeometry) {
+                        child.dispose();
+                    }
+                });
+            }
         });
     }
 
     findShapes(shapeType: ShapeType): Object3D[] {
-        const shapes: Object3D[] = [];
         if (shapeType === ShapeType.Shape) {
-            shapes.push(...this.modelShapes.children);
-        } else {
-            this.modelShapes.traverse((child) => {
-                if (!(child instanceof ThreeShape)) return;
-                if (shapeType === ShapeType.Edge) {
-                    let wireframe = child.edges();
-                    if (wireframe) shapes.push(wireframe);
-                } else if (shapeType === ShapeType.Face) {
-                    let faces = child.faces();
-                    if (faces) shapes.push(faces);
-                }
-            });
+            return [...this.visualShapes.children];
         }
-
+        const shapes: Object3D[] = [];
+        this.visualShapes.traverse((child) => {
+            if (!(child instanceof ThreeShape)) return;
+            if (shapeType === ShapeType.Edge) {
+                let wireframe = child.edges();
+                if (wireframe) shapes.push(wireframe);
+            } else if (shapeType === ShapeType.Face) {
+                let faces = child.faces();
+                if (faces) shapes.push(faces);
+            }
+        });
         return shapes;
     }
 }
