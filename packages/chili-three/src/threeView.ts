@@ -225,7 +225,11 @@ export class ThreeView extends Observable implements IView {
         let shapes = selectionBox.select();
         for (const shape of shapes) {
             // todo: add more shape types
-            if (shape.parent instanceof ThreeShape && shape instanceof LineSegments) {
+            if (
+                shape.parent instanceof ThreeShape &&
+                shape.parent.visible &&
+                shape instanceof LineSegments
+            ) {
                 detecteds.push({
                     owner: shape.parent,
                     shape: shape.parent.shape,
@@ -348,7 +352,7 @@ export class ThreeView extends Observable implements IView {
             if (obj !== undefined) shapes.push(obj);
         };
         this.viewer.visual.context.shapes().forEach((x) => {
-            if (!(x instanceof ThreeShape)) return;
+            if (!(x instanceof ThreeShape) || !x.visible) return;
             if (
                 shapeType === ShapeType.Shape ||
                 ShapeType.hasCompound(shapeType) ||
