@@ -71,11 +71,7 @@ export class ThreeView extends Observable implements IView {
         this._workplane = workplane;
         this._camera = this.initCamera(container);
         this._renderer = this.initRender(container);
-        this.cameraController = new CameraController(
-            this._camera!,
-            this._renderer.domElement,
-            content.visualShapes,
-        );
+        this.cameraController = new CameraController(this);
         this.animate();
     }
 

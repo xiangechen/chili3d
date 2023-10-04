@@ -39,6 +39,7 @@ export class ThreeViewHandler implements IEventHandler {
             view.cameraController.fitContent();
             view.update();
         } else if (event.buttons === MIDDLE) {
+            view.cameraController.startRotation(event.offsetX, event.offsetY);
             this._lastDown = {
                 time: Date.now(),
                 key: event.buttons,

@@ -1,8 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICameraController, XYZ } from "chili-core";
-import { Box3, Group, OrthographicCamera, PerspectiveCamera, Quaternion, Vector3 } from "three";
+import { ICameraController, ShapeType, XYZ } from "chili-core";
+import { Box3, OrthographicCamera, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeShape } from "./threeShape";
+import { ThreeView } from "./threeView";
+import { ThreeVisualContext } from "./threeVisualContext";
 
 export class CameraController implements ICameraController {
     private _target: Vector3 = new Vector3();
@@ -12,19 +15,17 @@ export class CameraController implements ICameraController {
     zoomSpeed: number = 0.9;
     rotateSpeed: number = 0.01;
 
-    constructor(
-        camera: OrthographicCamera | PerspectiveCamera,
-        readonly dom: HTMLElement,
-        readonly shapes: Group,
-    ) {
-        this._camera = camera;
+    constructor(readonly view: ThreeView) {
+        this._camera = view.camera;
     }
 
     setCamera(camera: OrthographicCamera | PerspectiveCamera) {
         this._camera = camera;
     }
 
-    startRotation(dx: number, dy: number): void {}
+    startRotation(x: number, y: number): void {
+        // TODO
+    }
 
     pan(dx: number, dy: number): void {
         dx = (dx * this.panSpeed) / this._camera.zoom;
@@ -34,13 +35,13 @@ export class CameraController implements ICameraController {
         if (ThreeHelper.isPerspectiveCamera(this._camera)) {
             let distance = this._camera.position.distanceTo(this._target);
             distance *= this.fovTan(this._camera.fov);
-            x = (2 * dx * distance) / this.dom.clientHeight;
-            y = (2 * dy * distance) / this.dom.clientHeight;
+            x = (2 * dx * distance) / this.view.container.clientHeight;
+            y = (2 * dy * distance) / this.view.container.clientHeight;
         } else if (ThreeHelper.isOrthographicCamera(this._camera)) {
             let width = this._camera.right - this._camera.left;
             let height = this._camera.top - this._camera.bottom;
-            x = (dx * width) / this.dom.clientWidth / this._camera.zoom;
-            y = (dy * height) / this.dom.clientHeight / this._camera.zoom;
+            x = (dx * width) / this.view.container.clientWidth / this._camera.zoom;
+            y = (dy * height) / this.view.container.clientHeight / this._camera.zoom;
         }
         this.move(x, y);
     }
@@ -61,12 +62,15 @@ export class CameraController implements ICameraController {
     }
 
     fitContent(): void {
+        // TODO
+        let context = this.view.viewer.visual.context as ThreeVisualContext;
         let box = new Box3();
-        box.setFromObject(this.shapes);
+        box.setFromObject(context.visualShapes);
         let size = new Vector3(),
             center = new Vector3();
         box.getSize(size);
         box.getCenter(center);
+        if (size.x === 0 && size.y === 0 && size.z === 0) return;
         let normal = this._camera.position.clone().sub(this._target).normalize();
         if (this._camera instanceof PerspectiveCamera) {
             const fov = this._camera.fov * (Math.PI / 180);
@@ -127,8 +131,8 @@ export class CameraController implements ICameraController {
     }
 
     private mouseToWorld(mx: number, my: number) {
-        let x = (mx / this.dom.clientWidth) * 2 - 1;
-        let y = -(my / this.dom.clientHeight) * 2 + 1;
+        let x = (mx / this.view.container.clientWidth) * 2 - 1;
+        let y = -(my / this.view.container.clientHeight) * 2 + 1;
         return new Vector3(x, y, 0).unproject(this._camera);
     }
 
