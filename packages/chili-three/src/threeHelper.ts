@@ -1,7 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Color, XYZ } from "chili-core";
-import { Camera, OrthographicCamera, PerspectiveCamera, Color as ThreeColor, Vector3 } from "three";
+import {
+    Box3,
+    Camera,
+    Matrix4,
+    OrthographicCamera,
+    PerspectiveCamera,
+    Color as ThreeColor,
+    Vector3,
+} from "three";
 
 export class ThreeHelper {
     static toXYZ(vector: Vector3): XYZ {
@@ -35,5 +43,40 @@ export class ThreeHelper {
             }
         }
         return undefined;
+    }
+
+    static transformVector(matrix: Matrix4, vector: Vector3) {
+        let array = matrix.elements;
+        let x = vector.x * array[0] + vector.y * array[4] + vector.z * array[8];
+        let y = vector.x * array[1] + vector.y * array[5] + vector.z * array[9];
+        let z = vector.x * array[2] + vector.y * array[6] + vector.z * array[10];
+        return new Vector3(x, y, z);
+    }
+
+    static boxCorners(box: Box3) {
+        let min = box.min;
+        let max = box.max;
+        return [
+            new Vector3(min.x, min.y, min.z),
+            new Vector3(max.x, min.y, min.z),
+            new Vector3(max.x, max.y, min.z),
+            new Vector3(min.x, max.y, min.z),
+            new Vector3(min.x, min.y, max.z),
+            new Vector3(max.x, min.y, max.z),
+            new Vector3(max.x, max.y, max.z),
+            new Vector3(min.x, max.y, max.z),
+        ];
+    }
+
+    static cameraVectors(camera: Camera) {
+        let direction = new Vector3();
+        camera.getWorldDirection(direction);
+        let right = direction.clone().cross(camera.up).normalize();
+        let up = right.clone().cross(direction).normalize();
+        return {
+            direction,
+            right,
+            up,
+        };
     }
 }

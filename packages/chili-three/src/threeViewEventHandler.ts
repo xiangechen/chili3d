@@ -23,9 +23,9 @@ export class ThreeViewHandler implements IEventHandler {
     pointerMove(view: IView, event: PointerEvent): void {
         if (event.buttons === MIDDLE) {
             if (event.shiftKey) {
-                view.cameraController.pan(-event.movementX, -event.movementY);
+                view.cameraController.pan(event.movementX, event.movementY);
             } else if (!event.shiftKey) {
-                view.cameraController.rotate(-event.movementX, -event.movementY);
+                view.cameraController.rotate(event.movementX, event.movementY);
             }
             if (event.movementX !== 0 && event.movementY !== 0) this._lastDown = undefined;
             view.update();
@@ -39,7 +39,7 @@ export class ThreeViewHandler implements IEventHandler {
             view.cameraController.fitContent();
             view.update();
         } else if (event.buttons === MIDDLE) {
-            view.cameraController.startRotation(event.offsetX, event.offsetY);
+            view.cameraController.startRotate(event.offsetX, event.offsetY);
             this._lastDown = {
                 time: Date.now(),
                 key: event.buttons,

@@ -55,7 +55,6 @@ export class ThreeView extends Observable implements IView {
     }
     set camera(camera: PerspectiveCamera | OrthographicCamera) {
         this._camera = camera;
-        this.cameraController.setCamera(camera);
     }
 
     constructor(
@@ -80,12 +79,13 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initCamera(container: HTMLElement) {
-        let camera = new PerspectiveCamera(5, container.clientWidth / container.clientHeight, 0.001, 1e12);
+        let [w, h] = [container.clientWidth, container.clientHeight];
+        let camera = new PerspectiveCamera(30, w / h, 0.001, 1e12);
         // let camera = new OrthographicCamera(
-        //     -container.clientWidth / 2,
-        //     container.clientWidth / 2,
-        //     container.clientHeight / 2,
-        //     -container.clientHeight / 2,
+        //     -w / 2,
+        //     w / 2,
+        //     h / 2,
+        //     -h / 2,
         //     0.01,
         //     1e12,
         // );
@@ -372,7 +372,7 @@ export class ThreeView extends Observable implements IView {
 
     private initRaycaster(mx: number, my: number) {
         let ray = this.rayAt(mx, my);
-        let threshold = Constants.RaycasterThreshold / this.camera.zoom;
+        let threshold = Constants.RaycasterThreshold * this.cameraController.scale;
         let raycaster = new Raycaster(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         return raycaster;
