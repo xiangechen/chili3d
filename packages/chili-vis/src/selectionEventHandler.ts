@@ -67,7 +67,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     private getDetecteds(view: IView, event: PointerEvent) {
         let detecteds: VisualShapeData[] = [];
-        if (this.rect) {
+        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
             detecteds = detecteds.concat(
                 view.rectDetected(
                     this.shapeType,
