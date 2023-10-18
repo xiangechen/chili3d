@@ -3,6 +3,7 @@
 import { XYZ } from "../math";
 
 export interface ICameraController {
+    cameraType: "perspective" | "orthographic";
     fitContent(): void;
     lookAt(eye: XYZ, target: XYZ): void;
     pan(dx: number, dy: number): void;

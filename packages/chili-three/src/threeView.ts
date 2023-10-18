@@ -49,12 +49,8 @@ export class ThreeView extends Observable implements IView {
         this._name = name;
     }
 
-    private _camera: OrthographicCamera | PerspectiveCamera;
     get camera(): PerspectiveCamera | OrthographicCamera {
-        return this._camera;
-    }
-    set camera(camera: PerspectiveCamera | OrthographicCamera) {
-        this._camera = camera;
+        return this.cameraController.camera;
     }
 
     constructor(
@@ -68,31 +64,13 @@ export class ThreeView extends Observable implements IView {
         this._name = name;
         this._scene = content.scene;
         this._workplane = workplane;
-        this._camera = this.initCamera(container);
-        this._renderer = this.initRender(container);
         this.cameraController = new CameraController(this);
+        this._renderer = this.initRender(container);
         this.animate();
     }
 
     get renderer(): Renderer {
         return this._renderer;
-    }
-
-    private initCamera(container: HTMLElement) {
-        let [w, h] = [container.clientWidth, container.clientHeight];
-        let camera = new PerspectiveCamera(30, w / h, 0.001, 1e12);
-        // let camera = new OrthographicCamera(
-        //     -w / 2,
-        //     w / 2,
-        //     h / 2,
-        //     -h / 2,
-        //     0.01,
-        //     1e12,
-        // );
-        camera.position.set(1000, 1000, 1000);
-        camera.lookAt(new Vector3());
-        camera.updateMatrixWorld(true);
-        return camera;
     }
 
     protected initRender(container: HTMLElement): Renderer {
@@ -109,7 +87,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     toImage(): string {
-        this._renderer.render(this._scene, this._camera);
+        this._renderer.render(this._scene, this.camera);
         return this.renderer.domElement.toDataURL();
     }
 
@@ -143,17 +121,17 @@ export class ThreeView extends Observable implements IView {
             this.animate();
         });
         if (this._needsUpdate) {
-            this._renderer.render(this._scene, this._camera);
+            this._renderer.render(this._scene, this.camera);
             this._needsUpdate = false;
         }
     }
 
     resize(width: number, heigth: number) {
-        if (this._camera instanceof PerspectiveCamera) {
-            this._camera.aspect = width / heigth;
-            this._camera.updateProjectionMatrix();
-        } else if (this._camera instanceof OrthographicCamera) {
-            this._camera.updateProjectionMatrix();
+        if (this.camera instanceof PerspectiveCamera) {
+            this.camera.aspect = width / heigth;
+            this.camera.updateProjectionMatrix();
+        } else if (this.camera instanceof OrthographicCamera) {
+            this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
         this.update();
@@ -174,12 +152,12 @@ export class ThreeView extends Observable implements IView {
     rayAt(mx: number, my: number): Ray {
         let position = this.mouseToWorld(mx, my);
         let vec = new Vector3();
-        if (this._camera instanceof PerspectiveCamera) {
-            vec = position.clone().sub(this._camera.position).normalize();
-        } else if (this._camera instanceof OrthographicCamera) {
-            this._camera.getWorldDirection(vec);
+        if (this.camera instanceof PerspectiveCamera) {
+            vec = position.clone().sub(this.camera.position).normalize();
+        } else if (this.camera instanceof OrthographicCamera) {
+            this.camera.getWorldDirection(vec);
         }
-        let offset = position.clone().sub(this._camera.position).dot(vec);
+        let offset = position.clone().sub(this.camera.position).dot(vec);
         position = position.clone().sub(vec.clone().multiplyScalar(offset));
         return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(vec));
     }
@@ -192,28 +170,28 @@ export class ThreeView extends Observable implements IView {
     worldToScreen(point: XYZ): XY {
         let cx = this.width / 2;
         let cy = this.heigth / 2;
-        let vec = new Vector3(point.x, point.y, point.z).project(this._camera);
+        let vec = new Vector3(point.x, point.y, point.z).project(this.camera);
         return new XY(Math.round(cx * vec.x + cx), Math.round(-cy * vec.y + cy));
     }
 
     direction(): XYZ {
         const vec = new Vector3();
-        this._camera.getWorldDirection(vec);
+        this.camera.getWorldDirection(vec);
         return ThreeHelper.toXYZ(vec);
     }
 
     up(): XYZ {
-        return ThreeHelper.toXYZ(this._camera.up);
+        return ThreeHelper.toXYZ(this.camera.up);
     }
 
     private mouseToWorld(mx: number, my: number) {
         let { x, y } = this.screenToCameraRect(mx, my);
-        return new Vector3(x, y, 0).unproject(this._camera);
+        return new Vector3(x, y, 0).unproject(this.camera);
     }
 
     rectDetected(shapeType: ShapeType, mx1: number, my1: number, mx2: number, my2: number) {
         let detecteds: VisualShapeData[] = [];
-        const selectionBox = new SelectionBox(this._camera, this._scene);
+        const selectionBox = new SelectionBox(this.camera, this._scene);
         const start = this.screenToCameraRect(mx1, my1);
         const end = this.screenToCameraRect(mx2, my2);
         selectionBox.startPoint.set(start.x, start.y, 0.5);
@@ -372,7 +350,8 @@ export class ThreeView extends Observable implements IView {
 
     private initRaycaster(mx: number, my: number) {
         let ray = this.rayAt(mx, my);
-        let threshold = Constants.RaycasterThreshold * this.cameraController.scale;
+        let threshold = Constants.RaycasterThreshold / this.cameraController.scale;
+        if (threshold < 5) threshold = 5;
         let raycaster = new Raycaster(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         return raycaster;
