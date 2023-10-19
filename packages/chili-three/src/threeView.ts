@@ -157,8 +157,6 @@ export class ThreeView extends Observable implements IView {
         } else if (this.camera instanceof OrthographicCamera) {
             this.camera.getWorldDirection(vec);
         }
-        let offset = position.clone().sub(this.camera.position).dot(vec);
-        position = position.clone().sub(vec.clone().multiplyScalar(offset));
         return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(vec));
     }
 
@@ -284,8 +282,8 @@ export class ThreeView extends Observable implements IView {
         if (wire) {
             let edges = wire.findSubShapes(ShapeType.Edge, true);
             for (const edge of edges) {
-                for (let i = 0; i < groups!.length; i++) {
-                    if (edge.isEqual(groups![i].shape)) {
+                for (let i = 0; i < groups.length; i++) {
+                    if (edge.isEqual(groups[i].shape)) {
                         indexes.push(i);
                     }
                 }
