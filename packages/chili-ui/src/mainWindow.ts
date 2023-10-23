@@ -2,8 +2,6 @@
 
 import {
     Constants,
-    I18n,
-    I18nKeys,
     IApplication,
     Lazy,
     Observable,
@@ -11,10 +9,9 @@ import {
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
-import { div, useState } from "./controls";
 import { Editor } from "./editor";
 import { Home } from "./home";
-import style from "./mainWindow.module.css";
+import { Toast } from "./toast";
 
 document.oncontextmenu = (e) => e.preventDefault();
 
@@ -43,49 +40,25 @@ export class MainWindow {
     #app?: IApplication;
     #home: HTMLElement;
     #editor: HTMLElement;
-    #toastContainer: HTMLElement;
-    #toastText = useState("");
-    #toastTimeoutId: NodeJS.Timeout | undefined;
+    #toast: Toast;
     readonly #vm: MainWindowViewModel = new MainWindowViewModel();
     readonly #documents = new ObservableCollection<RecentDocumentDTO>();
 
     private constructor() {
         this.#home = Home({ documents: this.#documents, onDocumentClick: this.onDocumentClick });
         this.#editor = Editor();
-        this.#toastContainer = div(
-            {
-                className: style.toast,
-                style: {
-                    display: "none",
-                },
-            },
-            div({
-                className: style.toastText,
-                textContent: this.#toastText[0],
-            }),
-        );
+        this.#toast = new Toast();
     }
 
     async init(app: IApplication, root: HTMLElement) {
         this.#app = app;
         this.setTheme("light");
-        root.append(this.#home, this.#editor, this.#toastContainer);
+        root.append(this.#home, this.#editor, this.#toast);
 
         this.#vm.onPropertyChanged(this.onPropertyChanged);
         this.setHomeDisplay();
-
-        PubSub.default.sub("showToast", this.showToast);
+        PubSub.default.sub("showToast", this.#toast.show);
     }
-
-    private showToast = (message: I18nKeys, ...args: any[]) => {
-        if (this.#toastTimeoutId) clearTimeout(this.#toastTimeoutId);
-        this.#toastText[1](I18n.translate(message, ...args));
-        this.#toastContainer.style.display = "";
-        this.#toastTimeoutId = setTimeout(() => {
-            this.#toastTimeoutId = undefined;
-            this.#toastContainer.style.display = "none";
-        }, 2000);
-    };
 
     private onDocumentClick = (document: RecentDocumentDTO) => {
         this.#app?.openDocument(document.id);
