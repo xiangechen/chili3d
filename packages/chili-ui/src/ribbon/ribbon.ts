@@ -2,7 +2,7 @@
 
 import { AsyncController, CommandKeys, ICommand, Logger, PubSub } from "chili-core";
 import { Control, Panel } from "../components";
-import { div, label, localize } from "../controls";
+import { BindableElement, div, label, localize } from "../controls";
 import { DefaultRibbon } from "../profile/ribbon";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
@@ -22,7 +22,7 @@ export class Ribbon extends Control {
     private _selected?: RibbonTab;
     private _selectionControl?: RibbonGroup;
     private _contextContainer: HTMLDivElement;
-    private _contextTab?: Control;
+    private _contextTab?: BindableElement;
 
     constructor() {
         super(style.root);

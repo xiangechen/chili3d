@@ -88,7 +88,7 @@ function setProps<O extends Props, K extends Tags>(props: O, dom: HTMLElementTag
 
 function bindOrSetProperty<T extends object>(dom: T, key: keyof T, value: any) {
     if (value instanceof Binding) {
-        value.add(dom, key);
+        value.bindTo(dom, key);
     } else {
         dom[key] = value;
     }

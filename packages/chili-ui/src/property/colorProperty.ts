@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, ColorConverter, IDocument, Property, PubSub, Transaction } from "chili-core";
-import { Binding, bind, div, input, label, localize } from "../controls";
+import { ColorConverter, IDocument, Property, PubSub, Transaction } from "chili-core";
+import { div, input, label, localize } from "../controls";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -9,7 +9,6 @@ import { PropertyBase } from "./propertyBase";
 export class ColorProperty extends PropertyBase {
     readonly converter = new ColorConverter();
     readonly input: HTMLInputElement;
-    readonly binding: Binding;
 
     constructor(
         readonly document: IDocument,
@@ -18,11 +17,10 @@ export class ColorProperty extends PropertyBase {
         readonly showTitle: boolean = true,
     ) {
         super(objects);
-        this.binding = bind(objects[0], property.name, this.converter);
         this.input = input({
             className: colorStyle.color,
             type: "color",
-            value: this.binding,
+            value: this.bind(objects[0], property.name, this.converter),
             onchange: this.setColor,
         });
         this.appendChild(
@@ -37,17 +35,16 @@ export class ColorProperty extends PropertyBase {
                 this.input,
             ),
         );
-        this.addDisconnectedCallback(this.onDisconnected);
     }
 
-    private onDisconnected = () => {
+    override disconnectedCallback(): void {
+        super.disconnectedCallback();
         this.input.removeEventListener("onchange", this.setColor);
-        this.binding.dispose();
-    };
+    }
 
     private setColor = (e: Event) => {
         let value = (e.target as any).value;
-        let color = Color.fromHexStr(value).getValue();
+        let color = this.converter.convertBack(value).getValue();
         if (color === undefined) {
             PubSub.default.pub("showToast", "toast.converter.invalidColor");
             return;

@@ -45,20 +45,19 @@ export class InputProperty extends PropertyBase {
         if (showTitle) panel.addItem(name);
         panel.addItem(this.valueBox);
         this.append(panel, this.error);
-
-        this.addConnectedCallback(this.onConnected);
-        this.addDisconnectedCallback(this.onDisconnected);
     }
 
-    private onConnected = () => {
+    override connectedCallback(): void {
+        super.connectedCallback();
         this.valueBox.addEventListener("keydown", this.handleKeyDown);
         (this.objects.at(0) as IPropertyChanged)?.onPropertyChanged(this.handlePropertyChanged);
-    };
+    }
 
-    private onDisconnected = () => {
+    override disconnectedCallback(): void {
+        super.disconnectedCallback();
         this.valueBox.removeEventListener("keydown", this.handleKeyDown);
         (this.objects.at(0) as IPropertyChanged)?.removePropertyChanged(this.handlePropertyChanged);
-    };
+    }
 
     private handlePropertyChanged = (property: string) => {
         if (property === this.property.name) {

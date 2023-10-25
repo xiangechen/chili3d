@@ -1,28 +1,34 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
-import { Control } from "../components";
-import { bind, button, div, input, label, localize, svg } from "../controls";
+import { BindableElement, button, div, input, label, localize, svg } from "../controls";
 import style from "./commandContext.module.css";
 
-export class CommandContext extends Control {
+export class CommandContext extends BindableElement {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement]> = new Map();
 
     constructor(readonly command: ICommand) {
-        super(style.panel);
+        super();
+        this.className = style.panel;
         let data = Command.getData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
             label({ className: style.title, textContent: localize(data!.display) }, `: `),
         );
         this.initContext();
-        if (command instanceof Observable) {
-            this.addConnectedCallback(() => {
-                command.onPropertyChanged(this.onPropertyChanged);
-            });
-            this.addDisconnectedCallback(() => {
-                command.removePropertyChanged(this.onPropertyChanged);
-            });
+    }
+
+    override connectedCallback(): void {
+        super.connectedCallback();
+        if (this.command instanceof Observable) {
+            this.command.onPropertyChanged(this.onPropertyChanged);
+        }
+    }
+
+    override disconnectedCallback(): void {
+        super.disconnectedCallback();
+        if (this.command instanceof Observable) {
+            this.command.removePropertyChanged(this.onPropertyChanged);
         }
     }
 
@@ -37,7 +43,7 @@ export class CommandContext extends Control {
         let groupMap: Map<I18nKeys, HTMLDivElement> = new Map();
         for (const g of Property.getProperties(this.command)) {
             let group = this.findGroup(groupMap, g);
-            let item = this.createRibbonItem(this.command, g);
+            let item = this.createItem(this.command, g);
             this.setVisible(item, g);
             this.cacheDependencies(item, g);
             group.append(item);
@@ -65,7 +71,7 @@ export class CommandContext extends Control {
         control.style.display = visible ? "" : "none";
     }
 
-    private createRibbonItem(command: ICommand, g: Property) {
+    private createItem(command: ICommand, g: Property) {
         let noType = command as any;
         let type = typeof noType[g.name];
         if (type === "function") {
@@ -79,7 +85,7 @@ export class CommandContext extends Control {
                 label({ textContent: localize(g.display) }),
                 input({
                     type: "checkbox",
-                    checked: bind(noType, g.name),
+                    checked: this.bind(noType, g.name),
                     onclick: () => {
                         noType[g.name] = !noType[g.name];
                     },
