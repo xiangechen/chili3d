@@ -21,6 +21,10 @@ export const DefaultRibbon: RibbonData = [
                 items: ["boolean.common", "boolean.cut", "boolean.fuse"],
             },
             {
+                groupName: "ribbon.group.workingPlane",
+                items: ["workingPlane.set", "workingPlane.alignToPlane"],
+            },
+            {
                 groupName: "ribbon.group.importExport",
                 items: ["file.import", "file.export.iges", "file.export.stp"],
             },

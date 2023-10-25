@@ -26,6 +26,7 @@ export default {
         "ribbon.group.modify": "Modify",
         "ribbon.group.converter": "Converter",
         "ribbon.group.boolean": "Boolean",
+        "ribbon.group.workingPlane": "Working Plane",
         "ribbon.group.importExport": "Import/Export",
         "items.header": "Items",
         "items.tool.newFolder": "New Folder",
@@ -131,5 +132,7 @@ export default {
         "operate.pickNextPoint": "pick next point, ESC key to cancel",
         "operate.pickCircleCenter": "pick center, ESC key to cancel",
         "operate.pickRadius": "input radius, ESC key to cancel",
+        "workingPlane.alignToPlane": "Align to plane",
+        "workingPlane.set": "Set workplane",
     },
 } satisfies Locale;

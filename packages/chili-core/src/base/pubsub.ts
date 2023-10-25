@@ -9,6 +9,7 @@ import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
 import { MessageType } from "./messageType";
+import { IPropertyChanged } from "./observer";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
@@ -33,6 +34,7 @@ export interface PubSubEventMap {
     closeCommandContext: () => void;
     showHome: () => void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
+    showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
 }
 
 export class PubSub implements IDisposable {

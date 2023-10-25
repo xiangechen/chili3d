@@ -26,6 +26,7 @@ export default {
         "ribbon.group.converter": "转换",
         "ribbon.group.selection": "选择",
         "ribbon.group.boolean": "布尔运算",
+        "ribbon.group.workingPlane": "工作平面",
         "ribbon.group.importExport": "导入/导出",
         "items.header": "项目",
         "items.tool.newFolder": "文件夹",
@@ -130,5 +131,7 @@ export default {
         "operate.pickNextPoint": "请选择下一个点， 按 ESC 键取消",
         "operate.pickCircleCenter": "请选择圆心  按 ESC 键取消",
         "operate.pickRadius": "请选择半径， 按 ESC 键取消",
+        "workingPlane.alignToPlane": "对齐到平面",
+        "workingPlane.set": "设置工作平面",
     },
 } satisfies Locale;

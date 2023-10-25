@@ -41,6 +41,7 @@ export type I18nKeys =
     | "ribbon.group.converter"
     | "ribbon.group.selection"
     | "ribbon.group.boolean"
+    | "ribbon.group.workingPlane"
     | "ribbon.group.importExport"
     | "items.header"
     | "items.tool.newFolder"
@@ -132,4 +133,6 @@ export type I18nKeys =
     | "error.input.unsupportedInputs"
     | "error.input.invalidNumber"
     | "error.input.threeNumberCanBeInput"
-    | "error.input.cannotInputANumber";
+    | "error.input.cannotInputANumber"
+    | "workingPlane.alignToPlane"
+    | "workingPlane.set";

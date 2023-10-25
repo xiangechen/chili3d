@@ -1,0 +1,23 @@
+.radioGroup {
+    padding: 8px;
+
+    & span {
+        margin-left: 4px;
+    }
+
+    & ul {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 0;
+    }
+
+    & li {
+        margin: 4px;
+        list-style-type: none;
+    }
+
+    & input {
+        margin-right: 4px;
+    }
+}

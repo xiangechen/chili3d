@@ -12,6 +12,7 @@ import {
 import { Editor } from "./editor";
 import { Home } from "./home";
 import { Toast } from "./toast";
+import { Dialog } from "./dialog";
 
 document.oncontextmenu = (e) => e.preventDefault();
 
@@ -58,6 +59,7 @@ export class MainWindow {
         this.#vm.onPropertyChanged(this.onPropertyChanged);
         this.setHomeDisplay();
         PubSub.default.sub("showToast", this.#toast.show);
+        PubSub.default.sub("showDialog", Dialog.show);
     }
 
     private onDocumentClick = (document: RecentDocumentDTO) => {

@@ -29,4 +29,6 @@ export type CommandKeys =
     | "modify.move"
     | "modify.rotate"
     | "modify.mirror"
-    | "modify.delete";
+    | "modify.delete"
+    | "workingPlane.alignToPlane"
+    | "workingPlane.set";

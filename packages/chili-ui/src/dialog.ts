@@ -1,30 +1,44 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { I18n, I18nKeys, IPropertyChanged, Property, SelectableItems } from "chili-core";
 import style from "./dialog.module.css";
+import { button, div } from "./controls";
+import { RadioGroup } from "./controls/itemsControl";
 
 export class Dialog {
     private constructor() {}
 
-    static show(msg: string, title?: string) {
+    static show(title: I18nKeys, context: IPropertyChanged, callback: () => void) {
+        let properties = Property.getProperties(context);
         let dialog = document.createElement("dialog");
-        dialog.style.padding = "0";
-        dialog.innerHTML = `
-            <div class="${style.dialog}">
-                <div class="${style.title}">${title ?? "chili3d"}</div>
-                <div class="${style.content}">${msg}</div>
-                <div class="${style.buttons}">
-                    <button class="${style.button}">OK</button>
-                </div>
-            </div>
-        `;
+        dialog.appendChild(
+            div(
+                { className: style.root },
+                div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
+                ...properties.map((x) => {
+                    let value = (context as any)[x.name];
+                    if (value instanceof SelectableItems) {
+                        return new RadioGroup(I18n.translate(x.display), value);
+                    }
+                    return "";
+                }),
+                div(
+                    { className: style.buttons },
+                    button({
+                        textContent: I18n.translate("common.confirm"),
+                        onclick: () => {
+                            dialog.close();
+                            callback();
+                        },
+                    }),
+                    button({
+                        textContent: I18n.translate("common.cancel"),
+                        onclick: () => dialog.close(),
+                    }),
+                ),
+            ),
+        );
         document.body.appendChild(dialog);
-        let button = dialog.querySelector(`.${style.button}`)!;
-        let handler = () => {
-            dialog.close();
-            document.body.removeChild(dialog);
-            button.removeEventListener("click", handler);
-        };
-        button.addEventListener("click", handler);
         dialog.showModal();
     }
 }

@@ -40,6 +40,12 @@ export interface CheckboxProps extends Props {
     checked: boolean | Binding;
 }
 
+export interface RadioProps extends Props {
+    type: "radio";
+    value: string | Binding;
+    checked: boolean | Binding;
+}
+
 export interface ColorProps extends Props {
     type: "color";
     value?: string | Binding;
@@ -62,6 +68,7 @@ function createFunction<K extends Tags, O extends Props = Props>(tag: K) {
             }
         }
         dom.append(...children);
+
         return dom;
     };
 }
@@ -97,7 +104,7 @@ function setStyle(dom: HTMLElement | SVGElement, style: StyleProps) {
 export const div = createFunction("div");
 export const span = createFunction("span");
 export const button = createFunction("button");
-export const input = createFunction<"input", CheckboxProps | ColorProps>("input");
+export const input = createFunction<"input", CheckboxProps | ColorProps | RadioProps>("input");
 export const textarea = createFunction("textarea");
 export const select = createFunction<"select", SelectProps>("select");
 export const option = createFunction<"option", OptionProps>("option");

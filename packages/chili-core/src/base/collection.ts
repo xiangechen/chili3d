@@ -135,3 +135,38 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         this.#items.length = 0;
     }
 }
+
+export enum SelectMode {
+    check,
+    radio,
+    combo,
+}
+
+export class SelectableItems<T> {
+    readonly items: ReadonlyArray<T>;
+    selectedItems: Set<T>;
+
+    get selectedIndexes(): number[] {
+        let indexes: number[] = [];
+        this.selectedItems.forEach((x) => {
+            let index = this.items.indexOf(x);
+            if (index > -1) {
+                indexes.push(index);
+            }
+        });
+        return indexes;
+    }
+
+    firstSelectedItem() {
+        return this.selectedItems.values().next().value;
+    }
+
+    constructor(
+        items: T[],
+        readonly mode: SelectMode = SelectMode.radio,
+        selectedItems?: T[],
+    ) {
+        this.items = items;
+        this.selectedItems = new Set(selectedItems ?? []);
+    }
+}
