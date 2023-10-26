@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { SelectableItems } from "chili-core";
-import { div, h2, input, li, span, ul } from "./controls";
 import style from "./itemsControl.module.css";
+import { div, input, li, span, ul } from "./controls";
 
 export class RadioGroup extends HTMLElement {
     constructor(

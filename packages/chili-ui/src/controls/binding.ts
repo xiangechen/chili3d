@@ -3,7 +3,7 @@
 import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 
 export class Binding<T extends IPropertyChanged = IPropertyChanged> implements IDisposable {
-    readonly #targets: [element: any, property: any][] = [];
+    #targets: [element: WeakRef<object>, property: any][] = [];
 
     constructor(
         public readonly source: T,
@@ -11,8 +11,8 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
         public readonly converter?: IConverter,
     ) {}
 
-    bindTo<U>(element: U, property: keyof U) {
-        this.#targets.push([element, property]);
+    setBinding<U extends object>(element: U, property: keyof U) {
+        this.#targets.push([new WeakRef(element), property]);
         this.setValue<U>(element, property);
     }
 
@@ -26,13 +26,22 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
 
     #onPropertyChanged = (property: keyof T) => {
         if (property === this.path) {
-            for (let [element, property] of this.#targets) {
-                this.setValue(element, property);
+            let newItems = [],
+                changed = false;
+            for (let item of this.#targets) {
+                let element = item[0].deref();
+                if (element) {
+                    this.setValue(element, item[1]);
+                    newItems.push(item);
+                } else {
+                    changed = true;
+                }
             }
+            if (changed) this.#targets = newItems;
         }
     };
 
-    private setValue<U>(element: U, property: keyof U) {
+    private setValue<U extends object>(element: U, property: PropertyKey) {
         let value: any = this.source[this.path];
         if (this.converter) {
             let result = this.converter.convert(value);
@@ -41,7 +50,7 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
             }
             value = result.getValue();
         }
-        element[property] = value;
+        (element as any)[property] = value;
     }
 
     dispose(): void {

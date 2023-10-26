@@ -2,8 +2,7 @@
 
 import { ObservableCollection, PubSub, RecentDocumentDTO } from "chili-core";
 import { LanguageSelector } from "../components";
-import { Items } from "../components/items";
-import { a, button, div, img, label, localize, span } from "../controls";
+import { a, button, div, img, items, label, localize, span } from "../controls";
 import style from "./home.module.css";
 
 export interface HomeOption {
@@ -49,7 +48,7 @@ export const Home = (options: HomeOption) => {
             { className: style.right },
             label({ className: style.welcome, textContent: localize("home.welcome") }),
             div({ className: style.recent, textContent: localize("home.recent") }),
-            Items({
+            items({
                 className: style.documents,
                 sources: options.documents,
                 template: (item: RecentDocumentDTO) =>
