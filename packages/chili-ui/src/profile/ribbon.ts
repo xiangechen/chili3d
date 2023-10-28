@@ -1,6 +1,16 @@
-import { RibbonData } from "../ribbon/ribbonData";
+import { CommandKeys, I18nKeys } from "chili-core";
 
-export const DefaultRibbon: RibbonData = [
+export type RibbonGroupProfile = {
+    groupName: I18nKeys;
+    items: (CommandKeys | CommandKeys[])[];
+};
+
+export type RibbonTabProfile = {
+    tabName: I18nKeys;
+    groups: RibbonGroupProfile[];
+};
+
+export const DefaultRibbon: RibbonTabProfile[] = [
     {
         tabName: "ribbon.tab.startup",
         groups: [
@@ -39,7 +49,7 @@ export const DefaultRibbon: RibbonData = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["create.line", "create.rect", "create.circle", "create.box"],
+                items: ["create.line", "create.rect", ["create.circle", "create.box"]],
             },
         ],
     },

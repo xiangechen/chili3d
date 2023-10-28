@@ -1,16 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ObservableCollection, PubSub, RecentDocumentDTO } from "chili-core";
+import { Constants, IApplication, PubSub, RecentDocumentDTO } from "chili-core";
 import { LanguageSelector } from "../components";
 import { a, button, div, img, items, label, localize, span } from "../controls";
 import style from "./home.module.css";
 
-export interface HomeOption {
-    documents: ObservableCollection<RecentDocumentDTO>;
-    onDocumentClick: (document: RecentDocumentDTO) => void;
-}
+export const Home = async (app: IApplication) => {
+    let documents = await app.storage.page(Constants.DBName, Constants.RecentTable, 0);
 
-export const Home = (options: HomeOption) => {
     return div(
         { className: style.root },
         div(
@@ -18,12 +15,10 @@ export const Home = (options: HomeOption) => {
             div(
                 { className: style.top },
                 button({
-                    className: style.button,
                     textContent: localize("command.document.new"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.new"),
                 }),
                 button({
-                    className: style.button,
                     textContent: localize("command.document.open"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
                 }),
@@ -31,13 +26,11 @@ export const Home = (options: HomeOption) => {
             div(
                 { className: style.bottom },
                 a({
-                    className: style.link,
                     textContent: "Github",
                     href: "https://github.com/xiangechen/chili3d",
                     target: "_blank",
                 }),
                 a({
-                    className: style.link,
                     textContent: "Gitee",
                     href: "https://gitee.com/chenxiange/chili3d",
                     target: "_blank",
@@ -50,12 +43,12 @@ export const Home = (options: HomeOption) => {
             div({ className: style.recent, textContent: localize("home.recent") }),
             items({
                 className: style.documents,
-                sources: options.documents,
+                sources: documents,
                 template: (item: RecentDocumentDTO) =>
                     div(
                         {
                             className: style.document,
-                            onclick: () => options.onDocumentClick(item),
+                            onclick: () => app.openDocument(item.id),
                         },
                         img({ className: style.img, src: item.image }),
                         div(

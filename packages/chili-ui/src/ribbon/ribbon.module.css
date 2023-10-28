@@ -3,46 +3,114 @@
     flex-direction: column;
 }
 
-.headerPanel {
+.titleBar {
     display: flex;
     flex-direction: row;
-    align-items: top;
-    flex: auto;
+    margin: 2px 4px;
+
+    & .quickCommands {
+        display: flex;
+        flex-direction: row;
+
+        & svg {
+            width: 12px;
+            height: 12px;
+            margin: 4px 8px;
+            fill: var(--titlebar-forground-color);
+            overflow: hidden;
+        }
+
+        & svg:hover {
+            fill: var(--hover-foreground-color);
+            background-color: var(--hover-background-color);
+        }
+    }
+
+    & .title {
+        display: flex;
+        flex-direction: row;
+        margin: 0 auto;
+
+        & .titleText {
+            font-size: 1em;
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--titlebar-foreground-color);
+
+            &::after {
+                content: "|";
+                margin: 0px 12px;
+            }
+        }
+
+        & .appName {
+            font-size: 1em;
+            font-weight: bolder;
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--titlebar-foreground-color);
+        }
+    }
 }
 
-.contentPanel {
+.tabHeaderPanel {
+    display: flex;
+    flex-direction: row;
+    align-items: first baseline;
+    flex: auto;
+
+    & .tabHeader {
+        color: var(--titlebar-forground-color);
+        font-size: 12px;
+        padding: 4px 12px;
+    }
+
+    & .tabHeader:hover {
+        font-weight: bold;
+        background-color: var(--hover-background-color);
+    }
+
+    & .activedTab {
+        position: relative;
+    }
+
+    & .activedTab::after {
+        content: "";
+        position: absolute;
+        bottom: 0px;
+        left: 8px;
+        right: 8px;
+        height: 3px;
+        background-color: var(--primary-color);
+    }
+
+    & .startup {
+        padding: 4px 12px;
+        font-size: 12px;
+    }
+
+    & .startup:hover {
+        font-weight: bold;
+        color: white;
+        background-color: var(--primary-color);
+    }
+}
+
+.tabContentPanel {
     display: flex;
     flex-direction: row;
     background-color: var(--panel-background-color);
     border-bottom: 1px solid var(--border-color);
+
+    & .groupPanel {
+        display: flex;
+        flex-direction: row;
+    }
 }
 
-.selectedTab {
-    position: relative;
-}
-
-.selectedTab::after {
-    content: "";
-    position: absolute;
-    bottom: 0px;
-    left: 8px;
-    right: 8px;
-    height: 3px;
-    background-color: var(--primary-color);
-}
-
-.startup {
-    padding: 4px 12px;
-    font-size: 12px;
-}
-
-.startup:hover {
-    font-weight: bold;
-    color: white;
-    background-color: var(--primary-color);
-}
-
-.context {
+.commandContextPanel {
     display: flex;
     flex-direction: row;
     justify-content: stretch;

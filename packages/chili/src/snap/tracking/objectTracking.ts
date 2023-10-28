@@ -16,7 +16,7 @@ interface SnapeInfo {
 }
 
 export class ObjectTracking {
-    private timer?: any;
+    private timer?: number;
     private isCleared: boolean = false;
     private snapping?: SnapedData;
     private trackings: Map<IDocument, SnapeInfo[]>;
@@ -52,7 +52,7 @@ export class ObjectTracking {
             this.timer = undefined;
         }
         if (snap === undefined) return;
-        this.timer = setTimeout(() => this.switchTrackingPoint(document, snap), 600);
+        this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }
 
     private switchTrackingPoint(document: IDocument, snap: SnapedData) {

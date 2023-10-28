@@ -6,10 +6,10 @@ import { Binding } from "./binding";
 export abstract class BindableElement extends HTMLElement implements IDisposable {
     readonly #bindings: Binding<any>[] = [];
 
-    bind<T extends IPropertyChanged>(dataContext: T, path: keyof T, converter?: IConverter) {
+    bind<T extends IPropertyChanged>(dataContext: T, path: keyof T, converter?: IConverter): Binding {
         let binding = new Binding(dataContext, path, converter);
         this.#bindings.push(binding);
-        return binding;
+        return binding as any;
     }
 
     connectedCallback() {

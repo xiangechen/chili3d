@@ -1,88 +1,51 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Constants,
-    IApplication,
-    Lazy,
-    Observable,
-    ObservableCollection,
-    PubSub,
-    RecentDocumentDTO,
-} from "chili-core";
+import { IApplication, PubSub, debounce } from "chili-core";
+import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
 import { Toast } from "./toast";
-import { Dialog } from "./dialog";
 
 document.oncontextmenu = (e) => e.preventDefault();
 
-class MainWindowViewModel extends Observable {
-    private _displayHome: boolean = true;
-    get displayHome() {
-        return this._displayHome;
-    }
-    set displayHome(value: boolean) {
-        this.setProperty("displayHome", value);
-    }
-
-    constructor() {
-        super();
-        PubSub.default.sub("activeDocumentChanged", () => (this.displayHome = false));
-        PubSub.default.sub("showHome", () => (this.displayHome = true));
-    }
-}
-
 export class MainWindow {
-    static readonly #lazy = new Lazy(() => new MainWindow());
+    static readonly #instance = new MainWindow();
     static get instance() {
-        return this.#lazy.value;
+        return this.#instance;
     }
 
-    #app?: IApplication;
-    #home: HTMLElement;
-    #editor: HTMLElement;
-    #toast: Toast;
-    readonly #vm: MainWindowViewModel = new MainWindowViewModel();
-    readonly #documents = new ObservableCollection<RecentDocumentDTO>();
+    #home?: HTMLElement;
 
     private constructor() {
-        this.#home = Home({ documents: this.#documents, onDocumentClick: this.onDocumentClick });
-        this.#editor = Editor();
-        this.#toast = new Toast();
-    }
-
-    async init(app: IApplication, root: HTMLElement) {
-        this.#app = app;
         this.setTheme("light");
-        root.append(this.#home, this.#editor, this.#toast);
-
-        this.#vm.onPropertyChanged(this.onPropertyChanged);
-        this.setHomeDisplay();
-        PubSub.default.sub("showToast", this.#toast.show);
-        PubSub.default.sub("showDialog", Dialog.show);
+        document.body.append(Editor());
     }
 
-    private onDocumentClick = (document: RecentDocumentDTO) => {
-        this.#app?.openDocument(document.id);
-    };
+    async init(app: IApplication) {
+        this._initHome(app);
+        const displayHome = debounce(this.displayHome, 100);
+        PubSub.default.sub("showToast", Toast.show);
+        PubSub.default.sub("showDialog", Dialog.show);
+        PubSub.default.sub("activeDocumentChanged", (doc) => displayHome(app, doc === undefined));
+        PubSub.default.sub("showHome", () => displayHome(app, true));
+    }
 
-    private onPropertyChanged = (p: keyof MainWindowViewModel) => {
-        if (p === "displayHome") {
-            this.setHomeDisplay();
+    private displayHome = (app: IApplication, displayHome: boolean) => {
+        if (this.#home) {
+            this.#home.remove();
+            this.#home = undefined;
+        }
+        if (displayHome) {
+            this._initHome(app);
         }
     };
 
-    private async setHomeDisplay() {
-        this.#home.style.display = this.#vm.displayHome ? "" : "none";
-        if (this.#vm.displayHome && this.#app) {
-            this.#documents.clear();
-            let datas = await this.#app.storage.page(Constants.DBName, Constants.RecentTable, 0);
-            this.#documents.add(...datas);
-        }
+    private async _initHome(app: IApplication) {
+        this.#home = await Home(app);
+        document.body.append(this.#home);
     }
 
     setTheme(theme: "light" | "dark") {
-        let doc = document.documentElement;
-        doc.setAttribute("theme", theme);
+        document.documentElement.setAttribute("theme", theme);
     }
 }

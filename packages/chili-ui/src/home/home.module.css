@@ -23,7 +23,7 @@
         display: flex;
         flex-direction: column;
 
-        & .button {
+        & button {
             display: inline-block;
             height: 48px;
             font-size: 16px;
@@ -44,7 +44,7 @@
         flex-direction: column;
         color: var(--foreground-color);
 
-        & .link {
+        & a {
             display: inline-block;
             font-size: 16px;
             margin: 0px 32px;

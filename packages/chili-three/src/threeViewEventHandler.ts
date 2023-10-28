@@ -11,7 +11,7 @@ const MIDDLE = 4;
 
 export class ThreeViewHandler implements IEventHandler {
     private _lastDown: MouseDownData | undefined;
-    private _clearDownId: any;
+    private _clearDownId: number | undefined;
 
     dispose() {}
 
@@ -60,7 +60,7 @@ export class ThreeViewHandler implements IEventHandler {
 
     pointerUp(view: IView, event: PointerEvent): void {
         if (event.buttons === MIDDLE && this._lastDown) {
-            this._clearDownId = setTimeout(() => {
+            this._clearDownId = window.setTimeout(() => {
                 this._lastDown = undefined;
                 this._clearDownId = undefined;
             }, 500);

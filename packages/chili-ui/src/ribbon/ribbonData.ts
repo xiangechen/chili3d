@@ -1,15 +1,66 @@
-import { CommandKeys, I18nKeys } from "chili-core";
+import { CommandKeys, I18nKeys, Observable, ObservableCollection } from "chili-core";
+import { RibbonGroupProfile, RibbonTabProfile } from "../profile/ribbon";
+import { RibbonButtonSize } from "./ribbonButtonSize";
 
-export type RibbonCommandData = CommandKeys | CommandKeys[];
-
-export interface RibbonGroupData {
-    groupName: I18nKeys;
-    items: RibbonCommandData[];
+export interface RibbonButtonData {
+    display: I18nKeys;
+    icon: string;
+    size: RibbonButtonSize;
+    onClick: () => void;
 }
 
-export interface RibbonTabData {
-    tabName: I18nKeys;
-    groups: RibbonGroupData[];
+export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> | RibbonButtonData;
+
+export class RibbonGroupData extends Observable {
+    readonly items: ObservableCollection<RibbonCommandData>;
+
+    private _groupName: I18nKeys;
+    get groupName(): I18nKeys {
+        return this._groupName;
+    }
+    set groupName(value: I18nKeys) {
+        this.setProperty("groupName", value);
+    }
+
+    constructor(groupName: I18nKeys, ...items: RibbonCommandData[]) {
+        super();
+        this._groupName = groupName;
+        this.items = new ObservableCollection<RibbonCommandData>(...items);
+    }
+
+    static fromProfile(profile: RibbonGroupProfile) {
+        return new RibbonGroupData(
+            profile.groupName,
+            ...profile.items.map((item) => {
+                return Array.isArray(item) ? new ObservableCollection(...item) : item;
+            }),
+        );
+    }
+}
+
+export class RibbonTabData extends Observable {
+    readonly groups = new ObservableCollection<RibbonGroupData>();
+
+    private _tabName: I18nKeys;
+    get tabName(): I18nKeys {
+        return this._tabName;
+    }
+    set tabName(value: I18nKeys) {
+        this.setProperty("tabName", value);
+    }
+
+    constructor(tabName: I18nKeys, ...groups: RibbonGroupData[]) {
+        super();
+        this._tabName = tabName;
+        this.groups.add(...groups);
+    }
+
+    static fromProfile(profile: RibbonTabProfile) {
+        return new RibbonTabData(
+            profile.tabName,
+            ...profile.groups.map((group) => RibbonGroupData.fromProfile(group)),
+        );
+    }
 }
 
 export type RibbonData = RibbonTabData[];

@@ -1,4 +1,4 @@
-.toast {
+.container {
     position: fixed;
     left: 50%;
     top: 50%;
@@ -9,7 +9,7 @@
     opacity: 0.75;
 }
 
-.toastText {
+.message {
     color: #fff;
     font-size: 1.2em;
     line-height: 1.2em;

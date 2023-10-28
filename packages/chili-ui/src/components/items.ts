@@ -4,24 +4,31 @@ import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "c
 import { Props, setProps } from "../controls";
 
 export interface ItemsProps extends Props {
-    sources: ObservableCollection<any>;
-    template: (item: any) => HTMLDivElement;
+    sources: ObservableCollection<any> | Array<any>;
+    template: (item: any) => HTMLElement | SVGSVGElement;
 }
 
 export class ItemsElement extends HTMLElement {
-    #itemMap = new Map<any, HTMLElement>();
+    #itemMap = new Map<any, HTMLElement | SVGSVGElement>();
     constructor(readonly props: ItemsProps) {
         super();
         setProps(props, this);
-        this.append(...this.#mapItems(props.sources.items));
+        const items = Array.isArray(props.sources) ? props.sources : props.sources.items;
+        this.append(...this.#mapItems(items));
+    }
+
+    getItem(item: any): HTMLElement | SVGSVGElement | undefined {
+        return this.#itemMap.get(item);
     }
 
     connectedCallback() {
-        this.props.sources.onCollectionChanged(this.#onCollectionChanged);
+        if (this.props.sources instanceof ObservableCollection)
+            this.props.sources.onCollectionChanged(this.#onCollectionChanged);
     }
 
     disconnectedCallback() {
-        this.props.sources.removeCollectionChanged(this.#onCollectionChanged);
+        if (this.props.sources instanceof ObservableCollection)
+            this.props.sources.removeCollectionChanged(this.#onCollectionChanged);
     }
 
     #onCollectionChanged = (args: CollectionChangedArgs) => {

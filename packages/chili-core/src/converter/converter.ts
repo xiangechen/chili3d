@@ -4,5 +4,5 @@ import { Result } from "../base";
 
 export interface IConverter<TFrom = any, TTo = string> {
     convert(value: TFrom): Result<TTo>;
-    convertBack(value: TTo): Result<TFrom>;
+    convertBack?(value: TTo): Result<TFrom>;
 }

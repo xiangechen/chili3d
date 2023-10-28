@@ -13,7 +13,7 @@ describe("ObservableCollection test", () => {
     });
 
     test("test remove", () => {
-        let collection = new ObservableCollection<number>([1, 2, 3]);
+        let collection = new ObservableCollection<number>(1, 2, 3);
         collection.onCollectionChanged((arg: CollectionChangedArgs) => {
             if (arg.action === CollectionAction.remove) {
                 expect(arg.items).toStrictEqual([1, 3]);
@@ -24,7 +24,7 @@ describe("ObservableCollection test", () => {
     });
 
     test("test move", () => {
-        let collection = new ObservableCollection<number>([1, 2, 3]);
+        let collection = new ObservableCollection<number>(1, 2, 3);
         collection.onCollectionChanged((arg: CollectionChangedArgs) => {
             if (arg.action === CollectionAction.move) {
                 expect(collection.items).toStrictEqual([2, 1, 3]);
@@ -37,7 +37,7 @@ describe("ObservableCollection test", () => {
     });
 
     test("test replace", () => {
-        let collection = new ObservableCollection<number>([1, 2, 3]);
+        let collection = new ObservableCollection<number>(1, 2, 3);
         collection.onCollectionChanged((arg: CollectionChangedArgs) => {
             if (arg.action === CollectionAction.replace) {
                 expect(collection.items).toStrictEqual([1, 3, 2, 3]);

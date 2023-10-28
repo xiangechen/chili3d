@@ -38,8 +38,8 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     #callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
     #items: T[];
 
-    constructor(items?: readonly T[]) {
-        this.#items = items ? [...items] : [];
+    constructor(...items: T[]) {
+        this.#items = [...items];
     }
 
     add(...items: T[]) {
@@ -106,12 +106,32 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         }
     }
 
+    forEach(callback: (item: T, index: number) => void) {
+        this.items.forEach(callback);
+    }
+
+    map(callback: (item: T, index: number) => any) {
+        return this.items.map(callback);
+    }
+
     get items() {
         return [...this.#items];
     }
 
+    [Symbol.iterator]() {
+        return this.items[Symbol.iterator]();
+    }
+
+    item(index: number) {
+        return this.#items[index];
+    }
+
     at(index: number) {
         return this.#items.at(index);
+    }
+
+    indexOf(item: T, fromIndex: number | undefined) {
+        return this.#items.indexOf(item, fromIndex);
     }
 
     contains(item: T) {

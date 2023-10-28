@@ -116,15 +116,15 @@ export class InputProperty extends PropertyBase {
     private handleKeyDown = (e: KeyboardEvent) => {
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
-            let newValue = this.converter.convertBack(this.valueBox.text);
-            if (!newValue.success) {
-                this.error.text(newValue.error ?? "error");
+            let newValue = this.converter.convertBack?.(this.valueBox.text);
+            if (!newValue?.success) {
+                this.error.text(newValue?.error ?? "error");
                 this.error.addClass(style.hidden);
                 return;
             }
             Transaction.excute(this.document, "modify property", () => {
                 this.objects.forEach((x) => {
-                    x[this.property.name] = newValue.unwrap();
+                    x[this.property.name] = newValue?.unwrap();
                 });
                 this.document.visual.viewer.update();
             });

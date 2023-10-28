@@ -79,12 +79,8 @@ export class AppBuilder {
 
     private async loadUI(app: Application) {
         if (this.#useUI) {
-            const root = document.getElementById("root");
-            if (root === null) {
-                throw new Error("root element not found");
-            }
             let ui = await import("chili-ui");
-            ui.MainWindow.instance.init(app, root);
+            ui.MainWindow.instance.init(app);
         }
     }
 
