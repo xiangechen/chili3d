@@ -14,18 +14,19 @@ function defaultSnapedData(): SnapPointData {
 export class AngleStep extends StepBase<SnapPointData> {
     constructor(
         tip: I18nKeys,
+        private handleCenter: () => XYZ,
         private handleP1: () => XYZ,
-        handleCenter: () => SnapPointData = defaultSnapedData,
+        handleP2Data: () => SnapPointData = defaultSnapedData,
     ) {
-        super(tip, handleCenter);
+        super(tip, handleP2Data);
     }
 
     protected override snapper(data: SnapPointData): Snapper {
-        return new AngleSnapper(data, this.handleP1());
+        return new AngleSnapper(this.handleCenter(), this.handleP1(), data);
     }
 
     protected validator(data: SnapPointData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
-        return data.refPoint.distanceTo(point) > Precision.Length;
+        return data.refPoint.distanceTo(point) > Precision.Distance;
     }
 }

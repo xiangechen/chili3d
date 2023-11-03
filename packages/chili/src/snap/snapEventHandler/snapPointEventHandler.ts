@@ -35,7 +35,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
         super(controller, snaps, pointData);
     }
 
-    protected getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ {
+    protected getPointFromInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
         let result = this.pointData.refPoint ?? XYZ.zero;
         let end = this._snaped!.point!;
@@ -43,11 +43,10 @@ export class SnapPointEventHandler extends SnapEventHandler {
             let vector = end.sub(this.pointData.refPoint!).normalize()!;
             result = result.add(vector.multiply(dims[0]));
         } else if (dims.length > 1) {
-            result = result
-                .add(view.workplane.xvec.multiply(dims[0]))
-                .add(view.workplane.yvec.multiply(dims[1]));
+            let plane = this.pointData.plane ?? view.workplane;
+            result = result.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
             if (dims.length === 3) {
-                result = result.add(view.workplane.normal.multiply(dims[2]));
+                result = result.add(plane.normal.multiply(dims[2]));
             }
         }
         return result;
@@ -60,19 +59,15 @@ export class SnapPointEventHandler extends SnapEventHandler {
             return "error.input.unsupportedInputs";
         } else if (dims.some((x) => Number.isNaN(x))) {
             return "error.input.invalidNumber";
-        } else {
-            if (this.pointData.refPoint === undefined) {
-                if (dims.length !== 3) {
-                    return "error.input.threeNumberCanBeInput";
-                }
-            } else {
-                if (
-                    dims.length === 1 &&
-                    (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint))
-                ) {
-                    return "error.input.cannotInputANumber";
-                }
+        } else if (this.pointData.refPoint === undefined) {
+            if (dims.length !== 3) {
+                return "error.input.threeNumberCanBeInput";
             }
+        } else if (
+            dims.length === 1 &&
+            (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint))
+        ) {
+            return "error.input.cannotInputANumber";
         }
         return undefined;
     }

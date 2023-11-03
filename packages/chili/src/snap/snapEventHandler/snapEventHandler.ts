@@ -75,11 +75,15 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
             this.showTempShape(this._snaped.point!, view);
-            this.switchSnapedTip(this._snaped.info);
+            this.switchSnapedTip(this.snapedInfo());
         } else {
             this.clearSnapTip();
         }
         view.viewer.update();
+    }
+
+    snapedInfo() {
+        return this._snaped?.info;
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
@@ -223,13 +227,13 @@ export abstract class SnapEventHandler implements IEventHandler {
     private handleText = (view: IView, text: string) => {
         this._snaped = {
             view,
-            point: this.getPointFromInput(view, text, this._snaped?.point),
+            point: this.getPointFromInput(view, text),
             shapes: [],
         };
         this.finish();
     };
 
-    protected abstract getPointFromInput(view: IView, text: string, snaped?: XYZ): XYZ;
+    protected abstract getPointFromInput(view: IView, text: string): XYZ;
 
     protected abstract inputError(text: string): I18nKeys | undefined;
 }

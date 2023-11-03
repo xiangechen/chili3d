@@ -77,6 +77,21 @@ export class ShapeFactory implements IShapeFactory {
         return Result.error("Create polygon error");
     }
 
+    arc(normal: XYZ, center: XYZ, start: XYZ, angle: number): Result<IEdge> {
+        let radius = center.distanceTo(start);
+        let xvec = start.sub(center);
+        let ax2 = new occ.gp_Ax2_2(OccHelps.toPnt(center), OccHelps.toDir(normal), OccHelps.toDir(xvec));
+        let circle = new occ.gp_Circ_2(ax2, radius);
+        let radians = (angle * Math.PI) / 180;
+        let [startAngle, endAngle] = [0, radians];
+        if (angle < 0) [startAngle, endAngle] = [Math.PI * 2 + radians, Math.PI * 2];
+        let builder = new occ.BRepBuilderAPI_MakeEdge_9(circle, startAngle, endAngle);
+        if (builder.IsDone()) {
+            return Result.success(new OccEdge(builder.Edge()));
+        }
+        return Result.error("Create arc error");
+    }
+
     circle(normal: XYZ, center: XYZ, radius: number): Result<IEdge, string> {
         if (MathUtils.almostEqual(radius, 0)) {
             return Result.error("Radius cannot be 0");

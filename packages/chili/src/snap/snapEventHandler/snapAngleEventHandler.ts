@@ -1,15 +1,36 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IView, XYZ } from "chili-core";
-import { SnapPointData, SnapPointEventHandler } from "./snapPointEventHandler";
+import { AsyncController, Config, IView, Plane, PlaneAngle, Precision, XYZ } from "chili-core";
+import { ObjectSnap } from "../objectSnap";
+import { PlaneSnap } from "../planeSnap";
+import { TrackingSnap } from "../tracking";
+import { SnapEventHandler } from "./snapEventHandler";
+import { SnapPointData } from "./snapPointEventHandler";
 
-export class SnapAngleEventHandler extends SnapPointEventHandler {
+export class SnapAngleEventHandler extends SnapEventHandler {
+    readonly plane: Plane;
+    readonly planeAngle: PlaneAngle;
+
     constructor(
         controller: AsyncController,
-        center: SnapPointData,
-        private p1: XYZ,
+        readonly center: XYZ,
+        p1: XYZ,
+        readonly snapPointData: SnapPointData,
     ) {
-        super(controller, center);
+        if (!snapPointData.plane) throw new Error("SnapAngleEventHandler requires a plane");
+        let objectSnap = new ObjectSnap(Config.instance.snapType, snapPointData.refPoint);
+        let workplaneSnap = new PlaneSnap(snapPointData.plane, center);
+        let trackingSnap = new TrackingSnap(center, false);
+        let snaps = [objectSnap, trackingSnap, workplaneSnap];
+        super(controller, snaps, snapPointData);
+        let xvec = p1.sub(center).normalize()!;
+        this.plane = new Plane(center, snapPointData.plane.normal, xvec);
+        this.planeAngle = new PlaneAngle(this.plane);
+    }
+
+    override snapedInfo() {
+        this.planeAngle.movePoint(this._snaped?.point!);
+        return `${this.planeAngle.angle.toFixed(2)} °`;
     }
 
     protected override inputError(text: string) {
@@ -22,8 +43,7 @@ export class SnapAngleEventHandler extends SnapPointEventHandler {
 
     protected override getPointFromInput(view: IView, text: string): XYZ {
         let angle = (Number.parseFloat(text) * Math.PI) / 180;
-        let vec = this.p1.sub(this.pointData.refPoint!).normalize()!;
-        vec = vec.rotate(this.pointData.plane!.normal, angle)!;
-        return this.pointData.refPoint!.add(vec);
+        let vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
+        return this.center.add(vec);
     }
 }

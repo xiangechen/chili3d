@@ -31,14 +31,15 @@ export abstract class Snapper {
 
 export class AngleSnapper extends Snapper {
     constructor(
-        readonly center: SnapPointData,
+        readonly center: XYZ,
         readonly p1: XYZ,
+        readonly snapPointData: SnapPointData,
     ) {
         super();
     }
 
     protected getEventHandler(controller: AsyncController): SnapEventHandler {
-        return new SnapAngleEventHandler(controller, this.center, this.p1);
+        return new SnapAngleEventHandler(controller, this.center, this.p1, this.snapPointData);
     }
 }
 

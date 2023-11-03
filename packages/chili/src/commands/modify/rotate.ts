@@ -12,18 +12,13 @@ import { TransformedCommand } from "./transformedCommand";
 })
 export class Rotate extends TransformedCommand {
     protected override transfrom(point: XYZ): Matrix4 {
-        let { normal, angle } = this.normalAndAngle(point);
-        return Matrix4.createRotationAt(this.stepDatas[0].point!, normal, angle);
-    }
-
-    private normalAndAngle(point: XYZ) {
+        let normal = this.stepDatas[0].view.workplane.normal;
         let center = this.stepDatas[0].point!;
         let p1 = this.stepDatas[1].point!;
         let v1 = p1.sub(center);
         let v2 = point.sub(center);
-        let normal = v1.cross(v2);
-        let angle = v1.angleOnPlaneTo(v2, normal)!;
-        return { normal, angle };
+        let angle = v1.angleOnPlaneTo(v2, this.stepDatas[0].view.workplane.normal)!;
+        return Matrix4.createRotationAt(this.stepDatas[0].point!, normal, angle);
     }
 
     getSteps(): IStep[] {
@@ -31,6 +26,7 @@ export class Rotate extends TransformedCommand {
         let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
         let thirdStep = new AngleStep(
             "operate.pickNextPoint",
+            () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
             this.getThirdPointData,
         );
@@ -48,16 +44,14 @@ export class Rotate extends TransformedCommand {
 
     private getThirdPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point!,
-            dimension: Dimension.D1D2D3,
+            dimension: Dimension.D1D2,
             preview: this.rotatePreview,
             plane: this.stepDatas[0].view.workplane,
             validators: [
                 (p) => {
                     return (
                         p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
-                        p.distanceTo(this.stepDatas[1].point!) > 1e-3 &&
-                        this.normalAndAngle(p).angle > 1e-3
+                        p.distanceTo(this.stepDatas[1].point!) > 1e-3
                     );
                 },
             ],

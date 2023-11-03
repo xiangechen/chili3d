@@ -13,6 +13,7 @@ export type CommandKeys =
     | "file.import"
     | "file.export.iges"
     | "file.export.stp"
+    | "create.arc"
     | "create.box"
     | "create.line"
     | "create.circle"

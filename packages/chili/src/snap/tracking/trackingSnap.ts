@@ -176,7 +176,7 @@ export class TrackingSnap implements ISnapper {
         let vector = new XY(x - start.x, y - start.y);
         if (vector.isEqualTo(XY.zero)) return 0;
         let end = view.worldToScreen(axis.location.add(axis.direction.multiply(100000)));
-        if (start.distanceTo(end) < Precision.Number) return vector.length();
+        if (start.distanceTo(end) < Precision.Float) return vector.length();
         let dir = end.sub(start).normalize()!;
         let dot = vector.dot(dir);
         return Math.sqrt(vector.lengthSq() - dot * dot);

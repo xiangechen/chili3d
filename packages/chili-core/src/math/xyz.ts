@@ -42,7 +42,7 @@ export class XYZ {
     }
 
     divided(scalar: number): XYZ | undefined {
-        if (Math.abs(scalar) < Precision.Number) {
+        if (Math.abs(scalar) < Precision.Float) {
             return undefined;
         }
         return new XYZ(this.x / scalar, this.y / scalar, this.z / scalar);
@@ -66,7 +66,7 @@ export class XYZ {
 
     normalize(): XYZ | undefined {
         let d = this.length();
-        if (d < Precision.Number) {
+        if (d < Precision.Float) {
             return undefined;
         }
         return new XYZ(this.x / d, this.y / d, this.z / d);
@@ -113,8 +113,8 @@ export class XYZ {
     angleOnPlaneTo(right: XYZ, normal: XYZ): number | undefined {
         let angle = this.angleTo(right);
         if (angle === undefined || normal.isEqualTo(XYZ.zero)) return undefined;
-        let vec = normal.cross(this);
-        if (vec.dot(right) < 0) {
+        let vec = this.cross(right).normalize();
+        if (vec?.isOppositeTo(normal)) {
             return Math.PI * 2 - angle;
         }
 

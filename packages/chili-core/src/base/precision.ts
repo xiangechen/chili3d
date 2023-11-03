@@ -1,4 +1,5 @@
-export class Precision {
-    static readonly Length = 1e-7;
-    static readonly Number = 1e-7;
+export namespace Precision {
+    export const Distance = 1e-7;
+    export const Angle = 1e-3;
+    export const Float = 1e-7;
 }

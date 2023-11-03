@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, Plane, XYZ, command } from "chili-core";
+import { GeometryModel, Plane, Precision, XYZ, command } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -13,9 +13,6 @@ import { CreateFaceableCommand } from "./createCommand";
 })
 export class Circle extends CreateFaceableCommand {
     private static count: number = 1;
-    constructor() {
-        super();
-    }
 
     getSteps(): IStep[] {
         let centerStep = new PointStep("operate.pickCircleCenter");
@@ -29,6 +26,12 @@ export class Circle extends CreateFaceableCommand {
             point,
             preview: this.circlePreview,
             plane: this.stepDatas[0].view.workplane.translateTo(point),
+            validators: [
+                (p: XYZ) => {
+                    if (p.distanceTo(point) < Precision.Distance) return false;
+                    return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                },
+            ],
         };
     };
 

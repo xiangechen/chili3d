@@ -16,7 +16,14 @@ export const DefaultRibbon: RibbonTabProfile[] = [
         groups: [
             {
                 groupName: "ribbon.group.draw",
-                items: ["create.line", "create.rect", "create.circle", "create.polygon", "create.box"],
+                items: [
+                    "create.line",
+                    "create.arc",
+                    "create.rect",
+                    "create.circle",
+                    "create.polygon",
+                    "create.box",
+                ],
             },
             {
                 groupName: "ribbon.group.modify",

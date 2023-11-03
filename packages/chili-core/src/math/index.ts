@@ -7,3 +7,4 @@ export * from "./quaternion";
 export * from "./ray";
 export * from "./xy";
 export * from "./xyz";
+export * from "./planeAngle";

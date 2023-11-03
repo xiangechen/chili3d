@@ -12,11 +12,11 @@ export class MathUtils {
     }
 
     static anyEqualZero(...numbers: number[]) {
-        return numbers.some((x) => Math.abs(x) < Precision.Number);
+        return numbers.some((x) => Math.abs(x) < Precision.Float);
     }
 
     static allEqualZero(...numbers: number[]) {
-        return !numbers.some((x) => Math.abs(x) > Precision.Number);
+        return !numbers.some((x) => Math.abs(x) > Precision.Float);
     }
 
     static almostEqual(left: number, right: number, tolerance: number = 1e-8) {

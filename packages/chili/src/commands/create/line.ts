@@ -50,7 +50,7 @@ export class Line extends CreateCommand {
             dimension: Dimension.D1D2D3,
             validators: [
                 (point: XYZ) => {
-                    return this.stepDatas[0].point!.distanceTo(point) > Precision.Length;
+                    return this.stepDatas[0].point!.distanceTo(point) > Precision.Distance;
                 },
             ],
             preview: this.linePreview,

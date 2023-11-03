@@ -51,7 +51,8 @@ export class Polygon extends CreateFaceableCommand {
 
     private isClose(data: SnapedData) {
         return (
-            this.stepDatas.length > 1 && this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Length
+            this.stepDatas.length > 1 &&
+            this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Distance
         );
     }
 

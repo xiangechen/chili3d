@@ -27,10 +27,6 @@ export abstract class PlaneSnapBase implements ISnapper {
 }
 
 export class WorkplaneSnap extends PlaneSnapBase {
-    constructor(refPoint?: XYZ) {
-        super(refPoint);
-    }
-
     snap(data: MouseAndDetected): SnapedData | undefined {
         return this.snapAtPlane(data.view.workplane, data);
     }

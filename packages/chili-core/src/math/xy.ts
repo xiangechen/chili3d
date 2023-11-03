@@ -22,7 +22,7 @@ export class XY {
     }
 
     divided(scalar: number): XY | undefined {
-        if (Math.abs(scalar) < Precision.Number) {
+        if (Math.abs(scalar) < Precision.Float) {
             return undefined;
         }
         return new XY(this.x / scalar, this.y / scalar);
@@ -46,7 +46,7 @@ export class XY {
 
     normalize(): XY | undefined {
         let d = this.length();
-        if (d < Precision.Number) {
+        if (d < Precision.Float) {
             return undefined;
         }
         return new XY(this.x / d, this.y / d);
