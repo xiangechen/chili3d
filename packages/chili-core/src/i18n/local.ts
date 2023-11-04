@@ -133,6 +133,7 @@ export type I18nKeys =
     | "prompt.select.vertexs"
     | "prompt.polygon.close"
     | "prompt.select.noModelSelected"
+    | "prompt.saveDocument{0}"
     | "error.default"
     | "error.input.unsupportedInputs"
     | "error.input.invalidNumber"

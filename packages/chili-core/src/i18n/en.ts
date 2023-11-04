@@ -98,6 +98,7 @@ export default {
         "prompt.select.shape": "Please select shape",
         "prompt.polygon.close": "Close",
         "prompt.select.noModelSelected": "No model selected",
+        "prompt.saveDocument{0}": "Do you want to save the changes to {0}?",
         "error.default": "",
         "error.input.unsupportedInputs": "Exceeds the maximum number of inputs",
         "error.input.invalidNumber": "Please enter a valid number, separated by ,",

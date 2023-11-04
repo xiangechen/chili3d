@@ -97,6 +97,7 @@ export default {
         "prompt.select.wires": "请选择线",
         "prompt.select.shape": "选择形状",
         "prompt.select.noModelSelected": "未选择任何模型",
+        "prompt.saveDocument{0}": "是否保存对 {0} 的更改？",
         "error.default": "",
         "error.input.unsupportedInputs": "超过最大输入数",
         "error.input.invalidNumber": "输入错误，请输入有效的数字，以,分开",

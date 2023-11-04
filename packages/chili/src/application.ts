@@ -66,7 +66,6 @@ export class Application implements IApplication {
 
     async #changeDocument(newDocument: IDocument) {
         if (this.activeDocument) {
-            await this.activeDocument.save();
             await this.activeDocument.close();
         }
         this.activeDocument = newDocument;

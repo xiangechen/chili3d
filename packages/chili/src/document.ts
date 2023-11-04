@@ -3,6 +3,7 @@
 import {
     Constants,
     History,
+    I18n,
     IApplication,
     IDocument,
     IModel,
@@ -115,7 +116,9 @@ export class Document extends Observable implements IDocument {
     }
 
     async close() {
-        await this.save();
+        if (window.confirm(I18n.translate("prompt.saveDocument{0}", this.name))) {
+            await this.save();
+        }
         this.dispose();
         Logger.info(`document: ${this._name} closed`);
         PubSub.default.pub("documentClosed", this);
