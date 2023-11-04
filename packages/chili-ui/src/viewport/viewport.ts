@@ -9,7 +9,7 @@ export class Viewport extends Control {
 
     constructor() {
         super(style.root);
-        this.append(this.flyout);
+        document.body.appendChild(this.flyout);
         this.addEventListener("mousemove", this.handleMouseMove);
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
         PubSub.default.sub("documentClosed", (d) => this.clearViews());
