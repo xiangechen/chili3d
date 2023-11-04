@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CursorType, IView, IViewer, IVisual, Plane } from "chili-core";
+import { CursorType, IView, IViewer, IVisual, Plane, debounce } from "chili-core";
 
 interface EventData {
     container: HTMLElement | Window;
@@ -9,9 +9,9 @@ interface EventData {
 }
 
 export abstract class Viewer implements IViewer {
+    #resizeObserver: ResizeObserver;
     private readonly _views: Set<IView>;
     private readonly _eventCaches: Map<IView, EventData[]>;
-    private readonly _ResizeObserverMap: Map<IView, ResizeObserver> = new Map();
 
     private _activeView?: IView;
     get activeView(): IView | undefined {
@@ -25,11 +25,24 @@ export abstract class Viewer implements IViewer {
     constructor(readonly visual: IVisual) {
         this._views = new Set<IView>();
         this._eventCaches = new Map();
+        let resizerObserverCallback = debounce(this.#resizerObserverCallback, 100);
+        this.#resizeObserver = new ResizeObserver(resizerObserverCallback);
     }
+
+    #resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
+        for (const entry of entries) {
+            this._views.forEach((view) => {
+                if (view.container === entry.target) {
+                    view.resize(entry.contentRect.width, entry.contentRect.height);
+                }
+            });
+        }
+    };
 
     createView(name: string, workplane: Plane, dom: HTMLElement): IView {
         let view = this.handleCreateView(name, workplane, dom);
         this._views.add(view);
+        this.#resizeObserver.observe(view.container);
         this.initEvent(view);
         if (this._activeView === undefined) this._activeView = view;
         return view;
@@ -67,20 +80,10 @@ export abstract class Viewer implements IViewer {
         this._views.clear();
         this._eventCaches.clear();
 
-        this._ResizeObserverMap.forEach((v, k) => v.disconnect());
-        this._ResizeObserverMap.clear();
+        this.#resizeObserver.disconnect();
     }
 
     private initEvent(view: IView) {
-        let container = view.container;
-        const resizeObserver = new ResizeObserver((entries) => {
-            if (entries[0].target === container) {
-                view.resize(container.offsetWidth, container.offsetHeight);
-            }
-        });
-        resizeObserver.observe(container);
-        this._ResizeObserverMap.set(view, resizeObserver);
-
         let events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
             ["pointerdown", this.pointerDown],
             ["pointermove", this.pointerMove],
@@ -89,7 +92,7 @@ export abstract class Viewer implements IViewer {
             ["wheel", this.mouseWheel],
         ];
         events.forEach((v) => {
-            this.addEventListener(container, view, v[0], v[1]);
+            this.addEventListener(view.container, view, v[0], v[1]);
         });
     }
 
@@ -122,8 +125,7 @@ export abstract class Viewer implements IViewer {
             x.container.removeEventListener(x.type, x.callback);
         });
         this._eventCaches.delete(view);
-        this._ResizeObserverMap.get(view)?.disconnect();
-        this._ResizeObserverMap.delete(view);
+        this.#resizeObserver.unobserve(view.container);
     }
 
     private pointerMove = (view: IView, event: PointerEvent) => {

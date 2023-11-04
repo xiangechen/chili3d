@@ -17,7 +17,7 @@ let content = new RibbonDataContent(quickCommands, ribbonTabs);
 
 export const Editor = () =>
     div(
-        { className: style.panel },
+        { className: style.root },
         new Ribbon(content),
         div(
             { className: style.content },
