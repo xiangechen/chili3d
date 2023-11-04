@@ -20,8 +20,16 @@
 }
 
 .button {
-    padding: 4px 8px;
-    font-size: 14px;
+    padding: 2px 12px;
+    font-size: 1em;
+    border-radius: 6px;
+    color: var(--foreground-color);
+    border: 1px solid var(--border-color);
+    background-color: var(--control-background-color);
+
+    &:hover {
+        background-color: var(--hover-background-color);
+    }
 }
 
 .icon {

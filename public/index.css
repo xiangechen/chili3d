@@ -19,6 +19,7 @@ body {
 }
 
 :root[theme="light"] {
+    --control-background-color: #ffffff;
     --primary-color: #0e62d7;
     --secondary-color: #6a9ee6;
     --foreground-color: #333;
