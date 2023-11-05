@@ -1,17 +1,12 @@
-.container {
-    position: fixed;
+.toast {
+    position: absolute;
     left: 50%;
-    top: 50%;
+    top: 30%;
+    transform: translate(-50%, 0%);
     z-index: 10000;
-    margin-top: -9em;
     border-radius: 0.8em;
-    background: #000;
-    opacity: 0.75;
-}
-
-.message {
+    background-color: rgba(0, 0, 0, 0.75);
     color: #fff;
     font-size: 1.2em;
-    line-height: 1.2em;
-    margin: 1em;
+    padding: 1em;
 }
