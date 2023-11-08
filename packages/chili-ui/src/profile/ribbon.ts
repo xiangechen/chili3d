@@ -31,7 +31,13 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.converter",
-                items: ["convert.toPolygon", "convert.prism", "convert.sweep", "convert.revol"],
+                items: [
+                    "convert.toWire",
+                    "convert.toFace",
+                    "convert.prism",
+                    "convert.sweep",
+                    "convert.revol",
+                ],
             },
             {
                 groupName: "ribbon.group.boolean",

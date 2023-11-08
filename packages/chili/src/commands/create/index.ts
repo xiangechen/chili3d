@@ -10,4 +10,4 @@ export * from "./prism";
 export * from "./rect";
 export * from "./revolve";
 export * from "./sweep";
-export * from "./toPoly";
+export * from "./converter";

@@ -48,11 +48,11 @@ export class EditorService implements IService {
         if (models.length > 1) return undefined;
         if (INode.isModelNode(models[0])) {
             let body = models[0].body;
-            if (body instanceof LineBody) {
-                return new LineEditorEventHandler(document, body);
-            } else if (body instanceof CircleBody) {
-                return new CircleEditorEventHandler(document, body);
-            }
+            // if (body instanceof LineBody) {
+            //     return new LineEditorEventHandler(document, body);
+            // } else if (body instanceof CircleBody) {
+            //     return new CircleEditorEventHandler(document, body);
+            // }
         }
         return undefined;
     }

@@ -152,6 +152,7 @@ export class ShapeFactory implements IShapeFactory {
 
     wire(...edges: IEdge[]): Result<IWire> {
         if (edges.length === 0) return Result.error("empty edges");
+        if (edges[0] instanceof OccWire) return Result.success(edges[0]);
         let builder = new occ.BRepBuilderAPI_MakeWire_1();
         if (edges.length === 1) {
             builder.Add_1((edges[0] as OccEdge).shape);
