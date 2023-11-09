@@ -36,7 +36,7 @@ export class ConvertToWire extends CreateCommand {
 @command({
     name: "convert.toFace",
     display: "command.toFace",
-    icon: "",
+    icon: "icon-toFace",
 })
 export class ConvertToFace extends CreateCommand {
     protected override create(): GeometryModel {

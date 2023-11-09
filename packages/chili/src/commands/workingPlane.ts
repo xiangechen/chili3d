@@ -25,7 +25,7 @@ export class WorkingPlaneViewModel extends Observable {
 @command({
     name: "workingPlane.set",
     display: "workingPlane.set",
-    icon: "",
+    icon: "icon-setWorkingPlane",
 })
 export class SetWorkplane implements ICommand {
     async execute(application: IApplication): Promise<void> {
@@ -42,7 +42,7 @@ export class SetWorkplane implements ICommand {
 @command({
     name: "workingPlane.alignToPlane",
     display: "workingPlane.alignToPlane",
-    icon: "",
+    icon: "icon-alignWorkingPlane",
 })
 export class AlignToPlane implements ICommand {
     async execute(application: IApplication): Promise<void> {
