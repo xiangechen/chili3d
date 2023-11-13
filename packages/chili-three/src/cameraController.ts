@@ -144,7 +144,7 @@ export class CameraController implements ICameraController {
         let start = this.#rotateStart ?? this.#target;
         let vecPos = this.camera.position.clone().sub(start);
         let xvec = this.camera.up.clone().cross(vecPos).normalize();
-        let yvec = vecPos.clone().cross(xvec).normalize();
+        let yvec = new Vector3(0, 0, 1);
         let matrixX = new Matrix4().makeRotationAxis(xvec, -dy * this.rotateSpeed);
         let matrixY = new Matrix4().makeRotationAxis(yvec, -dx * this.rotateSpeed);
         let matrix = new Matrix4().multiplyMatrices(matrixY, matrixX);
