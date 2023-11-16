@@ -68,7 +68,7 @@ export class ThreeView extends Observable implements IView {
         this._workplane = workplane;
         this.cameraController = new CameraController(this);
         this._renderer = this.initRender(container);
-        this.#gizmo = new ViewGizmo(this.cameraController);
+        this.#gizmo = new ViewGizmo(this);
         container.appendChild(this.#gizmo);
         this.animate();
     }

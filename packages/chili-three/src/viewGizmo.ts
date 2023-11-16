@@ -2,6 +2,7 @@
 
 import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
+import { ThreeView } from "./threeView";
 
 const options = {
     size: 90,
@@ -37,12 +38,14 @@ export class ViewGizmo extends HTMLElement {
     readonly #center: Vector3;
     readonly #canvas: HTMLCanvasElement;
     readonly #context: CanvasRenderingContext2D;
+    readonly cameraController: CameraController;
     #canClick: boolean = true;
     #selectedAxis?: Axis;
     #mouse?: Vector3;
 
-    constructor(readonly cameraController: CameraController) {
+    constructor(readonly view: ThreeView) {
         super();
+        this.cameraController = view.cameraController;
         this.#axes = this.#initAxes();
         this.#center = new Vector3(options.size * 0.5, options.size * 0.5, 0);
         this.#canvas = this.#initCanvas();
@@ -131,6 +134,7 @@ export class ViewGizmo extends HTMLElement {
     }
 
     #onPointerMove = (e: PointerEvent) => {
+        e.stopPropagation();
         // left button down
         if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
             this.cameraController.rotate(e.movementX * 5, e.movementY * 5);
@@ -138,6 +142,7 @@ export class ViewGizmo extends HTMLElement {
         }
         const rect = this.#canvas.getBoundingClientRect();
         this.#mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0);
+        this.view.update();
     };
 
     #onPointerOut = (e: PointerEvent) => {
