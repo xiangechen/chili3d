@@ -129,17 +129,17 @@ export abstract class SelectionHandler implements IEventHandler {
         parent.appendChild(rect);
         return {
             element: rect,
-            downX: event.clientX,
-            downY: event.clientY,
+            downX: event.offsetX,
+            downY: event.offsetY,
         };
     }
 
     private updateRect(element: SelectionRect, event: PointerEvent) {
         element.element.style.display = "block";
-        const x1 = Math.min(element.downX, event.clientX);
-        const y1 = Math.min(element.downY, event.clientY);
-        const x2 = Math.max(element.downX, event.clientX);
-        const y2 = Math.max(element.downY, event.clientY);
+        const x1 = Math.min(element.downX, event.offsetX);
+        const y1 = Math.min(element.downY, event.offsetY);
+        const x2 = Math.max(element.downX, event.offsetX);
+        const y2 = Math.max(element.downY, event.offsetY);
         element.element.style.left = x1 + "px";
         element.element.style.top = y1 + "px";
         element.element.style.width = x2 - x1 + "px";
