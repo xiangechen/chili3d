@@ -33,12 +33,14 @@ import { Constants } from "./constants";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
     private _scene: Scene;
     private _renderer: Renderer;
     private _workplane: Plane;
     private _needsUpdate: boolean = false;
+    readonly #gizmo: ViewGizmo;
     readonly cameraController: CameraController;
 
     private _name: string;
@@ -66,6 +68,8 @@ export class ThreeView extends Observable implements IView {
         this._workplane = workplane;
         this.cameraController = new CameraController(this);
         this._renderer = this.initRender(container);
+        this.#gizmo = new ViewGizmo(this.cameraController);
+        container.appendChild(this.#gizmo);
         this.animate();
     }
 
@@ -122,6 +126,7 @@ export class ThreeView extends Observable implements IView {
         });
         if (this._needsUpdate) {
             this._renderer.render(this._scene, this.camera);
+            this.#gizmo.update();
             this._needsUpdate = false;
         }
     }

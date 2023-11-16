@@ -40,6 +40,14 @@ export class CameraController implements ICameraController {
         }
     }
 
+    get target() {
+        return this.#target;
+    }
+
+    set target(value: Vector3) {
+        this.#target.copy(value);
+    }
+
     get scale() {
         return this.#orthographic.zoom;
     }
@@ -76,6 +84,12 @@ export class CameraController implements ICameraController {
     private initCamera(camera: PerspectiveCamera | OrthographicCamera) {
         camera.position.set(1500, 1500, 1500);
         camera.lookAt(new Vector3());
+        let direction = new Vector3().sub(camera.position);
+        let up = direction
+            .clone()
+            .cross(new Vector3(0, 0, 1))
+            .cross(direction);
+        camera.up.copy(up);
         camera.updateMatrixWorld(true);
         return camera;
     }
@@ -144,16 +158,15 @@ export class CameraController implements ICameraController {
         let start = this.#rotateStart ?? this.#target;
         let vecPos = this.camera.position.clone().sub(start);
         let xvec = this.camera.up.clone().cross(vecPos).normalize();
-        let yvec = new Vector3(0, 0, 1);
         let matrixX = new Matrix4().makeRotationAxis(xvec, -dy * this.rotateSpeed);
-        let matrixY = new Matrix4().makeRotationAxis(yvec, -dx * this.rotateSpeed);
+        let matrixY = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -dx * this.rotateSpeed);
         let matrix = new Matrix4().multiplyMatrices(matrixY, matrixX);
         let position = ThreeHelper.transformVector(matrix, vecPos).add(start);
         if (this.#rotateStart) {
             let vecTrt = this.#target.clone().sub(this.camera.position);
             this.#target = ThreeHelper.transformVector(matrix, vecTrt).add(position);
         }
-        this.camera.up.copy(this.camera.up.transformDirection(matrix));
+        this.camera.up.transformDirection(matrix);
         this.updateCamera(position, this.#target, false);
     }
 
