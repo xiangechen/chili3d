@@ -2,7 +2,7 @@
 
 import { AsyncController, Config, I18nKeys, IView, Plane, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
-import { SnapPreviewer, SnapValidator } from "../interfaces";
+import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
@@ -13,6 +13,7 @@ export interface SnapPointData {
     refPoint?: XYZ;
     validators?: SnapValidator[];
     preview?: SnapPreviewer;
+    prompt?: (point: SnapedData) => string;
     plane?: Plane;
     featurePoints?: {
         point: XYZ;

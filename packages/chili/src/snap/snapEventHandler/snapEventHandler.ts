@@ -75,15 +75,11 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
             this.showTempShape(this._snaped.point!, view);
-            this.switchSnapedTip(this.snapedInfo());
+            this.switchSnapedPrompt(this.data.prompt?.(this._snaped) ?? this.snaped?.info);
         } else {
             this.clearSnapTip();
         }
         view.viewer.update();
-    }
-
-    snapedInfo() {
-        return this._snaped?.info;
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
@@ -154,7 +150,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         PubSub.default.pub("clearFloatTip");
     }
 
-    private switchSnapedTip(msg: string | undefined) {
+    private switchSnapedPrompt(msg: string | undefined) {
         if (msg === undefined) {
             this.clearSnapTip();
             return;

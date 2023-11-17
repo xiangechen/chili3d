@@ -3,7 +3,7 @@
 import { AsyncController, Config, I18nKeys, IView, Plane, Precision, XYZ } from "chili-core";
 
 import { AxisSnap } from "../axisSnap";
-import { SnapPreviewer, SnapValidator } from "../interfaces";
+import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
@@ -14,6 +14,7 @@ export interface SnapLengthAtAxisData {
     direction: XYZ;
     validators?: SnapValidator[];
     preview: SnapPreviewer;
+    prompt?: (snaped: SnapedData) => string;
 }
 
 export interface SnapLengthAtPlaneData {
@@ -21,6 +22,7 @@ export interface SnapLengthAtPlaneData {
     plane: Plane;
     validators?: SnapValidator[];
     preview: SnapPreviewer;
+    prompt?: (snaped: SnapedData) => string;
 }
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {

@@ -6,6 +6,7 @@ import { PlaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 import { SnapPointData } from "./snapPointEventHandler";
+import { SnapedData } from "../interfaces";
 
 export class SnapAngleEventHandler extends SnapEventHandler {
     readonly plane: Plane;
@@ -26,12 +27,13 @@ export class SnapAngleEventHandler extends SnapEventHandler {
         let xvec = p1.sub(center).normalize()!;
         this.plane = new Plane(center, snapPointData.plane.normal, xvec);
         this.planeAngle = new PlaneAngle(this.plane);
+        if (snapPointData.prompt === undefined) snapPointData.prompt = this.snapedInfo;
     }
 
-    override snapedInfo() {
-        this.planeAngle.movePoint(this._snaped?.point!);
+    private snapedInfo = (snaped?: SnapedData) => {
+        this.planeAngle.movePoint(snaped?.point!);
         return `${this.planeAngle.angle.toFixed(2)} °`;
-    }
+    };
 
     protected override inputError(text: string) {
         let angle = Number.parseFloat(text);

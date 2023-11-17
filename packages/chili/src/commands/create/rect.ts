@@ -2,7 +2,7 @@
 
 import { GeometryModel, MathUtils, Plane, Property, XYZ, command } from "chili-core";
 import { RectBody } from "../../bodys";
-import { SnapLengthAtPlaneData } from "../../snap";
+import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "./createCommand";
 
@@ -38,6 +38,10 @@ export abstract class RectCommandBase extends CreateCommand {
             preview: this.previewRect,
             plane: this.stepDatas[0].view.workplane.translateTo(point),
             validators: [this.handleValid],
+            prompt: (snaped: SnapedData) => {
+                let data = this.getRectData(snaped.point!);
+                return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;
+            },
         };
     };
 
