@@ -56,6 +56,7 @@ export class SelectModelStep implements IStep {
                 this.filter,
             );
         }
+        document.selection.clearSelected();
         if (models.length === 0) return undefined;
         return {
             view: document.visual.viewer.activeView!,

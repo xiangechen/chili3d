@@ -22,16 +22,9 @@ export class FaceBody extends Body {
 
     protected override generateShape(): Result<IShape> {
         if (Array.isArray(this._shapes)) {
-            if (this._shapes.length === 0) {
-                return Result.error("Cannot create face from empty array");
-            }
-            if (this._shapes.length === 1) {
-                let wire = this.shapeFactory.wire(this._shapes[0]);
-                if (!wire.success) return wire;
-                return wire.value.toFace();
-            } else {
-                return this.shapeFactory.wire(...this._shapes);
-            }
+            let wire = this.shapeFactory.wire(...this._shapes);
+            if (!wire.success) return wire;
+            return wire.value.toFace();
         } else {
             return this._shapes.toFace();
         }
