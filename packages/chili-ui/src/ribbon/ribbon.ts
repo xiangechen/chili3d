@@ -21,6 +21,7 @@ import { RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 
 export class RibbonDataContent extends Observable {
+    #document: IDocument | undefined;
     readonly quickCommands = new ObservableCollection<CommandKeys>();
     readonly ribbonTabs = new ObservableCollection<RibbonTabData>();
 
@@ -45,6 +46,29 @@ export class RibbonDataContent extends Observable {
         this.quickCommands.add(...quickCommands);
         this.ribbonTabs.add(...ribbonTabs);
         this._activeTab = ribbonTabs[0];
+        PubSub.default.sub("activeDocumentChanged", this.#documentChanged);
+    }
+
+    #documentChanged = (document: IDocument | undefined) => {
+        if (this.#document === document) return;
+        if (this.#document) {
+            this.#document.removePropertyChanged(this.#onDocumentPropertyChanged);
+        }
+        this.#document = document;
+        this.documentName = document?.name;
+        this.#document?.onPropertyChanged(this.#onDocumentPropertyChanged);
+    };
+
+    #onDocumentPropertyChanged = (property: keyof IDocument) => {
+        if (property === "name") {
+            this.documentName = this.#document?.name ?? "undefined";
+        }
+    };
+
+    override dispose(): void {
+        super.dispose();
+        PubSub.default.remove("activeDocumentChanged", this.#documentChanged);
+        this.#document?.removePropertyChanged(this.#onDocumentPropertyChanged);
     }
 }
 
@@ -155,7 +179,6 @@ export class Ribbon extends BindableElement {
         super.connectedCallback();
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
-        PubSub.default.sub("activeDocumentChanged", this.documentChanged);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
     }
@@ -164,14 +187,9 @@ export class Ribbon extends BindableElement {
         super.disconnectedCallback();
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
-        PubSub.default.remove("activeDocumentChanged", this.documentChanged);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
     }
-
-    private documentChanged = (d: IDocument | undefined) => {
-        this.dataContent.documentName = d ? d.name : "undefined";
-    };
 
     private openContext = (command: ICommand) => {
         this.#commandContextContainer.append(new CommandContext(command));
