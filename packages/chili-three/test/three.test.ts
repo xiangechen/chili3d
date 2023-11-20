@@ -1,10 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { expect, test } from "@jest/globals";
+import { expect, test, jest } from "@jest/globals";
 import { GeometryModel, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestBody } from "./testEdge";
 import { TestView } from "./testView";
+
+(global as any).ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    unobserve: jest.fn(),
+    disconnect: jest.fn(),
+}));
 
 describe("three test", () => {
     let doc = new TestDocument();
