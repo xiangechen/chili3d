@@ -86,7 +86,6 @@ export class ThreeView extends Observable implements IView {
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
         container.append(renderer.domElement);
-        renderer.autoClear = false;
         return renderer;
     }
 

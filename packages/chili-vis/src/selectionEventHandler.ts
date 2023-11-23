@@ -101,11 +101,11 @@ export abstract class SelectionHandler implements IEventHandler {
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this._selected?.forEach((x) => {
             if (!detecteds.includes(x))
-                x.owner.removeState(VisualState.hilight, this.shapeType, ...x.indexes);
+                x.owner.removeState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
         detecteds.forEach((x) => {
             if (!this._selected?.includes(x))
-                x.owner.addState(VisualState.hilight, this.shapeType, ...x.indexes);
+                x.owner.addState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
         this._selected = detecteds;
         view.viewer.update();
@@ -177,7 +177,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     private cleanHighlights() {
         this._selected?.forEach((x) => {
-            x.owner.removeState(VisualState.hilight, this.shapeType);
+            x.owner.removeState(VisualState.highlight, this.shapeType);
         });
         this._selected = undefined;
     }

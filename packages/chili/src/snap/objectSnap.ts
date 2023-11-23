@@ -177,13 +177,13 @@ export class ObjectSnap implements ISnapper {
     }
 
     private hilighted(view: IView, shapes: VisualShapeData[]) {
-        shapes.forEach((x) => x.owner.addState(VisualState.hilight, x.shape.shapeType, ...x.indexes));
+        shapes.forEach((x) => x.owner.addState(VisualState.highlight, x.shape.shapeType, ...x.indexes));
         this._hilightedShapes.push(...shapes);
     }
 
     private unHilighted() {
         this._hilightedShapes.forEach((x) => {
-            x.owner.removeState(VisualState.hilight, x.shape.shapeType, ...x.indexes);
+            x.owner.removeState(VisualState.highlight, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.length = 0;
     }

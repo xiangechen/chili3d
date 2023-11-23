@@ -7,24 +7,24 @@ describe("visual test", () => {
         let state = VisualState.normal;
         expect(state).toBe(0);
 
-        state = VisualState.addState(state, VisualState.hilight);
+        state = VisualState.addState(state, VisualState.highlight);
         expect(state).toBe(1);
-        expect(VisualState.hasState(state, VisualState.hilight)).toBeTruthy();
+        expect(VisualState.hasState(state, VisualState.highlight)).toBeTruthy();
         expect(VisualState.hasState(state, VisualState.selected)).toBeFalsy();
 
         state = VisualState.addState(state, VisualState.selected);
         expect(state).toBe(3);
-        expect(VisualState.hasState(state, VisualState.hilight)).toBeTruthy();
+        expect(VisualState.hasState(state, VisualState.highlight)).toBeTruthy();
         expect(VisualState.hasState(state, VisualState.selected)).toBeTruthy();
 
-        state = VisualState.removeState(state, VisualState.hilight);
+        state = VisualState.removeState(state, VisualState.highlight);
         expect(state).toBe(2);
-        expect(VisualState.hasState(state, VisualState.hilight)).toBeFalsy();
+        expect(VisualState.hasState(state, VisualState.highlight)).toBeFalsy();
         expect(VisualState.hasState(state, VisualState.selected)).toBeTruthy();
 
         state = VisualState.removeState(state, VisualState.selected);
         expect(state).toBe(0);
-        expect(VisualState.hasState(state, VisualState.hilight)).toBeFalsy();
+        expect(VisualState.hasState(state, VisualState.highlight)).toBeFalsy();
         expect(VisualState.hasState(state, VisualState.selected)).toBeFalsy();
     });
 });

@@ -5,9 +5,8 @@ import { IVisualObject } from "./visualObject";
 
 export enum VisualState {
     normal = 0,
-    hilight = 1,
+    highlight = 1,
     selected = 1 << 1,
-    hilightAndSelected = hilight | selected,
 }
 
 export namespace VisualState {
