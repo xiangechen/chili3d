@@ -27,13 +27,13 @@ export class Dialog {
                     button({
                         textContent: I18n.translate("common.confirm"),
                         onclick: () => {
-                            dialog.close();
+                            dialog.remove();
                             callback();
                         },
                     }),
                     button({
                         textContent: I18n.translate("common.cancel"),
-                        onclick: () => dialog.close(),
+                        onclick: () => dialog.remove(),
                     }),
                 ),
             ),
