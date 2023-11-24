@@ -14,7 +14,7 @@ export class History implements IDisposable {
     #redos: IHistoryRecord[] = [];
 
     disabled: boolean = false;
-    undoLimits: number = 2;
+    undoLimits: number = 50;
 
     dispose(): void {
         this.#undos.length = 0;
