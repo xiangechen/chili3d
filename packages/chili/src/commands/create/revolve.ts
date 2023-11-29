@@ -7,6 +7,7 @@ import {
     ILine,
     IShape,
     IShapeFilter,
+    Property,
     Ray,
     ShapeType,
     command,
@@ -25,13 +26,13 @@ let count = 1;
 })
 export class Revolve extends CreateCommand {
     private _angle: number = 360;
-    // @Property.define("common.angle")
-    // public get angle() {
-    //     return this._angle;
-    // }
-    // public set angle(value: number) {
-    //     this.setProperty("angle", value);
-    // }
+    @Property.define("common.angle")
+    public get angle() {
+        return this._angle;
+    }
+    public set angle(value: number) {
+        this.setProperty("angle", value);
+    }
 
     protected override create(): GeometryModel {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
