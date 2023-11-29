@@ -30,11 +30,6 @@ export const Home = async (app: IApplication) => {
                     href: "https://github.com/xiangechen/chili3d",
                     target: "_blank",
                 }),
-                a({
-                    textContent: "Gitee",
-                    href: "https://gitee.com/chenxiange/chili3d",
-                    target: "_blank",
-                }),
             ),
         ),
         div(
