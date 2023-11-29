@@ -91,13 +91,25 @@ export class CommandContext extends BindableElement {
                     },
                 }),
             );
-        } else {
+        } else if (type === "number") {
             return div(
                 label({ textContent: localize(g.display) }),
-                // input({type: "text", value: bind(noType, g.name), onchange: () => {
-                //     noType[g.name] = (noType[g.name] as any).toString();
-                // }})
+                input({
+                    type: "text",
+                    className: style.input,
+                    value: this.bind(noType, g.name),
+                    onkeydown: (e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                            let input = e.target as HTMLInputElement;
+                            noType[g.name] = parseFloat(input.value);
+                            input.blur();
+                        }
+                    },
+                }),
             );
+        } else {
+            throw new Error("暂不支持的类型");
         }
     }
 

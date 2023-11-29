@@ -9,13 +9,14 @@ import {
     Props,
     RadioProps,
     SelectProps,
+    TextProps,
     setProps,
 } from "./props";
 
 export const div = createFunction("div");
 export const span = createFunction("span");
 export const button = createFunction("button");
-export const input = createFunction<"input", CheckboxProps | ColorProps | RadioProps>("input");
+export const input = createFunction<"input", TextProps | CheckboxProps | ColorProps | RadioProps>("input");
 export const textarea = createFunction("textarea");
 export const select = createFunction<"select", SelectProps>("select");
 export const option = createFunction<"option", OptionProps>("option");

@@ -52,6 +52,14 @@ export interface ColorProps extends Props {
     onchange?: (e: Event) => void;
 }
 
+export interface TextProps extends Props {
+    type: "text";
+    value?: string | Binding;
+    onchange?: (e: Event) => void;
+    onkeydown?: (e: KeyboardEvent) => void;
+    onkeyup?: (e: KeyboardEvent) => void;
+}
+
 export type ChildDom = string | Node;
 
 export function setProps<O extends Props, K extends keyof HTMLElementTagNameMap>(
