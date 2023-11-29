@@ -1,4 +1,7 @@
 {
     "typescript.tsdk": "node_modules/typescript/lib",
-    "editor.codeActionsOnSave": { "source.organizeImports": true }
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "editor.inlineSuggest.showToolbar": "onHover"
 }
