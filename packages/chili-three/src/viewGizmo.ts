@@ -5,15 +5,14 @@ import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
 
 const options = {
-    size: 90,
-    padding: 8,
-    bubbleSizePrimary: 8,
-    bubbleSizeSeconday: 6,
+    size: 200,
+    padding: 16,
+    bubbleSizePrimary: 18,
+    bubbleSizeSeconday: 10,
     showSecondary: true,
     lineWidth: 2,
-    fontSize: "11px",
+    fontSize: "24px",
     fontFamily: "arial",
-    fontWeight: "bold",
     fontColor: "#151515",
     fontYAdjust: 0,
     colors: {
@@ -62,8 +61,13 @@ export class ViewGizmo extends HTMLElement {
     }
 
     #initCanvas() {
-        this.innerHTML = `<canvas width="${options.size}px" height="${options.size}px"></canvas>`;
-        return this.querySelector("canvas")!;
+        let canvas = document.createElement("canvas");
+        canvas.width = options.size;
+        canvas.height = options.size;
+        canvas.style.width = `${options.size * 0.5}px`;
+        canvas.style.height = `${options.size * 0.5}px`;
+        this.append(canvas);
+        return canvas;
     }
 
     #initAxes() {
@@ -135,13 +139,12 @@ export class ViewGizmo extends HTMLElement {
 
     #onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
-        // left button down
         if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
-            this.cameraController.rotate(e.movementX * 5, e.movementY * 5);
+            this.cameraController.rotate(e.movementX * 4, e.movementY * 4);
             this.#canClick = false;
         }
         const rect = this.#canvas.getBoundingClientRect();
-        this.#mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0);
+        this.#mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0).multiplyScalar(2);
         this.view.update();
     };
 
@@ -190,15 +193,15 @@ export class ViewGizmo extends HTMLElement {
         this.drawAxes(this.#axes);
     }
 
-    private setSelectedAxis(layers: Axis[]) {
+    private setSelectedAxis(axes: Axis[]) {
         this.#selectedAxis = undefined;
         if (this.#mouse && this.#canClick) {
             let closestDist = Infinity;
-            for (let bubble of layers) {
-                const distance = this.#mouse.distanceTo(bubble.position);
-                if (distance < closestDist && distance < bubble.size) {
+            for (let axis of axes) {
+                const distance = this.#mouse.distanceTo(axis.position);
+                if (distance < closestDist && distance < axis.size) {
                     closestDist = distance;
-                    this.#selectedAxis = bubble;
+                    this.#selectedAxis = axis;
                 }
             }
         }
@@ -247,7 +250,7 @@ export class ViewGizmo extends HTMLElement {
 
     private drawLabel(axis: Axis) {
         if (axis.label) {
-            this.#context.font = [options.fontWeight, options.fontSize, options.fontFamily].join(" ");
+            this.#context.font = [options.fontSize, options.fontFamily].join(" ");
             this.#context.fillStyle = options.fontColor;
             this.#context.textBaseline = "middle";
             this.#context.textAlign = "center";
