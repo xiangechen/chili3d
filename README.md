@@ -1,6 +1,8 @@
 # Chili3D
 
-Chili3D is a fast, web-based 3D CAD program that works in any modern browser. Built with TypeScript, Three.js, and Opencascade.js.
+[Chili3D](https://chili3d.com) is a fast, web-based 3D CAD program that works in any modern browser. Built with TypeScript, Three.js, and Opencascade.js.
+
+![screenshot](screenshots/screenshot.png)
 
 ## WARNING
 
@@ -8,26 +10,16 @@ Chili3D is still in the very early stages of development. APIs can and will chan
 
 ## Features
 
-### Snap and tracking
+The app hosted at chili3d.com is a minimal showcase of what you can build with chili3d. Its features:
 
-Can snap to circle center, endpoint, midpoint, intersection and perpendicular point. Tracks the x, y and z axes as well as any polar axis in the working plane.
-![snap](screenshots/snap.gif)
-
-### Group
-
-![group](screenshots/group.gif)
-
-### Properties
-
-![group](screenshots/property.gif)
-
-### Undo redo
-
-![undo](screenshots/undo.gif)
-
-### Multilingual
-
-Support for both English and Simplified Chinese languages.
+-   Open-source (https://github.com/xiangechen/chili3d.git).
+-   Localization (i18n) support.
+-   Export to STEP, IGES, BREP...
+-   Open format - export document as an .cd json file.
+-   Snap and Track.
+-   Wide range of tools - rectangle, circle, line, box, prism, sweep...
+-   Undo / Redo.
+-   Local-first support (save to the browser).
 
 ## How to Use
 
