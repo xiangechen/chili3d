@@ -53,6 +53,7 @@ export default {
         "command.faceable.isFace": "面",
         "command.document.open": "打开文档",
         "command.document.save": "保存文档",
+        "command.document.saveToFile": "保存到文件",
         "command.document.saveAs": "另存为",
         "command.document.new": "新建文档",
         "command.delete": "删除",

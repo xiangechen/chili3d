@@ -11,7 +11,7 @@ import { Viewport } from "./viewport";
 import { RibbonTabData } from "./ribbon/ribbonData";
 import { DefaultRibbon } from "./profile/ribbon";
 
-let quickCommands: CommandKeys[] = ["doc.save", "edit.undo", "edit.redo"];
+let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 let ribbonTabs = DefaultRibbon.map((p) => RibbonTabData.fromProfile(p));
 let content = new RibbonDataContent(quickCommands, ribbonTabs);
 

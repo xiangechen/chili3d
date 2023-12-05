@@ -54,6 +54,7 @@ export default {
         "command.document.open": "Open Document",
         "command.document.save": "Save",
         "command.document.saveAs": "Save As",
+        "command.document.saveToFile": "Save To File",
         "command.document.new": "New Document",
         "command.delete": "Delete",
         "command.redo": "Redo",

@@ -77,6 +77,7 @@ export type I18nKeys =
     | "command.boolean.cut"
     | "command.faceable.isFace"
     | "command.document.save"
+    | "command.document.saveToFile"
     | "command.document.saveAs"
     | "command.document.new"
     | "command.document.open"

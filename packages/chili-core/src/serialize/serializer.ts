@@ -4,6 +4,10 @@ import { IDocument } from "../document";
 import { INodeLinkedList } from "../model";
 import { ClassMap } from "./classMap";
 
+export interface ISerialize {
+    serialize(): Serialized;
+}
+
 export type Serialized = {
     classKey: string;
     properties: SerializedProperties<any>;

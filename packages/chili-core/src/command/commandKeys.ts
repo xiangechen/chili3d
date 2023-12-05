@@ -7,6 +7,7 @@ export type CommandKeys =
     | "doc.new"
     | "doc.save"
     | "doc.open"
+    | "doc.saveToFile"
     | "special.last"
     | "edit.undo"
     | "edit.redo"

@@ -6,13 +6,15 @@ import {
     IDocument,
     INode,
     INodeLinkedList,
+    ISerialize,
     IView,
     PropertyChangedHandler,
     SelectionManager,
+    Serialized,
 } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
 
-export class TestDocument implements IDocument {
+export class TestDocument implements IDocument, ISerialize {
     application: IApplication;
     name: string;
     currentNode: INodeLinkedList | undefined;
@@ -34,6 +36,13 @@ export class TestDocument implements IDocument {
 
     close(): Promise<void> {
         return Promise.resolve();
+    }
+
+    serialize(): Serialized {
+        return {
+            classKey: "TestDocument",
+            properties: {},
+        };
     }
 
     constructor() {

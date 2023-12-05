@@ -11,6 +11,7 @@ import {
     PubSub,
     Result,
     command,
+    download,
     readFileAsync,
 } from "chili-core";
 import { ImportedBody } from "../bodys/importer";
@@ -61,20 +62,11 @@ abstract class Export implements ICommand {
         let type = this.getType();
         let data = await this.convertShapeAsync(application, type);
         if (data) {
-            let blob = new Blob([data.data], { type: `application/${type}` });
-            this.download(blob, data);
+            download([data.data], `${data.name}.${type}`);
         }
     }
 
     abstract getType(): "iges" | "step";
-
-    protected download(blob: Blob, data: { name: string; data: string }) {
-        let a = document.createElement("a");
-        a.style.visibility = "hidden";
-        a.href = URL.createObjectURL(blob);
-        a.download = data.name;
-        a.click();
-    }
 
     protected async convertShapeAsync(application: IApplication, type: "iges" | "step") {
         let models = await this.selectModelsAsync(application);
@@ -92,7 +84,7 @@ abstract class Export implements ICommand {
             return;
         }
         return {
-            name: `${models[0].name}.${type}`,
+            name: `${models[0].name}`,
             data: shapeString.value,
         };
     }
