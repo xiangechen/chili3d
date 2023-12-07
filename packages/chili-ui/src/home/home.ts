@@ -6,7 +6,7 @@ import { a, button, div, img, items, label, localize, span } from "../controls";
 import style from "./home.module.css";
 
 export const Home = async (app: IApplication) => {
-    let documents = await app.storage.page(Constants.DBName, Constants.RecentTable, 0);
+    let documents: RecentDocumentDTO[] = await app.storage.page(Constants.DBName, Constants.RecentTable, 0);
 
     return div(
         { className: style.root },
@@ -39,11 +39,13 @@ export const Home = async (app: IApplication) => {
             items({
                 className: style.documents,
                 sources: documents,
-                template: (item: RecentDocumentDTO) =>
+                template: (item) =>
                     div(
                         {
                             className: style.document,
-                            onclick: () => app.openDocument(item.id),
+                            onclick: () => {
+                                app.openDocument(item.id);
+                            },
                         },
                         img({ className: style.img, src: item.image }),
                         div(

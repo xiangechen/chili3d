@@ -1,18 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
-import { Props, setProps } from "../controls";
+import { HTMLConfig, setProperties } from "../controls";
 
-export interface ItemsProps extends Props {
-    sources: ObservableCollection<any> | Array<any>;
-    template: (item: any) => HTMLElement | SVGSVGElement;
-}
+export type ItemsConfig<T> = HTMLConfig<ItemsElement<T>> & {
+    sources: ObservableCollection<T> | Array<T>;
+    template: (item: T) => HTMLElement | SVGSVGElement;
+};
 
-export class ItemsElement extends HTMLElement {
-    #itemMap = new Map<any, HTMLElement | SVGSVGElement>();
-    constructor(readonly props: ItemsProps) {
+export class ItemsElement<T> extends HTMLElement {
+    #itemMap = new Map<T, HTMLElement | SVGSVGElement>();
+    constructor(readonly props: ItemsConfig<T>) {
         super();
-        setProps(props, this);
+        setProperties(this, props as any);
         const items = Array.isArray(props.sources) ? props.sources : props.sources.items;
         this.append(...this.#mapItems(items));
     }

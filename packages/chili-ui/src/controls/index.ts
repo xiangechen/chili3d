@@ -3,5 +3,5 @@
 export * from "./binding";
 export * from "./controls";
 export * from "./element";
+export * from "./htmlConfig";
 export * from "./localize";
-export * from "./props";
