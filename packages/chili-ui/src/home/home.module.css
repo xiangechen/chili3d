@@ -86,8 +86,10 @@
         align-items: flex-start;
         gap: 32px;
         margin: 0px 64px;
+        --delete-visibility: hidden;
 
         & .document {
+            position: relative;
             display: flex;
             flex: 1 1 240px;
             flex-direction: column;
@@ -97,6 +99,7 @@
             &:hover {
                 opacity: 0.75;
                 background-color: var(--background-color);
+                --delete-visibility: visible;
             }
 
             & .img {
@@ -120,6 +123,21 @@
                 & .date {
                     font-size: 12px;
                     opacity: 0.56;
+                }
+            }
+
+            .delete {
+                position: absolute;
+                visibility: var(--delete-visibility);
+                padding: 4px;
+                width: 16px;
+                height: 16px;
+                top: 8px;
+                right: 8px;
+                border-radius: 50%;
+
+                &:hover {
+                    background-color: var(--hover-background-color);
                 }
             }
         }

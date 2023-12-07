@@ -137,6 +137,7 @@ export type I18nKeys =
     | "prompt.polygon.close"
     | "prompt.select.noModelSelected"
     | "prompt.saveDocument{0}"
+    | "prompt.deleteDocument{0}"
     | "error.default"
     | "error.input.unsupportedInputs"
     | "error.input.invalidNumber"

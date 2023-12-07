@@ -1,13 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Constants, IApplication, PubSub, RecentDocumentDTO } from "chili-core";
+import { Constants, I18n, IApplication, ObservableCollection, PubSub, RecentDocumentDTO } from "chili-core";
 import { LanguageSelector } from "../components";
-import { a, button, div, img, items, label, localize, span } from "../controls";
+import { a, button, div, img, items, label, localize, span, svg } from "../controls";
 import style from "./home.module.css";
 
 export const Home = async (app: IApplication) => {
-    let documents: RecentDocumentDTO[] = await app.storage.page(Constants.DBName, Constants.RecentTable, 0);
-
+    let documentArray: RecentDocumentDTO[] = await app.storage.page(
+        Constants.DBName,
+        Constants.RecentTable,
+        0,
+    );
+    let documents = new ObservableCollection(...documentArray);
     return div(
         { className: style.root },
         div(
@@ -56,6 +60,26 @@ export const Home = async (app: IApplication) => {
                                 textContent: new Date(item.date).toLocaleDateString(),
                             }),
                         ),
+                        svg({
+                            className: style.delete,
+                            icon: "icon-times",
+                            onclick: async (e) => {
+                                e.stopPropagation();
+                                if (window.confirm(I18n.translate("prompt.deleteDocument{0}", item.name))) {
+                                    await app.storage.delete(
+                                        Constants.DBName,
+                                        Constants.DocumentTable,
+                                        item.id,
+                                    );
+                                    await app.storage.delete(
+                                        Constants.DBName,
+                                        Constants.RecentTable,
+                                        item.id,
+                                    );
+                                    documents.remove(item);
+                                }
+                            },
+                        }),
                     ),
             }),
         ),
