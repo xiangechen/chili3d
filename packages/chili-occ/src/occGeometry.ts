@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CurveType, ICircle, ICurve, IDisposable, ILine, XYZ } from "chili-core";
-import { Geom_Circle, Geom_Curve, Geom_Line, Geom_TrimmedCurve } from "opencascade.js";
+import { Geom_Circle, Geom_Curve, Geom_Line, Geom_TrimmedCurve } from "../occ-wasm/chili_occ";
 
 import { OccHelps } from "./occHelps";
 

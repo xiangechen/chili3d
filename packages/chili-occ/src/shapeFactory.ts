@@ -21,7 +21,7 @@ import {
     BRepBuilderAPI_MakeWire,
     Message_ProgressRange,
     TopoDS_Shape,
-} from "opencascade.js";
+} from "../occ-wasm/chili_occ";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
 import { OccShapeConverter } from "./occConverter";

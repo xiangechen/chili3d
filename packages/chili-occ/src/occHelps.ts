@@ -12,7 +12,7 @@ import {
     gp_Pnt,
     gp_Trsf,
     gp_Vec,
-} from "opencascade.js";
+} from "../occ-wasm/chili_occ";
 
 import {
     OccCompound,

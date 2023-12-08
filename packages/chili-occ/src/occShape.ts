@@ -31,7 +31,7 @@ import {
     TopoDS_Shape,
     TopoDS_Vertex,
     TopoDS_Wire,
-} from "opencascade.js";
+} from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
 import { OccCircle, OccCurve, OccLine } from "./occGeometry";

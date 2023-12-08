@@ -18,7 +18,7 @@ import {
     TopoDS_Face,
     TopoDS_Shape,
     gp_Trsf,
-} from "opencascade.js";
+} from "../occ-wasm/chili_occ";
 
 import { OccHelps } from "./occHelps";
 import { OccShape } from "./occShape";
