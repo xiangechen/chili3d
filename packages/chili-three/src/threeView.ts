@@ -352,8 +352,8 @@ export class ThreeView extends Observable implements IView {
 
     private initRaycaster(mx: number, my: number) {
         let ray = this.rayAt(mx, my);
-        let threshold = Constants.RaycasterThreshold / this.cameraController.scale;
-        if (threshold < 5) threshold = 5;
+        let scale = this.cameraController.target.distanceTo(this.camera.position) / 1000.0;
+        let threshold = Constants.RaycasterThreshold * scale;
         let raycaster = new Raycaster(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         return raycaster;

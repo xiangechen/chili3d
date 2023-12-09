@@ -1,5 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 export class Constants {
-    static readonly RaycasterThreshold = 2;
+    static readonly RaycasterThreshold = 3;
 }
