@@ -31,6 +31,7 @@ export class SelectShapeStep implements IStep {
             this.multiple,
             this.filter,
         );
+        if (shapes.length === 0) return undefined;
         return {
             view: document.visual.viewer.activeView!,
             shapes,

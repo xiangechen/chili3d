@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IApplication, ICommand, Observable, Property, PubSub } from "chili-core";
+import { AsyncController, IApplication, ICanclableCommand, Observable, Property, PubSub } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
 const PropertiesCache: Map<string, any> = new Map(); // 所有命令共享
 
-export abstract class MultistepCommand extends Observable implements ICommand {
+export abstract class MultistepCommand extends Observable implements ICanclableCommand {
+    #complete: boolean = false;
     protected stepDatas: SnapedData[] = [];
 
     #application: IApplication | undefined;
@@ -42,8 +43,17 @@ export abstract class MultistepCommand extends Observable implements ICommand {
     }
 
     @Property.define("common.cancel")
-    cancel() {
+    async cancel() {
         this.controller?.cancel();
+        await new Promise(async (resolve) => {
+            while (true) {
+                if (this.#complete) {
+                    break;
+                }
+                await new Promise((r) => setTimeout(r, 50));
+            }
+            resolve(true);
+        });
     }
 
     private _repeatOperation: boolean = false;
@@ -59,46 +69,41 @@ export abstract class MultistepCommand extends Observable implements ICommand {
     async execute(application: IApplication): Promise<void> {
         if (!application.activeDocument) return;
         this.#application = application;
-        await this.executeFromStep(0);
-    }
-
-    protected async executeFromStep(stepIndex: number): Promise<void> {
-        if (this._restarting) {
-            this._restarting = false;
-        }
-        let isSuccess = false;
         try {
-            if ((await this.beforeExecute()) && (await this.executeSteps(stepIndex))) {
-                this.executeMainTask();
-                isSuccess = true;
+            let canExcute = await this.beforeExecute();
+            if (canExcute) {
+                await this.executeSteps();
             }
         } finally {
             await this.afterExecute();
         }
-
-        if (this._restarting) {
-            await this.executeFromStep(0);
-        } else if (this.repeatOperation && isSuccess) {
-            await this.repeatCommand();
-        }
     }
 
-    protected async repeatCommand() {
-        await this.executeFromStep(0);
-    }
-
-    protected async executeSteps(startIndex: number): Promise<boolean> {
-        this.stepDatas.length = startIndex;
+    protected async executeSteps(): Promise<void> {
         let steps = this.getSteps();
-        for (let i = startIndex; i < steps.length; i++) {
+        while (this.stepDatas.length < steps.length) {
             this.controller = new AsyncController();
-            let data = await steps[i].execute(this.document, this.controller);
-            if (this._restarting || data === undefined) {
-                return false;
+            let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
+            if (this._restarting) {
+                this._restarting = false;
+                this.stepDatas.length = 0;
+                continue;
+            }
+            if (data === undefined || this.controller.result?.status !== "success") {
+                break;
             }
             this.stepDatas.push(data);
+            if (this.stepDatas.length === steps.length) {
+                this.executeMainTask();
+                if (this._repeatOperation) {
+                    this.setRepeatDatas();
+                }
+            }
         }
-        return true;
+    }
+
+    protected setRepeatDatas() {
+        this.stepDatas.length = 0;
     }
 
     protected abstract getSteps(): IStep[];
@@ -115,6 +120,7 @@ export abstract class MultistepCommand extends Observable implements ICommand {
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
         this.controller?.dispose();
+        this.#complete = true;
         return Promise.resolve();
     }
 

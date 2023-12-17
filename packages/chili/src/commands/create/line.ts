@@ -35,12 +35,12 @@ export class Line extends CreateCommand {
         return [firstStep, secondStep];
     }
 
-    protected override async repeatCommand(): Promise<void> {
+    protected override setRepeatDatas() {
         if (this._isContinue) {
             this.stepDatas[0] = this.stepDatas[1];
-            await this.executeFromStep(1);
+            this.stepDatas.length = 1;
         } else {
-            await this.executeFromStep(0);
+            this.stepDatas.length = 0;
         }
     }
 

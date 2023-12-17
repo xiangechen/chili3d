@@ -32,21 +32,26 @@ export class Polygon extends CreateFaceableCommand {
         return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
     }
 
-    protected override async executeSteps(startIndex: number): Promise<boolean> {
-        this.stepDatas.length = startIndex;
+    protected override async executeSteps(): Promise<void> {
         let steps = this.getSteps();
-        let i = startIndex;
+        let firstStep = true;
         while (true) {
-            let step = i === 0 ? steps[0] : steps[1];
+            let step = firstStep ? steps[0] : steps[1];
+            if (firstStep) firstStep = false;
             this.controller = new AsyncController();
             let data = await step.execute(this.document, this.controller);
             if (data === undefined) break;
             this.stepDatas.push(data);
-            if (this.isClose(data)) break;
-            i++;
+            if (this.isClose(data)) {
+                this.executeMainTask();
+                if (this.repeatOperation) {
+                    this.setRepeatDatas();
+                    firstStep = true;
+                } else {
+                    break;
+                }
+            }
         }
-
-        return this.stepDatas.length > startIndex;
     }
 
     private isClose(data: SnapedData) {

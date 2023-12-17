@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Command, CommandKeys, I18n, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
+import { Command, CommandKeys, IApplication, ICommand, IService, Lazy, Logger, PubSub } from "chili-core";
 
 const ApplicationCommands: CommandKeys[] = ["doc.new", "doc.open", "doc.save"];
 
@@ -12,7 +12,7 @@ export class CommandService implements IService {
     }
 
     private _lastCommand: CommandKeys | undefined;
-    private _executingCommand: CommandKeys | undefined;
+    private _executingCommand: ICommand | undefined;
 
     private _app: IApplication | undefined;
 
@@ -45,7 +45,7 @@ export class CommandService implements IService {
     private executeCommand = async (commandName: CommandKeys) => {
         let command = commandName === "special.last" ? this._lastCommand : commandName;
         if (command === undefined) return;
-        if (!this.canExecute(command)) return;
+        if (!(await this.canExecute(command))) return;
         Logger.info(`executing command ${command}`);
         await this.executeAsync(command);
     };
@@ -53,7 +53,7 @@ export class CommandService implements IService {
     private async executeAsync(commandName: CommandKeys) {
         let commandCtor = Command.get(commandName)!;
         let command = new commandCtor();
-        this._executingCommand = commandName;
+        this._executingCommand = command;
         await command
             .execute(this.app)
             .catch((err) => {
@@ -65,19 +65,18 @@ export class CommandService implements IService {
             });
     }
 
-    private canExecute(commandName: CommandKeys) {
+    private async canExecute(commandName: CommandKeys) {
         if (!Command.get(commandName)) {
             Logger.error(`Can not find ${commandName} command`);
             return false;
         }
-        if (ApplicationCommands.includes(commandName)) return true;
         if (this._executingCommand) {
-            let excuting = Command.getData(this._executingCommand)!;
-            PubSub.default.pub("showToast", "toast.command.{0}excuting", I18n.translate(excuting.display));
-            Logger.warn(`command ${this._executingCommand} is executing`);
-            return false;
+            if (Command.getData(this._executingCommand)?.name === commandName) {
+                return false;
+            }
+            if (ICommand.isCanclableCommand(this._executingCommand)) await this._executingCommand.cancel();
         }
-        if (this.app.activeDocument === undefined) {
+        if (!ApplicationCommands.includes(commandName) && this.app.activeDocument === undefined) {
             Logger.error("No active document");
             return false;
         }
