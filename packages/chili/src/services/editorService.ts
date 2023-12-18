@@ -38,8 +38,6 @@ export class EditorService implements IService {
             if (this.handler !== undefined) {
                 document.visual.eventHandler = this.handler;
             }
-        } else {
-            document.visual.resetEventHandler();
         }
         document.visual.viewer.update();
     };

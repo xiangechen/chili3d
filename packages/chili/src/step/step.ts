@@ -19,6 +19,7 @@ export abstract class StepBase<D extends ValidatorData> implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+        document.selection.clearSelected();
         let data = this.handleData();
         if (data.validators === undefined) data.validators = [];
         data.validators.push((point) => this.validator(data, point));

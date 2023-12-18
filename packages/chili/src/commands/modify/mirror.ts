@@ -29,9 +29,14 @@ export class Mirror extends TransformedCommand {
     private getSecondPointData = (): SnapPointData => {
         return {
             refPoint: this.stepDatas[0].point!,
-            dimension: Dimension.D1D2D3,
+            dimension: Dimension.D1D2,
             preview: this.mirrorPreview,
-            validators: [(p) => p.distanceTo(this.stepDatas[0].point!) > 1e-3],
+            validators: [
+                (p) => {
+                    let vec = p.sub(this.stepDatas[0].point!);
+                    return vec.length() > 1e-3 && !vec.isParallelTo(this.stepDatas[0].view.workplane.normal);
+                },
+            ],
         };
     };
 

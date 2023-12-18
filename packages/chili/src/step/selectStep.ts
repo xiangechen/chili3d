@@ -7,7 +7,6 @@ import {
     IDocument,
     IModel,
     IShapeFilter,
-    Model,
     ShapeType,
 } from "chili-core";
 import { Selection } from "../selection";
@@ -23,6 +22,7 @@ export class SelectShapeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+        document.selection.clearSelected();
         let shapes = await Selection.pickShape(
             document,
             this.snapeType,
@@ -48,6 +48,7 @@ export class SelectModelStep implements IStep {
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         let models: IModel[] = this.getSelectedModels(document);
+        document.selection.clearSelected();
         if (models.length === 0) {
             models = await Selection.pickModel(
                 document,
@@ -56,8 +57,9 @@ export class SelectModelStep implements IStep {
                 this.multiple,
                 this.filter,
             );
+        } else {
+            controller.success("已选择");
         }
-        document.selection.clearSelected();
         if (models.length === 0) return undefined;
         return {
             view: document.visual.viewer.activeView!,

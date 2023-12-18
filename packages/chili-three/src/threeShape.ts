@@ -277,16 +277,19 @@ export class ThreeShape extends Object3D implements IVisualShape {
             this.#highlightedFaces.get(index)!.material = material;
         } else {
             let face = this.cloneSubFace(index, material);
-            this.add(face);
-            this.#highlightedFaces.set(index, face);
+            if (face) {
+                this.add(face);
+                this.#highlightedFaces.set(index, face);
+            }
         }
     }
 
     private cloneSubFace(index: number, material: MeshBasicMaterial) {
+        let group = this.shape.mesh.faces!.groups[index];
+        if (!group) return undefined;
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
         let allNormals = this._faces!.geometry.getAttribute("normals") as Float32BufferAttribute;
         let allIndices = this.shape.mesh.faces!.indices;
-        let group = this.shape.mesh.faces!.groups[index];
         let indices = allIndices.slice(group.start, group.start + group.count);
         let indiceStart = Math.min(...indices);
         let indiceEnd = Math.max(...indices) + 1;
