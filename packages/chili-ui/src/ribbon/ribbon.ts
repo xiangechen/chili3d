@@ -4,6 +4,7 @@ import {
     AsyncController,
     Command,
     CommandKeys,
+    I18n,
     ICommand,
     IConverter,
     IDocument,
@@ -13,7 +14,7 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { BindableElement, div, items, label, localize, span, svg } from "../controls";
+import { BindableElement, a, button, div, img, items, label, localize, span, svg } from "../controls";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButtonSize } from "./ribbonButtonSize";
@@ -136,6 +137,18 @@ export class Ribbon extends BindableElement {
                         textContent: this.bind(dataContent, "documentName"),
                     }),
                     span({ className: style.appName, textContent: "Chili3d 2023" }),
+                ),
+                div(
+                    { className: style.right },
+                    a(
+                        {
+                            href: "https://github.com/xiangechen/chili3d",
+                            target: "_blank",
+                        },
+                        svg({
+                            icon: "icon-github",
+                        }),
+                    ),
                 ),
             ),
             div(

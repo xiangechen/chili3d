@@ -53,6 +53,26 @@
             color: var(--titlebar-foreground-color);
         }
     }
+
+    & .right {
+        display: flex;
+        flex-direction: row;
+        padding: 0px 6px;
+        position: fixed;
+        right: 0px;
+        top: 0px;
+
+        & svg {
+            width: 20px;
+            height: 20px;
+            padding: 6px;
+            border-radius: 4px;
+
+            &:hover {
+                background-color: rgba(128, 128, 128, 0.25);
+            }
+        }
+    }
 }
 
 .tabHeaderPanel {
