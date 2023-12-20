@@ -18,6 +18,13 @@ export const Home = async (app: IApplication) => {
             { className: style.left },
             div(
                 { className: style.top },
+                div(
+                    { className: style.logo },
+                    svg({ icon: "icon-chili" }),
+                    span({
+                        textContent: "CHILI3D",
+                    }),
+                ),
                 button({
                     textContent: localize("command.document.new"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.new"),

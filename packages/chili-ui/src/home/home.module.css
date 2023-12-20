@@ -15,7 +15,6 @@
     flex-direction: column;
     flex: 0 0 320px;
     background-color: var(--background-color);
-    padding-top: 64px;
     padding-bottom: 64px;
     justify-content: space-between;
 
@@ -35,6 +34,27 @@
 
             &:hover {
                 background-color: var(--hover-background-color);
+            }
+        }
+
+        & .logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 32px;
+
+            & svg {
+                width: 64px;
+                height: 64px;
+            }
+
+            & span {
+                margin-top: 10px;
+                color: #333;
+                letter-spacing: 6px;
+                font-size: 24px;
+                font-weight: bold;
+                font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             }
         }
     }

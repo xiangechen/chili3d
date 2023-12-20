@@ -16,7 +16,7 @@ export default {
         "common.type": "Type",
         "common.length": "Length",
         "common.angle": "Angle",
-        "home.welcome": "Welcome to Chili",
+        "home.welcome": "Welcome to chili3d",
         "home.recent": "Recent",
         "ribbon.tab.file": "File",
         "ribbon.tab.startup": "Startup",

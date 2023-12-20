@@ -16,7 +16,7 @@ export default {
         "common.length": "长度",
         "common.angle": "角度",
         "common.type": "类型",
-        "home.welcome": "欢迎使用 chili",
+        "home.welcome": "欢迎使用 chili3d",
         "home.recent": "最近使用",
         "ribbon.tab.file": "文件",
         "ribbon.tab.startup": "开始",
