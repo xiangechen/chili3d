@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { INodeLinkedList } from "../model";
 import { ClassMap } from "./classMap";
 
 export interface ISerialize {
@@ -71,35 +70,9 @@ export namespace Serializer {
      * @returns Deserialized object
      */
     export function deserializeObject(document: IDocument, data: Serialized) {
-        if ("firstChild" in data.properties || "nextSibling" in data.properties) {
-            return nodeDescrialize(document, data, data.properties["parent"]);
-        } else {
-            let instance = deserializeInstance(document, data.classKey, data.properties);
-            deserializeProperties(document, instance, data);
-            return instance;
-        }
-    }
-
-    function nodeDescrialize(
-        document: IDocument,
-        data: Serialized,
-        parent?: INodeLinkedList,
-        addSibling?: boolean,
-    ) {
-        let node = deserializeInstance(document, data.classKey, data.properties);
-        parent?.add(node);
-        let nodeProperties: (keyof INodeLinkedList)[] = ["firstChild", "nextSibling"];
-        for (const p of nodeProperties) {
-            let value = data.properties[p];
-            if (value === undefined) continue;
-            if (p === "firstChild") {
-                nodeDescrialize(document, value, node, true);
-            } else if (addSibling && p === "nextSibling") {
-                nodeDescrialize(document, value, parent, true);
-            }
-        }
-        deserializeProperties(document, node, data, nodeProperties);
-        return node;
+        let instance = deserializeInstance(document, data.classKey, data.properties);
+        deserializeProperties(document, instance, data);
+        return instance;
     }
 
     function deserializeInstance(

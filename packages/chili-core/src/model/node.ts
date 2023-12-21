@@ -6,7 +6,7 @@ import { IShape } from "../geometry";
 import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
-import { Serializer } from "../serialize";
+import { Serialized, Serializer } from "../serialize";
 import { Entity } from "./entity";
 
 export interface INode extends IPropertyChanged, IDisposable {
@@ -65,8 +65,6 @@ export abstract class Node extends HistoryObservable implements INode {
 
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
-
-    @Serializer.serialze()
     nextSibling: INode | undefined;
 
     @Serializer.serialze()
@@ -234,5 +232,47 @@ export namespace INode {
             parent = parent.parent;
         }
         return path;
+    }
+}
+
+export namespace NodeSerializer {
+    export function serialize(node: INode) {
+        let nodes: Serialized[] = [];
+        serializeNodeToArray(nodes, node, undefined);
+        return nodes;
+    }
+
+    function serializeNodeToArray(nodes: Serialized[], node: INode, parentId: string | undefined) {
+        let serialized = Serializer.serializeObject(node);
+        if (parentId) serialized.properties["parentId"] = parentId;
+        nodes.push(serialized);
+        if (INode.isLinkedListNode(node) && node.firstChild) {
+            serializeNodeToArray(nodes, node.firstChild, node.id);
+        }
+        if (node.nextSibling) {
+            serializeNodeToArray(nodes, node.nextSibling, parentId);
+        }
+        return nodes;
+    }
+
+    export function deserialize(document: IDocument, nodes: Serialized[]) {
+        let nodeMap: Map<string, INodeLinkedList> = new Map();
+        nodes.forEach((n) => {
+            let node = Serializer.deserializeObject(document, n);
+            if (INode.isLinkedListNode(node)) {
+                nodeMap.set(n.properties["id"], node);
+            }
+            let parentId = n.properties["parentId"];
+            if (parentId) {
+                if (nodeMap.has(parentId)) {
+                    nodeMap.get(parentId)!.add(node);
+                } else {
+                    console.warn("parent not found: " + parentId);
+                }
+            }
+        });
+        let result = nodeMap.get(nodes[0].properties["id"]);
+        nodeMap.clear();
+        return result;
     }
 }

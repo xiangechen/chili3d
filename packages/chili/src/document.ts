@@ -15,12 +15,15 @@ import {
     NodeAction,
     NodeLinkedList,
     NodeRecord,
+    NodeSerializer,
     Observable,
     PubSub,
     SelectionManager,
     Serialized,
     Serializer,
 } from "chili-core";
+
+const FILE_VERSIOM = "0.1.0";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
@@ -46,10 +49,10 @@ export class Document extends Observable implements IDocument {
         return this.#rootNode!;
     }
 
-    private setRootNode(value: INodeLinkedList) {
+    private setRootNode(value?: INodeLinkedList) {
         if (this.#rootNode === value) return;
         this.#rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this.#rootNode = value;
+        this.#rootNode = value ?? new NodeLinkedList(this, this._name);
         this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
@@ -82,14 +85,16 @@ export class Document extends Observable implements IDocument {
     };
 
     serialize(): Serialized {
-        return {
+        let serialized = {
             classKey: "Document",
+            version: FILE_VERSIOM,
             properties: {
                 id: this.id,
                 name: this.name,
-                rootNode: Serializer.serializeObject(this.rootNode),
+                nodes: NodeSerializer.serialize(this.rootNode),
             },
         };
+        return serialized;
     }
 
     override dispose(): void {
@@ -143,7 +148,7 @@ export class Document extends Observable implements IDocument {
     static load(app: IApplication, data: Serialized) {
         let document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
-        document.setRootNode(Serializer.deserializeObject(document, data.properties["rootNode"]));
+        document.setRootNode(NodeSerializer.deserialize(document, data.properties["nodes"]));
         document.history.disabled = false;
         return document;
     }
