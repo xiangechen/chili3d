@@ -6,6 +6,7 @@ import {
     IDisposable,
     IModel,
     INode,
+    IShape,
     IVisualContext,
     IVisualShape,
     LineType,
@@ -142,25 +143,29 @@ export class ThreeVisualContext implements IVisualContext {
                 this.visualShapes.add(childGroup);
                 return;
             }
-            let modelShape = model.shape();
-            if (modelShape === undefined) return;
-            let threeShape = new ThreeShape(modelShape);
             model.onPropertyChanged(this.handleModelPropertyChanged);
-            this.visualShapes.add(threeShape);
-            this._shapeModelMap.set(threeShape, model);
-            this._modelShapeMap.set(model, threeShape);
+            this.displayModel(model);
         });
+    }
+
+    private displayModel(model: IModel) {
+        let modelShape = model.shape();
+        if (modelShape === undefined) return;
+        let threeShape = new ThreeShape(modelShape);
+        this.visualShapes.add(threeShape);
+        this._shapeModelMap.set(threeShape, model);
+        this._modelShapeMap.set(model, threeShape);
     }
 
     private convertMatrix(transform: Matrix4) {
         return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
-    private handleModelPropertyChanged = (property: keyof IModel, model: IModel) => {
-        let shape = this.getShape(model) as ThreeShape;
+    private handleModelPropertyChanged = (property: keyof IModel, model: IModel, old: any) => {
+        let shape = this._modelShapeMap.get(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {
-            shape.matrix.copy(this.convertMatrix(model.matrix));
+            shape.matrix.copy(this.convertMatrix(old.invert().multiply(model.matrix)));
             shape.matrixWorldNeedsUpdate = true;
         } else if (property === "color") {
             shape.color = model[property];

@@ -112,8 +112,9 @@ export abstract class Node extends HistoryObservable implements INode {
         let serialized = Serializer.serializeObject(this);
         serialized.properties["id"] = Id.new();
         serialized.properties["name"] = `${this._name}_copy`;
-        serialized.properties["parent"] = this.parent;
-        return Serializer.deserializeObject(this.document, serialized);
+        let cloned: this = Serializer.deserializeObject(this.document, serialized);
+        this.parent?.add(cloned);
+        return cloned;
     }
 
     protected abstract onParentVisibleChanged(): void;
@@ -243,8 +244,8 @@ export namespace NodeSerializer {
     }
 
     function serializeNodeToArray(nodes: Serialized[], node: INode, parentId: string | undefined) {
-        let serialized = Serializer.serializeObject(node);
-        if (parentId) serialized.properties["parentId"] = parentId;
+        let serialized: any = Serializer.serializeObject(node);
+        if (parentId) serialized["parentId"] = parentId;
         nodes.push(serialized);
         if (INode.isLinkedListNode(node) && node.firstChild) {
             serializeNodeToArray(nodes, node.firstChild, node.id);
@@ -262,7 +263,7 @@ export namespace NodeSerializer {
             if (INode.isLinkedListNode(node)) {
                 nodeMap.set(n.properties["id"], node);
             }
-            let parentId = n.properties["parentId"];
+            let parentId = (n as any)["parentId"];
             if (parentId) {
                 if (nodeMap.has(parentId)) {
                     nodeMap.get(parentId)!.add(node);
