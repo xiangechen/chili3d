@@ -18,6 +18,7 @@ import {
 import {
     Intersection,
     LineSegments,
+    Mesh,
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
@@ -191,29 +192,43 @@ export class ThreeView extends Observable implements IView {
         return new Vector3(x, y, 0).unproject(this.camera);
     }
 
-    rectDetected(shapeType: ShapeType, mx1: number, my1: number, mx2: number, my2: number) {
-        let detecteds: VisualShapeData[] = [];
+    rectDetected(
+        shapeType: ShapeType,
+        mx1: number,
+        my1: number,
+        mx2: number,
+        my2: number,
+        shapeFilter?: IShapeFilter,
+    ) {
         const selectionBox = new SelectionBox(this.camera, this._scene);
         const start = this.screenToCameraRect(mx1, my1);
         const end = this.screenToCameraRect(mx2, my2);
         selectionBox.startPoint.set(start.x, start.y, 0.5);
         selectionBox.endPoint.set(end.x, end.y, 0.5);
-        let shapes = selectionBox.select();
-        for (const shape of shapes) {
-            // todo: add more shape types
-            if (
-                shape.parent instanceof ThreeShape &&
-                shape.parent.visible &&
-                shape instanceof LineSegments
-            ) {
-                detecteds.push({
-                    owner: shape.parent,
-                    shape: shape.parent.shape,
-                    indexes: [],
-                });
-            }
+        let detecteds: VisualShapeData[] = [];
+        let containsCache = new Map<string, boolean>();
+        for (const shape of selectionBox.select()) {
+            this.addDetectedShape(detecteds, containsCache, shapeType, shape, shapeFilter);
         }
         return detecteds;
+    }
+
+    private addDetectedShape(
+        detecteds: VisualShapeData[],
+        cache: Map<string, boolean>,
+        shapeType: ShapeType,
+        shape: Mesh | LineSegments,
+        shapeFilter?: IShapeFilter,
+    ) {
+        if (!(shape.parent instanceof ThreeShape) || !shape.parent.visible) return;
+        if (shapeType === ShapeType.Shape && shape instanceof LineSegments) {
+            if (shapeFilter && !shapeFilter.allow(shape.parent.shape)) return;
+            detecteds.push({
+                shape: shape.parent.shape,
+                owner: shape.parent,
+                indexes: [],
+            });
+        }
     }
 
     detected(shapeType: ShapeType, mx: number, my: number, shapeFilter?: IShapeFilter): VisualShapeData[] {
