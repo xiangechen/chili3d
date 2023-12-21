@@ -33,7 +33,7 @@ interface SelectionRect {
 export abstract class SelectionHandler implements IEventHandler {
     private rect?: SelectionRect;
     private mouse = { isDown: false, x: 0, y: 0 };
-    private _selected: VisualShapeData[] | undefined;
+    private _highlights: VisualShapeData[] | undefined;
     private _detectAtMouse: VisualShapeData[] | undefined;
     private _lockDetected: IShape | undefined; // 用于切换捕获的对象
 
@@ -52,7 +52,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     dispose() {
         this.clearSelected(this.document);
-        this._selected = undefined;
+        this._highlights = undefined;
         this._detectAtMouse = undefined;
     }
 
@@ -99,15 +99,11 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
-        this._selected?.forEach((x) => {
-            if (!detecteds.includes(x))
-                x.owner.removeState(VisualState.highlight, this.shapeType, ...x.indexes);
-        });
+        this.cleanHighlights();
         detecteds.forEach((x) => {
-            if (!this._selected?.includes(x))
-                x.owner.addState(VisualState.highlight, this.shapeType, ...x.indexes);
+            x.owner.addState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
-        this._selected = detecteds;
+        this._highlights = detecteds;
         view.viewer.update();
     }
 
@@ -157,7 +153,7 @@ export abstract class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            let count = this.select(view, this._selected ?? [], event);
+            let count = this.select(view, this._highlights ?? [], event);
             this.cleanHighlights();
             view.viewer.update();
             if (count > 0 && !this.multiMode) this.controller?.success();
@@ -176,10 +172,10 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     private cleanHighlights() {
-        this._selected?.forEach((x) => {
-            x.owner.removeState(VisualState.highlight, this.shapeType);
+        this._highlights?.forEach((x) => {
+            x.owner.removeState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
-        this._selected = undefined;
+        this._highlights = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
