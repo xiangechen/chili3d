@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { History, IDocument, NodeLinkedList, Serialized, Serializer } from "../src";
+import { History, IDocument, NodeLinkedList, NodeSerializer, Serialized, Serializer } from "../src";
 
 @Serializer.register("BoxBody", ["k1" as any])
 class TestObject {
@@ -45,8 +45,8 @@ test("test Node Serializer", () => {
     let n4 = new NodeLinkedList(doc, "n4");
     n1.add(n2, n3);
     n2.add(n4);
-    let s = Serializer.serializeObject(n1);
-    let n11 = Serializer.deserializeObject(doc, s);
+    let s = NodeSerializer.serialize(n1);
+    let n11: any = NodeSerializer.deserialize(doc, s)!;
     expect(n11.firstChild.name).toBe("n2");
     expect(n11.firstChild.nextSibling.name).toBe("n3");
     expect(n11.firstChild.firstChild.name).toBe("n4");
