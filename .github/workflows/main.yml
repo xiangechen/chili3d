@@ -12,10 +12,10 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@main
+              uses: actions/checkout@v4
 
             - name: Setup node
-              uses: actions/setup-node@main
+              uses: actions/setup-node@v4
 
             - name: Install dependencies
               run: npm install
@@ -30,7 +30,7 @@ jobs:
               run: rm -rf build/*.map
 
             - name: Copy file to server
-              uses: appleboy/scp-action@main
+              uses: appleboy/scp-action@v0.1.4
               with:
                 host: ${{ secrets.CHILI3D_HOST }}
                 username: ${{ secrets.CHILI3D_HOST_USER }}
