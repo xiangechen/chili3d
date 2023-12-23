@@ -44,7 +44,7 @@ export class OccShapeConverter implements IShapeConverter {
         return success ? Result.success(file) : Result.error("export IGES error");
     }
 
-    convertFromIGES(data: string): Result<IShape> {
+    convertFromIGES(data: string) {
         return this.convertFrom("iges", data);
     }
 
@@ -72,7 +72,7 @@ export class OccShapeConverter implements IShapeConverter {
         }
     }
 
-    convertFromSTEP(data: string): Result<IShape> {
+    convertFromSTEP(data: string) {
         return this.convertFrom("step", data);
     }
 
@@ -82,7 +82,7 @@ export class OccShapeConverter implements IShapeConverter {
      * @param data
      * @returns
      */
-    private convertFrom(format: "step" | "iges", data: string): Result<IShape> {
+    private convertFrom(format: "step" | "iges", data: string): Result<IShape[]> {
         const fileName = `blob.${format}`;
         let reader = format === "step" ? new occ.STEPControl_Reader_1() : new occ.IGESControl_Reader_1();
         occ.FS.createDataFile("/", fileName, data, true, true, true);
@@ -91,7 +91,14 @@ export class OccShapeConverter implements IShapeConverter {
         if (readResult === occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
             const progress = new occ.Message_ProgressRange_1();
             reader.TransferRoots(progress);
-            return Result.success(OccHelps.getShape(reader.OneShape()));
+            let shapes: IShape[] = [];
+            for (let i = 1; i <= reader.NbShapes(); i++) {
+                let shape = reader.Shape(i);
+                if (shape instanceof occ.TopoDS_Shape) {
+                    shapes.push(OccHelps.getShape(shape));
+                }
+            }
+            return Result.success(shapes);
         } else {
             return Result.error(`Cannot load ${format}`);
         }

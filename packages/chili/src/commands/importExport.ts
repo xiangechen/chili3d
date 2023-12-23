@@ -5,11 +5,14 @@ import {
     GeometryModel,
     IApplication,
     ICommand,
+    IDocument,
     IModel,
     INode,
     IShape,
+    NodeLinkedList,
     PubSub,
     Result,
+    Transaction,
     command,
     download,
     readFileAsync,
@@ -29,30 +32,41 @@ export class Import implements ICommand {
         let document = application.activeDocument;
         if (!document) return;
         let shape = await this.readShape(application);
-        if (!shape.success) {
+        Transaction.excute(document, "import model", () => {
+            this.addImportedShape(document!, shape);
+        });
+    }
+
+    private addImportedShape = (document: IDocument, shape: [string | undefined, Result<IShape[]>]) => {
+        if (!shape[1].success) {
             PubSub.default.pub("showToast", "toast.read.error");
             return;
         }
-        let body = new ImportedBody(document, shape.value);
-        let model = new GeometryModel(document, `Imported ${count++}`, body);
-        document.addNode(model);
+        let shapes = shape[1].value.map((x) => {
+            let body = new ImportedBody(document!, x);
+            return new GeometryModel(document!, `Imported ${count++}`, body);
+        });
+        let nodeList = new NodeLinkedList(document, shape[0]!);
+        document.addNode(nodeList);
+        nodeList.add(...shapes);
         document.visual.viewer.update();
-    }
+    };
 
-    private async readShape(application: IApplication) {
+    private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
         let data = await readFileAsync(".iges, .igs, .step, .stp", false);
         if (!data.success || data.value.length === 0) {
-            return Result.error("toast.read.error");
+            return [undefined, Result.error("toast.read.error")];
         }
-        let shape: Result<IShape>;
-        if (data.value[0].fileName.endsWith(".igs") || data.value[0].fileName.endsWith(".iges")) {
+        let shape: Result<IShape[]>;
+        let name = data.value[0].fileName;
+        if (name.endsWith(".igs") || name.endsWith(".iges")) {
             shape = application.shapeFactory.converter.convertFromIGES(data.value[0].data);
-        } else if (data.value[0].fileName.endsWith(".stp") || data.value[0].fileName.endsWith(".step")) {
+        } else if (name.endsWith(".stp") || name.endsWith(".step")) {
             shape = application.shapeFactory.converter.convertFromSTEP(data.value[0].data);
         } else {
-            throw new Error(`不支持的文件：${data.value[0].fileName}`);
+            throw new Error(`不支持的文件：${name}`);
         }
-        return shape;
+        return [name, shape];
     }
 }
 
