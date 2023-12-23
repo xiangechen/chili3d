@@ -37,5 +37,6 @@ jobs:
                 password: ${{ secrets.CHILI3D_HOST_PSD }}
                 source: build/*
                 target: /var/www/html/chili3d
+                strip_components: 1
                 rm: true
             
