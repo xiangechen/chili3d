@@ -22,9 +22,9 @@ export class CameraController implements ICameraController {
     #target: Vector3 = new Vector3();
     #rotateStart: Vector3 | undefined;
     readonly #perspectiveCamera: PerspectiveCamera;
-    readonly #orthographic: OrthographicCamera;
+    readonly #orthographicCamera: OrthographicCamera;
 
-    #cameraType: "perspective" | "orthographic" = "perspective";
+    #cameraType: "perspective" | "orthographic" = "orthographic";
     get cameraType(): "perspective" | "orthographic" {
         return this.#cameraType;
     }
@@ -34,7 +34,7 @@ export class CameraController implements ICameraController {
         }
         this.#cameraType = value;
         if (value === "perspective") {
-            this.updateCamera(this.#orthographic.position, this.#target, false);
+            this.updateCamera(this.#orthographicCamera.position, this.#target, false);
         } else {
             this.updateCamera(this.#perspectiveCamera.position, this.#target, false);
         }
@@ -49,16 +49,16 @@ export class CameraController implements ICameraController {
     }
 
     get scale() {
-        return this.#orthographic.zoom;
+        return this.#orthographicCamera.zoom;
     }
 
     get camera(): PerspectiveCamera | OrthographicCamera {
-        return this.cameraType === "perspective" ? this.#perspectiveCamera : this.#orthographic;
+        return this.cameraType === "perspective" ? this.#perspectiveCamera : this.#orthographicCamera;
     }
 
     constructor(readonly view: ThreeView) {
         this.#perspectiveCamera = this.initPerspectiveCamera(view.container);
-        this.#orthographic = this.initOrthographicCamera(view.container);
+        this.#orthographicCamera = this.initOrthographicCamera(view.container);
     }
 
     private initPerspectiveCamera(container: HTMLElement) {
@@ -88,8 +88,10 @@ export class CameraController implements ICameraController {
         let up = direction
             .clone()
             .cross(new Vector3(0, 0, 1))
-            .cross(direction);
+            .cross(direction)
+            .normalize();
         camera.up.copy(up);
+        camera.updateProjectionMatrix();
         camera.updateMatrixWorld(true);
         return camera;
     }
@@ -178,7 +180,7 @@ export class CameraController implements ICameraController {
         let h = Math.max(rect.width / this.#perspectiveCamera.aspect, rect.height);
         let distance = (0.5 * h) / Math.tan((this.#perspectiveCamera.fov * Math.PI) / 180 / 2.0);
         let position = rect.center.clone().sub(vectors.direction.clone().multiplyScalar(distance));
-        this.#orthographic.zoom = Math.min(
+        this.#orthographicCamera.zoom = Math.min(
             this.view.container.clientWidth / rect.width,
             this.view.container.clientHeight / rect.height,
         );
@@ -217,7 +219,7 @@ export class CameraController implements ICameraController {
     }
 
     zoom(x: number, y: number, delta: number): void {
-        this.#orthographic.zoom *= delta > 0 ? 1 + this.zoomSpeed : 1 - this.zoomSpeed;
+        this.#orthographicCamera.zoom *= delta > 0 ? 1 + this.zoomSpeed : 1 - this.zoomSpeed;
         let point = this.mouseToWorld(x, y);
         let cameraVectors = ThreeHelper.cameraVectors(this.camera);
         let scale = delta > 0 ? this.zoomSpeed : -this.zoomSpeed;

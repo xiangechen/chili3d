@@ -25,6 +25,7 @@ import {
     Raycaster,
     Renderer,
     Scene,
+    Vector2,
     Vector3,
     WebGLRenderer,
 } from "three";
@@ -150,19 +151,27 @@ export class ThreeView extends Observable implements IView {
         return this.container.clientHeight;
     }
 
-    screenToCameraRect(x: number, y: number): XY {
-        return new XY((x / this.width) * 2 - 1, -(y / this.heigth) * 2 + 1);
+    screenToCameraRect(mx: number, my: number) {
+        return {
+            x: (mx / this.width) * 2 - 1,
+            y: -(my / this.heigth) * 2 + 1,
+        };
     }
 
     rayAt(mx: number, my: number): Ray {
+        let { position, direction } = this.directionAt(mx, my);
+        return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(direction));
+    }
+
+    private directionAt(mx: number, my: number) {
         let position = this.mouseToWorld(mx, my);
-        let vec = new Vector3();
+        let direction = new Vector3();
         if (this.camera instanceof PerspectiveCamera) {
-            vec = position.clone().sub(this.camera.position).normalize();
+            direction = position.clone().sub(this.camera.position).normalize();
         } else if (this.camera instanceof OrthographicCamera) {
-            this.camera.getWorldDirection(vec);
+            this.camera.getWorldDirection(direction);
         }
-        return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(vec));
+        return { position, direction };
     }
 
     screenToWorld(mx: number, my: number): XYZ {
@@ -366,10 +375,12 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initRaycaster(mx: number, my: number) {
-        let ray = this.rayAt(mx, my);
+        let raycaster = new Raycaster();
         let scale = this.cameraController.target.distanceTo(this.camera.position) / 1000.0;
         let threshold = Constants.RaycasterThreshold * scale;
-        let raycaster = new Raycaster(ThreeHelper.fromXYZ(ray.location), ThreeHelper.fromXYZ(ray.direction));
+        let { x, y } = this.screenToCameraRect(mx, my);
+        let mousePos = new Vector2(x, y);
+        raycaster.setFromCamera(mousePos, this.camera);
         raycaster.params = { Line: { threshold }, Points: { threshold } };
         return raycaster;
     }
