@@ -142,6 +142,7 @@ export class Tree extends Control {
     }
 
     private onClick = (event: MouseEvent) => {
+        if (this.document.visual.isExcutingHandler()) return;
         let item = this.getTreeItem(event.target as HTMLElement)?.node;
         if (item === undefined) return;
         event.stopPropagation();
