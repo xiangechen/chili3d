@@ -34,7 +34,9 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
             "matrix",
             value,
             () => {
-                this._shape?.setMatrix(value);
+                if (this._shape) {
+                    this._shape.matrix = value;
+                }
             },
             {
                 equals: (left, right) => left.equals(right),
@@ -124,7 +126,9 @@ export class GeometryModel extends Model {
             }
             this._shape = shape.value;
         }
-        this._shape?.setMatrix(this._matrix);
+        if (this._shape) {
+            this._shape.matrix = this._matrix;
+        }
     }
 
     removeFeature(feature: Feature) {

@@ -38,6 +38,11 @@ export class OccMesh implements IShapeMeshData {
         return new OccMesh(shape);
     }
 
+    updateMeshShape(): void {
+        this.updateEdgeMeshShapes();
+        this.updateFaceMeshShapes();
+    }
+
     get vertexs(): VertexMeshData | undefined {
         return this._vertexs;
     }
@@ -73,10 +78,25 @@ export class OccMesh implements IShapeMeshData {
         );
         let builder = new EdgeMeshDataBuilder();
         for (const e of shapes) {
-            let edge = occ.TopoDS.Edge_1(e);
-            this.addEdgeMesh(edge, builder);
+            this.addEdgeMesh(e as TopoDS_Edge, builder);
         }
         this._lines = builder.build();
+        let matrix = OccHelps.convertToMatrix(shape.Location_1().Transformation()).invert()!;
+        this._lines.positions = matrix.ofPoints(this._lines.positions);
+    }
+
+    private updateEdgeMeshShapes() {
+        if (!this._lines) return;
+        let shapes = OccHelps.findSubShapes(
+            this.shape.shape,
+            occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
+            true,
+        );
+        let i = 0;
+        for (const shape of shapes) {
+            this._lines.groups[i].shape = OccHelps.wrapShape(shape, this._lines.groups[i].shape.id);
+            i++;
+        }
     }
 
     private addEdgeMesh(edge: TopoDS_Edge, builder: EdgeMeshDataBuilder) {
@@ -94,7 +114,7 @@ export class OccMesh implements IShapeMeshData {
             let vertex = tangDef.Value(i + 1);
             builder.addPosition(vertex.X(), vertex.Y(), vertex.Z());
         }
-        builder.endGroup(OccHelps.getShape(edge));
+        builder.endGroup(OccHelps.wrapShape(edge));
     }
 
     private faceMeshs(shape: TopoDS_Shape) {
@@ -105,10 +125,26 @@ export class OccMesh implements IShapeMeshData {
         );
         let builder = new FaceMeshDataBuilder();
         for (const f of shapes) {
-            let face = occ.TopoDS.Face_1(f);
-            this.addFaceMesh(face, builder);
+            this.addFaceMesh(f as TopoDS_Face, builder);
         }
         this._faces = builder.build();
+        let matrix = OccHelps.convertToMatrix(shape.Location_1().Transformation()).invert()!;
+        this._faces.positions = matrix.ofPoints(this._faces.positions);
+        this._faces.normals = matrix.ofVectors(this._faces.normals);
+    }
+
+    private updateFaceMeshShapes() {
+        if (!this._faces) return;
+        let shapes = OccHelps.findSubShapes(
+            this.shape.shape,
+            occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
+            true,
+        );
+        let i = 0;
+        for (const shape of shapes) {
+            this._faces.groups[i].shape = OccHelps.wrapShape(shape, this._faces.groups[i].shape.id);
+            i++;
+        }
     }
 
     private addFaceMesh(face: TopoDS_Face, builder: FaceMeshDataBuilder) {
@@ -116,12 +152,12 @@ export class OccMesh implements IShapeMeshData {
         let location = new occ.TopLoc_Location_1();
         let handlePoly = occ.BRep_Tool.Triangulation(face, location, 0);
         if (handlePoly.IsNull()) return undefined;
-        let transform = location.Transformation();
         let poly = handlePoly.get();
-        this.addNodes(poly, transform, builder);
+        let trsf = location.Transformation();
+        this.addNodes(poly, trsf, builder);
         this.addTriangles(poly, face.Orientation_1(), builder);
-        this.addNormals(handlePoly, transform, face, poly.NbNodes(), builder);
-        builder.endGroup(OccHelps.getShape(face));
+        this.addNormals(handlePoly, trsf, face, poly.NbNodes(), builder);
+        builder.endGroup(OccHelps.wrapShape(face));
     }
 
     private addTriangles(

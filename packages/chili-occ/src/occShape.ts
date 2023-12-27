@@ -16,6 +16,7 @@ import {
     Id,
     Logger,
     Matrix4,
+    Orientation,
     Ray,
     Result,
     SerializedProperties,
@@ -66,18 +67,14 @@ export class OccShape implements IShape {
         this.shapeType = OccHelps.getShapeType(shape);
     }
 
-    resetShape(shape: TopoDS_Shape, generateMesh: boolean) {
-        if (this._shape.ShapeType() !== shape.ShapeType()) {
-            throw new Error(`ShapeType inconsistency`);
-        }
-        this._shape = shape;
-        if (generateMesh) this._mesh = undefined;
+    get matrix() {
+        return OccHelps.convertToMatrix(this.shape.Location_1().Transformation());
     }
 
-    setMatrix(matrix: Matrix4): void {
-        let trsf = OccHelps.convertMatrix(matrix);
+    set matrix(value: Matrix4) {
+        let trsf = OccHelps.convertFromMatrix(value);
         this.shape.Location_2(new occ.TopLoc_Location_2(trsf), false);
-        this._mesh = undefined;
+        this._mesh?.updateMeshShape();
     }
 
     static serialize(target: OccShape): SerializedProperties<OccShape> {
@@ -98,14 +95,16 @@ export class OccShape implements IShape {
             throw new Error(`${fromShape} is not an OccShape`);
         }
         let occType = OccHelps.getShapeEnum(ancestorType);
-        return OccHelps.findAncestors(this.shape, fromShape.shape, occType).map((x) => OccHelps.getShape(x));
+        return OccHelps.findAncestors(this.shape, fromShape.shape, occType).map((x) =>
+            OccHelps.wrapShape(x),
+        );
     }
 
     findSubShapes(shapeType: ShapeType, unique: boolean): IShape[] {
         let result = new Array<IShape>();
         let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
         for (const it of iter) {
-            result.push(OccHelps.getShape(it));
+            result.push(OccHelps.wrapShape(it));
         }
         return result;
     }
@@ -113,8 +112,22 @@ export class OccShape implements IShape {
     *iterSubShapes(shapeType: ShapeType, unique: boolean = false): IterableIterator<IShape> {
         let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
         for (const it of iter) {
-            yield OccHelps.getShape(it);
+            yield OccHelps.wrapShape(it);
         }
+    }
+
+    orientation(): Orientation {
+        return OccHelps.getOrientation(this._shape);
+    }
+
+    isPartner(other: IShape): boolean {
+        if (other instanceof OccShape) return this.shape.IsPartner(other.shape);
+        return false;
+    }
+
+    isSame(other: IShape): boolean {
+        if (other instanceof OccShape) return this.shape.IsSame(other.shape);
+        return false;
     }
 
     isEqual(other: IShape): boolean {

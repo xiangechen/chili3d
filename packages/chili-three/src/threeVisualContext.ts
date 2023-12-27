@@ -6,7 +6,6 @@ import {
     IDisposable,
     IModel,
     INode,
-    IShape,
     IVisualContext,
     IVisualShape,
     LineType,
@@ -152,6 +151,7 @@ export class ThreeVisualContext implements IVisualContext {
         let modelShape = model.shape();
         if (modelShape === undefined) return;
         let threeShape = new ThreeShape(modelShape);
+        threeShape.matrix.copy(this.convertMatrix(model.matrix));
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
         this._modelShapeMap.set(model, threeShape);
@@ -161,11 +161,11 @@ export class ThreeVisualContext implements IVisualContext {
         return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
-    private handleModelPropertyChanged = (property: keyof IModel, model: IModel, old: any) => {
+    private handleModelPropertyChanged = (property: keyof IModel, model: IModel) => {
         let shape = this._modelShapeMap.get(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {
-            shape.matrix.copy(this.convertMatrix(old.invert().multiply(model.matrix)));
+            shape.matrix.copy(this.convertMatrix(model.matrix));
             shape.matrixWorldNeedsUpdate = true;
         } else if (property === "color") {
             shape.color = model[property];

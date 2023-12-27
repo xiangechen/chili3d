@@ -23,7 +23,7 @@ export class OccShapeConverter implements IShapeConverter {
         const shape = new occ.TopoDS_Shape();
         occ.BRepTools.Read_2(shape, fileName, builder, progress);
         occ.FS.unlink("/" + fileName);
-        return Result.success(OccHelps.getShape(shape));
+        return Result.success(OccHelps.wrapShape(shape));
     }
 
     convertToIGES(...shapes: IShape[]): Result<string> {
@@ -95,7 +95,7 @@ export class OccShapeConverter implements IShapeConverter {
             for (let i = 1; i <= reader.NbShapes(); i++) {
                 let shape = reader.Shape(i);
                 if (shape instanceof occ.TopoDS_Shape) {
-                    shapes.push(OccHelps.getShape(shape));
+                    shapes.push(OccHelps.wrapShape(shape));
                 }
             }
             return Result.success(shapes);

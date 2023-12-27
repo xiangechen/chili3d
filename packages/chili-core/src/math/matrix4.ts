@@ -421,9 +421,27 @@ export class Matrix4 {
     }
 
     public ofVector(vector: XYZ): XYZ {
-        let x = vector.x * this._array[0] + vector.y * this._array[4] + vector.z * this._array[8];
-        let y = vector.x * this._array[1] + vector.y * this._array[5] + vector.z * this._array[9];
-        let z = vector.x * this._array[2] + vector.y * this._array[6] + vector.z * this._array[10];
-        return new XYZ(x, y, z);
+        let result = this.ofVectors([vector.x, vector.y, vector.z]);
+        return new XYZ(result[0], result[1], result[2]);
+    }
+
+    public ofVectors(vectors: number[]): number[] {
+        let result: number[] = [];
+        for (let i = 0; i < vectors.length / 3; i++) {
+            let x =
+                vectors[3 * i] * this._array[0] +
+                vectors[3 * i + 1] * this._array[4] +
+                vectors[3 * i + 2] * this._array[8];
+            let y =
+                vectors[3 * i] * this._array[1] +
+                vectors[3 * i + 1] * this._array[5] +
+                vectors[3 * i + 2] * this._array[9];
+            let z =
+                vectors[3 * i] * this._array[2] +
+                vectors[3 * i + 1] * this._array[6] +
+                vectors[3 * i + 2] * this._array[10];
+            result.push(x, y, z);
+        }
+        return result;
     }
 }

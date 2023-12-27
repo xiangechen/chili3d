@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CurveType, IShape, Id, Matrix4, Plane, ShapeType, XYZ } from "chili-core";
+import { CurveType, IShape, Id, Matrix4, Orientation, Plane, ShapeType, XYZ } from "chili-core";
 import {
     Geom_Curve,
     TopAbs_ShapeEnum,
@@ -67,7 +67,7 @@ export class OccHelps {
         return shape.HashCode(2147483647); // max int
     }
 
-    static convertMatrix(matrix: Matrix4): gp_Trsf {
+    static convertFromMatrix(matrix: Matrix4): gp_Trsf {
         const arr = matrix.toArray();
         let trsf = new occ.gp_Trsf_1();
         trsf.SetValues(
@@ -85,6 +85,28 @@ export class OccHelps {
             arr[14],
         );
         return trsf;
+    }
+
+    static convertToMatrix(matrix: gp_Trsf): Matrix4 {
+        const arr: number[] = [
+            matrix.Value(1, 1),
+            matrix.Value(2, 1),
+            matrix.Value(3, 1),
+            0,
+            matrix.Value(1, 2),
+            matrix.Value(2, 2),
+            matrix.Value(3, 2),
+            0,
+            matrix.Value(1, 3),
+            matrix.Value(2, 3),
+            matrix.Value(3, 3),
+            0,
+            matrix.Value(1, 4),
+            matrix.Value(2, 4),
+            matrix.Value(3, 4),
+            1,
+        ];
+        return Matrix4.fromArray(arr);
     }
 
     static getCurveType(curve: Geom_Curve): CurveType {
@@ -123,6 +145,21 @@ export class OccHelps {
         }
     }
 
+    static getOrientation(shape: TopoDS_Shape): Orientation {
+        switch (shape.Orientation_1()) {
+            case occ.TopAbs_Orientation.TopAbs_FORWARD:
+                return Orientation.FORWARD;
+            case occ.TopAbs_Orientation.TopAbs_REVERSED:
+                return Orientation.REVERSED;
+            case occ.TopAbs_Orientation.TopAbs_INTERNAL:
+                return Orientation.INTERNAL;
+            case occ.TopAbs_Orientation.TopAbs_EXTERNAL:
+                return Orientation.EXTERNAL;
+            default:
+                return Orientation.FORWARD;
+        }
+    }
+
     static getShapeEnum(shapeType: ShapeType): TopAbs_ShapeEnum {
         switch (shapeType) {
             case ShapeType.Compound:
@@ -148,7 +185,7 @@ export class OccHelps {
         }
     }
 
-    static getShape(shape: TopoDS_Shape, id: string = Id.new()): IShape {
+    static wrapShape(shape: TopoDS_Shape, id: string = Id.new()): IShape {
         switch (shape.ShapeType()) {
             case occ.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return new OccCompound(occ.TopoDS.Compound_1(shape), id);

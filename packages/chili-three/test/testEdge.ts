@@ -9,6 +9,7 @@ import {
     IShapeMeshData,
     LineType,
     Matrix4,
+    Orientation,
     Ray,
     Result,
     Serialized,
@@ -43,7 +44,7 @@ export class TestEdge implements IEdge {
         return "testEdge";
     }
     shapeType: ShapeType = ShapeType.Edge;
-    setMatrix(matrix: Matrix4): void {}
+    matrix: Matrix4 = Matrix4.identity();
     get mesh(): IShapeMeshData {
         return {
             shape: this,
@@ -54,6 +55,7 @@ export class TestEdge implements IEdge {
                 groups: [],
             },
             faces: undefined,
+            updateMeshShape() {},
         };
     }
     serialize(): Serialized {
@@ -61,6 +63,15 @@ export class TestEdge implements IEdge {
             classKey: "Shape",
             properties: {},
         };
+    }
+    orientation(): Orientation {
+        return Orientation.FORWARD;
+    }
+    isPartner(other: IShape): boolean {
+        return true;
+    }
+    isSame(other: IShape): boolean {
+        return true;
     }
     isEqual(other: IShape): boolean {
         if (other instanceof TestEdge) {

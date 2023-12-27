@@ -10,6 +10,7 @@ export interface IShapeMeshData {
     get shape(): IShape;
     get edges(): EdgeMeshData | undefined;
     get faces(): FaceMeshData | undefined;
+    updateMeshShape(): void;
 }
 
 export interface ShapeMeshGroup {

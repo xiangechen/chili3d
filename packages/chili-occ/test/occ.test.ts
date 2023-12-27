@@ -3,6 +3,7 @@
 import { expect, jest, test } from "@jest/globals";
 import { CurveType, Id, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
+import { TopAbs_ShapeEnum, TopoDS_Edge } from "../occ-wasm/chili_occ";
 import { OccCurve } from "../src/occGeometry";
 import { OccHelps } from "../src/occHelps";
 import { OccEdge, OccSolid } from "../src/occShape";
@@ -153,6 +154,15 @@ describe("curve test", () => {
             let ps = new occ.gp_Pnt_3(0, 0, 0);
             let pe = new occ.gp_Pnt_3(10, 0, 0);
             let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
+            let vertexs1 = OccHelps.findSubShapes(
+                e1,
+                occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
+                true,
+            );
+            let v11: TopoDS_Edge = vertexs1.next().value;
+            let v11HasCode = v11.HashCode(1000);
+            expect(v11.ShapeType()).toBe(occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum);
+
             let s: any = { current: 0 };
             let e: any = { current: 0 };
             let c1 = occ.BRep_Tool.Curve_2(e1, s, e);
@@ -167,6 +177,22 @@ describe("curve test", () => {
             let pnt2 = new occ.gp_Pnt_1();
             c2.D0(0, pnt2);
             expect(pnt2.X()).toBeCloseTo(10);
+
+            let vertexs2 = OccHelps.findSubShapes(
+                e1,
+                occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
+                true,
+            );
+            let v12: TopoDS_Edge = vertexs2.next().value;
+            let v12HasCode = v12.HashCode(1000);
+            expect(v12.ShapeType()).toBe(occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum);
+            expect(v12HasCode === v11HasCode).toBeFalsy();
+            expect(v11.IsEqual(v12)).toBeFalsy();
+            expect(v11.IsSame(v12)).toBeFalsy();
+            expect(v11.IsPartner(v12)).toBeTruthy();
+            expect(v11.Orientation_1() === v12.Orientation_1()).toBeTruthy();
+            expect(v11.Location_1().Transformation().TranslationPart().X()).toBe(0);
+            expect(v12.Location_1().Transformation().TranslationPart().X()).toBe(10);
 
             let e2 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
             let e3 = new OccEdge(e2).mesh.edges?.groups.at(0)?.shape as OccEdge;
@@ -184,7 +210,7 @@ describe("curve test", () => {
             let pe = new occ.gp_Pnt_3(10, 10, 0);
             let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
             let shape = new OccEdge(e1);
-            shape.setMatrix(Matrix4.createTranslation(10, 20, 30));
+            shape.matrix = Matrix4.createTranslation(10, 20, 30);
             let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
             let p2 = shape.asCurve().unwrap().point(0);
             expect(p2?.x).toBeCloseTo(20);

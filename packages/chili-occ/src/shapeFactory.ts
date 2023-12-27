@@ -22,9 +22,9 @@ import {
     Message_ProgressRange,
     TopoDS_Shape,
 } from "../occ-wasm/chili_occ";
+import { OccShapeConverter } from "./occConverter";
 import { OccHelps } from "./occHelps";
 import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
-import { OccShapeConverter } from "./occConverter";
 
 export class ShapeFactory implements IShapeFactory {
     readonly converter: IShapeConverter = new OccShapeConverter();
@@ -38,7 +38,7 @@ export class ShapeFactory implements IShapeFactory {
         let tprofile = (profile as OccShape).shape;
         let builder = new occ.BRepOffsetAPI_MakePipe_1(spine, tprofile);
         if (builder.IsDone()) {
-            return Result.success(OccHelps.getShape(builder.Shape()));
+            return Result.success(OccHelps.wrapShape(builder.Shape()));
         }
         return Result.error("Failed to create a shape from a profile and a path");
     }
@@ -48,7 +48,7 @@ export class ShapeFactory implements IShapeFactory {
         let ax1 = new occ.gp_Ax1_2(OccHelps.toPnt(axis.location), OccHelps.toDir(axis.direction));
         let builder = new occ.BRepPrimAPI_MakeRevol_1(tprofile, ax1, MathUtils.degToRad(angle), false);
         if (builder.IsDone()) {
-            return Result.success(OccHelps.getShape(builder.Shape()));
+            return Result.success(OccHelps.wrapShape(builder.Shape()));
         }
         return Result.error("Failed to revolve profile");
     }
@@ -57,7 +57,7 @@ export class ShapeFactory implements IShapeFactory {
         if (shape instanceof OccShape) {
             let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);
             if (builder.IsDone()) {
-                return Result.success(OccHelps.getShape(builder.Shape()));
+                return Result.success(OccHelps.wrapShape(builder.Shape()));
             } else {
                 return Result.error("Cannot create prism");
             }
@@ -220,7 +220,7 @@ export class ShapeFactory implements IShapeFactory {
         const progress = new occ.Message_ProgressRange_1();
         let operate = new ctor(shapes[0], shapes[1], progress);
         if (operate.IsDone()) {
-            return Result.success(OccHelps.getShape(operate.Shape()));
+            return Result.success(OccHelps.wrapShape(operate.Shape()));
         }
         return Result.error("Failed to perform boolean operation.");
     }

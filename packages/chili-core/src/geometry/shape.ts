@@ -32,12 +32,31 @@ export enum SurfaceType {
     OtherSurface,
 }
 
+export enum Orientation {
+    FORWARD,
+    REVERSED,
+    INTERNAL,
+    EXTERNAL,
+}
+
 export interface IShape {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;
-    setMatrix(matrix: Matrix4): void;
+    matrix: Matrix4;
+    /**
+     * they share the same TShape with the same Locations and Orientations.
+     */
     isEqual(other: IShape): boolean;
+    /**
+     * they share the same TShape with the same Locations, Orientations may differ.
+     */
+    isSame(other: IShape): boolean;
+    /**
+     * they share the same TShape. Locations and Orientations may differ.
+     */
+    isPartner(other: IShape): boolean;
+    orientation(): Orientation;
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
     findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[];
 }
