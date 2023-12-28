@@ -49,7 +49,5 @@ export class ModelSelectionHandler extends SelectionHandler {
         return this._models.size;
     }
 
-    override clearSelected(document: IDocument): void {
-        document.selection.clearSelected();
-    }
+    override clearSelected(document: IDocument): void {}
 }
