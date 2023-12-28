@@ -29,7 +29,7 @@ describe("three test", () => {
         let model = new GeometryModel(doc, "test model", body);
         context.addModel([model]);
         expect(context.getShape(model)).not.toBeNull();
-        let mouse = view.worldToScreen(new XYZ(100, 0, 0));
+        let mouse = view.worldToScreen(new XYZ(50, 0, 0));
         let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y);
         expect(shapes.length).toEqual(1);
         expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
