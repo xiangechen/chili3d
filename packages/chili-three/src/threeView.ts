@@ -196,9 +196,9 @@ export class ThreeView extends Observable implements IView {
         return ThreeHelper.toXYZ(this.camera.up);
     }
 
-    private mouseToWorld(mx: number, my: number) {
+    private mouseToWorld(mx: number, my: number, z: number = 0.5) {
         let { x, y } = this.screenToCameraRect(mx, my);
-        return new Vector3(x, y, 0).unproject(this.camera);
+        return new Vector3(x, y, z).unproject(this.camera);
     }
 
     rectDetected(

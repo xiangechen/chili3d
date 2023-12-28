@@ -3,6 +3,7 @@
 import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
+import { XYZ } from "chili-core";
 
 const options = {
     size: 200,
@@ -169,11 +170,14 @@ export class ViewGizmo extends HTMLElement {
                 .multiplyScalar(distance)
                 .add(this.cameraController.target);
             this.cameraController.camera.position.copy(position);
-            let up = new Vector3(0, 0, 1);
-            if (this.#selectedAxis.axis === "z") up = new Vector3(0, 1, 0);
-            else if (this.#selectedAxis.axis === "-z") up = new Vector3(0, -1, 0);
-            this.cameraController.camera.up.copy(up);
-            this.cameraController.camera.lookAt(this.cameraController.target);
+            let up = new XYZ(0, 0, 1);
+            if (this.#selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
+            else if (this.#selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
+            this.cameraController.lookAt(
+                this.cameraController.camera.position,
+                this.cameraController.target,
+                up,
+            );
         }
     };
 

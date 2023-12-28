@@ -67,16 +67,4 @@ export class ThreeHelper {
             new Vector3(min.x, max.y, max.z),
         ];
     }
-
-    static cameraVectors(camera: Camera) {
-        let direction = new Vector3();
-        camera.getWorldDirection(direction);
-        let right = direction.clone().cross(camera.up).normalize();
-        let up = right.clone().cross(direction).normalize();
-        return {
-            direction,
-            right,
-            up,
-        };
-    }
 }

@@ -1,28 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICameraController, ShapeType, XYZ } from "chili-core";
-import {
-    Box3,
-    Line3,
-    Matrix4,
-    Object3D,
-    OrthographicCamera,
-    PerspectiveCamera,
-    Plane,
-    Vector3,
-} from "three";
+import { ICameraController, Point, ShapeType } from "chili-core";
+import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 import { ThreeView } from "./threeView";
 import { ThreeVisualContext } from "./threeVisualContext";
 
+const DegRad = Math.PI / 180.0;
+
 export class CameraController implements ICameraController {
-    zoomSpeed: number = 0.1;
+    zoomSpeed: number = 0.05;
     rotateSpeed: number = 0.01;
+    #up: Vector3 = new Vector3(0, 0, 1);
     #target: Vector3 = new Vector3();
-    #rotateStart: Vector3 | undefined;
-    readonly #perspectiveCamera: PerspectiveCamera;
-    readonly #orthographicCamera: OrthographicCamera;
+    #position: Vector3 = new Vector3(1500, 1500, 1500);
+    #fov: number = 50;
+    #rotateCenter: Vector3 | undefined;
+    #camera: PerspectiveCamera | OrthographicCamera;
 
     #cameraType: "perspective" | "orthographic" = "orthographic";
     get cameraType(): "perspective" | "orthographic" {
@@ -33,11 +28,7 @@ export class CameraController implements ICameraController {
             return;
         }
         this.#cameraType = value;
-        if (value === "perspective") {
-            this.updateCamera(this.#orthographicCamera.position, this.#target, false);
-        } else {
-            this.updateCamera(this.#perspectiveCamera.position, this.#target, false);
-        }
+        this.#camera = this.newCamera();
     }
 
     get target() {
@@ -48,208 +39,132 @@ export class CameraController implements ICameraController {
         this.#target.copy(value);
     }
 
-    get scale() {
-        return this.#orthographicCamera.zoom;
-    }
-
     get camera(): PerspectiveCamera | OrthographicCamera {
-        return this.cameraType === "perspective" ? this.#perspectiveCamera : this.#orthographicCamera;
+        return this.#camera;
     }
 
     constructor(readonly view: ThreeView) {
-        this.#perspectiveCamera = this.initPerspectiveCamera(view.container);
-        this.#orthographicCamera = this.initOrthographicCamera(view.container);
+        this.#camera = this.newCamera();
     }
 
-    private initPerspectiveCamera(container: HTMLElement) {
-        let k = container.clientWidth / container.clientHeight;
-        let camera = new PerspectiveCamera(45, k, 0.001, 1e12);
-        this.initCamera(camera);
-        return camera;
-    }
-
-    private initOrthographicCamera(container: HTMLElement) {
-        let camera = new OrthographicCamera(
-            -container.clientWidth * 0.5,
-            container.clientWidth * 0.5,
-            container.clientHeight * 0.5,
-            -container.clientHeight * 0.5,
-            1,
-            1e12,
-        );
-        this.initCamera(camera);
-        return camera;
-    }
-
-    private initCamera(camera: PerspectiveCamera | OrthographicCamera) {
-        camera.position.set(1500, 1500, 1500);
-        camera.lookAt(new Vector3());
-        let direction = new Vector3().sub(camera.position);
-        let up = direction
-            .clone()
-            .cross(new Vector3(0, 0, 1))
-            .cross(direction)
-            .normalize();
-        camera.up.copy(up);
-        camera.updateProjectionMatrix();
-        camera.updateMatrixWorld(true);
-        return camera;
+    private newCamera() {
+        let w = this.view.container.clientWidth;
+        let h = this.view.container.clientHeight;
+        return this.#cameraType === "perspective"
+            ? new PerspectiveCamera(this.#fov, w / h, 0.0001, 1e10)
+            : new OrthographicCamera(-w * 0.5, w * 0.5, h * 0.5, -h * 0.5, 0.0001, 1e10);
     }
 
     pan(dx: number, dy: number): void {
-        let { x, y } = this.view.worldToScreen(ThreeHelper.toXYZ(this.#target));
-        let plane = this.cameraPlane(this.#target);
-        let p1 = this.planeIntersectCameraLineByMouse(x, y, plane);
-        let p2 = this.planeIntersectCameraLineByMouse(x - dx, y - dy, plane);
-        let vec = p2.sub(p1);
-        this.updateCamera(this.camera.position.add(vec), this.#target.add(vec));
+        let direction = this.#target.clone().sub(this.#position).normalize();
+        let hor = direction.clone().cross(this.#up).normalize();
+        let ver = hor.clone().cross(direction).normalize();
+        let vector = hor.multiplyScalar(-dx).add(ver.multiplyScalar(dy));
+        this.#target.add(vector);
+        this.#position.add(vector);
+
+        this.updateCamera();
     }
 
-    private updateCamera(position: Vector3, target: Vector3, setTarget: boolean = true) {
-        if (setTarget) this.#target.copy(target);
-        this.camera.position.copy(position);
-        this.camera.lookAt(this.#target);
-        this.camera.updateProjectionMatrix();
-    }
+    private updateCamera() {
+        this.#camera.position.copy(this.#position);
+        this.#camera.up.copy(this.#up);
+        this.#camera.lookAt(this.#target);
 
-    private planeIntersectCameraLineByMouse(x: number, y: number, plane: Plane) {
-        let position = this.mouseToWorld(x, y);
-        return this.planeIntersectCameraLine(plane, position);
-    }
-
-    private planeIntersectCameraLine(plane: Plane, position: Vector3) {
-        let line = this.getCameraLine(position);
-        let point = new Vector3();
-        if (!plane.intersectLine(line, point)) {
-            throw new Error("Could not find intersection with plane");
+        if (this.#camera instanceof OrthographicCamera) {
+            let aspect = this.view.container.clientWidth / this.view.container.clientHeight;
+            let length = this.#position.distanceTo(this.#target);
+            let frustumHalfHeight = length * Math.tan((this.#fov * DegRad) / 2);
+            this.#camera.left = -frustumHalfHeight * aspect;
+            this.#camera.right = frustumHalfHeight * aspect;
+            this.#camera.top = frustumHalfHeight;
+            this.#camera.bottom = -frustumHalfHeight;
         }
-        return point;
-    }
 
-    private getCameraLine(position: Vector3) {
-        let vec = new Vector3();
-        if (this.camera instanceof PerspectiveCamera) {
-            vec = this.camera.position.clone().sub(position).normalize();
-        } else {
-            this.camera.getWorldDirection(vec);
-        }
-        vec.multiplyScalar(1e19);
-        return new Line3(position, position.clone().sub(vec));
-    }
-
-    private cameraPlane(position: Vector3) {
-        let direction = new Vector3();
-        this.camera.getWorldDirection(direction);
-        let distance = position.dot(direction);
-        return new Plane(direction, distance);
+        this.#camera.updateProjectionMatrix();
     }
 
     startRotate(x: number, y: number): void {
         let shape = this.view.detected(ShapeType.Shape, x, y).at(0)?.owner;
         if (shape instanceof ThreeShape) {
-            this.#rotateStart = new Vector3();
+            this.#rotateCenter = new Vector3();
             let box = new Box3();
             box.setFromObject(shape);
-            box.getCenter(this.#rotateStart);
+            box.getCenter(this.#rotateCenter);
         } else {
-            this.#rotateStart = undefined;
+            this.#rotateCenter = undefined;
         }
     }
 
     rotate(dx: number, dy: number): void {
-        let start = this.#rotateStart ?? this.#target;
-        let vecPos = this.camera.position.clone().sub(start);
-        let xvec = this.camera.up.clone().cross(vecPos).normalize();
-        let matrixX = new Matrix4().makeRotationAxis(xvec, -dy * this.rotateSpeed);
+        let center = this.#rotateCenter ?? this.#target;
+        let direction = this.#position.clone().sub(center);
+        let hor = this.#up.clone().cross(direction).normalize();
+        let matrixX = new Matrix4().makeRotationAxis(hor, -dy * this.rotateSpeed);
         let matrixY = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -dx * this.rotateSpeed);
         let matrix = new Matrix4().multiplyMatrices(matrixY, matrixX);
-        let position = ThreeHelper.transformVector(matrix, vecPos).add(start);
-        if (this.#rotateStart) {
-            let vecTrt = this.#target.clone().sub(this.camera.position);
-            this.#target = ThreeHelper.transformVector(matrix, vecTrt).add(position);
+        this.#position = ThreeHelper.transformVector(matrix, direction).add(center);
+        if (this.#rotateCenter) {
+            let vecTrt = this.#target.clone().sub(this.#camera.position);
+            this.#target = ThreeHelper.transformVector(matrix, vecTrt).add(this.#position);
         }
-        this.camera.up.transformDirection(matrix);
-        this.updateCamera(position, this.#target, false);
+
+        this.#up.transformDirection(matrix);
+
+        this.updateCamera();
     }
 
     fitContent(): void {
         let context = this.view.viewer.visual.context as ThreeVisualContext;
-        let vectors = ThreeHelper.cameraVectors(this.camera);
-        let rect = this.cameraRect(context.visualShapes, vectors.right, vectors.up);
-        if (!rect.width || !rect.height) return;
-        let h = Math.max(rect.width / this.#perspectiveCamera.aspect, rect.height);
-        let distance = (0.5 * h) / Math.tan((this.#perspectiveCamera.fov * Math.PI) / 180 / 2.0);
-        let position = rect.center.clone().sub(vectors.direction.clone().multiplyScalar(distance));
-        this.#orthographicCamera.zoom = Math.min(
-            this.view.container.clientWidth / rect.width,
-            this.view.container.clientHeight / rect.height,
-        );
-        this.updateCamera(position, rect.center);
-    }
+        let sphere = new Sphere();
+        new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
 
-    private cameraRect(object: Object3D, right: Vector3, up: Vector3) {
-        let box = this.getSceneBox(object);
-        let [minV, maxV, minH, maxH] = [Infinity, -Infinity, Infinity, -Infinity];
-        for (const point of box.points) {
-            let dotV = point.dot(up);
-            let dotH = point.dot(right);
-            minV = Math.min(minV, dotV);
-            maxV = Math.max(maxV, dotV);
-            minH = Math.min(minH, dotH);
-            maxH = Math.max(maxH, dotH);
+        let fieldOfView = this.#fov / 2.0;
+        if (this.view.container.clientWidth < this.view.container.clientHeight) {
+            fieldOfView = (fieldOfView * this.view.container.clientWidth) / this.view.container.clientHeight;
         }
-        let center = new Vector3()
-            .add(right.clone().multiplyScalar((minH + maxH) * 0.5))
-            .add(up.clone().multiplyScalar((minV + maxV) * 0.5));
-        return {
-            center,
-            width: maxH - minH,
-            height: maxV - minV,
-        };
-    }
+        let distance = sphere.radius / Math.sin(fieldOfView * DegRad);
+        let direction = this.#target.clone().sub(this.#position).normalize();
 
-    private getSceneBox(shape: Object3D) {
-        let [box, center] = [new Box3(), new Vector3()];
-        box.setFromObject(shape);
-        box.getCenter(center);
-        return {
-            center,
-            points: ThreeHelper.boxCorners(box),
-        };
+        this.#target.copy(sphere.center);
+        this.#position.copy(this.#target.clone().sub(direction.clone().multiplyScalar(distance)));
+        this.updateCamera();
     }
 
     zoom(x: number, y: number, delta: number): void {
-        this.#orthographicCamera.zoom *= delta > 0 ? 1 + this.zoomSpeed : 1 - this.zoomSpeed;
-        let point = this.mouseToWorld(x, y);
-        let cameraVectors = ThreeHelper.cameraVectors(this.camera);
         let scale = delta > 0 ? this.zoomSpeed : -this.zoomSpeed;
-        let vec: Vector3;
-        if (this.#cameraType === "orthographic") {
-            vec = point.clone().sub(this.#target);
-        } else {
-            vec = this.camera.position.clone().sub(point);
-            let angle = vec.angleTo(cameraVectors.direction);
-            let length = this.camera.position.distanceTo(this.#target);
-            vec.setLength(length / Math.cos(angle));
+        let direction = this.#target.clone().sub(this.#position);
+        let mouse = this.mouseToWorld(x, y);
+        if (this.#camera instanceof PerspectiveCamera) {
+            let directionNormal = direction.clone().normalize();
+            let dot = mouse.clone().sub(this.#position).dot(directionNormal);
+            let project = this.#position.clone().add(directionNormal.clone().multiplyScalar(dot));
+            let length =
+                (project.distanceTo(mouse) * direction.length()) / project.distanceTo(this.#position);
+            let v = mouse.clone().sub(project).normalize().multiplyScalar(length);
+            mouse = this.#target.clone().add(v);
         }
-        let dx = vec.clone().dot(cameraVectors.right) * scale;
-        let dy = vec.clone().dot(cameraVectors.up) * scale;
-        let dz = this.camera.position.distanceTo(this.#target) * scale;
-        let moveVector = new Vector3()
-            .add(cameraVectors.right.clone().multiplyScalar(dx))
-            .add(cameraVectors.up.clone().multiplyScalar(dy));
-        this.#target.add(moveVector);
-        moveVector.add(cameraVectors.direction.clone().multiplyScalar(dz));
-        this.updateCamera(this.camera.position.add(moveVector), this.#target, false);
+        let vector = this.#target.clone().sub(mouse).multiplyScalar(scale);
+
+        this.#target.add(vector);
+        this.#position.copy(this.#target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
+
+        this.updateCamera();
     }
 
-    lookAt(eye: XYZ, target: XYZ): void {
-        this.updateCamera(ThreeHelper.fromXYZ(eye), ThreeHelper.fromXYZ(target));
+    lookAt(eye: Point, target: Point, up: Point): void {
+        this.#position.set(eye.x, eye.y, eye.z);
+        this.#target.set(target.x, target.y, target.z);
+        this.#up.set(up.x, up.y, up.z);
+        this.updateCamera();
     }
 
     private mouseToWorld(mx: number, my: number) {
         let x = (2.0 * mx) / this.view.container.clientWidth - 1;
         let y = (-2.0 * my) / this.view.container.clientHeight + 1;
-        return new Vector3(x, y, 0).unproject(this.camera);
+        let dist = this.#position.distanceTo(this.#target);
+        let z = (this.#camera.far + this.#camera.near - 2 * dist) / (this.#camera.near - this.#camera.far);
+
+        return new Vector3(x, y, z).unproject(this.#camera);
     }
 }
