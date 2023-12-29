@@ -22,6 +22,10 @@ export class ConvertToWire extends CreateCommand {
         return new GeometryModel(this.document, `Wire ${count++}`, wireBody);
     }
 
+    protected override shouldClearSelectedBeforeExcute() {
+        return false;
+    }
+
     protected override getSteps(): IStep[] {
         return [
             new SelectModelStep("prompt.select.edges", true, {
@@ -45,6 +49,10 @@ export class ConvertToFace extends CreateCommand {
         let wireBody = new FaceBody(this.document, edges);
         models.forEach((x) => x.parent?.remove(x));
         return new GeometryModel(this.document, `Face ${count++}`, wireBody);
+    }
+
+    protected override shouldClearSelectedBeforeExcute() {
+        return false;
     }
 
     protected override getSteps(): IStep[] {

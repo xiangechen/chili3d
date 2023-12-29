@@ -33,7 +33,11 @@ export abstract class BooleanOperate extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectModelStep("prompt.select.shape", false),
-            new SelectModelStep("prompt.select.shape", false),
+            new SelectModelStep("prompt.select.shape", false, {
+                allow: (shape) => {
+                    return !this.stepDatas[0].models?.map((x) => x.shape()).includes(shape);
+                },
+            }),
         ];
     }
 }
