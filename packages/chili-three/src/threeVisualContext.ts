@@ -151,6 +151,8 @@ export class ThreeVisualContext implements IVisualContext {
         let modelShape = model.shape();
         if (modelShape === undefined) return;
         let threeShape = new ThreeShape(modelShape);
+        threeShape.color = model.color;
+        threeShape.opacity = model.opacity;
         threeShape.matrix.copy(this.convertMatrix(model.matrix));
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
