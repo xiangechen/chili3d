@@ -14,4 +14,5 @@ export interface ICameraController {
     startRotate(x: number, y: number): void;
     rotate(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
+    update(): void;
 }

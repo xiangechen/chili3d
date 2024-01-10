@@ -4,3 +4,9 @@
     background: var(--viewport-background-color);
     position: relative;
 }
+
+.view {
+    width: 100%;
+    height: 100%;
+    background-color: firebrick;
+}

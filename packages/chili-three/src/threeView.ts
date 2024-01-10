@@ -14,6 +14,7 @@ import {
     VisualShapeData,
     XY,
     XYZ,
+    debounce,
 } from "chili-core";
 import {
     Intersection,
@@ -38,6 +39,9 @@ import { ThreeVisualContext } from "./threeVisualContext";
 import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
+    #dom?: HTMLElement;
+    #resizeObserver: ResizeObserver;
+
     private _scene: Scene;
     private _renderer: Renderer;
     private _workplane: Plane;
@@ -49,8 +53,13 @@ export class ThreeView extends Observable implements IView {
     get name(): string {
         return this._name;
     }
-    set name(name: string) {
-        this._name = name;
+    set name(value: string) {
+        this.setProperty("name", value);
+    }
+
+    private _isClosed: boolean = false;
+    get isClosed(): boolean {
+        return this._isClosed;
     }
 
     get camera(): PerspectiveCamera | OrthographicCamera {
@@ -61,34 +70,68 @@ export class ThreeView extends Observable implements IView {
         readonly viewer: IViewer,
         name: string,
         workplane: Plane,
-        readonly container: HTMLElement,
         readonly content: ThreeVisualContext,
     ) {
         super();
         this._name = name;
         this._scene = content.scene;
         this._workplane = workplane;
+        this._renderer = this.initRender();
+        let resizerObserverCallback = debounce(this.#resizerObserverCallback, 100);
+        this.#resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
-        this._renderer = this.initRender(container);
         this.#gizmo = new ViewGizmo(this);
-        container.appendChild(this.#gizmo);
         this.animate();
     }
+
+    override dispose(): void {
+        super.dispose();
+        this.#resizeObserver.disconnect();
+    }
+
+    close(): void {
+        if (this._isClosed) return;
+        this._isClosed = true;
+        this.viewer.removeView(this);
+        this.emitPropertyChanged("isClosed", false);
+        this.dispose();
+    }
+
+    #resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
+        for (const entry of entries) {
+            if (entry.target === this.#dom) {
+                this.resize(entry.contentRect.width, entry.contentRect.height);
+                return;
+            }
+        }
+    };
 
     get renderer(): Renderer {
         return this._renderer;
     }
 
-    protected initRender(container: HTMLElement): Renderer {
+    protected initRender(): Renderer {
         let renderer = new WebGLRenderer({
             antialias: true,
             logarithmicDepthBuffer: true,
             powerPreference: "high-performance",
         });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        container.append(renderer.domElement);
         return renderer;
+    }
+
+    setDom(element: HTMLElement) {
+        if (this.#dom) {
+            this.#resizeObserver.unobserve(this.#dom);
+        }
+        this.#dom = element;
+        this.#gizmo.remove();
+        element.appendChild(this.#gizmo);
+        this._renderer.domElement.remove();
+        element.appendChild(this._renderer.domElement);
+        this.resize(element.clientWidth, element.clientHeight);
+        this.#resizeObserver.observe(element);
+        this.cameraController.update();
     }
 
     toImage(): string {
@@ -107,14 +150,14 @@ export class ThreeView extends Observable implements IView {
     setCursor(cursorType: CursorType): void {
         if (cursorType === CursorType.Default) {
             let classes = new Array<string>();
-            this.container.classList.forEach((x) => {
+            this.#dom?.classList.forEach((x) => {
                 if (x.includes("Cursor")) {
                     classes.push(x);
                 }
             });
-            this.container.classList.remove(...classes);
+            this.#dom?.classList.remove(...classes);
         }
-        if (CursorType.Drawing === cursorType) this.container.classList.add("drawingCursor");
+        if (CursorType.Drawing === cursorType) this.#dom?.classList.add("drawingCursor");
     }
 
     update() {
@@ -143,18 +186,18 @@ export class ThreeView extends Observable implements IView {
         this.update();
     }
 
-    get width(): number {
-        return this.container.clientWidth;
+    get width() {
+        return this.#dom?.clientWidth;
     }
 
-    get heigth(): number {
-        return this.container.clientHeight;
+    get height() {
+        return this.#dom?.clientHeight;
     }
 
     screenToCameraRect(mx: number, my: number) {
         return {
-            x: (mx / this.width) * 2 - 1,
-            y: -(my / this.heigth) * 2 + 1,
+            x: (mx / this.width!) * 2 - 1,
+            y: -(my / this.height!) * 2 + 1,
         };
     }
 
@@ -180,8 +223,8 @@ export class ThreeView extends Observable implements IView {
     }
 
     worldToScreen(point: XYZ): XY {
-        let cx = this.width / 2;
-        let cy = this.heigth / 2;
+        let cx = this.width! / 2;
+        let cy = this.height! / 2;
         let vec = new Vector3(point.x, point.y, point.z).project(this.camera);
         return new XY(Math.round(cx * vec.x + cx), Math.round(-cy * vec.y + cy));
     }

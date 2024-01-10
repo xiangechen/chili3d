@@ -9,7 +9,7 @@ import { IVisual } from "./visual";
 export interface IViewer extends IDisposable {
     readonly visual: IVisual;
     activeView: IView | undefined;
-    createView(name: string, workplane: Plane, dom: HTMLElement): IView;
+    createView(name: string, workplane: Plane): IView;
     removeView(view: IView): void;
     views(): readonly IView[];
     update(): void;

@@ -48,11 +48,9 @@ export class CameraController implements ICameraController {
     }
 
     private newCamera() {
-        let w = this.view.container.clientWidth;
-        let h = this.view.container.clientHeight;
         return this.#cameraType === "perspective"
-            ? new PerspectiveCamera(this.#fov, w / h, 0.0001, 1e10)
-            : new OrthographicCamera(-w * 0.5, w * 0.5, h * 0.5, -h * 0.5, 0.0001, 1e10);
+            ? new PerspectiveCamera(this.#fov, 1, 0.0001, 1e10)
+            : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.0001, 1e10);
     }
 
     pan(dx: number, dy: number): void {
@@ -64,16 +62,16 @@ export class CameraController implements ICameraController {
         this.#target.add(vector);
         this.#position.add(vector);
 
-        this.updateCamera();
+        this.update();
     }
 
-    private updateCamera() {
+    update() {
         this.#camera.position.copy(this.#position);
         this.#camera.up.copy(this.#up);
         this.#camera.lookAt(this.#target);
 
         if (this.#camera instanceof OrthographicCamera) {
-            let aspect = this.view.container.clientWidth / this.view.container.clientHeight;
+            let aspect = this.view.width! / this.view.height!;
             let length = this.#position.distanceTo(this.#target);
             let frustumHalfHeight = length * Math.tan((this.#fov * DegRad) / 2);
             this.#camera.left = -frustumHalfHeight * aspect;
@@ -112,7 +110,7 @@ export class CameraController implements ICameraController {
 
         this.#up.transformDirection(matrix);
 
-        this.updateCamera();
+        this.update();
     }
 
     fitContent(): void {
@@ -121,15 +119,15 @@ export class CameraController implements ICameraController {
         new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
 
         let fieldOfView = this.#fov / 2.0;
-        if (this.view.container.clientWidth < this.view.container.clientHeight) {
-            fieldOfView = (fieldOfView * this.view.container.clientWidth) / this.view.container.clientHeight;
+        if (this.view.width! < this.view.height!) {
+            fieldOfView = (fieldOfView * this.view.width!) / this.view.height!;
         }
         let distance = sphere.radius / Math.sin(fieldOfView * DegRad);
         let direction = this.#target.clone().sub(this.#position).normalize();
 
         this.#target.copy(sphere.center);
         this.#position.copy(this.#target.clone().sub(direction.clone().multiplyScalar(distance)));
-        this.updateCamera();
+        this.update();
     }
 
     zoom(x: number, y: number, delta: number): void {
@@ -150,19 +148,19 @@ export class CameraController implements ICameraController {
         this.#target.add(vector);
         this.#position.copy(this.#target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
 
-        this.updateCamera();
+        this.update();
     }
 
     lookAt(eye: Point, target: Point, up: Point): void {
         this.#position.set(eye.x, eye.y, eye.z);
         this.#target.set(target.x, target.y, target.z);
         this.#up.set(up.x, up.y, up.z);
-        this.updateCamera();
+        this.update();
     }
 
     private mouseToWorld(mx: number, my: number) {
-        let x = (2.0 * mx) / this.view.container.clientWidth - 1;
-        let y = (-2.0 * my) / this.view.container.clientHeight + 1;
+        let x = (2.0 * mx) / this.view.width! - 1;
+        let y = (-2.0 * my) / this.view.height! + 1;
         let dist = this.#position.distanceTo(this.#target);
         let z = (this.#camera.far + this.#camera.near - 2 * dist) / (this.#camera.near - this.#camera.far);
 

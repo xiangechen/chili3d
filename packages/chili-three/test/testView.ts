@@ -60,10 +60,11 @@ Object.defineProperties(container, {
 
 export class TestView extends ThreeView {
     constructor(viewer: IViewer, content: ThreeVisualContext) {
-        super(viewer, "test", Plane.XY, container, content);
+        super(viewer, "test", Plane.XY, content);
+        this.setDom(container);
     }
 
-    protected override initRender(container: HTMLElement): Renderer {
+    protected override initRender(): Renderer {
         let render = new TestWebGLRenderer();
         render.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(render.domElement);

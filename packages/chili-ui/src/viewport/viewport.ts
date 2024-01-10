@@ -1,33 +1,43 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, Plane, PubSub, XYZ } from "chili-core";
-import { Control, Flyout } from "../components";
+import { Flyout } from "../components";
+import { BindableElement } from "../controls";
+import { UIView } from "./uiview";
 import style from "./viewport.module.css";
 
-export class Viewport extends Control {
-    readonly flyout: Flyout = new Flyout();
+export class Viewport extends BindableElement {
+    #flyout: Flyout = new Flyout();
+    #uiviews: UIView[] = [];
 
     constructor() {
-        super(style.root);
-        document.body.appendChild(this.flyout);
+        super();
+        this.className = style.root;
+        document.body.appendChild(this.#flyout);
         this.addEventListener("mousemove", this.handleMouseMove);
         PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
         PubSub.default.sub("documentClosed", (d) => this.clearViews());
     }
 
     private handleMouseMove(e: MouseEvent) {
-        this.flyout.style.top = e.clientY + "px";
-        this.flyout.style.left = e.clientX + "px";
+        this.#flyout.style.top = e.clientY + "px";
+        this.#flyout.style.left = e.clientX + "px";
     }
 
     private clearViews() {
-        this.clearChildren();
+        this.#uiviews.forEach((v) => {
+            v.view.close();
+        });
+        this.#uiviews = [];
     }
 
     private createView(document: IDocument) {
-        document.visual.viewer
-            .createView("3D", Plane.XY, this)
-            .cameraController.lookAt(new XYZ(1000, 1000, 1000), XYZ.zero, XYZ.unitZ);
+        let view = document.visual.viewer.createView("3D", Plane.XY);
+        view.cameraController.lookAt(new XYZ(1000, 1000, 1000), XYZ.zero, XYZ.unitZ);
+        let uiview = new UIView(view);
+        this.appendChild(uiview);
+        this.#uiviews.push(uiview);
+        view.setDom(uiview);
         document.visual.viewer.update();
     }
 

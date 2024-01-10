@@ -11,8 +11,8 @@ import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged, IDisposable {
     readonly viewer: IViewer;
-    readonly container: HTMLElement;
     readonly cameraController: ICameraController;
+    get isClosed(): boolean;
     name: string;
     workplane: Plane;
     update(): void;
@@ -24,6 +24,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     worldToScreen(point: XYZ): XY;
     resize(width: number, heigth: number): void;
     setCursor(cursor: CursorType): void;
+    setDom(element: HTMLElement): void;
+    close(): void;
     detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
     rectDetected(
         shapeType: ShapeType,

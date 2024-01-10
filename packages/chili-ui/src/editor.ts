@@ -15,8 +15,10 @@ let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "
 let ribbonTabs = DefaultRibbon.map((p) => RibbonTabData.fromProfile(p));
 let content = new RibbonDataContent(quickCommands, ribbonTabs);
 
-export const Editor = () =>
-    div(
+export const Editor = () => {
+    let viewport = new Viewport();
+    viewport.classList.add(style.viewport);
+    return div(
         { className: style.root },
         new Ribbon(content),
         div(
@@ -26,7 +28,8 @@ export const Editor = () =>
                 new ProjectView().addClass(style.sidebarItem),
                 new PropertyView().addClass(style.sidebarItem),
             ),
-            new Viewport().addClass(style.viewport),
+            viewport,
         ),
         new Statusbar().addClass(style.statusbar),
     );
+};

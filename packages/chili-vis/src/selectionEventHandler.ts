@@ -115,14 +115,14 @@ export abstract class SelectionHandler implements IEventHandler {
                 x: event.offsetX,
                 y: event.offsetY,
             };
-            if (this.multiMode) this.rect = this.initRect(view.container, event);
+            if (this.multiMode) this.rect = this.initRect(event);
         }
     }
 
-    private initRect(parent: HTMLElement, event: PointerEvent): SelectionRect {
+    private initRect(event: PointerEvent): SelectionRect {
         let rect = document.createElement("div");
         rect.style.cssText = SelectionRectStyle;
-        parent.appendChild(rect);
+        document.body.appendChild(rect);
         return {
             element: rect,
             downX: event.offsetX,
@@ -166,7 +166,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     private removeRect(view: IView) {
         if (this.rect) {
-            view.container.removeChild(this.rect.element);
+            this.rect.element.remove();
             this.rect = undefined;
         }
     }
