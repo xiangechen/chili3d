@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IApplication, ICommand, Serialized, command } from "chili-core";
+import { IApplication, ICommand, Serialized, command, readFileAsync } from "chili-core";
 
 @command({
     name: "doc.open",

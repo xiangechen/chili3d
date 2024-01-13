@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, PubSub } from "chili-core";
-import { Control, Label, Panel, Row } from "../components";
+import { Control, Panel } from "../components";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
 
-import style from "./projectView.module.css";
 import { div, localize, span } from "../controls";
+import style from "./projectView.module.css";
 
 export class ProjectView extends Control {
     readonly #documentTreeMap = new WeakMap<IDocument, Tree>();
@@ -32,7 +32,7 @@ export class ProjectView extends Control {
             ),
             this.panel,
         );
-        PubSub.default.sub("activeDocumentChanged", this.handleActiveDocumentChanged);
+        PubSub.default.sub("activeDocumentChanged", this.handleactiveDocumentChanged);
         PubSub.default.sub("documentClosed", this.handleDocumentClosed);
     }
 
@@ -48,7 +48,7 @@ export class ProjectView extends Control {
         this.#activeDocument = undefined;
     };
 
-    private handleActiveDocumentChanged = (document: IDocument | undefined) => {
+    private handleactiveDocumentChanged = (document: IDocument | undefined) => {
         if (this.#activeDocument !== undefined && this.#documentTreeMap.has(this.#activeDocument)) {
             let tree = this.#documentTreeMap.get(this.#activeDocument)!;
             this.panel.removeChild(tree);

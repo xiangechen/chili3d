@@ -6,6 +6,7 @@ export * from "./detectedData";
 export * from "./eventHandler";
 export * from "./view";
 export * from "./viewer";
+export * from "./viewport";
 export * from "./visual";
 export * from "./visualContext";
 export * from "./visualShape";

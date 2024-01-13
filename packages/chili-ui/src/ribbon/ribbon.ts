@@ -4,7 +4,6 @@ import {
     AsyncController,
     Command,
     CommandKeys,
-    I18n,
     ICommand,
     IConverter,
     IDocument,
@@ -14,7 +13,7 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { BindableElement, a, button, div, img, items, label, localize, span, svg } from "../controls";
+import { BindableElement, a, div, items, label, localize, span, svg } from "../controls";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButtonSize } from "./ribbonButtonSize";

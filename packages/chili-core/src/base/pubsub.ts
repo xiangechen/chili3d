@@ -5,6 +5,7 @@ import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
+import { IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
@@ -15,6 +16,7 @@ import { Result } from "./result";
 export interface PubSubEventMap {
     executeCommand: (commandName: CommandKeys) => void;
     nodeLinkedListChanged: (records: NodeRecord[]) => void;
+    activeViewChanged: (view: IView | undefined) => void;
     activeDocumentChanged: (document: IDocument | undefined) => void;
     documentClosed: (document: IDocument) => void;
     modelUpdate: (model: IModel) => void;

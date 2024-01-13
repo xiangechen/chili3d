@@ -3,20 +3,20 @@
 import { CommandKeys } from "chili-core";
 import { div } from "./controls";
 import style from "./editor.module.css";
+import { DefaultRibbon } from "./profile/ribbon";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { Ribbon, RibbonDataContent } from "./ribbon";
-import { Statusbar } from "./statusbar";
-import { Viewport } from "./viewport";
 import { RibbonTabData } from "./ribbon/ribbonData";
-import { DefaultRibbon } from "./profile/ribbon";
+import { Statusbar } from "./statusbar";
+import { LayoutViewport } from "./viewport";
 
 let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 let ribbonTabs = DefaultRibbon.map((p) => RibbonTabData.fromProfile(p));
 let content = new RibbonDataContent(quickCommands, ribbonTabs);
 
 export const Editor = () => {
-    let viewport = new Viewport();
+    let viewport = new LayoutViewport();
     viewport.classList.add(style.viewport);
     return div(
         { className: style.root },

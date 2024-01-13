@@ -1,23 +1,35 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18nKeys, MessageType, PubSub, Result } from "chili-core";
-import { Control } from "../control";
+import { BindableElement } from "../../controls";
 import style from "./flyout.module.css";
 import { Input } from "./input";
 import { Tip } from "./tip";
 
-export class Flyout extends Control {
+export class Flyout extends BindableElement {
     private _tip: Tip | undefined;
     private _input: Input | undefined;
     private lastFocus: HTMLElement | null = null;
 
     constructor() {
-        super(style.root);
+        super();
+        this.className = style.root;
+    }
 
+    override connectedCallback(): void {
+        super.connectedCallback();
         PubSub.default.sub("showFloatTip", this.showTip);
         PubSub.default.sub("clearFloatTip", this.clearTip);
         PubSub.default.sub("showInput", this.displayInput);
         PubSub.default.sub("clearInput", this.clearInput);
+    }
+
+    override disconnectedCallback(): void {
+        super.disconnectedCallback();
+        PubSub.default.remove("showFloatTip", this.showTip);
+        PubSub.default.remove("clearFloatTip", this.clearTip);
+        PubSub.default.remove("showInput", this.displayInput);
+        PubSub.default.remove("clearInput", this.clearInput);
     }
 
     private showTip = (level: MessageType, msg: string) => {
