@@ -2,7 +2,7 @@
 
 import { IDisposable, IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
 import { ModelSelectionHandler } from "chili-vis";
-import { AxesHelper, Color, DirectionalLight, Object3D, Scene } from "three";
+import { AmbientLight, AxesHelper, Color, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeViwer } from "./threeViewer";
 import { ThreeVisualContext } from "./threeVisualContext";
@@ -41,8 +41,10 @@ export class ThreeVisual implements IVisual {
         let scene = new Scene();
         scene.background = new Color(0x888888);
         const light = new DirectionalLight(0xffffff, 0.5);
+        let envLight = new AmbientLight(0x888888, 8);
+        scene.add(envLight);
         let axisHelper = new AxesHelper(250);
-        scene.add(light, axisHelper);
+        scene.add(light, envLight, axisHelper);
         return scene;
     }
 

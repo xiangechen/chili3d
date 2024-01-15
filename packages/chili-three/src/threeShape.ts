@@ -19,7 +19,7 @@ import {
     LineSegments,
     Material,
     Mesh,
-    MeshBasicMaterial,
+    MeshStandardMaterial,
     Object3D,
     Color as ThreeColor,
 } from "three";
@@ -34,14 +34,14 @@ const selectedEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.selectedEdgeColor),
 });
 
-const highlightFaceMaterial = new MeshBasicMaterial({
+const highlightFaceMaterial = new MeshStandardMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.highlightFaceColor),
     side: DoubleSide,
     transparent: true,
     opacity: 0.85,
 });
 
-const selectedFaceMaterial = new MeshBasicMaterial({
+const selectedFaceMaterial = new MeshStandardMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.selectedFaceColor),
     side: DoubleSide,
     transparent: true,
@@ -53,7 +53,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     readonly #highlightedEdges: Map<number, LineSegments> = new Map();
 
     private readonly _stateMap = new Map<string, VisualState>();
-    private _faceMaterial: MeshBasicMaterial = new MeshBasicMaterial({
+    private _faceMaterial = new MeshStandardMaterial({
         side: DoubleSide,
         transparent: true,
     });
@@ -114,7 +114,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     private initFaces(data: FaceMeshData) {
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        buff.setAttribute("normals", new Float32BufferAttribute(data.normals, 3));
+        buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
         buff.setIndex(data.indices);
         this.initColor(data, buff, this._faceMaterial);
         buff.computeBoundingBox();
@@ -125,7 +125,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
     private initColor(
         meshData: ShapeMeshData,
         geometry: BufferGeometry,
-        material: LineBasicMaterial | MeshBasicMaterial,
+        material: LineBasicMaterial | MeshStandardMaterial,
     ) {
         if (meshData.color instanceof Array) {
             material.vertexColors = true;
@@ -284,7 +284,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         }
     }
 
-    private cloneSubFace(index: number, material: MeshBasicMaterial) {
+    private cloneSubFace(index: number, material: MeshStandardMaterial) {
         let group = this.shape.mesh.faces!.groups[index];
         if (!group) return undefined;
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
