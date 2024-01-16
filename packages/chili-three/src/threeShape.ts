@@ -288,7 +288,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let group = this.shape.mesh.faces!.groups[index];
         if (!group) return undefined;
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
-        let allNormals = this._faces!.geometry.getAttribute("normals") as Float32BufferAttribute;
+        let allNormals = this._faces!.geometry.getAttribute("normal") as Float32BufferAttribute;
         let allIndices = this.shape.mesh.faces!.indices;
         let indices = allIndices.slice(group.start, group.start + group.count);
         let indiceStart = Math.min(...indices);
@@ -297,7 +297,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let normals = allNormals.array.slice(indiceStart * 3, indiceEnd * 3);
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
-        buff.setAttribute("normals", new Float32BufferAttribute(normals, 3));
+        buff.setAttribute("normal", new Float32BufferAttribute(normals, 3));
         buff.setIndex(indices.map((i) => i - indiceStart));
         let face = new Mesh(buff, material);
         face.renderOrder = 99;
