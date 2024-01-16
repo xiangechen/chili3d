@@ -26,8 +26,8 @@ const SelectionRectStyle = `
 
 interface SelectionRect {
     element: HTMLElement;
-    downX: number;
-    downY: number;
+    clientX: number;
+    clientY: number;
 }
 
 export abstract class SelectionHandler implements IEventHandler {
@@ -125,21 +125,21 @@ export abstract class SelectionHandler implements IEventHandler {
         document.body.appendChild(rect);
         return {
             element: rect,
-            downX: event.offsetX,
-            downY: event.offsetY,
+            clientX: event.clientX,
+            clientY: event.clientY,
         };
     }
 
-    private updateRect(element: SelectionRect, event: PointerEvent) {
-        element.element.style.display = "block";
-        const x1 = Math.min(element.downX, event.offsetX);
-        const y1 = Math.min(element.downY, event.offsetY);
-        const x2 = Math.max(element.downX, event.offsetX);
-        const y2 = Math.max(element.downY, event.offsetY);
-        element.element.style.left = x1 + "px";
-        element.element.style.top = y1 + "px";
-        element.element.style.width = x2 - x1 + "px";
-        element.element.style.height = y2 - y1 + "px";
+    private updateRect(rect: SelectionRect, event: PointerEvent) {
+        rect.element.style.display = "block";
+        const x1 = Math.min(rect.clientX, event.clientX);
+        const y1 = Math.min(rect.clientY, event.clientY);
+        const x2 = Math.max(rect.clientX, event.clientX);
+        const y2 = Math.max(rect.clientY, event.clientY);
+        rect.element.style.left = x1 + "px";
+        rect.element.style.top = y1 + "px";
+        rect.element.style.width = x2 - x1 + "px";
+        rect.element.style.height = y2 - y1 + "px";
     }
 
     pointerOut(view: IView, event: PointerEvent): void {
