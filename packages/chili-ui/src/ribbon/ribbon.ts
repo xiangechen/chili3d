@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    AsyncController,
     Command,
     CommandKeys,
     ICommand,
@@ -16,7 +15,6 @@ import {
 import { BindableElement, a, div, items, label, localize, span, svg } from "../controls";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
-import { RibbonButtonSize } from "./ribbonButtonSize";
 import { RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 
@@ -116,7 +114,6 @@ class DisplayConverter implements IConverter<RibbonTabData> {
 
 export class Ribbon extends BindableElement {
     #commandContextContainer = div({ className: style.commandContextPanel });
-    #selectionControl: RibbonGroupData | undefined;
 
     constructor(readonly dataContent: RibbonDataContent) {
         super();
@@ -191,16 +188,12 @@ export class Ribbon extends BindableElement {
         super.connectedCallback();
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
-        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
-        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
     }
 
     override disconnectedCallback(): void {
         super.disconnectedCallback();
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
-        PubSub.default.remove("showSelectionControl", this.showSelectionControl);
-        PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
     }
 
     private openContext = (command: ICommand) => {
@@ -209,31 +202,6 @@ export class Ribbon extends BindableElement {
 
     private closeContext = () => {
         this.#commandContextContainer.innerHTML = "";
-    };
-
-    private showSelectionControl = (controller: AsyncController) => {
-        this.#selectionControl = new RibbonGroupData(
-            "ribbon.group.selection",
-            {
-                display: "common.confirm",
-                icon: "icon-confirm",
-                size: RibbonButtonSize.Normal,
-                onClick: controller.success,
-            },
-            {
-                display: "common.cancel",
-                icon: "icon-cancel",
-                size: RibbonButtonSize.Normal,
-                onClick: controller.cancel,
-            },
-        );
-        this.dataContent.activeTab.groups.add(this.#selectionControl);
-    };
-
-    private clearSelectionControl = () => {
-        if (this.#selectionControl) {
-            this.dataContent.activeTab.groups.remove(this.#selectionControl);
-        }
     };
 }
 
