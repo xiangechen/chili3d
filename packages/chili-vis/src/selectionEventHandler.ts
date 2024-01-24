@@ -51,7 +51,6 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     dispose() {
-        this.clearSelected(this.document);
         this._highlights = undefined;
         this._detectAtMouse = undefined;
     }

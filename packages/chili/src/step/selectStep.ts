@@ -22,7 +22,6 @@ export class SelectShapeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        document.selection.clearSelected();
         let shapes = await Selection.pickShape(
             document,
             this.snapeType,
@@ -47,37 +46,18 @@ export class SelectModelStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let models: IModel[] = this.getSelectedModels(document);
-        document.selection.clearSelected();
-        if (models.length === 0) {
-            models = await Selection.pickModel(
-                document,
-                this.prompt,
-                controller,
-                this.multiple,
-                this.filter,
-            );
-        } else {
-            controller.success("已选择");
-        }
+        let models = await Selection.pickModel(
+            document,
+            this.prompt,
+            controller,
+            this.multiple,
+            this.filter,
+        );
         if (models.length === 0) return undefined;
         return {
             view: document.visual.viewer.activeView!,
             shapes: [],
             models,
         };
-    }
-
-    private getSelectedModels(document: IDocument) {
-        return document.selection
-            .getSelectedNodes()
-            .map((x) => x as GeometryModel)
-            .filter((x) => {
-                if (x === undefined) return false;
-                let shape = x.shape();
-                if (shape === undefined) return false;
-                if (this.filter !== undefined && !this.filter.allow(shape)) return false;
-                return true;
-            });
     }
 }

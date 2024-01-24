@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IShape, Result, ShapeType, command } from "chili-core";
+import { GeometryModel, IShape, Result, command } from "chili-core";
 import { BooleanBody } from "../bodys/boolean";
-import { IStep, SelectModelStep, SelectShapeStep } from "../step";
+import { IStep, SelectModelStep } from "../step";
 import { CreateCommand } from "./create/createCommand";
 
 let count = 1;

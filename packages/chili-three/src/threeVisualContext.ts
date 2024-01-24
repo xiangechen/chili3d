@@ -6,6 +6,7 @@ import {
     IDisposable,
     IModel,
     INode,
+    IVisual,
     IVisualContext,
     IVisualShape,
     LineType,
@@ -37,7 +38,10 @@ export class ThreeVisualContext implements IVisualContext {
     readonly visualShapes: Group;
     readonly tempShapes: Group;
 
-    constructor(readonly scene: Scene) {
+    constructor(
+        readonly visual: IVisual,
+        readonly scene: Scene,
+    ) {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
@@ -150,7 +154,7 @@ export class ThreeVisualContext implements IVisualContext {
     private displayModel(model: IModel) {
         let modelShape = model.shape();
         if (modelShape === undefined) return;
-        let threeShape = new ThreeShape(modelShape);
+        let threeShape = new ThreeShape(modelShape, this.visual.highlighter);
         threeShape.color = model.color;
         threeShape.opacity = model.opacity;
         threeShape.matrix.copy(this.convertMatrix(model.matrix));

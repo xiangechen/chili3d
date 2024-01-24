@@ -5,6 +5,7 @@ import {
     Config,
     EdgeMeshData,
     FaceMeshData,
+    IHighlighter,
     IShape,
     IVisualShape,
     ShapeMeshData,
@@ -52,7 +53,6 @@ export class ThreeShape extends Object3D implements IVisualShape {
     readonly #highlightedFaces: Map<number, Mesh> = new Map();
     readonly #highlightedEdges: Map<number, LineSegments> = new Map();
 
-    private readonly _stateMap = new Map<string, VisualState>();
     private _faceMaterial = new MeshStandardMaterial({
         side: DoubleSide,
         transparent: true,
@@ -82,7 +82,10 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.getMainMaterial().opacity = value;
     }
 
-    constructor(readonly shape: IShape) {
+    constructor(
+        readonly shape: IShape,
+        readonly highlighter: IHighlighter,
+    ) {
         super();
         let mesh = this.shape.mesh;
         this.matrixAutoUpdate = false;
@@ -150,11 +153,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
         ...indexes: number[]
     ) {
         if (type === ShapeType.Shape) {
-            let newState = this.updateState(action, state, type);
+            let newState = this.highlighter.updateStateData(this, action, state, type);
             this.setMaterial(newState);
         } else {
             indexes.forEach((index) => {
-                let newState = this.updateState(action, state, type, index);
+                let newState = this.highlighter.updateStateData(this, action, state, type, index);
                 this.setSubShapeState(type, newState, index);
             });
         }
@@ -191,26 +194,14 @@ export class ThreeShape extends Object3D implements IVisualShape {
         }
     }
 
-    private updateState(mode: "add" | "remove", state: VisualState, type: ShapeType, index?: number) {
-        const key = `${type}_${index}`;
-        let newState = this._stateMap.get(key);
-        if (!newState) {
-            newState = state;
-        } else if (mode === "add") {
-            newState = VisualState.addState(newState, state);
-        } else {
-            newState = VisualState.removeState(newState, state);
-        }
-        this._stateMap.set(key, newState);
-        return newState;
-    }
-
     resetState(): void {
-        this._stateMap.clear();
+        this.highlighter.removeAllStates(this, false);
         if (this._edges) this._edges.material = this._edgeMaterial;
         if (this._faces) this._faces.material = this._faceMaterial;
         this.#highlightedEdges.forEach((_, index) => this.removeEdge(index));
         this.#highlightedFaces.forEach((_, index) => this.removeFace(index));
+        this.#highlightedEdges.clear();
+        this.#highlightedFaces.clear();
     }
 
     private removeEdge(index: number) {

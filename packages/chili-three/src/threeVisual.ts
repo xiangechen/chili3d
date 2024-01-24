@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable, IDocument, IEventHandler, IViewer, IVisual, Logger } from "chili-core";
+import { IDisposable, IDocument, IEventHandler, IHighlighter, IViewer, IVisual, Logger } from "chili-core";
 import { ModelSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Color, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeViwer } from "./threeViewer";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeHighlighter } from "./threeHighlighter";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -15,6 +16,7 @@ export class ThreeVisual implements IVisual {
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
+    readonly highlighter: IHighlighter;
 
     #eventHandler: IEventHandler;
 
@@ -32,8 +34,9 @@ export class ThreeVisual implements IVisual {
         this.scene = this.initScene();
         this.defaultEventHandler = new ModelSelectionHandler(document, true, true);
         this.viewer = new ThreeViwer(this);
-        this.context = new ThreeVisualContext(this.scene);
+        this.context = new ThreeVisualContext(this, this.scene);
         this.viewHandler = new ThreeViewHandler();
+        this.highlighter = new ThreeHighlighter();
         this.#eventHandler = this.defaultEventHandler;
     }
 

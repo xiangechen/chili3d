@@ -8,6 +8,7 @@ export abstract class CreateCommand extends MultistepCommand {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let model = this.create();
             this.document.addNode(model);
+            this.document.visual.highlighter.clear();
             this.document.visual.viewer.update();
         });
     }

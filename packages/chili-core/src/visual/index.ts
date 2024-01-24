@@ -4,6 +4,7 @@ export * from "./cameraController";
 export * from "./cursorType";
 export * from "./detectedData";
 export * from "./eventHandler";
+export * from "./highlighter";
 export * from "./view";
 export * from "./viewer";
 export * from "./viewport";

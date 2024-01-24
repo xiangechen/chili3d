@@ -3,6 +3,7 @@
 import { IDisposable } from "../base";
 import { IDocument } from "../document";
 import { IEventHandler } from "./eventHandler";
+import { IHighlighter } from "./highlighter";
 import { IViewer } from "./viewer";
 import { IVisualContext } from "./visualContext";
 
@@ -11,6 +12,7 @@ export interface IVisual extends IDisposable {
     readonly context: IVisualContext;
     readonly viewHandler: IEventHandler;
     readonly viewer: IViewer;
+    readonly highlighter: IHighlighter;
     eventHandler: IEventHandler;
     resetEventHandler(): void;
     isExcutingHandler(): boolean;
