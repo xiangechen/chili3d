@@ -58,7 +58,7 @@ export class Import implements ICommand {
             return [undefined, Result.error("toast.read.error")];
         }
         let shape: Result<IShape[]>;
-        let name = data.value[0].fileName;
+        let name = data.value[0].fileName.toLowerCase();
         if (name.endsWith(".igs") || name.endsWith(".iges")) {
             shape = application.shapeFactory.converter.convertFromIGES(data.value[0].data);
         } else if (name.endsWith(".stp") || name.endsWith(".step")) {
