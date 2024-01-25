@@ -30,6 +30,7 @@ import {
 } from "three";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
+import { IVisualObject } from "chili-core/src/visual/visualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
@@ -45,6 +46,18 @@ export class ThreeVisualContext implements IVisualContext {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
+    }
+
+    addVisualObject(object: IVisualObject): void {
+        if (object instanceof Object3D) {
+            this.visualShapes.add(object);
+        }
+    }
+
+    removeVisualObject(object: IVisualObject): void {
+        if (object instanceof Object3D) {
+            this.visualShapes.remove(object);
+        }
     }
 
     dispose() {

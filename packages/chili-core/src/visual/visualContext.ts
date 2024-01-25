@@ -3,10 +3,13 @@
 import { IDisposable } from "../base";
 import { ShapeMeshData } from "../geometry";
 import { IModel } from "../model";
+import { IVisualObject } from "./visualObject";
 import { IVisualShape } from "./visualShape";
 
 export interface IVisualContext extends IDisposable {
     get shapeCount(): number;
+    addVisualObject(object: IVisualObject): void;
+    removeVisualObject(object: IVisualObject): void;
     addModel(models: IModel[]): void;
     removeModel(models: IModel[]): void;
     getShape(model: IModel): IVisualShape | undefined;
