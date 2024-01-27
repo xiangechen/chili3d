@@ -17,6 +17,7 @@ import {
     debounce,
 } from "chili-core";
 import {
+    DirectionalLight,
     Intersection,
     LineSegments,
     Mesh,
@@ -48,6 +49,7 @@ export class ThreeView extends Observable implements IView {
     private _needsUpdate: boolean = false;
     readonly #gizmo: ViewGizmo;
     readonly cameraController: CameraController;
+    readonly dynamicLight = new DirectionalLight(0xffffff, 1.5);
 
     private _name: string;
     get name(): string {
@@ -80,6 +82,7 @@ export class ThreeView extends Observable implements IView {
         let resizerObserverCallback = debounce(this.#resizerObserverCallback, 100);
         this.#resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
+        this._scene.add(this.dynamicLight);
         this.#gizmo = new ViewGizmo(this);
         this.animate();
     }
@@ -170,6 +173,7 @@ export class ThreeView extends Observable implements IView {
         });
         if (this._needsUpdate) {
             this._renderer.render(this._scene, this.camera);
+            this.dynamicLight.position.copy(this.camera.position);
             this.#gizmo.update();
             this._needsUpdate = false;
         }
