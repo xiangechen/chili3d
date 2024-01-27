@@ -13,10 +13,8 @@ import {
     VisualState,
 } from "chili-core";
 import {
-    AlwaysDepth,
     BufferGeometry,
     DoubleSide,
-    EqualDepth,
     Float32BufferAttribute,
     LineBasicMaterial,
     LineSegments,
@@ -31,10 +29,16 @@ import { ThreeHelper } from "./threeHelper";
 
 const hilightEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.highlightEdgeColor),
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
 });
 
 const selectedEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(Config.instance.visual.selectedEdgeColor),
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
 });
 
 const highlightFaceMaterial = new MeshStandardMaterial({
