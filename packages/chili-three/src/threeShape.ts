@@ -42,6 +42,9 @@ const highlightFaceMaterial = new MeshStandardMaterial({
     side: DoubleSide,
     transparent: true,
     opacity: 0.85,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
 });
 
 const selectedFaceMaterial = new MeshStandardMaterial({
@@ -49,6 +52,9 @@ const selectedFaceMaterial = new MeshStandardMaterial({
     side: DoubleSide,
     transparent: true,
     opacity: 0.32,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
 });
 
 export class ThreeShape extends Object3D implements IVisualShape {
