@@ -16,6 +16,7 @@ import {
     AlwaysDepth,
     BufferGeometry,
     DoubleSide,
+    EqualDepth,
     Float32BufferAttribute,
     LineBasicMaterial,
     LineSegments,
@@ -41,9 +42,6 @@ const highlightFaceMaterial = new MeshStandardMaterial({
     side: DoubleSide,
     transparent: true,
     opacity: 0.85,
-    depthFunc: AlwaysDepth,
-    polygonOffsetFactor: 0,
-    polygonOffsetUnits: 1.0,
 });
 
 const selectedFaceMaterial = new MeshStandardMaterial({
@@ -51,9 +49,6 @@ const selectedFaceMaterial = new MeshStandardMaterial({
     side: DoubleSide,
     transparent: true,
     opacity: 0.32,
-    depthFunc: AlwaysDepth,
-    polygonOffsetFactor: 0,
-    polygonOffsetUnits: 1.0,
 });
 
 export class ThreeShape extends Object3D implements IVisualShape {
@@ -63,9 +58,6 @@ export class ThreeShape extends Object3D implements IVisualShape {
     private _faceMaterial = new MeshStandardMaterial({
         side: DoubleSide,
         transparent: true,
-        depthFunc: AlwaysDepth,
-        polygonOffsetFactor: 0,
-        polygonOffsetUnits: 1.0,
     });
     private _edgeMaterial = new LineBasicMaterial();
     private _edges?: LineSegments;
