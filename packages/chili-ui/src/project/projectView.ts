@@ -1,14 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, PubSub } from "chili-core";
-import { Control, Panel } from "../components";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
 
-import { div, localize, span } from "../controls";
+import { BindableElement, div, localize, span } from "../controls";
 import style from "./projectView.module.css";
 
-export class ProjectView extends Control {
+export class ProjectView extends BindableElement {
     readonly #documentTreeMap = new WeakMap<IDocument, Tree>();
 
     #activeDocument: IDocument | undefined;
@@ -16,11 +15,14 @@ export class ProjectView extends Control {
         return this.#activeDocument;
     }
 
-    private panel: Panel;
+    private panel: HTMLDivElement;
 
-    constructor() {
-        super(style.root);
-        this.panel = new Panel().addClass(style.itemsPanel);
+    constructor(props: { className: string }) {
+        super();
+        this.classList.add(style.root, props.className);
+        this.panel = div({
+            className: style.itemsPanel,
+        });
         this.append(
             div(
                 { className: style.headerPanel },

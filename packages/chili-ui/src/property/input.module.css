@@ -13,10 +13,13 @@
 }
 
 .box {
-    font-size: 14px;
+    flex: 1;
+    font-size: 1rem;
+    padding: 4px;
+    outline: none;
+    background-color: transparent;
+
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    padding: 0px 6px;
     margin: 0px;
-    flex: 1 1 100%;
 }

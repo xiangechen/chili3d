@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    I18n,
     IConverter,
     IDocument,
     IPropertyChanged,
@@ -13,15 +14,15 @@ import {
     XYZ,
     XYZConverter,
 } from "chili-core";
-import { Label, Panel, TextBox } from "../components";
 
+import { div, input, span } from "../controls";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
 
 export class InputProperty extends PropertyBase {
-    readonly valueBox: TextBox;
-    readonly error: Label;
+    readonly valueBox: HTMLInputElement;
+    readonly error: HTMLSpanElement;
     readonly converter: IConverter | undefined;
 
     constructor(
@@ -32,36 +33,44 @@ export class InputProperty extends PropertyBase {
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
-        this.valueBox = new TextBox()
-            .addClass(style.box)
-            .setText(this.getDefaultValue())
-            .setReadOnly(this.isReadOnly());
-        let name = new Label()
-            .i18nText(property.display)
-            .addClass(commonStyle.propertyName)
-            .setTitle(property.display);
-        this.error = new Label().i18nText("error.default").addClass(style.error, style.hidden);
-        let panel = new Panel().addClass(commonStyle.panel);
-        if (showTitle) panel.addItem(name);
-        panel.addItem(this.valueBox);
-        this.append(panel, this.error);
+        this.valueBox = input({
+            className: style.box,
+            value: this.getDefaultValue(),
+            readOnly: this.isReadOnly(),
+            onkeydown: this.handleKeyDown,
+        });
+        this.error = span({
+            classList: `${style.error} ${style.hidden}`,
+            textContent: I18n.translate("error.default"),
+        });
+        this.append(
+            div(
+                { className: commonStyle.panel },
+                showTitle
+                    ? span({
+                          className: commonStyle.propertyName,
+                          textContent: I18n.translate(property.display),
+                      })
+                    : "",
+                this.valueBox,
+            ),
+            this.error,
+        );
     }
 
     override connectedCallback(): void {
         super.connectedCallback();
-        this.valueBox.addEventListener("keydown", this.handleKeyDown);
         (this.objects.at(0) as IPropertyChanged)?.onPropertyChanged(this.handlePropertyChanged);
     }
 
     override disconnectedCallback(): void {
         super.disconnectedCallback();
-        this.valueBox.removeEventListener("keydown", this.handleKeyDown);
         (this.objects.at(0) as IPropertyChanged)?.removePropertyChanged(this.handlePropertyChanged);
     }
 
     private handlePropertyChanged = (property: string) => {
         if (property === this.property.name) {
-            this.valueBox.setText(this.getValueString(this.objects[0]));
+            this.valueBox.value = this.getValueString(this.objects[0]);
         }
     };
 
@@ -114,12 +123,13 @@ export class InputProperty extends PropertyBase {
     }
 
     private handleKeyDown = (e: KeyboardEvent) => {
+        e.stopPropagation();
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
-            let newValue = this.converter.convertBack?.(this.valueBox.text);
+            let newValue = this.converter.convertBack?.(this.valueBox.value);
             if (!newValue?.success) {
-                this.error.text(newValue?.error ?? "error");
-                this.error.addClass(style.hidden);
+                this.error.textContent = newValue?.error ?? "error";
+                this.error.classList.add(style.hidden);
                 return;
             }
             Transaction.excute(this.document, "modify property", () => {
@@ -129,7 +139,7 @@ export class InputProperty extends PropertyBase {
                 this.document.visual.viewer.update();
             });
         } else {
-            this.error.addClass(style.hidden);
+            this.error.classList.add(style.hidden);
         }
     };
 }

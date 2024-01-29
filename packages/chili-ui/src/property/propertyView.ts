@@ -1,25 +1,45 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
-import { Control, Expander, Label, Panel } from "../components";
+import {
+    Color,
+    GeometryModel,
+    I18n,
+    I18nKeys,
+    IConverter,
+    IDocument,
+    INode,
+    Property,
+    PubSub,
+} from "chili-core";
+import { Expander } from "../components";
 
-import { div } from "../controls";
+import { BindableElement, div, label } from "../controls";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 
-export class PropertyView extends Control {
-    private panel = new Panel(style.panel);
-    constructor() {
-        super(style.root);
-        this.append(new Label().i18nText("properties.header").addClass(style.header), this.panel);
+export class PropertyView extends BindableElement {
+    private panel = div({ className: style.panel });
+    constructor(props: { className: string }) {
+        super();
+        this.classList.add(props.className, style.root);
+        this.append(
+            label({
+                className: style.header,
+                textContent: I18n.translate("properties.header"),
+            }),
+            this.panel,
+        );
         PubSub.default.sub("selectionChanged", this.selectionChanged);
     }
 
     private selectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
-        this.panel.clearChildren();
+        while (this.panel.lastElementChild) {
+            this.panel.removeChild(this.panel.lastElementChild);
+        }
+
         if (selected.length === 0) return;
         this.addDefault(document, selected);
         this.addTransform(document, selected);

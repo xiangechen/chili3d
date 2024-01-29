@@ -25,8 +25,8 @@ export const Editor = () => {
             { className: style.content },
             div(
                 { className: style.sidebar },
-                new ProjectView().addClass(style.sidebarItem),
-                new PropertyView().addClass(style.sidebarItem),
+                new ProjectView({ className: style.sidebarItem }),
+                new PropertyView({ className: style.sidebarItem }),
             ),
             viewport,
         ),
