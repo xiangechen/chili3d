@@ -2,9 +2,8 @@
 
 import {
     AsyncController,
+    CancelableCommand,
     GeometryModel,
-    IApplication,
-    ICommand,
     IDocument,
     IEdge,
     IModel,
@@ -19,16 +18,14 @@ import { SelectModelStep } from "../../step";
 
 let count = 1;
 
-abstract class ConvertCommand implements ICommand {
-    async execute(application: IApplication): Promise<void> {
-        let document = application.activeDocument;
-        if (!document) return;
-        let models = await this.getOrPickModels(document);
+abstract class ConvertCommand extends CancelableCommand {
+    async executeAsync(): Promise<void> {
+        let models = await this.getOrPickModels(this.document);
         if (!models) return;
-        Transaction.excute(document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let geometryModel = this.create(document!, models!);
-            document!.addNode(geometryModel);
-            document!.visual.viewer.update();
+        Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+            let geometryModel = this.create(this.document, models!);
+            this.document.addNode(geometryModel);
+            this.document.visual.viewer.update();
         });
     }
 
@@ -43,9 +40,9 @@ abstract class ConvertCommand implements ICommand {
         let models = this.#getSelectedModels(document, filter);
         if (models.length > 0) return models;
         document.selection.clearSelected();
-        let controller = new AsyncController();
         let step = new SelectModelStep("prompt.select.models", true);
-        let data = await step.execute(document, controller);
+        this.controller = new AsyncController();
+        let data = await step.execute(document, this.controller);
         return data?.models;
     }
 
