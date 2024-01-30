@@ -11,7 +11,7 @@ import {
     Logger,
 } from "chili-core";
 import { ModelSelectionHandler } from "chili-vis";
-import { AmbientLight, AxesHelper, Color, DirectionalLight, Light, Object3D, Scene } from "three";
+import { AmbientLight, AxesHelper, Color, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeTextGenerator } from "./threeTextGenerator";
 import { ThreeViewHandler } from "./threeViewEventHandler";
@@ -29,15 +29,15 @@ export class ThreeVisual implements IVisual {
     readonly highlighter: IHighlighter;
     readonly textGenerator: ITextGenerator;
 
-    #eventHandler: IEventHandler;
+    private _eventHandler: IEventHandler;
 
     get eventHandler() {
-        return this.#eventHandler;
+        return this._eventHandler;
     }
 
     set eventHandler(value: IEventHandler) {
-        if (this.#eventHandler === value) return;
-        this.#eventHandler = value;
+        if (this._eventHandler === value) return;
+        this._eventHandler = value;
         Logger.info(`Changed EventHandler to ${Object.getPrototypeOf(value).constructor.name}`);
     }
 
@@ -49,7 +49,7 @@ export class ThreeVisual implements IVisual {
         this.viewHandler = new ThreeViewHandler();
         this.highlighter = new ThreeHighlighter();
         this.textGenerator = new ThreeTextGenerator();
-        this.#eventHandler = this.defaultEventHandler;
+        this._eventHandler = this.defaultEventHandler;
     }
 
     initScene() {
@@ -75,7 +75,7 @@ export class ThreeVisual implements IVisual {
         this.viewer.dispose();
         this.defaultEventHandler.dispose();
         this.viewHandler.dispose();
-        this.#eventHandler.dispose();
+        this._eventHandler.dispose();
         this.scene.traverse((x) => {
             if (IDisposable.isDisposable(x)) x.dispose();
         });

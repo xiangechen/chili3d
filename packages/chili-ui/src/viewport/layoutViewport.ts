@@ -7,44 +7,44 @@ import style from "./layoutViewport.module.css";
 import { Viewport } from "./viewport";
 
 export class LayoutViewport extends BindableElement {
-    readonly #selectionController: OKCancel;
-    readonly #viewports: Viewport[] = [];
+    private readonly _selectionController: OKCancel;
+    private readonly _viewports: Viewport[] = [];
 
     constructor() {
         super();
         this.className = style.root;
-        this.#selectionController = new OKCancel();
-        this.append(this.#selectionController);
+        this._selectionController = new OKCancel();
+        this.append(this._selectionController);
         this.clearSelectionControl();
     }
 
     override connectedCallback(): void {
         super.connectedCallback();
-        PubSub.default.sub("activeViewChanged", this.#handleActiveViewChanged);
-        PubSub.default.sub("activeDocumentChanged", this.#handleActiveDocumentChanged);
-        PubSub.default.sub("documentClosed", this.#handleDocumentClosed);
+        PubSub.default.sub("activeViewChanged", this._handleActiveViewChanged);
+        PubSub.default.sub("activeDocumentChanged", this._handleActiveDocumentChanged);
+        PubSub.default.sub("documentClosed", this._handleDocumentClosed);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
     }
 
     override disconnectedCallback(): void {
         super.disconnectedCallback();
-        PubSub.default.remove("activeViewChanged", this.#handleActiveViewChanged);
-        PubSub.default.remove("activeDocumentChanged", this.#handleActiveDocumentChanged);
-        PubSub.default.remove("documentClosed", this.#handleDocumentClosed);
+        PubSub.default.remove("activeViewChanged", this._handleActiveViewChanged);
+        PubSub.default.remove("activeDocumentChanged", this._handleActiveDocumentChanged);
+        PubSub.default.remove("documentClosed", this._handleDocumentClosed);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
     }
 
-    #handleDocumentClosed = (document: IDocument) => {
+    private _handleDocumentClosed = (document: IDocument) => {
         this.clearViewports();
     };
 
     private clearViewports() {
-        this.#viewports.forEach((v) => {
+        this._viewports.forEach((v) => {
             v.view.close();
         });
-        this.#viewports.length = 0;
+        this._viewports.length = 0;
     }
 
     private createView(document: IDocument) {
@@ -53,33 +53,33 @@ export class LayoutViewport extends BindableElement {
         let viewport = new Viewport(view);
         viewport.classList.add(style.viewport);
         this.appendChild(viewport);
-        this.#viewports.push(viewport);
+        this._viewports.push(viewport);
         view.setDom(viewport);
         document.visual.viewer.update();
     }
 
-    #handleActiveViewChanged = (view: IView | undefined) => {
-        this.#viewports.forEach((v) => {
+    private _handleActiveViewChanged = (view: IView | undefined) => {
+        this._viewports.forEach((v) => {
             v.setActive(v.view === view);
         });
     };
 
-    #handleActiveDocumentChanged = (document: IDocument | undefined) => {
+    private _handleActiveDocumentChanged = (document: IDocument | undefined) => {
         this.clearViewports();
         if (document !== undefined) {
             this.createView(document);
-            document.visual.viewer.activeView = this.#viewports.at(-1)?.view;
+            document.visual.viewer.activeView = this._viewports.at(-1)?.view;
         }
     };
 
     private showSelectionControl = (controller: AsyncController) => {
-        this.#selectionController.setControl(controller);
-        this.#selectionController.style.visibility = "visible";
+        this._selectionController.setControl(controller);
+        this._selectionController.style.visibility = "visible";
     };
 
     private clearSelectionControl = () => {
-        this.#selectionController.setControl(undefined);
-        this.#selectionController.style.visibility = "hidden";
+        this._selectionController.setControl(undefined);
+        this._selectionController.style.visibility = "hidden";
     };
 }
 

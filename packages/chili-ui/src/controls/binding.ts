@@ -3,7 +3,7 @@
 import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 
 export class Binding<T extends IPropertyChanged = IPropertyChanged> implements IDisposable {
-    #targets: [element: WeakRef<object>, property: any][] = [];
+    private _targets: [element: WeakRef<object>, property: any][] = [];
 
     constructor(
         public readonly source: T,
@@ -12,23 +12,23 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
     ) {}
 
     setBinding<U extends object>(element: U, property: keyof U) {
-        this.#targets.push([new WeakRef(element), property]);
+        this._targets.push([new WeakRef(element), property]);
         this.setValue<U>(element, property);
     }
 
     startObserver() {
-        this.source.onPropertyChanged(this.#onPropertyChanged);
+        this.source.onPropertyChanged(this._onPropertyChanged);
     }
 
     stopObserver() {
-        this.source.removePropertyChanged(this.#onPropertyChanged);
+        this.source.removePropertyChanged(this._onPropertyChanged);
     }
 
-    #onPropertyChanged = (property: keyof T) => {
+    private _onPropertyChanged = (property: keyof T) => {
         if (property === this.path) {
             let newItems = [],
                 changed = false;
-            for (let item of this.#targets) {
+            for (let item of this._targets) {
                 let element = item[0].deref();
                 if (element) {
                     this.setValue(element, item[1]);
@@ -37,7 +37,7 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
                     changed = true;
                 }
             }
-            if (changed) this.#targets = newItems;
+            if (changed) this._targets = newItems;
         }
     };
 
@@ -55,6 +55,6 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
 
     dispose(): void {
         this.stopObserver();
-        this.#targets.length = 0;
+        this._targets.length = 0;
     }
 }

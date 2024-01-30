@@ -22,7 +22,7 @@ export class OKCancel extends BindableElement {
                     div(
                         {
                             className: style.icon,
-                            onclick: this.#onConfirm,
+                            onclick: this._onConfirm,
                         },
                         svg({ icon: "icon-confirm" }),
                         span({ textContent: I18n.translate("common.confirm") }),
@@ -30,7 +30,7 @@ export class OKCancel extends BindableElement {
                     div(
                         {
                             className: style.icon,
-                            onclick: this.#onCancel,
+                            onclick: this._onCancel,
                         },
                         svg({ icon: "icon-cancel" }),
                         span({ textContent: I18n.translate("common.cancel") }),
@@ -44,11 +44,11 @@ export class OKCancel extends BindableElement {
         this.control = control;
     }
 
-    #onConfirm = () => {
+    private _onConfirm = () => {
         this.control?.success();
     };
 
-    #onCancel = () => {
+    private _onCancel = () => {
         this.control?.cancel();
     };
 }

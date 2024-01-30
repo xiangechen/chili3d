@@ -19,7 +19,7 @@ import { RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonGroup } from "./ribbonGroup";
 
 export class RibbonDataContent extends Observable {
-    #document: IDocument | undefined;
+    private _document: IDocument | undefined;
     readonly quickCommands = new ObservableCollection<CommandKeys>();
     readonly ribbonTabs = new ObservableCollection<RibbonTabData>();
 
@@ -44,29 +44,29 @@ export class RibbonDataContent extends Observable {
         this.quickCommands.add(...quickCommands);
         this.ribbonTabs.add(...ribbonTabs);
         this._activeTab = ribbonTabs[0];
-        PubSub.default.sub("activeDocumentChanged", this.#documentChanged);
+        PubSub.default.sub("activeDocumentChanged", this._documentChanged);
     }
 
-    #documentChanged = (document: IDocument | undefined) => {
-        if (this.#document === document) return;
-        if (this.#document) {
-            this.#document.removePropertyChanged(this.#onDocumentPropertyChanged);
+    private _documentChanged = (document: IDocument | undefined) => {
+        if (this._document === document) return;
+        if (this._document) {
+            this._document.removePropertyChanged(this._onDocumentPropertyChanged);
         }
-        this.#document = document;
+        this._document = document;
         this.documentName = document?.name;
-        this.#document?.onPropertyChanged(this.#onDocumentPropertyChanged);
+        this._document?.onPropertyChanged(this._onDocumentPropertyChanged);
     };
 
-    #onDocumentPropertyChanged = (property: keyof IDocument) => {
+    private _onDocumentPropertyChanged = (property: keyof IDocument) => {
         if (property === "name") {
-            this.documentName = this.#document?.name ?? "undefined";
+            this.documentName = this._document?.name ?? "undefined";
         }
     };
 
     override dispose(): void {
         super.dispose();
-        PubSub.default.remove("activeDocumentChanged", this.#documentChanged);
-        this.#document?.removePropertyChanged(this.#onDocumentPropertyChanged);
+        PubSub.default.remove("activeDocumentChanged", this._documentChanged);
+        this._document?.removePropertyChanged(this._onDocumentPropertyChanged);
     }
 }
 
@@ -113,7 +113,7 @@ class DisplayConverter implements IConverter<RibbonTabData> {
 }
 
 export class Ribbon extends BindableElement {
-    #commandContextContainer = div({ className: style.commandContextPanel });
+    private _commandContextContainer = div({ className: style.commandContextPanel });
 
     constructor(readonly dataContent: RibbonDataContent) {
         super();
@@ -180,7 +180,7 @@ export class Ribbon extends BindableElement {
                     });
                 },
             }),
-            this.#commandContextContainer,
+            this._commandContextContainer,
         );
     }
 
@@ -197,11 +197,11 @@ export class Ribbon extends BindableElement {
     }
 
     private openContext = (command: ICommand) => {
-        this.#commandContextContainer.append(new CommandContext(command));
+        this._commandContextContainer.append(new CommandContext(command));
     };
 
     private closeContext = () => {
-        this.#commandContextContainer.innerHTML = "";
+        this._commandContextContainer.innerHTML = "";
     };
 }
 

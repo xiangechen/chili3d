@@ -25,12 +25,12 @@ export interface FeaturePoint {
 export abstract class EditorEventHandler implements IEventHandler, IDisposable {
     private snaped?: FeaturePoint;
 
-    #points?: FeaturePoint[];
+    private _points?: FeaturePoint[];
     protected get points() {
-        if (this.#points === undefined) {
-            this.#points = this.featurePoints();
+        if (this._points === undefined) {
+            this._points = this.featurePoints();
         }
-        return this.#points;
+        return this._points;
     }
 
     constructor(readonly document: IDocument) {}

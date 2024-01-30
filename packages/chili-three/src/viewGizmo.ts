@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
-import { XYZ } from "chili-core";
 
 const options = {
     size: 200,
@@ -34,26 +34,26 @@ export interface Axis {
 }
 
 export class ViewGizmo extends HTMLElement {
-    readonly #axes: Axis[];
-    readonly #center: Vector3;
-    readonly #canvas: HTMLCanvasElement;
-    readonly #context: CanvasRenderingContext2D;
+    private readonly _axes: Axis[];
+    private readonly _center: Vector3;
+    private readonly _canvas: HTMLCanvasElement;
+    private readonly _context: CanvasRenderingContext2D;
     readonly cameraController: CameraController;
-    #canClick: boolean = true;
-    #selectedAxis?: Axis;
-    #mouse?: Vector3;
+    private _canClick: boolean = true;
+    private _selectedAxis?: Axis;
+    private _mouse?: Vector3;
 
     constructor(readonly view: ThreeView) {
         super();
         this.cameraController = view.cameraController;
-        this.#axes = this.#initAxes();
-        this.#center = new Vector3(options.size * 0.5, options.size * 0.5, 0);
-        this.#canvas = this.#initCanvas();
-        this.#context = this.#canvas.getContext("2d")!;
-        this.#initStyle();
+        this._axes = this._initAxes();
+        this._center = new Vector3(options.size * 0.5, options.size * 0.5, 0);
+        this._canvas = this._initCanvas();
+        this._context = this._canvas.getContext("2d")!;
+        this._initStyle();
     }
 
-    #initStyle() {
+    private _initStyle() {
         this.style.position = "absolute";
         this.style.top = "20px";
         this.style.right = "20px";
@@ -61,7 +61,7 @@ export class ViewGizmo extends HTMLElement {
         this.style.cursor = "pointer";
     }
 
-    #initCanvas() {
+    private _initCanvas() {
         let canvas = document.createElement("canvas");
         canvas.width = options.size;
         canvas.height = options.size;
@@ -71,7 +71,7 @@ export class ViewGizmo extends HTMLElement {
         return canvas;
     }
 
-    #initAxes() {
+    private _initAxes() {
         return [
             {
                 axis: "x",
@@ -125,54 +125,54 @@ export class ViewGizmo extends HTMLElement {
     }
 
     connectedCallback() {
-        this.#canvas.addEventListener("pointermove", this.#onPointerMove, false);
-        this.#canvas.addEventListener("pointerenter", this.#onPointerEnter, false);
-        this.#canvas.addEventListener("pointerout", this.#onPointerOut, false);
-        this.#canvas.addEventListener("click", this.#onClick, false);
+        this._canvas.addEventListener("pointermove", this._onPointerMove, false);
+        this._canvas.addEventListener("pointerenter", this._onPointerEnter, false);
+        this._canvas.addEventListener("pointerout", this._onPointerOut, false);
+        this._canvas.addEventListener("click", this._onClick, false);
     }
 
     disconnectedCallback() {
-        this.#canvas.removeEventListener("pointermove", this.#onPointerMove, false);
-        this.#canvas.removeEventListener("pointerenter", this.#onPointerEnter, false);
-        this.#canvas.removeEventListener("pointerout", this.#onPointerOut, false);
-        this.#canvas.removeEventListener("click", this.#onClick, false);
+        this._canvas.removeEventListener("pointermove", this._onPointerMove, false);
+        this._canvas.removeEventListener("pointerenter", this._onPointerEnter, false);
+        this._canvas.removeEventListener("pointerout", this._onPointerOut, false);
+        this._canvas.removeEventListener("click", this._onClick, false);
     }
 
-    #onPointerMove = (e: PointerEvent) => {
+    private _onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
         if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
             this.cameraController.rotate(e.movementX * 4, e.movementY * 4);
-            this.#canClick = false;
+            this._canClick = false;
         }
-        const rect = this.#canvas.getBoundingClientRect();
-        this.#mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0).multiplyScalar(2);
+        const rect = this._canvas.getBoundingClientRect();
+        this._mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0).multiplyScalar(2);
         this.view.update();
     };
 
-    #onPointerOut = (e: PointerEvent) => {
-        this.#mouse = undefined;
+    private _onPointerOut = (e: PointerEvent) => {
+        this._mouse = undefined;
         this.style.backgroundColor = "transparent";
     };
 
-    #onPointerEnter = (e: PointerEvent) => {
+    private _onPointerEnter = (e: PointerEvent) => {
         this.style.backgroundColor = "rgba(255, 255, 255, .2)";
     };
 
-    #onClick = (e: MouseEvent) => {
-        if (!this.#canClick) {
-            this.#canClick = true;
+    private _onClick = (e: MouseEvent) => {
+        if (!this._canClick) {
+            this._canClick = true;
             return;
         }
-        if (this.#selectedAxis) {
+        if (this._selectedAxis) {
             let distance = this.cameraController.camera.position.distanceTo(this.cameraController.target);
-            let position = this.#selectedAxis.direction
+            let position = this._selectedAxis.direction
                 .clone()
                 .multiplyScalar(distance)
                 .add(this.cameraController.target);
             this.cameraController.camera.position.copy(position);
             let up = new XYZ(0, 0, 1);
-            if (this.#selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
-            else if (this.#selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
+            if (this._selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
+            else if (this._selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
             this.cameraController.lookAt(
                 this.cameraController.camera.position,
                 this.cameraController.target,
@@ -182,30 +182,30 @@ export class ViewGizmo extends HTMLElement {
     };
 
     clear() {
-        this.#context.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+        this._context.clearRect(0, 0, this._canvas.width, this._canvas.height);
     }
 
     update() {
         this.clear();
         let invRotMat = new Matrix4().makeRotationFromEuler(this.cameraController.camera.rotation).invert();
-        this.#axes.forEach(
+        this._axes.forEach(
             (axis) =>
                 (axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat))),
         );
-        this.#axes.sort((a, b) => a.position.z - b.position.z);
-        this.setSelectedAxis(this.#axes);
-        this.drawAxes(this.#axes);
+        this._axes.sort((a, b) => a.position.z - b.position.z);
+        this.setSelectedAxis(this._axes);
+        this.drawAxes(this._axes);
     }
 
     private setSelectedAxis(axes: Axis[]) {
-        this.#selectedAxis = undefined;
-        if (this.#mouse && this.#canClick) {
+        this._selectedAxis = undefined;
+        if (this._mouse && this._canClick) {
             let closestDist = Infinity;
             for (let axis of axes) {
-                const distance = this.#mouse.distanceTo(axis.position);
+                const distance = this._mouse.distanceTo(axis.position);
                 if (distance < closestDist && distance < axis.size) {
                     closestDist = distance;
-                    this.#selectedAxis = axis;
+                    this._selectedAxis = axis;
                 }
             }
         }
@@ -215,14 +215,14 @@ export class ViewGizmo extends HTMLElement {
         for (let axis of axes) {
             let color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
-            this.drawLine(this.#center, axis.position, color, axis.line);
+            this.drawLine(this._center, axis.position, color, axis.line);
             this.drawLabel(axis);
         }
     }
 
     private getAxisColor(axis: Axis) {
         let color;
-        if (this.#selectedAxis === axis) {
+        if (this._selectedAxis === axis) {
             color = "#FFFFFF";
         } else if (axis.position.z >= -0.01) {
             color = axis.color[0];
@@ -233,39 +233,39 @@ export class ViewGizmo extends HTMLElement {
     }
 
     private drawCircle(p: Vector3, radius = 10, color = "#FF0000") {
-        this.#context.beginPath();
-        this.#context.arc(p.x, p.y, radius, 0, 2 * Math.PI, false);
-        this.#context.fillStyle = color;
-        this.#context.fill();
-        this.#context.closePath();
+        this._context.beginPath();
+        this._context.arc(p.x, p.y, radius, 0, 2 * Math.PI, false);
+        this._context.fillStyle = color;
+        this._context.fill();
+        this._context.closePath();
     }
 
     private drawLine(p1: Vector3, p2: Vector3, color: string, width?: number) {
         if (width) {
-            this.#context.beginPath();
-            this.#context.moveTo(p1.x, p1.y);
-            this.#context.lineTo(p2.x, p2.y);
-            this.#context.lineWidth = width;
-            this.#context.strokeStyle = color;
-            this.#context.stroke();
-            this.#context.closePath();
+            this._context.beginPath();
+            this._context.moveTo(p1.x, p1.y);
+            this._context.lineTo(p2.x, p2.y);
+            this._context.lineWidth = width;
+            this._context.strokeStyle = color;
+            this._context.stroke();
+            this._context.closePath();
         }
     }
 
     private drawLabel(axis: Axis) {
         if (axis.label) {
-            this.#context.font = [options.fontSize, options.fontFamily].join(" ");
-            this.#context.fillStyle = options.fontColor;
-            this.#context.textBaseline = "middle";
-            this.#context.textAlign = "center";
-            this.#context.fillText(axis.label, axis.position.x, axis.position.y + options.fontYAdjust);
+            this._context.font = [options.fontSize, options.fontFamily].join(" ");
+            this._context.fillStyle = options.fontColor;
+            this._context.textBaseline = "middle";
+            this._context.textAlign = "center";
+            this._context.fillText(axis.label, axis.position.x, axis.position.y + options.fontYAdjust);
         }
     }
 
     private getBubblePosition(vector: Vector3) {
         return new Vector3(
-            vector.x * (this.#center.x - options.bubbleSizePrimary / 2 - options.padding) + this.#center.x,
-            this.#center.y - vector.y * (this.#center.y - options.bubbleSizePrimary / 2 - options.padding),
+            vector.x * (this._center.x - options.bubbleSizePrimary / 2 - options.padding) + this._center.x,
+            this._center.y - vector.y * (this._center.y - options.bubbleSizePrimary / 2 - options.padding),
             vector.z,
         );
     }

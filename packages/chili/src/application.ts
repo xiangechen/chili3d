@@ -6,12 +6,12 @@ import { IVisualFactory } from "chili-vis";
 import { Document } from "./document";
 
 export class Application implements IApplication {
-    static #instance: Application | undefined;
+    private static _instance: Application | undefined;
     static get instance() {
-        if (Application.#instance === undefined) {
+        if (Application._instance === undefined) {
             throw new Error("Application is not build");
         }
-        return Application.#instance;
+        return Application._instance;
     }
 
     static build(
@@ -20,12 +20,12 @@ export class Application implements IApplication {
         services: IService[],
         storage: IStorage,
     ): Application {
-        if (this.#instance) {
+        if (this._instance) {
             Logger.warn("Application has been built");
         } else {
-            this.#instance = new Application(visualFactory, shapeFactory, services, storage);
+            this._instance = new Application(visualFactory, shapeFactory, services, storage);
         }
-        return this.#instance;
+        return this._instance;
     }
 
     private _activeDocument: IDocument | undefined;
@@ -51,20 +51,20 @@ export class Application implements IApplication {
     async openDocument(id: string): Promise<IDocument | undefined> {
         let document = await Document.open(this, id);
         if (document === undefined) return;
-        return await this.#changeDocument(document);
+        return await this._changeDocument(document);
     }
 
     async newDocument(name: string): Promise<IDocument> {
         let document = new Document(this, name);
-        return await this.#changeDocument(document);
+        return await this._changeDocument(document);
     }
 
     async loadDocument(data: Serialized): Promise<IDocument> {
         let document = Document.load(this, data);
-        return await this.#changeDocument(document);
+        return await this._changeDocument(document);
     }
 
-    async #changeDocument(newDocument: IDocument) {
+    private async _changeDocument(newDocument: IDocument) {
         if (this.activeDocument) {
             await this.activeDocument.close();
         }

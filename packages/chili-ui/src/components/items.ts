@@ -9,74 +9,74 @@ export type ItemsConfig<T> = HTMLConfig<ItemsElement<T>> & {
 };
 
 export class ItemsElement<T> extends HTMLElement {
-    #itemMap = new Map<T, HTMLElement | SVGSVGElement>();
+    private _itemMap = new Map<T, HTMLElement | SVGSVGElement>();
     constructor(readonly props: ItemsConfig<T>) {
         super();
         setProperties(this, props as any);
         const items = Array.isArray(props.sources) ? props.sources : props.sources.items;
-        this.append(...this.#mapItems(items));
+        this.append(...this._mapItems(items));
     }
 
     getItem(item: any): HTMLElement | SVGSVGElement | undefined {
-        return this.#itemMap.get(item);
+        return this._itemMap.get(item);
     }
 
     connectedCallback() {
         if (this.props.sources instanceof ObservableCollection)
-            this.props.sources.onCollectionChanged(this.#onCollectionChanged);
+            this.props.sources.onCollectionChanged(this._onCollectionChanged);
     }
 
     disconnectedCallback() {
         if (this.props.sources instanceof ObservableCollection)
-            this.props.sources.removeCollectionChanged(this.#onCollectionChanged);
+            this.props.sources.removeCollectionChanged(this._onCollectionChanged);
     }
 
-    #onCollectionChanged = (args: CollectionChangedArgs) => {
+    private _onCollectionChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
-            this.append(...this.#mapItems(args.items));
+            this.append(...this._mapItems(args.items));
         } else if (args.action === CollectionAction.remove) {
-            this.#removeItem(args.items);
+            this._removeItem(args.items);
         } else if (args.action === CollectionAction.move) {
-            this.#moveItem(args.from, args.to);
+            this._moveItem(args.from, args.to);
         } else if (args.action === CollectionAction.replace) {
-            this.#replaceItem(args.item, args.items);
+            this._replaceItem(args.item, args.items);
         } else {
             throw new Error("Unknown collection action");
         }
     };
 
-    #moveItem(from: number, to: number) {
+    private _moveItem(from: number, to: number) {
         let item1 = this.children.item(from);
         let item2 = this.children.item(to);
         if (item1 && item2) this.insertBefore(item1, item2);
     }
 
-    #replaceItem(item: any, items: any[]) {
-        let child = this.#itemMap.get(item);
+    private _replaceItem(item: any, items: any[]) {
+        let child = this._itemMap.get(item);
         if (child) {
             items.forEach((item) => {
                 let e = this.props.template(item);
-                this.#itemMap.set(item, e);
+                this._itemMap.set(item, e);
                 this.insertBefore(e, child!);
             });
-            this.#removeItem([item]);
+            this._removeItem([item]);
         }
     }
 
-    #mapItems(items: any[]) {
+    private _mapItems(items: any[]) {
         return items.map((item) => {
-            if (this.#itemMap.has(item)) return this.#itemMap.get(item)!;
+            if (this._itemMap.has(item)) return this._itemMap.get(item)!;
             let e = this.props.template(item);
-            this.#itemMap.set(item, e);
+            this._itemMap.set(item, e);
             return e;
         });
     }
 
-    #removeItem(items: any[]) {
+    private _removeItem(items: any[]) {
         items.forEach((item) => {
-            if (this.#itemMap.has(item)) {
-                this.removeChild(this.#itemMap.get(item)!);
-                this.#itemMap.delete(item);
+            if (this._itemMap.has(item)) {
+                this.removeChild(this._itemMap.get(item)!);
+                this._itemMap.delete(item);
             }
         });
     }

@@ -7,16 +7,16 @@ import { I18nKeys } from "../i18n";
 const ShapeChangedEvent = "ShapeChangedEvent";
 
 export abstract class Entity extends HistoryObservable {
-    #retryCount: number = 0;
+    private _retryCount: number = 0;
     protected shouldRegenerate: boolean = true;
     abstract name: I18nKeys;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
 
     get shape(): Result<IShape> {
-        if (this.shouldRegenerate || (!this._shape.success && this.#retryCount < 3)) {
+        if (this.shouldRegenerate || (!this._shape.success && this._retryCount < 3)) {
             this._shape = this.generateShape();
-            this.#retryCount = this._shape.success ? 0 : this.#retryCount + 1;
+            this._retryCount = this._shape.success ? 0 : this._retryCount + 1;
             this.shouldRegenerate = false;
         }
         return this._shape;

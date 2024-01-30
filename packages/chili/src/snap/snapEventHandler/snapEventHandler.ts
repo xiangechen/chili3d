@@ -51,10 +51,10 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.clean();
     }
 
-    #cancelled: boolean = false;
+    private _cancelled: boolean = false;
     private cancel() {
-        if (this.#cancelled) return;
-        this.#cancelled = true;
+        if (this._cancelled) return;
+        this._cancelled = true;
         this.controller.cancel();
         this.clean();
     }

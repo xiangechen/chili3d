@@ -35,16 +35,16 @@ export interface ICollectionChanged {
 }
 
 export class ObservableCollection<T> implements ICollectionChanged, IDisposable {
-    #callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
-    #items: T[];
+    private _callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
+    private _items: T[];
 
     constructor(...items: T[]) {
-        this.#items = [...items];
+        this._items = [...items];
     }
 
     add(...items: T[]) {
-        this.#items.push(...items);
-        this.#callbacks.forEach((callback) =>
+        this._items.push(...items);
+        this._callbacks.forEach((callback) =>
             callback({
                 action: CollectionAction.add,
                 items,
@@ -53,8 +53,8 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     remove(...items: T[]) {
-        this.#items = this.#items.filter((item) => !items.includes(item));
-        this.#callbacks.forEach((callback) =>
+        this._items = this._items.filter((item) => !items.includes(item));
+        this._callbacks.forEach((callback) =>
             callback({
                 action: CollectionAction.remove,
                 items,
@@ -64,10 +64,10 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
 
     move(from: number, to: number) {
         if (from === to) return;
-        if (from >= 0 && from < this.#items.length && to >= 0 && to < this.#items.length) {
-            let items = this.#items.splice(from, 1);
-            this.#items.splice(from < to ? to - 1 : to, 0, ...items);
-            this.#callbacks.forEach((callback) =>
+        if (from >= 0 && from < this._items.length && to >= 0 && to < this._items.length) {
+            let items = this._items.splice(from, 1);
+            this._items.splice(from < to ? to - 1 : to, 0, ...items);
+            this._callbacks.forEach((callback) =>
                 callback({
                     action: CollectionAction.move,
                     from,
@@ -78,9 +78,9 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     clear() {
-        let items = this.#items;
-        this.#items = [];
-        this.#callbacks.forEach((callback) =>
+        let items = this._items;
+        this._items = [];
+        this._callbacks.forEach((callback) =>
             callback({
                 action: CollectionAction.remove,
                 items,
@@ -89,14 +89,14 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     get length() {
-        return this.#items.length;
+        return this._items.length;
     }
 
     replace(index: number, ...items: T[]) {
-        if (index >= 0 && index < this.#items.length) {
-            let item = this.#items[index];
-            this.#items.splice(index, 1, ...items);
-            this.#callbacks.forEach((callback) =>
+        if (index >= 0 && index < this._items.length) {
+            let item = this._items[index];
+            this._items.splice(index, 1, ...items);
+            this._callbacks.forEach((callback) =>
                 callback({
                     action: CollectionAction.replace,
                     item,
@@ -115,7 +115,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     get items() {
-        return [...this.#items];
+        return [...this._items];
     }
 
     [Symbol.iterator]() {
@@ -123,36 +123,36 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     item(index: number) {
-        return this.#items[index];
+        return this._items[index];
     }
 
     at(index: number) {
-        return this.#items.at(index);
+        return this._items.at(index);
     }
 
     indexOf(item: T, fromIndex: number | undefined) {
-        return this.#items.indexOf(item, fromIndex);
+        return this._items.indexOf(item, fromIndex);
     }
 
     contains(item: T) {
-        return this.#items.indexOf(item) !== -1;
+        return this._items.indexOf(item) !== -1;
     }
 
     get count() {
-        return this.#items.length;
+        return this._items.length;
     }
 
     onCollectionChanged(callback: (args: CollectionChangedArgs) => void): void {
-        this.#callbacks.add(callback);
+        this._callbacks.add(callback);
     }
 
     removeCollectionChanged(callback: (args: CollectionChangedArgs) => void): void {
-        this.#callbacks.delete(callback);
+        this._callbacks.delete(callback);
     }
 
     dispose() {
-        this.#callbacks.clear();
-        this.#items.length = 0;
+        this._callbacks.clear();
+        this._items.length = 0;
     }
 }
 

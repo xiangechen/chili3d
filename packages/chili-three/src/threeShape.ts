@@ -62,8 +62,8 @@ const selectedFaceMaterial = new MeshStandardMaterial({
 });
 
 export class ThreeShape extends Object3D implements IVisualShape {
-    readonly #highlightedFaces: Map<number, Mesh> = new Map();
-    readonly #highlightedEdges: Map<number, LineSegments> = new Map();
+    private readonly _highlightedFaces: Map<number, Mesh> = new Map();
+    private readonly _highlightedEdges: Map<number, LineSegments> = new Map();
 
     private _faceMaterial = new MeshStandardMaterial({
         side: DoubleSide,
@@ -210,27 +210,27 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.highlighter.removeAllStates(this, false);
         if (this._edges) this._edges.material = this._edgeMaterial;
         if (this._faces) this._faces.material = this._faceMaterial;
-        this.#highlightedEdges.forEach((_, index) => this.removeEdge(index));
-        this.#highlightedFaces.forEach((_, index) => this.removeFace(index));
-        this.#highlightedEdges.clear();
-        this.#highlightedFaces.clear();
+        this._highlightedEdges.forEach((_, index) => this.removeEdge(index));
+        this._highlightedFaces.forEach((_, index) => this.removeFace(index));
+        this._highlightedEdges.clear();
+        this._highlightedFaces.clear();
     }
 
     private removeEdge(index: number) {
-        let edge = this.#highlightedEdges.get(index);
+        let edge = this._highlightedEdges.get(index);
         if (edge) {
             this.remove(edge);
             edge.geometry.dispose();
-            this.#highlightedEdges.delete(index);
+            this._highlightedEdges.delete(index);
         }
     }
 
     private removeFace(index: number) {
-        let face = this.#highlightedFaces.get(index);
+        let face = this._highlightedFaces.get(index);
         if (face) {
             this.remove(face);
             face.geometry.dispose();
-            this.#highlightedFaces.delete(index);
+            this._highlightedFaces.delete(index);
         }
     }
 
@@ -245,12 +245,12 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let material = VisualState.hasState(state, VisualState.selected)
             ? selectedEdgeMaterial
             : hilightEdgeMaterial;
-        if (this.#highlightedEdges.has(index)) {
-            this.#highlightedEdges.get(index)!.material = material;
+        if (this._highlightedEdges.has(index)) {
+            this._highlightedEdges.get(index)!.material = material;
         } else {
             let edge = this.cloneSubEdge(index, material);
             this.add(edge);
-            this.#highlightedEdges.set(index, edge);
+            this._highlightedEdges.set(index, edge);
         }
     }
 
@@ -276,13 +276,13 @@ export class ThreeShape extends Object3D implements IVisualShape {
         let material = VisualState.hasState(state, VisualState.selected)
             ? selectedFaceMaterial
             : highlightFaceMaterial;
-        if (this.#highlightedFaces.has(index)) {
-            this.#highlightedFaces.get(index)!.material = material;
+        if (this._highlightedFaces.has(index)) {
+            this._highlightedFaces.get(index)!.material = material;
         } else {
             let face = this.cloneSubFace(index, material);
             if (face) {
                 this.add(face);
-                this.#highlightedFaces.set(index, face);
+                this._highlightedFaces.set(index, face);
             }
         }
     }

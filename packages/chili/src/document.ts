@@ -37,23 +37,23 @@ export class Document extends Observable implements IDocument {
     set name(name: string) {
         if (this.name === name) return;
         this.setProperty("name", name);
-        if (this.#rootNode) this.#rootNode.name = name;
+        if (this._rootNode) this._rootNode.name = name;
     }
 
-    #rootNode: INodeLinkedList | undefined;
+    private _rootNode: INodeLinkedList | undefined;
     @Serializer.serialze()
     get rootNode(): INodeLinkedList {
-        if (this.#rootNode === undefined) {
+        if (this._rootNode === undefined) {
             this.setRootNode(new NodeLinkedList(this, this._name));
         }
-        return this.#rootNode!;
+        return this._rootNode!;
     }
 
     private setRootNode(value?: INodeLinkedList) {
-        if (this.#rootNode === value) return;
-        this.#rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this.#rootNode = value ?? new NodeLinkedList(this, this._name);
-        this.#rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
+        if (this._rootNode === value) return;
+        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
+        this._rootNode = value ?? new NodeLinkedList(this, this._name);
+        this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
     private _currentNode?: INodeLinkedList;
@@ -102,9 +102,9 @@ export class Document extends Observable implements IDocument {
         this.visual.dispose();
         this.history.dispose();
         this.selection.dispose();
-        this.#rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this.#rootNode?.dispose();
-        this.#rootNode = undefined;
+        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
+        this._rootNode?.dispose();
+        this._rootNode = undefined;
         this._currentNode = undefined;
     }
 

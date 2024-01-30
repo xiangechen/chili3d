@@ -8,28 +8,28 @@ export interface AsyncResult {
 }
 
 export class AsyncController implements IDisposable {
-    readonly #failHandles: ((state: AsyncResult) => void)[] = [];
-    readonly #successHandles: ((state: AsyncResult) => void)[] = [];
+    private readonly _failHandles: ((state: AsyncResult) => void)[] = [];
+    private readonly _successHandles: ((state: AsyncResult) => void)[] = [];
 
-    #result: AsyncResult | undefined;
+    private _result: AsyncResult | undefined;
     get result() {
-        return this.#result;
+        return this._result;
     }
 
     reset() {
-        this.#result = undefined;
+        this._result = undefined;
     }
 
     fail = (message?: string) => {
-        this.handle(this.#failHandles, "fail", message);
+        this.handle(this._failHandles, "fail", message);
     };
 
     cancel = (message?: string) => {
-        this.handle(this.#failHandles, "cancel", message);
+        this.handle(this._failHandles, "cancel", message);
     };
 
     success = (message?: string) => {
-        this.handle(this.#successHandles, "success", message);
+        this.handle(this._successHandles, "success", message);
     };
 
     private handle(
@@ -37,22 +37,22 @@ export class AsyncController implements IDisposable {
         status: "success" | "cancel" | "fail",
         message?: string,
     ) {
-        if (this.#result === undefined) {
-            this.#result = { status, message };
-            handlers.forEach((x) => x(this.#result!));
+        if (this._result === undefined) {
+            this._result = { status, message };
+            handlers.forEach((x) => x(this._result!));
         }
     }
 
     onCancelled(listener: (result: AsyncResult) => void): void {
-        this.#failHandles.push(listener);
+        this._failHandles.push(listener);
     }
 
     onCompleted(listener: (result: AsyncResult) => void): void {
-        this.#successHandles.push(listener);
+        this._successHandles.push(listener);
     }
 
     dispose() {
-        this.#failHandles.length = 0;
-        this.#successHandles.length = 0;
+        this._failHandles.length = 0;
+        this._successHandles.length = 0;
     }
 }

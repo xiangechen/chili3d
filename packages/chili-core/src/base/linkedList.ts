@@ -7,32 +7,32 @@ interface LinkedListNode<T> {
 }
 
 export class LinkedList<T> {
-    #head: LinkedListNode<T> | undefined;
+    private _head: LinkedListNode<T> | undefined;
     get head() {
-        return this.#head?.data;
+        return this._head?.data;
     }
 
-    #tail: LinkedListNode<T> | undefined;
+    private _tail: LinkedListNode<T> | undefined;
     get tail() {
-        return this.#tail?.data;
+        return this._tail?.data;
     }
 
-    #size: number = 0;
+    private _size: number = 0;
     get size() {
-        return this.#size;
+        return this._size;
     }
 
     push(...items: T[]) {
         items.forEach((item) => {
             const node: LinkedListNode<T> = { data: item };
-            if (this.#head === undefined) {
-                this.#head = node;
+            if (this._head === undefined) {
+                this._head = node;
             } else {
-                this.#tail!.next = node;
-                node.prev = this.#tail;
+                this._tail!.next = node;
+                node.prev = this._tail;
             }
-            this.#tail = node;
-            this.#size++;
+            this._tail = node;
+            this._size++;
         });
     }
 
@@ -47,15 +47,15 @@ export class LinkedList<T> {
             if (node.prev) {
                 node.prev.next = newNode;
             } else {
-                this.#head = newNode;
+                this._head = newNode;
             }
             node.prev = newNode;
-            this.#size++;
+            this._size++;
         }
     }
 
     remove(item: T) {
-        let current = this.#head;
+        let current = this._head;
         while (current) {
             if (current.data === item) {
                 this.removeNode(current);
@@ -74,23 +74,22 @@ export class LinkedList<T> {
         if (node.prev) {
             node.prev.next = node.next;
         } else {
-            this.#head = node.next;
+            this._head = node.next;
         }
         if (node.next) {
             node.next.prev = node.prev;
         } else {
-            this.#tail = node.prev;
+            this._tail = node.prev;
         }
-        this.#size--;
-        return;
+        this._size--;
     }
 
     private nodeAt(index: number) {
-        if (index < 0 || index >= this.#size) {
+        if (index < 0 || index >= this._size) {
             return undefined;
         }
-        if (index === this.#size - 1) return this.#tail;
-        let [current, currentIndex] = [this.#head, 0];
+        if (index === this._size - 1) return this._tail;
+        let [current, currentIndex] = [this._head, 0];
         while (current) {
             if (currentIndex === index) {
                 break;
@@ -102,26 +101,26 @@ export class LinkedList<T> {
     }
 
     clear() {
-        this.#head = undefined;
-        this.#tail = undefined;
-        this.#size = 0;
+        this._head = undefined;
+        this._tail = undefined;
+        this._size = 0;
     }
 
     reverse() {
-        let currentNode = this.#head;
+        let currentNode = this._head;
         while (currentNode) {
             const next = currentNode.next;
             currentNode.next = currentNode.prev;
             currentNode.prev = next;
             currentNode = currentNode.prev;
         }
-        const tail = this.#tail;
-        this.#tail = this.#head;
-        this.#head = tail;
+        const tail = this._tail;
+        this._tail = this._head;
+        this._head = tail;
     }
 
     *[Symbol.iterator](): IterableIterator<T> {
-        let current = this.#head;
+        let current = this._head;
         while (current) {
             yield current.data;
             current = current.next;

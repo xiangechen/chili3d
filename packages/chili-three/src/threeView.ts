@@ -40,14 +40,14 @@ import { ThreeVisualContext } from "./threeVisualContext";
 import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
-    #dom?: HTMLElement;
-    #resizeObserver: ResizeObserver;
+    private _dom?: HTMLElement;
+    private _resizeObserver: ResizeObserver;
 
     private _scene: Scene;
     private _renderer: Renderer;
     private _workplane: Plane;
     private _needsUpdate: boolean = false;
-    readonly #gizmo: ViewGizmo;
+    private readonly _gizmo: ViewGizmo;
     readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 1.5);
 
@@ -79,17 +79,17 @@ export class ThreeView extends Observable implements IView {
         this._scene = content.scene;
         this._workplane = workplane;
         this._renderer = this.initRender();
-        let resizerObserverCallback = debounce(this.#resizerObserverCallback, 100);
-        this.#resizeObserver = new ResizeObserver(resizerObserverCallback);
+        let resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
+        this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._scene.add(this.dynamicLight);
-        this.#gizmo = new ViewGizmo(this);
+        this._gizmo = new ViewGizmo(this);
         this.animate();
     }
 
     override dispose(): void {
         super.dispose();
-        this.#resizeObserver.disconnect();
+        this._resizeObserver.disconnect();
     }
 
     close(): void {
@@ -100,9 +100,9 @@ export class ThreeView extends Observable implements IView {
         this.dispose();
     }
 
-    #resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
+    private _resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
         for (const entry of entries) {
-            if (entry.target === this.#dom) {
+            if (entry.target === this._dom) {
                 this.resize(entry.contentRect.width, entry.contentRect.height);
                 return;
             }
@@ -124,16 +124,16 @@ export class ThreeView extends Observable implements IView {
     }
 
     setDom(element: HTMLElement) {
-        if (this.#dom) {
-            this.#resizeObserver.unobserve(this.#dom);
+        if (this._dom) {
+            this._resizeObserver.unobserve(this._dom);
         }
-        this.#dom = element;
-        this.#gizmo.remove();
-        element.appendChild(this.#gizmo);
+        this._dom = element;
+        this._gizmo.remove();
+        element.appendChild(this._gizmo);
         this._renderer.domElement.remove();
         element.appendChild(this._renderer.domElement);
         this.resize(element.clientWidth, element.clientHeight);
-        this.#resizeObserver.observe(element);
+        this._resizeObserver.observe(element);
         this.cameraController.update();
     }
 
@@ -153,14 +153,14 @@ export class ThreeView extends Observable implements IView {
     setCursor(cursorType: CursorType): void {
         if (cursorType === CursorType.Default) {
             let classes = new Array<string>();
-            this.#dom?.classList.forEach((x) => {
+            this._dom?.classList.forEach((x) => {
                 if (x.includes("Cursor")) {
                     classes.push(x);
                 }
             });
-            this.#dom?.classList.remove(...classes);
+            this._dom?.classList.remove(...classes);
         }
-        if (CursorType.Drawing === cursorType) this.#dom?.classList.add("drawingCursor");
+        if (CursorType.Drawing === cursorType) this._dom?.classList.add("drawingCursor");
     }
 
     update() {
@@ -174,7 +174,7 @@ export class ThreeView extends Observable implements IView {
         if (this._needsUpdate) {
             this._renderer.render(this._scene, this.camera);
             this.dynamicLight.position.copy(this.camera.position);
-            this.#gizmo.update();
+            this._gizmo.update();
             this._needsUpdate = false;
         }
     }
@@ -191,11 +191,11 @@ export class ThreeView extends Observable implements IView {
     }
 
     get width() {
-        return this.#dom?.clientWidth;
+        return this._dom?.clientWidth;
     }
 
     get height() {
-        return this.#dom?.clientHeight;
+        return this._dom?.clientHeight;
     }
 
     screenToCameraRect(mx: number, my: number) {

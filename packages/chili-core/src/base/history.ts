@@ -10,48 +10,48 @@ export interface IHistoryRecord {
 }
 
 export class History implements IDisposable {
-    #undos: IHistoryRecord[] = [];
-    #redos: IHistoryRecord[] = [];
+    private _undos: IHistoryRecord[] = [];
+    private _redos: IHistoryRecord[] = [];
 
     disabled: boolean = false;
     undoLimits: number = 50;
 
     dispose(): void {
-        this.#undos.length = 0;
-        this.#redos.length = 0;
+        this._undos.length = 0;
+        this._redos.length = 0;
     }
 
     add(record: IHistoryRecord) {
-        this.#redos.length = 0;
-        this.#undos.push(record);
-        if (this.#undos.length > this.undoLimits) {
-            this.#undos = this.#undos.slice(this.#undos.length - this.undoLimits);
+        this._redos.length = 0;
+        this._undos.push(record);
+        if (this._undos.length > this.undoLimits) {
+            this._undos = this._undos.slice(this._undos.length - this.undoLimits);
         }
     }
 
     undoCount() {
-        return this.#undos.length;
+        return this._undos.length;
     }
 
     redoCount() {
-        return this.#redos.length;
+        return this._redos.length;
     }
 
     undo() {
         this.tryOperate(() => {
-            let records = this.#undos.pop();
+            let records = this._undos.pop();
             if (records === undefined) return;
             records.undo();
-            this.#redos.push(records);
+            this._redos.push(records);
         });
     }
 
     redo() {
         this.tryOperate(() => {
-            let records = this.#redos.pop();
+            let records = this._redos.pop();
             if (records === undefined) return;
             records.redo();
-            this.#undos.push(records);
+            this._undos.push(records);
         });
     }
 

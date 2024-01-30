@@ -4,24 +4,24 @@ import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 import { Binding } from "./binding";
 
 export abstract class BindableElement extends HTMLElement implements IDisposable {
-    readonly #bindings: Binding<any>[] = [];
+    private readonly _bindings: Binding<any>[] = [];
 
     bind<T extends IPropertyChanged>(dataContext: T, path: keyof T, converter?: IConverter): Binding {
         let binding = new Binding(dataContext, path, converter);
-        this.#bindings.push(binding);
+        this._bindings.push(binding);
         return binding as any;
     }
 
     connectedCallback() {
-        this.#bindings.forEach((binding) => binding.startObserver());
+        this._bindings.forEach((binding) => binding.startObserver());
     }
 
     disconnectedCallback() {
-        this.#bindings.forEach((binding) => binding.stopObserver());
+        this._bindings.forEach((binding) => binding.stopObserver());
     }
 
     dispose(): void {
-        this.#bindings.forEach((binding) => binding.dispose());
-        this.#bindings.length = 0;
+        this._bindings.forEach((binding) => binding.dispose());
+        this._bindings.length = 0;
     }
 }

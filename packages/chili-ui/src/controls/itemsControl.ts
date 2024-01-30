@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { SelectableItems } from "chili-core";
-import style from "./itemsControl.module.css";
 import { div, input, li, span, ul } from "./controls";
+import style from "./itemsControl.module.css";
 
 export class RadioGroup extends HTMLElement {
     constructor(
@@ -29,14 +29,14 @@ export class RadioGroup extends HTMLElement {
     }
 
     connectedCallback() {
-        this.addEventListener("click", this.#onClick);
+        this.addEventListener("click", this._onClick);
     }
 
     disconnectedCallback() {
-        this.removeEventListener("click", this.#onClick);
+        this.removeEventListener("click", this._onClick);
     }
 
-    #onClick = (e: MouseEvent) => {
+    private _onClick = (e: MouseEvent) => {
         const target = e.target as HTMLInputElement;
         if (target?.type === "radio") {
             this.querySelectorAll("input").forEach((x) => {

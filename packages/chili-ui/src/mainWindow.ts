@@ -9,12 +9,12 @@ import { Toast } from "./toast";
 document.oncontextmenu = (e) => e.preventDefault();
 
 export class MainWindow {
-    static readonly #instance = new MainWindow();
+    private static readonly _instance = new MainWindow();
     static get instance() {
-        return this.#instance;
+        return this._instance;
     }
 
-    #home?: HTMLElement;
+    private _home?: HTMLElement;
 
     private constructor() {
         this.setTheme("light");
@@ -31,9 +31,9 @@ export class MainWindow {
     }
 
     private displayHome = (app: IApplication, displayHome: boolean) => {
-        if (this.#home) {
-            this.#home.remove();
-            this.#home = undefined;
+        if (this._home) {
+            this._home.remove();
+            this._home = undefined;
         }
         if (displayHome) {
             this._initHome(app);
@@ -41,8 +41,8 @@ export class MainWindow {
     };
 
     private async _initHome(app: IApplication) {
-        this.#home = await Home(app);
-        document.body.append(this.#home);
+        this._home = await Home(app);
+        document.body.append(this._home);
     }
 
     setTheme(theme: "light" | "dark") {

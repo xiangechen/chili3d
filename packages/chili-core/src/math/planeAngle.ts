@@ -5,12 +5,12 @@ import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
 export class PlaneAngle {
-    #preDotX: number = 1;
-    #preDotY: number = 0;
-    #reverse: boolean = false;
-    #angle: number = 0;
+    private _preDotX: number = 1;
+    private _preDotY: number = 0;
+    private _reverse: boolean = false;
+    private _angle: number = 0;
     get angle() {
-        return this.#angle;
+        return this._angle;
     }
 
     constructor(readonly plane: Plane) {}
@@ -21,22 +21,22 @@ export class PlaneAngle {
         let dotY = vec.dot(this.plane.yvec);
 
         if (
-            ((this.#preDotY < -Precision.Distance &&
+            ((this._preDotY < -Precision.Distance &&
                 dotY > Precision.Distance &&
-                this.#angle < Precision.Distance) ||
-                (this.#preDotY > -Precision.Distance &&
+                this._angle < Precision.Distance) ||
+                (this._preDotY > -Precision.Distance &&
                     dotY < -Precision.Distance &&
-                    this.#angle > -Precision.Distance)) && // 确保穿过 0
-            this.#preDotX > 0 &&
+                    this._angle > -Precision.Distance)) && // 确保穿过 0
+            this._preDotX > 0 &&
             dotX > 0
         ) {
-            this.#reverse = !this.#reverse;
+            this._reverse = !this._reverse;
         }
-        this.#angle = (this.plane.xvec.angleOnPlaneTo(vec, this.plane.normal)! * 180) / Math.PI;
-        if (this.#reverse) {
-            this.#angle -= 360;
+        this._angle = (this.plane.xvec.angleOnPlaneTo(vec, this.plane.normal)! * 180) / Math.PI;
+        if (this._reverse) {
+            this._angle -= 360;
         }
-        if (Math.abs(dotX) > Precision.Distance) this.#preDotX = dotX;
-        if (Math.abs(dotY) > Precision.Distance) this.#preDotY = dotY;
+        if (Math.abs(dotX) > Precision.Distance) this._preDotX = dotX;
+        if (Math.abs(dotY) > Precision.Distance) this._preDotY = dotY;
     }
 }

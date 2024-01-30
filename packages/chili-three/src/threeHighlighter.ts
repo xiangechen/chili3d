@@ -3,19 +3,19 @@
 import { IHighlighter, IVisualShape, ShapeType, VisualState } from "chili-core";
 
 export class ThreeHighlighter implements IHighlighter {
-    readonly #stateMap = new Map<IVisualShape, Map<string, VisualState>>();
+    private readonly _stateMap = new Map<IVisualShape, Map<string, VisualState>>();
 
     clear(): void {
-        this.#stateMap.forEach((v, k) => {
+        this._stateMap.forEach((v, k) => {
             this.removeAllStates(k, true);
         });
-        this.#stateMap.clear();
+        this._stateMap.clear();
     }
 
     removeAllStates(shape: IVisualShape, resetState: boolean): void {
-        if (!this.#stateMap.has(shape)) return;
-        this.#stateMap.get(shape)!.clear();
-        this.#stateMap.delete(shape);
+        if (!this._stateMap.has(shape)) return;
+        this._stateMap.get(shape)!.clear();
+        this._stateMap.delete(shape);
         if (resetState) shape.resetState();
     }
 
@@ -26,10 +26,10 @@ export class ThreeHighlighter implements IHighlighter {
         type: ShapeType,
         index?: number,
     ) {
-        let map = this.#stateMap.get(shape);
+        let map = this._stateMap.get(shape);
         if (!map) {
             map = new Map();
-            this.#stateMap.set(shape, map);
+            this._stateMap.set(shape, map);
         }
 
         const key = `${type}_${index}`;

@@ -19,33 +19,33 @@ export namespace ICommand {
 }
 
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
-    static readonly #propertiesCache: Map<string, any> = new Map(); // 所有命令共享
+    private static readonly _propertiesCache: Map<string, any> = new Map(); // 所有命令共享
 
-    #complete: boolean = false;
+    private _complete: boolean = false;
     get complete() {
-        return this.#complete;
+        return this._complete;
     }
 
-    #application: IApplication | undefined;
+    private _application: IApplication | undefined;
     get application() {
-        if (!this.#application) {
+        if (!this._application) {
             throw new Error("application is not set");
         }
-        return this.#application;
+        return this._application;
     }
 
     get document() {
-        return this.#application!.activeDocument!;
+        return this._application!.activeDocument!;
     }
 
-    #controller?: AsyncController;
+    private _controller?: AsyncController;
     protected get controller() {
-        return this.#controller;
+        return this._controller;
     }
     protected set controller(value: AsyncController | undefined) {
-        if (this.#controller === value) return;
-        this.#controller?.dispose();
-        this.#controller = value;
+        if (this._controller === value) return;
+        this._controller?.dispose();
+        this._controller = value;
     }
 
     @Property.define("common.cancel")
@@ -53,7 +53,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.controller?.cancel();
         await new Promise(async (resolve) => {
             while (true) {
-                if (this.#complete) {
+                if (this._complete) {
                     break;
                 }
                 await new Promise((r) => setTimeout(r, 50));
@@ -64,7 +64,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
 
     async execute(application: IApplication): Promise<void> {
         if (!application.activeDocument) return;
-        this.#application = application;
+        this._application = application;
         try {
             let canExcute = await this.beforeExecute();
             if (canExcute) {
@@ -87,15 +87,15 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
         this.controller?.dispose();
-        this.#complete = true;
+        this._complete = true;
         return Promise.resolve();
     }
 
     private readProperties() {
         Property.getProperties(this).forEach((x) => {
             let key = this.cacheKeyOfProperty(x);
-            if (CancelableCommand.#propertiesCache.has(key)) {
-                (this as any)[key] = CancelableCommand.#propertiesCache.get(key);
+            if (CancelableCommand._propertiesCache.has(key)) {
+                (this as any)[key] = CancelableCommand._propertiesCache.get(key);
             }
         });
     }
@@ -105,7 +105,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
             let key = this.cacheKeyOfProperty(x);
             let prop = (this as any)[key];
             if (typeof prop === "function") return;
-            CancelableCommand.#propertiesCache.set(key, prop);
+            CancelableCommand._propertiesCache.set(key, prop);
         });
     }
 

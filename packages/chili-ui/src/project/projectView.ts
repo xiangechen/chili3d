@@ -8,11 +8,11 @@ import { BindableElement, div, localize, span } from "../controls";
 import style from "./projectView.module.css";
 
 export class ProjectView extends BindableElement {
-    readonly #documentTreeMap = new WeakMap<IDocument, Tree>();
+    private readonly _documentTreeMap = new WeakMap<IDocument, Tree>();
 
-    #activeDocument: IDocument | undefined;
+    private _activeDocument: IDocument | undefined;
     get activeDocument() {
-        return this.#activeDocument;
+        return this._activeDocument;
     }
 
     private panel: HTMLDivElement;
@@ -39,29 +39,29 @@ export class ProjectView extends BindableElement {
     }
 
     activeTree() {
-        if (!this.#activeDocument) return undefined;
-        return this.#documentTreeMap.get(this.#activeDocument);
+        if (!this._activeDocument) return undefined;
+        return this._documentTreeMap.get(this._activeDocument);
     }
 
     private handleDocumentClosed = (document: IDocument) => {
-        let tree = this.#documentTreeMap.get(document);
+        let tree = this._documentTreeMap.get(document);
         if (tree) this.panel.removeChild(tree);
-        this.#documentTreeMap.delete(document);
-        this.#activeDocument = undefined;
+        this._documentTreeMap.delete(document);
+        this._activeDocument = undefined;
     };
 
     private handleactiveDocumentChanged = (document: IDocument | undefined) => {
-        if (this.#activeDocument !== undefined && this.#documentTreeMap.has(this.#activeDocument)) {
-            let tree = this.#documentTreeMap.get(this.#activeDocument)!;
+        if (this._activeDocument !== undefined && this._documentTreeMap.has(this._activeDocument)) {
+            let tree = this._documentTreeMap.get(this._activeDocument)!;
             this.panel.removeChild(tree);
         }
-        this.#activeDocument = document;
+        this._activeDocument = document;
         if (document === undefined) return;
 
-        let tree = this.#documentTreeMap.get(document);
+        let tree = this._documentTreeMap.get(document);
         if (tree === undefined) {
             tree = new Tree(document);
-            this.#documentTreeMap.set(document, tree);
+            this._documentTreeMap.set(document, tree);
         }
         this.panel.append(tree);
     };

@@ -37,7 +37,7 @@ abstract class ConvertCommand extends CancelableCommand {
                 return shape.shapeType === ShapeType.Edge || shape.shapeType === ShapeType.Wire;
             },
         };
-        let models = this.#getSelectedModels(document, filter);
+        let models = this._getSelectedModels(document, filter);
         if (models.length > 0) return models;
         document.selection.clearSelected();
         let step = new SelectModelStep("prompt.select.models", true);
@@ -46,7 +46,7 @@ abstract class ConvertCommand extends CancelableCommand {
         return data?.models;
     }
 
-    #getSelectedModels(document: IDocument, filter?: IShapeFilter) {
+    private _getSelectedModels(document: IDocument, filter?: IShapeFilter) {
         return document.selection
             .getSelectedNodes()
             .map((x) => x as GeometryModel)

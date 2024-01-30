@@ -23,7 +23,7 @@ import { CreateCommand } from "./createCommand";
 })
 export class Arc extends CreateCommand {
     private static count: number = 1;
-    #planeAngle: PlaneAngle | undefined;
+    private _planeAngle: PlaneAngle | undefined;
 
     getSteps(): IStep[] {
         let centerStep = new PointStep("operate.pickCircleCenter");
@@ -59,16 +59,16 @@ export class Arc extends CreateCommand {
             VertexMeshData.from(center, 5, Colors.Red),
             VertexMeshData.from(p1, 5, Colors.Red),
         ];
-        this.#planeAngle = new PlaneAngle(plane);
+        this._planeAngle = new PlaneAngle(plane);
         return {
             dimension: Dimension.D1D2,
             preview: (point: XYZ) => {
-                this.#planeAngle!.movePoint(point);
+                this._planeAngle!.movePoint(point);
                 let result = [...points];
-                if (Math.abs(this.#planeAngle!.angle) > Precision.Angle) {
+                if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
                     result.push(
                         this.application.shapeFactory
-                            .arc(plane.normal, center, p1, this.#planeAngle!.angle)
+                            .arc(plane.normal, center, p1, this._planeAngle!.angle)
                             .unwrap().mesh.edges!,
                     );
                 }
@@ -87,8 +87,8 @@ export class Arc extends CreateCommand {
     create(): GeometryModel {
         let [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
-        this.#planeAngle?.movePoint(this.stepDatas[2].point!);
-        let body = new ArcBody(this.document, plane.normal, p0, p1, this.#planeAngle!.angle);
+        this._planeAngle?.movePoint(this.stepDatas[2].point!);
+        let body = new ArcBody(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
         return new GeometryModel(this.document, `Arc ${Arc.count++}`, body);
     }
 

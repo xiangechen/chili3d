@@ -5,34 +5,34 @@ import { Flyout } from "../components";
 import { BindableElement } from "../controls";
 
 export class Viewport extends BindableElement {
-    #flyout?: Flyout;
-    readonly #eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
+    private _flyout?: Flyout;
+    private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
 
     constructor(readonly view: IView) {
         super();
         this.initEvent();
-        view.onPropertyChanged(this.#onViewClosed);
-        this.addEventListener("mousemove", this.#handleFlyoutMove);
+        view.onPropertyChanged(this._onViewClosed);
+        this.addEventListener("mousemove", this._handleFlyoutMove);
     }
 
     setActive(actived: boolean) {
-        this.#flyout?.remove();
-        this.#flyout = undefined;
+        this._flyout?.remove();
+        this._flyout = undefined;
 
         if (actived) {
-            this.#flyout = new Flyout();
-            document.body.appendChild(this.#flyout);
+            this._flyout = new Flyout();
+            document.body.appendChild(this._flyout);
         }
     }
 
-    #handleFlyoutMove(e: MouseEvent) {
-        if (this.#flyout) {
-            this.#flyout.style.top = e.clientY + "px";
-            this.#flyout.style.left = e.clientX + "px";
+    private _handleFlyoutMove(e: MouseEvent) {
+        if (this._flyout) {
+            this._flyout.style.top = e.clientY + "px";
+            this._flyout.style.left = e.clientX + "px";
         }
     }
 
-    #onViewClosed = (prop: keyof IView) => {
+    private _onViewClosed = (prop: keyof IView) => {
         if (prop === "isClosed") {
             this.remove();
             this.dispose();
@@ -63,14 +63,14 @@ export class Viewport extends BindableElement {
             handler(this.view, e);
         };
         this.addEventListener(type, listener);
-        this.#eventCaches.push([type, listener]);
+        this._eventCaches.push([type, listener]);
     }
 
     private removeEvents() {
-        this.#eventCaches.forEach((x) => {
+        this._eventCaches.forEach((x) => {
             this.removeEventListener(x[0], x[1]);
         });
-        this.#eventCaches.length = 0;
+        this._eventCaches.length = 0;
     }
 
     private pointerMove = (view: IView, event: PointerEvent) => {
