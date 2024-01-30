@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IApplication, ICommand, Serialized, command, readFileAsync } from "chili-core";
+import { IApplication, ICommand, IView, PubSub, Serialized, command, readFileAsync } from "chili-core";
 
 @command({
     name: "doc.open",
@@ -9,22 +9,11 @@ import { IApplication, ICommand, Serialized, command, readFileAsync } from "chil
 })
 export class OpenDocument implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let input = document.createElement("input");
-        input.type = "file";
-        input.style.visibility = "hidden";
-        input.accept = ".cd";
-        input.onchange = () => {
-            let file = input.files?.item(0);
-            if (!file) return;
-            let reader = new FileReader();
-            reader.onload = async (e) => {
-                let data = e.target?.result as string;
-                let json: Serialized = JSON.parse(data);
-                await app.loadDocument(json);
-            };
-            reader.readAsText(file);
-        };
-        document.body.appendChild(input);
-        input.click();
+        let files = await readFileAsync(".cd", false);
+        if (files.status === "success") {
+            let json: Serialized = JSON.parse(files.value[0].data);
+            let document = await app.loadDocument(json);
+            document.visual.viewer.activeView?.cameraController.fitContent();
+        }
     }
 }

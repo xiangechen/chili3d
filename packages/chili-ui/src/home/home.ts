@@ -54,8 +54,9 @@ export const Home = async (app: IApplication) => {
                     div(
                         {
                             className: style.document,
-                            onclick: () => {
-                                app.openDocument(item.id);
+                            onclick: async () => {
+                                let document = await app.openDocument(item.id);
+                                document?.visual.viewer.activeView?.cameraController.fitContent();
                             },
                         },
                         img({ className: style.img, src: item.image }),
