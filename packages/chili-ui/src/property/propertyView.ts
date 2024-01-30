@@ -22,6 +22,7 @@ import style from "./propertyView.module.css";
 
 export class PropertyView extends BindableElement {
     private panel = div({ className: style.panel });
+
     constructor(props: { className: string }) {
         super();
         this.classList.add(props.className, style.root);

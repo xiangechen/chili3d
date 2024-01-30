@@ -102,7 +102,7 @@ export default {
         "prompt.select.noModelSelected": "No model selected",
         "prompt.saveDocument{0}": "Do you want to save the changes to {0}?",
         "prompt.deleteDocument{0}": "Do you want to delete {0}?",
-        "error.default": "",
+        "error.default": "error",
         "error.input.unsupportedInputs": "Exceeds the maximum number of inputs",
         "error.input.invalidNumber": "Please enter a valid number, separated by ,",
         "error.input.threeNumberCanBeInput": "Reference point is empty, only 3 numbers can be entered",

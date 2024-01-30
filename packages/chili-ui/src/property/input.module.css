@@ -1,13 +1,3 @@
-.error {
-    font-size: x-small;
-    color: red;
-    position: absolute;
-}
-
-.hidden {
-    display: none;
-}
-
 .readonly {
     opacity: 0.56;
 }

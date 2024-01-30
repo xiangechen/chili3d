@@ -1,28 +1,60 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    I18n,
     IConverter,
     IDocument,
-    IPropertyChanged,
     NumberConverter,
     Property,
+    PubSub,
     Quaternion,
     QuaternionConverter,
+    Result,
     StringConverter,
     Transaction,
     XYZ,
     XYZConverter,
 } from "chili-core";
 
-import { div, input, span } from "../controls";
+import { div, input, localize, span } from "../controls";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
 
+class ArrayValueConverter implements IConverter {
+    constructor(
+        readonly objects: any[],
+        readonly property: Property,
+        readonly converter?: IConverter,
+    ) {}
+
+    convert(value: any): Result<string> {
+        return Result.success(this.getDefaultValue());
+    }
+
+    convertBack?(value: string): Result<any> {
+        throw new Error("Method not implemented.");
+    }
+
+    private getValueString(obj: any): string {
+        let value = obj[this.property.name];
+        let cvalue = this.converter?.convert(value);
+        return cvalue?.success ? cvalue.value : String(value);
+    }
+
+    private getDefaultValue() {
+        let value = this.getValueString(this.objects[0]);
+        for (let index = 1; index < this.objects.length; index++) {
+            const testValue = this.getValueString(this.objects[index]);
+            if (value !== testValue) {
+                value = "";
+                break;
+            }
+        }
+        return value;
+    }
+}
+
 export class InputProperty extends PropertyBase {
-    readonly valueBox: HTMLInputElement;
-    readonly error: HTMLSpanElement;
     readonly converter: IConverter | undefined;
 
     constructor(
@@ -33,46 +65,25 @@ export class InputProperty extends PropertyBase {
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
-        this.valueBox = input({
-            className: style.box,
-            value: this.getDefaultValue(),
-            readOnly: this.isReadOnly(),
-            onkeydown: this.handleKeyDown,
-        });
-        this.error = span({
-            classList: `${style.error} ${style.hidden}`,
-            textContent: I18n.translate("error.default"),
-        });
+        let arrayConverter = new ArrayValueConverter(objects, property, this.converter);
         this.append(
             div(
                 { className: commonStyle.panel },
                 showTitle
                     ? span({
                           className: commonStyle.propertyName,
-                          textContent: I18n.translate(property.display),
+                          textContent: localize(property.display),
                       })
                     : "",
-                this.valueBox,
+                input({
+                    className: style.box,
+                    value: this.bind(objects[0], property.name, arrayConverter),
+                    readOnly: this.isReadOnly(),
+                    onkeydown: this.handleKeyDown,
+                }),
             ),
-            this.error,
         );
     }
-
-    override connectedCallback(): void {
-        super.connectedCallback();
-        (this.objects.at(0) as IPropertyChanged)?.onPropertyChanged(this.handlePropertyChanged);
-    }
-
-    override disconnectedCallback(): void {
-        super.disconnectedCallback();
-        (this.objects.at(0) as IPropertyChanged)?.removePropertyChanged(this.handlePropertyChanged);
-    }
-
-    private handlePropertyChanged = (property: string) => {
-        if (property === this.property.name) {
-            this.valueBox.value = this.getValueString(this.objects[0]);
-        }
-    };
 
     private isReadOnly(): boolean {
         let des = Object.getOwnPropertyDescriptor(this.objects[0], this.property.name);
@@ -90,6 +101,24 @@ export class InputProperty extends PropertyBase {
         );
     }
 
+    private handleKeyDown = (e: KeyboardEvent) => {
+        e.stopPropagation();
+        if (this.converter === undefined) return;
+        if (e.key === "Enter") {
+            let newValue = this.converter.convertBack?.((e.target as HTMLInputElement).value);
+            if (!newValue?.success) {
+                PubSub.default.pub("showToast", "error.default");
+                return;
+            }
+            Transaction.excute(this.document, "modify property", () => {
+                this.objects.forEach((x) => {
+                    x[this.property.name] = newValue?.unwrap();
+                });
+                this.document.visual.viewer.update();
+            });
+        }
+    };
+
     private getConverter(): IConverter | undefined {
         let name = this.objects[0][this.property.name].constructor.name;
         if (name === XYZ.name) {
@@ -103,45 +132,6 @@ export class InputProperty extends PropertyBase {
         }
         return undefined;
     }
-
-    private getValueString(obj: any): string {
-        let value = obj[this.property.name];
-        let cvalue = this.converter?.convert(value);
-        return cvalue?.success ? cvalue.value : String(value);
-    }
-
-    private getDefaultValue() {
-        let value = this.getValueString(this.objects[0]);
-        for (let index = 1; index < this.objects.length; index++) {
-            const testValue = this.getValueString(this.objects[1]);
-            if (value !== testValue) {
-                value = "";
-                break;
-            }
-        }
-        return value;
-    }
-
-    private handleKeyDown = (e: KeyboardEvent) => {
-        e.stopPropagation();
-        if (this.converter === undefined) return;
-        if (e.key === "Enter") {
-            let newValue = this.converter.convertBack?.(this.valueBox.value);
-            if (!newValue?.success) {
-                this.error.textContent = newValue?.error ?? "error";
-                this.error.classList.add(style.hidden);
-                return;
-            }
-            Transaction.excute(this.document, "modify property", () => {
-                this.objects.forEach((x) => {
-                    x[this.property.name] = newValue?.unwrap();
-                });
-                this.document.visual.viewer.update();
-            });
-        } else {
-            this.error.classList.add(style.hidden);
-        }
-    };
 }
 
 customElements.define("chili-input-property", InputProperty);
