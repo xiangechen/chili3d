@@ -35,6 +35,7 @@ export class Import implements ICommand {
         Transaction.excute(document, "import model", () => {
             this.addImportedShape(document!, shape);
         });
+        document.visual.viewer.activeView?.cameraController.fitContent();
     }
 
     private addImportedShape = (document: IDocument, shape: [string | undefined, Result<IShape[]>]) => {
@@ -43,8 +44,8 @@ export class Import implements ICommand {
             return;
         }
         let shapes = shape[1].value.map((x) => {
-            let body = new ImportedBody(document!, x);
-            return new GeometryModel(document!, `Imported ${count++}`, body);
+            let body = new ImportedBody(document, x);
+            return new GeometryModel(document, `Imported ${count++}`, body);
         });
         let nodeList = new NodeLinkedList(document, shape[0]!);
         document.addNode(nodeList);
@@ -76,6 +77,7 @@ abstract class Export implements ICommand {
         let type = this.getType();
         let data = await this.convertShapeAsync(application, type);
         if (data) {
+            PubSub.default.pub("showToast", "toast.downloading");
             download([data.data], `${data.name}.${type}`);
         }
     }

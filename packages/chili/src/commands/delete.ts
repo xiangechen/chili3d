@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { command, IApplication, ICommand, Transaction } from "chili-core";
+import { command, IApplication, ICommand, PubSub, Transaction } from "chili-core";
 
 @command({
     name: "modify.delete",
@@ -16,6 +16,7 @@ export class Delete implements ICommand {
             document!.selection.clearSelected();
             models.forEach((model) => model.parent?.remove(model));
             document!.visual.viewer.update();
+            PubSub.default.pub("showToast", "toast.delete{0}Objects", models.length);
         });
     }
 }

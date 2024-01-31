@@ -10,6 +10,7 @@ import {
     LineType,
     Matrix4,
     Property,
+    PubSub,
     Transaction,
     XYZ,
 } from "chili-core";
@@ -56,7 +57,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             this.controller = new AsyncController();
             this.models = await Selection.pickModel(this.document, "prompt.select.models", this.controller);
             if (this.restarting || this.models.length === 0) {
-                alert(I18n.translate("prompt.select.noModelSelected"));
+                PubSub.default.pub("showToast", "prompt.select.noModelSelected");
                 return false;
             }
         }

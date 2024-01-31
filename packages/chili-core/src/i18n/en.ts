@@ -90,6 +90,10 @@ export default {
         "toast.converter.error": "Converter error",
         "toast.read.error": "Read error",
         "toast.select.noSelected": "No selected",
+        "toast.delete{0}Objects": "Deleted {0} objects",
+        "toast.downloading": "Downloading",
+        "toast.success": "Success",
+        "toast.fail": "Fail",
         "prompt.default":
             "Middle mouse button to pan the view, Shift + Middle button to rotate the view, Middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",
