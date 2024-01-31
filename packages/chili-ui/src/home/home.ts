@@ -54,9 +54,20 @@ export const Home = async (app: IApplication) => {
                     div(
                         {
                             className: style.document,
-                            onclick: async () => {
-                                let document = await app.openDocument(item.id);
-                                document?.visual.viewer.activeView?.cameraController.fitContent();
+                            onclick: () => {
+                                if (item.id === app.activeDocument?.id) {
+                                    PubSub.default.pub("displayHome", false);
+                                } else {
+                                    PubSub.default.pub(
+                                        "showPermanent",
+                                        async () => {
+                                            let document = await app.openDocument(item.id);
+                                            document?.visual.viewer.activeView?.cameraController.fitContent();
+                                        },
+                                        "toast.excuting{0}",
+                                        I18n.translate("command.document.open"),
+                                    );
+                                }
                             },
                         },
                         img({ className: style.img, src: item.image }),

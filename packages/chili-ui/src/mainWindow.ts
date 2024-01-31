@@ -5,6 +5,7 @@ import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
 import { Toast } from "./toast";
+import { Permanent } from "./permanent";
 
 document.oncontextmenu = (e) => e.preventDefault();
 
@@ -26,8 +27,9 @@ export class MainWindow {
         const displayHome = debounce(this.displayHome, 100);
         PubSub.default.sub("showToast", Toast.show);
         PubSub.default.sub("showDialog", Dialog.show);
+        PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeDocumentChanged", (doc) => displayHome(app, doc === undefined));
-        PubSub.default.sub("showHome", () => displayHome(app, true));
+        PubSub.default.sub("displayHome", (show) => displayHome(app, show));
     }
 
     private displayHome = (app: IApplication, displayHome: boolean) => {

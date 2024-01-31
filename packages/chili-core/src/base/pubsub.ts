@@ -34,8 +34,9 @@ export interface PubSubEventMap {
     clearSelectionControl: () => void;
     openCommandContext: (command: ICommand) => void;
     closeCommandContext: () => void;
-    showHome: () => void;
+    displayHome: (show: boolean) => void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
+    showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
     showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
 }
 

@@ -3,6 +3,7 @@
 import {
     AsyncController,
     GeometryModel,
+    I18n,
     IApplication,
     ICommand,
     IDocument,
@@ -29,13 +30,19 @@ let count = 1;
 })
 export class Import implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let document = application.activeDocument;
-        if (!document) return;
-        let shape = await this.readShape(application);
-        Transaction.excute(document, "import model", () => {
-            this.addImportedShape(document!, shape);
-        });
-        document.visual.viewer.activeView?.cameraController.fitContent();
+        if (!application.activeDocument) return;
+        PubSub.default.pub(
+            "showPermanent",
+            async () => {
+                let shape = await this.readShape(application);
+                Transaction.excute(application.activeDocument!, "import model", () => {
+                    this.addImportedShape(application.activeDocument!, shape);
+                });
+                application.activeDocument!.visual.viewer.activeView?.cameraController.fitContent();
+            },
+            "toast.excuting{0}",
+            I18n.translate("command.import"),
+        );
     }
 
     private addImportedShape = (document: IDocument, shape: [string | undefined, Result<IShape[]>]) => {
@@ -75,35 +82,43 @@ abstract class Export implements ICommand {
     async execute(application: IApplication): Promise<void> {
         if (!application.activeDocument) return;
         let type = this.getType();
-        let data = await this.convertShapeAsync(application, type);
-        if (data) {
-            PubSub.default.pub("showToast", "toast.downloading");
-            download([data.data], `${data.name}.${type}`);
-        }
-    }
-
-    abstract getType(): "iges" | "step";
-
-    protected async convertShapeAsync(application: IApplication, type: "iges" | "step") {
         let models = await this.selectModelsAsync(application);
         if (!models || models.length === 0) {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
-        let shapes = models.map((x) => x.shape()!);
-        let shapeString =
-            type === "iges"
-                ? application.shapeFactory.converter.convertToIGES(...shapes)
-                : application.shapeFactory.converter.convertToSTEP(...shapes);
-        if (!shapeString.success) {
-            PubSub.default.pub("showToast", "toast.converter.error");
-            return;
-        }
-        return {
-            name: `${models[0].name}`,
-            data: shapeString.value,
-        };
+
+        PubSub.default.pub(
+            "showPermanent",
+            async () => {
+                let shapes = models!.map((x) => x.shape()!);
+                let shapeString = await this.convertAsync(application, type, ...shapes);
+                if (!shapeString.success) {
+                    PubSub.default.pub("showToast", "toast.converter.error");
+                    return;
+                }
+                PubSub.default.pub("showToast", "toast.downloading");
+                download([shapeString.value], `${models![0].name}.${type}`);
+            },
+            "toast.excuting{0}",
+            "",
+        );
     }
+
+    private async convertAsync(
+        application: IApplication,
+        type: string,
+        ...shapes: IShape[]
+    ): Promise<Result<string>> {
+        await new Promise((r, j) => {
+            setTimeout(r, 50);
+        }); // 等待弹窗完成
+        return type === "iges"
+            ? application.shapeFactory.converter.convertToIGES(...shapes)
+            : application.shapeFactory.converter.convertToSTEP(...shapes);
+    }
+
+    abstract getType(): "iges" | "step";
 
     private async selectModelsAsync(application: IApplication) {
         let models = application

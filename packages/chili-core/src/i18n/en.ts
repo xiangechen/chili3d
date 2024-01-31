@@ -94,6 +94,7 @@ export default {
         "toast.downloading": "Downloading",
         "toast.success": "Success",
         "toast.fail": "Fail",
+        "toast.excuting{0}": "Excuting {0}",
         "prompt.default":
             "Middle mouse button to pan the view, Shift + Middle button to rotate the view, Middle button to scroll the zoom view",
         "prompt.select.models": "Please select models",

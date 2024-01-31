@@ -152,7 +152,7 @@ export class Ribbon extends BindableElement {
                 label({
                     textContent: localize("ribbon.tab.file"),
                     className: style.startup,
-                    onclick: () => PubSub.default.pub("showHome"),
+                    onclick: () => PubSub.default.pub("displayHome", true),
                 }),
                 items({
                     sources: dataContent.ribbonTabs,

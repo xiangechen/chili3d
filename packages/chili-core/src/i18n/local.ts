@@ -130,6 +130,7 @@ export type I18nKeys =
     | "toast.downloading"
     | "toast.success"
     | "toast.fail"
+    | "toast.excuting{0}"
     | "prompt.default"
     | "prompt.select.models"
     | "prompt.select.edges"

@@ -94,6 +94,7 @@ export default {
         "toast.downloading": "正在下载",
         "toast.success": "成功",
         "toast.fail": "失败",
+        "toast.excuting{0}": "正在执行{0}",
         "prompt.default": "鼠标中键平移视图，Shift + 中键旋转视图，中键滚动缩放视图",
         "prompt.polygon.close": "闭合",
         "prompt.select.models": "请选择模型",
