@@ -46,7 +46,17 @@ export class Application implements IApplication {
     ) {
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
+        window.onbeforeunload = this.handleWindowUnload;
     }
+
+    private handleWindowUnload = (event: BeforeUnloadEvent) => {
+        if (this.activeDocument) {
+            // Cancel the event as stated by the standard.
+            event.preventDefault();
+            // Chrome requires returnValue to be set.
+            event.returnValue = "";
+        }
+    };
 
     async openDocument(id: string): Promise<IDocument | undefined> {
         let document = await Document.open(this, id);
