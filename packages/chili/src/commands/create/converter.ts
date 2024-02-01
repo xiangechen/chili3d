@@ -8,6 +8,8 @@ import {
     IEdge,
     IModel,
     IShapeFilter,
+    PubSub,
+    Result,
     ShapeType,
     Transaction,
     command,
@@ -21,15 +23,23 @@ let count = 1;
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {
         let models = await this.getOrPickModels(this.document);
-        if (!models) return;
+        if (!models) {
+            PubSub.default.pub("showToast", "toast.select.noSelected");
+            return;
+        }
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let geometryModel = this.create(this.document, models!);
-            this.document.addNode(geometryModel);
-            this.document.visual.viewer.update();
+            if (!geometryModel.success) {
+                PubSub.default.pub("showToast", "toast.converter.error");
+            } else {
+                this.document.addNode(geometryModel.getValue()!);
+                this.document.visual.viewer.update();
+                PubSub.default.pub("showToast", "toast.success");
+            }
         });
     }
 
-    protected abstract create(document: IDocument, models: IModel[]): GeometryModel;
+    protected abstract create(document: IDocument, models: IModel[]): Result<GeometryModel>;
 
     async getOrPickModels(document: IDocument) {
         let filter: IShapeFilter = {
@@ -38,11 +48,12 @@ abstract class ConvertCommand extends CancelableCommand {
             },
         };
         let models = this._getSelectedModels(document, filter);
-        if (models.length > 0) return models;
         document.selection.clearSelected();
-        let step = new SelectModelStep("prompt.select.models", true);
+        if (models.length > 0) return models;
+        let step = new SelectModelStep("prompt.select.models", true, filter);
         this.controller = new AsyncController();
         let data = await step.execute(document, this.controller);
+        document.selection.clearSelected();
         return data?.models;
     }
 
@@ -66,11 +77,14 @@ abstract class ConvertCommand extends CancelableCommand {
     icon: "icon-toPoly",
 })
 export class ConvertToWire extends ConvertCommand {
-    protected override create(document: IDocument, models: IModel[]): GeometryModel {
+    protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
         let edges = models.map((x) => x.shape()) as IEdge[];
         let wireBody = new WireBody(document, edges);
+        if (!wireBody.shape.success) {
+            return Result.error(wireBody.shape.error);
+        }
         models.forEach((x) => x.parent?.remove(x));
-        return new GeometryModel(document, `Wire ${count++}`, wireBody);
+        return Result.success(new GeometryModel(document, `Wire ${count++}`, wireBody));
     }
 }
 
@@ -80,10 +94,13 @@ export class ConvertToWire extends ConvertCommand {
     icon: "icon-toFace",
 })
 export class ConvertToFace extends ConvertCommand {
-    protected override create(document: IDocument, models: IModel[]): GeometryModel {
+    protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
         let edges = models.map((x) => x.shape()) as IEdge[];
         let wireBody = new FaceBody(document, edges);
+        if (!wireBody.shape.success) {
+            return Result.error(wireBody.shape.error);
+        }
         models.forEach((x) => x.parent?.remove(x));
-        return new GeometryModel(document, `Face ${count++}`, wireBody);
+        return Result.success(new GeometryModel(document, `Face ${count++}`, wireBody));
     }
 }
