@@ -37,6 +37,11 @@
             }
         }
 
+        .back {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
         & .logo {
             display: flex;
             flex-direction: column;

@@ -33,6 +33,15 @@ export const Home = async (app: IApplication) => {
                     textContent: localize("command.document.open"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
                 }),
+                app.activeDocument
+                    ? button({
+                          className: style.back,
+                          textContent: localize("common.back"),
+                          onclick: () => {
+                              PubSub.default.pub("displayHome", false);
+                          },
+                      })
+                    : "",
             ),
             div(
                 { className: style.bottom },

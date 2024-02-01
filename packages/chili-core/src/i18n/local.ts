@@ -19,6 +19,7 @@ export type I18nKeys =
     | "common.length"
     | "common.angle"
     | "common.type"
+    | "common.back"
     | "home.welcome"
     | "home.recent"
     | "body.arc"
