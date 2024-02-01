@@ -47,7 +47,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
                 this.addToLast(item);
             }
             this._count++;
-            Logger.debug(`add node: ${item.name}`);
         });
 
         this.handlePubAndHistory(records);
@@ -56,7 +55,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
     private handlePubAndHistory(records: NodeRecord[]) {
         Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
         PubSub.default.pub("nodeLinkedListChanged", records);
-        Logger.debug(`NodeLinkList Changed`);
     }
 
     private ensureIsChild(item: INode) {
@@ -101,7 +99,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
                 oldPrevious: item.previousSibling,
             });
             this.removeNode(item, true);
-            Logger.debug(`remove node: ${item.name}`);
         });
         this.handlePubAndHistory(records);
     }
@@ -156,7 +153,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         }
         this._count++;
         this.handlePubAndHistory([record]);
-        Logger.debug(`inser before: ${node.name}`);
     }
 
     insertAfter(target: INode | undefined, node: INode): void {
@@ -171,7 +167,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         };
         NodeLinkedList.insertNodeAfter(this, target, node);
         this.handlePubAndHistory([record]);
-        Logger.debug(`inser after: ${node.name}`);
     }
 
     private static insertNodeAfter(parent: NodeLinkedList, target: INode | undefined, node: INode) {
@@ -209,7 +204,6 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         NodeLinkedList.insertNodeAfter(newParent, previousSibling, child);
 
         this.handlePubAndHistory([record]);
-        Logger.debug(`move node: ${child.name}`);
     }
 
     protected onVisibleChanged() {
