@@ -3,14 +3,14 @@
 import { IApplication } from "./application";
 import { History, IDisposable, IPropertyChanged } from "./base";
 import { INode, INodeLinkedList } from "./model/node";
-import { SelectionManager } from "./selectionManager";
+import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";
 import { IVisual } from "./visual";
 
 export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     name: string;
     currentNode?: INodeLinkedList;
-    readonly selection: SelectionManager;
+    readonly selection: ISelection;
     readonly id: string;
     readonly history: History;
     readonly visual: IVisual;

@@ -9,6 +9,7 @@ import {
     IModel,
     INode,
     INodeLinkedList,
+    ISelection,
     IVisual,
     Id,
     Logger,
@@ -18,17 +19,17 @@ import {
     NodeSerializer,
     Observable,
     PubSub,
-    SelectionManager,
     Serialized,
     Serializer,
 } from "chili-core";
+import { Selection } from "./selection";
 
 const FILE_VERSIOM = "0.1.0";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: History;
-    readonly selection: SelectionManager;
+    readonly selection: ISelection;
 
     private _name: string;
     get name(): string {
@@ -73,7 +74,7 @@ export class Document extends Observable implements IDocument {
         this._name = name;
         this.history = new History();
         this.visual = application.visualFactory.create(this);
-        this.selection = new SelectionManager(this);
+        this.selection = new Selection(this);
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`new document: ${name}`);
     }

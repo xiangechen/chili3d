@@ -6,10 +6,10 @@ import {
     IDocument,
     INode,
     INodeLinkedList,
+    ISelection,
     ISerialize,
     IView,
     PropertyChangedHandler,
-    SelectionManager,
     Serialized,
 } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
@@ -20,7 +20,7 @@ export class TestDocument implements IDocument, ISerialize {
     currentNode: INodeLinkedList | undefined;
     id: string;
     history: History;
-    selection: SelectionManager;
+    selection: ISelection;
     visual: ThreeVisual;
     rootNode: INodeLinkedList;
     activeView: IView | undefined;

@@ -55,7 +55,11 @@ export abstract class TransformedCommand extends MultistepCommand {
             .filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.controller = new AsyncController();
-            this.models = await Selection.pickModel(this.document, "prompt.select.models", this.controller);
+            this.models = await this.document.selection.pickModel(
+                "prompt.select.models",
+                this.controller,
+                true,
+            );
             if (this.restarting || this.models.length === 0) {
                 PubSub.default.pub("showToast", "prompt.select.noModelSelected");
                 return false;

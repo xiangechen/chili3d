@@ -2,7 +2,6 @@
 
 import { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
 
-import { Selection } from "../selection";
 import { SnapedData } from "./interfaces";
 import {
     SnapAngleEventHandler,
@@ -24,7 +23,7 @@ export abstract class Snapper {
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
         let executorHandler = this.getEventHandler(controller);
-        await Selection.pickAsync(document, executorHandler, tip, controller, false, CursorType.Drawing);
+        await document.selection.pickAsync(executorHandler, tip, controller, false, CursorType.Drawing);
         return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
 }

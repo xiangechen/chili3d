@@ -1,15 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    AsyncController,
-    GeometryModel,
-    I18nKeys,
-    IDocument,
-    IModel,
-    IShapeFilter,
-    ShapeType,
-} from "chili-core";
-import { Selection } from "../selection";
+import { AsyncController, I18nKeys, IDocument, IShapeFilter, ShapeType } from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "./step";
 
@@ -22,8 +13,7 @@ export class SelectShapeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let shapes = await Selection.pickShape(
-            document,
+        let shapes = await document.selection.pickShape(
             this.snapeType,
             this.prompt,
             controller,
@@ -46,13 +36,7 @@ export class SelectModelStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let models = await Selection.pickModel(
-            document,
-            this.prompt,
-            controller,
-            this.multiple,
-            this.filter,
-        );
+        let models = await document.selection.pickModel(this.prompt, controller, this.multiple, this.filter);
         if (models.length === 0) return undefined;
         return {
             view: document.visual.viewer.activeView!,

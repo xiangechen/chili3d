@@ -11,7 +11,6 @@ import {
     XYZ,
     command,
 } from "chili-core";
-import { Selection } from "../../selection";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
@@ -65,7 +64,7 @@ export class Array extends MultistepCommand {
             .filter((x) => INode.isModelNode(x)) as IModel[];
         if (this.models.length === 0) {
             this.controller = new AsyncController();
-            this.models = await Selection.pickModel(this.document, "axis.x", this.controller);
+            this.models = await this.document.selection.pickModel("axis.x", this.controller, true);
             if (this.restarting || this.models.length === 0) return false;
         }
         this.positions = [];
