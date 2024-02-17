@@ -21,16 +21,24 @@ export class Selection implements ISelection, IDisposable {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
 
+    shapeType: ShapeType = ShapeType.Shape;
+    nodeType: "model" | "node" = "node";
+
     constructor(readonly document: IDocument) {}
 
     async pickShape(
-        shapeType: ShapeType,
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean,
         filter?: IShapeFilter,
     ) {
-        let handler = new ShapeSelectionHandler(this.document, shapeType, multiMode, controller, filter);
+        let handler = new ShapeSelectionHandler(
+            this.document,
+            this.shapeType,
+            multiMode,
+            controller,
+            filter,
+        );
         await this.pickAsync(handler, prompt, controller, multiMode === true);
         let shapes = handler.shapes();
         handler.dispose();
@@ -43,11 +51,17 @@ export class Selection implements ISelection, IDisposable {
         multiMode: boolean,
         filter?: IShapeFilter,
     ) {
-        let handler = new ModelSelectionHandler(this.document, multiMode, true, controller, filter);
-        await this.pickAsync(handler, prompt, controller, multiMode === true);
-        let models = handler.models();
-        handler.dispose();
-        return models;
+        let oldNodeType = this.nodeType;
+        try {
+            this.nodeType = "model";
+            let handler = new ModelSelectionHandler(this.document, multiMode, controller, filter);
+            await this.pickAsync(handler, prompt, controller, multiMode === true);
+            let models = handler.models();
+            handler.dispose();
+            return models;
+        } finally {
+            this.nodeType = oldNodeType;
+        }
     }
 
     async pickAsync(
@@ -84,7 +98,8 @@ export class Selection implements ISelection, IDisposable {
         return this._selectedNodes;
     }
 
-    select(nodes: INode[], toggle: boolean) {
+    setSelection(nodes: INode[], toggle: boolean) {
+        nodes = this.nodeType === "node" ? nodes : nodes.filter((x) => INode.isModelNode(x));
         if (toggle) {
             this.toggleSelectPublish(nodes, true);
         } else {
@@ -98,7 +113,7 @@ export class Selection implements ISelection, IDisposable {
         this.removeSelectedPublish(nodes, true);
     }
 
-    clearSelected() {
+    clearSelection() {
         this.removeSelectedPublish(this._selectedNodes, true);
     }
 

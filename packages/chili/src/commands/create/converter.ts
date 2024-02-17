@@ -48,12 +48,12 @@ abstract class ConvertCommand extends CancelableCommand {
             },
         };
         let models = this._getSelectedModels(document, filter);
-        document.selection.clearSelected();
+        document.selection.clearSelection();
         if (models.length > 0) return models;
         let step = new SelectModelStep("prompt.select.models", true, filter);
         this.controller = new AsyncController();
         let data = await step.execute(document, this.controller);
-        document.selection.clearSelected();
+        document.selection.clearSelection();
         return data?.models;
     }
 

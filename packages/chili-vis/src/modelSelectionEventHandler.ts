@@ -4,6 +4,7 @@ import {
     AsyncController,
     IDocument,
     IModel,
+    INode,
     IShapeFilter,
     IView,
     ShapeType,
@@ -12,44 +13,32 @@ import {
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ModelSelectionHandler extends SelectionHandler {
-    private _models: Set<IModel> = new Set();
-
     models(): IModel[] {
-        return [...this._models];
+        return this.document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
     }
 
     constructor(
         document: IDocument,
         multiMode: boolean,
-        readonly toSelect: boolean,
         controller?: AsyncController,
         filter?: IShapeFilter,
     ) {
         super(document, ShapeType.Shape, multiMode, controller, filter);
     }
 
-    override dispose(): void {
-        super.dispose();
-        this._models.clear();
-    }
-
     protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
-        this._models.clear();
         if (shapes.length === 0) {
-            view.viewer.visual.document.selection.clearSelected();
+            this.document.selection.clearSelection();
             return 0;
         }
-        shapes.forEach((x) => {
-            let model = view.viewer.visual.context.getModel(x.owner);
-            if (model) this._models.add(model);
-        });
-        if (this.toSelect) {
-            view.viewer.visual.document.selection.select(this.models(), event.shiftKey);
-        }
-        return this._models.size;
+        let models = shapes
+            .map((x) => view.viewer.visual.context.getModel(x.owner))
+            .filter((x) => x !== undefined) as IModel[];
+        this.document.selection.setSelection(models, event.shiftKey);
+        return models.length;
     }
 
     override clearSelected(document: IDocument): void {
-        document.selection.clearSelected();
+        document.selection.clearSelection();
     }
 }

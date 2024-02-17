@@ -13,7 +13,7 @@ export class Delete implements ICommand {
         if (document === undefined) return;
         Transaction.excute(document, "delete", () => {
             let models = document!.selection.getSelectedNodes();
-            document!.selection.clearSelected();
+            document!.selection.clearSelection();
             models.forEach((model) => model.parent?.remove(model));
             document!.visual.viewer.update();
             PubSub.default.pub("showToast", "toast.delete{0}Objects", models.length);

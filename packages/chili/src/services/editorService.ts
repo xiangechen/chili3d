@@ -1,9 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IApplication, IDocument, INode, IService, Lazy, Logger, PubSub } from "chili-core";
-import { CircleBody, LineBody } from "../bodys";
-import { EditorEventHandler, LineEditorEventHandler } from "../editors";
-import { CircleEditorEventHandler } from "../editors/circleEditor";
+import { IApplication, IDocument, IEventHandler, INode, IService, Lazy, Logger, PubSub } from "chili-core";
+import { DefaultEditorEventHandler } from "../editors";
 
 export class EditorService implements IService {
     private static readonly _lazy = new Lazy(() => new EditorService());
@@ -12,7 +10,7 @@ export class EditorService implements IService {
         return this._lazy.value;
     }
 
-    private handler?: EditorEventHandler;
+    private handler?: IEventHandler;
 
     register(_app: IApplication): void {
         Logger.info(`${EditorService.name} registed`);
@@ -28,30 +26,35 @@ export class EditorService implements IService {
         Logger.info(`${EditorService.name} stoped`);
     }
 
-    private handleSelectionChanged = (document: IDocument, models: INode[]) => {
+    private handleSelectionChanged = (document: IDocument, selected: INode[], deselected: INode[]) => {
         if (this.handler !== undefined) {
             this.handler.dispose();
             this.handler = undefined;
         }
-        if (models.length > 0) {
-            this.handler = this.getEventHandler(document, models);
+        if (selected.length > 0) {
+            this.handler = this.getEventHandler(document, selected, deselected);
             if (this.handler !== undefined) {
                 document.visual.eventHandler = this.handler;
             }
+        } else {
+            document.visual.resetEventHandler();
         }
         document.visual.viewer.update();
     };
 
-    private getEventHandler(document: IDocument, models: INode[]): EditorEventHandler | undefined {
-        if (models.length > 1) return undefined;
-        if (INode.isModelNode(models[0])) {
-            let body = models[0].body;
+    private getEventHandler(
+        document: IDocument,
+        selected: INode[],
+        deselected: INode[],
+    ): IEventHandler | undefined {
+        if (selected.length === 1 && INode.isModelNode(selected[0])) {
+            let body = selected[0].body;
             // if (body instanceof LineBody) {
             //     return new LineEditorEventHandler(document, body);
             // } else if (body instanceof CircleBody) {
             //     return new CircleEditorEventHandler(document, body);
             // }
         }
-        return undefined;
+        return new DefaultEditorEventHandler(document, selected);
     }
 }

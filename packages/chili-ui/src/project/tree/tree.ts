@@ -1,11 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, INode, INodeLinkedList, NodeRecord, PubSub, Transaction } from "chili-core";
+import { IDocument, INode, INodeLinkedList, NodeRecord, PubSub, ShapeType, Transaction } from "chili-core";
 import { Control } from "../../components";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
+import { SelectionHandler } from "chili-vis";
 
 export class Tree extends Control {
     private readonly nodeMap = new WeakMap<INode, TreeItem>();
@@ -142,7 +143,13 @@ export class Tree extends Control {
     }
 
     private onClick = (event: MouseEvent) => {
-        if (this.document.visual.isExcutingHandler()) return;
+        if (
+            this.document.visual.eventHandler instanceof SelectionHandler &&
+            this.document.visual.eventHandler.shapeType !== ShapeType.Shape
+        ) {
+            return;
+        }
+
         let item = this.getTreeItem(event.target as HTMLElement)?.node;
         if (item === undefined) return;
         event.stopPropagation();
@@ -150,10 +157,10 @@ export class Tree extends Control {
         if (event.shiftKey) {
             if (this.lastClicked !== undefined) {
                 let nodes = INode.getNodesBetween(this.lastClicked, item);
-                this.document.selection.select(nodes, false);
+                this.document.selection.setSelection(nodes, false);
             }
         } else {
-            this.document.selection.select([item], event.ctrlKey);
+            this.document.selection.setSelection([item], event.ctrlKey);
         }
 
         this.setLastClickItem(item);

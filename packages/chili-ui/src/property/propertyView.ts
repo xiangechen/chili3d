@@ -33,18 +33,18 @@ export class PropertyView extends BindableElement {
             }),
             this.panel,
         );
-        PubSub.default.sub("selectionChanged", this.selectionChanged);
+        PubSub.default.sub("showProperties", this.handleShowProperties);
     }
 
-    private selectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
+    private handleShowProperties = (document: IDocument, nodes: INode[]) => {
         while (this.panel.lastElementChild) {
             this.panel.removeChild(this.panel.lastElementChild);
         }
 
-        if (selected.length === 0) return;
-        this.addDefault(document, selected);
-        this.addTransform(document, selected);
-        this.addBody(selected, document);
+        if (nodes.length === 0) return;
+        this.addDefault(document, nodes);
+        this.addTransform(document, nodes);
+        this.addBody(nodes, document);
     };
 
     private addDefault(document: IDocument, nodes: INode[]) {

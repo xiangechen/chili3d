@@ -4,7 +4,6 @@ import {
     AsyncController,
     Config,
     EdgeMeshData,
-    I18n,
     IModel,
     INode,
     LineType,
@@ -14,7 +13,6 @@ import {
     Transaction,
     XYZ,
 } from "chili-core";
-import { Selection } from "../../selection";
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class TransformedCommand extends MultistepCommand {

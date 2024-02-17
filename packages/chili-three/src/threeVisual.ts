@@ -43,7 +43,7 @@ export class ThreeVisual implements IVisual {
 
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
-        this.defaultEventHandler = new ModelSelectionHandler(document, true, true);
+        this.defaultEventHandler = new ModelSelectionHandler(document, true);
         this.viewer = new ThreeViwer(this);
         this.context = new ThreeVisualContext(this, this.scene);
         this.viewHandler = new ThreeViewHandler();

@@ -14,6 +14,17 @@ export abstract class CreateCommand extends MultistepCommand {
     }
 
     protected abstract create(): GeometryModel;
+
+    protected shouldClearSelectionBeforeExcute() {
+        return true;
+    }
+
+    protected override beforeExecute(): Promise<boolean> {
+        if (this.shouldClearSelectionBeforeExcute()) {
+            this.document.selection.clearSelection();
+        }
+        return super.beforeExecute();
+    }
 }
 
 export abstract class CreateFaceableCommand extends CreateCommand {

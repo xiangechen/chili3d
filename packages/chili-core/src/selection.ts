@@ -8,9 +8,7 @@ import { IShapeFilter } from "./selectionFilter";
 import { CursorType, IEventHandler, VisualShapeData } from "./visual";
 
 export interface ISelection extends IDisposable {
-    select(nodes: INode[], toggle: boolean): number;
     pickShape(
-        hapeType: ShapeType,
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean,
@@ -29,6 +27,9 @@ export interface ISelection extends IDisposable {
         showControl: boolean,
         cursor: CursorType,
     ): Promise<void>;
-    clearSelected(): void;
+    shapeType: ShapeType;
+    nodeType: "model" | "node";
+    setSelection(nodes: INode[], toggle: boolean): number;
+    clearSelection(): void;
     getSelectedNodes(): INode[];
 }

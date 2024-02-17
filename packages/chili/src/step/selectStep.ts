@@ -13,18 +13,23 @@ export class SelectShapeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let shapes = await document.selection.pickShape(
-            this.snapeType,
-            this.prompt,
-            controller,
-            this.multiple,
-            this.filter,
-        );
-        if (shapes.length === 0) return undefined;
-        return {
-            view: document.visual.viewer.activeView!,
-            shapes,
-        };
+        let oldShapeType = document.selection.shapeType;
+        try {
+            document.selection.shapeType = this.snapeType;
+            let shapes = await document.selection.pickShape(
+                this.prompt,
+                controller,
+                this.multiple,
+                this.filter,
+            );
+            if (shapes.length === 0) return undefined;
+            return {
+                view: document.visual.viewer.activeView!,
+                shapes,
+            };
+        } finally {
+            document.selection.shapeType = oldShapeType;
+        }
     }
 }
 
