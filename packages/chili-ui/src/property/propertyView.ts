@@ -1,19 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Color,
-    GeometryModel,
-    I18n,
-    I18nKeys,
-    IConverter,
-    IDocument,
-    INode,
-    Property,
-    PubSub,
-} from "chili-core";
+import { Color, GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
 import { Expander } from "../components";
 
-import { BindableElement, div, label } from "../controls";
+import { BindableElement, div, label, localize, span } from "../controls";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
@@ -29,7 +19,7 @@ export class PropertyView extends BindableElement {
         this.append(
             label({
                 className: style.header,
-                textContent: I18n.translate("properties.header"),
+                textContent: localize("properties.header"),
             }),
             this.panel,
         );
@@ -52,21 +42,27 @@ export class PropertyView extends BindableElement {
 
     private addDefault(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
-        let nameProperty = Property.getProperty(nodes[0], "name");
-        let colorProperty = Property.getProperty(nodes[0], "color" as any);
-        let opacityProperty = Property.getProperty(nodes[0], "opacity" as any);
+        let nameProperty = Property.getProperty(nodes[0], "name")!;
+        let header: HTMLElement;
         let properties = div();
-        this.panel.append(
-            div(
-                div(
-                    { className: style.colorName },
-                    colorProperty ? new ColorProperty(document, nodes, colorProperty, false) : "",
-                    nameProperty ? new InputProperty(document, nodes, nameProperty, false) : "",
-                ),
-                properties,
-            ),
-        );
-        if (opacityProperty) this.appendProperty(properties, document, nodes, opacityProperty);
+        if (INode.isModelNode(nodes[0])) {
+            let colorProperty = Property.getProperty(nodes[0], "color")!;
+            let opacityProperty = Property.getProperty(nodes[0], "opacity")!;
+            header = div(
+                { className: style.colorName },
+                new ColorProperty(document, nodes, colorProperty, false),
+                new InputProperty(document, nodes, nameProperty, false),
+            );
+            this.appendProperty(properties, document, nodes, opacityProperty);
+        } else {
+            header = div(
+                { className: style.colorName },
+                span({ textContent: localize("common.name") }),
+                new InputProperty(document, nodes, nameProperty, false),
+            );
+        }
+
+        this.panel.append(header, properties);
     }
 
     private addBody(nodes: INode[], document: IDocument) {
