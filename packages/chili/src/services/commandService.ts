@@ -12,7 +12,6 @@ export class CommandService implements IService {
     }
 
     private _lastCommand: CommandKeys | undefined;
-    private _executingCommand: ICommand | undefined;
 
     private _app: IApplication | undefined;
 
@@ -38,10 +37,6 @@ export class CommandService implements IService {
         Logger.info(`${CommandService.name} registed`);
     }
 
-    get isExcuting(): boolean {
-        return this._executingCommand !== undefined;
-    }
-
     private executeCommand = async (commandName: CommandKeys) => {
         let command = commandName === "special.last" ? this._lastCommand : commandName;
         if (command === undefined) return;
@@ -53,7 +48,8 @@ export class CommandService implements IService {
     private async executeAsync(commandName: CommandKeys) {
         let commandCtor = Command.get(commandName)!;
         let command = new commandCtor();
-        this._executingCommand = command;
+        this.app.executingCommand = command;
+        PubSub.default.pub("showProperties", this.app.activeDocument!, []);
         await command
             .execute(this.app)
             .catch((err) => {
@@ -61,7 +57,7 @@ export class CommandService implements IService {
             })
             .finally(() => {
                 this._lastCommand = commandName;
-                this._executingCommand = undefined;
+                this.app.executingCommand = undefined;
             });
     }
 
@@ -70,11 +66,12 @@ export class CommandService implements IService {
             Logger.error(`Can not find ${commandName} command`);
             return false;
         }
-        if (this._executingCommand) {
-            if (Command.getData(this._executingCommand)?.name === commandName) {
+        if (this.app.executingCommand) {
+            if (Command.getData(this.app.executingCommand)?.name === commandName) {
                 return false;
             }
-            if (ICommand.isCanclableCommand(this._executingCommand)) await this._executingCommand.cancel();
+            if (ICommand.isCanclableCommand(this.app.executingCommand))
+                await this.app.executingCommand.cancel();
         }
         if (!ApplicationCommands.includes(commandName) && this.app.activeDocument === undefined) {
             Logger.error("No active document");

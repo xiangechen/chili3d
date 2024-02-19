@@ -3,6 +3,7 @@
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { IStorage } from "./base";
+import { ICommand } from "./command";
 import { IDocument } from "./document";
 import { Serialized } from "./serialize";
 import { IService } from "./service";
@@ -12,6 +13,7 @@ export interface IApplication {
     readonly shapeFactory: IShapeFactory;
     readonly services: IService[];
     readonly storage: IStorage;
+    executingCommand: ICommand | undefined;
     activeDocument: IDocument | undefined;
     newDocument(name: string): Promise<IDocument>;
     openDocument(id: string): Promise<IDocument | undefined>;

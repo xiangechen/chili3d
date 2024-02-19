@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IApplication, IDocument, IService, IStorage, Logger, PubSub, Serialized } from "chili-core";
+import {
+    IApplication,
+    ICommand,
+    IDocument,
+    IService,
+    IStorage,
+    Logger,
+    PubSub,
+    Serialized,
+} from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { Document } from "./document";
@@ -37,6 +46,8 @@ export class Application implements IApplication {
         this._activeDocument = document;
         PubSub.default.pub("activeDocumentChanged", document);
     }
+
+    executingCommand: ICommand | undefined;
 
     private constructor(
         readonly visualFactory: IVisualFactory,

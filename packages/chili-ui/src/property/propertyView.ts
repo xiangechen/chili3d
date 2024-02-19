@@ -37,15 +37,18 @@ export class PropertyView extends BindableElement {
     }
 
     private handleShowProperties = (document: IDocument, nodes: INode[]) => {
-        while (this.panel.lastElementChild) {
-            this.panel.removeChild(this.panel.lastElementChild);
-        }
-
+        this.removeProperties();
         if (nodes.length === 0) return;
         this.addDefault(document, nodes);
         this.addTransform(document, nodes);
         this.addBody(nodes, document);
     };
+
+    private removeProperties() {
+        while (this.panel.lastElementChild) {
+            this.panel.removeChild(this.panel.lastElementChild);
+        }
+    }
 
     private addDefault(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;

@@ -27,6 +27,7 @@ export class EditorService implements IService {
     }
 
     private handleSelectionChanged = (document: IDocument, selected: INode[], deselected: INode[]) => {
+        if (document.application.executingCommand) return;
         if (this.handler !== undefined) {
             this.handler.dispose();
             this.handler = undefined;
