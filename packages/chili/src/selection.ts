@@ -117,7 +117,8 @@ export class Selection implements ISelection, IDisposable {
         this.removeSelectedPublish(this._selectedNodes, true);
     }
 
-    private publishSelection() {
+    private updateSelection() {
+        this.document.visual.viewer.update();
         PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
     }
 
@@ -135,7 +136,7 @@ export class Selection implements ISelection, IDisposable {
             }
         });
         this._selectedNodes.push(...nodes);
-        if (publish) this.publishSelection();
+        if (publish) this.updateSelection();
     }
 
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
@@ -148,6 +149,6 @@ export class Selection implements ISelection, IDisposable {
         }
         this._selectedNodes = this._selectedNodes.filter((m) => !nodes.includes(m));
         this._unselectedNodes = nodes;
-        if (publish) this.publishSelection();
+        if (publish) this.updateSelection();
     }
 }

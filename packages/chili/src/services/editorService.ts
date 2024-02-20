@@ -40,7 +40,6 @@ export class EditorService implements IService {
         } else {
             document.visual.resetEventHandler();
         }
-        document.visual.viewer.update();
     };
 
     private getEventHandler(

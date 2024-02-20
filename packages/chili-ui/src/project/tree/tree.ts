@@ -143,10 +143,7 @@ export class Tree extends Control {
     }
 
     private onClick = (event: MouseEvent) => {
-        if (
-            this.document.visual.eventHandler instanceof SelectionHandler &&
-            this.document.visual.eventHandler.shapeType !== ShapeType.Shape
-        ) {
+        if (!this.canSelect()) {
             return;
         }
 
@@ -177,6 +174,13 @@ export class Tree extends Control {
         event.preventDefault();
         event.dataTransfer!.dropEffect = "move";
     };
+
+    private canSelect() {
+        return (
+            this.document.visual.eventHandler instanceof SelectionHandler &&
+            this.document.visual.eventHandler.shapeType === ShapeType.Shape
+        );
+    }
 
     private setLastClickItem(item: INode | undefined) {
         if (this.lastClicked !== undefined) {
