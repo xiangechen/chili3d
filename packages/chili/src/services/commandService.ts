@@ -1,16 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Command, CommandKeys, IApplication, ICommand, IService, Lazy, Logger, PubSub } from "chili-core";
+import { Command, CommandKeys, IApplication, ICommand, IService, Logger, PubSub } from "chili-core";
 
 const ApplicationCommands: CommandKeys[] = ["doc.new", "doc.open", "doc.save"];
 
 export class CommandService implements IService {
-    private static readonly _lazy = new Lazy(() => new CommandService());
-
-    static get instance() {
-        return this._lazy.value;
-    }
-
     private _lastCommand: CommandKeys | undefined;
 
     private _app: IApplication | undefined;

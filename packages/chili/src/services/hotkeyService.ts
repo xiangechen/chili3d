@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CommandKeys, IApplication, IService, Lazy, Logger, PubSub } from "chili-core";
+import { CommandKeys, IApplication, IService, Logger, PubSub } from "chili-core";
 
 export interface Keys {
     key: string;
@@ -23,16 +23,10 @@ const DefaultKeyMap: HotkeyMap = {
 };
 
 export class HotkeyService implements IService {
-    private static readonly _lazy = new Lazy(() => new HotkeyService());
-
-    static get instance() {
-        return this._lazy.value;
-    }
-
     private app?: IApplication;
     private readonly _keyMap = new Map<string, CommandKeys>();
 
-    private constructor() {
+    constructor() {
         this.addMap(DefaultKeyMap);
     }
 

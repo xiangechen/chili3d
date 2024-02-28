@@ -1,16 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IApplication, IDocument, IEventHandler, INode, IService, Lazy, Logger, PubSub } from "chili-core";
-import { EditorEventHandler } from "../editor";
+import { IApplication, IDocument, IEventHandler, INode, IService, Logger, PubSub } from "chili-core";
 
 export class EditorService implements IService {
-    private static readonly _lazy = new Lazy(() => new EditorService());
+    private editHandler?: IEventHandler;
 
-    static get instance() {
-        return this._lazy.value;
-    }
-
-    private handler?: IEventHandler;
+    constructor(readonly factory: (document: IDocument, selected: INode[]) => IEventHandler) {}
 
     register(_app: IApplication): void {
         Logger.info(`${EditorService.name} registed`);
@@ -26,15 +21,15 @@ export class EditorService implements IService {
         Logger.info(`${EditorService.name} stoped`);
     }
 
-    private handleSelectionChanged = (document: IDocument, selected: INode[], deselected: INode[]) => {
-        if (this.handler !== undefined) {
-            this.handler.dispose();
-            this.handler = undefined;
+    private handleSelectionChanged = (document: IDocument, selected: INode[]) => {
+        if (this.editHandler !== undefined) {
+            this.editHandler.dispose();
+            this.editHandler = undefined;
         }
         if (document.application.executingCommand) return;
         if (selected.length > 0) {
-            this.handler = new EditorEventHandler(document, selected);
-            document.visual.eventHandler = this.handler;
+            this.editHandler = this.factory(document, selected);
+            document.visual.eventHandler = this.editHandler;
         } else {
             document.visual.resetEventHandler();
         }

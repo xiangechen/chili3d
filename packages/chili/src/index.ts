@@ -5,5 +5,6 @@ export * from "./bodys";
 export * from "./commands";
 export * from "./comparers";
 export * from "./document";
+export * from "./editEventHandler";
 export * from "./services";
 export * from "./snap";
