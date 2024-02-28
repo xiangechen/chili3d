@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, XYZ } from "chili-core";
+import { Color, Matrix4, XYZ } from "chili-core";
 import {
     Box3,
     Camera,
-    Matrix4,
+    Matrix4 as ThreeMatrix4,
     OrthographicCamera,
     PerspectiveCamera,
     Color as ThreeColor,
@@ -12,6 +12,10 @@ import {
 } from "three";
 
 export class ThreeHelper {
+    static toMatrix(matrix: ThreeMatrix4) {
+        return Matrix4.fromArray(matrix.toArray());
+    }
+
     static toXYZ(vector: Vector3): XYZ {
         return new XYZ(vector.x, vector.y, vector.z);
     }
@@ -45,7 +49,7 @@ export class ThreeHelper {
         return undefined;
     }
 
-    static transformVector(matrix: Matrix4, vector: Vector3) {
+    static transformVector(matrix: ThreeMatrix4, vector: Vector3) {
         let array = matrix.elements;
         let x = vector.x * array[0] + vector.y * array[4] + vector.z * array[8];
         let y = vector.x * array[1] + vector.y * array[5] + vector.z * array[9];

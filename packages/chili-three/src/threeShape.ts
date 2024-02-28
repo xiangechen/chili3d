@@ -8,6 +8,7 @@ import {
     IHighlighter,
     IShape,
     IVisualShape,
+    Matrix4,
     ShapeMeshData,
     ShapeType,
     VisualState,
@@ -94,6 +95,14 @@ export class ThreeShape extends Object3D implements IVisualShape {
         this.getMainMaterial().opacity = value;
     }
 
+    get transform() {
+        return ThreeHelper.toMatrix(this.matrix);
+    }
+
+    set transform(value: Matrix4) {
+        this.matrix.fromArray(value.toArray());
+    }
+
     constructor(
         readonly shape: IShape,
         readonly highlighter: IHighlighter,
@@ -114,6 +123,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         }
         this._edgeMaterial.dispose();
         this._faceMaterial.dispose();
+        this.resetState();
     }
 
     private initEdges(data: EdgeMeshData) {

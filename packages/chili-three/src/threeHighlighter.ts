@@ -14,7 +14,6 @@ export class ThreeHighlighter implements IHighlighter {
 
     removeAllStates(shape: IVisualShape, resetState: boolean): void {
         if (!this._stateMap.has(shape)) return;
-        this._stateMap.get(shape)!.clear();
         this._stateMap.delete(shape);
         if (resetState) shape.resetState();
     }
@@ -33,10 +32,8 @@ export class ThreeHighlighter implements IHighlighter {
         }
 
         const key = `${type}_${index}`;
-        let newState = map.get(key);
-        if (!newState) {
-            newState = state;
-        } else if (mode === "add") {
+        let newState = map.get(key) ?? VisualState.normal;
+        if (mode === "add") {
             newState = VisualState.addState(newState, state);
         } else {
             newState = VisualState.removeState(newState, state);

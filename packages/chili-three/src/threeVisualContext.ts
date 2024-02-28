@@ -10,11 +10,11 @@ import {
     IVisualContext,
     IVisualShape,
     LineType,
-    Matrix4,
     ShapeMeshData,
     ShapeType,
     VertexMeshData,
 } from "chili-core";
+import { IVisualObject } from "chili-core/src/visual/visualObject";
 import {
     BufferGeometry,
     Float32BufferAttribute,
@@ -26,11 +26,10 @@ import {
     Points,
     PointsMaterial,
     Scene,
-    Matrix4 as ThreeMatrix4,
 } from "three";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
-import { IVisualObject } from "chili-core/src/visual/visualObject";
+import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
@@ -46,6 +45,20 @@ export class ThreeVisualContext implements IVisualContext {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
+    }
+
+    addMesh(data: ShapeMeshData): IVisualObject {
+        let shape: ThreeVisualObject | undefined = undefined;
+        if (ShapeMeshData.isVertex(data)) {
+            shape = new ThreeVisualObject(this.createVertexGeometry(data));
+        } else if (ShapeMeshData.isEdge(data)) {
+            shape = new ThreeVisualObject(this.createEdgeGeometry(data));
+        }
+        if (shape) {
+            this.visualShapes.add(shape);
+            return shape;
+        }
+        throw new Error("Unsupported mesh data");
     }
 
     addVisualObject(object: IVisualObject): void {
@@ -79,6 +92,8 @@ export class ThreeVisualContext implements IVisualContext {
     redrawModel(models: IModel[]) {
         this.removeModel(models);
         this.addModel(models);
+
+        // TODO: set state
     }
 
     get shapeCount() {
@@ -170,22 +185,17 @@ export class ThreeVisualContext implements IVisualContext {
         let threeShape = new ThreeShape(modelShape, this.visual.highlighter);
         threeShape.color = model.color;
         threeShape.opacity = model.opacity;
-        threeShape.matrix.copy(this.convertMatrix(model.matrix));
+        threeShape.transform = model.matrix;
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
         this._modelShapeMap.set(model, threeShape);
-    }
-
-    private convertMatrix(transform: Matrix4) {
-        return new ThreeMatrix4().fromArray(transform.toArray());
     }
 
     private handleModelPropertyChanged = (property: keyof IModel, model: IModel) => {
         let shape = this._modelShapeMap.get(model) as ThreeShape;
         if (shape === undefined) return;
         if (property === "matrix") {
-            shape.matrix.copy(this.convertMatrix(model.matrix));
-            shape.matrixWorldNeedsUpdate = true;
+            shape.transform = model.matrix;
         } else if (property === "color") {
             shape.color = model[property];
         } else if (property === "opacity") {
@@ -201,13 +211,8 @@ export class ThreeVisualContext implements IVisualContext {
             if (!shape) return;
             this._shapeModelMap.delete(shape);
             if (shape instanceof ThreeShape) {
-                // https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
                 this.visualShapes.remove(shape);
-                shape.traverse((child) => {
-                    if (child instanceof BufferGeometry) {
-                        child.dispose();
-                    }
-                });
+                shape.dispose();
             }
         });
     }

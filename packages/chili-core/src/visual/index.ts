@@ -12,3 +12,4 @@ export * from "./viewport";
 export * from "./visual";
 export * from "./visualContext";
 export * from "./visualShape";
+export * from "./visualObject";

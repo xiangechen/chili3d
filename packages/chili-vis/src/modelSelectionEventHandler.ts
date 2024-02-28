@@ -28,7 +28,7 @@ export class ModelSelectionHandler extends SelectionHandler {
 
     protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
         if (shapes.length === 0) {
-            this.document.selection.clearSelection();
+            this.clearSelected(this.document);
             return 0;
         }
         let models = shapes

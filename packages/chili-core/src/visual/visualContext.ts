@@ -8,6 +8,7 @@ import { IVisualShape } from "./visualShape";
 
 export interface IVisualContext extends IDisposable {
     get shapeCount(): number;
+    addMesh(meshData: ShapeMeshData): IVisualObject;
     addVisualObject(object: IVisualObject): void;
     removeVisualObject(object: IVisualObject): void;
     addModel(models: IModel[]): void;

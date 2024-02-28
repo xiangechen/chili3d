@@ -8,18 +8,8 @@ import { IShapeFilter } from "./selectionFilter";
 import { CursorType, IEventHandler, VisualShapeData } from "./visual";
 
 export interface ISelection extends IDisposable {
-    pickShape(
-        prompt: I18nKeys,
-        controller: AsyncController,
-        multiMode: boolean,
-        filter?: IShapeFilter,
-    ): Promise<VisualShapeData[]>;
-    pickModel(
-        prompt: I18nKeys,
-        controller: AsyncController,
-        multiMode: boolean,
-        filter?: IShapeFilter,
-    ): Promise<IModel[]>;
+    pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<VisualShapeData[]>;
+    pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<IModel[]>;
     pickAsync(
         handler: IEventHandler,
         prompt: I18nKeys,
@@ -29,6 +19,7 @@ export interface ISelection extends IDisposable {
     ): Promise<void>;
     shapeType: ShapeType;
     nodeType: "model" | "node";
+    filter?: IShapeFilter;
     setSelection(nodes: INode[], toggle: boolean): number;
     clearSelection(): void;
     getSelectedNodes(): INode[];

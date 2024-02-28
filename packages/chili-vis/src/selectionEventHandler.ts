@@ -170,7 +170,7 @@ export abstract class SelectionHandler implements IEventHandler {
         }
     }
 
-    private cleanHighlights() {
+    protected cleanHighlights() {
         this._highlights?.forEach((x) => {
             x.owner.removeState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
