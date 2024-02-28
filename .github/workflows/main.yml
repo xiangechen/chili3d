@@ -1,4 +1,4 @@
-name: Test And Deoloy
+name: Test
 
 on:
     push:
@@ -22,21 +22,4 @@ jobs:
 
             - name: Run unit tests
               run: npm run test
-
-            - name: Build
-              run: npm run build
-
-            - name: Remove map files
-              run: rm -rf build/*.map
-
-            - name: Copy file to server
-              uses: appleboy/scp-action@v0.1.4
-              with:
-                host: ${{ secrets.CHILI3D_HOST }}
-                username: ${{ secrets.CHILI3D_HOST_USER }}
-                password: ${{ secrets.CHILI3D_HOST_PSD }}
-                source: build/*
-                target: /var/www/html/chili3d
-                strip_components: 1
-                rm: true
             
