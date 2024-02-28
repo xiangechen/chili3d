@@ -1,0 +1,12 @@
+{
+    "name": "chili-builder",
+    "version": "0.1.0",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili": "*",
+        "chili-three": "*",
+        "chili-occ": "*",
+        "chili-ui": "*"
+    }
+}

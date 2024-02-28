@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Application, CommandService, EditorService, HotkeyService } from "chili";
-import { IService, IStorage, Logger } from "chili-core";
+import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
+import { IDocument, INode, IService, IStorage, Logger } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 
@@ -84,7 +84,13 @@ export class AppBuilder {
         }
     }
 
-    private getServices(): IService[] {
-        return [CommandService.instance, HotkeyService.instance, EditorService.instance];
+    protected getServices(): IService[] {
+        return [
+            new CommandService(),
+            new HotkeyService(),
+            new EditorService((document: IDocument, selected: INode[]) => {
+                return new EditEventHandler(document, selected);
+            }),
+        ];
     }
 }
