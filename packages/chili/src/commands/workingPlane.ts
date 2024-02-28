@@ -48,12 +48,14 @@ export class AlignToPlane implements ICommand {
     async execute(application: IApplication): Promise<void> {
         let view = application.activeDocument?.visual.viewer.activeView;
         if (!view) return;
+        application.activeDocument!.selection.clearSelection();
         let controller = new AsyncController();
         let data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false).execute(
             application.activeDocument!,
             controller,
         );
         if (!data || data.shapes.length === 0) return;
+        view.viewer.visual.highlighter.clear();
         let [point, normal] = (data.shapes[0].shape as IFace).normal(0, 0);
         let xvec = XYZ.unitX;
         if (!normal.isParallelTo(XYZ.unitZ)) {

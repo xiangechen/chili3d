@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, IView, Plane, PlaneAngle, Precision, XYZ } from "chili-core";
+import { AsyncController, Config, IView, Plane, PlaneAngle, XYZ } from "chili-core";
+import { SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 import { SnapPointData } from "./snapPointEventHandler";
-import { SnapedData } from "../interfaces";
 
 export class SnapAngleEventHandler extends SnapEventHandler {
     readonly plane: Plane;
@@ -14,7 +14,7 @@ export class SnapAngleEventHandler extends SnapEventHandler {
 
     constructor(
         controller: AsyncController,
-        readonly center: XYZ,
+        readonly center: () => XYZ,
         p1: XYZ,
         readonly snapPointData: SnapPointData,
     ) {
@@ -24,8 +24,8 @@ export class SnapAngleEventHandler extends SnapEventHandler {
         let trackingSnap = new TrackingSnap(center, false);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
         super(controller, snaps, snapPointData);
-        let xvec = p1.sub(center).normalize()!;
-        this.plane = new Plane(center, snapPointData.plane.normal, xvec);
+        let xvec = p1.sub(center()).normalize()!;
+        this.plane = new Plane(center(), snapPointData.plane().normal, xvec);
         this.planeAngle = new PlaneAngle(this.plane);
         if (snapPointData.prompt === undefined) snapPointData.prompt = this.snapedInfo;
     }
@@ -46,6 +46,6 @@ export class SnapAngleEventHandler extends SnapEventHandler {
     protected override getPointFromInput(view: IView, text: string): XYZ {
         let angle = (Number.parseFloat(text) * Math.PI) / 180;
         let vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
-        return this.center.add(vec);
+        return this.center().add(vec);
     }
 }

@@ -10,11 +10,11 @@ import { SnapEventHandler } from "./snapEventHandler";
 
 export interface SnapPointData {
     dimension?: Dimension;
-    refPoint?: XYZ;
+    refPoint?: () => XYZ;
     validators?: SnapValidator[];
     preview?: SnapPreviewer;
     prompt?: (point: SnapedData) => string;
-    plane?: Plane;
+    plane?: () => Plane;
     featurePoints?: {
         point: XYZ;
         prompt: string;
@@ -38,13 +38,13 @@ export class SnapPointEventHandler extends SnapEventHandler {
 
     protected getPointFromInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
-        let result = this.pointData.refPoint ?? XYZ.zero;
+        let result = this.pointData.refPoint?.() ?? XYZ.zero;
         let end = this._snaped!.point!;
         if (dims.length === 1 && end !== undefined) {
-            let vector = end.sub(this.pointData.refPoint!).normalize()!;
+            let vector = end.sub(this.pointData.refPoint!()).normalize()!;
             result = result.add(vector.multiply(dims[0]));
         } else if (dims.length > 1) {
-            let plane = this.pointData.plane ?? view.workplane;
+            let plane = this.pointData.plane?.() ?? view.workplane;
             result = result.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
             if (dims.length === 3) {
                 result = result.add(plane.normal.multiply(dims[2]));
@@ -66,7 +66,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
             }
         } else if (
             dims.length === 1 &&
-            (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint))
+            (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint()))
         ) {
             return "error.input.cannotInputANumber";
         }

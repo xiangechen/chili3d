@@ -23,21 +23,17 @@ export class Selection implements ISelection, IDisposable {
 
     shapeType: ShapeType = ShapeType.Shape;
     nodeType: "model" | "node" = "node";
+    filter?: IShapeFilter;
 
     constructor(readonly document: IDocument) {}
 
-    async pickShape(
-        prompt: I18nKeys,
-        controller: AsyncController,
-        multiMode: boolean,
-        filter?: IShapeFilter,
-    ) {
+    async pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
         let handler = new ShapeSelectionHandler(
             this.document,
             this.shapeType,
             multiMode,
             controller,
-            filter,
+            this.filter,
         );
         await this.pickAsync(handler, prompt, controller, multiMode === true);
         let shapes = handler.shapes();
@@ -45,16 +41,11 @@ export class Selection implements ISelection, IDisposable {
         return shapes;
     }
 
-    async pickModel(
-        prompt: I18nKeys,
-        controller: AsyncController,
-        multiMode: boolean,
-        filter?: IShapeFilter,
-    ) {
+    async pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
         let oldNodeType = this.nodeType;
         try {
             this.nodeType = "model";
-            let handler = new ModelSelectionHandler(this.document, multiMode, controller, filter);
+            let handler = new ModelSelectionHandler(this.document, multiMode, controller, this.filter);
             await this.pickAsync(handler, prompt, controller, multiMode === true);
             let models = handler.models();
             handler.dispose();
@@ -99,7 +90,7 @@ export class Selection implements ISelection, IDisposable {
     }
 
     setSelection(nodes: INode[], toggle: boolean) {
-        nodes = this.nodeType === "node" ? nodes : nodes.filter((x) => INode.isModelNode(x));
+        nodes = this.nodeType === "node" ? nodes : nodes.filter(this.nodeFilter);
         if (toggle) {
             this.toggleSelectPublish(nodes, true);
         } else {
@@ -108,6 +99,15 @@ export class Selection implements ISelection, IDisposable {
         }
         return this._selectedNodes.length;
     }
+
+    private nodeFilter = (x: INode) => {
+        if (INode.isModelNode(x)) {
+            let shape = x.shape();
+            if (!shape || !this.filter) return true;
+            return this.filter.allow(shape);
+        }
+        return false;
+    };
 
     deselect(nodes: INode[]) {
         this.removeSelectedPublish(nodes, true);

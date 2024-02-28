@@ -22,11 +22,11 @@ export class AngleStep extends StepBase<SnapPointData> {
     }
 
     protected override snapper(data: SnapPointData): Snapper {
-        return new AngleSnapper(this.handleCenter(), this.handleP1(), data);
+        return new AngleSnapper(this.handleCenter, this.handleP1(), data);
     }
 
     protected validator(data: SnapPointData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
-        return data.refPoint.distanceTo(point) > Precision.Distance;
+        return data.refPoint().distanceTo(point) > Precision.Distance;
     }
 }

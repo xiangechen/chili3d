@@ -28,7 +28,7 @@ export class Mirror extends TransformedCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point!,
+            refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2,
             preview: this.mirrorPreview,
             validators: [

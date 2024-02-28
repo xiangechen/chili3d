@@ -18,8 +18,8 @@ export interface SnapLengthAtAxisData {
 }
 
 export interface SnapLengthAtPlaneData {
-    point: XYZ;
-    plane: Plane;
+    point: () => XYZ;
+    plane: () => Plane;
     validators?: SnapValidator[];
     preview: SnapPreviewer;
     prompt?: (snaped: SnapedData) => string;
@@ -68,12 +68,11 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
     protected getPointFromInput(view: IView, text: string): XYZ {
         let ns = text.split(",").map((x) => Number(x));
         if (ns.length === 1) {
-            let vector = this._snaped?.point!.sub(this.lengthData.point).normalize();
-            return this.lengthData.point.add(vector!.multiply(ns[0]));
+            let vector = this._snaped?.point!.sub(this.lengthData.point()).normalize();
+            return this.lengthData.point().add(vector!.multiply(ns[0]));
         }
-        return this.lengthData.point
-            .add(this.lengthData.plane.xvec.multiply(ns[0]))
-            .add(this.lengthData.plane.yvec.multiply(ns[1]));
+        let plane = this.lengthData.plane();
+        return this.lengthData.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
     }
 
     protected inputError(text: string): I18nKeys | undefined {

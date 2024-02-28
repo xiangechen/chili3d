@@ -30,7 +30,7 @@ export abstract class Snapper {
 
 export class AngleSnapper extends Snapper {
     constructor(
-        readonly center: XYZ,
+        readonly center: () => XYZ,
         readonly p1: XYZ,
         readonly snapPointData: SnapPointData,
     ) {

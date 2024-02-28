@@ -40,9 +40,9 @@ export class Arc extends CreateCommand {
     private getRadiusData = (): SnapLengthAtPlaneData => {
         let point = this.stepDatas[0].point!;
         return {
-            point,
+            point: () => point,
             preview: this.circlePreview,
-            plane: this.stepDatas[0].view.workplane.translateTo(point),
+            plane: () => this.stepDatas[0].view.workplane.translateTo(point),
             validators: [
                 (p: XYZ) => {
                     if (p.distanceTo(point) < Precision.Distance) return false;
@@ -74,7 +74,7 @@ export class Arc extends CreateCommand {
                 }
                 return result;
             },
-            plane,
+            plane: () => plane,
             validators: [
                 (p: XYZ) => {
                     if (p.distanceTo(center) < Precision.Distance) return false;

@@ -37,7 +37,7 @@ export class ObjectSnap implements ISnapper {
 
     constructor(
         private _snapType: ObjectSnapType,
-        readonly referencePoint?: XYZ,
+        readonly referencePoint?: () => XYZ,
     ) {
         this._featureInfos = new Map();
         this._intersectionInfos = new Map();
@@ -201,7 +201,7 @@ export class ObjectSnap implements ISnapper {
             return result;
         let curve = (shape.shape as IEdge).asCurve();
         if (!curve.success) return result;
-        let point = curve.value.project(this.referencePoint).at(0);
+        let point = curve.value.project(this.referencePoint()).at(0);
         if (point === undefined) return result;
         result.push({
             view,

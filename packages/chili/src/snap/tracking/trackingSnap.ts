@@ -36,7 +36,7 @@ export class TrackingSnap implements ISnapper {
     private readonly _tempLines: Map<IView, number[]> = new Map();
 
     constructor(
-        readonly referencePoint: XYZ | undefined,
+        readonly referencePoint: (() => XYZ) | undefined,
         trackingAxisZ: boolean,
     ) {
         this._axisTracking = new AxesTracking(trackingAxisZ);
@@ -135,7 +135,7 @@ export class TrackingSnap implements ISnapper {
     private detectTracking(view: IView, x: number, y: number) {
         let data: TrackingData[] = [];
         if (this.referencePoint !== undefined) {
-            let axies = this._axisTracking.getAxes(view, this.referencePoint);
+            let axies = this._axisTracking.getAxes(view, this.referencePoint());
             data.push(...this.getSnapedFromAxes(axies, view, x, y, undefined));
         }
         let objectTrackingRays = this._objectTracking.getTrackingRays(view);

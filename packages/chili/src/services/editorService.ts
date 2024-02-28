@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IApplication, IDocument, IEventHandler, INode, IService, Lazy, Logger, PubSub } from "chili-core";
-import { DefaultEditorEventHandler } from "../editors";
+import { EditorEventHandler } from "../editor";
 
 export class EditorService implements IService {
     private static readonly _lazy = new Lazy(() => new EditorService());
@@ -27,34 +27,16 @@ export class EditorService implements IService {
     }
 
     private handleSelectionChanged = (document: IDocument, selected: INode[], deselected: INode[]) => {
-        if (document.application.executingCommand) return;
         if (this.handler !== undefined) {
             this.handler.dispose();
             this.handler = undefined;
         }
+        if (document.application.executingCommand) return;
         if (selected.length > 0) {
-            this.handler = this.getEventHandler(document, selected, deselected);
-            if (this.handler !== undefined) {
-                document.visual.eventHandler = this.handler;
-            }
+            this.handler = new EditorEventHandler(document, selected);
+            document.visual.eventHandler = this.handler;
         } else {
             document.visual.resetEventHandler();
         }
     };
-
-    private getEventHandler(
-        document: IDocument,
-        selected: INode[],
-        deselected: INode[],
-    ): IEventHandler | undefined {
-        if (selected.length === 1 && INode.isModelNode(selected[0])) {
-            let body = selected[0].body;
-            // if (body instanceof LineBody) {
-            //     return new LineEditorEventHandler(document, body);
-            // } else if (body instanceof CircleBody) {
-            //     return new CircleEditorEventHandler(document, body);
-            // }
-        }
-        return new DefaultEditorEventHandler(document, selected);
-    }
 }

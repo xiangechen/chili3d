@@ -69,7 +69,7 @@ export class Polygon extends CreateFaceableCommand {
 
     private getNextData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas.at(-1)!.point!,
+            refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
             validators: [this.validator],
             preview: this.preview,

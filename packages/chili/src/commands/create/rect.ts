@@ -32,11 +32,10 @@ export abstract class RectCommandBase extends CreateCommand {
     }
 
     private nextSnapData = (): SnapLengthAtPlaneData => {
-        let point = this.stepDatas[0].point!;
         return {
-            point,
+            point: () => this.stepDatas[0].point!,
             preview: this.previewRect,
-            plane: this.stepDatas[0].view.workplane.translateTo(point),
+            plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
             validators: [this.handleValid],
             prompt: (snaped: SnapedData) => {
                 let data = this.getRectData(snaped.point!);

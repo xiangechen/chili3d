@@ -32,7 +32,7 @@ export class Array extends MultistepCommand {
 
     private getSecondPointData = (): SnapPointData => {
         return {
-            refPoint: this.stepDatas[0].point!,
+            refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
             preview: this.movePreview,
         };
