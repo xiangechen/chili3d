@@ -13,7 +13,11 @@ export class ThreeViewHandler implements IEventHandler {
     private _lastDown: MouseDownData | undefined;
     private _clearDownId: number | undefined;
 
-    dispose() {}
+    canRotate: boolean = true;
+
+    dispose() {
+        this.clearTimeout();
+    }
 
     mouseWheel(view: IView, event: WheelEvent): void {
         view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
@@ -22,10 +26,10 @@ export class ThreeViewHandler implements IEventHandler {
 
     pointerMove(view: IView, event: PointerEvent): void {
         if (event.buttons === MIDDLE) {
-            if (event.shiftKey) {
-                view.cameraController.pan(event.movementX, event.movementY);
-            } else if (!event.shiftKey) {
+            if (event.shiftKey && this.canRotate) {
                 view.cameraController.rotate(event.movementX, event.movementY);
+            } else if (!event.shiftKey) {
+                view.cameraController.pan(event.movementX, event.movementY);
             }
             if (event.movementX !== 0 && event.movementY !== 0) this._lastDown = undefined;
             view.update();
