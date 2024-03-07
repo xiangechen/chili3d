@@ -428,7 +428,7 @@ export class ThreeView extends Observable implements IView {
         let { x, y } = this.screenToCameraRect(mx, my);
         let mousePos = new Vector2(x, y);
         raycaster.setFromCamera(mousePos, this.camera);
-        raycaster.params = { Line: { threshold }, Points: { threshold } };
+        raycaster.params = { ...raycaster.params, Line: { threshold }, Points: { threshold } };
         return raycaster;
     }
 }

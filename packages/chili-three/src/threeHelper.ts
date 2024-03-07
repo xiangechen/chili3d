@@ -25,7 +25,7 @@ export class ThreeHelper {
     }
 
     static isPerspectiveCamera(camera: Camera): camera is PerspectiveCamera {
-        return (camera as THREE.PerspectiveCamera).isPerspectiveCamera;
+        return (camera as PerspectiveCamera).isPerspectiveCamera;
     }
 
     static isOrthographicCamera(camera: Camera): camera is OrthographicCamera {
