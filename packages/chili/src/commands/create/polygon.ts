@@ -83,11 +83,14 @@ export class Polygon extends CreateFaceableCommand {
         };
     };
 
-    private preview = (point: XYZ): ShapeMeshData[] => {
+    private preview = (point: XYZ | undefined): ShapeMeshData[] => {
+        let ps = this.stepDatas.map((data) => this.previewPoint(data.point!));
         let edges = new EdgeMeshDataBuilder();
         this.stepDatas.forEach((data) => edges.addPosition(data.point!.x, data.point!.y, data.point!.z));
-        edges.addPosition(point.x, point.y, point.z);
-        return [edges.build()];
+        if (point) {
+            edges.addPosition(point.x, point.y, point.z);
+        }
+        return [...ps, edges.build()];
     };
 
     private validator = (point: XYZ): boolean => {

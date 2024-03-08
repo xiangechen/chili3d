@@ -37,6 +37,7 @@ export class Prism extends CreateCommand {
             point,
             direction: normal,
             preview: (p) => {
+                if (!p) return [];
                 let dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
                 let vec = normal.multiply(dist);

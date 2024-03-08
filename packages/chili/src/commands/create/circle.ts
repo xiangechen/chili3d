@@ -43,10 +43,16 @@ export class Circle extends CreateFaceableCommand {
         return new GeometryModel(this.document, `Circle ${Circle.count++}`, body);
     }
 
-    private circlePreview = (point: XYZ) => {
+    private circlePreview = (point: XYZ | undefined) => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) {
+            return [p1];
+        }
         let start = this.stepDatas[0].point!;
         let plane = this.stepDatas[0].view.workplane;
         return [
+            p1,
+            this.previewLine(this.stepDatas[0].point!, point),
             this.application.shapeFactory
                 .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
                 .unwrap().mesh.edges!,

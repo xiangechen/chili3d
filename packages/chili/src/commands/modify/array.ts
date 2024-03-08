@@ -38,7 +38,9 @@ export class Array extends MultistepCommand {
         };
     };
 
-    private movePreview = (point: XYZ) => {
+    private movePreview = (point: XYZ | undefined) => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) return [p1];
         let start = this.stepDatas[0].point!;
         let positions = [...this.positions!];
         let { x, y, z } = point.sub(start);

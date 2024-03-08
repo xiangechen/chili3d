@@ -4,7 +4,7 @@ import { IDocument, IModel, IView, ShapeMeshData, VisualShapeData, XYZ } from "c
 
 export type SnapValidator = (point: XYZ) => boolean;
 
-export type SnapPreviewer = (point: XYZ) => ShapeMeshData[];
+export type SnapPreviewer = (point: XYZ | undefined) => ShapeMeshData[];
 
 export interface SnapedData {
     view: IView;

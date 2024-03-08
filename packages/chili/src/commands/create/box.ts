@@ -28,9 +28,16 @@ export class Box extends RectCommandBase {
         };
     };
 
-    private previewBox = (end: XYZ) => {
+    private previewBox = (end: XYZ | undefined) => {
+        if (!end) {
+            return this.previewRect(this.stepDatas[1].point);
+        }
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        let p2 = this.previewPoint(this.stepDatas[1].point!);
         let data = this.getRectData(end);
         return [
+            p1,
+            p2,
             this.application.shapeFactory
                 .box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
                 .unwrap().mesh.edges!,

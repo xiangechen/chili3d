@@ -40,10 +40,12 @@ export class Mirror extends TransformedCommand {
         };
     };
 
-    private mirrorPreview = (point: XYZ): ShapeMeshData[] => {
+    private mirrorPreview = (point: XYZ | undefined): ShapeMeshData[] => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) return [p1];
         let shape = this.transformPreview(point);
         let offset = point.sub(this.stepDatas[0].point!).normalize()!.multiply(1e6);
         let line = this.getTempLineData(this.stepDatas[0].point!.sub(offset), point.add(offset));
-        return [shape, line];
+        return [p1, shape, line];
     };
 }

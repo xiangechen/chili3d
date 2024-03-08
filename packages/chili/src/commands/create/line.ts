@@ -57,7 +57,14 @@ export class Line extends CreateCommand {
         };
     };
 
-    private linePreview = (point: XYZ) => {
-        return [this.application.shapeFactory.line(this.stepDatas[0].point!, point).unwrap().mesh.edges!];
+    private linePreview = (point: XYZ | undefined) => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) {
+            return [p1];
+        }
+        return [
+            p1,
+            this.application.shapeFactory.line(this.stepDatas[0].point!, point).unwrap().mesh.edges!,
+        ];
     };
 }

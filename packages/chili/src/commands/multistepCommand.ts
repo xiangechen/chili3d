@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, CancelableCommand, Property } from "chili-core";
+import {
+    AsyncController,
+    CancelableCommand,
+    Config,
+    EdgeMeshData,
+    LineType,
+    Property,
+    VertexMeshData,
+    XYZ,
+} from "chili-core";
 import { SnapedData } from "../snap";
 import { IStep } from "../step";
 
@@ -56,6 +65,18 @@ export abstract class MultistepCommand extends CancelableCommand {
 
     protected setRepeatDatas() {
         this.stepDatas.length = 0;
+    }
+
+    protected previewPoint(point: XYZ) {
+        return VertexMeshData.from(
+            point,
+            Config.instance.visual.editVertexSize,
+            Config.instance.visual.editVertexColor,
+        );
+    }
+
+    protected previewLine(start: XYZ, end: XYZ) {
+        return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Dash);
     }
 
     protected abstract getSteps(): IStep[];

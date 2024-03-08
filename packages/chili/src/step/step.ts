@@ -15,11 +15,11 @@ export interface ValidatorData {
 export abstract class StepBase<D extends ValidatorData> implements IStep {
     constructor(
         readonly tip: I18nKeys,
-        readonly handleData: () => D,
+        readonly handleValidator: () => D,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let data = this.handleData();
+        let data = this.handleValidator();
         if (data.validators === undefined) data.validators = [];
         data.validators.push((point) => this.validator(data, point));
         let snapper = this.snapper(data);

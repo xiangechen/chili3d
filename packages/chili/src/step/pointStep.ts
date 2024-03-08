@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18nKeys, Precision, XYZ } from "chili-core";
-
 import { Dimension, PointSnapper, SnapPointData, Snapper } from "../snap";
 import { StepBase } from "./step";
 

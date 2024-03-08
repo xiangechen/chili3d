@@ -15,14 +15,14 @@ import {
 } from "./snapEventHandler";
 
 export abstract class Snapper {
-    protected abstract getEventHandler(controller: AsyncController): SnapEventHandler;
+    protected abstract getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler;
 
     async snap(
         document: IDocument,
         tip: I18nKeys,
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
-        let executorHandler = this.getEventHandler(controller);
+        let executorHandler = this.getEventHandler(document, controller);
         await document.selection.pickAsync(executorHandler, tip, controller, false, CursorType.Drawing);
         return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
@@ -37,8 +37,8 @@ export class AngleSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(controller: AsyncController): SnapEventHandler {
-        return new SnapAngleEventHandler(controller, this.center, this.p1, this.snapPointData);
+    protected getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
+        return new SnapAngleEventHandler(document, controller, this.center, this.p1, this.snapPointData);
     }
 }
 
@@ -47,8 +47,8 @@ export class PointSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(controller: AsyncController): SnapEventHandler {
-        return new SnapPointEventHandler(controller, this.data);
+    protected getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
+        return new SnapPointEventHandler(document, controller, this.data);
     }
 }
 
@@ -57,8 +57,8 @@ export class LengthAtAxisSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(controller: AsyncController): SnapEventHandler {
-        return new SnapLengthAtAxisHandler(controller, this.data);
+    protected getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
+        return new SnapLengthAtAxisHandler(document, controller, this.data);
     }
 }
 
@@ -67,7 +67,7 @@ export class LengthAtPlaneSnapper extends Snapper {
         super();
     }
 
-    protected getEventHandler(controller: AsyncController): SnapEventHandler {
-        return new SnapLengthAtPlaneHandler(controller, this.data);
+    protected getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
+        return new SnapLengthAtPlaneHandler(document, controller, this.data);
     }
 }

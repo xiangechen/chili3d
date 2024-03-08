@@ -1,16 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    Colors,
-    GeometryModel,
-    Plane,
-    PlaneAngle,
-    Precision,
-    ShapeMeshData,
-    VertexMeshData,
-    XYZ,
-    command,
-} from "chili-core";
+import { GeometryModel, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
 import { ArcBody } from "../../bodys/arcBody";
 import { Dimension, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -55,14 +45,14 @@ export class Arc extends CreateCommand {
     private getAngleData = () => {
         let [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
-        let points: ShapeMeshData[] = [
-            VertexMeshData.from(center, 5, Colors.Red),
-            VertexMeshData.from(p1, 5, Colors.Red),
-        ];
+        let points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
         this._planeAngle = new PlaneAngle(plane);
         return {
             dimension: Dimension.D1D2,
-            preview: (point: XYZ) => {
+            preview: (point: XYZ | undefined) => {
+                if (point === undefined) {
+                    point = p1;
+                }
                 this._planeAngle!.movePoint(point);
                 let result = [...points];
                 if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
@@ -92,10 +82,16 @@ export class Arc extends CreateCommand {
         return new GeometryModel(this.document, `Arc ${Arc.count++}`, body);
     }
 
-    private circlePreview = (point: XYZ) => {
+    private circlePreview = (point: XYZ | undefined) => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) {
+            return [p1];
+        }
         let start = this.stepDatas[0].point!;
         let plane = this.stepDatas[0].view.workplane;
         return [
+            p1,
+            this.previewLine(this.stepDatas[0].point!, point),
             this.application.shapeFactory
                 .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
                 .unwrap().mesh.edges!,

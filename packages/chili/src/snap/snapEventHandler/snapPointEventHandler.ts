@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, I18nKeys, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
 import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
@@ -24,6 +24,7 @@ export interface SnapPointData {
 
 export class SnapPointEventHandler extends SnapEventHandler {
     constructor(
+        document: IDocument,
         controller: AsyncController,
         protected pointData: SnapPointData,
     ) {
@@ -33,7 +34,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
             : new WorkplaneSnap(pointData.refPoint);
         let trackingSnap = new TrackingSnap(pointData.refPoint, true);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(controller, snaps, pointData);
+        super(document, controller, snaps, pointData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

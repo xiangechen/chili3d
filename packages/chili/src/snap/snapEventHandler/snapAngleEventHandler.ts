@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, IView, Plane, PlaneAngle, XYZ } from "chili-core";
+import { AsyncController, Config, IDocument, IView, Plane, PlaneAngle, XYZ } from "chili-core";
 import { SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
@@ -13,6 +13,7 @@ export class SnapAngleEventHandler extends SnapEventHandler {
     readonly planeAngle: PlaneAngle;
 
     constructor(
+        document: IDocument,
         controller: AsyncController,
         readonly center: () => XYZ,
         p1: XYZ,
@@ -23,7 +24,7 @@ export class SnapAngleEventHandler extends SnapEventHandler {
         let workplaneSnap = new PlaneSnap(snapPointData.plane, center);
         let trackingSnap = new TrackingSnap(center, false);
         let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(controller, snaps, snapPointData);
+        super(document, controller, snaps, snapPointData);
         let xvec = p1.sub(center()).normalize()!;
         this.plane = new Plane(center(), snapPointData.plane().normal, xvec);
         this.planeAngle = new PlaneAngle(this.plane);

@@ -4,6 +4,7 @@ import {
     AsyncController,
     Config,
     I18nKeys,
+    IDocument,
     IEventHandler,
     IShapeFilter,
     IView,
@@ -19,12 +20,13 @@ import { ISnapper, MouseAndDetected, SnapValidator, SnapedData } from "../interf
 import { SnapPointData } from "./snapPointEventHandler";
 
 export abstract class SnapEventHandler implements IEventHandler {
-    private _tempPoint?: [IView, number];
-    private _tempShapes?: [IView, number[]];
+    private _tempPoint?: number;
+    private _tempShapes?: number[];
     protected _snaped?: SnapedData;
     private validators: SnapValidator[] = [];
 
     constructor(
+        readonly document: IDocument,
         readonly controller: AsyncController,
         readonly snaps: ISnapper[],
         readonly data: SnapPointData,
@@ -33,6 +35,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         if (data.validators) {
             this.validators.push(...data.validators);
         }
+        this.showTempShape(undefined);
         controller.onCancelled((s) => {
             this.cancel();
         });
@@ -71,14 +74,14 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     pointerMove(view: IView, event: MouseEvent): void {
-        this.removeTempObject(view);
+        this.removeTempObject();
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
-            this.showTempShape(this._snaped.point!, view);
             this.switchSnapedPrompt(this.data.prompt?.(this._snaped) ?? this.snaped?.info);
         } else {
             this.clearSnapTip();
         }
+        this.showTempShape(this._snaped?.point);
         view.viewer.update();
     }
 
@@ -158,39 +161,34 @@ export abstract class SnapEventHandler implements IEventHandler {
         PubSub.default.pub("showFloatTip", MessageType.info, msg);
     }
 
-    private removeTempObject(view: IView) {
+    private removeTempObject() {
         this.removeTempShapes();
         this.snaps.forEach((x) => x.removeDynamicObject());
     }
 
-    private showTempShape(point: XYZ, view: IView) {
-        let data = VertexMeshData.from(
-            point,
-            Config.instance.visual.temporaryVertexSize,
-            Config.instance.visual.temporaryVertexColor,
-        );
-        this._tempPoint = [view, view.viewer.visual.context.displayShapeMesh(data)];
-        let shapes = this.data.preview?.(point);
-        this._tempShapes = shapes
-            ? [
-                  view,
-                  shapes.map((shape) => {
-                      return view.viewer.visual.context.displayShapeMesh(shape);
-                  }),
-              ]
-            : undefined;
+    private showTempShape(point: XYZ | undefined) {
+        if (point) {
+            let data = VertexMeshData.from(
+                point,
+                Config.instance.visual.temporaryVertexSize,
+                Config.instance.visual.temporaryVertexColor,
+            );
+            this._tempPoint = this.document.visual.context.displayShapeMesh(data);
+        }
+        this._tempShapes = this.data.preview?.(point)?.map((shape) => {
+            return this.document.visual.context.displayShapeMesh(shape);
+        });
     }
 
     private removeTempShapes() {
-        let view = this._tempPoint?.[0] ?? this._tempShapes?.[0];
         if (this._tempPoint) {
-            this._tempPoint[0].viewer.visual.context.removeShapeMesh(this._tempPoint[1]);
+            this.document.visual.context.removeShapeMesh(this._tempPoint);
             this._tempPoint = undefined;
         }
-        this._tempShapes?.[1].forEach((x) => {
-            this._tempShapes?.[0].viewer.visual.context.removeShapeMesh(x);
+        this._tempShapes?.forEach((x) => {
+            this.document.visual.context.removeShapeMesh(x);
         });
-        view?.viewer.update();
+        this.document.visual.viewer.update();
         this._tempShapes = undefined;
     }
 

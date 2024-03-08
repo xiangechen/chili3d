@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, I18nKeys, IView, Plane, Precision, XYZ } from "chili-core";
-
+import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
 import { AxisSnap } from "../axisSnap";
 import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
@@ -27,12 +26,13 @@ export interface SnapLengthAtPlaneData {
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler {
     constructor(
+        document: IDocument,
         controller: AsyncController,
         readonly lengthData: SnapLengthAtAxisData,
     ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
-        super(controller, [objectSnap, axisSnap], lengthData);
+        super(document, controller, [objectSnap, axisSnap], lengthData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {
@@ -56,13 +56,14 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
 
 export class SnapLengthAtPlaneHandler extends SnapEventHandler {
     constructor(
+        document: IDocument,
         controller: AsyncController,
         readonly lengthData: SnapLengthAtPlaneData,
     ) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
-        super(controller, [objectSnap, trackingSnap, planeSnap], lengthData);
+        super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
     protected getPointFromInput(view: IView, text: string): XYZ {

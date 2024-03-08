@@ -25,10 +25,12 @@ export class Move extends TransformedCommand {
         };
     };
 
-    private movePreview = (point: XYZ) => {
+    private movePreview = (point: XYZ | undefined) => {
+        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) return [p1];
         let models = this.transformPreview(point);
         let line = this.getTempLineData(this.stepDatas[0].point!, point);
-        return [models, line];
+        return [p1, models, line];
     };
 
     protected override transfrom(point: XYZ): Matrix4 {
