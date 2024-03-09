@@ -80,6 +80,7 @@ export class InputProperty extends PropertyBase {
                     value: this.bind(objects[0], property.name, arrayConverter),
                     readOnly: this.isReadOnly(),
                     onkeydown: this.handleKeyDown,
+                    onblur: this.handleBlur,
                 }),
             ),
         );
@@ -101,22 +102,30 @@ export class InputProperty extends PropertyBase {
         );
     }
 
+    private handleBlur = (e: FocusEvent) => {
+        this.setValue(e.target as HTMLInputElement);
+    };
+
     private handleKeyDown = (e: KeyboardEvent) => {
         e.stopPropagation();
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
-            let newValue = this.converter.convertBack?.((e.target as HTMLInputElement).value);
-            if (!newValue?.success) {
-                PubSub.default.pub("showToast", "error.default");
-                return;
-            }
-            Transaction.excute(this.document, "modify property", () => {
-                this.objects.forEach((x) => {
-                    x[this.property.name] = newValue?.unwrap();
-                });
-                this.document.visual.viewer.update();
-            });
+            this.setValue(e.target as HTMLInputElement);
         }
+    };
+
+    private setValue = (input: HTMLInputElement) => {
+        let newValue = this.converter?.convertBack?.(input.value);
+        if (!newValue?.success) {
+            PubSub.default.pub("showToast", "error.default");
+            return;
+        }
+        Transaction.excute(this.document, "modify property", () => {
+            this.objects.forEach((x) => {
+                x[this.property.name] = newValue?.unwrap();
+            });
+            this.document.visual.viewer.update();
+        });
     };
 
     private getConverter(): IConverter | undefined {
