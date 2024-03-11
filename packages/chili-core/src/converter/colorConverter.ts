@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Result } from "../base";
+import { Color, Result } from "../foundation";
 import { IConverter } from "./converter";
 
 export class ColorConverter implements IConverter<Color> {

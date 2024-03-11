@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color } from "../base";
+import { Color } from "../foundation";
 import { IVisualObject } from "./visualObject";
 
 export interface ITextGenerator {

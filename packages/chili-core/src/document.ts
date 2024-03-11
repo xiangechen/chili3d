@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IApplication } from "./application";
-import { History, IDisposable, IPropertyChanged } from "./base";
+import { History, IDisposable, IPropertyChanged } from "./foundation";
 import { INode, INodeLinkedList } from "./model/node";
 import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable } from "../base";
+import { IDisposable } from "../foundation";
 import { IView } from "./view";
 
 export interface IEventHandler extends IDisposable {

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Colors } from "../base";
 import { Config } from "../config";
+import { Color, Colors } from "../foundation";
 import { XYZ } from "../math";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";

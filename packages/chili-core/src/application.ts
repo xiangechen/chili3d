@@ -2,9 +2,9 @@
 
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
-import { IStorage } from "./base";
 import { ICommand } from "./command";
 import { IDocument } from "./document";
+import { IStorage } from "./foundation";
 import { Serialized } from "./serialize";
 import { IService } from "./service";
 

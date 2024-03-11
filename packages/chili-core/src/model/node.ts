@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, HistoryObservable, IDisposable, IPropertyChanged } from "../base";
 import { IDocument } from "../document";
+import { Color, HistoryObservable, IDisposable, IPropertyChanged } from "../foundation";
+import { Id } from "../foundation/id";
 import { IShape } from "../geometry";
-import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";

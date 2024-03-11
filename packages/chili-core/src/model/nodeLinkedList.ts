@@ -1,8 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Logger, NodeAction, NodeLinkedListHistoryRecord, NodeRecord, PubSub, Transaction } from "../base";
 import { IDocument } from "../document";
-import { Id } from "../id";
+import {
+    Logger,
+    NodeAction,
+    NodeLinkedListHistoryRecord,
+    NodeRecord,
+    PubSub,
+    Transaction,
+} from "../foundation";
+import { Id } from "../foundation/id";
 import { Serializer } from "../serialize";
 import { INode, INodeLinkedList, Node } from "./node";
 

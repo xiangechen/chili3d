@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IDisposable } from "./base";
+import { AsyncController, IDisposable } from "./foundation";
 import { ShapeType } from "./geometry";
 import { I18nKeys } from "./i18n";
 import { IModel, INode } from "./model";

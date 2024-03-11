@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Lazy, PubSub } from "./base";
+import { Color, Lazy, PubSub } from "./foundation";
 import { ObjectSnapType } from "./snapType";
 
 export class VisualConfig {

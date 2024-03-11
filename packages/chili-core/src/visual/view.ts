@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable, IPropertyChanged } from "../base";
+import { IDisposable, IPropertyChanged } from "../foundation";
 import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";

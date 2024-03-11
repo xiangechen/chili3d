@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Colors, Logger } from "../base";
 import { IDocument } from "../document";
+import { Color, Colors, Logger } from "../foundation";
+import { Id } from "../foundation/id";
 import { ICompound, IShape } from "../geometry";
-import { Id } from "../id";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";

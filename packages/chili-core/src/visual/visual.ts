@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable } from "../base";
 import { IDocument } from "../document";
+import { IDisposable } from "../foundation";
 import { IEventHandler } from "./eventHandler";
 import { IHighlighter } from "./highlighter";
 import { ITextGenerator } from "./textGenerator";
