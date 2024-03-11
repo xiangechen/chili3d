@@ -7,10 +7,10 @@ import { IVisualFactory } from "chili-vis";
 
 export class AppBuilder {
     private _useUI: boolean = false;
-    private _inits: (() => Promise<void>)[] = [];
-    private _storage?: IStorage;
-    private _visualFactory?: IVisualFactory;
-    private _shapeFactory?: IShapeFactory;
+    protected readonly _inits: (() => Promise<void>)[] = [];
+    protected _storage?: IStorage;
+    protected _visualFactory?: IVisualFactory;
+    protected _shapeFactory?: IShapeFactory;
 
     useIndexedDB() {
         this._inits.push(async () => {
