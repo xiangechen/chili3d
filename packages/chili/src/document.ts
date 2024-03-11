@@ -68,7 +68,7 @@ export class Document extends Observable implements IDocument {
     constructor(
         readonly application: IApplication,
         name: string,
-        readonly id: string = Id.new(),
+        readonly id: string = Id.generate(),
     ) {
         super();
         this._name = name;

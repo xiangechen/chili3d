@@ -185,7 +185,7 @@ export class OccHelps {
         }
     }
 
-    static wrapShape(shape: TopoDS_Shape, id: string = Id.new()): IShape {
+    static wrapShape(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
         switch (shape.ShapeType()) {
             case occ.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return new OccCompound(occ.TopoDS.Compound_1(shape), id);

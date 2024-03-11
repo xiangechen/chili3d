@@ -1,16 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { expect, jest, test } from "@jest/globals";
-import { CurveType, Id, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
+import { expect, test } from "@jest/globals";
+import { CurveType, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { TopAbs_ShapeEnum, TopoDS_Edge } from "../occ-wasm/chili_occ";
 import { OccCurve } from "../src/occGeometry";
 import { OccHelps } from "../src/occHelps";
 import { OccEdge, OccSolid } from "../src/occShape";
-
-const newId = jest.spyOn(Id, "new").mockImplementation(() => {
-    return "asfas";
-});
 
 let occ: OpenCascadeInstance;
 

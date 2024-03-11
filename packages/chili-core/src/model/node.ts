@@ -73,7 +73,7 @@ export abstract class Node extends HistoryObservable implements INode {
     constructor(
         document: IDocument,
         private _name: string,
-        id: string = Id.new(),
+        id: string = Id.generate(),
     ) {
         super(document);
         this.id = id;
@@ -110,7 +110,7 @@ export abstract class Node extends HistoryObservable implements INode {
 
     clone(): this {
         let serialized = Serializer.serializeObject(this);
-        serialized.properties["id"] = Id.new();
+        serialized.properties["id"] = Id.generate();
         serialized.properties["name"] = `${this._name}_copy`;
         let cloned: this = Serializer.deserializeObject(this.document, serialized);
         this.parent?.add(cloned);

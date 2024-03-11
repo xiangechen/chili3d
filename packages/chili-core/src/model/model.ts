@@ -66,7 +66,7 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         this.setProperty("opacity", value);
     }
 
-    constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, body: Body, id: string = Id.generate()) {
         super(document, name, id);
         this.body = body;
     }
@@ -81,7 +81,7 @@ export class GeometryModel extends Model {
         return this._error;
     }
 
-    constructor(document: IDocument, name: string, body: Body, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, body: Body, id: string = Id.generate()) {
         super(document, name, body, id);
         this.drawShape();
         body.onShapeChanged(this.onShapeChanged);

@@ -62,7 +62,7 @@ export class OccShape implements IShape {
     }
 
     constructor(shape: TopoDS_Shape, id?: string) {
-        this._id = id ?? Id.new();
+        this._id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OccHelps.getShapeType(shape);
     }

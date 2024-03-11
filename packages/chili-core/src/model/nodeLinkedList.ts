@@ -27,7 +27,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         return this._lastChild;
     }
 
-    constructor(document: IDocument, name: string, id: string = Id.new()) {
+    constructor(document: IDocument, name: string, id: string = Id.generate()) {
         super(document, name, id);
     }
 
