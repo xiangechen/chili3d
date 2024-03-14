@@ -60,11 +60,11 @@ export class Selection implements ISelection, IDisposable {
         prompt: I18nKeys,
         controller: AsyncController,
         showControl: boolean,
-        cursor: CursorType = CursorType.Selection,
+        cursor: CursorType = "select.default",
     ) {
         let oldHandler = this.document.visual.eventHandler;
         this.document.visual.eventHandler = handler;
-        this.document.visual.viewer.setCursor(cursor);
+        PubSub.default.pub("viewCursor", cursor);
         PubSub.default.pub("statusBarTip", prompt);
         if (showControl) PubSub.default.pub("showSelectionControl", controller);
         await new Promise((resolve, reject) => {
@@ -76,7 +76,7 @@ export class Selection implements ISelection, IDisposable {
                 if (showControl) PubSub.default.pub("clearSelectionControl");
                 PubSub.default.pub("clearStatusBarTip");
                 this.document.visual.eventHandler = oldHandler;
-                this.document.visual.viewer.setCursor(CursorType.Default);
+                PubSub.default.pub("viewCursor", "default");
             });
     }
 

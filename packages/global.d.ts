@@ -9,3 +9,13 @@ declare module "*.wasm" {
     const fun: string;
     export default fun;
 }
+
+declare module "*.cur" {
+    const cur: string;
+    export default cur;
+}
+
+declare module "*.svg" {
+    const icon: string;
+    export default icon;
+}

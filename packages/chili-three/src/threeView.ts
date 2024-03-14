@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    CursorType,
     IShape,
     IShapeFilter,
     IView,
@@ -148,19 +147,6 @@ export class ThreeView extends Observable implements IView {
 
     set workplane(value: Plane) {
         this.setProperty("workplane", value);
-    }
-
-    setCursor(cursorType: CursorType): void {
-        if (cursorType === CursorType.Default) {
-            let classes = new Array<string>();
-            this._dom?.classList.forEach((x) => {
-                if (x.includes("Cursor")) {
-                    classes.push(x);
-                }
-            });
-            this._dom?.classList.remove(...classes);
-        }
-        if (CursorType.Drawing === cursorType) this._dom?.classList.add("drawingCursor");
     }
 
     update() {

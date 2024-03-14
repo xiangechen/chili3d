@@ -2,7 +2,6 @@
 
 import { IDisposable } from "../foundation";
 import { Plane } from "../math";
-import { CursorType } from "./cursorType";
 import { IView } from "./view";
 import { IVisual } from "./visual";
 
@@ -13,5 +12,4 @@ export interface IViewer extends IDisposable {
     removeView(view: IView): void;
     views(): readonly IView[];
     update(): void;
-    setCursor(cursor: CursorType): void;
 }

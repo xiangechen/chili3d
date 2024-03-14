@@ -5,7 +5,7 @@ import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
-import { IView } from "../visual";
+import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
 import { NodeRecord } from "./history";
@@ -39,6 +39,7 @@ export interface PubSubEventMap {
     showToast: (message: I18nKeys, ...args: any[]) => void;
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
     showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
+    viewCursor: (cursor: CursorType) => void;
 }
 
 export class PubSub implements IDisposable {

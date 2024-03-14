@@ -23,7 +23,7 @@ export abstract class Snapper {
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
         let executorHandler = this.getEventHandler(document, controller);
-        await document.selection.pickAsync(executorHandler, tip, controller, false, CursorType.Drawing);
+        await document.selection.pickAsync(executorHandler, tip, controller, false, "draw");
         return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
 }

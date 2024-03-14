@@ -14,10 +14,6 @@ body {
     height: 100%;
 }
 
-.drawingCursor {
-    cursor: url("./cursors/Drawing.cur"), default;
-}
-
 :root[theme="light"] {
     --control-background-color: #ffffff;
     --primary-color: #0e62d7;

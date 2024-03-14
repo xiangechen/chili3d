@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CursorType, IView, IViewer, IVisual, Plane, PubSub } from "chili-core";
+import { IView, IViewer, IVisual, Plane, PubSub } from "chili-core";
 
 export abstract class Viewer implements IViewer {
     private readonly _views: Set<IView>;
@@ -36,10 +36,6 @@ export abstract class Viewer implements IViewer {
 
     views(): readonly IView[] {
         return [...this._views];
-    }
-
-    setCursor(cursor: CursorType) {
-        this._views.forEach((x) => x.setCursor(cursor));
     }
 
     update() {

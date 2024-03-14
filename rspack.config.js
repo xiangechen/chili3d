@@ -11,6 +11,10 @@ module.exports = {
                 test: /\.wasm$/,
                 type: "asset",
             },
+            {
+                test: /\.cur$/,
+                type: "asset",
+            },
         ],
     },
     builtins: {

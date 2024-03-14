@@ -5,7 +5,6 @@ import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";
 import { ICameraController } from "./cameraController";
-import { CursorType } from "./cursorType";
 import { VisualShapeData } from "./detectedData";
 import { IViewer } from "./viewer";
 
@@ -23,7 +22,6 @@ export interface IView extends IPropertyChanged, IDisposable {
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
     resize(width: number, heigth: number): void;
-    setCursor(cursor: CursorType): void;
     setDom(element: HTMLElement): void;
     close(): void;
     detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];

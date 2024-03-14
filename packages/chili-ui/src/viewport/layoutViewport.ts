@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, IDocument, IView, Plane, PubSub, XYZ } from "chili-core";
+import { AsyncController, CursorType, IDocument, IView, Plane, PubSub, XYZ } from "chili-core";
 import { OKCancel } from "../components/okCancel";
 import { BindableElement } from "../controls";
 import style from "./layoutViewport.module.css";
 import { Viewport } from "./viewport";
+import { Cursor } from "../cursor";
 
 export class LayoutViewport extends BindableElement {
     private readonly _selectionController: OKCancel;
@@ -25,6 +26,7 @@ export class LayoutViewport extends BindableElement {
         PubSub.default.sub("documentClosed", this._handleDocumentClosed);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.sub("viewCursor", this._handleCursor);
     }
 
     override disconnectedCallback(): void {
@@ -34,7 +36,12 @@ export class LayoutViewport extends BindableElement {
         PubSub.default.remove("documentClosed", this._handleDocumentClosed);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.remove("viewCursor", this._handleCursor);
     }
+
+    private _handleCursor = (type: CursorType) => {
+        this.style.cursor = Cursor.get(type);
+    };
 
     private _handleDocumentClosed = (document: IDocument) => {
         this.clearViewports();
