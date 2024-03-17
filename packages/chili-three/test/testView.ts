@@ -59,9 +59,14 @@ Object.defineProperties(container, {
 });
 
 export class TestView extends ThreeView {
-    constructor(viewer: IDocument, content: ThreeVisualContext) {
-        super(viewer, "test", Plane.XY, content);
+    constructor(document: IDocument, content: ThreeVisualContext) {
+        super(document, "test", Plane.XY, content);
         this.setDom(container);
+        this.cameraController.lookAt(
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(),
+            new THREE.Vector3(0, 1, 0),
+        );
     }
 
     protected override initRender(): Renderer {
