@@ -15,10 +15,9 @@ import { Result } from "./result";
 
 export interface PubSubEventMap {
     executeCommand: (commandName: CommandKeys) => void;
-    nodeLinkedListChanged: (records: NodeRecord[]) => void;
+    nodeLinkedListChanged: (document: IDocument, records: NodeRecord[]) => void;
     activeViewChanged: (view: IView | undefined) => void;
-    activeDocumentChanged: (document: IDocument | undefined) => void;
-    documentClosed: (document: IDocument) => void;
+    viewClosed: (view: IView) => void;
     modelUpdate: (model: IModel) => void;
     visibleChanged: (model: IModel) => void;
     parentVisibleChanged: (model: IModel) => void;

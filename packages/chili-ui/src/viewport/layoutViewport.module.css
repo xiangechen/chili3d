@@ -5,8 +5,17 @@
     position: relative;
 }
 
+.viewports {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
 .viewport {
     width: 100%;
     height: 100%;
-    background-color: firebrick;
+}
+
+.hidden {
+    display: none;
 }

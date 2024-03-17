@@ -61,7 +61,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
 
     private handlePubAndHistory(records: NodeRecord[]) {
         Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
-        PubSub.default.pub("nodeLinkedListChanged", records);
+        PubSub.default.pub("nodeLinkedListChanged", this.document, records);
     }
 
     private ensureIsChild(item: INode) {

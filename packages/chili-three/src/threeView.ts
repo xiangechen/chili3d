@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    IDocument,
     IShape,
     IShapeFilter,
     IView,
-    IViewer,
     Observable,
     Plane,
+    PubSub,
     Ray,
     ShapeMeshGroup,
     ShapeType,
@@ -68,7 +69,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     constructor(
-        readonly viewer: IViewer,
+        readonly document: IDocument,
         name: string,
         workplane: Plane,
         readonly content: ThreeVisualContext,
@@ -84,6 +85,7 @@ export class ThreeView extends Observable implements IView {
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
         this.animate();
+        this.document.application.views.push(this);
     }
 
     override dispose(): void {
@@ -94,9 +96,15 @@ export class ThreeView extends Observable implements IView {
     close(): void {
         if (this._isClosed) return;
         this._isClosed = true;
-        this.viewer.removeView(this);
-        this.emitPropertyChanged("isClosed", false);
+        this.document.application.views.remove(this);
+        let otherView = this.document.application.views.find((x) => x.document === this.document);
+        if (!otherView) {
+            this.document.close();
+        } else if (this.document.application.activeView === this) {
+            this.document.application.activeView = otherView;
+        }
         this.dispose();
+        PubSub.default.pub("viewClosed", this);
     }
 
     private _resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
@@ -133,7 +141,9 @@ export class ThreeView extends Observable implements IView {
         element.appendChild(this._renderer.domElement);
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);
-        this.cameraController.update();
+        setTimeout(() => {
+            this.cameraController.update();
+        }, 50);
     }
 
     toImage(): string {
@@ -384,7 +394,7 @@ export class ThreeView extends Observable implements IView {
         const addObject = (obj: Object3D | undefined) => {
             if (obj !== undefined) shapes.push(obj);
         };
-        this.viewer.visual.context.shapes().forEach((x) => {
+        this.document.visual.context.shapes().forEach((x) => {
             if (!(x instanceof ThreeShape) || !x.visible) return;
             if (
                 shapeType === ShapeType.Shape ||

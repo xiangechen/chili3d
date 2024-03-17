@@ -1,27 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { EventEmitter } from "events";
 import { IDocument } from "../document";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
 import { Transaction } from "./transaction";
 
-const PropertyChangedEvent = "PropertyChangedEvent";
-
 export type PropertyChangedHandler<T, K extends keyof T> = (property: K, source: T, oldValue: T[K]) => void;
 
-export interface IPropertyChanged {
+export interface IPropertyChanged extends IDisposable {
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
 }
 
-export class Observable implements IPropertyChanged, IDisposable {
-    protected readonly eventEmitter: EventEmitter;
-
-    constructor() {
-        this.eventEmitter = new EventEmitter();
-    }
+export class Observable implements IPropertyChanged {
+    protected readonly propertyChangedHandlers: Set<PropertyChangedHandler<any, any>> = new Set();
 
     protected setPrivatePropertyValue<K extends keyof this>(pubKey: K, newValue: this[K]) {
         let privateKey = `_${String(pubKey)}`;
@@ -64,21 +57,19 @@ export class Observable implements IPropertyChanged, IDisposable {
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
-        this.eventEmitter.emit(PropertyChangedEvent, property, this, oldValue);
+        this.propertyChangedHandlers.forEach((callback) => callback(property, this, oldValue));
     }
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
-        this.eventEmitter.on(PropertyChangedEvent, handler);
+        this.propertyChangedHandlers.add(handler);
     }
 
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
-        this.eventEmitter.off(PropertyChangedEvent, handler);
+        this.propertyChangedHandlers.delete(handler);
     }
 
     dispose() {
-        this.eventEmitter.eventNames().forEach((x) => {
-            this.eventEmitter.removeAllListeners(x);
-        });
+        this.propertyChangedHandlers.clear();
     }
 }
 

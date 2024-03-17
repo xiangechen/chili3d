@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Command, CommandKeys, IApplication, ICommand, IService, Logger, PubSub } from "chili-core";
+import { Command, CommandKeys, IApplication, ICommand, IService, IView, Logger, PubSub } from "chili-core";
 
 const ApplicationCommands: CommandKeys[] = ["doc.new", "doc.open", "doc.save"];
 
@@ -18,11 +18,13 @@ export class CommandService implements IService {
 
     start(): void {
         PubSub.default.sub("executeCommand", this.executeCommand);
+        PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
         Logger.info(`${CommandService.name} started`);
     }
 
     stop(): void {
         PubSub.default.remove("executeCommand", this.executeCommand);
+        PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
         Logger.info(`${CommandService.name} stoped`);
     }
 
@@ -30,6 +32,11 @@ export class CommandService implements IService {
         this._app = app;
         Logger.info(`${CommandService.name} registed`);
     }
+
+    private onActiveViewChanged = async (view: IView | undefined) => {
+        if (this.app.executingCommand && ICommand.isCanclableCommand(this.app.executingCommand))
+            await this.app.executingCommand.cancel();
+    };
 
     private executeCommand = async (commandName: CommandKeys) => {
         let command = commandName === "special.last" ? this._lastCommand : commandName;
@@ -43,7 +50,7 @@ export class CommandService implements IService {
         let commandCtor = Command.get(commandName)!;
         let command = new commandCtor();
         this.app.executingCommand = command;
-        PubSub.default.pub("showProperties", this.app.activeDocument!, []);
+        PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
         await command
             .execute(this.app)
             .catch((err) => {
@@ -67,7 +74,7 @@ export class CommandService implements IService {
             if (ICommand.isCanclableCommand(this.app.executingCommand))
                 await this.app.executingCommand.cancel();
         }
-        if (!ApplicationCommands.includes(commandName) && this.app.activeDocument === undefined) {
+        if (!ApplicationCommands.includes(commandName) && this.app.activeView === undefined) {
             Logger.error("No active document");
             return false;
         }

@@ -15,7 +15,7 @@ import {
     XYZConverter,
 } from "chili-core";
 
-import { div, input, localize, span } from "../controls";
+import { Binding, div, input, localize, span } from "../controls";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -77,7 +77,7 @@ export class InputProperty extends PropertyBase {
                     : "",
                 input({
                     className: style.box,
-                    value: this.bind(objects[0], property.name, arrayConverter),
+                    value: new Binding(objects[0], property.name, arrayConverter),
                     readOnly: this.isReadOnly(),
                     onkeydown: this.handleKeyDown,
                     onblur: this.handleBlur,
@@ -124,7 +124,7 @@ export class InputProperty extends PropertyBase {
             this.objects.forEach((x) => {
                 x[this.property.name] = newValue?.unwrap();
             });
-            this.document.visual.viewer.update();
+            this.document.visual.update();
         });
     };
 

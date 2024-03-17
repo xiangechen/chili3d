@@ -52,7 +52,7 @@ export class RibbonTabData extends Observable {
     constructor(tabName: I18nKeys, ...groups: RibbonGroupData[]) {
         super();
         this._tabName = tabName;
-        this.groups.add(...groups);
+        this.groups.push(...groups);
     }
 
     static fromProfile(profile: RibbonTabProfile) {

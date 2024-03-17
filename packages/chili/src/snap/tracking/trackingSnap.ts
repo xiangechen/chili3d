@@ -99,7 +99,7 @@ export class TrackingSnap implements ISnapper {
             Config.instance.visual.temporaryEdgeColor,
             LineType.Dash,
         );
-        return view.viewer.visual.context.displayShapeMesh(lineDats);
+        return view.document.visual.context.displayShapeMesh(lineDats);
     }
 
     private shapeIntersectTracking(
@@ -185,7 +185,7 @@ export class TrackingSnap implements ISnapper {
     removeDynamicObject(): void {
         this._tempLines.forEach((v, k) => {
             v.forEach((id) => {
-                k.viewer.visual.context.removeShapeMesh(id);
+                k.document.visual.context.removeShapeMesh(id);
             });
         });
         this._tempLines.clear();

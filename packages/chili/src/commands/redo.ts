@@ -9,8 +9,8 @@ import { command, IApplication, ICommand } from "chili-core";
 })
 export class Redo implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let document = app.activeDocument!;
-        document.history.redo();
-        document.visual.viewer.update();
+        let document = app.activeView?.document;
+        document?.history.redo();
+        document?.visual.update();
     }
 }

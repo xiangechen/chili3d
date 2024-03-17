@@ -1,6 +1,6 @@
-import { IViewer, Plane } from "chili-core";
+import { IDocument, Plane } from "chili-core";
 import * as THREE from "three";
-import { Renderer, Scene } from "three";
+import { Renderer } from "three";
 import { ThreeView } from "../src/threeView";
 import { ThreeVisualContext } from "../src/threeVisualContext";
 
@@ -59,7 +59,7 @@ Object.defineProperties(container, {
 });
 
 export class TestView extends ThreeView {
-    constructor(viewer: IViewer, content: ThreeVisualContext) {
+    constructor(viewer: IDocument, content: ThreeVisualContext) {
         super(viewer, "test", Plane.XY, content);
         this.setDom(container);
     }

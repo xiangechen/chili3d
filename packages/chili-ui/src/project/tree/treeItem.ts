@@ -58,6 +58,6 @@ export abstract class TreeItem extends Control {
         Transaction.excute(this.document, "change visible", () => {
             this.node.visible = !this.node.visible;
         });
-        this.document.visual.viewer.update();
+        this.document.visual.update();
     };
 }

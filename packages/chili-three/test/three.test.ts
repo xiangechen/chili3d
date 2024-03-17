@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { expect, test, jest } from "@jest/globals";
+import { expect, jest, test } from "@jest/globals";
 import { GeometryModel, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestBody } from "./testEdge";
@@ -14,7 +14,7 @@ import { TestView } from "./testView";
 
 describe("three test", () => {
     let doc = new TestDocument();
-    let view = new TestView(doc.visual.viewer, doc.visual.context);
+    let view = new TestView(doc, doc.visual.context);
 
     test("test view", () => {
         expect(view.screenToCameraRect(0, 0)).toEqual(new XY(-1, 1));

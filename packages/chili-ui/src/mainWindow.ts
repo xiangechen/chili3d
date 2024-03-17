@@ -19,16 +19,16 @@ export class MainWindow {
 
     private constructor() {
         this.setTheme("light");
-        document.body.append(Editor());
     }
 
     async init(app: IApplication) {
         this._initHome(app);
+        document.body.append(Editor(app));
         const displayHome = debounce(this.displayHome, 100);
         PubSub.default.sub("showToast", Toast.show);
         PubSub.default.sub("showDialog", Dialog.show);
         PubSub.default.sub("showPermanent", Permanent.show);
-        PubSub.default.sub("activeDocumentChanged", (doc) => displayHome(app, doc === undefined));
+        PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));
     }
 

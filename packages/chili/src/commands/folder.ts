@@ -11,7 +11,7 @@ let index: number = 1;
 })
 export class NewFolder implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let document = app.activeDocument!;
+        let document = app.activeView?.document!;
         let folder = new NodeLinkedList(document, `Folder${index++}`);
         document.addNode(folder);
     }

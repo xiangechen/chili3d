@@ -35,7 +35,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     get document() {
-        return this._application!.activeDocument!;
+        return this._application!.activeView?.document!;
     }
 
     private _controller?: AsyncController;
@@ -63,7 +63,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     async execute(application: IApplication): Promise<void> {
-        if (!application.activeDocument) return;
+        if (!application.activeView?.document) return;
         this._application = application;
         try {
             let canExcute = await this.beforeExecute();

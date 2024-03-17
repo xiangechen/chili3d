@@ -30,15 +30,15 @@ let count = 1;
 })
 export class Import implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        if (!application.activeDocument) return;
+        if (!application.activeView?.document) return;
         PubSub.default.pub(
             "showPermanent",
             async () => {
                 let shape = await this.readShape(application);
-                Transaction.excute(application.activeDocument!, "import model", () => {
-                    this.addImportedShape(application.activeDocument!, shape);
+                Transaction.excute(application.activeView?.document!, "import model", () => {
+                    this.addImportedShape(application.activeView?.document!, shape);
                 });
-                application.activeDocument!.visual.viewer.activeView?.cameraController.fitContent();
+                application.activeView?.cameraController.fitContent();
             },
             "toast.excuting{0}",
             I18n.translate("command.import"),
@@ -57,7 +57,7 @@ export class Import implements ICommand {
         let nodeList = new NodeLinkedList(document, shape[0]!);
         document.addNode(nodeList);
         nodeList.add(...shapes);
-        document.visual.viewer.update();
+        document.visual.update();
     };
 
     private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
@@ -80,7 +80,7 @@ export class Import implements ICommand {
 
 abstract class Export implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        if (!application.activeDocument) return;
+        if (!application.activeView?.document) return;
         let type = this.getType();
         let models = await this.selectModelsAsync(application);
         if (!models || models.length === 0) {
@@ -121,13 +121,13 @@ abstract class Export implements ICommand {
     abstract getType(): "iges" | "step";
 
     private async selectModelsAsync(application: IApplication) {
-        let models = application
-            .activeDocument!.selection.getSelectedNodes()
+        let models = application.activeView?.document.selection
+            .getSelectedNodes()
             .filter((x) => INode.isModelNode(x)) as IModel[];
         if (models?.length === 0) {
             let controller = new AsyncController();
             let step = new SelectModelStep("prompt.select.models", true);
-            let data = await step.execute(application.activeDocument!, controller);
+            let data = await step.execute(application.activeView?.document!, controller);
             if (!data?.models) {
                 PubSub.default.pub("showToast", "prompt.select.noModelSelected");
                 return;

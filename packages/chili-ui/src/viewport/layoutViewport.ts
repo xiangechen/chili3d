@@ -1,39 +1,55 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, CursorType, IDocument, IView, Plane, PubSub, XYZ } from "chili-core";
+import {
+    AsyncController,
+    CollectionAction,
+    CollectionChangedArgs,
+    CursorType,
+    IApplication,
+    IView,
+    PubSub,
+} from "chili-core";
 import { OKCancel } from "../components/okCancel";
-import { BindableElement } from "../controls";
+import { Cursor } from "../cursor";
 import style from "./layoutViewport.module.css";
 import { Viewport } from "./viewport";
-import { Cursor } from "../cursor";
 
-export class LayoutViewport extends BindableElement {
+export class LayoutViewport extends HTMLElement {
     private readonly _selectionController: OKCancel;
-    private readonly _viewports: Viewport[] = [];
+    private readonly _viewports: Map<IView, Viewport> = new Map();
 
-    constructor() {
+    constructor(readonly app: IApplication) {
         super();
         this.className = style.root;
         this._selectionController = new OKCancel();
         this.append(this._selectionController);
         this.clearSelectionControl();
+        app.views.onCollectionChanged(this._handleViewCollectionChanged);
     }
 
-    override connectedCallback(): void {
-        super.connectedCallback();
+    private _handleViewCollectionChanged = (args: CollectionChangedArgs) => {
+        if (args.action === CollectionAction.add) {
+            args.items.forEach((view) => {
+                this.createViewport(view);
+            });
+        } else if (args.action === CollectionAction.remove) {
+            args.items.forEach((view) => {
+                let viewport = this._viewports.get(view);
+                viewport?.remove();
+                this._viewports.delete(view);
+            });
+        }
+    };
+
+    connectedCallback(): void {
         PubSub.default.sub("activeViewChanged", this._handleActiveViewChanged);
-        PubSub.default.sub("activeDocumentChanged", this._handleActiveDocumentChanged);
-        PubSub.default.sub("documentClosed", this._handleDocumentClosed);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.sub("viewCursor", this._handleCursor);
     }
 
-    override disconnectedCallback(): void {
-        super.disconnectedCallback();
+    disconnectedCallback(): void {
         PubSub.default.remove("activeViewChanged", this._handleActiveViewChanged);
-        PubSub.default.remove("activeDocumentChanged", this._handleActiveDocumentChanged);
-        PubSub.default.remove("documentClosed", this._handleDocumentClosed);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.remove("viewCursor", this._handleCursor);
@@ -43,40 +59,23 @@ export class LayoutViewport extends BindableElement {
         this.style.cursor = Cursor.get(type);
     };
 
-    private _handleDocumentClosed = (document: IDocument) => {
-        this.clearViewports();
-    };
-
-    private clearViewports() {
-        this._viewports.forEach((v) => {
-            v.view.close();
-        });
-        this._viewports.length = 0;
-    }
-
-    private createView(document: IDocument) {
-        let view = document.visual.viewer.createView("3D", Plane.XY);
-        view.cameraController.lookAt(new XYZ(1000, 1000, 1000), XYZ.zero, XYZ.unitZ);
+    private createViewport(view: IView) {
         let viewport = new Viewport(view);
-        viewport.classList.add(style.viewport);
+        viewport.classList.add(style.viewport, style.hidden);
         this.appendChild(viewport);
-        this._viewports.push(viewport);
+        this._viewports.set(view, viewport);
         view.setDom(viewport);
-        document.visual.viewer.update();
+        return viewport;
     }
 
     private _handleActiveViewChanged = (view: IView | undefined) => {
         this._viewports.forEach((v) => {
-            v.setActive(v.view === view);
+            if (v.view === view) {
+                v.classList.remove(style.hidden);
+            } else {
+                v.classList.add(style.hidden);
+            }
         });
-    };
-
-    private _handleActiveDocumentChanged = (document: IDocument | undefined) => {
-        this.clearViewports();
-        if (document !== undefined) {
-            this.createView(document);
-            document.visual.viewer.activeView = this._viewports.at(-1)?.view;
-        }
     };
 
     private showSelectionControl = (controller: AsyncController) => {

@@ -81,7 +81,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             models?.forEach((x) => {
                 x.matrix = x.matrix.multiply(transform);
             });
-            this.document.visual.viewer.update();
+            this.document.visual.update();
         });
     }
 }

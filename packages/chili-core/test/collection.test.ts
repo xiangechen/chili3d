@@ -9,7 +9,7 @@ describe("ObservableCollection test", () => {
                 expect(arg.items.length).toBe(1);
             }
         });
-        collection.add(1);
+        collection.push(1);
     });
 
     test("test remove", () => {

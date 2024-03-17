@@ -103,7 +103,7 @@ export abstract class SelectionHandler implements IEventHandler {
             x.owner.addState(VisualState.highlight, this.shapeType, ...x.indexes);
         });
         this._highlights = detecteds;
-        view.viewer.update();
+        view.update();
     }
 
     pointerDown(view: IView, event: PointerEvent): void {
@@ -154,7 +154,7 @@ export abstract class SelectionHandler implements IEventHandler {
             this.removeRect(view);
             let count = this.select(view, this._highlights ?? [], event);
             this.cleanHighlights();
-            view.viewer.update();
+            view.update();
             if (count > 0 && !this.multiMode) this.controller?.success();
         }
     }
@@ -182,7 +182,7 @@ export abstract class SelectionHandler implements IEventHandler {
             if (this.controller) {
                 this.controller.cancel();
             } else {
-                this.clearSelected(view.viewer.visual.document);
+                this.clearSelected(view.document.visual.document);
                 this.cleanHighlights();
             }
         } else if (event.key === "Enter") {

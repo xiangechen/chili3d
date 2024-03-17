@@ -1,71 +1,159 @@
 .root {
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .titleBar {
     display: flex;
     flex-direction: row;
+    align-items: center;
+    overflow: hidden;
     margin: 2px 4px;
 
-    & .quickCommands {
+    .left {
         display: flex;
         flex-direction: row;
+        align-items: center;
+        justify-self: center;
 
-        & svg {
-            width: 12px;
-            height: 12px;
-            margin: 4px 8px;
-            fill: var(--titlebar-forground-color);
-            overflow: hidden;
-        }
+        .appIcon {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-self: center;
+            border-radius: 8px;
+            padding: 4px 8px;
+            margin: 2px;
+            cursor: pointer;
 
-        & svg:hover {
-            fill: var(--hover-foreground-color);
-            background-color: var(--hover-background-color);
-        }
-    }
+            &:hover {
+                background-color: rgba(128, 128, 128, 0.3);
+            }
 
-    & .title {
-        display: flex;
-        flex-direction: row;
-        margin: 0 auto;
+            .icon {
+                width: 24px;
+                height: 24px;
+                padding: 2px;
+            }
 
-        & .titleText {
-            font-size: 1em;
-            max-width: 320px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: var(--titlebar-foreground-color);
-
-            &::after {
-                content: "|";
-                margin: 0px 12px;
+            span {
+                margin-left: 16px;
+                font-weight: bolder;
+                text-wrap: nowrap;
             }
         }
 
-        & .appName {
-            font-size: 1em;
-            font-weight: bolder;
-            max-width: 320px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: var(--titlebar-foreground-color);
+        & .quickCommands {
+            display: flex;
+            flex-direction: row;
+            margin-left: 6px;
+
+            svg {
+                width: 16px;
+                height: 16px;
+                padding: 6px;
+                border-radius: 4px;
+                margin: 0px 4px;
+
+                &:hover {
+                    background-color: rgba(128, 128, 128, 0.25);
+                }
+            }
         }
     }
 
-    & .right {
+    .center {
         display: flex;
         flex-direction: row;
-        padding: 0px 6px;
-        position: fixed;
-        right: 0px;
-        top: 0px;
+        align-items: center;
+        margin-left: 16px;
+        flex: 1 1 auto;
 
-        & svg {
-            width: 20px;
-            height: 20px;
+        .new {
+            width: 18px;
+            height: 18px;
+            margin-left: 2px;
             padding: 6px;
+            border-radius: 6px;
+
+            &:hover {
+                background-color: rgba(128, 128, 128, 0.25);
+            }
+        }
+
+        .views {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            border-radius: 8px;
+            padding: 2px 0px;
+
+            .tab {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                border-radius: 6px;
+                height: 26px;
+                background-color: rgba(128, 128, 128, 0.15);
+                padding: 2px;
+                min-width: 240px;
+                max-width: 320px;
+                margin: 0px 2px;
+                cursor: default;
+
+                &:hover {
+                    background-color: rgba(128, 128, 128, 0.25);
+                }
+
+                .name {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    margin-right: auto;
+                    margin-left: 8px;
+                    text-wrap: nowrap;
+                    user-select: none;
+
+                    .split {
+                        padding: 0px 4px;
+                    }
+
+                    span {
+                        font-size: 12px;
+                    }
+                }
+
+                .close {
+                    width: 12px;
+                    height: 12px;
+                    margin: 4px;
+                    padding: 6px;
+                    border-radius: 6px;
+
+                    &:hover {
+                        background-color: rgba(128, 128, 128, 0.25);
+                    }
+                }
+            }
+
+            .active {
+                background-color: var(--panel-background-color);
+            }
+        }
+    }
+
+    .right {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        margin: 2px 8px;
+        flex: 0 0 auto;
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            padding: 4px;
             border-radius: 4px;
 
             &:hover {
@@ -75,46 +163,46 @@
     }
 }
 
-.tabHeaderPanel {
+.ribbonTitlePanel {
     display: flex;
     flex-direction: row;
     align-items: first baseline;
     flex: auto;
+    font-size: 13px;
+    margin: 2px 4px;
 
-    & .tabHeader {
+    .startup {
+        padding: 4px 12px;
+
+        &:hover {
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary-color);
+        }
+    }
+
+    .tabHeader {
         color: var(--titlebar-forground-color);
-        font-size: 12px;
         padding: 4px 12px;
+
+        &:hover {
+            font-weight: bold;
+            background-color: var(--hover-background-color);
+        }
     }
 
-    & .tabHeader:hover {
-        font-weight: bold;
-        background-color: var(--hover-background-color);
-    }
-
-    & .activedTab {
+    .activedTab {
         position: relative;
-    }
 
-    & .activedTab::after {
-        content: "";
-        position: absolute;
-        bottom: 0px;
-        left: 8px;
-        right: 8px;
-        height: 3px;
-        background-color: var(--primary-color);
-    }
-
-    & .startup {
-        padding: 4px 12px;
-        font-size: 12px;
-    }
-
-    & .startup:hover {
-        font-weight: bold;
-        color: white;
-        background-color: var(--primary-color);
+        &::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            left: 8px;
+            right: 8px;
+            height: 3px;
+            background-color: var(--primary-color);
+        }
     }
 }
 

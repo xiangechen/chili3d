@@ -33,7 +33,7 @@ abstract class ConvertCommand extends CancelableCommand {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
                 this.document.addNode(geometryModel.getValue()!);
-                this.document.visual.viewer.update();
+                this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
         });

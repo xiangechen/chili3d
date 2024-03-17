@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
-import { BindableElement, button, div, input, label, localize, svg } from "../controls";
+import { Binding, button, div, input, label, localize, svg } from "../controls";
 import style from "./commandContext.module.css";
 
-export class CommandContext extends BindableElement {
+export class CommandContext extends HTMLElement {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement]> = new Map();
 
     constructor(readonly command: ICommand) {
@@ -18,15 +18,13 @@ export class CommandContext extends BindableElement {
         this.initContext();
     }
 
-    override connectedCallback(): void {
-        super.connectedCallback();
+    connectedCallback(): void {
         if (this.command instanceof Observable) {
             this.command.onPropertyChanged(this.onPropertyChanged);
         }
     }
 
-    override disconnectedCallback(): void {
-        super.disconnectedCallback();
+    disconnectedCallback(): void {
         if (this.command instanceof Observable) {
             this.command.removePropertyChanged(this.onPropertyChanged);
         }
@@ -85,7 +83,7 @@ export class CommandContext extends BindableElement {
                 label({ textContent: localize(g.display) }),
                 input({
                     type: "checkbox",
-                    checked: this.bind(noType, g.name),
+                    checked: new Binding(noType, g.name),
                     onclick: () => {
                         noType[g.name] = !noType[g.name];
                     },
@@ -97,7 +95,7 @@ export class CommandContext extends BindableElement {
                 input({
                     type: "text",
                     className: style.input,
-                    value: this.bind(noType, g.name),
+                    value: new Binding(noType, g.name),
                     onkeydown: (e) => {
                         e.stopPropagation();
                         if (e.key === "Enter") {

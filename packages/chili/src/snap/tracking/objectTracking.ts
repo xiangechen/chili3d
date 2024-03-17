@@ -37,7 +37,7 @@ export class ObjectTracking {
 
     getTrackingRays(view: IView) {
         let result: ObjectTrackingAxis[] = [];
-        this.trackings.get(view.viewer.visual.document)?.map((x) => {
+        this.trackings.get(view.document)?.map((x) => {
             let axes = Axis.getAxiesAtPlane(x.snap.point!, view.workplane, this.trackingZ);
             result.push({ axes, objectName: x.snap.info });
         });
@@ -67,7 +67,7 @@ export class ObjectTracking {
         } else {
             this.addTrackingPoint(snap, document, currentTrackings);
         }
-        document.visual.viewer.update();
+        document.visual.update();
     }
 
     private removeTrackingPoint(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {

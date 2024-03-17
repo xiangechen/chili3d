@@ -2,26 +2,19 @@
 
 import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 
-export class Binding<T extends IPropertyChanged = IPropertyChanged> implements IDisposable {
+export class Binding<T extends IPropertyChanged = any> implements IDisposable {
     private _targets: [element: WeakRef<object>, property: any][] = [];
 
     constructor(
-        public readonly source: T,
-        public readonly path: keyof T,
-        public readonly converter?: IConverter,
+        readonly source: T,
+        readonly path: keyof T,
+        readonly converter?: IConverter,
     ) {}
 
     setBinding<U extends object>(element: U, property: keyof U) {
         this._targets.push([new WeakRef(element), property]);
         this.setValue<U>(element, property);
-    }
-
-    startObserver() {
         this.source.onPropertyChanged(this._onPropertyChanged);
-    }
-
-    stopObserver() {
-        this.source.removePropertyChanged(this._onPropertyChanged);
     }
 
     private _onPropertyChanged = (property: keyof T) => {
@@ -42,6 +35,11 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
     };
 
     private setValue<U extends object>(element: U, property: PropertyKey) {
+        let value: any = this.getPropertyValue();
+        (element as any)[property] = value;
+    }
+
+    getPropertyValue() {
         let value: any = this.source[this.path];
         if (this.converter) {
             let result = this.converter.convert(value);
@@ -50,11 +48,11 @@ export class Binding<T extends IPropertyChanged = IPropertyChanged> implements I
             }
             value = result.getValue();
         }
-        (element as any)[property] = value;
+        return value;
     }
 
     dispose(): void {
-        this.stopObserver();
+        this.source.removePropertyChanged(this._onPropertyChanged);
         this._targets.length = 0;
     }
 }

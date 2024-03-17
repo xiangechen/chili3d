@@ -42,7 +42,8 @@ export class Tree extends Control {
         PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
     }
 
-    private handleNodeLinkedChanged = (records: NodeRecord[]) => {
+    private handleNodeLinkedChanged = (document: IDocument, records: NodeRecord[]) => {
+        if (this.document !== document) return;
         this.ensureHasHTML(records);
         for (const record of records) {
             let ele = this.nodeMap.get(record.node);

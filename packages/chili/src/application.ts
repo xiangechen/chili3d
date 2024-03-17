@@ -6,7 +6,11 @@ import {
     IDocument,
     IService,
     IStorage,
+    IView,
     Logger,
+    Observable,
+    ObservableCollection,
+    Plane,
     PubSub,
     Serialized,
 } from "chili-core";
@@ -14,7 +18,7 @@ import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { Document } from "./document";
 
-export class Application implements IApplication {
+export class Application extends Observable implements IApplication {
     private static _instance: Application | undefined;
     static get instance() {
         if (Application._instance === undefined) {
@@ -37,15 +41,15 @@ export class Application implements IApplication {
         return this._instance;
     }
 
-    private _activeDocument: IDocument | undefined;
-    get activeDocument(): IDocument | undefined {
-        return this._activeDocument;
+    private _activeView: IView | undefined;
+    get activeView(): IView | undefined {
+        return this._activeView;
     }
-    set activeDocument(document: IDocument | undefined) {
-        if (this._activeDocument === document) return;
-        this._activeDocument = document;
-        PubSub.default.pub("activeDocumentChanged", document);
+    set activeView(value: IView | undefined) {
+        this.setProperty("activeView", value, () => PubSub.default.pub("activeViewChanged", value));
     }
+
+    readonly views = new ObservableCollection<IView>();
 
     executingCommand: ICommand | undefined;
 
@@ -55,13 +59,14 @@ export class Application implements IApplication {
         readonly services: IService[],
         readonly storage: IStorage,
     ) {
+        super();
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
         window.onbeforeunload = this.handleWindowUnload;
     }
 
     private handleWindowUnload = (event: BeforeUnloadEvent) => {
-        if (this.activeDocument) {
+        if (this.activeView) {
             // Cancel the event as stated by the standard.
             event.preventDefault();
             // Chrome requires returnValue to be set.
@@ -71,25 +76,22 @@ export class Application implements IApplication {
 
     async openDocument(id: string): Promise<IDocument | undefined> {
         let document = await Document.open(this, id);
-        if (document === undefined) return;
-        return await this._changeDocument(document);
+        if (!document) return undefined;
+        return await this.handleDocumentAndActiveView(() => document);
     }
 
     async newDocument(name: string): Promise<IDocument> {
-        let document = new Document(this, name);
-        return await this._changeDocument(document);
+        return await this.handleDocumentAndActiveView(() => new Document(this, name))!;
     }
 
     async loadDocument(data: Serialized): Promise<IDocument> {
-        let document = Document.load(this, data);
-        return await this._changeDocument(document);
+        return await this.handleDocumentAndActiveView(() => Document.load(this, data));
     }
 
-    private async _changeDocument(newDocument: IDocument) {
-        if (this.activeDocument) {
-            await this.activeDocument.close();
-        }
-        this.activeDocument = newDocument;
-        return newDocument;
+    private async handleDocumentAndActiveView(proxy: () => IDocument) {
+        let document = proxy();
+        let view = document.visual.createView("3d", Plane.XY);
+        this.activeView = view;
+        return document;
     }
 }

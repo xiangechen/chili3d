@@ -1,16 +1,26 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, GeometryModel, I18nKeys, IConverter, IDocument, INode, Property, PubSub } from "chili-core";
+import {
+    Color,
+    GeometryModel,
+    I18nKeys,
+    IConverter,
+    IDocument,
+    INode,
+    IView,
+    Property,
+    PubSub,
+} from "chili-core";
 import { Expander } from "../components";
 
-import { BindableElement, div, label, localize, span } from "../controls";
+import { div, label, localize, span } from "../controls";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 
-export class PropertyView extends BindableElement {
+export class PropertyView extends HTMLElement {
     private panel = div({ className: style.panel });
 
     constructor(props: { className: string }) {
@@ -24,7 +34,15 @@ export class PropertyView extends BindableElement {
             this.panel,
         );
         PubSub.default.sub("showProperties", this.handleShowProperties);
+        PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
     }
+
+    private handleActiveViewChanged = (view: IView | undefined) => {
+        if (view) {
+            let nodes = view.document.selection.getSelectedNodes();
+            this.handleShowProperties(view.document, nodes);
+        }
+    };
 
     private handleShowProperties = (document: IDocument, nodes: INode[]) => {
         this.removeProperties();

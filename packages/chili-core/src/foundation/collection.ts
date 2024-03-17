@@ -42,7 +42,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         this._items = [...items];
     }
 
-    add(...items: T[]) {
+    push(...items: T[]) {
         this._items.push(...items);
         this._callbacks.forEach((callback) =>
             callback({
@@ -128,6 +128,14 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
 
     at(index: number) {
         return this._items.at(index);
+    }
+
+    filter(predicate: (value: T, index: number, array: T[]) => boolean) {
+        return this._items.filter(predicate);
+    }
+
+    find(predicate: (value: T, index: number, array: T[]) => boolean) {
+        return this._items.find(predicate);
     }
 
     indexOf(item: T, fromIndex: number | undefined) {

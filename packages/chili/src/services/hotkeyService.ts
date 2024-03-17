@@ -49,8 +49,8 @@ export class HotkeyService implements IService {
 
     private eventHandlerKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-        let visual = this.app?.activeDocument?.visual;
-        let view = visual?.viewer.activeView;
+        let visual = this.app?.activeView?.document?.visual;
+        let view = this.app?.activeView;
         if (view && visual) {
             visual.eventHandler.keyDown(view, e);
             visual.viewHandler.keyDown(view, e);

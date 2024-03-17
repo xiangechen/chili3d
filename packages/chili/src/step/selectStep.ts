@@ -36,7 +36,7 @@ export class SelectShapeStep extends SelectStep {
         let shapes = await document.selection.pickShape(this.prompt, controller, this.multiple);
         if (shapes.length === 0) return undefined;
         return {
-            view: document.visual.viewer.activeView!,
+            view: document.application.activeView!,
             shapes,
         };
     }
@@ -54,7 +54,7 @@ export class SelectModelStep extends SelectStep {
         let models = await document.selection.pickModel(this.prompt, controller, this.multiple);
         if (models.length === 0) return undefined;
         return {
-            view: document.visual.viewer.activeView!,
+            view: document.application.activeView!,
             shapes: [],
             models,
         };

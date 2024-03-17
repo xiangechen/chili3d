@@ -118,7 +118,7 @@ export class Selection implements ISelection, IDisposable {
     }
 
     private updateSelection() {
-        this.document.visual.viewer.update();
+        this.document.visual.update();
         PubSub.default.pub("selectionChanged", this.document, this._selectedNodes, this._unselectedNodes);
     }
 

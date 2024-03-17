@@ -1,13 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18n, I18nKeys, INode, INodeLinkedList, PubSub } from "chili-core";
+import { I18n, I18nKeys, INode, PubSub } from "chili-core";
 import { Control, Svg } from "../components";
 
-import style from "./toolBar.module.css";
 import { ProjectView } from "./projectView";
+import style from "./toolBar.module.css";
 import { Tree } from "./tree";
 import { TreeGroup } from "./tree/treeItemGroup";
-import { li } from "../controls";
 
 export class ToolBar extends Control {
     constructor(readonly projectView: ProjectView) {

@@ -1,15 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { IDocument } from "../document";
 import { IDisposable, IPropertyChanged } from "../foundation";
 import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";
 import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
-import { IViewer } from "./viewer";
 
 export interface IView extends IPropertyChanged, IDisposable {
-    readonly viewer: IViewer;
+    readonly document: IDocument;
     readonly cameraController: ICameraController;
     get isClosed(): boolean;
     name: string;

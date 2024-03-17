@@ -114,7 +114,7 @@ export class CameraController implements ICameraController {
     }
 
     fitContent(): void {
-        let context = this.view.viewer.visual.context as ThreeVisualContext;
+        let context = this.view.document.visual.context as ThreeVisualContext;
         let sphere = new Sphere();
         new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
 

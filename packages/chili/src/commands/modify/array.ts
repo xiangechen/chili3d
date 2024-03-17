@@ -84,7 +84,7 @@ export class Array extends MultistepCommand {
             this.models?.forEach((x) => {
                 x.matrix = x.matrix.multiply(transform);
             });
-            this.document.visual.viewer.update();
+            this.document.visual.update();
         });
     }
 }

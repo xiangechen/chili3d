@@ -2,9 +2,8 @@
 
 import { IView } from "chili-core";
 import { Flyout } from "../components";
-import { BindableElement } from "../controls";
 
-export class Viewport extends BindableElement {
+export class Viewport extends HTMLElement {
     private _flyout?: Flyout;
     private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
 
@@ -39,8 +38,7 @@ export class Viewport extends BindableElement {
         }
     };
 
-    override dispose() {
-        super.dispose();
+    dispose() {
         this.removeEvents();
     }
 
@@ -74,29 +72,29 @@ export class Viewport extends BindableElement {
     }
 
     private pointerMove = (view: IView, event: PointerEvent) => {
-        view.viewer.visual.eventHandler.pointerMove(view, event);
-        view.viewer.visual.viewHandler.pointerMove(view, event);
+        view.document.visual.eventHandler.pointerMove(view, event);
+        view.document.visual.viewHandler.pointerMove(view, event);
     };
 
     private pointerDown = (view: IView, event: PointerEvent) => {
-        view.viewer.activeView = view;
-        view.viewer.visual.eventHandler.pointerDown(view, event);
-        view.viewer.visual.viewHandler.pointerDown(view, event);
+        view.document.application.activeView = view;
+        view.document.visual.eventHandler.pointerDown(view, event);
+        view.document.visual.viewHandler.pointerDown(view, event);
     };
 
     private pointerUp = (view: IView, event: PointerEvent) => {
-        view.viewer.visual.eventHandler.pointerUp(view, event);
-        view.viewer.visual.viewHandler.pointerUp(view, event);
+        view.document.visual.eventHandler.pointerUp(view, event);
+        view.document.visual.viewHandler.pointerUp(view, event);
     };
 
     private pointerOut = (view: IView, event: PointerEvent) => {
-        view.viewer.visual.eventHandler.pointerOut?.(view, event);
-        view.viewer.visual.viewHandler.pointerOut?.(view, event);
+        view.document.visual.eventHandler.pointerOut?.(view, event);
+        view.document.visual.viewHandler.pointerOut?.(view, event);
     };
 
     private mouseWheel = (view: IView, event: WheelEvent) => {
-        view.viewer.visual.eventHandler.mouseWheel?.(view, event);
-        view.viewer.visual.viewHandler.mouseWheel?.(view, event);
+        view.document.visual.eventHandler.mouseWheel?.(view, event);
+        view.document.visual.viewHandler.mouseWheel?.(view, event);
     };
 }
 

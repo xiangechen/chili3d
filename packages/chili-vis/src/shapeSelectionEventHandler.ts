@@ -32,7 +32,7 @@ export class ShapeSelectionHandler extends SelectionHandler {
                 }
             });
         } else {
-            this.clearSelected(view.viewer.visual.document);
+            this.clearSelected(view.document.visual.document);
             shapes.forEach((x) => {
                 this.addSelected(x);
             });

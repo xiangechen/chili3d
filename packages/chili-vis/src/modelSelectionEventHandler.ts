@@ -32,7 +32,7 @@ export class ModelSelectionHandler extends SelectionHandler {
             return 0;
         }
         let models = shapes
-            .map((x) => view.viewer.visual.context.getModel(x.owner))
+            .map((x) => view.document.visual.context.getModel(x.owner))
             .filter((x) => x !== undefined) as IModel[];
         this.document.selection.setSelection(models, event.shiftKey);
         return models.length;

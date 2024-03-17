@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { ColorConverter, IDocument, Property, PubSub, Transaction } from "chili-core";
-import { div, input, label, localize } from "../controls";
+import { Binding, div, input, label, localize } from "../controls";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -20,7 +20,7 @@ export class ColorProperty extends PropertyBase {
         this.input = input({
             className: colorStyle.color,
             type: "color",
-            value: this.bind(objects[0], property.name, this.converter),
+            value: new Binding(objects[0], property.name, this.converter),
             onchange: this.setColor,
         });
         this.appendChild(
@@ -37,8 +37,7 @@ export class ColorProperty extends PropertyBase {
         );
     }
 
-    override disconnectedCallback(): void {
-        super.disconnectedCallback();
+    disconnectedCallback(): void {
         this.input.removeEventListener("onchange", this.setColor);
     }
 

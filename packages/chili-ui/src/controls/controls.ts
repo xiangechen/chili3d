@@ -70,7 +70,25 @@ export function svg(props: HTMLConfig<HTMLElement> & { icon: string }) {
     delete props.className;
     setProperties(svg, props);
     svg.classList.add(className);
+
+    if (props.title) {
+        addTitle(props, svg);
+    }
+
     return svg;
+}
+
+function addTitle(props: HTMLConfig<HTMLElement> & { icon: string }, svg: SVGSVGElement) {
+    let title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    let value = "";
+    if (typeof props.title === "string") {
+        value = props.title;
+    } else if (props.title instanceof Binding) {
+        value = props.title.getPropertyValue();
+    }
+    let text = document.createTextNode(value);
+    title.appendChild(text);
+    svg.appendChild(title);
 }
 
 export const items = <T>(options: ItemsConfig<T>) => new ItemsElement(options);

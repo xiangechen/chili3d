@@ -6,16 +6,16 @@ import {
     IEventHandler,
     IHighlighter,
     ITextGenerator,
-    IViewer,
     IVisual,
     Logger,
+    Plane,
 } from "chili-core";
 import { ModelSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Color, DirectionalLight, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeTextGenerator } from "./threeTextGenerator";
+import { ThreeView } from "./threeView";
 import { ThreeViewHandler } from "./threeViewEventHandler";
-import { ThreeViwer } from "./threeViewer";
 import { ThreeVisualContext } from "./threeVisualContext";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -25,7 +25,6 @@ export class ThreeVisual implements IVisual {
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
-    readonly viewer: IViewer;
     readonly highlighter: IHighlighter;
     readonly textGenerator: ITextGenerator;
 
@@ -44,7 +43,6 @@ export class ThreeVisual implements IVisual {
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
         this.defaultEventHandler = new ModelSelectionHandler(document, true);
-        this.viewer = new ThreeViwer(this);
         this.context = new ThreeVisualContext(this, this.scene);
         this.viewHandler = new ThreeViewHandler();
         this.highlighter = new ThreeHighlighter();
@@ -70,9 +68,18 @@ export class ThreeVisual implements IVisual {
         return this.eventHandler !== this.defaultEventHandler;
     }
 
+    createView(name: string, workplane: Plane) {
+        return new ThreeView(this.document, name, workplane, this.context);
+    }
+
+    update(): void {
+        this.document.application.views.forEach((view) => {
+            if (view.document === this.document) view.update();
+        });
+    }
+
     dispose() {
         this.context.dispose();
-        this.viewer.dispose();
         this.defaultEventHandler.dispose();
         this.viewHandler.dispose();
         this._eventHandler.dispose();

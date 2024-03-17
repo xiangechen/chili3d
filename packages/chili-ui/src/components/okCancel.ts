@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, I18n } from "chili-core";
-import { BindableElement, div, span, svg } from "../controls";
+import { div, span, svg } from "../controls";
 import style from "./okCancel.module.css";
 
-export class OKCancel extends BindableElement {
+export class OKCancel extends HTMLElement {
     private control?: AsyncController;
 
     constructor() {

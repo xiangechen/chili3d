@@ -112,7 +112,7 @@ export class Document extends Observable implements IDocument {
     async save() {
         let data = this.serialize();
         await this.application.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
-        let image = this.visual.viewer.activeView?.toImage();
+        let image = this.application.activeView?.toImage();
         await this.application.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
             id: this.id,
             name: this.name,
@@ -125,10 +125,13 @@ export class Document extends Observable implements IDocument {
         if (window.confirm(I18n.translate("prompt.saveDocument{0}", this.name))) {
             await this.save();
         }
-        this.dispose();
+
+        let views = this.application.views.filter((x) => x.document === this);
+        this.application.views.remove(...views);
+        this.application.activeView = this.application.views.at(0);
+
         Logger.info(`document: ${this._name} closed`);
-        PubSub.default.pub("documentClosed", this);
-        this.application.activeDocument = undefined;
+        this.dispose();
     }
 
     static async open(application: IApplication, id: string) {
@@ -154,7 +157,8 @@ export class Document extends Observable implements IDocument {
         return document;
     }
 
-    private handleModelChanged = (records: NodeRecord[]) => {
+    private handleModelChanged = (document: IDocument, records: NodeRecord[]) => {
+        if (document !== this) return;
         let adds: INode[] = [];
         let rms: INode[] = [];
         records.forEach((x) => {

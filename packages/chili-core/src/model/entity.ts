@@ -4,9 +4,9 @@ import { HistoryObservable, IEqualityComparer, Result } from "../foundation";
 import { IShape } from "../geometry";
 import { I18nKeys } from "../i18n";
 
-const ShapeChangedEvent = "ShapeChangedEvent";
-
 export abstract class Entity extends HistoryObservable {
+    protected readonly shapeChangeHandler: Set<(source: Entity) => void> = new Set();
+
     private _retryCount: number = 0;
     protected shouldRegenerate: boolean = true;
     abstract name: I18nKeys;
@@ -35,15 +35,15 @@ export abstract class Entity extends HistoryObservable {
     }
 
     protected emitShapeChanged() {
-        this.eventEmitter.emit(ShapeChangedEvent, this);
+        this.shapeChangeHandler.forEach((handler) => handler(this));
     }
 
     onShapeChanged(handler: (source: Entity) => void) {
-        this.eventEmitter.on(ShapeChangedEvent, handler);
+        this.shapeChangeHandler.add(handler);
     }
 
     removeShapeChanged(handler: (source: Entity) => void) {
-        this.eventEmitter.off(ShapeChangedEvent, handler);
+        this.shapeChangeHandler.delete(handler);
     }
 
     protected abstract generateShape(): Result<IShape>;

@@ -9,13 +9,13 @@ import { command, IApplication, ICommand, PubSub, Transaction } from "chili-core
 })
 export class Delete implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let document = app.activeDocument;
+        let document = app.activeView?.document;
         if (document === undefined) return;
         Transaction.excute(document, "delete", () => {
             let models = document!.selection.getSelectedNodes();
             document!.selection.clearSelection();
             models.forEach((model) => model.parent?.remove(model));
-            document!.visual.viewer.update();
+            document.visual.update();
             PubSub.default.pub("showToast", "toast.delete{0}Objects", models.length);
         });
     }

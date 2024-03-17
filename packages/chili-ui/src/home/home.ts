@@ -33,7 +33,7 @@ export const Home = async (app: IApplication) => {
                     textContent: localize("command.document.open"),
                     onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
                 }),
-                app.activeDocument
+                app.activeView?.document
                     ? button({
                           className: style.back,
                           textContent: localize("common.back"),
@@ -64,14 +64,14 @@ export const Home = async (app: IApplication) => {
                         {
                             className: style.document,
                             onclick: () => {
-                                if (item.id === app.activeDocument?.id) {
+                                if (item.id === app.activeView?.document?.id) {
                                     PubSub.default.pub("displayHome", false);
                                 } else {
                                     PubSub.default.pub(
                                         "showPermanent",
                                         async () => {
                                             let document = await app.openDocument(item.id);
-                                            document?.visual.viewer.activeView?.cameraController.fitContent();
+                                            document?.application.activeView?.cameraController.fitContent();
                                         },
                                         "toast.excuting{0}",
                                         I18n.translate("command.document.open"),

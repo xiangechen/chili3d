@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CommandKeys } from "chili-core";
+import { CommandKeys, IApplication } from "chili-core";
 import { div } from "./controls";
 import style from "./editor.module.css";
 import { DefaultRibbon } from "./profile/ribbon";
@@ -13,11 +13,11 @@ import { LayoutViewport } from "./viewport";
 
 let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 let ribbonTabs = DefaultRibbon.map((p) => RibbonTabData.fromProfile(p));
-let content = new RibbonDataContent(quickCommands, ribbonTabs);
 
-export const Editor = () => {
-    let viewport = new LayoutViewport();
+export const Editor = (app: IApplication) => {
+    let viewport = new LayoutViewport(app);
     viewport.classList.add(style.viewport);
+    let content = new RibbonDataContent(app, quickCommands, ribbonTabs);
     return div(
         { className: style.root },
         new Ribbon(content),

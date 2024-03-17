@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, command, download, I18n, IApplication, ICommand, PubSub } from "chili-core";
+import { command, download, I18n, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
     name: "doc.saveToFile",
@@ -9,16 +9,16 @@ import { AsyncController, command, download, I18n, IApplication, ICommand, PubSu
 })
 export class SaveDocumentToFile implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        if (!app.activeDocument) return;
+        if (!app.activeView?.document) return;
         PubSub.default.pub(
             "showPermanent",
             async () => {
                 await new Promise((r, j) => {
                     setTimeout(r, 100);
                 });
-                let s = app.activeDocument!.serialize();
+                let s = app.activeView?.document!.serialize();
                 PubSub.default.pub("showToast", "toast.downloading");
-                download([JSON.stringify(s)], `${app.activeDocument!.name}.cd`);
+                download([JSON.stringify(s)], `${app.activeView?.document!.name}.cd`);
             },
             "toast.excuting{0}",
             I18n.translate("command.document.saveToFile"),

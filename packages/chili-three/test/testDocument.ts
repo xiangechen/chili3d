@@ -52,7 +52,7 @@ export class TestDocument implements IDocument, ISerialize {
         this.history = {} as any;
         this.selection = {} as any;
         this.rootNode = {} as any;
-        this.application = {} as any;
+        this.application = { views: [] } as any;
     }
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");

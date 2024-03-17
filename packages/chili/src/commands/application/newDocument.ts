@@ -11,6 +11,6 @@ let count = 1;
 })
 export class NewDocument implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        app.newDocument(`undefined ${count}`);
+        app.newDocument(`undefined ${count++}`);
     }
 }
