@@ -125,10 +125,34 @@ export class Ribbon extends HTMLElement {
                         }),
                         span({ textContent: "Chili3D 2024 - dev" }),
                     ),
+                ),
+                div(
+                    { className: style.ribbonTitlePanel },
+                    svg({
+                        className: style.home,
+                        icon: "icon-home",
+                        onclick: () => PubSub.default.pub("displayHome", true),
+                    }),
                     items({
                         className: style.quickCommands,
                         sources: dataContent.quickCommands,
                         template: (command: CommandKeys) => QuickButton(command as any),
+                    }),
+                    span({ className: style.split }),
+                    items({
+                        sources: dataContent.ribbonTabs,
+                        template: (tab: RibbonTabData) => {
+                            const converter = new ActivedRibbonTabConverter(
+                                tab,
+                                style.tabHeader,
+                                style.activedTab,
+                            );
+                            return label({
+                                className: new Binding(dataContent, "activeTab", converter),
+                                textContent: localize(tab.tabName),
+                                onclick: () => (dataContent.activeTab = tab),
+                            });
+                        },
                     }),
                 ),
                 div(
@@ -193,29 +217,6 @@ export class Ribbon extends HTMLElement {
                         }),
                     ),
                 ),
-            ),
-            div(
-                { className: style.ribbonTitlePanel },
-                label({
-                    textContent: localize("ribbon.tab.file"),
-                    className: style.startup,
-                    onclick: () => PubSub.default.pub("displayHome", true),
-                }),
-                items({
-                    sources: dataContent.ribbonTabs,
-                    template: (tab: RibbonTabData) => {
-                        const converter = new ActivedRibbonTabConverter(
-                            tab,
-                            style.tabHeader,
-                            style.activedTab,
-                        );
-                        return label({
-                            className: new Binding(dataContent, "activeTab", converter),
-                            textContent: localize(tab.tabName),
-                            onclick: () => (dataContent.activeTab = tab),
-                        });
-                    },
-                }),
             ),
             items({
                 className: style.tabContentPanel,

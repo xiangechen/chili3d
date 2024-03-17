@@ -4,11 +4,17 @@
     width: 100%;
 }
 
+.split {
+    width: 1px;
+    height: 14px;
+    margin: 0px 8px;
+    background-color: rgba(128, 128, 128, 0.45);
+}
+
 .titleBar {
     display: flex;
     flex-direction: row;
     align-items: center;
-    overflow: hidden;
     margin: 2px 4px;
 
     .left {
@@ -43,44 +49,15 @@
                 text-wrap: nowrap;
             }
         }
-
-        & .quickCommands {
-            display: flex;
-            flex-direction: row;
-            margin-left: 6px;
-
-            svg {
-                width: 16px;
-                height: 16px;
-                padding: 6px;
-                border-radius: 4px;
-                margin: 0px 4px;
-
-                &:hover {
-                    background-color: rgba(128, 128, 128, 0.25);
-                }
-            }
-        }
     }
 
     .center {
         display: flex;
         flex-direction: row;
         align-items: center;
-        margin-left: 16px;
-        flex: 1 1 auto;
-
-        .new {
-            width: 18px;
-            height: 18px;
-            margin-left: 2px;
-            padding: 6px;
-            border-radius: 6px;
-
-            &:hover {
-                background-color: rgba(128, 128, 128, 0.25);
-            }
-        }
+        margin: auto;
+        flex: 0 1 auto;
+        overflow: auto;
 
         .views {
             display: flex;
@@ -88,6 +65,7 @@
             align-items: center;
             border-radius: 8px;
             padding: 2px 0px;
+            overflow: hidden;
 
             .tab {
                 display: flex;
@@ -114,6 +92,8 @@
                     margin-left: 8px;
                     text-wrap: nowrap;
                     user-select: none;
+                    text-decoration: dashed;
+                    overflow: hidden;
 
                     .split {
                         padding: 0px 4px;
@@ -141,6 +121,18 @@
                 background-color: var(--panel-background-color);
             }
         }
+
+        .new {
+            width: 16px;
+            height: 16px;
+            margin-left: 2px;
+            padding: 6px;
+            border-radius: 6px;
+
+            &:hover {
+                background-color: rgba(128, 128, 128, 0.25);
+            }
+        }
     }
 
     .right {
@@ -166,24 +158,42 @@
 .ribbonTitlePanel {
     display: flex;
     flex-direction: row;
-    align-items: first baseline;
-    flex: auto;
-    font-size: 13px;
-    margin: 2px 4px;
+    align-items: center;
+    margin: 0px 4px;
+    flex: 0 0 auto;
 
-    .startup {
-        padding: 4px 12px;
+    .home {
+        width: 14px;
+        height: 14px;
+        padding: 6px;
+        border-radius: 4px;
+        margin: 0px 4px;
 
         &:hover {
-            font-weight: bold;
-            color: white;
-            background-color: var(--primary-color);
+            background-color: rgba(128, 128, 128, 0.25);
+        }
+    }
+
+    & .quickCommands {
+        display: flex;
+        flex-direction: row;
+
+        svg {
+            width: 14px;
+            height: 14px;
+            padding: 6px;
+            border-radius: 4px;
+            margin: 0px 6px;
+
+            &:hover {
+                background-color: rgba(128, 128, 128, 0.25);
+            }
         }
     }
 
     .tabHeader {
         color: var(--titlebar-forground-color);
-        padding: 4px 12px;
+        padding: 5px 15px;
 
         &:hover {
             font-weight: bold;
