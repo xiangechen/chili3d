@@ -1,28 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IView } from "chili-core";
+import { IView, PubSub } from "chili-core";
 import { Flyout } from "../components";
 
 export class Viewport extends HTMLElement {
-    private _flyout?: Flyout;
+    private _flyout: Flyout;
     private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
 
     constructor(readonly view: IView) {
         super();
         this.initEvent();
+        this._flyout = new Flyout();
         view.onPropertyChanged(this._onViewClosed);
         this.addEventListener("mousemove", this._handleFlyoutMove);
+        PubSub.default.sub("activeViewChanged", this._onActiveViewChanged);
     }
 
-    setActive(actived: boolean) {
-        this._flyout?.remove();
-        this._flyout = undefined;
-
-        if (actived) {
-            this._flyout = new Flyout();
+    private _onActiveViewChanged = (view: IView | undefined) => {
+        if (view === this.view) {
             document.body.appendChild(this._flyout);
+        } else {
+            this._flyout.remove();
         }
-    }
+    };
 
     private _handleFlyoutMove(e: MouseEvent) {
         if (this._flyout) {
@@ -40,6 +40,8 @@ export class Viewport extends HTMLElement {
 
     dispose() {
         this.removeEvents();
+        this.removeEventListener("mousemove", this._handleFlyoutMove);
+        PubSub.default.remove("activeViewChanged", this._onActiveViewChanged);
     }
 
     private initEvent() {
