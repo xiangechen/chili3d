@@ -15,6 +15,7 @@ export interface IApplication extends IPropertyChanged {
     readonly services: IService[];
     readonly storage: IStorage;
     readonly views: ObservableCollection<IView>;
+    readonly documents: Set<IDocument>;
     executingCommand: ICommand | undefined;
     activeView: IView | undefined;
     newDocument(name: string): Promise<IDocument>;

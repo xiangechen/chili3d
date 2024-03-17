@@ -50,6 +50,7 @@ export class Application extends Observable implements IApplication {
     }
 
     readonly views = new ObservableCollection<IView>();
+    readonly documents: Set<IDocument> = new Set<IDocument>();
 
     executingCommand: ICommand | undefined;
 

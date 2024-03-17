@@ -5,6 +5,13 @@ import { LanguageSelector } from "../components";
 import { a, button, div, img, items, label, localize, span, svg } from "../controls";
 import style from "./home.module.css";
 
+function hasOpen(app: IApplication, documentId: string) {
+    for (const document of app.documents) {
+        if (document.id === documentId) return true;
+    }
+    return false;
+}
+
 export const Home = async (app: IApplication) => {
     let documentArray: RecentDocumentDTO[] = await app.storage.page(
         Constants.DBName,
@@ -64,7 +71,7 @@ export const Home = async (app: IApplication) => {
                         {
                             className: style.document,
                             onclick: () => {
-                                if (item.id === app.activeView?.document?.id) {
+                                if (hasOpen(app, item.id)) {
                                     PubSub.default.pub("displayHome", false);
                                 } else {
                                     PubSub.default.pub(

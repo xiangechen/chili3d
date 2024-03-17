@@ -77,6 +77,7 @@ export class Document extends Observable implements IDocument {
         this.selection = new Selection(this);
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`new document: ${name}`);
+        application.documents.add(this);
     }
 
     private handleRootNodeNameChanged = (prop: string) => {
@@ -129,6 +130,7 @@ export class Document extends Observable implements IDocument {
         let views = this.application.views.filter((x) => x.document === this);
         this.application.views.remove(...views);
         this.application.activeView = this.application.views.at(0);
+        this.application.documents.delete(this);
 
         Logger.info(`document: ${this._name} closed`);
         this.dispose();
