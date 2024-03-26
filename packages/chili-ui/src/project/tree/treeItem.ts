@@ -18,8 +18,16 @@ export abstract class TreeItem extends Control {
         this.visibleIcon = new Svg(this.getVisibleIcon())
             .onClick(this.onVisibleIconClick)
             .addClass(style.icon);
+    }
 
-        node.onPropertyChanged(this.onPropertyChanged);
+    override connectedCallback(): void {
+        super.connectedCallback();
+        this.node.onPropertyChanged(this.onPropertyChanged);
+    }
+
+    override disconnectedCallback(): void {
+        super.disconnectedCallback();
+        this.node.removePropertyChanged(this.onPropertyChanged);
     }
 
     private onPropertyChanged = (property: keyof INode, model: INode) => {
@@ -46,6 +54,7 @@ export abstract class TreeItem extends Control {
 
     override dispose() {
         super.dispose();
+        this.node.removePropertyChanged(this.onPropertyChanged);
         this.visibleIcon.removeEventListener("click", this.onVisibleIconClick);
     }
 

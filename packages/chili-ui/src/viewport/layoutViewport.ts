@@ -36,6 +36,7 @@ export class LayoutViewport extends HTMLElement {
             args.items.forEach((view) => {
                 let viewport = this._viewports.get(view);
                 viewport?.remove();
+                viewport?.dispose();
                 this._viewports.delete(view);
             });
         }

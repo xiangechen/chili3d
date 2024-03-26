@@ -2,28 +2,12 @@
 
 import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
 
-const bingings = new Set<Binding<any>>();
-
-setInterval(
-    () => {
-        console.debug("before update", bingings.size);
-        bingings.forEach((binding) => {
-            binding.updateBindings();
-            if (!binding.isListening) {
-                bingings.delete(binding);
-            }
-        });
-        console.debug("after update", bingings.size);
-    },
-    1000 * 60 * 3,
-);
+const registry = new FinalizationRegistry((binding: Binding) => {
+    binding.removeBinding();
+});
 
 export class Binding<T extends IPropertyChanged = any> implements IDisposable {
-    private _targets: [element: WeakRef<object>, property: any][] = [];
-    private _isListening = false;
-    public get isListening() {
-        return this._isListening;
-    }
+    private _targets?: [element: WeakRef<object>, property: any];
 
     constructor(
         readonly source: T,
@@ -31,41 +15,27 @@ export class Binding<T extends IPropertyChanged = any> implements IDisposable {
         readonly converter?: IConverter,
     ) {}
 
-    updateBindings() {
-        let newItems = [];
-        for (let item of this._targets) {
-            let element = item[0].deref();
-            if (element) newItems.push(item);
+    setBinding<U extends object>(element: U, property: keyof U) {
+        if (this._targets) {
+            throw new Error("Binding already set");
         }
-        this._targets.length = 0;
-        this._targets = newItems;
-        if (this._targets.length === 0) {
-            this._isListening = false;
-            this.source.removePropertyChanged(this._onPropertyChanged);
-        }
+        this._targets = [new WeakRef(element), property];
+        this.setValue<U>(element, property);
+        this.source.onPropertyChanged(this._onPropertyChanged);
+        registry.register(element, this);
     }
 
-    setBinding<U extends object>(element: U, property: keyof U) {
-        this._targets.push([new WeakRef(element), property]);
-        this.setValue<U>(element, property);
-        if (!this._isListening) {
-            this._isListening = true;
-            this.source.onPropertyChanged(this._onPropertyChanged);
-            bingings.add(this);
-        }
+    removeBinding() {
+        this._targets = undefined;
+        this.source.removePropertyChanged(this._onPropertyChanged);
     }
 
     private _onPropertyChanged = (property: keyof T) => {
-        if (property === this.path) {
-            let newItems = [];
-            for (let item of this._targets) {
-                let element = item[0].deref();
-                if (element) {
-                    this.setValue(element, item[1]);
-                    newItems.push(item);
-                }
+        if (property === this.path && this._targets) {
+            let element = this._targets[0].deref();
+            if (element) {
+                this.setValue(element, this._targets[1]);
             }
-            this._targets = newItems;
         }
     };
 
@@ -88,6 +58,6 @@ export class Binding<T extends IPropertyChanged = any> implements IDisposable {
 
     dispose(): void {
         this.source.removePropertyChanged(this._onPropertyChanged);
-        this._targets.length = 0;
+        this._targets = undefined;
     }
 }

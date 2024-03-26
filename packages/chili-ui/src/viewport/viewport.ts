@@ -11,7 +11,6 @@ export class Viewport extends HTMLElement {
         super();
         this.initEvent();
         this._flyout = new Flyout();
-        view.onPropertyChanged(this._onViewClosed);
         this.addEventListener("mousemove", this._handleFlyoutMove);
         PubSub.default.sub("activeViewChanged", this._onActiveViewChanged);
     }
@@ -30,13 +29,6 @@ export class Viewport extends HTMLElement {
             this._flyout.style.left = e.clientX + "px";
         }
     }
-
-    private _onViewClosed = (prop: keyof IView) => {
-        if (prop === "isClosed") {
-            this.remove();
-            this.dispose();
-        }
-    };
 
     dispose() {
         this.removeEvents();
