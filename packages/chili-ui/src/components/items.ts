@@ -13,8 +13,6 @@ export class ItemsElement<T> extends HTMLElement {
     constructor(readonly props: ItemsConfig<T>) {
         super();
         setProperties(this, props as any);
-        const items = Array.isArray(props.sources) ? props.sources : props.sources.items;
-        this.append(...this._mapItems(items));
     }
 
     getItem(item: any): HTMLElement | SVGSVGElement | undefined {
@@ -22,11 +20,15 @@ export class ItemsElement<T> extends HTMLElement {
     }
 
     connectedCallback() {
+        const items = Array.isArray(this.props.sources) ? this.props.sources : this.props.sources.items;
+        this.append(...this._mapItems(items));
         if (this.props.sources instanceof ObservableCollection)
             this.props.sources.onCollectionChanged(this._onCollectionChanged);
     }
 
     disconnectedCallback() {
+        this._itemMap.forEach((x) => x.remove());
+        this._itemMap.clear();
         if (this.props.sources instanceof ObservableCollection)
             this.props.sources.removeCollectionChanged(this._onCollectionChanged);
     }
@@ -75,7 +77,7 @@ export class ItemsElement<T> extends HTMLElement {
     private _removeItem(items: any[]) {
         items.forEach((item) => {
             if (this._itemMap.has(item)) {
-                this.removeChild(this._itemMap.get(item)!);
+                this._itemMap.get(item)?.remove();
                 this._itemMap.delete(item);
             }
         });
