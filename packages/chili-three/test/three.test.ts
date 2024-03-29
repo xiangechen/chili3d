@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, jest, test } from "@jest/globals";
-import { GeometryModel, ShapeType, XY, XYZ } from "chili-core";
+import { GeometryModel, Material, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestBody } from "./testEdge";
 import { TestView } from "./testView";
@@ -14,6 +14,7 @@ import { TestView } from "./testView";
 
 describe("three test", () => {
     let doc = new TestDocument();
+    doc.materials.push(new Material(doc, "test", 0x00ff00));
     let view = new TestView(doc, doc.visual.context);
 
     test("test view", () => {

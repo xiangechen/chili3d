@@ -3,12 +3,15 @@
 import { IConverter } from "./converter";
 import { I18nKeys } from "./i18n";
 
+export type PropertyType = "color";
+
 export interface Property {
     name: string;
     display: I18nKeys;
     converter?: IConverter;
     group?: I18nKeys;
     icon?: string;
+    type?: PropertyType;
     dependencies?: {
         property: string | number | symbol;
         value: any;
@@ -18,9 +21,9 @@ export interface Property {
 const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
 
 export namespace Property {
-    export function define(display: I18nKeys, group?: I18nKeys, icon?: string) {
+    export function define(display: I18nKeys, group?: I18nKeys, icon?: string, type?: PropertyType) {
         return (target: Object, name: string) => {
-            setProperty(target, name, { display, group, icon });
+            setProperty(target, name, { display, group, icon, type });
         };
     }
 

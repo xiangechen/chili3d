@@ -9,6 +9,8 @@ import {
     ISelection,
     ISerialize,
     IView,
+    Material,
+    ObservableCollection,
     PropertyChangedHandler,
     Serialized,
 } from "chili-core";
@@ -24,6 +26,7 @@ export class TestDocument implements IDocument, ISerialize {
     visual: ThreeVisual;
     rootNode: INodeLinkedList;
     activeView: IView | undefined;
+    materials: ObservableCollection<Material> = new ObservableCollection<Material>();
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }

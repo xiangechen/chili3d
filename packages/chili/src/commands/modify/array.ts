@@ -2,12 +2,12 @@
 
 import {
     AsyncController,
-    Config,
     IModel,
     INode,
     LineType,
     Matrix4,
     Transaction,
+    VisualConfig,
     XYZ,
     command,
 } from "chili-core";
@@ -54,7 +54,7 @@ export class Array extends MultistepCommand {
             {
                 positions,
                 lineType: LineType.Solid,
-                color: Config.instance.visual.temporaryEdgeColor,
+                color: VisualConfig.temporaryEdgeColor,
                 groups: [],
             },
         ];

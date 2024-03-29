@@ -10,6 +10,7 @@ export * from "./editor";
 export * from "./foundation";
 export * from "./geometry";
 export * from "./i18n";
+export * from "./material";
 export * from "./math";
 export * from "./model";
 export * from "./property";

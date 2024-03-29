@@ -3,6 +3,7 @@
 import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
+import { Material } from "../material";
 import { IModel, INode } from "../model";
 import { ObjectSnapType } from "../snapType";
 import { CursorType, IView } from "../visual";
@@ -39,6 +40,7 @@ export interface PubSubEventMap {
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
     showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
     viewCursor: (cursor: CursorType) => void;
+    editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
 }
 
 export class PubSub implements IDisposable {

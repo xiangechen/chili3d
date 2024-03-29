@@ -6,13 +6,18 @@ import {
     CollectionChangedArgs,
     CursorType,
     IApplication,
+    IDocument,
     IView,
+    Material,
     PubSub,
 } from "chili-core";
 import { OKCancel } from "../components/okCancel";
 import { Cursor } from "../cursor";
+import { MaterialEditor } from "../property/material";
+import { MaterialDataContent } from "../property/material/materialDataContent";
 import style from "./layoutViewport.module.css";
 import { Viewport } from "./viewport";
+import { items } from "../controls";
 
 export class LayoutViewport extends HTMLElement {
     private readonly _selectionController: OKCancel;
@@ -45,6 +50,7 @@ export class LayoutViewport extends HTMLElement {
     connectedCallback(): void {
         PubSub.default.sub("activeViewChanged", this._handleActiveViewChanged);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
+        PubSub.default.sub("editMaterial", this._handleMaterialEdit);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.sub("viewCursor", this._handleCursor);
     }
@@ -52,6 +58,7 @@ export class LayoutViewport extends HTMLElement {
     disconnectedCallback(): void {
         PubSub.default.remove("activeViewChanged", this._handleActiveViewChanged);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
+        PubSub.default.remove("editMaterial", this._handleMaterialEdit);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.remove("viewCursor", this._handleCursor);
     }
@@ -87,6 +94,15 @@ export class LayoutViewport extends HTMLElement {
     private clearSelectionControl = () => {
         this._selectionController.setControl(undefined);
         this._selectionController.style.visibility = "hidden";
+    };
+
+    private _handleMaterialEdit = (
+        document: IDocument,
+        editingMaterial: Material,
+        callback: (material: Material) => void,
+    ) => {
+        let context = new MaterialDataContent(document, callback, editingMaterial);
+        this.append(new MaterialEditor(context));
     };
 }
 

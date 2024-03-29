@@ -13,6 +13,7 @@ import {
     Result,
     ShapeType,
     VertexMeshData,
+    VisualConfig,
     XYZ,
 } from "chili-core";
 
@@ -170,8 +171,8 @@ export abstract class SnapEventHandler implements IEventHandler {
         if (point) {
             let data = VertexMeshData.from(
                 point,
-                Config.instance.visual.temporaryVertexSize,
-                Config.instance.visual.temporaryVertexColor,
+                VisualConfig.temporaryVertexSize,
+                VisualConfig.temporaryVertexColor,
             );
             this._tempPoint = this.document.visual.context.displayShapeMesh(data);
         }

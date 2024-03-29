@@ -1,22 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    Color,
+    CollectionAction,
+    CollectionChangedArgs,
     EdgeMeshData,
     IDisposable,
     IModel,
     INode,
     IVisual,
     IVisualContext,
+    IVisualObject,
     IVisualShape,
     LineType,
+    Material,
     ShapeMeshData,
     ShapeType,
     VertexMeshData,
 } from "chili-core";
-import { IVisualObject } from "chili-core/src/visual/visualObject";
 import {
     BufferGeometry,
+    DoubleSide,
     Float32BufferAttribute,
     Group,
     LineBasicMaterial,
@@ -26,14 +29,16 @@ import {
     Points,
     PointsMaterial,
     Scene,
+    TextureLoader,
+    MeshLambertMaterial as ThreeMaterial,
 } from "three";
-import { ThreeHelper } from "./threeHelper";
 import { ThreeShape } from "./threeShape";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
     private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
+    private readonly materialMap = new Map<string, ThreeMaterial>();
 
     readonly visualShapes: Group;
     readonly tempShapes: Group;
@@ -45,7 +50,53 @@ export class ThreeVisualContext implements IVisualContext {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
+        visual.document.materials.onCollectionChanged(this.onMaterialsChanged);
     }
+
+    private onMaterialsChanged = (args: CollectionChangedArgs) => {
+        if (args.action === CollectionAction.add) {
+            args.items.forEach((item: Material) => {
+                let material = new ThreeMaterial({
+                    color: item.color,
+                    side: DoubleSide,
+                    transparent: true,
+                    name: item.name,
+                });
+                if (item.texture) {
+                    material.map = new TextureLoader().load(item.texture);
+                }
+                item.onPropertyChanged(this.onMaterialPropertyChanged);
+                this.materialMap.set(item.id, material);
+            });
+        } else if (args.action === CollectionAction.remove) {
+            args.items.forEach((item: Material) => {
+                let material = this.materialMap.get(item.id);
+                this.materialMap.delete(item.id);
+                item.removePropertyChanged(this.onMaterialPropertyChanged);
+                material?.dispose();
+            });
+        }
+    };
+
+    private onMaterialPropertyChanged = (prop: keyof Material, source: Material) => {
+        let material = this.materialMap.get(source.id);
+        if (!material) return;
+        if (prop === "color") {
+            material.color.set(source.color);
+        } else if (prop === "texture") {
+            material.map = source.texture ? new TextureLoader().load(source.texture) : null;
+        } else if (prop === "opacity") {
+            material.opacity = source.opacity;
+        } else if (prop === "name") {
+            material.name = source.name;
+        } else if (prop === "width" && material.map) {
+            material.map.image.width = source.width;
+        } else if (prop === "height" && material.map) {
+            material.map.image.height = source.height;
+        } else {
+            throw new Error("Unknown material property: " + prop);
+        }
+    };
 
     addMesh(data: ShapeMeshData): IVisualObject {
         let shape: ThreeVisualObject | undefined = undefined;
@@ -80,6 +131,12 @@ export class ThreeVisualContext implements IVisualContext {
             }
             if (IDisposable.isDisposable(x)) x.dispose();
         });
+        this.visual.document.materials.forEach((x) =>
+            x.removePropertyChanged(this.onMaterialPropertyChanged),
+        );
+        this.visual.document.materials.removeCollectionChanged(this.onMaterialsChanged);
+        this.materialMap.forEach((x) => x.dispose());
+        this.materialMap.clear();
         this.visualShapes.clear();
         this.tempShapes.clear();
         this.scene.remove(this.visualShapes, this.tempShapes);
@@ -133,7 +190,7 @@ export class ThreeVisualContext implements IVisualContext {
     private createEdgeGeometry(data: EdgeMeshData) {
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        let color = ThreeHelper.fromColor(data.color as Color);
+        let color = data.color as number;
         let material: LineBasicMaterial =
             data.lineType === LineType.Dash
                 ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
@@ -144,7 +201,7 @@ export class ThreeVisualContext implements IVisualContext {
     private createVertexGeometry(data: VertexMeshData) {
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        let color = ThreeHelper.fromColor(data.color as Color);
+        let color = data.color as number;
         let material = new PointsMaterial({
             size: data.size,
             sizeAttenuation: false,
@@ -182,9 +239,11 @@ export class ThreeVisualContext implements IVisualContext {
     private displayModel(model: IModel) {
         let modelShape = model.shape();
         if (modelShape === undefined) return;
-        let threeShape = new ThreeShape(modelShape, this.visual.highlighter);
-        threeShape.color = model.color;
-        threeShape.opacity = model.opacity;
+        let material = this.materialMap.get(model.materialId);
+        if (!material) {
+            throw new Error("Material not found");
+        }
+        let threeShape = new ThreeShape(modelShape, this.visual.highlighter, material);
         threeShape.transform = model.matrix;
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
@@ -196,10 +255,9 @@ export class ThreeVisualContext implements IVisualContext {
         if (shape === undefined) return;
         if (property === "matrix") {
             shape.transform = model.matrix;
-        } else if (property === "color") {
-            shape.color = model[property];
-        } else if (property === "opacity") {
-            shape.opacity = model[property];
+        } else if (property === "materialId") {
+            let material = this.materialMap.get(model.materialId)!;
+            shape.setFaceMaterial(material);
         }
     };
 

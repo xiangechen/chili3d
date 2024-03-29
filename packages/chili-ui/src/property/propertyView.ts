@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    Color,
     GeometryModel,
     I18nKeys,
     IConverter,
     IDocument,
+    IModel,
     INode,
     IView,
     Property,
@@ -13,12 +13,11 @@ import {
 } from "chili-core";
 import { Expander } from "../components";
 
-import { div, label, localize, span } from "../controls";
-import { CheckProperty } from "./check";
-import { ColorProperty } from "./colorProperty";
+import { button, div, label, localize, span } from "../controls";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
+import { appendProperty } from "./utils";
 
 export class PropertyView extends HTMLElement {
     private panel = div({ className: style.panel });
@@ -60,27 +59,48 @@ export class PropertyView extends HTMLElement {
 
     private addDefault(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
-        let nameProperty = Property.getProperty(nodes[0], "name")!;
-        let header: HTMLElement;
         let properties = div();
+        let header = new InputProperty(document, nodes, Property.getProperty(nodes[0], "name")!);
         if (INode.isModelNode(nodes[0])) {
-            let colorProperty = Property.getProperty(nodes[0], "color")!;
-            let opacityProperty = Property.getProperty(nodes[0], "opacity")!;
-            header = div(
-                { className: style.colorName },
-                new ColorProperty(document, nodes, colorProperty, false),
-                new InputProperty(document, nodes, nameProperty, false),
-            );
-            this.appendProperty(properties, document, nodes, opacityProperty);
-        } else {
-            header = div(
-                { className: style.colorName },
-                span({ textContent: localize("common.name") }),
-                new InputProperty(document, nodes, nameProperty, false),
-            );
+            appendProperty(properties, document, nodes);
+            if (nodes.length === 1) {
+                this.appendMaterialProperty(document, nodes[0], properties);
+            }
         }
 
         this.panel.append(header, properties);
+    }
+
+    private appendMaterialProperty(document: IDocument, model: IModel, properties: HTMLDivElement) {
+        const findMaterial = (id: string) => document.materials.find((x) => x.id === id)!;
+        properties.append(
+            div(
+                {
+                    className: style.material,
+                },
+                span({
+                    textContent: localize(Property.getProperty(model, "materialId")!.display),
+                }),
+                button({
+                    textContent: findMaterial(model.materialId).name,
+                    onclick: (e) => {
+                        PubSub.default.pub(
+                            "editMaterial",
+                            document,
+                            findMaterial(model.materialId)!,
+                            (material) => {
+                                let button = e.target as HTMLButtonElement;
+                                button.textContent = material.name;
+                                model.materialId = material.id;
+                                console.log(model.materialId);
+
+                                document.visual.update();
+                            },
+                        );
+                    },
+                }),
+            ),
+        );
     }
 
     private addBody(nodes: INode[], document: IDocument) {
@@ -90,7 +110,7 @@ export class PropertyView extends HTMLElement {
         this.panel.append(body);
         body.classList.add(style.expander);
         Property.getProperties(bodies[0]).forEach((x) => {
-            this.appendProperty(body.contenxtPanel, document, bodies, x);
+            appendProperty(body.contenxtPanel, document, bodies, x);
         });
     }
 
@@ -113,9 +133,9 @@ export class PropertyView extends HTMLElement {
         let transform = new Expander("properties.group.transform").addClass(style.expander);
         this.panel.append(transform);
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
-            this.appendProperty(transform, document, nodes, {
+            appendProperty(transform, document, nodes, {
                 name: "matrix",
-                display,
+                display: display,
                 converter,
             });
         };
@@ -124,21 +144,6 @@ export class PropertyView extends HTMLElement {
         addMatrix("model.translation", converters.translation);
         addMatrix("model.scale", converters.scale);
         addMatrix("model.rotation", converters.rotate);
-    }
-
-    private appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
-        if (prop === undefined) return;
-        const propValue = (objs[0] as unknown as any)[prop.name];
-        const type = typeof propValue;
-        if (type === "object" || type === "string" || type === "number") {
-            if (propValue instanceof Color) {
-                container.append(new ColorProperty(document, objs, prop));
-            } else {
-                container.append(new InputProperty(document, objs, prop));
-            }
-        } else if (type === "boolean") {
-            container.append(new CheckProperty(objs, prop));
-        }
     }
 }
 

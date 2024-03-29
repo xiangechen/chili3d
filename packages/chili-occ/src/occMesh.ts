@@ -155,6 +155,7 @@ export class OccMesh implements IShapeMeshData {
         let poly = handlePoly.get();
         let trsf = location.Transformation();
         this.addNodes(poly, trsf, builder);
+        this.addUVs(poly, builder);
         this.addTriangles(poly, face.Orientation_1(), builder);
         this.addNormals(handlePoly, trsf, face, poly.NbNodes(), builder);
         builder.endGroup(OccHelps.wrapShape(face));
@@ -173,6 +174,22 @@ export class OccMesh implements IShapeMeshData {
             } else {
                 builder.addIndices(c1, c2, c3);
             }
+        }
+    }
+
+    private addUVs(poly: Poly_Triangulation, builder: FaceMeshDataBuilder) {
+        let us = [],
+            vs = [];
+        for (let index = 1; index <= poly.NbNodes(); index++) {
+            us.push(poly.UVNode(index).X());
+            vs.push(poly.UVNode(index).Y());
+        }
+        let minU = Math.min(...us),
+            maxU = Math.max(...us);
+        let minV = Math.min(...vs),
+            maxV = Math.max(...vs);
+        for (let index = 0; index < us.length; index++) {
+            builder.addUV((us[index] - minU) / (maxU - minU), (vs[index] - minV) / (maxV - minV));
         }
     }
 

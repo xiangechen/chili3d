@@ -18,18 +18,22 @@ import {
     NodeRecord,
     NodeSerializer,
     Observable,
+    ObservableCollection,
     PubSub,
+    Result,
     Serialized,
     Serializer,
 } from "chili-core";
 import { Selection } from "./selection";
+import { Material } from "chili-core/src/material";
 
-const FILE_VERSIOM = "0.1.0";
+const FILE_VERSIOM = "0.1.1";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
+    readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
     private _name: string;
     get name(): string {
@@ -94,6 +98,7 @@ export class Document extends Observable implements IDocument {
                 id: this.id,
                 name: this.name,
                 nodes: NodeSerializer.serialize(this.rootNode),
+                materials: this.materials.map((x) => Serializer.serializeObject(x)),
             },
         };
         return serialized;
@@ -104,6 +109,8 @@ export class Document extends Observable implements IDocument {
         this.visual.dispose();
         this.history.dispose();
         this.selection.dispose();
+        this.materials.forEach((x) => x.dispose());
+        this.materials.clear();
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
         this._rootNode?.dispose();
         this._rootNode = undefined;
@@ -147,13 +154,26 @@ export class Document extends Observable implements IDocument {
             return;
         }
         let document = this.load(application, data);
-        Logger.info(`document: ${document.name} opened`);
+        if (document !== undefined) {
+            Logger.info(`document: ${document.name} opened`);
+        }
         return document;
     }
 
-    static load(app: IApplication, data: Serialized) {
+    static load(app: IApplication, data: Serialized): IDocument | undefined {
+        if ((data as any).version !== FILE_VERSIOM) {
+            alert(
+                "The file version has been upgraded, no compatibility treatment was done in the development phase",
+            );
+            return undefined;
+        }
         let document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
+        document.materials.push(
+            ...data.properties["materials"].map((x: Serialized) =>
+                Serializer.deserializeObject(document, x),
+            ),
+        );
         document.setRootNode(NodeSerializer.deserialize(document, data.properties["nodes"]));
         document.history.disabled = false;
         return document;

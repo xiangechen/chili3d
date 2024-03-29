@@ -2,7 +2,6 @@
 
 import {
     AsyncController,
-    Config,
     EdgeMeshData,
     IModel,
     INode,
@@ -11,6 +10,7 @@ import {
     Property,
     PubSub,
     Transaction,
+    VisualConfig,
     XYZ,
 } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
@@ -37,13 +37,13 @@ export abstract class TransformedCommand extends MultistepCommand {
         return {
             positions,
             lineType: LineType.Solid,
-            color: Config.instance.visual.faceEdgeColor,
+            color: VisualConfig.defaultEdgeColor,
             groups: [],
         };
     };
 
     protected getTempLineData(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Solid);
+        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Solid);
     }
 
     protected override async beforeExecute(): Promise<boolean> {

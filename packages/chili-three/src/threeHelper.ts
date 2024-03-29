@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Matrix4, XYZ } from "chili-core";
+import { Matrix4, XYZ } from "chili-core";
 import {
     Box3,
     Camera,
@@ -32,12 +32,12 @@ export class ThreeHelper {
         return (camera as OrthographicCamera).isOrthographicCamera;
     }
 
-    static fromColor(color: Color): ThreeColor {
-        return new ThreeColor(color.r, color.g, color.b);
+    static fromColor(color: number): ThreeColor {
+        return new ThreeColor(color);
     }
 
-    static toColor(color: ThreeColor): Color {
-        return new Color(color.r, color.g, color.b, 1);
+    static toColor(color: ThreeColor): number {
+        return color.getHex();
     }
 
     static findGroupIndex(groups: { start: number; count: number }[], subIndex: number) {

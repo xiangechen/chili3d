@@ -20,5 +20,5 @@ export interface IApplication extends IPropertyChanged {
     activeView: IView | undefined;
     newDocument(name: string): Promise<IDocument>;
     openDocument(id: string): Promise<IDocument | undefined>;
-    loadDocument(data: Serialized): Promise<IDocument>;
+    loadDocument(data: Serialized): Promise<IDocument | undefined>;
 }

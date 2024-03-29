@@ -2,7 +2,6 @@
 
 export * from "./asyncController";
 export * from "./collection";
-export * from "./color";
 export * from "./disposable";
 export * from "./dto";
 export * from "./equalityComparer";

@@ -13,6 +13,7 @@ import {
     PubSub,
     Ray,
     ShapeType,
+    VisualConfig,
     XY,
     XYZ,
 } from "chili-core";
@@ -93,12 +94,7 @@ export class TrackingSnap implements ISnapper {
         if (normal === undefined) return undefined;
         let distance = vector.length() * 1e10;
         let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
-        let lineDats = EdgeMeshData.from(
-            start,
-            newEnd,
-            Config.instance.visual.temporaryEdgeColor,
-            LineType.Dash,
-        );
+        let lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
         return view.document.visual.context.displayShapeMesh(lineDats);
     }
 

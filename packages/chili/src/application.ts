@@ -77,22 +77,25 @@ export class Application extends Observable implements IApplication {
 
     async openDocument(id: string): Promise<IDocument | undefined> {
         let document = await Document.open(this, id);
-        if (!document) return undefined;
-        return await this.handleDocumentAndActiveView(() => document);
+        await this.createActiveView(document);
+        return document;
     }
 
     async newDocument(name: string): Promise<IDocument> {
-        return await this.handleDocumentAndActiveView(() => new Document(this, name))!;
+        let document = new Document(this, name);
+        await this.createActiveView(document);
+        return document;
     }
 
-    async loadDocument(data: Serialized): Promise<IDocument> {
-        return await this.handleDocumentAndActiveView(() => Document.load(this, data));
+    async loadDocument(data: Serialized): Promise<IDocument | undefined> {
+        let document = Document.load(this, data);
+        await this.createActiveView(document);
+        return document;
     }
 
-    private async handleDocumentAndActiveView(proxy: () => IDocument) {
-        let document = proxy();
+    private async createActiveView(document: IDocument | undefined) {
+        if (document === undefined) return undefined;
         let view = document.visual.createView("3d", Plane.XY);
         this.activeView = view;
-        return document;
     }
 }

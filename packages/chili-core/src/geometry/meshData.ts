@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Config } from "../config";
-import { Color, Colors } from "../foundation";
+import { VisualConfig } from "../config";
 import { XYZ } from "../math";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";
@@ -22,7 +21,7 @@ export interface ShapeMeshGroup {
 export interface ShapeMeshData {
     positions: number[];
     groups: ShapeMeshGroup[];
-    color: Color | number[];
+    color: number | number[];
 }
 
 export namespace ShapeMeshData {
@@ -44,7 +43,7 @@ export interface VertexMeshData extends ShapeMeshData {
 }
 
 export namespace VertexMeshData {
-    export function from(point: XYZ, size: number, color: Color): VertexMeshData {
+    export function from(point: XYZ, size: number, color: number): VertexMeshData {
         return {
             positions: [point.x, point.y, point.z],
             groups: [],
@@ -59,7 +58,7 @@ export interface EdgeMeshData extends ShapeMeshData {
 }
 
 export namespace EdgeMeshData {
-    export function from(start: XYZ, end: XYZ, color: Color, lineType: LineType): EdgeMeshData {
+    export function from(start: XYZ, end: XYZ, color: number, lineType: LineType): EdgeMeshData {
         return {
             positions: [start.x, start.y, start.z, end.x, end.y, end.z],
             color,
@@ -78,10 +77,10 @@ export interface FaceMeshData extends ShapeMeshData {
 export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     protected readonly _positions: number[] = [];
     protected readonly _groups: ShapeMeshGroup[] = [];
-    protected _color: Color | undefined;
+    protected _color: number | undefined;
     protected _vertexColor: number[] | undefined;
 
-    setColor(color: Color) {
+    setColor(color: number) {
         this._color = color;
     }
 
@@ -92,7 +91,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     }
 
     protected getColor() {
-        let color: Color | number[] | undefined = this._vertexColor;
+        let color: number | number[] | undefined = this._vertexColor;
         if (this._vertexColor?.length !== this._positions.length) {
             color = this._color;
         }
@@ -118,7 +117,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
 
     constructor() {
         super();
-        this._color = Config.instance.visual.faceEdgeColor;
+        this._color = VisualConfig.defaultEdgeColor;
     }
 
     setType(type: LineType) {
@@ -168,7 +167,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
 
     constructor() {
         super();
-        this._color = Colors.Gray;
+        this._color = VisualConfig.defaultFaceColor;
     }
 
     override newGroup() {

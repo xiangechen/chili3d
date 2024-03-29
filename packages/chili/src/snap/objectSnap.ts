@@ -14,6 +14,7 @@ import {
     PubSub,
     ShapeType,
     VertexMeshData,
+    VisualConfig,
     VisualShapeData,
     VisualState,
     XYZ,
@@ -109,8 +110,8 @@ export class ObjectSnap implements ISnapper {
         this.hilighted(view, shape.shapes);
         let data = VertexMeshData.from(
             shape.point!,
-            Config.instance.visual.hintVertexSize,
-            Config.instance.visual.hintVertexColor,
+            VisualConfig.hintVertexSize,
+            VisualConfig.hintVertexColor,
         );
         this._hintVertex = [
             view.document.visual.context,
@@ -161,8 +162,8 @@ export class ObjectSnap implements ISnapper {
     private showCircleCenter(curve: ICircle, view: IView, shape: VisualShapeData) {
         let temporary = VertexMeshData.from(
             curve.center,
-            Config.instance.visual.hintVertexSize,
-            Config.instance.visual.hintVertexColor,
+            VisualConfig.hintVertexSize,
+            VisualConfig.hintVertexColor,
         );
         let id = view.document.visual.context.displayShapeMesh(temporary);
         this._invisibleInfos.set(shape, {

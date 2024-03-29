@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Config, IDocument, IView, VertexMeshData } from "chili-core";
+import { IDocument, IView, VertexMeshData, VisualConfig } from "chili-core";
 
 import { SnapedData } from "..";
 import { Axis } from "./axis";
@@ -81,8 +81,8 @@ export class ObjectTracking {
     private addTrackingPoint(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
         let data = VertexMeshData.from(
             snap.point!,
-            Config.instance.visual.trackingVertexSize,
-            Config.instance.visual.trackingVertexColor,
+            VisualConfig.trackingVertexSize,
+            VisualConfig.trackingVertexColor,
         );
         let pointId = document.visual.context.displayShapeMesh(data);
         snaps.push({ shapeId: pointId, snap });

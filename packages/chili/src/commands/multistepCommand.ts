@@ -3,11 +3,11 @@
 import {
     AsyncController,
     CancelableCommand,
-    Config,
     EdgeMeshData,
     LineType,
     Property,
     VertexMeshData,
+    VisualConfig,
     XYZ,
 } from "chili-core";
 import { SnapedData } from "../snap";
@@ -68,15 +68,11 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected previewPoint(point: XYZ) {
-        return VertexMeshData.from(
-            point,
-            Config.instance.visual.editVertexSize,
-            Config.instance.visual.editVertexColor,
-        );
+        return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
     }
 
     protected previewLine(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, Config.instance.visual.temporaryEdgeColor, LineType.Dash);
+        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Dash);
     }
 
     protected abstract getSteps(): IStep[];

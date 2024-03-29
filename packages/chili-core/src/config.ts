@@ -1,24 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color, Lazy, PubSub } from "./foundation";
+import { Lazy, PubSub } from "./foundation";
 import { ObjectSnapType } from "./snapType";
 
-export class VisualConfig {
-    faceEdgeColor: Color = Color.fromRGB(0.75, 0.75, 0.75);
-    highlightEdgeColor: Color = Color.fromRGB(0.95, 0.95, 0.95);
-    highlightFaceColor: Color = Color.fromHex(0xfef08a);
-    selectedEdgeColor: Color = Color.fromRGB(1, 1, 1);
-    selectedFaceColor: Color = Color.fromHex(0xfde047);
-    editVertexSize: number = 5;
-    editVertexColor: Color = Color.fromHex(0x666);
-    hintVertexSize: number = 3;
-    hintVertexColor: Color = Color.fromHex(0x666);
-    trackingVertexSize: number = 5;
-    trackingVertexColor: Color = Color.fromHex(0x888);
-    temporaryVertexSize: number = 3;
-    temporaryVertexColor: Color = Color.fromHex(0x888);
-    temporaryEdgeColor: Color = Color.fromHex(0x888);
-}
+export const VisualConfig = {
+    defaultEdgeColor: 0xcccccc,
+    defaultFaceColor: 0xdedede,
+    highlightEdgeColor: 0xfef08a,
+    highlightFaceColor: 0xfef08a,
+    selectedEdgeColor: 0xffffff,
+    selectedFaceColor: 0xfde047,
+    editVertexSize: 5,
+    editVertexColor: 0x0000ff,
+    hintVertexSize: 3,
+    hintVertexColor: 0x0000ff,
+    trackingVertexSize: 5,
+    trackingVertexColor: 0x0000ff,
+    temporaryVertexSize: 3,
+    temporaryVertexColor: 0x0000ff,
+    temporaryEdgeColor: 0xeeeeee,
+};
 
 export class Config {
     private static readonly _lazy = new Lazy(() => new Config());
@@ -26,8 +27,6 @@ export class Config {
     static get instance() {
         return this._lazy.value;
     }
-
-    readonly visual: VisualConfig = new VisualConfig();
 
     private _snapType: ObjectSnapType;
     get snapType() {

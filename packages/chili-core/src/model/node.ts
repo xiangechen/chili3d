@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { Color, HistoryObservable, IDisposable, IPropertyChanged } from "../foundation";
+import { HistoryObservable, IDisposable, IPropertyChanged } from "../foundation";
 import { Id } from "../foundation/id";
 import { IShape } from "../geometry";
 import { Matrix4 } from "../math";
@@ -34,9 +34,8 @@ export interface INodeLinkedList extends INode {
 export interface IModel extends INode {
     readonly document: IDocument;
     readonly body: Entity;
+    materialId: string;
     matrix: Matrix4;
-    color: Color;
-    opacity: number;
     shape(): IShape | undefined;
 }
 

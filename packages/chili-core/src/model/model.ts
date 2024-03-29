@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { Color, Colors, Logger } from "../foundation";
+import { Logger } from "../foundation";
 import { Id } from "../foundation/id";
 import { ICompound, IShape } from "../geometry";
 import { Matrix4 } from "../math";
@@ -44,31 +44,27 @@ export abstract class Model<T extends IShape = IShape> extends Node implements I
         );
     }
 
-    private _color: Color = Colors.Gray;
-
+    private _materialId: string;
     @Serializer.serialze()
-    @Property.define("common.color")
-    get color() {
-        return this._color;
-    }
-    set color(value: Color) {
-        this.setProperty("color", value);
+    @Property.define("common.material")
+    get materialId(): string {
+        return this._materialId;
     }
 
-    private _opacity: number = 1;
-
-    @Serializer.serialze()
-    @Property.define("common.opacity")
-    get opacity() {
-        return this._opacity;
-    }
-    set opacity(value: number) {
-        this.setProperty("opacity", value);
+    set materialId(value: string) {
+        this.setProperty("materialId", value);
     }
 
-    constructor(document: IDocument, name: string, body: Body, id: string = Id.generate()) {
+    constructor(
+        document: IDocument,
+        name: string,
+        body: Body,
+        materialId: string,
+        id: string = Id.generate(),
+    ) {
         super(document, name, id);
         this.body = body;
+        this._materialId = materialId;
     }
 }
 
@@ -82,7 +78,7 @@ export class GeometryModel extends Model {
     }
 
     constructor(document: IDocument, name: string, body: Body, id: string = Id.generate()) {
-        super(document, name, body, id);
+        super(document, name, body, document.materials.at(0)!.id, id);
         this.drawShape();
         body.onShapeChanged(this.onShapeChanged);
     }

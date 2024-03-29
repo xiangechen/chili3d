@@ -14,7 +14,6 @@ export class ColorProperty extends PropertyBase {
         readonly document: IDocument,
         objects: any[],
         readonly property: Property,
-        readonly showTitle: boolean = true,
     ) {
         super(objects);
         this.input = input({
@@ -26,12 +25,10 @@ export class ColorProperty extends PropertyBase {
         this.appendChild(
             div(
                 { className: commonStyle.panel },
-                showTitle
-                    ? label({
-                          className: commonStyle.propertyName,
-                          textContent: localize(property.display),
-                      })
-                    : "",
+                label({
+                    className: commonStyle.propertyName,
+                    textContent: localize(property.display),
+                }),
                 this.input,
             ),
         );

@@ -105,16 +105,20 @@ export namespace Serializer {
         parameters["document"] = document;
         for (const key of ctorParamNames) {
             if (key in properties) {
-                parameters[key] = deserialValue(document, properties[key]);
+                if (properties[key] !== undefined)
+                    parameters[key] = deserialValue(document, properties[key]);
             } else if (key !== "document") {
-                throw new Error(`${className} constructor parameter ${key} is missing`);
+                parameters[key] = undefined;
+                console.warn(`${className} constructor parameter ${key} is missing`);
             }
         }
         return parameters;
     }
 
     function deserialValue(document: IDocument, value: any) {
-        if (Array.isArray(value)) {
+        if (value === undefined) {
+            return undefined;
+        } else if (Array.isArray(value)) {
             return value.map((v) => {
                 return typeof v === "object" ? deserializeObject(document, v) : v;
             });

@@ -1,4 +1,6 @@
 .color {
-    width: 32px;
+    width: 64px;
     height: 32px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
 }

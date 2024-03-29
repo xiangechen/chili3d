@@ -1,0 +1,128 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background-color: var(--background-color);
+    top: 16px;
+    left: 16px;
+    padding: 16px;
+}
+
+.title {
+    margin: 0px 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    span {
+        font-size: medium;
+        flex: 1;
+    }
+
+    svg {
+        width: 16px;
+        height: 16px;
+        padding: 6px;
+        margin: 0 3px;
+
+        &:hover {
+            background-color: var(--hover-background-color);
+        }
+    }
+}
+
+.materials {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-radius: 8px;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    margin: 8px 0px;
+    padding: 4px;
+    height: 120px;
+}
+
+.material {
+    border-radius: 8px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid gray;
+    margin: 4px;
+}
+
+.active {
+    border: 5px solid var(--primary-color);
+}
+
+.editing {
+    display: flex;
+    flex-direction: row;
+    border-radius: 8px;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    padding: 16px;
+    --delete-visiblity: hidden;
+
+    .texture {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 4px;
+        border-radius: 8px;
+        position: relative;
+
+        &:hover {
+            --delete-visiblity: visible;
+        }
+
+        span {
+            margin-top: 4px;
+        }
+
+        img {
+            width: 96px;
+            height: 96px;
+            border-radius: 4px;
+        }
+
+        svg {
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.45);
+            border-radius: 50%;
+            padding: 4px;
+            top: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            visibility: var(--delete-visiblity);
+        }
+    }
+
+    .properties {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        margin-right: 16px;
+    }
+}
+
+.bottom {
+    display: flex;
+    flex-direction: row;
+    margin-top: 8px;
+
+    button {
+        width: 96px;
+        height: 28px;
+        margin-right: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--panel-background-color);
+        &:hover {
+            background-color: var(--hover-background-color);
+        }
+    }
+}

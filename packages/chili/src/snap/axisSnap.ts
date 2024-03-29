@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Config, EdgeMeshData, IView, LineType, Plane, XYZ } from "chili-core";
+import { EdgeMeshData, IView, LineType, Plane, VisualConfig, XYZ } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapedData } from ".";
 
@@ -37,7 +37,7 @@ export class AxisSnap implements ISnapper {
         let lineDats = EdgeMeshData.from(
             this.point,
             this.point.add(this.direction.multiply(dist)),
-            Config.instance.visual.temporaryEdgeColor,
+            VisualConfig.temporaryEdgeColor,
             LineType.Dash,
         );
         let id = view.document.visual.context.displayShapeMesh(lineDats);

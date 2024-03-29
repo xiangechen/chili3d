@@ -7,7 +7,11 @@ export interface FileData {
     data: string;
 }
 
-export async function readFileAsync(accept: string, multiple: boolean): Promise<Result<FileData[]>> {
+export async function readFileAsync(
+    accept: string,
+    multiple: boolean,
+    reader: "readAsText" | "readAsDataURL" = "readAsText",
+): Promise<Result<FileData[]>> {
     return new Promise((resolve, _reject) => {
         let result: FileData[] = [];
         let input = document.createElement("input");
@@ -17,7 +21,7 @@ export async function readFileAsync(accept: string, multiple: boolean): Promise<
         input.accept = accept;
         input.onchange = async () => {
             document.body.removeChild(input);
-            await resolveFiles(input, result, resolve);
+            await resolveFiles(input, result, resolve, reader);
         };
         input.oncancel = () => {
             document.body.removeChild(input);
@@ -32,6 +36,7 @@ async function resolveFiles(
     input: HTMLInputElement,
     result: FileData[],
     resolve: (value: Result<FileData[]> | PromiseLike<Result<FileData[]>>) => void,
+    reader: "readAsText" | "readAsDataURL",
 ) {
     if (!input.files) {
         resolve(Result.error(`no files`));
@@ -40,7 +45,7 @@ async function resolveFiles(
     for (let i = 0; i < input.files.length; i++) {
         let file = input.files.item(i);
         if (!file) continue;
-        let data = await asyncFileReader(file);
+        let data = await asyncFileReader(file, reader);
         if (data.success) {
             result.push({
                 fileName: file.name,
@@ -53,7 +58,7 @@ async function resolveFiles(
     resolve(Result.success(result));
 }
 
-function asyncFileReader(file: File): Promise<Result<string>> {
+function asyncFileReader(file: File, method: any): Promise<Result<string>> {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = (e) => {
@@ -62,6 +67,6 @@ function asyncFileReader(file: File): Promise<Result<string>> {
         reader.onerror = (e) => {
             resolve(Result.error(`Error occurred reading file: ${file.name}`));
         };
-        reader.readAsText(file);
+        (reader as any)[method](file);
     });
 }

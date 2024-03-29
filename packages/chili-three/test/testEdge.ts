@@ -1,6 +1,5 @@
 import {
     Body,
-    Color,
     I18nKeys,
     ICurve,
     IDocument,
@@ -50,7 +49,7 @@ export class TestEdge implements IEdge {
             shape: this,
             edges: {
                 positions: [this.start.x, this.start.y, this.start.z, this.end.x, this.end.y, this.end.z],
-                color: Color.fromRGB(1.0, 0, 0),
+                color: 0xff0000,
                 lineType: LineType.Solid,
                 groups: [],
             },

@@ -16,7 +16,7 @@ export class OpenDocument implements ICommand {
                 if (files.status === "success") {
                     let json: Serialized = JSON.parse(files.value[0].data);
                     let document = await app.loadDocument(json);
-                    document.application.activeView?.cameraController.fitContent();
+                    document?.application.activeView?.cameraController.fitContent();
                 }
             },
             "toast.excuting{0}",

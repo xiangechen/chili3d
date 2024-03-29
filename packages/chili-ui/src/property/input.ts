@@ -61,7 +61,6 @@ export class InputProperty extends PropertyBase {
         readonly document: IDocument,
         objects: any[],
         readonly property: Property,
-        readonly showTitle: boolean = true,
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
@@ -69,12 +68,10 @@ export class InputProperty extends PropertyBase {
         this.append(
             div(
                 { className: commonStyle.panel },
-                showTitle
-                    ? span({
-                          className: commonStyle.propertyName,
-                          textContent: localize(property.display),
-                      })
-                    : "",
+                span({
+                    className: commonStyle.propertyName,
+                    textContent: localize(property.display),
+                }),
                 input({
                     className: style.box,
                     value: new Binding(objects[0], property.name, arrayConverter),

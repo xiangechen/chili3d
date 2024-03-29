@@ -1,6 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Color } from "../foundation";
 import { IShape, ShapeType } from "../geometry";
 import { IVisualObject } from "./visualObject";
 
@@ -32,8 +31,6 @@ export interface VisualGroup {
 
 export interface IVisualShape extends IVisualObject {
     get shape(): IShape;
-    color: Color;
-    opacity: number;
     addState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     removeState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     resetState(): void;
