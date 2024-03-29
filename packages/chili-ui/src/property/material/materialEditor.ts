@@ -72,7 +72,7 @@ export class MaterialEditor extends HTMLElement {
                             title: material.name,
                             style: {
                                 backgroundColor: new Binding(material, "color", this.colorConverter),
-                                background: new Binding(material, "texture", new UrlStringConverter()),
+                                backgroundImage: new Binding(material, "texture", new UrlStringConverter()),
                                 backgroundBlendMode: "multiply",
                                 backgroundSize: "contain",
                             },
