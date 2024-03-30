@@ -53,7 +53,7 @@ export class MaterialEditor extends HTMLElement {
                         },
                     }),
                     svg({
-                        icon: "icon-times",
+                        icon: "icon-trash",
                         onclick: () => {
                             this.dataContent.deleteMaterial();
                         },
@@ -128,6 +128,10 @@ export class MaterialEditor extends HTMLElement {
     };
 
     private initEditingControl(material: Material) {
+        const selectTexture = async () => {
+            let file = await readFileAsync(".png, .jpg", false, "readAsDataURL");
+            material.texture = file.unwrap()[0].data;
+        };
         let container = div({
             className: style.properties,
         });
@@ -146,10 +150,7 @@ export class MaterialEditor extends HTMLElement {
                             backgroundSize: "contain",
                             backgroundImage: new Binding(material, "texture", new UrlStringConverter()),
                         },
-                        onclick: async () => {
-                            let file = await readFileAsync(".png, .jpeg", false, "readAsDataURL");
-                            material.texture = file.unwrap()[0].data;
-                        },
+                        onclick: selectTexture,
                     }),
                     span({
                         textContent: localize("material.texture"),
@@ -166,6 +167,9 @@ export class MaterialEditor extends HTMLElement {
 
         Property.getProperties(material).forEach((x) => {
             appendProperty(container, this.dataContent.document, [material], x);
+            if (x.display === "material.texture") {
+                (container.lastChild as HTMLInputElement).onclick = selectTexture;
+            }
         });
     }
 }

@@ -13,6 +13,7 @@ import {
     IVisualShape,
     LineType,
     Material,
+    MathUtils,
     ShapeMeshData,
     ShapeType,
     VertexMeshData,
@@ -28,6 +29,7 @@ import {
     Object3D,
     Points,
     PointsMaterial,
+    RepeatWrapping,
     Scene,
     TextureLoader,
     MeshLambertMaterial as ThreeMaterial,
@@ -64,6 +66,8 @@ export class ThreeVisualContext implements IVisualContext {
                 });
                 if (item.texture) {
                     material.map = new TextureLoader().load(item.texture);
+                    material.map.wrapS = RepeatWrapping;
+                    material.map.wrapT = RepeatWrapping;
                 }
                 item.onPropertyChanged(this.onMaterialPropertyChanged);
                 this.materialMap.set(item.id, material);
@@ -89,10 +93,13 @@ export class ThreeVisualContext implements IVisualContext {
             material.opacity = source.opacity;
         } else if (prop === "name") {
             material.name = source.name;
-        } else if (prop === "width" && material.map) {
-            material.map.image.width = source.width;
-        } else if (prop === "height" && material.map) {
-            material.map.image.height = source.height;
+        } else if (prop === "angle" && material.map) {
+            material.map.rotation = MathUtils.degToRad(source.angle);
+            material.map.center.set(0.5, 0.5);
+        } else if (prop === "repeatU" && material.map) {
+            material.map.repeat.setX(source.repeatU);
+        } else if (prop === "repeatV" && material.map) {
+            material.map.repeat.setY(source.repeatV);
         } else {
             throw new Error("Unknown material property: " + prop);
         }

@@ -50,24 +50,34 @@ export class Material extends HistoryObservable {
         this.setProperty("texture", value);
     }
 
-    private _width: number = 0;
+    private _angle: number = 0;
     @Serializer.serialze()
-    @Property.define("material.width")
-    get width(): number {
-        return this._width;
+    @Property.define("common.angle")
+    get angle(): number {
+        return this._angle;
     }
-    set width(value: number) {
-        this.setProperty("width", value);
+    set angle(value: number) {
+        this.setProperty("angle", value);
     }
 
-    private _height: number = 0;
+    private _repeatU: number = 1;
     @Serializer.serialze()
-    @Property.define("material.height")
-    get height(): number {
-        return this._height;
+    @Property.define("material.repeatU")
+    get repeatU(): number {
+        return this._repeatU;
     }
-    set height(value: number) {
-        this.setProperty("height", value);
+    set repeatU(value: number) {
+        this.setProperty("repeatU", value);
+    }
+
+    private _repeatV: number = 1;
+    @Serializer.serialze()
+    @Property.define("material.repeatV")
+    get repeatV(): number {
+        return this._repeatV;
+    }
+    set repeatV(value: number) {
+        this.setProperty("repeatV", value);
     }
 
     constructor(document: IDocument, name: string, color: number, id: string = Id.generate()) {
@@ -80,8 +90,9 @@ export class Material extends HistoryObservable {
     clone(): Material {
         let material = new Material(this.document, `${this.name} clone`, this.color);
         material._texture = this._texture;
-        material._width = this._width;
-        material._height = this._height;
+        material._angle = this._angle;
+        material._repeatU = this._repeatU;
+        material._repeatV = this._repeatV;
 
         return material;
     }

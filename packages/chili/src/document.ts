@@ -1,11 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    CollectionAction,
+    CollectionChangedArgs,
     Constants,
     History,
     I18n,
     IApplication,
     IDocument,
+    IHistoryRecord,
     IModel,
     INode,
     INodeLinkedList,
@@ -23,6 +26,7 @@ import {
     Result,
     Serialized,
     Serializer,
+    Transaction,
 } from "chili-core";
 import { Selection } from "./selection";
 import { Material } from "chili-core/src/material";
@@ -80,6 +84,7 @@ export class Document extends Observable implements IDocument {
         this.visual = application.visualFactory.create(this);
         this.selection = new Selection(this);
         PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
+        this.materials.onCollectionChanged(this.handleMaterialChanged);
         Logger.info(`new document: ${name}`);
         application.documents.add(this);
     }
@@ -138,7 +143,8 @@ export class Document extends Observable implements IDocument {
         this.application.views.remove(...views);
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
-
+        this.materials.removeCollectionChanged(this.handleMaterialChanged);
+        PubSub.default.remove("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`document: ${this._name} closed`);
         this.dispose();
     }
@@ -178,6 +184,32 @@ export class Document extends Observable implements IDocument {
         document.history.disabled = false;
         return document;
     }
+
+    private handleMaterialChanged = (args: CollectionChangedArgs) => {
+        if (args.action === CollectionAction.add) {
+            const record: IHistoryRecord = {
+                name: "MaterialChanged",
+                undo: () => {
+                    this.materials.remove(...args.items);
+                },
+                redo: () => {
+                    this.materials.push(...args.items);
+                },
+            };
+            Transaction.add(this, record);
+        } else if (args.action === CollectionAction.remove) {
+            const record: IHistoryRecord = {
+                name: "MaterialChanged",
+                undo: () => {
+                    this.materials.push(...args.items);
+                },
+                redo: () => {
+                    this.materials.remove(...args.items);
+                },
+            };
+            Transaction.add(this, record);
+        }
+    };
 
     private handleModelChanged = (document: IDocument, records: NodeRecord[]) => {
         if (document !== this) return;
