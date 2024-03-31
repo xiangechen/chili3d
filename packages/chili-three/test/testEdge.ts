@@ -81,7 +81,7 @@ export class TestEdge implements IEdge {
 }
 
 export class TestBody extends Body {
-    name: I18nKeys = "body.line";
+    display: I18nKeys = "body.line";
     constructor(
         document: IDocument,
         readonly start: XYZ,

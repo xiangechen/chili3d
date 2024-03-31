@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer 
 
 @Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
 export class BoxBody extends Body {
-    readonly name: I18nKeys = "body.box";
+    readonly display: I18nKeys = "body.box";
 
     private _dx: number;
 

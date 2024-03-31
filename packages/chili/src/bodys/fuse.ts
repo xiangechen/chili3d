@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-cor
 
 @Serializer.register("FuseBody", ["document", "bottom", "top"])
 export class FuseBody extends Body {
-    override name: I18nKeys = "body.fuse";
+    override display: I18nKeys = "body.fuse";
 
     private _bottom: IShape;
     @Serializer.serialze()

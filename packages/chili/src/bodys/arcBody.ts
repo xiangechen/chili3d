@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } 
 
 @Serializer.register("ArcBody", ["document", "normal", "center", "start", "angle"])
 export class ArcBody extends Body {
-    readonly name: I18nKeys = "body.arc";
+    readonly display: I18nKeys = "body.arc";
 
     private _center: XYZ;
 

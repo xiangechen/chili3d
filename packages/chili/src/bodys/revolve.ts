@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Ray, Result, Serializer } from "chil
 
 @Serializer.register("RevolveBody", ["document", "profile", "axis", "angle"])
 export class RevolveBody extends Body {
-    override name: I18nKeys = "body.revol";
+    override display: I18nKeys = "body.revol";
 
     private _profile: IShape;
     @Serializer.serialze()

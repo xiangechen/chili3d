@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Locale } from "./local";
+import { Locale } from "./i18n";
 
 export default {
-    language: "English",
+    display: "English",
+    code: "en",
     translation: {
         "common.color": "Color",
         "common.opacity": "Opacity",

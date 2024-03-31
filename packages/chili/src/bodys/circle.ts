@@ -4,7 +4,7 @@ import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer
 
 @Serializer.register("CircleBody", ["document", "normal", "center", "radius"])
 export class CircleBody extends FaceableBody {
-    readonly name: I18nKeys = "body.circle";
+    readonly display: I18nKeys = "body.circle";
 
     private _center: XYZ;
 

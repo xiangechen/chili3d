@@ -1,12 +1,5 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-export type Locale = {
-    language: string;
-    translation: Translation;
-};
-
-export type Translation = Record<I18nKeys, string>;
-
 export type I18nKeys =
     | "common.color"
     | "common.name"

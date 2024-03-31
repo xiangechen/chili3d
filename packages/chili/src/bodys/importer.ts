@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-cor
 
 @Serializer.register("ImportedBody", ["document", "importedShape"])
 export class ImportedBody extends Body {
-    override name: I18nKeys = "body.imported";
+    override display: I18nKeys = "body.imported";
 
     private _importedShape: IShape;
     @Serializer.serialze()

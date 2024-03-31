@@ -4,7 +4,7 @@ import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer
 
 @Serializer.register("PolygonBody", ["document", "points"])
 export class PolygonBody extends FaceableBody {
-    readonly name: I18nKeys = "body.polygon";
+    readonly display: I18nKeys = "body.polygon";
 
     private _points: XYZ[];
     @Serializer.serialze()

@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IEdge, IShape, IWire, Result, Serializer } f
 
 @Serializer.register("FaceBody", ["document", "shapes"])
 export class FaceBody extends Body {
-    override name: I18nKeys = "body.face";
+    override display: I18nKeys = "body.face";
 
     private _shapes: IEdge[] | IWire;
     @Serializer.serialze()

@@ -1,11 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import en from "./en";
-import { I18nKeys } from "./local";
+import { I18nKeys } from "./keys";
 import zh from "./zh-cn";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
+
+export type Locale = {
+    display: string;
+    code: string;
+    translation: {
+        [key in I18nKeys]: string;
+    } & {
+        [key: string]: string;
+    };
+};
+
+export type Translation = Record<I18nKeys, string>;
 
 export namespace I18n {
     let languageIndex = navigator.language.toLowerCase() === "zh-cn" ? 0 : 1;
@@ -14,6 +26,16 @@ export namespace I18n {
 
     export function currentIndex() {
         return languageIndex;
+    }
+
+    export function combineTranslation(code: "zh-CN" | "en", translations: Record<string, string>) {
+        let language = languages.find((lang) => lang.code === code);
+        if (language) {
+            language.translation = {
+                ...language.translation,
+                ...translations,
+            };
+        }
     }
 
     export function translate(key: I18nKeys, ...args: any[]) {

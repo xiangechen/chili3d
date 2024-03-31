@@ -12,7 +12,7 @@ export const LanguageSelector = (props: HTMLConfig<HTMLElement>) => {
         ...I18n.languages.map((lng, index) =>
             option({
                 selected: index === I18n.currentIndex(),
-                textContent: lng.language,
+                textContent: lng.display,
             }),
         ),
     );

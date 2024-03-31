@@ -14,7 +14,7 @@ import {
 
 @Serializer.register("RectBody", ["document", "plane", "dx", "dy"])
 export class RectBody extends FaceableBody {
-    readonly name: I18nKeys = "body.rect";
+    readonly display: I18nKeys = "body.rect";
 
     private _dx: number;
     @Serializer.serialze()

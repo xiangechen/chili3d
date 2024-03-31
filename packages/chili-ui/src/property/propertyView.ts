@@ -106,7 +106,7 @@ export class PropertyView extends HTMLElement {
     private addBody(nodes: INode[], document: IDocument) {
         let bodies = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).body);
         if (bodies.length === 0 || !this.isAllElementsOfTypeFirstElement(bodies)) return;
-        let body = new Expander(bodies[0].name);
+        let body = new Expander(bodies[0].display);
         this.panel.append(body);
         body.classList.add(style.expander);
         Property.getProperties(bodies[0]).forEach((x) => {

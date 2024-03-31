@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-cor
 
 @Serializer.register("BooleanBody", ["document", "booleanShape"])
 export class BooleanBody extends Body {
-    override name: I18nKeys = "body.bolean";
+    override display: I18nKeys = "body.bolean";
 
     private _booleanShape: IShape;
     @Serializer.serialze()

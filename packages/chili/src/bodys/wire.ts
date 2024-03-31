@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IEdge, IShape, Result, Serializer } from "ch
 
 @Serializer.register("WireBody", ["document", "edges"])
 export class WireBody extends Body {
-    override name: I18nKeys = "body.wire";
+    override display: I18nKeys = "body.wire";
 
     private _edges: IEdge[];
     @Serializer.serialze()

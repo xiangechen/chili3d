@@ -9,7 +9,7 @@ export abstract class Entity extends HistoryObservable {
 
     private _retryCount: number = 0;
     protected shouldRegenerate: boolean = true;
-    abstract name: I18nKeys;
+    abstract display: I18nKeys;
 
     private _shape: Result<IShape> = Result.error("Not initialised");
 

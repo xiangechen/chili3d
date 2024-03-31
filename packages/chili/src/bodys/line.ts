@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } 
 
 @Serializer.register("LineBody", ["document", "start", "end"])
 export class LineBody extends Body {
-    readonly name: I18nKeys = "body.line";
+    readonly display: I18nKeys = "body.line";
 
     private _start: XYZ;
 

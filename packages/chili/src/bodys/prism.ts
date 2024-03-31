@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IFace, IShape, Property, Result, Serializer 
 
 @Serializer.register("PrismBody", ["document", "face", "length"])
 export class PrismBody extends Body {
-    override name: I18nKeys = "body.prism";
+    override display: I18nKeys = "body.prism";
 
     private _face: IFace;
     @Serializer.serialze()

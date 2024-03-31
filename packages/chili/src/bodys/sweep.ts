@@ -4,7 +4,7 @@ import { Body, I18nKeys, IDocument, IEdge, IShape, IWire, Result, Serializer, Sh
 
 @Serializer.register("SweepBody", ["document", "profile", "path"])
 export class SweepBody extends Body {
-    override name: I18nKeys = "body.sweep";
+    override display: I18nKeys = "body.sweep";
 
     private _profile: IShape;
     @Serializer.serialze()
