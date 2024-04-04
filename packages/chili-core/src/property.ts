@@ -21,36 +21,13 @@ export interface Property {
 const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
 
 export namespace Property {
-    export function define(display: I18nKeys, group?: I18nKeys, icon?: string, type?: PropertyType) {
+    export function define(display: I18nKeys, parameters?: Omit<Property, "name" | "display">) {
         return (target: Object, name: string) => {
-            setProperty(target, name, { display, group, icon, type });
+            if (!PropertyKeyMap.has(target)) {
+                PropertyKeyMap.set(target, new Map());
+            }
+            PropertyKeyMap.get(target)?.set(name, { display, name, ...parameters });
         };
-    }
-
-    export function converter(converter: IConverter) {
-        return (target: Object, name: string) => {
-            setProperty(target, name, { converter });
-        };
-    }
-
-    export function dependence<T extends object, K extends keyof T>(property: K, value: T[K]) {
-        return (target: T, name: string) => {
-            let dependencies = PropertyKeyMap.get(target)?.get(name)?.dependencies ?? [];
-            dependencies.push({ property, value });
-            setProperty(target, name, { dependencies });
-        };
-    }
-
-    function setProperty(target: Object, name: string, property: any) {
-        if (!PropertyKeyMap.has(target)) {
-            PropertyKeyMap.set(target, new Map());
-        }
-        let propMap = PropertyKeyMap.get(target)!;
-        propMap.set(name, {
-            name,
-            ...property,
-            ...propMap.get(name),
-        });
     }
 
     export function getProperties(target: any): Property[] {

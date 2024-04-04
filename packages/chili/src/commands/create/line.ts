@@ -15,8 +15,9 @@ export class Line extends CreateCommand {
     private static count: number = 1;
 
     private _isContinue: boolean = false;
-    @Property.dependence("repeatOperation", true)
-    @Property.define("command.line.isConnected")
+    @Property.define("command.line.isConnected", {
+        dependencies: [{ property: "repeatOperation", value: true }],
+    })
     get isContinue() {
         return this._isContinue;
     }

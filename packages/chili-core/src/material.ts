@@ -22,7 +22,7 @@ export class Material extends HistoryObservable {
 
     private _color: number;
     @Serializer.serialze()
-    @Property.define("common.color", undefined, undefined, "color")
+    @Property.define("common.color", { type: "color" })
     get color(): number {
         return this._color;
     }
