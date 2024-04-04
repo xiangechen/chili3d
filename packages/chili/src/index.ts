@@ -8,3 +8,5 @@ export * from "./document";
 export * from "./editEventHandler";
 export * from "./services";
 export * from "./snap";
+export * from "./step";
+

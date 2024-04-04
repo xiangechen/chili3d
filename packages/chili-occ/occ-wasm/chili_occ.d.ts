@@ -3366,6 +3366,19 @@ export declare type GeomAbs_SurfaceType = {
   GeomAbs_OtherSurface: {};
 }
 
+export declare type GeomFill_Trihedron = {
+  GeomFill_IsCorrectedFrenet: {};
+  GeomFill_IsFixed: {};
+  GeomFill_IsFrenet: {};
+  GeomFill_IsConstantNormal: {};
+  GeomFill_IsDarboux: {};
+  GeomFill_IsGuideAC: {};
+  GeomFill_IsGuidePlan: {};
+  GeomFill_IsGuideACWithContact: {};
+  GeomFill_IsGuidePlanWithContact: {};
+  GeomFill_IsDiscreteTrihedron: {};
+}
+
 export declare class GeomLib {
   constructor();
   static To3d(Position: gp_Ax2, Curve2d: Handle_Geom2d_Curve): Handle_Geom_Curve;
@@ -6668,6 +6681,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GeomAbs_JoinType: GeomAbs_JoinType;
   GeomAbs_Shape: GeomAbs_Shape;
   GeomAbs_SurfaceType: GeomAbs_SurfaceType;
+  GeomFill_Trihedron: GeomFill_Trihedron;
   GeomLib: typeof GeomLib;
   IFSelect_ReturnStatus: IFSelect_ReturnStatus;
   IGESControl_Controller: typeof IGESControl_Controller;

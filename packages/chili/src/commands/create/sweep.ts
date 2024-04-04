@@ -4,7 +4,7 @@ import { GeometryModel, IWire, ShapeType, command } from "chili-core";
 import { SweepBody } from "../../bodys";
 import { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand } from "../createCommand";
 
 let count = 1;
 

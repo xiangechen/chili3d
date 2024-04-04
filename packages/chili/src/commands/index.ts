@@ -3,10 +3,13 @@
 export * from "./application";
 export * from "./boolean";
 export * from "./create";
+export * from "./createCommand";
 export * from "./delete";
 export * from "./folder";
 export * from "./importExport";
 export * from "./modify";
+export * from "./multistepCommand";
 export * from "./redo";
 export * from "./undo";
 export * from "./workingPlane";
+

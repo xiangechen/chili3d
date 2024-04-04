@@ -1,15 +1,7 @@
-import { CommandKeys, I18nKeys, Observable, ObservableCollection } from "chili-core";
+import { Button, CommandKeys, I18nKeys, Observable, ObservableCollection } from "chili-core";
 import { RibbonGroupProfile, RibbonTabProfile } from "../profile/ribbon";
-import { RibbonButtonSize } from "./ribbonButtonSize";
 
-export interface RibbonButtonData {
-    display: I18nKeys;
-    icon: string;
-    size: RibbonButtonSize;
-    onClick: () => void;
-}
-
-export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> | RibbonButtonData;
+export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> | Button;
 
 export class RibbonGroupData extends Observable {
     readonly items: ObservableCollection<RibbonCommandData>;

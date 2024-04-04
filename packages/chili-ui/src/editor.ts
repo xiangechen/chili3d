@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CommandKeys, IApplication } from "chili-core";
+import { Button, CommandKeys, I18nKeys, IApplication } from "chili-core";
 import { div } from "./controls";
 import style from "./editor.module.css";
 import { DefaultRibbon } from "./profile/ribbon";
@@ -14,22 +14,38 @@ import { LayoutViewport } from "./viewport";
 let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 let ribbonTabs = DefaultRibbon.map((p) => RibbonTabData.fromProfile(p));
 
-export const Editor = (app: IApplication) => {
-    let viewport = new LayoutViewport(app);
-    viewport.classList.add(style.viewport);
-    let content = new RibbonDataContent(app, quickCommands, ribbonTabs);
-    return div(
-        { className: style.root },
-        new Ribbon(content),
-        div(
-            { className: style.content },
+export class Editor extends HTMLElement {
+    readonly ribbonContent: RibbonDataContent;
+
+    constructor(app: IApplication) {
+        super();
+        let viewport = new LayoutViewport(app);
+        viewport.classList.add(style.viewport);
+        this.ribbonContent = new RibbonDataContent(app, quickCommands, ribbonTabs);
+        this.append(
             div(
-                { className: style.sidebar },
-                new ProjectView({ className: style.sidebarItem }),
-                new PropertyView({ className: style.sidebarItem }),
-            ),
-            viewport,
-        ),
-        new Statusbar().addClass(style.statusbar),
-    );
-};
+                { className: style.root },
+                new Ribbon(this.ribbonContent),
+                div(
+                    { className: style.content },
+                    div(
+                        { className: style.sidebar },
+                        new ProjectView({ className: style.sidebarItem }),
+                        new PropertyView({ className: style.sidebarItem }),
+                    ),
+                    viewport,
+                ),
+                new Statusbar().addClass(style.statusbar),
+            )
+        )
+    }
+
+    registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
+        this.ribbonContent.ribbonTabs.find((p) => p.tabName === tabName)
+            ?.groups.find((p) => p.groupName === groupName)
+            ?.items.push(command);
+    }
+
+}
+
+customElements.define("chili-editor", Editor);

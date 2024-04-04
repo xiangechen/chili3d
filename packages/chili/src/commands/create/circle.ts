@@ -4,7 +4,7 @@ import { GeometryModel, Plane, Precision, XYZ, command } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateFaceableCommand } from "./createCommand";
+import { CreateFaceableCommand } from "../createCommand";
 
 @command({
     name: "create.circle",

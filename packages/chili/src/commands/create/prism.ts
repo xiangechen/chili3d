@@ -5,7 +5,7 @@ import { PrismBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand } from "../createCommand";
 
 let count = 1;
 

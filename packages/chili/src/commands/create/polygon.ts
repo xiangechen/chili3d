@@ -13,7 +13,7 @@ import {
 import { PolygonBody } from "../../bodys";
 import { Dimension, SnapPointData, SnapedData } from "../../snap";
 import { IStep, PointStep } from "../../step";
-import { CreateFaceableCommand } from "./createCommand";
+import { CreateFaceableCommand } from "../createCommand";
 
 @command({
     name: "create.polygon",

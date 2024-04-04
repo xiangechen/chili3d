@@ -3,6 +3,7 @@
 export * from "./arc";
 export * from "./box";
 export * from "./circle";
+export * from "./converter";
 export * from "./fuse";
 export * from "./line";
 export * from "./polygon";
@@ -10,4 +11,4 @@ export * from "./prism";
 export * from "./rect";
 export * from "./revolve";
 export * from "./sweep";
-export * from "./converter";
+

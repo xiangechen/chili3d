@@ -4,7 +4,7 @@ import { GeometryModel, MathUtils, Plane, Property, XYZ, command } from "chili-c
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand } from "../createCommand";
 
 export interface RectData {
     plane: Plane;

@@ -4,7 +4,7 @@ import { GeometryModel, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, comman
 import { ArcBody } from "../../bodys/arcBody";
 import { Dimension, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand } from "../createCommand";
 
 @command({
     name: "create.arc",

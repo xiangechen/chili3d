@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    ICompound,
     IEdge,
     IFace,
     IShape,
@@ -24,7 +25,7 @@ import {
 } from "../occ-wasm/chili_occ";
 import { OccShapeConverter } from "./occConverter";
 import { OccHelps } from "./occHelps";
-import { OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
+import { OccCompound, OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
 
 export class ShapeFactory implements IShapeFactory {
     readonly converter: IShapeConverter = new OccShapeConverter();
@@ -173,6 +174,17 @@ export class ShapeFactory implements IShapeFactory {
         }
     }
 
+    face(...wire: IWire[]): Result<IFace> {
+        let builder = new occ.BRepBuilderAPI_MakeFace_15((wire[0] as OccWire).shape, true);
+        for (let i = 1; i < wire.length; i++){
+            if (wire[i] instanceof OccWire) {
+                builder.Add((wire[i] as OccWire).shape);
+            }
+        }
+        return Result.success(new OccFace(builder.Face()));
+    }
+
+
     private addOrderedEdges(builder: BRepBuilderAPI_MakeWire, edges: IEdge[]) {
         let wireOrder = new occ.ShapeAnalysis_WireOrder_1();
         let edgeAnalyser = new occ.ShapeAnalysis_Edge();
@@ -205,6 +217,10 @@ export class ShapeFactory implements IShapeFactory {
 
     booleanFuse(shape1: IShape, shape2: IShape): Result<IShape> {
         return this.booleanOperate(shape1, shape2, occ.BRepAlgoAPI_Fuse_3);
+    }
+
+    combine(...shapes: IShape[]): Result<ICompound> {
+        return OccCompound.fromShapes(...shapes)
     }
 
     private booleanOperate(

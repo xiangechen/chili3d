@@ -248,7 +248,19 @@ export class OccShell extends OccShape implements IShell {}
 export class OccSolid extends OccShape implements ISolid {}
 
 @Serializer.register("Compound", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
-export class OccCompound extends OccShape implements ICompound {}
+export class OccCompound extends OccShape implements ICompound {
+    static fromShapes(...shapes: IShape[]): Result<ICompound> {
+        let compound = new occ.TopoDS_Compound();
+        let builder = new occ.BRep_Builder();
+        builder.MakeCompound(compound);
+        for (let shape of shapes) {
+            if (shape instanceof OccShape) {
+                builder.Add(compound, shape.shape);
+            }
+        }
+        return Result.success(new OccCompound(compound));
+    }
+}
 
 @Serializer.register("CompoundSolid", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccCompoundSolid extends OccShape implements ICompoundSolid {}

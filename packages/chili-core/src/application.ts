@@ -7,9 +7,11 @@ import { IDocument } from "./document";
 import { IPropertyChanged, IStorage, ObservableCollection } from "./foundation";
 import { Serialized } from "./serialize";
 import { IService } from "./service";
+import { IWindow } from "./ui/window";
 import { IView } from "./visual";
 
 export interface IApplication extends IPropertyChanged {
+    readonly mainWindow?: IWindow;
     readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
     readonly services: IService[];

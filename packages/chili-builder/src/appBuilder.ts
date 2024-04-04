@@ -1,16 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
-import { IDocument, INode, IService, IStorage, Logger } from "chili-core";
+import { I18n, IDocument, INode, IService, IStorage, IWindow, Logger } from "chili-core";
 import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
+import { IAdditionalModule } from "./additionalModule";
 
 export class AppBuilder {
-    private _useUI: boolean = false;
     protected readonly _inits: (() => Promise<void>)[] = [];
+    protected readonly _additionalModules: IAdditionalModule[] = [];
     protected _storage?: IStorage;
     protected _visualFactory?: IVisualFactory;
     protected _shapeFactory?: IShapeFactory;
+    protected _window?: IWindow;
 
     useIndexedDB() {
         this._inits.push(async () => {
@@ -44,7 +46,17 @@ export class AppBuilder {
     }
 
     useUI(): this {
-        this._useUI = true;
+        this._inits.push(async () => {
+            Logger.info("initializing MainWindow");
+
+            let ui = await import("chili-ui");
+            this._window = new ui.MainWindow();
+        });
+        return this;
+    }
+
+    addAdditionalModules(...modules: IAdditionalModule[]): this {
+        this._additionalModules.push(...modules);
         return this;
     }
 
@@ -54,13 +66,15 @@ export class AppBuilder {
         }
         this.ensureNecessary();
 
-        let app = Application.build(
+        Application.build(
             this._visualFactory!,
             this._shapeFactory!,
             this.getServices(),
             this._storage!,
+            this._window,
         );
-        await this.loadUI(app);
+
+        this.loadAdditionalModule()
 
         Logger.info("Application build completed");
     }
@@ -77,10 +91,20 @@ export class AppBuilder {
         }
     }
 
-    private async loadUI(app: Application) {
-        if (this._useUI) {
-            let ui = await import("chili-ui");
-            ui.MainWindow.instance.init(app);
+    private loadAdditionalModule() {
+        for (const module of this._additionalModules) {
+            module.i18n().forEach(local => {
+                I18n.combineTranslation(local.code as any, local.translation)
+            })
+            if (this._window) {
+                module.commands().forEach(command => {
+                    this._window!.registerRibbonCommand(
+                        command.tabName, 
+                        command.groupName, 
+                        command.command
+                    );
+                })
+            }
         }
     }
 

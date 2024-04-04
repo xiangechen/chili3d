@@ -93,6 +93,7 @@ mainBuild:
     - symbol: Geom_Conic
     - symbol: Geom_CylindricalSurface
     - symbol: Geom_ElementarySurface
+    - symbol: GeomFill_Trihedron
     - symbol: Geom_Geometry
     - symbol: Geom_Line
     - symbol: Geom_Surface

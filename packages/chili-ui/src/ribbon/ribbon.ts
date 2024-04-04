@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    ButtonSize,
     Command,
     CommandKeys,
     I18n,
@@ -17,8 +18,9 @@ import {
 import { Binding, a, div, items, label, localize, span, svg } from "../controls";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
+import { RibbonButton } from "./ribbonButton";
 import { RibbonGroupData, RibbonTabData } from "./ribbonData";
-import { RibbonGroup } from "./ribbonGroup";
+import { RibbonStack } from "./ribbonStack";
 
 export class RibbonDataContent extends Observable {
     readonly quickCommands = new ObservableCollection<CommandKeys>();
@@ -228,7 +230,33 @@ export class Ribbon extends HTMLElement {
                         style: {
                             display: new Binding(dataContent, "activeTab", new DisplayConverter(tab)),
                         },
-                        template: (group: RibbonGroupData) => RibbonGroup.from(group),
+                        template: (group: RibbonGroupData) => div(
+                            { className: style.ribbonGroup },
+                            items({
+                                sources: group.items,
+                                className: style.content,
+                                template: (item)=> {
+                                    if (typeof item === "string") {
+                                        return RibbonButton.fromCommandName(item, ButtonSize.large)!;
+                                    } else if (item instanceof ObservableCollection) {
+                                        let stack = new RibbonStack();
+                                        item.forEach((b) => {
+                                            let button = RibbonButton.fromCommandName(b, ButtonSize.small);
+                                            if (button) stack.append(button);
+                                        });
+                                        return stack;
+                                    } else {
+                                        return new RibbonButton(
+                                            item.display, item.icon, ButtonSize.large, item.onClick
+                                        );
+                                    }
+                                }
+                            }),
+                            label({
+                                className: style.header,
+                                textContent: localize(group.groupName),
+                            })
+                        ),
                     });
                 },
             }),

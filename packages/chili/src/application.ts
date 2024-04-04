@@ -7,6 +7,7 @@ import {
     IService,
     IStorage,
     IView,
+    IWindow,
     Logger,
     Observable,
     ObservableCollection,
@@ -32,11 +33,13 @@ export class Application extends Observable implements IApplication {
         shapeFactory: IShapeFactory,
         services: IService[],
         storage: IStorage,
+        window?: IWindow,
     ): Application {
         if (this._instance) {
             Logger.warn("Application has been built");
         } else {
-            this._instance = new Application(visualFactory, shapeFactory, services, storage);
+            this._instance = new Application(visualFactory, shapeFactory, services, storage, window);
+            window?.init(this._instance);
         }
         return this._instance;
     }
@@ -59,6 +62,7 @@ export class Application extends Observable implements IApplication {
         readonly shapeFactory: IShapeFactory,
         readonly services: IService[],
         readonly storage: IStorage,
+        readonly mainWindow?: IWindow,
     ) {
         super();
         services.forEach((x) => x.register(this));

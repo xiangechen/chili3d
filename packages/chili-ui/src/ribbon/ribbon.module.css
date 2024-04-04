@@ -237,3 +237,33 @@
     background-color: var(--panel-background-color);
     border-bottom: 1px solid var(--border-color);
 }
+
+
+.ribbonGroup {
+    position: relative;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    justify-items: center;
+
+    .header {
+        color: var(--foreground-color);
+        font-size: 12px;
+    }
+
+    .content {
+        display: flex;
+        flex-direction: row;
+    }
+
+}
+
+.ribbonGroup::after {
+    content: "";
+    position: absolute;
+    display: grid;
+    right: 0px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background-color: var(--border-color);
+}

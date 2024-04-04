@@ -3,7 +3,7 @@
 import { GeometryModel, IShape, Result, command } from "chili-core";
 import { BooleanBody } from "../bodys/boolean";
 import { IStep, SelectModelStep } from "../step";
-import { CreateCommand } from "./create/createCommand";
+import { CreateCommand } from "./createCommand";
 
 let count = 1;
 

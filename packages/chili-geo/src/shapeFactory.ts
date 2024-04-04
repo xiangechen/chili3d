@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    ICompound,
     IEdge,
     IFace,
     IShape,
@@ -16,6 +17,7 @@ import {
 
 export interface IShapeFactory {
     readonly converter: IShapeConverter;
+    face(...wire: IWire[]): Result<IFace>;
     point(point: XYZ): Result<IVertex>;
     line(start: XYZ, end: XYZ): Result<IEdge>;
     arc(normal: XYZ, center: XYZ, start: XYZ, angle: number): Result<IEdge>;
@@ -31,4 +33,5 @@ export interface IShapeFactory {
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanCut(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanFuse(shape1: IShape, shape2: IShape): Result<IShape>;
+    combine(...shapes: IShape[]): Result<ICompound>;
 }

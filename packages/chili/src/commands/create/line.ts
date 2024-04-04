@@ -4,7 +4,7 @@ import { GeometryModel, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
-import { CreateCommand } from "./createCommand";
+import { CreateCommand } from "../createCommand";
 
 @command({
     name: "create.line",
