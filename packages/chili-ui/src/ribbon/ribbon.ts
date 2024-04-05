@@ -34,6 +34,14 @@ export class RibbonDataContent extends Observable {
         this.setProperty("activeTab", value);
     }
 
+    private _activeView: IView | undefined;
+    get activeView() {
+        return this._activeView;
+    }
+    set activeView(value: IView | undefined) {
+        this.setProperty("activeView", value);
+    }
+
     constructor(
         readonly app: IApplication,
         quickCommands: CommandKeys[],
@@ -43,6 +51,7 @@ export class RibbonDataContent extends Observable {
         this.quickCommands.push(...quickCommands);
         this.ribbonTabs.push(...ribbonTabs);
         this._activeTab = ribbonTabs[0];
+        PubSub.default.sub("activeViewChanged", (v) => (this.activeView = v));
     }
 }
 
@@ -168,7 +177,7 @@ export class Ribbon extends HTMLElement {
                             div(
                                 {
                                     className: new Binding(
-                                        dataContent.app,
+                                        dataContent,
                                         "activeView",
                                         new ViewActiveConverter(
                                             view,
@@ -230,33 +239,40 @@ export class Ribbon extends HTMLElement {
                         style: {
                             display: new Binding(dataContent, "activeTab", new DisplayConverter(tab)),
                         },
-                        template: (group: RibbonGroupData) => div(
-                            { className: style.ribbonGroup },
-                            items({
-                                sources: group.items,
-                                className: style.content,
-                                template: (item)=> {
-                                    if (typeof item === "string") {
-                                        return RibbonButton.fromCommandName(item, ButtonSize.large)!;
-                                    } else if (item instanceof ObservableCollection) {
-                                        let stack = new RibbonStack();
-                                        item.forEach((b) => {
-                                            let button = RibbonButton.fromCommandName(b, ButtonSize.small);
-                                            if (button) stack.append(button);
-                                        });
-                                        return stack;
-                                    } else {
-                                        return new RibbonButton(
-                                            item.display, item.icon, ButtonSize.large, item.onClick
-                                        );
-                                    }
-                                }
-                            }),
-                            label({
-                                className: style.header,
-                                textContent: localize(group.groupName),
-                            })
-                        ),
+                        template: (group: RibbonGroupData) =>
+                            div(
+                                { className: style.ribbonGroup },
+                                items({
+                                    sources: group.items,
+                                    className: style.content,
+                                    template: (item) => {
+                                        if (typeof item === "string") {
+                                            return RibbonButton.fromCommandName(item, ButtonSize.large)!;
+                                        } else if (item instanceof ObservableCollection) {
+                                            let stack = new RibbonStack();
+                                            item.forEach((b) => {
+                                                let button = RibbonButton.fromCommandName(
+                                                    b,
+                                                    ButtonSize.small,
+                                                );
+                                                if (button) stack.append(button);
+                                            });
+                                            return stack;
+                                        } else {
+                                            return new RibbonButton(
+                                                item.display,
+                                                item.icon,
+                                                ButtonSize.large,
+                                                item.onClick,
+                                            );
+                                        }
+                                    },
+                                }),
+                                label({
+                                    className: style.header,
+                                    textContent: localize(group.groupName),
+                                }),
+                            ),
                     });
                 },
             }),

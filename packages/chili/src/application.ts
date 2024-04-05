@@ -9,7 +9,6 @@ import {
     IView,
     IWindow,
     Logger,
-    Observable,
     ObservableCollection,
     Plane,
     PubSub,
@@ -19,7 +18,7 @@ import { IShapeFactory } from "chili-geo";
 import { IVisualFactory } from "chili-vis";
 import { Document } from "./document";
 
-export class Application extends Observable implements IApplication {
+export class Application implements IApplication {
     private static _instance: Application | undefined;
     static get instance() {
         if (Application._instance === undefined) {
@@ -49,7 +48,9 @@ export class Application extends Observable implements IApplication {
         return this._activeView;
     }
     set activeView(value: IView | undefined) {
-        this.setProperty("activeView", value, () => PubSub.default.pub("activeViewChanged", value));
+        if (this._activeView === value) return;
+        this._activeView = value;
+        PubSub.default.pub("activeViewChanged", value);
     }
 
     readonly views = new ObservableCollection<IView>();
@@ -64,7 +65,6 @@ export class Application extends Observable implements IApplication {
         readonly storage: IStorage,
         readonly mainWindow?: IWindow,
     ) {
-        super();
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
         window.onbeforeunload = this.handleWindowUnload;
