@@ -11,12 +11,12 @@ export abstract class Entity extends HistoryObservable {
     protected shouldRegenerate: boolean = true;
     abstract display: I18nKeys;
 
-    private _shape: Result<IShape> = Result.error("Not initialised");
+    private _shape: Result<IShape> = Result.err("Not initialised");
 
     get shape(): Result<IShape> {
-        if (this.shouldRegenerate || (!this._shape.success && this._retryCount < 3)) {
+        if (this.shouldRegenerate || (!this._shape.isOk && this._retryCount < 3)) {
             this._shape = this.generateShape();
-            this._retryCount = this._shape.success ? 0 : this._retryCount + 1;
+            this._retryCount = this._shape.isOk ? 0 : this._retryCount + 1;
             this.shouldRegenerate = false;
         }
         return this._shape;

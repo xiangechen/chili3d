@@ -2,6 +2,7 @@
 
 import { IDocument } from "../document";
 import {
+    Id,
     Logger,
     NodeAction,
     NodeLinkedListHistoryRecord,
@@ -9,7 +10,6 @@ import {
     PubSub,
     Transaction,
 } from "../foundation";
-import { Id } from "../foundation/id";
 import { Serializer } from "../serialize";
 import { INode, INodeLinkedList, Node } from "./node";
 
@@ -60,7 +60,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
     }
 
     private handlePubAndHistory(records: NodeRecord[]) {
-        Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
+        Transaction.add(this.document, this.document.history, new NodeLinkedListHistoryRecord(records));
         PubSub.default.pub("nodeLinkedListChanged", this.document, records);
     }
 

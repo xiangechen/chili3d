@@ -1,8 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { Logger } from "../foundation";
-import { Id } from "../foundation/id";
+import { Id, Logger } from "../foundation";
 import { ICompound, IShape } from "../geometry";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
@@ -95,7 +94,7 @@ export class GeometryModel extends Model {
     };
 
     drawShape() {
-        this._shape = this.body.shape.getValue();
+        this._shape = this.body.shape.value;
         this.applyFeatures(0);
     }
 
@@ -116,7 +115,7 @@ export class GeometryModel extends Model {
         if (startIndex < 0) return;
         for (let i = startIndex; i < this._features.length; i++) {
             let shape = this._features[i].shape;
-            if (!shape.success) {
+            if (!shape.isOk) {
                 this._error = shape.error;
                 return;
             }

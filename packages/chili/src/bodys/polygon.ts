@@ -22,8 +22,8 @@ export class PolygonBody extends FaceableBody {
     }
 
     protected generateShape(): Result<IShape, string> {
-        let wire = this.shapeFactory.polygon(...this._points);
-        if (!wire.success || !this.isFace) return wire;
+        let wire = this.document.application.shapeFactory.polygon(...this._points);
+        if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }
 }

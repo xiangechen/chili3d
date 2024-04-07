@@ -18,6 +18,6 @@ export class ImportedBody extends Body {
     }
 
     protected override generateShape(): Result<IShape> {
-        return Result.success(this._importedShape);
+        return Result.ok(this._importedShape);
     }
 }

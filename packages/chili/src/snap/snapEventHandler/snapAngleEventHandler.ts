@@ -6,7 +6,7 @@ import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
-import { SnapPointData } from "./snapPointEventHandler";
+import { SnapPointData } from "./snapPointData";
 
 export class SnapAngleEventHandler extends SnapEventHandler {
     readonly plane: Plane;

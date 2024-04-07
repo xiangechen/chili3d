@@ -1,24 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    Binding,
     IConverter,
     IDocument,
-    NumberConverter,
     Property,
     PubSub,
     Quaternion,
-    QuaternionConverter,
     Result,
-    StringConverter,
     Transaction,
     XYZ,
-    XYZConverter,
 } from "chili-core";
 
-import { Binding, div, input, localize, span } from "../controls";
+import { div, input, localize, span } from "../controls";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
+import { NumberConverter, QuaternionConverter, StringConverter, XYZConverter } from "../converters";
 
 class ArrayValueConverter implements IConverter {
     constructor(
@@ -28,7 +26,7 @@ class ArrayValueConverter implements IConverter {
     ) {}
 
     convert(value: any): Result<string> {
-        return Result.success(this.getDefaultValue());
+        return Result.ok(this.getDefaultValue());
     }
 
     convertBack?(value: string): Result<any> {
@@ -38,7 +36,7 @@ class ArrayValueConverter implements IConverter {
     private getValueString(obj: any): string {
         let value = obj[this.property.name];
         let cvalue = this.converter?.convert(value);
-        return cvalue?.success ? cvalue.value : String(value);
+        return cvalue?.isOk ? cvalue.value : String(value);
     }
 
     private getDefaultValue() {
@@ -113,7 +111,7 @@ export class InputProperty extends PropertyBase {
 
     private setValue = (input: HTMLInputElement) => {
         let newValue = this.converter?.convertBack?.(input.value);
-        if (!newValue?.success) {
+        if (!newValue?.isOk) {
             PubSub.default.pub("showToast", "error.default");
             return;
         }

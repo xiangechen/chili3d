@@ -30,10 +30,10 @@ export class SweepBody extends Body {
         this._path =
             path.shapeType === ShapeType.Wire
                 ? (path as IWire)
-                : document.application.shapeFactory.wire(path as unknown as IEdge).getValue()!;
+                : document.application.shapeFactory.wire(path as unknown as IEdge).value!;
     }
 
     protected override generateShape(): Result<IShape> {
-        return this.shapeFactory.sweep(this.profile, this.path);
+        return this.document.application.shapeFactory.sweep(this.profile, this.path);
     }
 }

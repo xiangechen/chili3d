@@ -25,7 +25,7 @@ export async function readFileAsync(
         };
         input.oncancel = () => {
             document.body.removeChild(input);
-            resolve(Result.error(`cancel`));
+            resolve(Result.err(`cancel`));
         };
         document.body.appendChild(input);
         input.click();
@@ -39,33 +39,33 @@ async function resolveFiles(
     reader: "readAsText" | "readAsDataURL",
 ) {
     if (!input.files) {
-        resolve(Result.error(`no files`));
+        resolve(Result.err(`no files`));
         return;
     }
     for (let i = 0; i < input.files.length; i++) {
         let file = input.files.item(i);
         if (!file) continue;
         let data = await asyncFileReader(file, reader);
-        if (data.success) {
+        if (data.isOk) {
             result.push({
                 fileName: file.name,
                 data: data.value,
             });
         } else {
-            resolve(Result.error(data.error));
+            resolve(Result.err(data.error));
         }
     }
-    resolve(Result.success(result));
+    resolve(Result.ok(result));
 }
 
 function asyncFileReader(file: File, method: any): Promise<Result<string>> {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = (e) => {
-            resolve(Result.success(e.target!.result as string));
+            resolve(Result.ok(e.target!.result as string));
         };
         reader.onerror = (e) => {
-            resolve(Result.error(`Error occurred reading file: ${file.name}`));
+            resolve(Result.err(`Error occurred reading file: ${file.name}`));
         };
         (reader as any)[method](file);
     });

@@ -13,7 +13,7 @@ export class OpenDocument implements ICommand {
             "showPermanent",
             async () => {
                 let files = await readFileAsync(".cd", false);
-                if (files.status === "success") {
+                if (files.isOk) {
                     let json: Serialized = JSON.parse(files.value[0].data);
                     let document = await app.loadDocument(json);
                     document?.application.activeView?.cameraController.fitContent();

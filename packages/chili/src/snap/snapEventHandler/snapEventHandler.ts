@@ -18,7 +18,7 @@ import {
 } from "chili-core";
 
 import { ISnapper, MouseAndDetected, SnapValidator, SnapedData } from "../interfaces";
-import { SnapPointData } from "./snapPointEventHandler";
+import { SnapPointData } from "./snapPointData";
 
 export abstract class SnapEventHandler implements IEventHandler {
     private _tempPoint?: number;
@@ -211,9 +211,9 @@ export abstract class SnapEventHandler implements IEventHandler {
                 let error = this.inputError(text);
                 if (error === undefined) {
                     this.handleText(view, text);
-                    return Result.success(text);
+                    return Result.ok(text);
                 } else {
-                    return Result.error(error);
+                    return Result.err(error);
                 }
             });
         }

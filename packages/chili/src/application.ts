@@ -5,8 +5,10 @@ import {
     ICommand,
     IDocument,
     IService,
+    IShapeFactory,
     IStorage,
     IView,
+    IVisualFactory,
     IWindow,
     Logger,
     ObservableCollection,
@@ -14,8 +16,6 @@ import {
     PubSub,
     Serialized,
 } from "chili-core";
-import { IShapeFactory } from "chili-geo";
-import { IVisualFactory } from "chili-vis";
 import { Document } from "./document";
 
 export class Application implements IApplication {

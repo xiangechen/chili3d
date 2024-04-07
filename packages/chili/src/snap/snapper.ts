@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
+import { AsyncController, I18nKeys, IDocument, XYZ } from "chili-core";
 
 import { SnapedData } from "./interfaces";
 import {

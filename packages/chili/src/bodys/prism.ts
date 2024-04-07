@@ -34,6 +34,6 @@ export class PrismBody extends Body {
     protected override generateShape(): Result<IShape> {
         let [_, normal] = this.face.normal(0, 0);
         let vec = normal.multiply(this.length);
-        return this.shapeFactory.prism(this.face, vec);
+        return this.document.application.shapeFactory.prism(this.face, vec);
     }
 }

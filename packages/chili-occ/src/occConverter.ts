@@ -6,13 +6,13 @@ import { OccShape } from "./occShape";
 
 export class OccShapeConverter implements IShapeConverter {
     convertToBrep(shape: IShape): Result<string> {
-        if (!(shape instanceof OccShape)) return Result.error("shape is not an OccShape");
+        if (!(shape instanceof OccShape)) return Result.err("shape is not an OccShape");
         const fileName = "blob.brep";
         const progress = new occ.Message_ProgressRange_1();
         occ.BRepTools.Write_3(shape.shape, fileName, progress);
         const file = occ.FS.readFile("/" + fileName, { encoding: "utf8" });
         occ.FS.unlink("/" + fileName);
-        return Result.success(file);
+        return Result.ok(file);
     }
 
     convertFromBrep(brep: string): Result<IShape> {
@@ -23,7 +23,7 @@ export class OccShapeConverter implements IShapeConverter {
         const shape = new occ.TopoDS_Shape();
         occ.BRepTools.Read_2(shape, fileName, builder, progress);
         occ.FS.unlink("/" + fileName);
-        return Result.success(OccHelps.wrapShape(shape));
+        return Result.ok(OccHelps.wrapShape(shape));
     }
 
     convertToIGES(...shapes: IShape[]): Result<string> {
@@ -41,7 +41,7 @@ export class OccShapeConverter implements IShapeConverter {
         let success = writer.Write_2(fileName, false);
         const file = occ.FS.readFile("/" + fileName, { encoding: "utf8" });
         occ.FS.unlink("/" + fileName);
-        return success ? Result.success(file) : Result.error("export IGES error");
+        return success ? Result.ok(file) : Result.err("export IGES error");
     }
 
     convertFromIGES(data: string) {
@@ -56,19 +56,19 @@ export class OccShapeConverter implements IShapeConverter {
             if (s instanceof OccShape) {
                 let status = writer.Transfer(s.shape, 0 as any, true, progress);
                 if (status !== occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
-                    return Result.error("Transfer failed");
+                    return Result.err("Transfer failed");
                 }
             } else {
-                return Result.error("Unsupported shape type");
+                return Result.err("Unsupported shape type");
             }
         }
         let result = writer.Write(fileName);
         let stepFileText = occ.FS.readFile("/" + fileName, { encoding: "utf8" });
         occ.FS.unlink("/" + fileName);
         if (result === occ.IFSelect_ReturnStatus.IFSelect_RetDone) {
-            return Result.success(stepFileText);
+            return Result.ok(stepFileText);
         } else {
-            return Result.error("WRITE STEP FILE FAILED.");
+            return Result.err("WRITE STEP FILE FAILED.");
         }
     }
 
@@ -98,9 +98,9 @@ export class OccShapeConverter implements IShapeConverter {
                     shapes.push(OccHelps.wrapShape(shape));
                 }
             }
-            return Result.success(shapes);
+            return Result.ok(shapes);
         } else {
-            return Result.error(`Cannot load ${format}`);
+            return Result.err(`Cannot load ${format}`);
         }
     }
 }

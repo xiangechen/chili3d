@@ -1,19 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    ICompound,
-    IEdge,
-    IFace,
-    IShape,
-    IShapeConverter,
-    ISolid,
-    IVertex,
-    IWire,
-    Plane,
-    Ray,
-    Result,
-    XYZ,
-} from "chili-core";
+import { Result } from "../foundation";
+import { Plane, Ray, XYZ } from "../math";
+import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
+import { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly converter: IShapeConverter;

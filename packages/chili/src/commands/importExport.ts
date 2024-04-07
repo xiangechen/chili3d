@@ -46,7 +46,7 @@ export class Import implements ICommand {
     }
 
     private addImportedShape = (document: IDocument, shape: [string | undefined, Result<IShape[]>]) => {
-        if (!shape[1].success) {
+        if (!shape[1].isOk) {
             PubSub.default.pub("showToast", "toast.read.error");
             return;
         }
@@ -62,8 +62,8 @@ export class Import implements ICommand {
 
     private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
         let data = await readFileAsync(".iges, .igs, .step, .stp", false);
-        if (!data.success || data.value.length === 0) {
-            return [undefined, Result.error("toast.read.error")];
+        if (!data.isOk || data.value.length === 0) {
+            return [undefined, Result.err("toast.read.error")];
         }
         let shape: Result<IShape[]>;
         let name = data.value[0].fileName.toLowerCase();
@@ -93,7 +93,7 @@ abstract class Export implements ICommand {
             async () => {
                 let shapes = models!.map((x) => x.shape()!);
                 let shapeString = await this.convertAsync(application, type, ...shapes);
-                if (!shapeString.success) {
+                if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;
                 }

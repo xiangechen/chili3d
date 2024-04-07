@@ -3,4 +3,3 @@
 export * from "./modelSelectionEventHandler";
 export * from "./selectionEventHandler";
 export * from "./shapeSelectionEventHandler";
-export * from "./visualFactory";

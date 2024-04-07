@@ -21,9 +21,9 @@ export namespace ICommand {
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
     private static readonly _propertiesCache: Map<string, any> = new Map(); // 所有命令共享
 
-    private _complete: boolean = false;
-    get complete() {
-        return this._complete;
+    private _isCompleted: boolean = false;
+    get isCompleted() {
+        return this._isCompleted;
     }
 
     private _application: IApplication | undefined;
@@ -53,7 +53,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.controller?.cancel();
         await new Promise(async (resolve) => {
             while (true) {
-                if (this._complete) {
+                if (this._isCompleted) {
                     break;
                 }
                 await new Promise((r) => setTimeout(r, 50));
@@ -87,7 +87,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
         this.controller?.dispose();
-        this._complete = true;
+        this._isCompleted = true;
         return Promise.resolve();
     }
 

@@ -41,6 +41,6 @@ export class RevolveBody extends Body {
     }
 
     protected override generateShape(): Result<IShape> {
-        return this.shapeFactory.revolve(this.profile, this.axis, this.angle);
+        return this.document.application.shapeFactory.revolve(this.profile, this.axis, this.angle);
     }
 }

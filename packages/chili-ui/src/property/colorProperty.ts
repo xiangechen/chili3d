@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ColorConverter, IDocument, Property, PubSub, Transaction } from "chili-core";
-import { Binding, div, input, label, localize } from "../controls";
+import { Binding, IDocument, Property, PubSub, Transaction } from "chili-core";
+import { div, input, label, localize } from "../controls";
+import { ColorConverter } from "../converters";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -40,7 +41,7 @@ export class ColorProperty extends PropertyBase {
 
     private setColor = (e: Event) => {
         let value = (e.target as any).value;
-        let color = this.converter.convertBack(value).getValue();
+        let color = this.converter.convertBack(value).value;
         if (color === undefined) {
             PubSub.default.pub("showToast", "toast.converter.invalidColor");
             return;

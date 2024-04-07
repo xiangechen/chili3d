@@ -6,35 +6,35 @@ describe("test Transaction", () => {
     test("test static methods", () => {
         let doc: IDocument = { history: new History() } as any;
         let history: PropertyHistoryRecord = {} as any;
-        Transaction.add(doc, history);
+        Transaction.add(doc, doc.history, history);
         expect(doc.history.undoCount()).toBe(1);
         Transaction.excute(doc, "Test", () => {
-            Transaction.add(doc, history);
-            Transaction.add(doc, history);
+            Transaction.add(doc, doc.history, history);
+            Transaction.add(doc, doc.history, history);
         });
         expect(doc.history.undoCount()).toBe(2);
 
         expect(() =>
             Transaction.excute(doc, "throw", () => {
-                throw "err";
+                throw new Error("err");
             }),
-        ).toThrowError("err");
+        ).toThrow("err");
         expect(doc.history.undoCount()).toBe(2);
     });
 
     test("test methods", () => {
         let doc: IDocument = { history: new History() } as any;
-        let trans = new Transaction(doc, "test");
-        expect(() => trans.commit()).toThrowError("Transaction has not started");
+        let trans = new Transaction(doc, doc.history, "test");
+        expect(() => trans.commit()).toThrow("Transaction has not started");
         trans.start();
-        expect(() => trans.start()).toThrowError("The document has started a transaction");
+        expect(() => trans.start()).toThrow("The document has started a transaction");
         trans.rollback();
-        expect(() => trans.commit()).toThrowError("Transaction has not started");
+        expect(() => trans.commit()).toThrow("Transaction has not started");
 
         trans.start();
         expect(doc.history.undoCount()).toBe(0);
         let history: PropertyHistoryRecord = {} as any;
-        Transaction.add(doc, history);
+        Transaction.add(doc, doc.history, history);
         trans.commit();
         expect(doc.history.undoCount()).toBe(1);
     });

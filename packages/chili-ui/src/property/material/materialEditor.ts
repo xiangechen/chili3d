@@ -1,24 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ColorConverter, IConverter, Material, Property, PubSub, Result, readFileAsync } from "chili-core";
-import { Binding, button, div, img, items, localize, span, svg } from "../../controls";
+import { Binding, IConverter, Material, Property, PubSub, Result, readFileAsync } from "chili-core";
+import { button, div, img, items, localize, span, svg } from "../../controls";
 import { appendProperty } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
+import { ColorConverter } from "../../converters";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}
 
     convert(value: Material): Result<string> {
-        return Result.success(
-            this.material === value ? `${style.material} ${style.active}` : style.material,
-        );
+        return Result.ok(this.material === value ? `${style.material} ${style.active}` : style.material);
     }
 }
 
 class UrlStringConverter implements IConverter<string> {
     convert(value: string): Result<string> {
-        return Result.success(`url('${value}')`);
+        return Result.ok(`url('${value}')`);
     }
 }
 

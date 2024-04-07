@@ -1,9 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
-import { I18n, IDocument, INode, IService, IStorage, IWindow, Logger } from "chili-core";
-import { IShapeFactory } from "chili-geo";
-import { IVisualFactory } from "chili-vis";
+import {
+    I18n,
+    IDocument,
+    INode,
+    IService,
+    IShapeFactory,
+    IStorage,
+    IVisualFactory,
+    IWindow,
+    Logger,
+} from "chili-core";
 import { IAdditionalModule } from "./additionalModule";
 
 export class AppBuilder {
@@ -74,7 +82,7 @@ export class AppBuilder {
             this._window,
         );
 
-        this.loadAdditionalModule()
+        this.loadAdditionalModule();
 
         Logger.info("Application build completed");
     }
@@ -93,17 +101,13 @@ export class AppBuilder {
 
     private loadAdditionalModule() {
         for (const module of this._additionalModules) {
-            module.i18n().forEach(local => {
-                I18n.combineTranslation(local.code as any, local.translation)
-            })
+            module.i18n().forEach((local) => {
+                I18n.combineTranslation(local.code as any, local.translation);
+            });
             if (this._window) {
-                module.commands().forEach(command => {
-                    this._window!.registerRibbonCommand(
-                        command.tabName, 
-                        command.groupName, 
-                        command.command
-                    );
-                })
+                module.commands().forEach((command) => {
+                    this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);
+                });
             }
         }
     }

@@ -21,6 +21,6 @@ export class WireBody extends Body {
     }
 
     protected override generateShape(): Result<IShape> {
-        return this.shapeFactory.wire(...this.edges);
+        return this.document.application.shapeFactory.wire(...this.edges);
     }
 }

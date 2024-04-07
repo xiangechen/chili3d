@@ -1,26 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, XYZ } from "chili-core";
+import { AsyncController, Config, I18nKeys, IDocument, IView, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
-import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
-
-export interface SnapPointData {
-    dimension?: Dimension;
-    refPoint?: () => XYZ;
-    validators?: SnapValidator[];
-    preview?: SnapPreviewer;
-    prompt?: (point: SnapedData) => string;
-    plane?: () => Plane;
-    featurePoints?: {
-        point: XYZ;
-        prompt: string;
-        when?: () => boolean;
-    }[];
-}
+import { SnapPointData } from "./snapPointData";
 
 export class SnapPointEventHandler extends SnapEventHandler {
     constructor(

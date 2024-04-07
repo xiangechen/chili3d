@@ -43,9 +43,9 @@ export class CircleBody extends FaceableBody {
     }
 
     protected generateShape(): Result<IShape, string> {
-        let circle = this.shapeFactory.circle(this.normal, this._center, this._radius);
-        if (!circle.success || !this.isFace) return circle;
-        let wire = this.shapeFactory.wire(circle.value);
-        return wire.success ? wire.value.toFace() : circle;
+        let circle = this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
+        if (!circle.isOk || !this.isFace) return circle;
+        let wire = this.document.application.shapeFactory.wire(circle.value);
+        return wire.isOk ? wire.value.toFace() : circle;
     }
 }

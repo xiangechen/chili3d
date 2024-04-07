@@ -51,8 +51,8 @@ export class RectBody extends FaceableBody {
 
     protected generateShape(): Result<IShape, string> {
         let points = RectBody.points(this.plane, this._dx, this._dy);
-        let wire = this.shapeFactory.polygon(...points);
-        if (!wire.success || !this.isFace) return wire;
+        let wire = this.document.application.shapeFactory.polygon(...points);
+        if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }
 

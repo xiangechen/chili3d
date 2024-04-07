@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    Binding,
     ButtonSize,
     Command,
     CommandKeys,
@@ -15,7 +16,7 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { Binding, a, div, items, label, localize, span, svg } from "../controls";
+import { a, div, items, label, localize, span, svg } from "../controls";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
@@ -79,9 +80,9 @@ class ViewActiveConverter implements IConverter<IView> {
 
     convert(value: IView): Result<string> {
         if (this.target === value) {
-            return Result.success(`${this.style} ${this.activeStyle}`);
+            return Result.ok(`${this.style} ${this.activeStyle}`);
         } else {
-            return Result.success(this.style);
+            return Result.ok(this.style);
         }
     }
 }
@@ -95,9 +96,9 @@ class ActivedRibbonTabConverter implements IConverter<RibbonTabData> {
 
     convert(value: RibbonTabData): Result<string> {
         if (this.tab === value) {
-            return Result.success(`${this.style} ${this.activeStyle}`);
+            return Result.ok(`${this.style} ${this.activeStyle}`);
         } else {
-            return Result.success(this.style);
+            return Result.ok(this.style);
         }
     }
 }
@@ -107,9 +108,9 @@ class DisplayConverter implements IConverter<RibbonTabData> {
 
     convert(value: RibbonTabData): Result<string> {
         if (this.tab === value) {
-            return Result.success("");
+            return Result.ok("");
         } else {
-            return Result.success("none");
+            return Result.ok("none");
         }
     }
 }

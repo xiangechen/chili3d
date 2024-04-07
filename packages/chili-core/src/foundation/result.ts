@@ -2,42 +2,37 @@
 
 export type Result<T, E = string> = {
     unwrap(): T;
-    getValue(): T | undefined;
     expect(msg: string): T;
 } & (
     | {
-          readonly success: true;
-          readonly status: "success";
+          readonly isOk: true;
           readonly value: T;
       }
     | {
-          readonly success: false;
-          readonly status: "error";
+          readonly isOk: false;
+          readonly value: undefined;
           readonly error: E;
       }
 );
 
 export namespace Result {
-    export function success<T>(value: T): Result<T, never> {
+    export function ok<T>(value: T): Result<T, never> {
         return {
-            status: "success",
             value,
             unwrap: () => value,
-            success: true,
-            getValue: () => value,
-            expect: (msg: string) => value,
+            isOk: true,
+            expect: (_msg: string) => value,
         };
     }
 
-    export function error<E>(error: E): Result<never, E> {
+    export function err<E>(error: E): Result<never, E> {
         return {
-            status: "error",
             error,
             unwrap: () => {
                 throw error;
             },
-            success: false,
-            getValue: () => undefined,
+            isOk: false,
+            value: undefined,
             expect: (msg: string) => {
                 throw new Error(msg);
             },

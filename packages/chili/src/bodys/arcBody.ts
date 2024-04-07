@@ -50,6 +50,11 @@ export class ArcBody extends Body {
     }
 
     protected generateShape(): Result<IShape, string> {
-        return this.shapeFactory.arc(this.normal, this._center, this._start, this.angle);
+        return this.document.application.shapeFactory.arc(
+            this.normal,
+            this._center,
+            this._start,
+            this.angle,
+        );
     }
 }

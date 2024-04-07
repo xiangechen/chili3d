@@ -36,7 +36,7 @@ export class Revolve extends CreateCommand {
 
     protected override create(): GeometryModel {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
-        let edge = (this.stepDatas[1].shapes[0].shape as IEdge).asCurve().getValue() as ILine;
+        let edge = (this.stepDatas[1].shapes[0].shape as IEdge).asCurve().value as ILine;
         let axis = new Ray(edge.start, edge.direction);
         let body = new RevolveBody(this.document, shape, axis, this._angle);
         return new GeometryModel(this.document, `Revolve ${count++}`, body);
@@ -58,7 +58,7 @@ class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
             let edge = shape as IEdge;
-            let curve = edge.asCurve().getValue();
+            let curve = edge.asCurve().value;
             if (curve === undefined) return false;
             return ICurve.isLine(curve);
         }

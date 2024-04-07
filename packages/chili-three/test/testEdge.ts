@@ -37,7 +37,7 @@ export class TestEdge implements IEdge {
         return this.start.distanceTo(this.end);
     }
     asCurve(): Result<ICurve, string> {
-        return Result.error("this");
+        return Result.err("this");
     }
     get id(): string {
         return "testEdge";
@@ -91,6 +91,6 @@ export class TestBody extends Body {
     }
 
     protected generateShape(): Result<IShape> {
-        return Result.success(new TestEdge(this.start, this.end));
+        return Result.ok(new TestEdge(this.start, this.end));
     }
 }

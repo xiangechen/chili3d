@@ -6,6 +6,7 @@ import {
     IFace,
     IShape,
     IShapeConverter,
+    IShapeFactory,
     ISolid,
     IVertex,
     IWire,
@@ -15,7 +16,6 @@ import {
     Result,
     XYZ,
 } from "chili-core";
-import { IShapeFactory } from "chili-geo";
 
 import {
     BRepAlgoAPI_BooleanOperation,
@@ -39,9 +39,9 @@ export class ShapeFactory implements IShapeFactory {
         let tprofile = (profile as OccShape).shape;
         let builder = new occ.BRepOffsetAPI_MakePipe_1(spine, tprofile);
         if (builder.IsDone()) {
-            return Result.success(OccHelps.wrapShape(builder.Shape()));
+            return Result.ok(OccHelps.wrapShape(builder.Shape()));
         }
-        return Result.error("Failed to create a shape from a profile and a path");
+        return Result.err("Failed to create a shape from a profile and a path");
     }
 
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {
@@ -49,21 +49,21 @@ export class ShapeFactory implements IShapeFactory {
         let ax1 = new occ.gp_Ax1_2(OccHelps.toPnt(axis.location), OccHelps.toDir(axis.direction));
         let builder = new occ.BRepPrimAPI_MakeRevol_1(tprofile, ax1, MathUtils.degToRad(angle), false);
         if (builder.IsDone()) {
-            return Result.success(OccHelps.wrapShape(builder.Shape()));
+            return Result.ok(OccHelps.wrapShape(builder.Shape()));
         }
-        return Result.error("Failed to revolve profile");
+        return Result.err("Failed to revolve profile");
     }
 
     prism(shape: IShape, vec: XYZ): Result<IShape> {
         if (shape instanceof OccShape) {
             let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);
             if (builder.IsDone()) {
-                return Result.success(OccHelps.wrapShape(builder.Shape()));
+                return Result.ok(OccHelps.wrapShape(builder.Shape()));
             } else {
-                return Result.error("Cannot create prism");
+                return Result.err("Cannot create prism");
             }
         } else {
-            return Result.error("Unsupported shape");
+            return Result.err("Unsupported shape");
         }
     }
 
@@ -73,9 +73,9 @@ export class ShapeFactory implements IShapeFactory {
             make.Add_1(OccHelps.toPnt(x));
         });
         if (make.IsDone()) {
-            return Result.success(new OccWire(make.Wire()));
+            return Result.ok(new OccWire(make.Wire()));
         }
-        return Result.error("Create polygon error");
+        return Result.err("Create polygon error");
     }
 
     arc(normal: XYZ, center: XYZ, start: XYZ, angle: number): Result<IEdge> {
@@ -88,39 +88,39 @@ export class ShapeFactory implements IShapeFactory {
         if (angle < 0) [startAngle, endAngle] = [Math.PI * 2 + radians, Math.PI * 2];
         let builder = new occ.BRepBuilderAPI_MakeEdge_9(circle, startAngle, endAngle);
         if (builder.IsDone()) {
-            return Result.success(new OccEdge(builder.Edge()));
+            return Result.ok(new OccEdge(builder.Edge()));
         }
-        return Result.error("Create arc error");
+        return Result.err("Create arc error");
     }
 
     circle(normal: XYZ, center: XYZ, radius: number): Result<IEdge, string> {
         if (MathUtils.almostEqual(radius, 0)) {
-            return Result.error("Radius cannot be 0");
+            return Result.err("Radius cannot be 0");
         }
         let ax2 = new occ.gp_Ax2_3(OccHelps.toPnt(center), OccHelps.toDir(normal));
         let circ = new occ.gp_Circ_2(ax2, radius);
         let make = new occ.BRepBuilderAPI_MakeEdge_8(circ);
         if (make.IsDone()) {
-            return Result.success(new OccEdge(make.Edge()));
+            return Result.ok(new OccEdge(make.Edge()));
         }
-        return Result.error("Create circle error");
+        return Result.err("Create circle error");
     }
 
     rect(plane: Plane, dx: number, dy: number): Result<IFace, string> {
         if (MathUtils.almostEqual(dx, 0) || MathUtils.almostEqual(dy, 0)) {
-            return Result.error("Length cannot be 0");
+            return Result.err("Length cannot be 0");
         }
         let pln = OccHelps.toPln(plane);
         let make = new occ.BRepBuilderAPI_MakeFace_9(pln, 0, dx, 0, dy);
         if (make.IsDone()) {
-            return Result.success(new OccFace(make.Face()));
+            return Result.ok(new OccFace(make.Face()));
         }
-        return Result.error("Create rectangle error");
+        return Result.err("Create rectangle error");
     }
 
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid, string> {
         if (MathUtils.almostEqual(dx, 0) || MathUtils.almostEqual(dy, 0) || MathUtils.almostEqual(dz, 0)) {
-            return Result.error("Length cannot be 0");
+            return Result.err("Length cannot be 0");
         }
         let pln = OccHelps.toPln(plane);
         let faceMake = new occ.BRepBuilderAPI_MakeFace_9(pln, 0, dx, 0, dy);
@@ -129,31 +129,31 @@ export class ShapeFactory implements IShapeFactory {
             vec.Scale(dz);
             let prismMake = new occ.BRepPrimAPI_MakePrism_1(faceMake.Face(), vec, false, false);
             if (prismMake.IsDone()) {
-                return Result.success(new OccSolid(prismMake.Shape()));
+                return Result.ok(new OccSolid(prismMake.Shape()));
             }
         }
-        return Result.error("Create box error");
+        return Result.err("Create box error");
     }
 
     point(point: XYZ): Result<IVertex, string> {
         let build = new occ.BRepBuilderAPI_MakeVertex(OccHelps.toPnt(point));
         if (build.IsDone()) {
-            return Result.success(new OccVertex(build.Vertex()));
+            return Result.ok(new OccVertex(build.Vertex()));
         }
-        return Result.error("error");
+        return Result.err("error");
     }
 
     line(start: XYZ, end: XYZ): Result<IEdge> {
         let make = new occ.BRepBuilderAPI_MakeEdge_3(OccHelps.toPnt(start), OccHelps.toPnt(end));
         if (make.IsDone()) {
-            return Result.success(new OccEdge(make.Edge()));
+            return Result.ok(new OccEdge(make.Edge()));
         }
-        return Result.error("error");
+        return Result.err("error");
     }
 
     wire(...edges: IEdge[]): Result<IWire> {
-        if (edges.length === 0) return Result.error("empty edges");
-        if (edges[0] instanceof OccWire) return Result.success(edges[0]);
+        if (edges.length === 0) return Result.err("empty edges");
+        if (edges[0] instanceof OccWire) return Result.ok(edges[0]);
         let builder = new occ.BRepBuilderAPI_MakeWire_1();
         if (edges.length === 1) {
             builder.Add_1((edges[0] as OccEdge).shape);
@@ -162,28 +162,25 @@ export class ShapeFactory implements IShapeFactory {
         }
         switch (builder.Error()) {
             case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_DisconnectedWire:
-                return Result.error(
-                    "The last edge which you attempted to add was not connected to the wire.",
-                );
+                return Result.err("The last edge which you attempted to add was not connected to the wire.");
             case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_NonManifoldWire:
-                return Result.error("The wire with some singularity");
+                return Result.err("The wire with some singularity");
             case occ.BRepBuilderAPI_WireError.BRepBuilderAPI_EmptyWire:
-                return Result.error("The wire is empty");
+                return Result.err("The wire is empty");
             default:
-                return Result.success(new OccWire(builder.Wire()));
+                return Result.ok(new OccWire(builder.Wire()));
         }
     }
 
     face(...wire: IWire[]): Result<IFace> {
         let builder = new occ.BRepBuilderAPI_MakeFace_15((wire[0] as OccWire).shape, true);
-        for (let i = 1; i < wire.length; i++){
+        for (let i = 1; i < wire.length; i++) {
             if (wire[i] instanceof OccWire) {
                 builder.Add((wire[i] as OccWire).shape);
             }
         }
-        return Result.success(new OccFace(builder.Face()));
+        return Result.ok(new OccFace(builder.Face()));
     }
-
 
     private addOrderedEdges(builder: BRepBuilderAPI_MakeWire, edges: IEdge[]) {
         let wireOrder = new occ.ShapeAnalysis_WireOrder_1();
@@ -220,7 +217,7 @@ export class ShapeFactory implements IShapeFactory {
     }
 
     combine(...shapes: IShape[]): Result<ICompound> {
-        return OccCompound.fromShapes(...shapes)
+        return OccCompound.fromShapes(...shapes);
     }
 
     private booleanOperate(
@@ -236,9 +233,9 @@ export class ShapeFactory implements IShapeFactory {
         const progress = new occ.Message_ProgressRange_1();
         let operate = new ctor(shapes[0], shapes[1], progress);
         if (operate.IsDone()) {
-            return Result.success(OccHelps.wrapShape(operate.Shape()));
+            return Result.ok(OccHelps.wrapShape(operate.Shape()));
         }
-        return Result.error("Failed to perform boolean operation.");
+        return Result.err("Failed to perform boolean operation.");
     }
 
     static ensureOccShape(...shapes: IShape[]): TopoDS_Shape[] {

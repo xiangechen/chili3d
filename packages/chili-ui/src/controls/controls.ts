@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { Binding } from "chili-core/src/foundation/binding";
 import { ItemsConfig, ItemsElement } from "../components/items";
-import { Binding } from "./binding";
 import { HTMLConfig } from "./htmlConfig";
 import { Localize } from "./localize";
 

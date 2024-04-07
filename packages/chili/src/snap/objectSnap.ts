@@ -152,7 +152,7 @@ export class ObjectSnap implements ISnapper {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
             let curve = (shape.shape as IEdge).asCurve();
-            if (!curve.success) return;
+            if (!curve.isOk) return;
             if (ICurve.isCircle(curve.value)) {
                 this.showCircleCenter(curve.value, view, shape);
             }
@@ -204,7 +204,7 @@ export class ObjectSnap implements ISnapper {
         )
             return result;
         let curve = (shape.shape as IEdge).asCurve();
-        if (!curve.success) return result;
+        if (!curve.isOk) return result;
         let point = curve.value.project(this.referencePoint()).at(0);
         if (point === undefined) return result;
         result.push({
@@ -268,7 +268,7 @@ export class ObjectSnap implements ISnapper {
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
         let curve = (shape.shape as IEdge).asCurve();
-        if (!curve.success) return;
+        if (!curve.isOk) return;
         let start = curve.value.point(curve.value.firstParameter());
         let end = curve.value.point(curve.value.lastParameter());
         let addPoint = (point: XYZ, info: string) =>

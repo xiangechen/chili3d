@@ -10,5 +10,6 @@ export * from "./view";
 export * from "./viewport";
 export * from "./visual";
 export * from "./visualContext";
+export * from "./visualFactory";
 export * from "./visualObject";
 export * from "./visualShape";

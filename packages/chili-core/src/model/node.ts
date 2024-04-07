@@ -1,8 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { HistoryObservable, IDisposable, IPropertyChanged } from "../foundation";
-import { Id } from "../foundation/id";
+import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
 import { IShape } from "../geometry";
 import { Matrix4 } from "../math";
 import { Property } from "../property";

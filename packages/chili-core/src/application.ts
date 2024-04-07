@@ -1,14 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IShapeFactory } from "chili-geo";
-import { IVisualFactory } from "chili-vis";
 import { ICommand } from "./command";
 import { IDocument } from "./document";
 import { IStorage, ObservableCollection } from "./foundation";
+import { IShapeFactory } from "./geometry";
 import { Serialized } from "./serialize";
 import { IService } from "./service";
 import { IWindow } from "./ui/window";
-import { IView } from "./visual";
+import { IView, IVisualFactory } from "./visual";
 
 export interface IApplication {
     readonly mainWindow?: IWindow;

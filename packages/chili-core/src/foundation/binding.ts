@@ -1,13 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IConverter, IDisposable, IPropertyChanged } from "chili-core";
+import { IConverter } from "./converter";
+import { IPropertyChanged } from "./observer";
 
 const registry = new FinalizationRegistry((binding: Binding) => {
     binding.removeBinding();
 });
 
-export class Binding<T extends IPropertyChanged = any> implements IDisposable {
-    private _targets?: [element: WeakRef<object>, property: any];
+export class Binding<T extends IPropertyChanged = any> {
+    private _target?: {
+        element: WeakRef<object>;
+        property: PropertyKey;
+    };
 
     constructor(
         readonly source: T,
@@ -16,25 +20,32 @@ export class Binding<T extends IPropertyChanged = any> implements IDisposable {
     ) {}
 
     setBinding<U extends object>(element: U, property: keyof U) {
-        if (this._targets) {
+        if (this._target) {
             throw new Error("Binding already set");
         }
-        this._targets = [new WeakRef(element), property];
+        this._target = {
+            element: new WeakRef(element),
+            property,
+        };
         this.setValue<U>(element, property);
         this.source.onPropertyChanged(this._onPropertyChanged);
         registry.register(element, this);
     }
 
     removeBinding() {
-        this._targets = undefined;
+        let element = this._target?.element.deref();
+        if (element) {
+            registry.unregister(element);
+        }
+        this._target = undefined;
         this.source.removePropertyChanged(this._onPropertyChanged);
     }
 
     private _onPropertyChanged = (property: keyof T) => {
-        if (property === this.path && this._targets) {
-            let element = this._targets[0].deref();
+        if (property === this.path && this._target) {
+            let element = this._target.element.deref();
             if (element) {
-                this.setValue(element, this._targets[1]);
+                this.setValue(element, this._target.property);
             }
         }
     };
@@ -48,16 +59,11 @@ export class Binding<T extends IPropertyChanged = any> implements IDisposable {
         let value: any = this.source[this.path];
         if (this.converter) {
             let result = this.converter.convert(value);
-            if (!result.success) {
+            if (!result.isOk) {
                 throw new Error(`Cannot convert value ${value}`);
             }
-            value = result.getValue();
+            value = result.value;
         }
         return value;
-    }
-
-    dispose(): void {
-        this.source.removePropertyChanged(this._onPropertyChanged);
-        this._targets = undefined;
     }
 }

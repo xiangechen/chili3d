@@ -22,8 +22,8 @@ export class FaceBody extends Body {
 
     protected override generateShape(): Result<IShape> {
         if (Array.isArray(this._shapes)) {
-            let wire = this.shapeFactory.wire(...this._shapes);
-            if (!wire.success) return wire;
+            let wire = this.document.application.shapeFactory.wire(...this._shapes);
+            if (!wire.isOk) return wire;
             return wire.value.toFace();
         } else {
             return this._shapes.toFace();

@@ -23,13 +23,12 @@ import {
     Observable,
     ObservableCollection,
     PubSub,
-    Result,
     Serialized,
     Serializer,
     Transaction,
 } from "chili-core";
-import { Selection } from "./selection";
 import { Material } from "chili-core/src/material";
+import { Selection } from "./selection";
 
 const FILE_VERSIOM = "0.1.1";
 
@@ -196,7 +195,7 @@ export class Document extends Observable implements IDocument {
                     this.materials.push(...args.items);
                 },
             };
-            Transaction.add(this, record);
+            Transaction.add(this, this.history, record);
         } else if (args.action === CollectionAction.remove) {
             const record: IHistoryRecord = {
                 name: "MaterialChanged",
@@ -207,7 +206,7 @@ export class Document extends Observable implements IDocument {
                     this.materials.remove(...args.items);
                 },
             };
-            Transaction.add(this, record);
+            Transaction.add(this, this.history, record);
         }
     };
 

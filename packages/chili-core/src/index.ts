@@ -4,7 +4,6 @@ export * from "./application";
 export * from "./command";
 export * from "./config";
 export * from "./constants";
-export * from "./converter";
 export * from "./document";
 export * from "./editor";
 export * from "./foundation";
@@ -21,4 +20,3 @@ export * from "./service";
 export * from "./snapType";
 export * from "./ui";
 export * from "./visual";
-

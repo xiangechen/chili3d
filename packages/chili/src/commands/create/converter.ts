@@ -29,10 +29,10 @@ abstract class ConvertCommand extends CancelableCommand {
         }
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             let geometryModel = this.create(this.document, models!);
-            if (!geometryModel.success) {
+            if (!geometryModel.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
-                this.document.addNode(geometryModel.getValue()!);
+                this.document.addNode(geometryModel.value);
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
@@ -80,11 +80,11 @@ export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
         let edges = models.map((x) => x.shape()) as IEdge[];
         let wireBody = new WireBody(document, edges);
-        if (!wireBody.shape.success) {
-            return Result.error(wireBody.shape.error);
+        if (!wireBody.shape.isOk) {
+            return Result.err(wireBody.shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
-        return Result.success(new GeometryModel(document, `Wire ${count++}`, wireBody));
+        return Result.ok(new GeometryModel(document, `Wire ${count++}`, wireBody));
     }
 }
 
@@ -97,10 +97,10 @@ export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
         let edges = models.map((x) => x.shape()) as IEdge[];
         let wireBody = new FaceBody(document, edges);
-        if (!wireBody.shape.success) {
-            return Result.error(wireBody.shape.error);
+        if (!wireBody.shape.isOk) {
+            return Result.err(wireBody.shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
-        return Result.success(new GeometryModel(document, `Face ${count++}`, wireBody));
+        return Result.ok(new GeometryModel(document, `Face ${count++}`, wireBody));
     }
 }

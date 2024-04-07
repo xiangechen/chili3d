@@ -18,6 +18,6 @@ export class BooleanBody extends Body {
     }
 
     protected override generateShape(): Result<IShape> {
-        return Result.success(this._booleanShape);
+        return Result.ok(this._booleanShape);
     }
 }
