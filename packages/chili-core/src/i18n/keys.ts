@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 export type I18nKeys =
+    | "common.general"
     | "common.color"
     | "common.name"
     | "common.matrix"
@@ -51,9 +52,6 @@ export type I18nKeys =
     | "material.texture"
     | "material.repeatU"
     | "material.repeatV"
-    | "model.translation"
-    | "model.rotation"
-    | "model.scale"
     | "model.visible"
     | "vertex.point"
     | "line.type.line"
@@ -118,6 +116,9 @@ export type I18nKeys =
     | "axis.x"
     | "axis.y"
     | "axis.z"
+    | "transform.translation"
+    | "transform.rotation"
+    | "transform.scale"
     | "toast.command.{0}excuting"
     | "toast.document.saved"
     | "toast.document.noActived"

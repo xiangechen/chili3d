@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, I18nKeys, IDocument, IEdge, IShape, Result, Serializer } from "chili-core";
+import { GeometryObject, I18nKeys, IDocument, IEdge, IShape, Result, Serializer } from "chili-core";
 
 @Serializer.register("WireBody", ["document", "edges"])
-export class WireBody extends Body {
+export class WireBody extends GeometryObject {
     override display: I18nKeys = "body.wire";
 
     private _edges: IEdge[];

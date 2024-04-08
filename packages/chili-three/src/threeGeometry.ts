@@ -3,9 +3,9 @@
 import {
     EdgeMeshData,
     FaceMeshData,
+    GeometryObject,
     IHighlighter,
-    IShape,
-    IVisualShape,
+    IVisualGeometry,
     Matrix4,
     ShapeMeshData,
     ShapeType,
@@ -26,6 +26,7 @@ import {
 } from "three";
 
 import { ThreeHelper } from "./threeHelper";
+import { ThreeVisualContext } from "./threeVisualContext";
 
 const hilightEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
@@ -61,7 +62,7 @@ const selectedFaceMaterial = new MeshLambertMaterial({
     polygonOffsetUnits: -1,
 });
 
-export class ThreeShape extends Object3D implements IVisualShape {
+export class ThreeGeometry extends Object3D implements IVisualGeometry {
     private readonly _highlightedFaces: Map<number, Mesh> = new Map();
     private readonly _highlightedEdges: Map<number, LineSegments> = new Map();
 
@@ -91,17 +92,28 @@ export class ThreeShape extends Object3D implements IVisualShape {
     }
 
     constructor(
-        readonly shape: IShape,
+        readonly geometry: GeometryObject,
         readonly highlighter: IHighlighter,
-        material: Material,
+        readonly context: ThreeVisualContext,
     ) {
         super();
-        let mesh = this.shape.mesh;
-        this._faceMaterial = material;
+        let mesh = this.geometry.shape.value?.mesh;
+        this.transform = geometry.matrix;
+        this._faceMaterial = context.getMaterial(geometry.materialId);
         this.matrixAutoUpdate = false;
-        if (mesh.faces?.positions.length) this.add(this.initFaces(mesh.faces));
-        if (mesh.edges?.positions.length) this.add(this.initEdges(mesh.edges));
+        if (mesh?.faces?.positions.length) this.add(this.initFaces(mesh.faces));
+        if (mesh?.edges?.positions.length) this.add(this.initEdges(mesh.edges));
+        geometry.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
+
+    private handleGeometryPropertyChanged = (property: keyof GeometryObject) => {
+        if (property === "matrix") {
+            this.transform = this.geometry.matrix;
+        } else if (property === "materialId") {
+            let material = this.context.getMaterial(this.geometry.materialId)!;
+            this.setFaceMaterial(material);
+        }
+    };
 
     dispose() {
         if (this._edges) {
@@ -110,6 +122,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
         if (this._faces) {
             this._faces.geometry.dispose();
         }
+        this.geometry.removePropertyChanged(this.handleGeometryPropertyChanged);
         this._edgeMaterial.dispose();
         this.resetState();
     }
@@ -255,7 +268,7 @@ export class ThreeShape extends Object3D implements IVisualShape {
 
     private cloneSubEdge(index: number, material: LineBasicMaterial) {
         let allPositions = this._edges!.geometry.getAttribute("position") as Float32BufferAttribute;
-        let group = this.shape.mesh.edges!.groups[index];
+        let group = this.geometry.shape.value!.mesh.edges!.groups[index];
         let positions = allPositions.array.slice(group.start * 3, (group.start + group.count) * 3);
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
@@ -287,11 +300,11 @@ export class ThreeShape extends Object3D implements IVisualShape {
     }
 
     private cloneSubFace(index: number, material: MeshLambertMaterial) {
-        let group = this.shape.mesh.faces!.groups[index];
+        let group = this.geometry.shape.value?.mesh.faces!.groups[index];
         if (!group) return undefined;
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
         let allNormals = this._faces!.geometry.getAttribute("normal") as Float32BufferAttribute;
-        let allIndices = this.shape.mesh.faces!.indices;
+        let allIndices = this.geometry.shape.value!.mesh.faces!.indices;
         let indices = allIndices.slice(group.start, group.start + group.count);
         let indiceStart = Math.min(...indices);
         let indiceEnd = Math.max(...indices) + 1;

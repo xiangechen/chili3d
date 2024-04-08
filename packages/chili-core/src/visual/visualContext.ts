@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable } from "../foundation";
-import { ShapeMeshData } from "../geometry";
 import { IModel } from "../model";
+import { ShapeMeshData } from "../shape";
 import { IVisualObject } from "./visualObject";
-import { IVisualShape } from "./visualShape";
+import { IVisualGeometry } from "./visualShape";
 
 export interface IVisualContext extends IDisposable {
     get shapeCount(): number;
@@ -13,11 +13,11 @@ export interface IVisualContext extends IDisposable {
     removeVisualObject(object: IVisualObject): void;
     addModel(models: IModel[]): void;
     removeModel(models: IModel[]): void;
-    getShape(model: IModel): IVisualShape | undefined;
-    getModel(shape: IVisualShape): IModel | undefined;
+    getShape(model: IModel): IVisualGeometry | undefined;
+    getModel(shape: IVisualGeometry): IModel | undefined;
     redrawModel(models: IModel[]): void;
     setVisible(model: IModel, visible: boolean): void;
-    shapes(): IVisualShape[];
+    shapes(): IVisualGeometry[];
     displayShapeMesh(...datas: ShapeMeshData[]): number;
     removeShapeMesh(id: number): void;
 }

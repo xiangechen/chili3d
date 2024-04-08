@@ -2,11 +2,9 @@
 
 import { IDocument } from "../document";
 import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
-import { IShape } from "../geometry";
-import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
-import { Entity } from "./entity";
+import { GeometryObject } from "./geometry";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -32,10 +30,7 @@ export interface INodeLinkedList extends INode {
 
 export interface IModel extends INode {
     readonly document: IDocument;
-    readonly body: Entity;
-    materialId: string;
-    matrix: Matrix4;
-    shape(): IShape | undefined;
+    readonly geometry: GeometryObject;
 }
 
 export interface IModelGroup extends IModel {
@@ -48,12 +43,12 @@ export namespace INode {
     }
 
     export function isModelNode(node: INode): node is IModel {
-        return (node as IModel).matrix !== undefined;
+        return (node as IModel).geometry !== undefined;
     }
 
     export function isModelGroup(node: INode): node is IModelGroup {
         let group = node as IModelGroup;
-        return group.matrix !== undefined && group.children !== undefined;
+        return group.geometry !== undefined && group.children !== undefined;
     }
 }
 

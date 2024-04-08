@@ -3,9 +3,9 @@
 import { ICommand } from "./command";
 import { IDocument } from "./document";
 import { IStorage, ObservableCollection } from "./foundation";
-import { IShapeFactory } from "./geometry";
 import { Serialized } from "./serialize";
 import { IService } from "./service";
+import { IShapeFactory } from "./shape";
 import { IWindow } from "./ui/window";
 import { IView, IVisualFactory } from "./visual";
 

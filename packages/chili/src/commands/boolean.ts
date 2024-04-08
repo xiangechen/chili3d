@@ -9,8 +9,8 @@ let count = 1;
 
 export abstract class BooleanOperate extends CreateCommand {
     protected override create(): GeometryModel {
-        let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.shape()!;
-        let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.shape()!;
+        let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.geometry.shape.value!;
+        let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.geometry.shape.value!;
         let booleanType = this.getBooleanOperateType();
         let booleanShape: Result<IShape>;
         if (booleanType === "common") {
@@ -35,7 +35,7 @@ export abstract class BooleanOperate extends CreateCommand {
             new SelectModelStep("prompt.select.shape", false),
             new SelectModelStep("prompt.select.shape", false, {
                 allow: (shape) => {
-                    return !this.stepDatas[0].models?.map((x) => x.shape()).includes(shape);
+                    return !this.stepDatas[0].models?.map((x) => x.geometry.shape.value).includes(shape);
                 },
             }),
         ];

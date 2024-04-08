@@ -4,6 +4,7 @@ import { IDocument, Property } from "chili-core";
 import { InputProperty } from "./input";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
+import { MaterialProperty } from "./materialProperty";
 
 export function appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
     if (prop === undefined) return;
@@ -12,6 +13,8 @@ export function appendProperty(container: HTMLElement, document: IDocument, objs
 
     if (prop.type === "color") {
         container.append(new ColorProperty(document, objs, prop));
+    } else if (prop.type === "materialId") {
+        container.append(new MaterialProperty(document, objs, prop));
     } else if (type === "object" || type === "string" || type === "number") {
         container.append(new InputProperty(document, objs, prop));
     } else if (type === "boolean") {

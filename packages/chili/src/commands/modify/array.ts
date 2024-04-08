@@ -71,8 +71,8 @@ export class Array extends MultistepCommand {
         }
         this.positions = [];
         this.models?.forEach((model) => {
-            let ps = model.shape()?.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
+            let ps = model.geometry.shape.value?.mesh.edges?.positions;
+            if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
         });
         return true;
     }
@@ -82,7 +82,7 @@ export class Array extends MultistepCommand {
             let vec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
             let transform = Matrix4.createTranslation(vec.x, vec.y, vec.z);
             this.models?.forEach((x) => {
-                x.matrix = x.matrix.multiply(transform);
+                x.geometry.matrix = x.geometry.matrix.multiply(transform);
             });
             this.document.visual.update();
         });

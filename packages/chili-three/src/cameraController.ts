@@ -2,8 +2,8 @@
 
 import { ICameraController, Point, ShapeType } from "chili-core";
 import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
+import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeShape } from "./threeShape";
 import { ThreeView } from "./threeView";
 import { ThreeVisualContext } from "./threeVisualContext";
 
@@ -85,7 +85,7 @@ export class CameraController implements ICameraController {
 
     startRotate(x: number, y: number): void {
         let shape = this.view.detected(ShapeType.Shape, x, y).at(0)?.owner;
-        if (shape instanceof ThreeShape) {
+        if (shape instanceof ThreeGeometry) {
             this._rotateCenter = new Vector3();
             let box = new Box3();
             box.setFromObject(shape);

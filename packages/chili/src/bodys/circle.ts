@@ -1,9 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { FaceableBody, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    FaceableGeometry,
+    I18nKeys,
+    IDocument,
+    IShape,
+    Property,
+    Result,
+    Serializer,
+    XYZ,
+} from "chili-core";
 
 @Serializer.register("CircleBody", ["document", "normal", "center", "radius"])
-export class CircleBody extends FaceableBody {
+export class CircleBody extends FaceableGeometry {
     readonly display: I18nKeys = "body.circle";
 
     private _center: XYZ;

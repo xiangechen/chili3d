@@ -3,7 +3,7 @@
 import { IConverter } from "./foundation";
 import { I18nKeys } from "./i18n";
 
-export type PropertyType = "color";
+export type PropertyType = "color" | "materialId";
 
 export interface Property {
     name: string;
@@ -30,18 +30,24 @@ export namespace Property {
         };
     }
 
-    export function getProperties(target: any): Property[] {
+    export function getProperties(target: any, until?: object): Property[] {
         let result: Property[] = [];
-        getAllKeysOfPrototypeChain(target, result);
+        getAllKeysOfPrototypeChain(target, result, until);
         return result;
     }
 
-    function getAllKeysOfPrototypeChain(target: any, properties: Property[]) {
-        if (!target) return;
+    export function getOwnProperties(target: any): Property[] {
+        let properties = PropertyKeyMap.get(target);
+        if (!properties) return [];
+        return [...properties.values()];
+    }
+
+    function getAllKeysOfPrototypeChain(target: any, properties: Property[], until?: object) {
+        if (!target || target === until) return;
         if (PropertyKeyMap.has(target)) {
             properties.splice(0, 0, ...PropertyKeyMap.get(target)!.values());
         }
-        getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties);
+        getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties, until);
     }
 
     export function getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {

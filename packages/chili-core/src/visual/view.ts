@@ -2,9 +2,9 @@
 
 import { IDocument } from "../document";
 import { IDisposable, IPropertyChanged } from "../foundation";
-import { ShapeType } from "../geometry";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { IShapeFilter } from "../selectionFilter";
+import { ShapeType } from "../shape";
 import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
 

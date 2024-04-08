@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IShape, ShapeType } from "../geometry";
+import { GeometryObject } from "../model";
+import { ShapeType } from "../shape";
 import { IVisualObject } from "./visualObject";
 
 export enum VisualState {
@@ -29,8 +30,8 @@ export interface VisualGroup {
     materialIndex?: number;
 }
 
-export interface IVisualShape extends IVisualObject {
-    get shape(): IShape;
+export interface IVisualGeometry extends IVisualObject {
+    get geometry(): GeometryObject;
     addState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     removeState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     resetState(): void;

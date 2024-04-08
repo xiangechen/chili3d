@@ -65,8 +65,8 @@ export abstract class TransformedCommand extends MultistepCommand {
         }
         this.positions = [];
         this.models.forEach((model) => {
-            let ps = model.shape()?.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
+            let ps = model.geometry.shape.value?.mesh.edges?.positions;
+            if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
         });
         return true;
     }
@@ -79,7 +79,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             }
             let transform = this.transfrom(this.stepDatas.at(-1)!.point!);
             models?.forEach((x) => {
-                x.matrix = x.matrix.multiply(transform);
+                x.geometry.matrix = x.geometry.matrix.multiply(transform);
             });
             this.document.visual.update();
         });

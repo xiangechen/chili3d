@@ -91,7 +91,7 @@ abstract class Export implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let shapes = models!.map((x) => x.shape()!);
+                let shapes = models!.map((x) => x.geometry.shape.value!);
                 let shapeString = await this.convertAsync(application, type, ...shapes);
                 if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");

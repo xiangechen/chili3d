@@ -29,34 +29,3 @@
     grid-gap: 10px;
     align-items: center;
 }
-
-.material {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    margin-top: 4px;
-
-    span {
-        font-size: 14px;
-        opacity: 0.75;
-        color: var(--color);
-        min-width: 72px;
-        flex: 0 1 auto;
-    }
-
-    button {
-        flex: 1 1 auto;
-        font-size: 1rem;
-        padding: 4px;
-        outline: none;
-        background-color: transparent;
-
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        margin: 0px;
-
-        &:hover {
-            background-color: var(--hover-background-color);
-        }
-    }
-}

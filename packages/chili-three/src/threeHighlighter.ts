@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IHighlighter, IVisualShape, ShapeType, VisualState } from "chili-core";
+import { IHighlighter, IVisualGeometry, ShapeType, VisualState } from "chili-core";
 
 export class ThreeHighlighter implements IHighlighter {
-    private readonly _stateMap = new Map<IVisualShape, Map<string, VisualState>>();
+    private readonly _stateMap = new Map<IVisualGeometry, Map<string, VisualState>>();
 
     clear(): void {
         this._stateMap.forEach((v, k) => {
@@ -12,14 +12,14 @@ export class ThreeHighlighter implements IHighlighter {
         this._stateMap.clear();
     }
 
-    removeAllStates(shape: IVisualShape, resetState: boolean): void {
+    removeAllStates(shape: IVisualGeometry, resetState: boolean): void {
         if (!this._stateMap.has(shape)) return;
         this._stateMap.delete(shape);
         if (resetState) shape.resetState();
     }
 
     updateStateData(
-        shape: IVisualShape,
+        shape: IVisualGeometry,
         mode: "add" | "remove",
         state: VisualState,
         type: ShapeType,

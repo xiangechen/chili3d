@@ -1,9 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Plane, Property, Result, Serializer } from "chili-core";
+import {
+    GeometryObject,
+    I18nKeys,
+    IDocument,
+    IShape,
+    Plane,
+    Property,
+    Result,
+    Serializer,
+} from "chili-core";
 
 @Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
-export class BoxBody extends Body {
+export class BoxBody extends GeometryObject {
     readonly display: I18nKeys = "body.box";
 
     private _dx: number;

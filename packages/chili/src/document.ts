@@ -30,7 +30,7 @@ import {
 import { Material } from "chili-core/src/material";
 import { Selection } from "./selection";
 
-const FILE_VERSIOM = "0.1.1";
+const FILE_VERSIOM = "0.1.2";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;

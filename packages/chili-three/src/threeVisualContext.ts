@@ -9,8 +9,8 @@ import {
     INode,
     IVisual,
     IVisualContext,
+    IVisualGeometry,
     IVisualObject,
-    IVisualShape,
     LineType,
     Material,
     MathUtils,
@@ -34,12 +34,12 @@ import {
     TextureLoader,
     MeshLambertMaterial as ThreeMaterial,
 } from "three";
-import { ThreeShape } from "./threeShape";
+import { ThreeGeometry } from "./threeGeometry";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _shapeModelMap = new WeakMap<IVisualShape, IModel>();
-    private readonly _modelShapeMap = new WeakMap<IModel, IVisualShape>();
+    private readonly _shapeModelMap = new WeakMap<IVisualGeometry, IModel>();
+    private readonly _modelShapeMap = new WeakMap<IModel, IVisualGeometry>();
     private readonly materialMap = new Map<string, ThreeMaterial>();
 
     readonly visualShapes: Group;
@@ -81,6 +81,14 @@ export class ThreeVisualContext implements IVisualContext {
             });
         }
     };
+
+    getMaterial(id: string): ThreeMaterial {
+        let material = this.materialMap.get(id);
+        if (!material) {
+            throw new Error("Material not found");
+        }
+        return material;
+    }
 
     private onMaterialPropertyChanged = (prop: keyof Material, source: Material) => {
         let material = this.materialMap.get(source.id);
@@ -133,9 +141,6 @@ export class ThreeVisualContext implements IVisualContext {
 
     dispose() {
         this.visualShapes.traverse((x) => {
-            if (x instanceof ThreeShape) {
-                this._shapeModelMap.get(x)?.removePropertyChanged(this.handleModelPropertyChanged);
-            }
             if (IDisposable.isDisposable(x)) x.dispose();
         });
         this.visual.document.materials.forEach((x) =>
@@ -149,7 +154,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.scene.remove(this.visualShapes, this.tempShapes);
     }
 
-    getModel(shape: IVisualShape): IModel | undefined {
+    getModel(shape: IVisualGeometry): IModel | undefined {
         return this._shapeModelMap.get(shape);
     }
 
@@ -164,21 +169,21 @@ export class ThreeVisualContext implements IVisualContext {
         return this.visualShapes.children.length;
     }
 
-    getShape(model: IModel): IVisualShape | undefined {
+    getShape(model: IModel): IVisualGeometry | undefined {
         return this._modelShapeMap.get(model);
     }
 
-    shapes(): IVisualShape[] {
-        let shapes = new Array<ThreeShape>();
+    shapes(): IVisualGeometry[] {
+        let shapes = new Array<ThreeGeometry>();
         this.visualShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
         return shapes;
     }
 
-    private _getThreeShapes(shapes: Array<ThreeShape>, shape: Object3D) {
+    private _getThreeShapes(shapes: Array<ThreeGeometry>, shape: Object3D) {
         let group = shape as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getThreeShapes(shapes, x));
-        } else if (shape instanceof ThreeShape) shapes.push(shape);
+        } else if (shape instanceof ThreeGeometry) shapes.push(shape);
     }
 
     displayShapeMesh(...datas: ShapeMeshData[]): number {
@@ -238,44 +243,26 @@ export class ThreeVisualContext implements IVisualContext {
                 this.visualShapes.add(childGroup);
                 return;
             }
-            model.onPropertyChanged(this.handleModelPropertyChanged);
             this.displayModel(model);
         });
     }
 
     private displayModel(model: IModel) {
-        let modelShape = model.shape();
+        let modelShape = model.geometry.shape.value;
         if (modelShape === undefined) return;
-        let material = this.materialMap.get(model.materialId);
-        if (!material) {
-            throw new Error("Material not found");
-        }
-        let threeShape = new ThreeShape(modelShape, this.visual.highlighter, material);
-        threeShape.transform = model.matrix;
+        let threeShape = new ThreeGeometry(model.geometry, this.visual.highlighter, this);
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
         this._modelShapeMap.set(model, threeShape);
     }
 
-    private handleModelPropertyChanged = (property: keyof IModel, model: IModel) => {
-        let shape = this._modelShapeMap.get(model) as ThreeShape;
-        if (shape === undefined) return;
-        if (property === "matrix") {
-            shape.transform = model.matrix;
-        } else if (property === "materialId") {
-            let material = this.materialMap.get(model.materialId)!;
-            shape.setFaceMaterial(material);
-        }
-    };
-
     removeModel(models: IModel[]) {
         models.forEach((m) => {
-            m.removePropertyChanged(this.handleModelPropertyChanged);
             let shape = this._modelShapeMap.get(m);
             this._modelShapeMap.delete(m);
             if (!shape) return;
             this._shapeModelMap.delete(shape);
-            if (shape instanceof ThreeShape) {
+            if (shape instanceof ThreeGeometry) {
                 this.visualShapes.remove(shape);
                 shape.dispose();
             }
@@ -288,7 +275,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
         const shapes: Object3D[] = [];
         this.visualShapes.traverse((child) => {
-            if (!(child instanceof ThreeShape)) return;
+            if (!(child instanceof ThreeGeometry)) return;
             if (shapeType === ShapeType.Edge) {
                 let wireframe = child.edges();
                 if (wireframe) shapes.push(wireframe);

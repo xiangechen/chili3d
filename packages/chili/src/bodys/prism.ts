@@ -1,9 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, I18nKeys, IDocument, IFace, IShape, Property, Result, Serializer } from "chili-core";
+import {
+    GeometryObject,
+    I18nKeys,
+    IDocument,
+    IFace,
+    IShape,
+    Property,
+    Result,
+    Serializer,
+} from "chili-core";
 
 @Serializer.register("PrismBody", ["document", "face", "length"])
-export class PrismBody extends Body {
+export class PrismBody extends GeometryObject {
     override display: I18nKeys = "body.prism";
 
     private _face: IFace;

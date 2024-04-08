@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Body, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import { GeometryObject, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
 @Serializer.register("LineBody", ["document", "start", "end"])
-export class LineBody extends Body {
+export class LineBody extends GeometryObject {
     readonly display: I18nKeys = "body.line";
 
     private _start: XYZ;

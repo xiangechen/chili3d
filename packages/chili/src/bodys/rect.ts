@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    FaceableBody,
+    FaceableGeometry,
     I18nKeys,
     IDocument,
     IShape,
@@ -13,7 +13,7 @@ import {
 } from "chili-core";
 
 @Serializer.register("RectBody", ["document", "plane", "dx", "dy"])
-export class RectBody extends FaceableBody {
+export class RectBody extends FaceableGeometry {
     readonly display: I18nKeys = "body.rect";
 
     private _dx: number;

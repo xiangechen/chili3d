@@ -2,18 +2,17 @@
 
 import {
     GeometryModel,
+    GeometryObject,
     I18nKeys,
     IConverter,
     IDocument,
-    IModel,
     INode,
     IView,
     Property,
     PubSub,
 } from "chili-core";
 import { Expander } from "../components";
-
-import { button, div, label, localize, span } from "../controls";
+import { div, label, localize } from "../controls";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
@@ -46,9 +45,8 @@ export class PropertyView extends HTMLElement {
     private handleShowProperties = (document: IDocument, nodes: INode[]) => {
         this.removeProperties();
         if (nodes.length === 0) return;
-        this.addDefault(document, nodes);
-        this.addTransform(document, nodes);
-        this.addBody(nodes, document);
+        this.addModel(document, nodes);
+        this.addGeometry(nodes, document);
     };
 
     private removeProperties() {
@@ -57,61 +55,43 @@ export class PropertyView extends HTMLElement {
         }
     }
 
-    private addDefault(document: IDocument, nodes: INode[]) {
+    private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
         let properties = div();
         let header = new InputProperty(document, nodes, Property.getProperty(nodes[0], "name")!);
         if (INode.isModelNode(nodes[0])) {
             appendProperty(properties, document, nodes);
-            if (nodes.length === 1) {
-                this.appendMaterialProperty(document, nodes[0], properties);
-            }
         }
 
         this.panel.append(header, properties);
     }
 
-    private appendMaterialProperty(document: IDocument, model: IModel, properties: HTMLDivElement) {
-        const findMaterial = (id: string) => document.materials.find((x) => x.id === id)!;
-        properties.append(
-            div(
-                {
-                    className: style.material,
-                },
-                span({
-                    textContent: localize(Property.getProperty(model, "materialId")!.display),
-                }),
-                button({
-                    textContent: findMaterial(model.materialId).name,
-                    onclick: (e) => {
-                        PubSub.default.pub(
-                            "editMaterial",
-                            document,
-                            findMaterial(model.materialId)!,
-                            (material) => {
-                                let button = e.target as HTMLButtonElement;
-                                button.textContent = material.name;
-                                model.materialId = material.id;
-                                console.log(model.materialId);
-
-                                document.visual.update();
-                            },
-                        );
-                    },
-                }),
-            ),
-        );
+    private addGeometry(nodes: INode[], document: IDocument) {
+        let geometries = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).geometry);
+        if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
+        this.addCommon(document, geometries);
+        this.addParameters(geometries, document);
     }
 
-    private addBody(nodes: INode[], document: IDocument) {
-        let bodies = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).body);
-        if (bodies.length === 0 || !this.isAllElementsOfTypeFirstElement(bodies)) return;
-        let body = new Expander(bodies[0].display);
-        this.panel.append(body);
-        body.classList.add(style.expander);
-        Property.getProperties(bodies[0]).forEach((x) => {
-            appendProperty(body.contenxtPanel, document, bodies, x);
+    private addCommon(document: IDocument, geometries: GeometryObject[]) {
+        let common = new Expander("common.general");
+        this.panel.append(common);
+        common.classList.add(style.expander);
+        Property.getOwnProperties(GeometryObject.prototype).forEach((x) => {
+            appendProperty(common.contenxtPanel, document, geometries, x);
         });
+        this.addTransform(common, document, geometries);
+    }
+
+    private addParameters(geometries: GeometryObject[], document: IDocument) {
+        let parameters = new Expander(geometries[0].display);
+        this.panel.append(parameters);
+        parameters.classList.add(style.expander);
+        Property.getProperties(Object.getPrototypeOf(geometries[0]), GeometryObject.prototype).forEach(
+            (x) => {
+                appendProperty(parameters.contenxtPanel, document, geometries, x);
+            },
+        );
     }
 
     private isAllElementsOfTypeFirstElement(arr: any[]): boolean {
@@ -127,13 +107,9 @@ export class PropertyView extends HTMLElement {
         return true;
     }
 
-    private addTransform(document: IDocument, nodes: INode[]) {
-        nodes = nodes.filter((x) => INode.isModelNode(x));
-        if (nodes.length === 0) return;
-        let transform = new Expander("properties.group.transform").addClass(style.expander);
-        this.panel.append(transform);
+    private addTransform(dom: HTMLElement, document: IDocument, geometries: GeometryObject[]) {
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
-            appendProperty(transform, document, nodes, {
+            appendProperty(dom, document, geometries, {
                 name: "matrix",
                 display: display,
                 converter,
@@ -141,9 +117,9 @@ export class PropertyView extends HTMLElement {
         };
         // 这部分代码有问题，待完善
         let converters = MatrixConverter.init();
-        addMatrix("model.translation", converters.translation);
-        addMatrix("model.scale", converters.scale);
-        addMatrix("model.rotation", converters.rotate);
+        addMatrix("transform.translation", converters.translation);
+        addMatrix("transform.scale", converters.scale);
+        addMatrix("transform.rotation", converters.rotate);
     }
 }
 

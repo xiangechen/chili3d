@@ -63,7 +63,7 @@ abstract class ConvertCommand extends CancelableCommand {
             .map((x) => x as GeometryModel)
             .filter((x) => {
                 if (x === undefined) return false;
-                let shape = x.shape();
+                let shape = x.geometry.shape.value;
                 if (shape === undefined) return false;
                 if (filter !== undefined && !filter.allow(shape)) return false;
                 return true;
@@ -78,7 +78,7 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
-        let edges = models.map((x) => x.shape()) as IEdge[];
+        let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
         let wireBody = new WireBody(document, edges);
         if (!wireBody.shape.isOk) {
             return Result.err(wireBody.shape.error);
@@ -95,7 +95,7 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
-        let edges = models.map((x) => x.shape()) as IEdge[];
+        let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
         let wireBody = new FaceBody(document, edges);
         if (!wireBody.shape.isOk) {
             return Result.err(wireBody.shape.error);
