@@ -4,7 +4,7 @@ import { IDocument } from "../document";
 import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
-import { GeometryObject } from "./geometry";
+import { GeometryEntity } from "./geometryEntity";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -30,7 +30,7 @@ export interface INodeLinkedList extends INode {
 
 export interface IModel extends INode {
     readonly document: IDocument;
-    readonly geometry: GeometryObject;
+    readonly geometry: GeometryEntity;
 }
 
 export interface IModelGroup extends IModel {

@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryObject, I18nKeys, IDocument, IEdge, IShape, IWire, Result, Serializer } from "chili-core";
+import { GeometryEntity, I18nKeys, IDocument, IEdge, IShape, IWire, Result, Serializer } from "chili-core";
 
 @Serializer.register("FaceBody", ["document", "shapes"])
-export class FaceBody extends GeometryObject {
+export class FaceBody extends GeometryEntity {
     override display: I18nKeys = "body.face";
 
     private _shapes: IEdge[] | IWire;

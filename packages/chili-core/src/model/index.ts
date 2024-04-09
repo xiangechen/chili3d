@@ -2,7 +2,7 @@
 
 export * from "./entity";
 export * from "./feature";
-export * from "./geometry";
+export * from "./geometryEntity";
 export * from "./model";
 export * from "./node";
 export * from "./nodeLinkedList";

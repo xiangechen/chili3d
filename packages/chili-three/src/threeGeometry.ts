@@ -3,7 +3,7 @@
 import {
     EdgeMeshData,
     FaceMeshData,
-    GeometryObject,
+    GeometryEntity,
     IHighlighter,
     IVisualGeometry,
     Matrix4,
@@ -92,39 +92,54 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     constructor(
-        readonly geometry: GeometryObject,
+        readonly geometryEngity: GeometryEntity,
         readonly highlighter: IHighlighter,
         readonly context: ThreeVisualContext,
     ) {
         super();
-        let mesh = this.geometry.shape.value?.mesh;
-        this.transform = geometry.matrix;
-        this._faceMaterial = context.getMaterial(geometry.materialId);
+        this.transform = geometryEngity.matrix;
+        this._faceMaterial = context.getMaterial(geometryEngity.materialId);
         this.matrixAutoUpdate = false;
-        if (mesh?.faces?.positions.length) this.add(this.initFaces(mesh.faces));
-        if (mesh?.edges?.positions.length) this.add(this.initEdges(mesh.edges));
-        geometry.onPropertyChanged(this.handleGeometryPropertyChanged);
+        this.generateShape();
+        geometryEngity.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
-    private handleGeometryPropertyChanged = (property: keyof GeometryObject) => {
+    private handleGeometryPropertyChanged = (property: keyof GeometryEntity) => {
         if (property === "matrix") {
-            this.transform = this.geometry.matrix;
+            this.transform = this.geometryEngity.matrix;
         } else if (property === "materialId") {
-            let material = this.context.getMaterial(this.geometry.materialId)!;
+            let material = this.context.getMaterial(this.geometryEngity.materialId)!;
             this.setFaceMaterial(material);
+        } else if (property === "shape") {
+            this.removeSubShapes();
+            this.generateShape();
         }
     };
 
+    private generateShape() {
+        let mesh = this.geometryEngity.shape.value?.mesh;
+        if (mesh?.faces?.positions.length) this.add(this.initFaces(mesh.faces));
+        if (mesh?.edges?.positions.length) this.add(this.initEdges(mesh.edges));
+    }
+
     dispose() {
-        if (this._edges) {
-            this._edges.geometry.dispose();
-        }
-        if (this._faces) {
-            this._faces.geometry.dispose();
-        }
-        this.geometry.removePropertyChanged(this.handleGeometryPropertyChanged);
+        this.removeSubShapes();
+        this.geometryEngity.removePropertyChanged(this.handleGeometryPropertyChanged);
         this._edgeMaterial.dispose();
         this.resetState();
+    }
+
+    private removeSubShapes() {
+        if (this._edges) {
+            this.remove(this._edges);
+            this._edges.geometry.dispose();
+            this._edges = undefined;
+        }
+        if (this._faces) {
+            this.remove(this._faces);
+            this._faces.geometry.dispose();
+            this._faces = undefined;
+        }
     }
 
     private initEdges(data: EdgeMeshData) {
@@ -268,7 +283,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
 
     private cloneSubEdge(index: number, material: LineBasicMaterial) {
         let allPositions = this._edges!.geometry.getAttribute("position") as Float32BufferAttribute;
-        let group = this.geometry.shape.value!.mesh.edges!.groups[index];
+        let group = this.geometryEngity.shape.value!.mesh.edges!.groups[index];
         let positions = allPositions.array.slice(group.start * 3, (group.start + group.count) * 3);
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
@@ -300,11 +315,11 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     private cloneSubFace(index: number, material: MeshLambertMaterial) {
-        let group = this.geometry.shape.value?.mesh.faces!.groups[index];
+        let group = this.geometryEngity.shape.value?.mesh.faces!.groups[index];
         if (!group) return undefined;
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
         let allNormals = this._faces!.geometry.getAttribute("normal") as Float32BufferAttribute;
-        let allIndices = this.geometry.shape.value!.mesh.faces!.indices;
+        let allIndices = this.geometryEngity.shape.value!.mesh.faces!.indices;
         let indices = allIndices.slice(group.start, group.start + group.count);
         let indiceStart = Math.min(...indices);
         let indiceEnd = Math.max(...indices) + 1;

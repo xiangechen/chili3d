@@ -64,11 +64,7 @@ export class ThreeVisualContext implements IVisualContext {
                     transparent: true,
                     name: item.name,
                 });
-                if (item.texture) {
-                    material.map = new TextureLoader().load(item.texture);
-                    material.map.wrapS = RepeatWrapping;
-                    material.map.wrapT = RepeatWrapping;
-                }
+                material.map = this.loadTexture(item);
                 item.onPropertyChanged(this.onMaterialPropertyChanged);
                 this.materialMap.set(item.id, material);
             });
@@ -81,6 +77,19 @@ export class ThreeVisualContext implements IVisualContext {
             });
         }
     };
+
+    private loadTexture(item: Material) {
+        if (!item.texture) {
+            return null;
+        }
+
+        let map = new TextureLoader().load(item.texture);
+        map.wrapS = RepeatWrapping;
+        map.wrapT = RepeatWrapping;
+        map.repeat.set(item.repeatU, item.repeatV);
+        map.rotation = MathUtils.degToRad(item.angle);
+        return map;
+    }
 
     getMaterial(id: string): ThreeMaterial {
         let material = this.materialMap.get(id);
@@ -96,7 +105,7 @@ export class ThreeVisualContext implements IVisualContext {
         if (prop === "color") {
             material.color.set(source.color);
         } else if (prop === "texture") {
-            material.map = source.texture ? new TextureLoader().load(source.texture) : null;
+            material.map = this.loadTexture(source);
         } else if (prop === "opacity") {
             material.opacity = source.opacity;
         } else if (prop === "name") {

@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryObject } from "../model";
+import { GeometryEntity } from "../model";
 import { ShapeType } from "../shape";
 import { IVisualObject } from "./visualObject";
 
@@ -31,7 +31,7 @@ export interface VisualGroup {
 }
 
 export interface IVisualGeometry extends IVisualObject {
-    get geometry(): GeometryObject;
+    get geometryEngity(): GeometryEntity;
     addState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     removeState(state: VisualState, type: ShapeType, ...indexes: number[]): void;
     resetState(): void;

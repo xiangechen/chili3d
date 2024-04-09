@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryObject, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
+import { GeometryEntity, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
 
 @Serializer.register("ImportedBody", ["document", "importedShape"])
-export class ImportedBody extends GeometryObject {
+export class ImportedBody extends GeometryEntity {
     override display: I18nKeys = "body.imported";
 
     private _importedShape: IShape;

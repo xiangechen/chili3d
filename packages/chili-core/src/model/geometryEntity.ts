@@ -1,12 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
+import { IEqualityComparer, Result } from "../foundation";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
+import { IShape } from "../shape";
 import { Entity } from "./entity";
 
-export abstract class GeometryObject extends Entity {
+export abstract class GeometryEntity extends Entity {
     private _materialId: string;
     @Serializer.serialze()
     @Property.define("common.material", { type: "materialId" })
@@ -17,30 +19,48 @@ export abstract class GeometryObject extends Entity {
         this.setProperty("materialId", value);
     }
 
-    protected _matrix: Matrix4 = Matrix4.identity();
-    @Serializer.serialze()
-    get matrix(): Matrix4 {
-        return this._matrix;
+    protected shouldRegenerate: boolean = true;
+
+    protected _shape: Result<IShape> = Result.err("Not initialised");
+    get shape(): Result<IShape> {
+        if (this.shouldRegenerate) {
+            this._shape = this.generateShape();
+            if (this._shape.isOk) {
+                this._shape.value.matrix = this._matrix;
+            }
+            this.shouldRegenerate = false;
+        }
+        return this._shape;
     }
-    set matrix(value: Matrix4) {
-        this.setProperty(
-            "matrix",
-            value,
-            () => {
-                if (this.shape.isOk) {
-                    this.shape.value.matrix = value;
-                }
-            },
-            {
-                equals: (left, right) => left.equals(right),
-            },
-        );
+
+    protected setPropertyAndUpdate<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
+        equals?: IEqualityComparer<this[K]>,
+    ) {
+        if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
+            this.shouldRegenerate = true;
+            this.emitShapeChanged();
+        }
     }
 
     constructor(document: IDocument, materialId?: string) {
         super(document);
         this._materialId = materialId ?? document.materials.at(0)!.id;
     }
+
+    protected emitShapeChanged() {
+        this.emitPropertyChanged("shape", this._shape);
+    }
+
+    override onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {
+        if (this.shape.isOk) {
+            this.shape.value.matrix = newMatrix;
+        }
+    }
+
+    protected abstract generateShape(): Result<IShape>;
 }
 
 /*
@@ -111,7 +131,7 @@ export abstract class HistoryBody extends Body {
 }
 */
 
-export abstract class FaceableGeometry extends GeometryObject {
+export abstract class FaceableGeometry extends GeometryEntity {
     protected _isFace: boolean = false;
     @Serializer.serialze()
     @Property.define("command.faceable.isFace")

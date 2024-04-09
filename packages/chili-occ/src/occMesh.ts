@@ -7,7 +7,6 @@ import {
     FaceMeshDataBuilder,
     IShapeMeshData,
     MeshDataBuilder,
-    VertexMeshData,
 } from "chili-core";
 import {
     Handle_Poly_Triangulation,
@@ -16,7 +15,6 @@ import {
     TopAbs_ShapeEnum,
     TopoDS_Edge,
     TopoDS_Face,
-    TopoDS_Shape,
     gp_Trsf,
 } from "../occ-wasm/chili_occ";
 
@@ -25,17 +23,11 @@ import { OccShape } from "./occShape";
 
 export class OccMesh implements IShapeMeshData {
     private maxDeviation: number = 8;
-    private _vertexs?: VertexMeshData;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
 
-    private constructor(readonly shape: OccShape) {
-        this._mesh(shape.shape);
-    }
-
-    static create(shape: OccShape): IShapeMeshData {
+    constructor(readonly shape: OccShape) {
         new occ.BRepMesh_IncrementalMesh_2(shape.shape, 0.1, false, 0.1, false);
-        return new OccMesh(shape);
     }
 
     updateMeshShape(): void {
@@ -43,36 +35,19 @@ export class OccMesh implements IShapeMeshData {
         this.updateFaceMeshShapes();
     }
 
-    get vertexs(): VertexMeshData | undefined {
-        return this._vertexs;
-    }
     get edges(): EdgeMeshData | undefined {
+        if (!this._lines) this._lines = this.edgeMeshs();
         return this._lines;
     }
+
     get faces(): FaceMeshData | undefined {
+        if (!this._faces) this._faces = this.faceMeshs();
         return this._faces;
     }
 
-    private _mesh(shape: TopoDS_Shape) {
-        let shapeType = shape.ShapeType();
-        if (shapeType === occ.TopAbs_ShapeEnum.TopAbs_VERTEX) {
-            this.pointMesh(shape);
-            return;
-        }
-        if (shapeType !== occ.TopAbs_ShapeEnum.TopAbs_EDGE) {
-            this.faceMeshs(shape);
-        }
-
-        this.edgeMeshs(shape);
-    }
-
-    private pointMesh(shape: TopoDS_Shape) {
-        console.log("暂不支持");
-    }
-
-    private edgeMeshs(shape: TopoDS_Shape) {
+    private edgeMeshs() {
         let shapes = OccHelps.findSubShapes(
-            shape,
+            this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
             true,
         );
@@ -80,9 +55,11 @@ export class OccMesh implements IShapeMeshData {
         for (const e of shapes) {
             this.addEdgeMesh(e as TopoDS_Edge, builder);
         }
-        this._lines = builder.build();
-        let matrix = OccHelps.convertToMatrix(shape.Location_1().Transformation()).invert()!;
-        this._lines.positions = matrix.ofPoints(this._lines.positions);
+        let lines = builder.build();
+        if (lines.positions.length === 0) return undefined;
+        let matrix = OccHelps.convertToMatrix(this.shape.shape.Location_1().Transformation()).invert()!;
+        lines.positions = matrix.ofPoints(lines.positions);
+        return lines;
     }
 
     private updateEdgeMeshShapes() {
@@ -117,9 +94,9 @@ export class OccMesh implements IShapeMeshData {
         builder.endGroup(OccHelps.wrapShape(edge));
     }
 
-    private faceMeshs(shape: TopoDS_Shape) {
+    private faceMeshs() {
         let shapes = OccHelps.findSubShapes(
-            shape,
+            this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
             true,
         );
@@ -127,10 +104,12 @@ export class OccMesh implements IShapeMeshData {
         for (const f of shapes) {
             this.addFaceMesh(f as TopoDS_Face, builder);
         }
-        this._faces = builder.build();
-        let matrix = OccHelps.convertToMatrix(shape.Location_1().Transformation()).invert()!;
-        this._faces.positions = matrix.ofPoints(this._faces.positions);
-        this._faces.normals = matrix.ofVectors(this._faces.normals);
+        let faces = builder.build();
+        if (faces.positions.length === 0) return undefined;
+        let matrix = OccHelps.convertToMatrix(this.shape.shape.Location_1().Transformation()).invert()!;
+        faces.positions = matrix.ofPoints(faces.positions);
+        faces.normals = matrix.ofVectors(faces.normals);
+        return faces;
     }
 
     private updateFaceMeshShapes() {

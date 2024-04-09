@@ -56,7 +56,7 @@ export class OccShape implements IShape {
     private _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
         if (this._mesh === undefined) {
-            this._mesh = OccMesh.create(this);
+            this._mesh = new OccMesh(this);
         }
         return this._mesh;
     }

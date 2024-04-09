@@ -3,14 +3,14 @@
 import { IDocument } from "../document";
 import { Id } from "../foundation";
 import { Serializer } from "../serialize";
-import { GeometryObject } from "./geometry";
+import { GeometryEntity } from "./geometryEntity";
 import { IModel, IModelGroup, Node } from "./node";
 
 export abstract class Model extends Node implements IModel {
     @Serializer.serialze()
-    readonly geometry: GeometryObject;
+    readonly geometry: GeometryEntity;
 
-    constructor(document: IDocument, name: string, body: GeometryObject, id: string = Id.generate()) {
+    constructor(document: IDocument, name: string, body: GeometryEntity, id: string = Id.generate()) {
         super(document, name, id);
         this.geometry = body;
     }
@@ -18,7 +18,7 @@ export abstract class Model extends Node implements IModel {
 
 @Serializer.register("GeometryModel", ["document", "name", "geometry", "id"])
 export class GeometryModel extends Model {
-    constructor(document: IDocument, name: string, geometry: GeometryObject, id: string = Id.generate()) {
+    constructor(document: IDocument, name: string, geometry: GeometryEntity, id: string = Id.generate()) {
         super(document, name, geometry, id);
     }
 

@@ -1,5 +1,5 @@
 import {
-    GeometryObject,
+    GeometryEntity,
     I18nKeys,
     ICurve,
     IDocument,
@@ -80,7 +80,7 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends GeometryObject {
+export class TestBody extends GeometryEntity {
     display: I18nKeys = "body.line";
     constructor(
         document: IDocument,

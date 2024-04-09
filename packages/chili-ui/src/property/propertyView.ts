@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    GeometryEntity,
     GeometryModel,
-    GeometryObject,
     I18nKeys,
     IConverter,
     IDocument,
@@ -69,25 +69,44 @@ export class PropertyView extends HTMLElement {
     private addGeometry(nodes: INode[], document: IDocument) {
         let geometries = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).geometry);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
-        this.addCommon(document, geometries);
+        this.addGeneral(document, geometries);
+        this.addTransform(document, geometries);
         this.addParameters(geometries, document);
     }
 
-    private addCommon(document: IDocument, geometries: GeometryObject[]) {
+    private addGeneral(document: IDocument, geometries: GeometryEntity[]) {
         let common = new Expander("common.general");
         this.panel.append(common);
         common.classList.add(style.expander);
-        Property.getOwnProperties(GeometryObject.prototype).forEach((x) => {
+        Property.getOwnProperties(GeometryEntity.prototype).forEach((x) => {
             appendProperty(common.contenxtPanel, document, geometries, x);
         });
-        this.addTransform(common, document, geometries);
     }
 
-    private addParameters(geometries: GeometryObject[], document: IDocument) {
+    private addTransform(document: IDocument, geometries: GeometryEntity[]) {
+        let matrix = new Expander("common.matrix");
+        this.panel.append(matrix);
+        matrix.classList.add(style.expander);
+
+        const addMatrix = (display: I18nKeys, converter: IConverter) => {
+            appendProperty(matrix, document, geometries, {
+                name: "matrix",
+                display: display,
+                converter,
+            });
+        };
+        // 这部分代码有问题，待完善
+        let converters = MatrixConverter.init();
+        addMatrix("transform.translation", converters.translation);
+        addMatrix("transform.scale", converters.scale);
+        addMatrix("transform.rotation", converters.rotate);
+    }
+
+    private addParameters(geometries: GeometryEntity[], document: IDocument) {
         let parameters = new Expander(geometries[0].display);
         this.panel.append(parameters);
         parameters.classList.add(style.expander);
-        Property.getProperties(Object.getPrototypeOf(geometries[0]), GeometryObject.prototype).forEach(
+        Property.getProperties(Object.getPrototypeOf(geometries[0]), GeometryEntity.prototype).forEach(
             (x) => {
                 appendProperty(parameters.contenxtPanel, document, geometries, x);
             },
@@ -105,21 +124,6 @@ export class PropertyView extends HTMLElement {
             }
         }
         return true;
-    }
-
-    private addTransform(dom: HTMLElement, document: IDocument, geometries: GeometryObject[]) {
-        const addMatrix = (display: I18nKeys, converter: IConverter) => {
-            appendProperty(dom, document, geometries, {
-                name: "matrix",
-                display: display,
-                converter,
-            });
-        };
-        // 这部分代码有问题，待完善
-        let converters = MatrixConverter.init();
-        addMatrix("transform.translation", converters.translation);
-        addMatrix("transform.scale", converters.scale);
-        addMatrix("transform.rotation", converters.rotate);
     }
 }
 

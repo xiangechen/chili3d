@@ -49,7 +49,7 @@ export class ThreeView extends Observable implements IView {
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
     readonly cameraController: CameraController;
-    readonly dynamicLight = new DirectionalLight(0xffffff, 1.5);
+    readonly dynamicLight = new DirectionalLight(0xffffff, 2);
 
     private _name: string;
     get name(): string {
@@ -274,9 +274,9 @@ export class ThreeView extends Observable implements IView {
     ) {
         if (!(shape.parent instanceof ThreeGeometry) || !shape.parent.visible) return;
         if (shapeType === ShapeType.Shape && shape instanceof LineSegments) {
-            if (shapeFilter && !shapeFilter.allow(shape.parent.geometry.shape.value!)) return;
+            if (shapeFilter && !shapeFilter.allow(shape.parent.geometryEngity.shape.value!)) return;
             detecteds.push({
-                shape: shape.parent.geometry.shape.value!,
+                shape: shape.parent.geometryEngity.shape.value!,
                 owner: shape.parent,
                 indexes: [],
             });
@@ -296,13 +296,13 @@ export class ThreeView extends Observable implements IView {
             const parent = element.object.parent;
             if (
                 !(parent instanceof ThreeGeometry) ||
-                (shapeFilter && !shapeFilter.allow(parent.geometry.shape.value!))
+                (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.value!))
             ) {
                 continue;
             }
             result.push({
                 owner: parent,
-                shape: parent.geometry.shape.value!,
+                shape: parent.geometryEngity.shape.value!,
                 indexes: [],
             });
         }
@@ -351,7 +351,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     private getWireAndIndexes(shape: IShape, groups: ShapeMeshGroup[], parent: ThreeGeometry) {
-        let wire = shape.findAncestor(ShapeType.Wire, parent.geometry.shape.value!).at(0);
+        let wire = shape.findAncestor(ShapeType.Wire, parent.geometryEngity.shape.value!).at(0);
         let indexes: number[] = [];
         if (wire) {
             let edges = wire.findSubShapes(ShapeType.Edge, true);
@@ -371,13 +371,13 @@ export class ThreeView extends Observable implements IView {
         let index: number | undefined = undefined;
         let groups: ShapeMeshGroup[] | undefined = undefined;
         if (element.faceIndex !== null) {
-            groups = parent.geometry.shape.value?.mesh.faces?.groups;
+            groups = parent.geometryEngity.shape.value?.mesh.faces?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
                 shape = groups[index].shape;
             }
         } else if (element.index !== null) {
-            groups = parent.geometry.shape.value?.mesh.edges?.groups;
+            groups = parent.geometryEngity.shape.value?.mesh.edges?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.index!)!;
                 shape = groups[index].shape;
