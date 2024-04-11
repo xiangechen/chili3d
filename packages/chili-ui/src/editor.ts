@@ -36,16 +36,17 @@ export class Editor extends HTMLElement {
                     viewport,
                 ),
                 new Statusbar().addClass(style.statusbar),
-            )
-        )
+            ),
+        );
+        document.body.appendChild(this);
     }
 
     registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
-        this.ribbonContent.ribbonTabs.find((p) => p.tabName === tabName)
+        this.ribbonContent.ribbonTabs
+            .find((p) => p.tabName === tabName)
             ?.groups.find((p) => p.groupName === groupName)
             ?.items.push(command);
     }
-
 }
 
 customElements.define("chili-editor", Editor);

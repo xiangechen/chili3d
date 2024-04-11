@@ -3,12 +3,12 @@
 import { CommandKeys, I18nKeys, Locale } from "chili-core";
 
 export interface AdditionalCommand {
-    tabName: I18nKeys,
-    groupName: I18nKeys,
-    command: CommandKeys
+    tabName: I18nKeys;
+    groupName: I18nKeys;
+    command: CommandKeys;
 }
 
 export interface IAdditionalModule {
     i18n(): Locale[];
-    commands(): AdditionalCommand[]
+    ribbonCommands(): AdditionalCommand[];
 }

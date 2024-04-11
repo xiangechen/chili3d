@@ -11,7 +11,7 @@ document.oncontextmenu = (e) => e.preventDefault();
 
 export class MainWindow implements IWindow {
     private _inited: boolean = false;
-    private _home?: HTMLElement;
+    private _home?: Home;
     private _editor?: Editor;
 
     constructor() {
@@ -25,6 +25,10 @@ export class MainWindow implements IWindow {
         this._inited = true;
         this._initHome(app);
         this._initEditor(app);
+        this._initSubs(app);
+    }
+
+    private _initSubs(app: IApplication) {
         const displayHome = debounce(this.displayHome, 100);
         PubSub.default.sub("showToast", Toast.show);
         PubSub.default.sub("showDialog", Dialog.show);
@@ -44,17 +48,20 @@ export class MainWindow implements IWindow {
     };
 
     private async _initHome(app: IApplication) {
-        this._home = await Home(app);
-        document.body.append(this._home);
+        this._home = new Home(app);
+        await this._home.render();
     }
 
     private async _initEditor(app: IApplication) {
         this._editor = new Editor(app);
-        document.body.append(this._editor);
+    }
+
+    registerHomeCommand(groupName: I18nKeys, command: CommandKeys | Button): void {
+        throw new Error("Method not implemented.");
     }
 
     registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
-        this._editor?.registerRibbonCommand(tabName, groupName, command)
+        this._editor?.registerRibbonCommand(tabName, groupName, command);
     }
 
     setTheme(theme: "light" | "dark") {

@@ -22,9 +22,15 @@
         display: flex;
         flex-direction: column;
 
-        & button {
+        .buttons {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .button {
             display: inline-block;
             height: 48px;
+            width: auto;
             font-size: 16px;
             margin: 8px 32px;
             padding: 0px 32px;

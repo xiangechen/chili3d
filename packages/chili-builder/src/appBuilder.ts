@@ -105,7 +105,7 @@ export class AppBuilder {
                 I18n.combineTranslation(local.code as any, local.translation);
             });
             if (this._window) {
-                module.commands().forEach((command) => {
+                module.ribbonCommands().forEach((command) => {
                     this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);
                 });
             }
