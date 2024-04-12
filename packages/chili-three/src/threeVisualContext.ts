@@ -86,6 +86,7 @@ export class ThreeVisualContext implements IVisualContext {
         let map = new TextureLoader().load(item.texture);
         map.wrapS = RepeatWrapping;
         map.wrapT = RepeatWrapping;
+        map.center.set(0.5, 0.5);
         map.repeat.set(item.repeatU, item.repeatV);
         map.rotation = MathUtils.degToRad(item.angle);
         return map;
@@ -112,7 +113,6 @@ export class ThreeVisualContext implements IVisualContext {
             material.name = source.name;
         } else if (prop === "angle" && material.map) {
             material.map.rotation = MathUtils.degToRad(source.angle);
-            material.map.center.set(0.5, 0.5);
         } else if (prop === "repeatU" && material.map) {
             material.map.repeat.setX(source.repeatU);
         } else if (prop === "repeatV" && material.map) {

@@ -128,7 +128,7 @@ export class MaterialEditor extends HTMLElement {
 
     private initEditingControl(material: Material) {
         const selectTexture = async () => {
-            let file = await readFileAsync(".png, .jpg", false, "readAsDataURL");
+            let file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
             material.texture = file.unwrap()[0].data;
         };
         let container = div({
