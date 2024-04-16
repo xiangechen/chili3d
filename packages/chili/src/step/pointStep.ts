@@ -6,7 +6,7 @@ import { StepBase } from "./step";
 
 function defaultSnapedData(): SnapPointData {
     return {
-        dimension: Dimension.D1D2D3,
+        dimension: Dimension.D1 | Dimension.D1D2D3,
     };
 }
 

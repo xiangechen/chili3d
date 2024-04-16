@@ -78,7 +78,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeTempObject();
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
-            this.switchSnapedPrompt(this.data.prompt?.(this._snaped) ?? this.snaped?.info);
+            this.switchSnapedPrompt(this.data.prompt?.(this._snaped) ?? this._snaped.info);
         } else {
             this.clearSnapTip();
         }

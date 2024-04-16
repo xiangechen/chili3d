@@ -84,8 +84,11 @@ export class TrackingSnap implements ISnapper {
         if (trackingDatas.length === 1) {
             let distance = point.distanceTo(trackingDatas[0].axis.location);
             info = `${trackingDatas[0].axis.name}: ${distance.toFixed(2)}`;
+        } else if (trackingDatas.length === 2) {
+            info = I18n.translate("snap.intersection");
         }
-        return { view, point, info, shapes: [] };
+        let refPoint = trackingDatas[0].axis.location;
+        return { view, point, info, shapes: [], refPoint };
     }
 
     private showTempLine(view: IView, start: XYZ, end: XYZ): number | undefined {

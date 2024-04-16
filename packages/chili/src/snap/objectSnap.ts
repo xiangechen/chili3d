@@ -80,11 +80,17 @@ export class ObjectSnap implements ISnapper {
     }
 
     snap(data: MouseAndDetected): SnapedData | undefined {
+        let snap: SnapedData | undefined;
         if (data.shapes.length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
-            return this.snapOnShape(data.view, data.mx, data.my, data.shapes);
+            snap = this.snapOnShape(data.view, data.mx, data.my, data.shapes);
+        } else {
+            snap = this.snapeInvisible(data.view, data.mx, data.my);
         }
-        return this.snapeInvisible(data.view, data.mx, data.my);
+        if (this.referencePoint && snap?.point) {
+            snap.info += " -> " + this.referencePoint?.().distanceTo(snap.point).toFixed(2);
+        }
+        return snap;
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {

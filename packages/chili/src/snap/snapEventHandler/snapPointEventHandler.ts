@@ -25,10 +25,11 @@ export class SnapPointEventHandler extends SnapEventHandler {
 
     protected getPointFromInput(view: IView, text: string): XYZ {
         let dims = text.split(",").map((x) => Number(x));
-        let result = this.pointData.refPoint?.() ?? XYZ.zero;
+        let refPoint = this.getRefPoint();
+        let result = refPoint ?? XYZ.zero;
         let end = this._snaped!.point!;
         if (dims.length === 1 && end !== undefined) {
-            let vector = end.sub(this.pointData.refPoint!()).normalize()!;
+            let vector = end.sub(refPoint!).normalize()!;
             result = result.add(vector.multiply(dims[0]));
         } else if (dims.length > 1) {
             let plane = this.pointData.plane?.() ?? view.workplane;
@@ -43,20 +44,25 @@ export class SnapPointEventHandler extends SnapEventHandler {
     protected inputError(text: string): I18nKeys | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
+        let refPoint = this.getRefPoint();
         if (!Dimension.contains(this.pointData.dimension!, dimension)) {
             return "error.input.unsupportedInputs";
         } else if (dims.some((x) => Number.isNaN(x))) {
             return "error.input.invalidNumber";
-        } else if (this.pointData.refPoint === undefined) {
+        } else if (refPoint === undefined) {
             if (dims.length !== 3) {
                 return "error.input.threeNumberCanBeInput";
             }
         } else if (
             dims.length === 1 &&
-            (this._snaped === undefined || this._snaped.point!.isEqualTo(this.pointData.refPoint()))
+            (this._snaped === undefined || this._snaped.point!.isEqualTo(refPoint))
         ) {
             return "error.input.cannotInputANumber";
         }
         return undefined;
+    }
+
+    private getRefPoint(): XYZ | undefined {
+        return this.pointData.refPoint?.() ?? this._snaped?.refPoint;
     }
 }
