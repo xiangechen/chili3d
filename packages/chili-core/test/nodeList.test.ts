@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { History, IDocument, NodeLinkedList } from "../src";
+import { IDocument, NodeLinkedList } from "../src";
+import { TestDocument } from "./testDocument";
 
 describe("test NodeLinkedList", () => {
-    let doc: IDocument = { history: new History() } as any;
+    let doc: IDocument = new TestDocument() as any;
 
     test("test add and remove", () => {
         let l1 = new NodeLinkedList(doc, "l1");

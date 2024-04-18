@@ -1,9 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { History, IDocument, INode, NodeLinkedList } from "../src";
+import { IDocument, INode, NodeLinkedList } from "../src";
+import { TestDocument } from "./testDocument";
 
 describe("test node", () => {
-    let doc: IDocument = { history: new History() } as any;
+    let doc: IDocument = new TestDocument() as any;
 
     test("test get all nodes between two nodes", () => {
         let n1 = new NodeLinkedList(doc, "n1");

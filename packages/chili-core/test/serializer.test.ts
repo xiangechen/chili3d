@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { History, IDocument, NodeLinkedList, NodeSerializer, Serialized, Serializer } from "../src";
+import { TestDocument } from "./testDocument";
 
 @Serializer.register("BoxBody", ["k1" as any])
 class TestObject {
@@ -38,7 +39,8 @@ test("test Serializer", () => {
 });
 
 test("test Node Serializer", () => {
-    let doc: IDocument = { history: new History() } as any;
+    let doc: IDocument = new TestDocument() as any;
+
     let n1 = new NodeLinkedList(doc, "n1");
     let n2 = new NodeLinkedList(doc, "n2");
     let n3 = new NodeLinkedList(doc, "n3");
