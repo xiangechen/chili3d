@@ -103,6 +103,10 @@ export interface NodeRecord {
     newPrevious?: INode;
 }
 
+export interface INodeChangedObserver {
+    handleNodeChanged(records: NodeRecord[]): void;
+}
+
 export class NodeLinkedListHistoryRecord implements IHistoryRecord {
     readonly name: string;
     constructor(readonly records: NodeRecord[]) {

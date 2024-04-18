@@ -8,21 +8,19 @@ import {
     I18n,
     IApplication,
     IDocument,
-    IHistoryRecord,
-    IModel,
     INode,
+    INodeChangedObserver,
     INodeLinkedList,
     ISelection,
     IVisual,
     Id,
     Logger,
-    NodeAction,
     NodeLinkedList,
+    NodeLinkedListHistoryRecord,
     NodeRecord,
     NodeSerializer,
     Observable,
     ObservableCollection,
-    PubSub,
     Serialized,
     Serializer,
     Transaction,
@@ -37,6 +35,8 @@ export class Document extends Observable implements IDocument {
     readonly history: History;
     readonly selection: ISelection;
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
+
+    private _nodeChangedObservers = new Set<INodeChangedObserver>();
 
     private _name: string;
     get name(): string {
@@ -82,10 +82,10 @@ export class Document extends Observable implements IDocument {
         this.history = new History();
         this.visual = application.visualFactory.create(this);
         this.selection = new Selection(this);
-        PubSub.default.sub("nodeLinkedListChanged", this.handleModelChanged);
         this.materials.onCollectionChanged(this.handleMaterialChanged);
-        Logger.info(`new document: ${name}`);
         application.documents.add(this);
+
+        Logger.info(`new document: ${name}`);
     }
 
     private handleRootNodeNameChanged = (prop: string) => {
@@ -115,6 +115,7 @@ export class Document extends Observable implements IDocument {
         this.selection.dispose();
         this.materials.forEach((x) => x.dispose());
         this.materials.clear();
+        this._nodeChangedObservers.clear();
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
         this._rootNode?.dispose();
         this._rootNode = undefined;
@@ -143,7 +144,6 @@ export class Document extends Observable implements IDocument {
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
         this.materials.removeCollectionChanged(this.handleMaterialChanged);
-        PubSub.default.remove("nodeLinkedListChanged", this.handleModelChanged);
         Logger.info(`document: ${this._name} closed`);
         this.dispose();
     }
@@ -186,44 +186,32 @@ export class Document extends Observable implements IDocument {
 
     private handleMaterialChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
-            const record: IHistoryRecord = {
+            Transaction.add(this, this.history, {
                 name: "MaterialChanged",
-                undo: () => {
-                    this.materials.remove(...args.items);
-                },
-                redo: () => {
-                    this.materials.push(...args.items);
-                },
-            };
-            Transaction.add(this, this.history, record);
+                undo: () => this.materials.remove(...args.items),
+                redo: () => this.materials.push(...args.items),
+            });
         } else if (args.action === CollectionAction.remove) {
-            const record: IHistoryRecord = {
+            Transaction.add(this, this.history, {
                 name: "MaterialChanged",
-                undo: () => {
-                    this.materials.push(...args.items);
-                },
-                redo: () => {
-                    this.materials.remove(...args.items);
-                },
-            };
-            Transaction.add(this, this.history, record);
+                undo: () => this.materials.push(...args.items),
+                redo: () => this.materials.remove(...args.items),
+            });
         }
     };
 
-    private handleModelChanged = (document: IDocument, records: NodeRecord[]) => {
-        if (document !== this) return;
-        let adds: INode[] = [];
-        let rms: INode[] = [];
-        records.forEach((x) => {
-            if (x.action === NodeAction.add) {
-                INode.addNodeOrChildrenToNodes(adds, x.node);
-            } else if (x.action === NodeAction.remove) {
-                INode.addNodeOrChildrenToNodes(rms, x.node);
-            }
-        });
-        this.visual.context.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
-        this.visual.context.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
-    };
+    addNodeObserver(observer: INodeChangedObserver) {
+        this._nodeChangedObservers.add(observer);
+    }
+
+    removeNodeObserver(observer: INodeChangedObserver) {
+        this._nodeChangedObservers.delete(observer);
+    }
+
+    notifyNodeChanged(records: NodeRecord[]) {
+        Transaction.add(this, this.history, new NodeLinkedListHistoryRecord(records));
+        this._nodeChangedObservers.forEach((x) => x.handleNodeChanged(records));
+    }
 
     addNode(...nodes: INode[]): void {
         (this.currentNode ?? this.rootNode).add(...nodes);

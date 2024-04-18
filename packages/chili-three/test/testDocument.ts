@@ -5,11 +5,13 @@ import {
     IApplication,
     IDocument,
     INode,
+    INodeChangedObserver,
     INodeLinkedList,
     ISelection,
     ISerialize,
     IView,
     Material,
+    NodeRecord,
     ObservableCollection,
     PropertyChangedHandler,
     Serialized,
@@ -56,6 +58,15 @@ export class TestDocument implements IDocument, ISerialize {
         this.selection = {} as any;
         this.rootNode = {} as any;
         this.application = { views: [] } as any;
+    }
+    addNodeObserver(observer: INodeChangedObserver): void {
+        throw new Error("Method not implemented.");
+    }
+    removeNodeObserver(observer: INodeChangedObserver): void {
+        throw new Error("Method not implemented.");
+    }
+    notifyNodeChanged(records: NodeRecord[]): void {
+        throw new Error("Method not implemented.");
     }
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");

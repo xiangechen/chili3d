@@ -14,6 +14,8 @@ import {
     LineType,
     Material,
     MathUtils,
+    NodeAction,
+    NodeRecord,
     ShapeMeshData,
     ShapeType,
     VertexMeshData,
@@ -52,6 +54,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
+        visual.document.addNodeObserver(this);
         visual.document.materials.onCollectionChanged(this.onMaterialsChanged);
     }
 
@@ -122,6 +125,20 @@ export class ThreeVisualContext implements IVisualContext {
         }
     };
 
+    handleNodeChanged = (records: NodeRecord[]) => {
+        let adds: INode[] = [],
+            rms: INode[] = [];
+        records.forEach((x) => {
+            if (x.action === NodeAction.add) {
+                INode.addNodeOrChildrenToNodes(adds, x.node);
+            } else if (x.action === NodeAction.remove) {
+                INode.addNodeOrChildrenToNodes(rms, x.node);
+            }
+        });
+        this.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
+        this.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
+    };
+
     addMesh(data: ShapeMeshData): IVisualObject {
         let shape: ThreeVisualObject | undefined = undefined;
         if (ShapeMeshData.isVertex(data)) {
@@ -156,6 +173,7 @@ export class ThreeVisualContext implements IVisualContext {
             x.removePropertyChanged(this.onMaterialPropertyChanged),
         );
         this.visual.document.materials.removeCollectionChanged(this.onMaterialsChanged);
+        this.visual.document.removeNodeObserver(this);
         this.materialMap.forEach((x) => x.dispose());
         this.materialMap.clear();
         this.visualShapes.clear();

@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, INode, INodeLinkedList, NodeRecord, PubSub, ShapeType, Transaction } from "chili-core";
+import {
+    IDocument,
+    INode,
+    INodeChangedObserver,
+    INodeLinkedList,
+    NodeRecord,
+    PubSub,
+    ShapeType,
+    Transaction,
+} from "chili-core";
 import { Control } from "../../components";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
@@ -8,7 +17,7 @@ import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
 import { SelectionHandler } from "chili-vis";
 
-export class Tree extends Control {
+export class Tree extends Control implements INodeChangedObserver {
     private readonly nodeMap = new WeakMap<INode, TreeItem>();
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
@@ -18,12 +27,12 @@ export class Tree extends Control {
         super(style.panel);
         this.addAllNodes(document, this, document.rootNode);
         this.addDisconnectedCallback(() => {
+            this.document.removeNodeObserver(this);
             PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
-            PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
         });
         this.addConnectedCallback(() => {
+            this.document.addNodeObserver(this);
             PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
-            PubSub.default.sub("nodeLinkedListChanged", this.handleNodeLinkedChanged);
         });
         this.addEvents(this);
     }
@@ -38,28 +47,23 @@ export class Tree extends Control {
         this.dragging = undefined;
         this.selectedNodes.clear();
         this.removeEvents(this);
+        this.document.removeNodeObserver(this);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
-        PubSub.default.remove("nodeLinkedListChanged", this.handleNodeLinkedChanged);
     }
 
-    private handleNodeLinkedChanged = (document: IDocument, records: NodeRecord[]) => {
-        if (this.document !== document) return;
+    handleNodeChanged(records: NodeRecord[]) {
         this.ensureHasHTML(records);
         for (const record of records) {
             let ele = this.nodeMap.get(record.node);
-            if (ele === undefined) continue;
-            if (record.oldParent !== undefined) {
-                this.nodeMap.get(record.oldParent)?.removeChild(ele);
-            }
-            if (record.newParent !== undefined) {
-                let parent = this.nodeMap.get(record.newParent);
-                if (parent !== undefined && parent instanceof TreeGroup) {
-                    let pre = record.newPrevious === undefined ? null : this.nodeMap.get(record.newPrevious);
-                    parent.insertAfter(ele, pre ?? null);
-                }
+            ele?.remove();
+            if (ele === undefined || record.newParent === undefined) continue;
+            let parent = this.nodeMap.get(record.newParent);
+            if (parent instanceof TreeGroup) {
+                let pre = record.newPrevious === undefined ? null : this.nodeMap.get(record.newPrevious);
+                parent.insertAfter(ele, pre ?? null);
             }
         }
-    };
+    }
 
     private handleSelectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
         unselected.forEach((x) => {

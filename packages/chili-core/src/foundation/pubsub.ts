@@ -9,14 +9,12 @@ import { ObjectSnapType } from "../snapType";
 import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
-import { NodeRecord } from "./history";
 import { MessageType } from "./messageType";
 import { IPropertyChanged } from "./observer";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
     executeCommand: (commandName: CommandKeys) => void;
-    nodeLinkedListChanged: (document: IDocument, records: NodeRecord[]) => void;
     activeViewChanged: (view: IView | undefined) => void;
     viewClosed: (view: IView) => void;
     modelUpdate: (model: IModel) => void;

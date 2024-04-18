@@ -1,15 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import {
-    Id,
-    Logger,
-    NodeAction,
-    NodeLinkedListHistoryRecord,
-    NodeRecord,
-    PubSub,
-    Transaction,
-} from "../foundation";
+import { Id, Logger, NodeAction, NodeRecord } from "../foundation";
 import { Serializer } from "../serialize";
 import { INode, INodeLinkedList, Node } from "./node";
 
@@ -56,12 +48,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             this._count++;
         });
 
-        this.handlePubAndHistory(records);
-    }
-
-    private handlePubAndHistory(records: NodeRecord[]) {
-        Transaction.add(this.document, this.document.history, new NodeLinkedListHistoryRecord(records));
-        PubSub.default.pub("nodeLinkedListChanged", this.document, records);
+        this.document.notifyNodeChanged(records);
     }
 
     private ensureIsChild(item: INode) {
@@ -107,7 +94,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             });
             this.removeNode(item, true);
         });
-        this.handlePubAndHistory(records);
+        this.document.notifyNodeChanged(records);
     }
 
     private removeNode(node: INode, nullifyParent: boolean) {
@@ -159,7 +146,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             }
         }
         this._count++;
-        this.handlePubAndHistory([record]);
+        this.document.notifyNodeChanged([record]);
     }
 
     insertAfter(target: INode | undefined, node: INode): void {
@@ -173,7 +160,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             node,
         };
         NodeLinkedList.insertNodeAfter(this, target, node);
-        this.handlePubAndHistory([record]);
+        this.document.notifyNodeChanged([record]);
     }
 
     private static insertNodeAfter(parent: NodeLinkedList, target: INode | undefined, node: INode) {
@@ -210,7 +197,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         this.removeNode(child, false);
         NodeLinkedList.insertNodeAfter(newParent, previousSibling, child);
 
-        this.handlePubAndHistory([record]);
+        this.document.notifyNodeChanged([record]);
     }
 
     protected onVisibleChanged() {
