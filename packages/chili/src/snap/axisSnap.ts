@@ -40,12 +40,12 @@ export class AxisSnap implements ISnapper {
             VisualConfig.temporaryEdgeColor,
             LineType.Dash,
         );
-        let id = view.document.visual.context.displayShapeMesh(lineDats);
+        let id = view.document.visual.context.displayMesh(lineDats);
         this._tempLines = [view, id];
     }
 
     removeDynamicObject(): void {
-        this._tempLines?.[0].document.visual.context.removeShapeMesh(this._tempLines[1]);
+        this._tempLines?.[0].document.visual.context.removeMesh(this._tempLines[1]);
     }
 
     clear(): void {

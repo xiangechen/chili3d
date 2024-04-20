@@ -197,20 +197,20 @@ export abstract class SnapEventHandler implements IEventHandler {
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,
             );
-            this._tempPoint = this.document.visual.context.displayShapeMesh(data);
+            this._tempPoint = this.document.visual.context.displayMesh(data);
         }
         this._tempShapes = this.data.preview?.(point)?.map((shape) => {
-            return this.document.visual.context.displayShapeMesh(shape);
+            return this.document.visual.context.displayMesh(shape);
         });
     }
 
     private removeTempShapes() {
         if (this._tempPoint) {
-            this.document.visual.context.removeShapeMesh(this._tempPoint);
+            this.document.visual.context.removeMesh(this._tempPoint);
             this._tempPoint = undefined;
         }
         this._tempShapes?.forEach((x) => {
-            this.document.visual.context.removeShapeMesh(x);
+            this.document.visual.context.removeMesh(x);
         });
         this.document.visual.update();
         this._tempShapes = undefined;

@@ -29,7 +29,7 @@ export class ObjectTracking {
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
             v.forEach((s) => {
-                k.visual.context.removeShapeMesh(s.shapeId);
+                k.visual.context.removeMesh(s.shapeId);
             });
         });
         this.trackings.clear();
@@ -71,7 +71,7 @@ export class ObjectTracking {
     }
 
     private removeTrackingPoint(document: IDocument, s: SnapeInfo, snaps: SnapeInfo[]) {
-        document.visual.context.removeShapeMesh(s.shapeId);
+        document.visual.context.removeMesh(s.shapeId);
         this.trackings.set(
             document,
             snaps.filter((x) => x !== s),
@@ -84,7 +84,7 @@ export class ObjectTracking {
             VisualConfig.trackingVertexSize,
             VisualConfig.trackingVertexColor,
         );
-        let pointId = document.visual.context.displayShapeMesh(data);
+        let pointId = document.visual.context.displayMesh(data);
         snaps.push({ shapeId: pointId, snap });
     }
 }

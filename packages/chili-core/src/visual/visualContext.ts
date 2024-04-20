@@ -17,6 +17,6 @@ export interface IVisualContext extends IDisposable, INodeChangedObserver {
     redrawModel(models: IModel[]): void;
     setVisible(model: IModel, visible: boolean): void;
     shapes(): IVisualGeometry[];
-    displayShapeMesh(...datas: ShapeMeshData[]): number;
-    removeShapeMesh(id: number): void;
+    displayMesh(...datas: ShapeMeshData[]): number;
+    removeMesh(id: number): void;
 }

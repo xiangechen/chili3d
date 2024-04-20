@@ -41,7 +41,6 @@ import {
     MeshLambertMaterial as ThreeMaterial,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
-import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualGeometry, IModel>();
@@ -206,7 +205,7 @@ export class ThreeVisualContext implements IVisualContext {
         } else if (shape instanceof ThreeGeometry) shapes.push(shape);
     }
 
-    displayShapeMesh(...datas: ShapeMeshData[]): number {
+    displayMesh(...datas: ShapeMeshData[]): number {
         let group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
@@ -263,9 +262,19 @@ export class ThreeVisualContext implements IVisualContext {
         return new Points(buff, material);
     }
 
-    removeShapeMesh(id: number) {
+    removeMesh(id: number) {
         let shape = this.tempShapes.getObjectById(id);
         if (shape === undefined) return;
+        shape.children.forEach((x) => {
+            if (x instanceof Mesh || x instanceof LineSegments || x instanceof Points) {
+                x.geometry.dispose();
+                x.material.dispose();
+            }
+            if (IDisposable.isDisposable(x)) {
+                x.dispose()
+            }
+        })
+        shape.children.length = 0;
         this.tempShapes.remove(shape);
     }
 

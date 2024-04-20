@@ -99,7 +99,7 @@ export class TrackingSnap implements ISnapper {
         let distance = vector.length() * 1e10;
         let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
         let lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
-        return view.document.visual.context.displayShapeMesh(lineDats);
+        return view.document.visual.context.displayMesh(lineDats);
     }
 
     private shapeIntersectTracking(
@@ -185,7 +185,7 @@ export class TrackingSnap implements ISnapper {
     removeDynamicObject(): void {
         this._tempLines.forEach((v, k) => {
             v.forEach((id) => {
-                k.document.visual.context.removeShapeMesh(id);
+                k.document.visual.context.removeMesh(id);
             });
         });
         this._tempLines.clear();
