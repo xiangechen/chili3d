@@ -6,6 +6,7 @@ import {
     GeometryEntity,
     IHighlighter,
     IVisualGeometry,
+    MathUtils,
     Matrix4,
     ShapeMeshData,
     ShapeType,
@@ -13,6 +14,7 @@ import {
     VisualState,
 } from "chili-core";
 import {
+    AlwaysDepth,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
@@ -30,16 +32,20 @@ import { ThreeVisualContext } from "./threeVisualContext";
 
 const hilightEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
+    linewidth: 2,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
+    depthFunc: AlwaysDepth,
 });
 
 const selectedEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(VisualConfig.selectedEdgeColor),
+    linewidth: 2,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
+    depthFunc: AlwaysDepth,
 });
 
 const highlightFaceMaterial = new MeshLambertMaterial({
@@ -47,9 +53,10 @@ const highlightFaceMaterial = new MeshLambertMaterial({
     side: DoubleSide,
     transparent: true,
     opacity: 0.85,
+    depthFunc: AlwaysDepth,
     polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
 });
 
 const selectedFaceMaterial = new MeshLambertMaterial({
@@ -58,8 +65,8 @@ const selectedFaceMaterial = new MeshLambertMaterial({
     transparent: true,
     opacity: 0.32,
     polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
 });
 
 export class ThreeGeometry extends Object3D implements IVisualGeometry {
@@ -148,7 +155,6 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         this.initColor(data, buff, this._edgeMaterial);
         buff.computeBoundingBox();
         this._edges = new LineSegments(buff, this._edgeMaterial);
-        this._edges.renderOrder = 89;
         return this._edges;
     }
 
@@ -276,6 +282,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
             this._highlightedEdges.get(index)!.material = material;
         } else {
             let edge = this.cloneSubEdge(index, material);
+            edge.renderOrder = 99;
             this.add(edge);
             this._highlightedEdges.set(index, edge);
         }
@@ -287,9 +294,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         let positions = allPositions.array.slice(group.start * 3, (group.start + group.count) * 3);
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
-        let edge = new LineSegments(buff, material);
-        edge.renderOrder = 99;
-        return edge;
+        return new LineSegments(buff, material);
     }
 
     private setSubFaceState(state: VisualState, index: number) {
@@ -308,6 +313,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         } else {
             let face = this.cloneSubFace(index, material);
             if (face) {
+                face.renderOrder = 99;
                 this.add(face);
                 this._highlightedFaces.set(index, face);
             }
@@ -321,17 +327,16 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         let allNormals = this._faces!.geometry.getAttribute("normal") as Float32BufferAttribute;
         let allIndices = this.geometryEngity.shape.value!.mesh.faces!.indices;
         let indices = allIndices.slice(group.start, group.start + group.count);
-        let indiceStart = Math.min(...indices);
-        let indiceEnd = Math.max(...indices) + 1;
+        let minMax = MathUtils.minMax(indices);
+        let indiceStart = minMax!.min;
+        let indiceEnd = minMax!.max + 1;
         let positions = allPositions.array.slice(indiceStart * 3, indiceEnd * 3);
         let normals = allNormals.array.slice(indiceStart * 3, indiceEnd * 3);
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
         buff.setAttribute("normal", new Float32BufferAttribute(normals, 3));
         buff.setIndex(indices.map((i) => i - indiceStart));
-        let face = new Mesh(buff, material);
-        face.renderOrder = 99;
-        return face;
+        return new Mesh(buff, material);
     }
 
     faces() {

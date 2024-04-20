@@ -15,6 +15,7 @@ import {
     IVisual,
     Id,
     Logger,
+    Material,
     NodeLinkedList,
     NodeLinkedListHistoryRecord,
     NodeRecord,
@@ -25,7 +26,6 @@ import {
     Serializer,
     Transaction,
 } from "chili-core";
-import { Material } from "chili-core/src/material";
 import { Selection } from "./selection";
 
 const FILE_VERSIOM = "0.1.2";

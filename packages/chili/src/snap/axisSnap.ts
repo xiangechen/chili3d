@@ -27,7 +27,7 @@ export class AxisSnap implements ISnapper {
         return {
             view: data.view,
             point,
-            info: dot.toFixed(2),
+            distance: dot,
             shapes: [],
         };
     }

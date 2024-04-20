@@ -4,6 +4,7 @@ import {
     CollectionAction,
     CollectionChangedArgs,
     EdgeMeshData,
+    FaceMeshData,
     IDisposable,
     IModel,
     INode,
@@ -21,6 +22,7 @@ import {
     VertexMeshData,
 } from "chili-core";
 import {
+    AlwaysDepth,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
@@ -28,6 +30,8 @@ import {
     LineBasicMaterial,
     LineDashedMaterial,
     LineSegments,
+    Mesh,
+    MeshLambertMaterial,
     Object3D,
     Points,
     PointsMaterial,
@@ -66,6 +70,9 @@ export class ThreeVisualContext implements IVisualContext {
                     side: DoubleSide,
                     transparent: true,
                     name: item.name,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 1,
+                    polygonOffsetUnits: 2,
                 });
                 material.map = this.loadTexture(item);
                 item.onPropertyChanged(this.onMaterialPropertyChanged);
@@ -139,20 +146,6 @@ export class ThreeVisualContext implements IVisualContext {
         this.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
     };
 
-    addMesh(data: ShapeMeshData): IVisualObject {
-        let shape: ThreeVisualObject | undefined = undefined;
-        if (ShapeMeshData.isVertex(data)) {
-            shape = new ThreeVisualObject(this.createVertexGeometry(data));
-        } else if (ShapeMeshData.isEdge(data)) {
-            shape = new ThreeVisualObject(this.createEdgeGeometry(data));
-        }
-        if (shape) {
-            this.visualShapes.add(shape);
-            return shape;
-        }
-        throw new Error("Unsupported mesh data");
-    }
-
     addVisualObject(object: IVisualObject): void {
         if (object instanceof Object3D) {
             this.visualShapes.add(object);
@@ -220,10 +213,30 @@ export class ThreeVisualContext implements IVisualContext {
                 group.add(this.createVertexGeometry(data));
             } else if (ShapeMeshData.isEdge(data)) {
                 group.add(this.createEdgeGeometry(data));
+            } else if (ShapeMeshData.isFace(data)) {
+                group.add(this.createFaceGeometry(data));
             }
         });
         this.tempShapes.add(group);
         return group.id;
+    }
+
+    private createFaceGeometry(data: FaceMeshData) {
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+        buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
+        buff.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
+        buff.setIndex(data.indices);
+        buff.computeBoundingBox();
+        let material = new MeshLambertMaterial({ side: DoubleSide });
+        if (typeof data.color === "number") {
+            material.color.set(data.color);
+        } else {
+            material.vertexColors = true;
+            buff.setAttribute("color", new Float32BufferAttribute(data.color, 3));
+        }
+
+        return new Mesh(buff, material);
     }
 
     private createEdgeGeometry(data: EdgeMeshData) {
@@ -246,6 +259,7 @@ export class ThreeVisualContext implements IVisualContext {
             sizeAttenuation: false,
             color,
         });
+        material.depthFunc = AlwaysDepth;
         return new Points(buff, material);
     }
 

@@ -78,12 +78,35 @@ export abstract class SnapEventHandler implements IEventHandler {
         this.removeTempObject();
         this.setSnaped(view, event);
         if (this._snaped !== undefined) {
-            this.switchSnapedPrompt(this.data.prompt?.(this._snaped) ?? this._snaped.info);
+            this.switchSnapedPrompt(this.getPrompt(this._snaped));
         } else {
             this.clearSnapTip();
         }
         this.showTempShape(this._snaped?.point);
         view.document.visual.update();
+    }
+
+    private getPrompt(snaped: SnapedData) {
+        let prompt = "";
+        if (snaped.info) {
+            prompt = snaped.info;
+        }
+        if (this.data.prompt) {
+            if (prompt !== "") {
+                prompt += " -> ";
+            }
+            prompt += this.data.prompt(snaped);
+        } else {
+            let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
+            if (distance) {
+                if (prompt !== "") {
+                    prompt += " -> ";
+                }
+                prompt += `${distance.toFixed(2)}`;
+            }
+        }
+
+        return prompt;
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
@@ -155,7 +178,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private switchSnapedPrompt(msg: string | undefined) {
-        if (msg === undefined) {
+        if (msg === undefined || msg === "") {
             this.clearSnapTip();
             return;
         }

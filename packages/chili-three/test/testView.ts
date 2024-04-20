@@ -69,8 +69,8 @@ export class TestView extends ThreeView {
         );
     }
 
-    protected override initRender(): Renderer {
-        let render = new TestWebGLRenderer();
+    protected override initRender(): THREE.WebGLRenderer {
+        let render = new TestWebGLRenderer() as any;
         render.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(render.domElement);
         return render;

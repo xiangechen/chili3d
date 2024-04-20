@@ -11,16 +11,16 @@ export abstract class PlaneSnapBase implements ISnapper {
 
     constructor(readonly refPoint?: () => XYZ) {}
 
-    protected snapAtPlane(plane: Plane, data: MouseAndDetected) {
+    protected snapAtPlane(plane: Plane, data: MouseAndDetected): SnapedData | undefined {
         let ray = data.view.rayAt(data.mx, data.my);
         let point = plane.intersect(ray);
         if (point === undefined) return undefined;
-        let info: string | undefined = undefined;
-        if (this.refPoint) info = this.refPoint().distanceTo(point).toFixed(2);
+        let distance: number | undefined = undefined;
+        if (this.refPoint) distance = this.refPoint().distanceTo(point);
         return {
             view: data.view,
             point,
-            info,
+            distance,
             shapes: [],
         };
     }

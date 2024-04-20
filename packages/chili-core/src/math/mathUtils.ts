@@ -26,4 +26,16 @@ export class MathUtils {
     static clamp(value: number, min: number, max: number) {
         return Math.max(min, Math.min(max, value));
     }
+
+    static minMax(arr: number[]) {
+        if (arr.length === 0) return undefined;
+        let minMax = arr.reduce(
+            ([min, max], val) => [Math.min(min, val), Math.max(max, val)],
+            [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY],
+        );
+        return {
+            min: minMax[0],
+            max: minMax[1],
+        };
+    }
 }

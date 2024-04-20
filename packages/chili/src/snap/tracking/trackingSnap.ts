@@ -72,7 +72,7 @@ export class TrackingSnap implements ISnapper {
         return undefined;
     }
 
-    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]) {
+    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapedData {
         let lines: number[] = [];
         trackingDatas.forEach((x) => {
             let id = this.showTempLine(view, x.axis.location, point);
@@ -81,14 +81,15 @@ export class TrackingSnap implements ISnapper {
         this._tempLines.set(view, lines);
 
         let info: string | undefined = undefined;
+        let distance: number | undefined = undefined;
         if (trackingDatas.length === 1) {
-            let distance = point.distanceTo(trackingDatas[0].axis.location);
-            info = `${trackingDatas[0].axis.name}: ${distance.toFixed(2)}`;
+            distance = point.distanceTo(trackingDatas[0].axis.location);
+            info = trackingDatas[0].axis.name;
         } else if (trackingDatas.length === 2) {
             info = I18n.translate("snap.intersection");
         }
         let refPoint = trackingDatas[0].axis.location;
-        return { view, point, info, shapes: [], refPoint };
+        return { view, point, info, shapes: [], refPoint, distance };
     }
 
     private showTempLine(view: IView, start: XYZ, end: XYZ): number | undefined {

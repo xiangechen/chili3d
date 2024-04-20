@@ -10,6 +10,7 @@ export interface SnapedData {
     view: IView;
     point?: XYZ;
     info?: string;
+    distance?: number;
     refPoint?: XYZ;
     shapes: VisualShapeData[];
     models?: IModel[];

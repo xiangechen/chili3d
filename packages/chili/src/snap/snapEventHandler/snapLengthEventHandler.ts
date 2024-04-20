@@ -30,7 +30,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         controller: AsyncController,
         readonly lengthData: SnapLengthAtAxisData,
     ) {
-        let objectSnap = new ObjectSnap(Config.instance.snapType);
+        let objectSnap = new ObjectSnap(Config.instance.snapType, () => lengthData.point);
         let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
         super(document, controller, [objectSnap, axisSnap], lengthData);
     }
@@ -60,7 +60,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         controller: AsyncController,
         readonly lengthData: SnapLengthAtPlaneData,
     ) {
-        let objectSnap = new ObjectSnap(Config.instance.snapType);
+        let objectSnap = new ObjectSnap(Config.instance.snapType, lengthData.point);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
         super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);

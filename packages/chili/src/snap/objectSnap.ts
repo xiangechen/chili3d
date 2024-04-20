@@ -88,7 +88,7 @@ export class ObjectSnap implements ISnapper {
             snap = this.snapeInvisible(data.view, data.mx, data.my);
         }
         if (this.referencePoint && snap?.point) {
-            snap.info += " -> " + this.referencePoint?.().distanceTo(snap.point).toFixed(2);
+            snap.distance = this.referencePoint().distanceTo(snap.point);
         }
         return snap;
     }

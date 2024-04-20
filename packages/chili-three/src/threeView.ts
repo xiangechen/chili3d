@@ -44,7 +44,7 @@ export class ThreeView extends Observable implements IView {
     private _resizeObserver: ResizeObserver;
 
     private _scene: Scene;
-    private _renderer: Renderer;
+    private _renderer: WebGLRenderer;
     private _workplane: Plane;
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
@@ -116,15 +116,14 @@ export class ThreeView extends Observable implements IView {
         }
     };
 
-    get renderer(): Renderer {
+    get renderer(): WebGLRenderer {
         return this._renderer;
     }
 
-    protected initRender(): Renderer {
+    protected initRender(): WebGLRenderer {
         let renderer = new WebGLRenderer({
-            antialias: true,
-            logarithmicDepthBuffer: true,
-            powerPreference: "high-performance",
+            antialias: false,
+            alpha: true,
         });
         renderer.setPixelRatio(window.devicePixelRatio);
         return renderer;
@@ -168,7 +167,14 @@ export class ThreeView extends Observable implements IView {
             this.animate();
         });
         if (this._needsUpdate) {
-            this._renderer.render(this._scene, this.camera);
+            const oldAutoClear = this._renderer.autoClear;
+            try {
+                this._renderer.clearDepth();
+                this._renderer.autoClear = false;
+                this._renderer.render(this._scene, this.camera);
+            } finally {
+                this._renderer.autoClear = oldAutoClear;
+            }
             this.dynamicLight.position.copy(this.camera.position);
             this._gizmo.update();
             this._needsUpdate = false;
