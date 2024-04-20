@@ -16,16 +16,6 @@ import { IStep } from "../step";
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapedData[] = [];
 
-    protected _restarting: boolean = false;
-    protected get restarting() {
-        return this._restarting;
-    }
-
-    protected restart() {
-        this._restarting = true;
-        this.controller?.cancel();
-    }
-
     private _repeatOperation: boolean = false;
     @Property.define("command.mode.repeat")
     get repeatOperation() {
@@ -36,34 +26,40 @@ export abstract class MultistepCommand extends CancelableCommand {
         this.setProperty("repeatOperation", value);
     }
 
-    protected async executeAsync(): Promise<void> {
-        await this.executeSteps();
+    protected canExcuteSteps(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 
-    protected async executeSteps(): Promise<void> {
+    protected async executeAsync(): Promise<void> {
+        if (!(await this.canExcuteSteps())) {
+            return;
+        }
+        if (!(await this.executeSteps())) {
+            return;
+        }
+
+        this.executeMainTask();
+
+        if (this._repeatOperation) {
+            this.resetSteps();
+            await this.executeAsync();
+        }
+    }
+
+    protected async executeSteps(): Promise<boolean> {
         let steps = this.getSteps();
         while (this.stepDatas.length < steps.length) {
             this.controller = new AsyncController();
             let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
-            if (this._restarting) {
-                this._restarting = false;
-                this.stepDatas.length = 0;
-                continue;
-            }
             if (data === undefined || this.controller.result?.status !== "success") {
-                break;
+                return false;
             }
             this.stepDatas.push(data);
-            if (this.stepDatas.length === steps.length) {
-                this.executeMainTask();
-                if (this._repeatOperation) {
-                    this.setRepeatDatas();
-                }
-            }
         }
+        return true;
     }
 
-    protected setRepeatDatas() {
+    protected resetSteps() {
         this.stepDatas.length = 0;
     }
 

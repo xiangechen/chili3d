@@ -51,44 +51,37 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     @Property.define("common.cancel")
     async cancel() {
         this.controller?.cancel();
-        await new Promise(async (resolve) => {
-            while (true) {
-                if (this._isCompleted) {
-                    break;
-                }
-                await new Promise((r) => setTimeout(r, 50));
+        while (true) {
+            if (this._isCompleted) {
+                break;
             }
-            resolve(true);
-        });
+            await new Promise((r) => setTimeout(r, 30));
+        }
     }
 
     async execute(application: IApplication): Promise<void> {
         if (!application.activeView?.document) return;
         this._application = application;
         try {
-            let canExcute = await this.beforeExecute();
-            if (canExcute) {
-                await this.executeAsync();
-            }
+            this.beforeExecute();
+            await this.executeAsync();
         } finally {
-            await this.afterExecute();
+            this.afterExecute();
         }
     }
 
     protected abstract executeAsync(): Promise<void>;
 
-    protected beforeExecute(): Promise<boolean> {
+    protected beforeExecute() {
         this.readProperties();
         PubSub.default.pub("openCommandContext", this);
-        return Promise.resolve(true);
     }
 
-    protected afterExecute(): Promise<void> {
+    protected afterExecute() {
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
         this.controller?.dispose();
         this._isCompleted = true;
-        return Promise.resolve();
     }
 
     private readProperties() {

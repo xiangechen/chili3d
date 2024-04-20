@@ -35,7 +35,7 @@ export class Selection implements ISelection, IDisposable {
             controller,
             this.filter,
         );
-        await this.pickAsync(handler, prompt, controller, multiMode === true);
+        await this.pickAsync(handler, prompt, controller, multiMode);
         let shapes = handler.shapes();
         handler.dispose();
         return shapes;
@@ -46,7 +46,7 @@ export class Selection implements ISelection, IDisposable {
         try {
             this.nodeType = "model";
             let handler = new ModelSelectionHandler(this.document, multiMode, controller, this.filter);
-            await this.pickAsync(handler, prompt, controller, multiMode === true);
+            await this.pickAsync(handler, prompt, controller, multiMode);
             let models = handler.models();
             handler.dispose();
             return models;

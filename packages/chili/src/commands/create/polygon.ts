@@ -32,7 +32,7 @@ export class Polygon extends CreateFaceableCommand {
         return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
     }
 
-    protected override async executeSteps(): Promise<void> {
+    protected override async executeSteps(): Promise<boolean> {
         let steps = this.getSteps();
         let firstStep = true;
         while (true) {
@@ -40,16 +40,10 @@ export class Polygon extends CreateFaceableCommand {
             if (firstStep) firstStep = false;
             this.controller = new AsyncController();
             let data = await step.execute(this.document, this.controller);
-            if (data === undefined) break;
+            if (data === undefined) return false;
             this.stepDatas.push(data);
             if (this.isClose(data)) {
-                this.executeMainTask();
-                if (this.repeatOperation) {
-                    this.setRepeatDatas();
-                    firstStep = true;
-                } else {
-                    break;
-                }
+                return true;
             }
         }
     }

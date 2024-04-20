@@ -17,7 +17,6 @@ import { MaterialEditor } from "../property/material";
 import { MaterialDataContent } from "../property/material/materialDataContent";
 import style from "./layoutViewport.module.css";
 import { Viewport } from "./viewport";
-import { items } from "../controls";
 
 export class LayoutViewport extends HTMLElement {
     private readonly _selectionController: OKCancel;
@@ -89,6 +88,7 @@ export class LayoutViewport extends HTMLElement {
     private showSelectionControl = (controller: AsyncController) => {
         this._selectionController.setControl(controller);
         this._selectionController.style.visibility = "visible";
+        this._selectionController.style.zIndex = "1000";
     };
 
     private clearSelectionControl = () => {

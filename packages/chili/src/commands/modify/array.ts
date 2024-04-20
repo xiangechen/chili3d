@@ -67,7 +67,7 @@ export class Array extends MultistepCommand {
         if (this.models.length === 0) {
             this.controller = new AsyncController();
             this.models = await this.document.selection.pickModel("axis.x", this.controller, true);
-            if (this.restarting || this.models.length === 0) return false;
+            if (this.models.length === 0) return false;
         }
         this.positions = [];
         this.models?.forEach((model) => {

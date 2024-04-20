@@ -8,7 +8,6 @@ import {
     LineType,
     Matrix4,
     Property,
-    PubSub,
     Transaction,
     VisualConfig,
     XYZ,
@@ -42,12 +41,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         };
     };
 
-    protected getTempLineData(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Solid);
-    }
-
-    protected override async beforeExecute(): Promise<boolean> {
-        await super.beforeExecute();
+    private async ensureSelectedModels() {
         this.models = this.document.selection
             .getSelectedNodes()
             .filter((x) => INode.isModelNode(x)) as IModel[];
@@ -58,17 +52,23 @@ export abstract class TransformedCommand extends MultistepCommand {
                 this.controller,
                 true,
             );
-            if (this.restarting || this.models.length === 0) {
-                PubSub.default.pub("showToast", "prompt.select.noModelSelected");
-                return false;
-            }
         }
+        return this.models.length > 0;
+    }
+
+    protected override async canExcuteSteps(): Promise<boolean> {
+        if (!(await this.ensureSelectedModels())) return false;
+
         this.positions = [];
-        this.models.forEach((model) => {
+        this.models!.forEach((model) => {
             let ps = model.geometry.shape.value?.mesh.edges?.positions;
             if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
         });
         return true;
+    }
+
+    protected getTempLineData(start: XYZ, end: XYZ) {
+        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Solid);
     }
 
     protected executeMainTask(): void {

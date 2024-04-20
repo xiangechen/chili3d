@@ -6,7 +6,7 @@ const ApplicationCommands: CommandKeys[] = ["doc.new", "doc.open", "doc.save"];
 
 export class CommandService implements IService {
     private _lastCommand: CommandKeys | undefined;
-
+    private _checking: boolean = false;
     private _app: IApplication | undefined;
 
     private get app(): IApplication {
@@ -63,22 +63,35 @@ export class CommandService implements IService {
     }
 
     private async canExecute(commandName: CommandKeys) {
+        if (this._checking) return false;
+        this._checking = true;
+        try {
+            return await this.checking(commandName);
+        } finally {
+            this._checking = false;
+        }
+    }
+
+    private async checking(commandName: CommandKeys) {
         if (!Command.get(commandName)) {
             Logger.error(`Can not find ${commandName} command`);
             return false;
-        }
-        if (this.app.executingCommand) {
-            if (Command.getData(this.app.executingCommand)?.name === commandName) {
-                return false;
-            }
-            if (ICommand.isCanclableCommand(this.app.executingCommand))
-                await this.app.executingCommand.cancel();
         }
         if (!ApplicationCommands.includes(commandName) && this.app.activeView === undefined) {
             Logger.error("No active document");
             return false;
         }
-
+        if (!this.app.executingCommand) {
+            return true;
+        }
+        if (Command.getData(this.app.executingCommand)?.name === commandName) {
+            PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
+            return false;
+        }
+        if (ICommand.isCanclableCommand(this.app.executingCommand)) {
+            await this.app.executingCommand.cancel();
+            return true;
+        }
         return true;
     }
 }
