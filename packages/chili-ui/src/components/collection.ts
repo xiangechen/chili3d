@@ -1,16 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
-import { HTMLConfig, setProperties } from "../controls";
+import { setProperties } from "./controls";
+import { HTMLProps } from "./htmlProps";
 
-export type ItemsConfig<T> = HTMLConfig<ItemsElement<T>> & {
+export type CollectionProps<T> = HTMLProps<Collection<T>> & {
     sources: ObservableCollection<T> | Array<T>;
     template: (item: T) => HTMLElement | SVGSVGElement;
 };
 
-export class ItemsElement<T> extends HTMLElement {
+export class Collection<T> extends HTMLElement {
     private _itemMap = new Map<T, HTMLElement | SVGSVGElement>();
-    constructor(readonly props: ItemsConfig<T>) {
+    constructor(readonly props: CollectionProps<T>) {
         super();
         setProperties(this, props as any);
     }
@@ -59,7 +60,7 @@ export class ItemsElement<T> extends HTMLElement {
             items.forEach((item) => {
                 let e = this.props.template(item);
                 this._itemMap.set(item, e);
-                this.insertBefore(e, child!);
+                this.insertBefore(e, child);
             });
             this._removeItem([item]);
         }
@@ -84,4 +85,4 @@ export class ItemsElement<T> extends HTMLElement {
     }
 }
 
-customElements.define("chili-items", ItemsElement);
+customElements.define("chili-collection", Collection);

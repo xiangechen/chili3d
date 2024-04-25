@@ -1,24 +1,28 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18nKeys } from "chili-core";
-import { Control } from "../control";
-import { Label } from "../label";
-import { Panel } from "../panel";
-import { Svg } from "../svg";
+import { div, label, setSVGIcon, svg } from "../controls";
+import { localize } from "../localize";
 import style from "./expander.module.css";
 
-export class Expander extends Control {
+export class Expander extends HTMLElement {
     private _isExpanded = true;
-    private expanderIcon: Svg;
-    private readonly headerPanel = new Panel(style.headerPanel);
-    readonly contenxtPanel = new Panel(style.contextPanel);
+    private expanderIcon: SVGSVGElement;
+    private readonly headerPanel = div({ className: style.headerPanel });
+    readonly contenxtPanel = div({ className: style.contextPanel });
 
     constructor(header: I18nKeys) {
-        super(style.rootPanel);
-        this.expanderIcon = new Svg(this.getExpanderIcon())
-            .addClass(style.expanderIcon)
-            .onClick(this._handleExpanderClick);
-        let text = new Label().i18nText(header).addClass(style.headerText);
+        super();
+        this.className = style.rootPanel;
+        this.expanderIcon = svg({
+            icon: this.getExpanderIcon(),
+            className: style.expanderIcon,
+            onclick: this._handleExpanderClick,
+        });
+        let text = label({
+            textContent: localize(header),
+            className: style.headerText,
+        });
         this.headerPanel.append(this.expanderIcon, text);
         super.append(this.headerPanel, this.contenxtPanel);
     }
@@ -42,17 +46,14 @@ export class Expander extends Control {
         return this;
     }
 
-    override clearChildren() {
-        this.contenxtPanel.clearChildren();
-    }
-
     private getExpanderIcon() {
         return this._isExpanded === true ? "icon-angle-down" : "icon-angle-right";
     }
 
-    private _handleExpanderClick = () => {
+    private _handleExpanderClick = (e: MouseEvent) => {
+        e.stopPropagation();
         this._isExpanded = !this._isExpanded;
-        this.expanderIcon.setIcon(this.getExpanderIcon());
+        setSVGIcon(this.expanderIcon, this.getExpanderIcon());
         if (this._isExpanded) {
             this.contenxtPanel.classList.remove(style.hidden);
         } else {

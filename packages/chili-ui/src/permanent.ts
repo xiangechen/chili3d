@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18n, I18nKeys } from "chili-core";
-import { div, span } from "./controls";
+import { div, span } from "./components";
 import style from "./permanent.module.css";
 
 export class Permanent {

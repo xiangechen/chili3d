@@ -11,12 +11,11 @@ import {
     Transaction,
     XYZ,
 } from "chili-core";
-
-import { div, input, localize, span } from "../controls";
+import { div, input, localize, span } from "../components";
+import { NumberConverter, QuaternionConverter, StringConverter, XYZConverter } from "../converters";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
-import { NumberConverter, QuaternionConverter, StringConverter, XYZConverter } from "../converters";
 
 class ArrayValueConverter implements IConverter {
     constructor(

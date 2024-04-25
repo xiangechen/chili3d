@@ -2,8 +2,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2px;
-    margin: 2px;
+    padding: 4px;
+    margin: 4px;
     border-radius: 4px;
 }
 
@@ -16,8 +16,8 @@
     flex-direction: row;
     justify-items: top;
     justify-content: space-between;
-    padding: 2px;
-    margin: 2px;
+    padding: 4px;
+    margin: 4px;
 }
 
 .small:hover {

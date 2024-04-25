@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, INode, Transaction } from "chili-core";
-import { Control, Label, Svg } from "../../components";
+import { Binding, IDocument, INode, Transaction } from "chili-core";
+import { label, setSVGIcon, svg } from "../../components";
 import style from "./treeItem.module.css";
 
-export abstract class TreeItem extends Control {
-    readonly name: Label;
-    readonly visibleIcon: Svg;
+export abstract class TreeItem extends HTMLElement {
+    readonly name: HTMLLabelElement;
+    readonly visibleIcon: SVGSVGElement;
 
     constructor(
         readonly document: IDocument,
@@ -14,25 +14,28 @@ export abstract class TreeItem extends Control {
     ) {
         super();
         this.draggable = true;
-        this.name = new Label().textBinding(node, "name").addClass(style.name);
-        this.visibleIcon = new Svg(this.getVisibleIcon())
-            .onClick(this.onVisibleIconClick)
-            .addClass(style.icon);
+        this.name = label({
+            className: style.name,
+            textContent: new Binding(node, "name"),
+        });
+        this.visibleIcon = svg({
+            className: style.icon,
+            icon: this.getVisibleIcon(),
+            onclick: this.onVisibleIconClick,
+        });
     }
 
-    override connectedCallback(): void {
-        super.connectedCallback();
+    connectedCallback(): void {
         this.node.onPropertyChanged(this.onPropertyChanged);
     }
 
-    override disconnectedCallback(): void {
-        super.disconnectedCallback();
+    disconnectedCallback(): void {
         this.node.removePropertyChanged(this.onPropertyChanged);
     }
 
     private onPropertyChanged = (property: keyof INode, model: INode) => {
         if (property === "visible") {
-            this.visibleIcon.setIcon(this.getVisibleIcon());
+            setSVGIcon(this.visibleIcon, this.getVisibleIcon());
         } else if (property === "parentVisible") {
             if (model[property]) {
                 this.visibleIcon.classList.remove(style["parent-visible"]);
@@ -52,8 +55,7 @@ export abstract class TreeItem extends Control {
 
     abstract getSelectedHandler(): HTMLElement;
 
-    override dispose() {
-        super.dispose();
+    dispose() {
         this.node.removePropertyChanged(this.onPropertyChanged);
         this.visibleIcon.removeEventListener("click", this.onVisibleIconClick);
     }

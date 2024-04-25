@@ -26,12 +26,12 @@ export abstract class MultistepCommand extends CancelableCommand {
         this.setProperty("repeatOperation", value);
     }
 
-    protected canExcuteSteps(): Promise<boolean> {
+    protected canExcute(): Promise<boolean> {
         return Promise.resolve(true);
     }
 
     protected async executeAsync(): Promise<void> {
-        if (!(await this.canExcuteSteps())) {
+        if (!(await this.canExcute())) {
             return;
         }
         if (!(await this.executeSteps())) {

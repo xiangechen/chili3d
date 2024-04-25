@@ -19,27 +19,35 @@ export type Locale = {
 
 export type Translation = Record<I18nKeys, string>;
 
+export enum Language {
+    English,
+    Chinese,
+}
+
 export namespace I18n {
-    let languageIndex = navigator.language.toLowerCase() === "zh-cn" ? 0 : 1;
+    export const languages = new Map<Language, Locale>([
+        [Language.English, en],
+        [Language.Chinese, zh],
+    ]);
 
-    export const languages = [zh, en];
-
-    export function currentIndex() {
-        return languageIndex;
+    let _currentLanguage =
+        navigator.language.toLowerCase() === "zh-cn" ? Language.Chinese : Language.English;
+    export function currentLanguage() {
+        return _currentLanguage;
     }
 
-    export function combineTranslation(code: "zh-CN" | "en", translations: Record<string, string>) {
-        let language = languages.find((lang) => lang.code === code);
-        if (language) {
-            language.translation = {
-                ...language.translation,
+    export function combineTranslation(language: Language, translations: Record<string, string>) {
+        let local = languages.get(language);
+        if (local) {
+            local.translation = {
+                ...local.translation,
                 ...translations,
             };
         }
     }
 
     export function translate(key: I18nKeys, ...args: any[]) {
-        let text = languages[languageIndex].translation[key];
+        let text = languages.get(_currentLanguage)!.translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }
@@ -54,9 +62,9 @@ export namespace I18n {
         }
     }
 
-    export function changeLanguage(idx: number): boolean {
-        if (idx < 0 || idx >= languages.length || languageIndex === idx) return false;
-        languageIndex = idx;
+    export function changeLanguage(language: Language): boolean {
+        if (!languages.has(language)) return false;
+        _currentLanguage = language;
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
             let html = e as HTMLElement;
             let id = html?.dataset[I18nId] as I18nKeys;

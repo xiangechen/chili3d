@@ -27,6 +27,7 @@ export class Binding<T extends IPropertyChanged = any> {
             element: new WeakRef(element),
             property,
         };
+
         this.setValue<U>(element, property);
         this.source.onPropertyChanged(this._onPropertyChanged);
         registry.register(element, this);
@@ -51,19 +52,20 @@ export class Binding<T extends IPropertyChanged = any> {
     };
 
     private setValue<U extends object>(element: U, property: PropertyKey) {
-        let value: any = this.getPropertyValue();
+        let value = this.getPropertyValue();
         (element as any)[property] = value;
     }
 
     getPropertyValue() {
         let value: any = this.source[this.path];
-        if (this.converter) {
-            let result = this.converter.convert(value);
-            if (!result.isOk) {
-                throw new Error(`Cannot convert value ${value}`);
-            }
-            value = result.value;
+        if (!this.converter) {
+            return value;
         }
-        return value;
+
+        let result = this.converter.convert(value);
+        if (!result.isOk) {
+            throw new Error(`Cannot convert value ${value}`);
+        }
+        return result.value;
     }
 }

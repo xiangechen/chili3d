@@ -4,7 +4,7 @@ import { IDocument, IView, PubSub } from "chili-core";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
 
-import { div, localize, span } from "../controls";
+import { div, localize, span } from "../components";
 import style from "./projectView.module.css";
 
 export class ProjectView extends HTMLElement {

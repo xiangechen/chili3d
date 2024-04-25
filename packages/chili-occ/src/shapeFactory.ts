@@ -55,16 +55,14 @@ export class ShapeFactory implements IShapeFactory {
     }
 
     prism(shape: IShape, vec: XYZ): Result<IShape> {
-        if (shape instanceof OccShape) {
-            let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);
-            if (builder.IsDone()) {
-                return Result.ok(OccHelps.wrapShape(builder.Shape()));
-            } else {
-                return Result.err("Cannot create prism");
-            }
-        } else {
+        if (!(shape instanceof OccShape)) {
             return Result.err("Unsupported shape");
         }
+        let builder = new occ.BRepPrimAPI_MakePrism_1(shape.shape, OccHelps.toVec(vec), false, true);
+        if (builder.IsDone()) {
+            return Result.ok(OccHelps.wrapShape(builder.Shape()));
+        }
+        return Result.err("Cannot create prism");
     }
 
     polygon(...points: XYZ[]): Result<IWire, string> {

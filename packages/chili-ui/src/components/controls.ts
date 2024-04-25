@@ -1,13 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding } from "chili-core/src/foundation/binding";
-import { ItemsConfig, ItemsElement } from "../components/items";
-import { HTMLConfig } from "./htmlConfig";
+import { Binding } from "chili-core";
+import { HTMLProps } from "./htmlProps";
+import { Collection, CollectionProps } from "./collection";
 import { Localize } from "./localize";
 
 export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     return (
-        props?: HTMLConfig<HTMLElementTagNameMap[K]> | string | Node,
+        props?: HTMLProps<HTMLElementTagNameMap[K]> | string | Node,
         ...children: (Node | string)[]
     ): HTMLElementTagNameMap[K] => {
         const e: HTMLElementTagNameMap[K] = document.createElement(tag);
@@ -24,7 +24,7 @@ export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     };
 }
 
-export function setProperties<T extends { [K: string]: any }>(left: T, prop: HTMLConfig<T>) {
+export function setProperties<T extends { [K: string]: any }>(left: T, prop: HTMLProps<T>) {
     for (const key of Object.keys(prop)) {
         let value = prop[key];
         if (value instanceof Localize && left instanceof HTMLElement && key === "textContent") {
@@ -59,7 +59,7 @@ export const dialog = createControl("dialog");
 export const canvas = createControl("canvas");
 export const sup = createControl("sup");
 
-export function svg(props: HTMLConfig<HTMLElement> & { icon: string }) {
+export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const ns = "http://www.w3.org/2000/svg";
     const childNS = "http://www.w3.org/1999/xlink";
     const child = document.createElementNS(ns, "use");
@@ -78,7 +78,13 @@ export function svg(props: HTMLConfig<HTMLElement> & { icon: string }) {
     return svg;
 }
 
-function addTitle(props: HTMLConfig<HTMLElement> & { icon: string }, svg: SVGSVGElement) {
+export function setSVGIcon(svg: SVGSVGElement, newIcon: string) {
+    const childNS = "http://www.w3.org/1999/xlink";
+    let child = svg.firstChild as SVGUseElement;
+    child?.setAttributeNS(childNS, "xlink:href", `#${newIcon}`);
+}
+
+function addTitle(props: HTMLProps<HTMLElement> & { icon: string }, svg: SVGSVGElement) {
     let title = document.createElementNS("http://www.w3.org/2000/svg", "title");
     let value = "";
     if (typeof props.title === "string") {
@@ -91,4 +97,4 @@ function addTitle(props: HTMLConfig<HTMLElement> & { icon: string }, svg: SVGSVG
     svg.appendChild(title);
 }
 
-export const items = <T>(options: ItemsConfig<T>) => new ItemsElement(options);
+export const collection = <T>(options: CollectionProps<T>) => new Collection(options);

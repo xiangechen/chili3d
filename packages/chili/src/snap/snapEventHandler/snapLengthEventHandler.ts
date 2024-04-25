@@ -37,14 +37,18 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
 
     protected getPointFromInput(view: IView, text: string): XYZ {
         let dist = Number(text);
-        if (
-            this._snaped?.point &&
-            this._snaped.point.sub(this.lengthData.point).dot(this.lengthData.direction) <
-                -Precision.Distance
-        ) {
+        if (this.shouldReserse()) {
             dist = -dist;
         }
         return this.lengthData.point.add(this.lengthData.direction.multiply(dist));
+    }
+
+    private shouldReserse() {
+        return (
+            this._snaped?.point &&
+            this._snaped.point.sub(this.lengthData.point).dot(this.lengthData.direction) <
+                -Precision.Distance
+        );
     }
 
     protected inputError(text: string): I18nKeys | undefined {

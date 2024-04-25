@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICameraController, Point, ShapeType } from "chili-core";
+import { ICameraController, IModel, INode, Point, ShapeType } from "chili-core";
 import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -69,30 +69,33 @@ export class CameraController implements ICameraController {
         this._camera.position.copy(this._position);
         this._camera.up.copy(this._up);
         this._camera.lookAt(this._target);
-
         if (this._camera instanceof OrthographicCamera) {
-            let aspect = this.view.width! / this.view.height!;
-            let length = this._position.distanceTo(this._target);
-            let frustumHalfHeight = length * Math.tan((this._fov * DegRad) / 2);
-            this._camera.left = -frustumHalfHeight * aspect;
-            this._camera.right = frustumHalfHeight * aspect;
-            this._camera.top = frustumHalfHeight;
-            this._camera.bottom = -frustumHalfHeight;
+            this.updateOrthographicCamera(this._camera);
         }
 
         this._camera.updateProjectionMatrix();
     }
 
+    private updateOrthographicCamera(camera: OrthographicCamera) {
+        let aspect = this.view.width! / this.view.height!;
+        let length = this._position.distanceTo(this._target);
+        let frustumHalfHeight = length * Math.tan((this._fov * DegRad) / 2);
+        camera.left = -frustumHalfHeight * aspect;
+        camera.right = frustumHalfHeight * aspect;
+        camera.top = frustumHalfHeight;
+        camera.bottom = -frustumHalfHeight;
+    }
+
     startRotate(x: number, y: number): void {
         let shape = this.view.detected(ShapeType.Shape, x, y).at(0)?.owner;
-        if (shape instanceof ThreeGeometry) {
-            this._rotateCenter = new Vector3();
-            let box = new Box3();
-            box.setFromObject(shape);
-            box.getCenter(this._rotateCenter);
-        } else {
+        if (!(shape instanceof ThreeGeometry)) {
             this._rotateCenter = undefined;
+            return;
         }
+        this._rotateCenter = new Vector3();
+        let box = new Box3();
+        box.setFromObject(shape);
+        box.getCenter(this._rotateCenter);
     }
 
     rotate(dx: number, dy: number): void {
@@ -104,8 +107,8 @@ export class CameraController implements ICameraController {
         let matrix = new Matrix4().multiplyMatrices(matrixY, matrixX);
         this._position = ThreeHelper.transformVector(matrix, direction).add(center);
         if (this._rotateCenter) {
-            let vecTrt = this._target.clone().sub(this._camera.position);
-            this._target = ThreeHelper.transformVector(matrix, vecTrt).add(this._position);
+            let targetToEye = this._target.clone().sub(this._camera.position);
+            this._target = ThreeHelper.transformVector(matrix, targetToEye).add(this._position);
         }
 
         this._up.transformDirection(matrix);
@@ -115,9 +118,7 @@ export class CameraController implements ICameraController {
 
     fitContent(): void {
         let context = this.view.document.visual.context as ThreeVisualContext;
-        let sphere = new Sphere();
-        new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
-
+        let sphere = this.getBoundingSphere(context);
         let fieldOfView = this._fov / 2.0;
         if (this.view.width! < this.view.height!) {
             fieldOfView = (fieldOfView * this.view.width!) / this.view.height!;
@@ -130,25 +131,48 @@ export class CameraController implements ICameraController {
         this.update();
     }
 
+    private getBoundingSphere(context: ThreeVisualContext) {
+        let sphere = new Sphere();
+        let shapes = this.view.document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x));
+        if (shapes.length === 0) {
+            new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
+            return sphere;
+        }
+
+        let box = new Box3();
+        for (let shape of shapes) {
+            let threeGeometry = context.getShape(shape as IModel) as ThreeGeometry;
+            let boundingBox = threeGeometry?.boundingBox();
+            if (boundingBox) {
+                box.union(boundingBox);
+            }
+        }
+        box.getBoundingSphere(sphere);
+        return sphere;
+    }
+
     zoom(x: number, y: number, delta: number): void {
         let scale = delta > 0 ? this.zoomSpeed : -this.zoomSpeed;
         let direction = this._target.clone().sub(this._position);
         let mouse = this.mouseToWorld(x, y);
         if (this._camera instanceof PerspectiveCamera) {
-            let directionNormal = direction.clone().normalize();
-            let dot = mouse.clone().sub(this._position).dot(directionNormal);
-            let project = this._position.clone().add(directionNormal.clone().multiplyScalar(dot));
-            let length =
-                (project.distanceTo(mouse) * direction.length()) / project.distanceTo(this._position);
-            let v = mouse.clone().sub(project).normalize().multiplyScalar(length);
-            mouse = this._target.clone().add(v);
+            mouse = this.caculePerspectiveCameraMouse(direction, mouse);
         }
         let vector = this._target.clone().sub(mouse).multiplyScalar(scale);
-
         this._target.add(vector);
         this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
 
         this.update();
+    }
+
+    private caculePerspectiveCameraMouse(direction: Vector3, mouse: Vector3) {
+        let directionNormal = direction.clone().normalize();
+        let dot = mouse.clone().sub(this._position).dot(directionNormal);
+        let project = this._position.clone().add(directionNormal.clone().multiplyScalar(dot));
+        let length = (project.distanceTo(mouse) * direction.length()) / project.distanceTo(this._position);
+        let v = mouse.clone().sub(project).normalize().multiplyScalar(length);
+        mouse = this._target.clone().add(v);
+        return mouse;
     }
 
     lookAt(eye: Point, target: Point, up: Point): void {

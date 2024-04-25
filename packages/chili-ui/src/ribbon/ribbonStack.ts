@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Control } from "../components";
 import style from "./ribbonStack.module.css";
 
-export class RibbonStack extends Control {
+export class RibbonStack extends HTMLElement {
     constructor() {
-        super(style.root);
+        super();
+        this.className = style.root;
     }
 }
 

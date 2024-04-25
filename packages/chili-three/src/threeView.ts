@@ -25,7 +25,6 @@ import {
     OrthographicCamera,
     PerspectiveCamera,
     Raycaster,
-    Renderer,
     Scene,
     Vector2,
     Vector3,
@@ -166,17 +165,16 @@ export class ThreeView extends Observable implements IView {
         requestAnimationFrame(() => {
             this.animate();
         });
-        if (this._needsUpdate) {
-            const oldAutoClear = this._renderer.autoClear;
-            try {
-                this._renderer.clearDepth();
-                this._renderer.autoClear = false;
-                this._renderer.render(this._scene, this.camera);
-            } finally {
-                this._renderer.autoClear = oldAutoClear;
-            }
+        if (!this._needsUpdate) return;
+        const oldAutoClear = this._renderer.autoClear;
+        try {
+            this._renderer.clearDepth();
+            this._renderer.autoClear = false;
+            this._renderer.render(this._scene, this.camera);
             this.dynamicLight.position.copy(this.camera.position);
             this._gizmo.update();
+        } finally {
+            this._renderer.autoClear = oldAutoClear;
             this._needsUpdate = false;
         }
     }
@@ -358,18 +356,21 @@ export class ThreeView extends Observable implements IView {
 
     private getWireAndIndexes(shape: IShape, groups: ShapeMeshGroup[], parent: ThreeGeometry) {
         let wire = shape.findAncestor(ShapeType.Wire, parent.geometryEngity.shape.value!).at(0);
+        if (!wire) return { shape: undefined, indexes: [] };
+
         let indexes: number[] = [];
-        if (wire) {
-            let edges = wire.findSubShapes(ShapeType.Edge, true);
-            for (const edge of edges) {
-                for (let i = 0; i < groups.length; i++) {
-                    if (edge.isEqual(groups[i].shape)) {
-                        indexes.push(i);
-                    }
-                }
-            }
+        for (const edge of wire.findSubShapes(ShapeType.Edge, true)) {
+            this.findIndex(groups, edge, indexes);
         }
         return { shape: wire, indexes };
+    }
+
+    private findIndex(groups: ShapeMeshGroup[], edge: IShape, indexes: number[]) {
+        for (let i = 0; i < groups.length; i++) {
+            if (edge.isEqual(groups[i].shape)) {
+                indexes.push(i);
+            }
+        }
     }
 
     private findShapeAndIndex(parent: ThreeGeometry, element: Intersection) {

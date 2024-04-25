@@ -87,26 +87,15 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private getPrompt(snaped: SnapedData) {
-        let prompt = "";
-        if (snaped.info) {
-            prompt = snaped.info;
-        }
-        if (this.data.prompt) {
-            if (prompt !== "") {
-                prompt += " -> ";
-            }
-            prompt += this.data.prompt(snaped);
-        } else {
+        let prompt = this.data.prompt?.(snaped);
+        if (!prompt) {
             let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
             if (distance) {
-                if (prompt !== "") {
-                    prompt += " -> ";
-                }
-                prompt += `${distance.toFixed(2)}`;
+                prompt = `${distance.toFixed(2)}`;
             }
         }
 
-        return prompt;
+        return [snaped.info, prompt].filter((x) => x !== undefined).join(" -> ");
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
@@ -147,8 +136,7 @@ export abstract class SnapEventHandler implements IEventHandler {
         let data = this.findDetecteds(shapeType, view, event);
         for (const snap of this.snaps) {
             let snaped = snap.snap(data);
-            if (snaped === undefined) continue;
-            if (this.validateSnaped(snaped)) return snaped;
+            if (snaped && this.validateSnaped(snaped)) return snaped;
         }
 
         return undefined;
@@ -232,12 +220,11 @@ export abstract class SnapEventHandler implements IEventHandler {
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", event.key, (text: string) => {
                 let error = this.inputError(text);
-                if (error === undefined) {
-                    this.handleText(view, text);
-                    return Result.ok(text);
-                } else {
+                if (error !== undefined) {
                     return Result.err(error);
                 }
+                this.handleText(view, text);
+                return Result.ok(text);
             });
         }
     }

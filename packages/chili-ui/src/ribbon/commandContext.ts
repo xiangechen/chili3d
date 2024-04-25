@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Binding, Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
-import { button, div, input, label, localize, svg } from "../controls";
+import { button, div, input, label, localize, svg } from "../components";
 import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement {

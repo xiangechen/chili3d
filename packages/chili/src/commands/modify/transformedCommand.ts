@@ -8,6 +8,7 @@ import {
     LineType,
     Matrix4,
     Property,
+    PubSub,
     Transaction,
     VisualConfig,
     XYZ,
@@ -45,18 +46,17 @@ export abstract class TransformedCommand extends MultistepCommand {
         this.models = this.document.selection
             .getSelectedNodes()
             .filter((x) => INode.isModelNode(x)) as IModel[];
-        if (this.models.length === 0) {
-            this.controller = new AsyncController();
-            this.models = await this.document.selection.pickModel(
-                "prompt.select.models",
-                this.controller,
-                true,
-            );
+        if (this.models.length > 0) return true;
+        this.controller = new AsyncController();
+        this.models = await this.document.selection.pickModel("prompt.select.models", this.controller, true);
+        if (this.models.length > 0) return true;
+        if (this.controller.result?.status === "success") {
+            PubSub.default.pub("showToast", "toast.select.noSelected");
         }
-        return this.models.length > 0;
+        return false;
     }
 
-    protected override async canExcuteSteps(): Promise<boolean> {
+    protected override async canExcute(): Promise<boolean> {
         if (!(await this.ensureSelectedModels())) return false;
 
         this.positions = [];

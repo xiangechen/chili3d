@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { GeometryEntity, IDocument, Material, Property, PubSub, Transaction } from "chili-core";
-import { button, div, localize, span } from "../controls";
+import { button, div, localize, span } from "../components";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
 

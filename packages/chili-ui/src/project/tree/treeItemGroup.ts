@@ -1,23 +1,30 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, INodeLinkedList } from "chili-core";
-import { Column, Row, Svg } from "../../components";
+import { div, setSVGIcon, svg } from "../../components";
 import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 
 export class TreeGroup extends TreeItem {
     private _isExpanded: boolean = true;
-    readonly header: Row;
-    readonly items: Column = new Column().addClass(style.container);
-    readonly expanderIcon: Svg;
+    readonly header: HTMLElement;
+    readonly items: HTMLDivElement = div({ className: `${style.container} ${style.left16px}` });
+    readonly expanderIcon: SVGSVGElement;
 
     constructor(document: IDocument, node: INodeLinkedList) {
         super(document, node);
-        this.expanderIcon = new Svg(this.getExpanderIcon())
-            .addClass(style.expanderIcon)
-            .onClick(this.handleExpanderClick);
-        this.header = new Row(this.expanderIcon, this.name, this.visibleIcon).addClass(style.header);
-        super.append(new Column(this.header, this.items));
+        this.expanderIcon = svg({
+            icon: this.getExpanderIcon(),
+            className: style.expanderIcon,
+            onclick: this.handleExpanderClick,
+        });
+        this.header = div(
+            { className: `${style.row} ${style.header}` },
+            this.expanderIcon,
+            this.name,
+            this.visibleIcon,
+        );
+        super.append(div({ className: style.container }, this.header, this.items));
     }
 
     get isExpanded(): boolean {
@@ -26,7 +33,7 @@ export class TreeGroup extends TreeItem {
 
     set isExpanded(value: boolean) {
         this._isExpanded = value;
-        this.expanderIcon.setIcon(this.getExpanderIcon());
+        setSVGIcon(this.expanderIcon, this.getExpanderIcon());
         if (this._isExpanded) {
             this.items.classList.remove(style.hide);
         } else {

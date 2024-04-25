@@ -16,7 +16,7 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { a, div, items, label, localize, span, svg } from "../controls";
+import { a, collection, div, label, localize, span, svg } from "../components";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
@@ -145,13 +145,13 @@ export class Ribbon extends HTMLElement {
                         icon: "icon-home",
                         onclick: () => PubSub.default.pub("displayHome", true),
                     }),
-                    items({
+                    collection({
                         className: style.quickCommands,
                         sources: dataContent.quickCommands,
                         template: (command: CommandKeys) => QuickButton(command as any),
                     }),
                     span({ className: style.split }),
-                    items({
+                    collection({
                         sources: dataContent.ribbonTabs,
                         template: (tab: RibbonTabData) => {
                             const converter = new ActivedRibbonTabConverter(
@@ -171,7 +171,7 @@ export class Ribbon extends HTMLElement {
                     {
                         className: style.center,
                     },
-                    items({
+                    collection({
                         className: style.views,
                         sources: this.dataContent.app.views,
                         template: (view) =>
@@ -230,11 +230,11 @@ export class Ribbon extends HTMLElement {
                     ),
                 ),
             ),
-            items({
+            collection({
                 className: style.tabContentPanel,
                 sources: dataContent.ribbonTabs,
                 template: (tab: RibbonTabData) => {
-                    return items({
+                    return collection({
                         className: style.groupPanel,
                         sources: tab.groups,
                         style: {
@@ -243,7 +243,7 @@ export class Ribbon extends HTMLElement {
                         template: (group: RibbonGroupData) =>
                             div(
                                 { className: style.ribbonGroup },
-                                items({
+                                collection({
                                     sources: group.items,
                                     className: style.content,
                                     template: (item) => {

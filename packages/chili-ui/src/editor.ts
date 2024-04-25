@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Button, CommandKeys, I18nKeys, IApplication } from "chili-core";
-import { div } from "./controls";
+import { div } from "./components";
 import style from "./editor.module.css";
 import { DefaultRibbon } from "./profile/ribbon";
 import { ProjectView } from "./project";
@@ -35,7 +35,7 @@ export class Editor extends HTMLElement {
                     ),
                     viewport,
                 ),
-                new Statusbar().addClass(style.statusbar),
+                new Statusbar(style.statusbar),
             ),
         );
         document.body.appendChild(this);

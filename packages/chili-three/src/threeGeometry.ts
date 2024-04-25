@@ -111,6 +111,10 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         geometryEngity.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
+    boundingBox() {
+        return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox ?? undefined;
+    }
+
     private handleGeometryPropertyChanged = (property: keyof GeometryEntity) => {
         if (property === "matrix") {
             this.transform = this.geometryEngity.matrix;
@@ -200,12 +204,12 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         if (type === ShapeType.Shape) {
             let newState = this.highlighter.updateStateData(this, action, state, type);
             this.setStateMaterial(newState);
-        } else {
-            indexes.forEach((index) => {
-                let newState = this.highlighter.updateStateData(this, action, state, type, index);
-                this.setSubShapeState(type, newState, index);
-            });
+            return;
         }
+        indexes.forEach((index) => {
+            let newState = this.highlighter.updateStateData(this, action, state, type, index);
+            this.setSubShapeState(type, newState, index);
+        });
     }
 
     private setSubShapeState(type: ShapeType, newState: VisualState, index: number) {
@@ -275,17 +279,16 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
             return;
         }
 
-        let material = VisualState.hasState(state, VisualState.selected)
-            ? selectedEdgeMaterial
-            : hilightEdgeMaterial;
+        let material = getEdgeStateMaterial(state);
         if (this._highlightedEdges.has(index)) {
             this._highlightedEdges.get(index)!.material = material;
-        } else {
-            let edge = this.cloneSubEdge(index, material);
-            edge.renderOrder = 99;
-            this.add(edge);
-            this._highlightedEdges.set(index, edge);
+            return;
         }
+
+        let edge = this.cloneSubEdge(index, material);
+        edge.renderOrder = 99;
+        this.add(edge);
+        this._highlightedEdges.set(index, edge);
     }
 
     private cloneSubEdge(index: number, material: LineBasicMaterial) {
@@ -305,24 +308,24 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
             return;
         }
 
-        let material = VisualState.hasState(state, VisualState.selected)
-            ? selectedFaceMaterial
-            : highlightFaceMaterial;
+        let material = getFaceStateMaterial(state);
         if (this._highlightedFaces.has(index)) {
             this._highlightedFaces.get(index)!.material = material;
-        } else {
-            let face = this.cloneSubFace(index, material);
-            if (face) {
-                face.renderOrder = 99;
-                this.add(face);
-                this._highlightedFaces.set(index, face);
-            }
+            return;
+        }
+
+        let face = this.cloneSubFace(index, material);
+        if (face) {
+            face.renderOrder = 99;
+            this.add(face);
+            this._highlightedFaces.set(index, face);
         }
     }
 
     private cloneSubFace(index: number, material: MeshLambertMaterial) {
         let group = this.geometryEngity.shape.value?.mesh.faces!.groups[index];
         if (!group) return undefined;
+
         let allPositions = this._faces!.geometry.getAttribute("position") as Float32BufferAttribute;
         let allNormals = this._faces!.geometry.getAttribute("normal") as Float32BufferAttribute;
         let allIndices = this.geometryEngity.shape.value!.mesh.faces!.indices;
@@ -332,6 +335,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         let indiceEnd = minMax!.max + 1;
         let positions = allPositions.array.slice(indiceStart * 3, indiceEnd * 3);
         let normals = allNormals.array.slice(indiceStart * 3, indiceEnd * 3);
+
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(positions, 3));
         buff.setAttribute("normal", new Float32BufferAttribute(normals, 3));
@@ -346,4 +350,11 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     edges() {
         return this._edges;
     }
+}
+function getEdgeStateMaterial(state: VisualState) {
+    return VisualState.hasState(state, VisualState.selected) ? selectedEdgeMaterial : hilightEdgeMaterial;
+}
+
+function getFaceStateMaterial(state: VisualState) {
+    return VisualState.hasState(state, VisualState.selected) ? selectedFaceMaterial : highlightFaceMaterial;
 }

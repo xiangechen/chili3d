@@ -11,8 +11,7 @@ import {
     Property,
     PubSub,
 } from "chili-core";
-import { Expander } from "../components";
-import { div, label, localize } from "../controls";
+import { Expander, div, label, localize } from "../components";
 import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";

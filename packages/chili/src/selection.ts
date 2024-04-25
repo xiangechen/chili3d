@@ -71,7 +71,7 @@ export class Selection implements ISelection, IDisposable {
             controller.onCompleted(resolve);
             controller.onCancelled(reject);
         })
-            .catch((e) => Logger.warn("pick status: ", e))
+            .catch((e) => Logger.debug("pick status: ", e))
             .finally(() => {
                 if (showControl) PubSub.default.pub("clearSelectionControl");
                 PubSub.default.pub("clearStatusBarTip");

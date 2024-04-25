@@ -9,8 +9,18 @@ import {
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
-import { LanguageSelector } from "../components";
-import { a, button, div, img, items, label, localize, span, svg } from "../controls";
+import {
+    LanguageSelector,
+    a,
+    button,
+    collection,
+    div,
+    img,
+    label,
+    localize,
+    span,
+    svg,
+} from "../components";
 import style from "./home.module.css";
 
 interface ApplicationCommand {
@@ -66,7 +76,7 @@ export class Home extends HTMLElement {
                             textContent: "CHILI3D",
                         }),
                     ),
-                    items({
+                    collection({
                         className: style.buttons,
                         sources: applicationCommands,
                         template: (item) =>
@@ -99,7 +109,7 @@ export class Home extends HTMLElement {
                 { className: style.right },
                 label({ className: style.welcome, textContent: localize("home.welcome") }),
                 div({ className: style.recent, textContent: localize("home.recent") }),
-                items({
+                collection({
                     className: style.documents,
                     sources: documents,
                     template: (item) =>

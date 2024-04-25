@@ -57,7 +57,7 @@ export class History implements IDisposable {
 
     private tryOperate(action: () => void) {
         let isDisabled = this.disabled;
-        if (!isDisabled) this.disabled = true;
+        if (!this.disabled) this.disabled = true;
         try {
             action();
         } finally {

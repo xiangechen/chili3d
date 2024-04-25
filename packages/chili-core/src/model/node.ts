@@ -124,28 +124,33 @@ export namespace INode {
         if (parent === curPath[0] || parent === prePath[0]) {
             let child = parent === curPath[0] ? prePath[0] : curPath[0];
             getNodesFromParentToChild(nodes, parent, child);
+        } else if (currentAtBack(prePath.at(-index)!, curPath.at(-index)!)) {
+            getNodesFromPath(nodes, prePath, curPath, index);
         } else {
-            if (currentAtBack(prePath.at(-index)!, curPath.at(-index)!)) {
-                getNodesFromPath(nodes, prePath, curPath, index);
-            } else {
-                getNodesFromPath(nodes, curPath, prePath, index);
-            }
+            getNodesFromPath(nodes, curPath, prePath, index);
         }
         return nodes;
     }
 
     function getNodesFromPath(nodes: INode[], path1: INode[], path2: INode[], commonIndex: number) {
-        addNodeOrChildrenToNodes(nodes, path1[0]);
+        nodeOrChildrenAppendToNodes(nodes, path1[0]);
+        path1ToCommonNodes(nodes, path1, commonIndex);
+        commonToPath2Nodes(nodes, path1, path2, commonIndex);
+    }
+
+    function path1ToCommonNodes(nodes: INode[], path1: INode[], commonIndex: number) {
         for (let i = 0; i < path1.length - commonIndex; i++) {
             let next = path1[i].nextSibling;
             while (next !== undefined) {
-                addNodeOrChildrenToNodes(nodes, next);
+                INode.nodeOrChildrenAppendToNodes(nodes, next);
                 next = next.nextSibling;
             }
         }
+    }
 
+    function commonToPath2Nodes(nodes: INode[], path1: INode[], path2: INode[], commonIndex: number) {
         let nextParent = path1.at(-commonIndex)?.nextSibling;
-        while (nextParent !== undefined) {
+        while (nextParent) {
             if (nextParent === path2[0]) {
                 nodes.push(path2[0]);
                 return;
@@ -154,12 +159,14 @@ export namespace INode {
                 if (getNodesFromParentToChild(nodes, nextParent, path2[0])) {
                     return;
                 }
-            } else nodes.push(nextParent);
+            } else {
+                nodes.push(nextParent);
+            }
             nextParent = nextParent.nextSibling;
         }
     }
 
-    export function addNodeOrChildrenToNodes(nodes: INode[], node: INode) {
+    export function nodeOrChildrenAppendToNodes(nodes: INode[], node: INode) {
         if (INode.isLinkedListNode(node)) {
             getNodesFromParentToChild(nodes, node);
         } else {
@@ -191,6 +198,7 @@ export namespace INode {
                 nodes.push(node);
                 return true;
             }
+
             if (INode.isLinkedListNode(node)) {
                 if (getNodesFromParentToChild(nodes, node, until)) return true;
             } else {
@@ -240,6 +248,7 @@ export namespace NodeSerializer {
         let serialized: any = Serializer.serializeObject(node);
         if (parentId) serialized["parentId"] = parentId;
         nodes.push(serialized);
+
         if (INode.isLinkedListNode(node) && node.firstChild) {
             serializeNodeToArray(nodes, node.firstChild, node.id);
         }
@@ -257,16 +266,13 @@ export namespace NodeSerializer {
                 nodeMap.set(n.properties["id"], node);
             }
             let parentId = (n as any)["parentId"];
-            if (parentId) {
-                if (nodeMap.has(parentId)) {
-                    nodeMap.get(parentId)!.add(node);
-                } else {
-                    console.warn("parent not found: " + parentId);
-                }
+            if (!parentId) return;
+            if (nodeMap.has(parentId)) {
+                nodeMap.get(parentId)!.add(node);
+            } else {
+                console.warn("parent not found: " + parentId);
             }
         });
-        let result = nodeMap.get(nodes[0].properties["id"]);
-        nodeMap.clear();
-        return result;
+        return nodeMap.get(nodes[0].properties["id"]);
     }
 }

@@ -90,9 +90,8 @@ export namespace Serializer {
         const parameters = deserilizeParameters(document, ctorParamNames, properties, className);
         if (deserialize) {
             return deserialize(...ctorParamNames.map((x) => parameters[x]));
-        } else {
-            return new ctor(...ctorParamNames.map((x) => parameters[x]));
         }
+        return new ctor(...ctorParamNames.map((x) => parameters[x]));
     }
 
     function deserilizeParameters(
@@ -118,13 +117,13 @@ export namespace Serializer {
     function deserialValue(document: IDocument, value: any) {
         if (value === undefined) {
             return undefined;
-        } else if (Array.isArray(value)) {
+        }
+        if (Array.isArray(value)) {
             return value.map((v) => {
                 return typeof v === "object" ? deserializeObject(document, v) : v;
             });
-        } else {
-            return (value as Serialized).classKey ? deserializeObject(document, value) : value;
         }
+        return (value as Serialized).classKey ? deserializeObject(document, value) : value;
     }
 
     function deserializeProperties(
@@ -135,9 +134,7 @@ export namespace Serializer {
     ) {
         let { ctorParamNames } = reflectMap.get(data.classKey)!;
         const filter = (key: string) => {
-            if (ctorParamNames.includes(key)) return false;
-            if (ignores?.includes(key)) return false;
-            return true;
+            return !ctorParamNames.includes(key) && !ignores?.includes(key);
         };
         let keys = Object.keys(data.properties).filter(filter);
         for (const key of keys) {
@@ -177,11 +174,11 @@ export namespace Serializer {
         let type = typeof value;
         if (type === "object") {
             return serializeObjectType(value);
-        } else if (type !== "function" && type !== "symbol") {
-            return value;
-        } else {
-            throw new Error(`Unsupported serialized object: ${value}`);
         }
+        if (type !== "function" && type !== "symbol") {
+            return value;
+        }
+        throw new Error(`Unsupported serialized object: ${value}`);
     }
 
     function serializeObjectType(target: Object) {
@@ -195,9 +192,8 @@ export namespace Serializer {
                 classKey: key,
                 properties: data.serialize(target),
             };
-        } else {
-            return serializeObject(target);
         }
+        return serializeObject(target);
     }
 
     function getAllKeysOfPrototypeChain(target: Object, map: Map<new (...args: any[]) => any, Set<string>>) {

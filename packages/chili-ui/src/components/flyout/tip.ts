@@ -1,15 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { MessageType } from "chili-core";
-import { Control } from "../control";
-
 import style from "./tip.module.css";
 
-export class Tip extends Control {
+export class Tip extends HTMLElement {
     private color?: string;
 
     constructor(msg: string, type: MessageType) {
-        super(style.tip);
+        super();
+        this.className = style.tip;
         this.set(msg, type);
     }
 

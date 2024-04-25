@@ -1,28 +1,27 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDisposable, Result } from "chili-core";
-import { Control } from "../control";
-import { Label } from "../label";
-import { TextBox } from "../textbox";
-
+import { I18n, I18nKeys, IDisposable, Result } from "chili-core";
+import { input, label } from "../controls";
+import { localize } from "../localize";
 import style from "./input.module.css";
 
-export class Input extends Control implements IDisposable {
+export class Input extends HTMLElement implements IDisposable {
     private readonly _cancelledCallbacks: (() => void)[] = [];
     private readonly _completedCallbacks: (() => void)[] = [];
-
-    private readonly textbox: TextBox;
-    private tip?: Label;
+    private readonly textbox: HTMLInputElement;
+    private tip?: HTMLLabelElement;
 
     constructor(
         text: string,
         readonly handler: (text: string) => Result<string, I18nKeys>,
     ) {
-        super(style.panel);
-        this.textbox = new TextBox();
-        this.textbox.setText(text);
+        super();
+        this.className = style.panel;
+        this.textbox = input({
+            value: text,
+            onkeydown: this.handleKeyDown,
+        });
         this.append(this.textbox);
-        this.textbox.addEventListener("keydown", this.onKeyDown);
     }
 
     onCancelled(callback: () => void) {
@@ -34,25 +33,27 @@ export class Input extends Control implements IDisposable {
     }
 
     get text(): string {
-        return this.textbox.text;
+        return this.textbox.value;
     }
 
     override focus() {
         this.textbox.focus();
     }
 
-    override dispose() {
-        this.textbox.removeEventListener("keydown", this.onKeyDown);
+    dispose() {
         this._cancelledCallbacks.length = 0;
         this._completedCallbacks.length = 0;
     }
 
     private showTip(tip: I18nKeys) {
         if (this.tip === undefined) {
-            this.tip = new Label().i18nText(tip).addClass(style.error);
+            this.tip = label({
+                textContent: localize(tip),
+                className: style.error,
+            });
             this.append(this.tip);
         } else {
-            this.tip.i18nText(tip);
+            I18n.set(this.tip, tip);
         }
     }
 
@@ -62,14 +63,15 @@ export class Input extends Control implements IDisposable {
         this.tip = undefined;
     }
 
-    private onKeyDown = (e: KeyboardEvent) => {
+    private handleKeyDown = (e: KeyboardEvent) => {
+        e.stopPropagation();
         if (e.key === "Enter") {
-            this.textbox.setReadOnly(true);
-            let error = this.handler(this.textbox.text);
+            this.textbox.readOnly = true;
+            let error = this.handler(this.textbox.value);
             if (error.isOk) {
                 this._completedCallbacks.forEach((x) => x());
             } else {
-                this.textbox.setReadOnly(false);
+                this.textbox.readOnly = false;
                 this.showTip(error.error);
             }
         } else if (e.key === "Escape") {

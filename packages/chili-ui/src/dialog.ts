@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18n, I18nKeys, IPropertyChanged, Property, SelectableItems } from "chili-core";
-import { button, div } from "./controls";
-import { RadioGroup } from "./controls/itemsControl";
+import { button, div } from "./components";
+import { RadioGroup } from "./components/itemsControl";
 import style from "./dialog.module.css";
 
 export class Dialog {

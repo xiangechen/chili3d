@@ -27,11 +27,11 @@ export namespace Command {
         if (typeof command === "string") {
             let c = CommandMap.get(command);
             return c?.prototype.data;
-        } else if (typeof command === "function") {
-            return command.prototype.data;
-        } else {
-            return Object.getPrototypeOf(command).data;
         }
+        if (typeof command === "function") {
+            return command.prototype.data;
+        }
+        return Object.getPrototypeOf(command).data;
     }
 
     export function get(name: CommandKeys): CommandConstructor | undefined {

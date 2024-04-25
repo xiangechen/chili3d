@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Binding, IConverter, Material, Property, PubSub, Result, readFileAsync } from "chili-core";
-import { button, div, img, items, localize, span, svg } from "../../controls";
+import { button, collection, div, img, localize, span, svg } from "../../components";
+import { ColorConverter } from "../../converters";
 import { appendProperty } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
-import { ColorConverter } from "../../converters";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}
@@ -58,7 +58,7 @@ export class MaterialEditor extends HTMLElement {
                         },
                     }),
                 ),
-                items({
+                collection({
                     className: style.materials,
                     sources: this.dataContent.document.materials,
                     template: (material: Material) =>

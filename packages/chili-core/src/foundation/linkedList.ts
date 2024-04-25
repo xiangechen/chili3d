@@ -38,20 +38,20 @@ export class LinkedList<T> {
 
     insert(index: number, item: T) {
         let node = this.nodeAt(index);
-        if (node) {
-            const newNode: LinkedListNode<T> = {
-                data: item,
-                next: node,
-                prev: node.prev,
-            };
-            if (node.prev) {
-                node.prev.next = newNode;
-            } else {
-                this._head = newNode;
-            }
-            node.prev = newNode;
-            this._size++;
+        if (!node) return;
+
+        const newNode: LinkedListNode<T> = {
+            data: item,
+            next: node,
+            prev: node.prev,
+        };
+        if (node.prev) {
+            node.prev.next = newNode;
+        } else {
+            this._head = newNode;
         }
+        node.prev = newNode;
+        this._size++;
     }
 
     remove(item: T) {

@@ -136,9 +136,9 @@ export class ThreeVisualContext implements IVisualContext {
             rms: INode[] = [];
         records.forEach((x) => {
             if (x.action === NodeAction.add) {
-                INode.addNodeOrChildrenToNodes(adds, x.node);
+                INode.nodeOrChildrenAppendToNodes(adds, x.node);
             } else if (x.action === NodeAction.remove) {
-                INode.addNodeOrChildrenToNodes(rms, x.node);
+                INode.nodeOrChildrenAppendToNodes(rms, x.node);
             }
         });
         this.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
@@ -271,9 +271,9 @@ export class ThreeVisualContext implements IVisualContext {
                 x.material.dispose();
             }
             if (IDisposable.isDisposable(x)) {
-                x.dispose()
+                x.dispose();
             }
-        })
+        });
         shape.children.length = 0;
         this.tempShapes.remove(shape);
     }

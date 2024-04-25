@@ -63,18 +63,21 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     move(from: number, to: number) {
-        if (from === to) return;
-        if (from >= 0 && from < this._items.length && to >= 0 && to < this._items.length) {
-            let items = this._items.splice(from, 1);
-            this._items.splice(from < to ? to - 1 : to, 0, ...items);
-            this._callbacks.forEach((callback) =>
-                callback({
-                    action: CollectionAction.move,
-                    from,
-                    to,
-                }),
-            );
+        let canMove =
+            from !== to && from >= 0 && from < this._items.length && to >= 0 && to < this._items.length;
+        if (!canMove) {
+            return;
         }
+
+        let items = this._items.splice(from, 1);
+        this._items.splice(from < to ? to - 1 : to, 0, ...items);
+        this._callbacks.forEach((callback) =>
+            callback({
+                action: CollectionAction.move,
+                from,
+                to,
+            }),
+        );
     }
 
     clear() {
@@ -93,17 +96,19 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     replace(index: number, ...items: T[]) {
-        if (index >= 0 && index < this._items.length) {
-            let item = this._items[index];
-            this._items.splice(index, 1, ...items);
-            this._callbacks.forEach((callback) =>
-                callback({
-                    action: CollectionAction.replace,
-                    item,
-                    items,
-                }),
-            );
+        if (index < 0 || index >= this._items.length) {
+            return;
         }
+
+        let item = this._items[index];
+        this._items.splice(index, 1, ...items);
+        this._callbacks.forEach((callback) =>
+            callback({
+                action: CollectionAction.replace,
+                item,
+                items,
+            }),
+        );
     }
 
     forEach(callback: (item: T, index: number) => void) {

@@ -35,7 +35,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     get document() {
-        return this._application!.activeView?.document!;
+        return this.application.activeView?.document!;
     }
 
     private _controller?: AsyncController;
@@ -51,10 +51,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     @Property.define("common.cancel")
     async cancel() {
         this.controller?.cancel();
-        while (true) {
-            if (this._isCompleted) {
-                break;
-            }
+        while (!this._isCompleted) {
             await new Promise((r) => setTimeout(r, 30));
         }
     }

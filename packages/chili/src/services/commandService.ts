@@ -92,6 +92,6 @@ export class CommandService implements IService {
             await this.app.executingCommand.cancel();
             return true;
         }
-        return true;
+        return false;
     }
 }

@@ -19,20 +19,20 @@ export class AxesTracking {
     private initAxes(plane: Plane, referencePoint: XYZ, angle: number | undefined): Axis[] {
         if (angle === undefined) {
             return Axis.getAxiesAtPlane(referencePoint, plane, this.trackingZ);
-        } else {
-            let result: Axis[] = [];
-            let testAngle = 0;
-            while (testAngle < 360) {
-                let direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
-                result.push(new Axis(referencePoint, direction, `${testAngle} °`));
-                testAngle += angle;
-            }
-            if (this.trackingZ) {
-                result.push(new Axis(referencePoint, plane.normal, I18n.translate("axis.z")));
-                result.push(new Axis(referencePoint, plane.normal.reverse(), I18n.translate("axis.z")));
-            }
-            return result;
         }
+
+        let result: Axis[] = [];
+        let testAngle = 0;
+        while (testAngle < 360) {
+            let direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
+            result.push(new Axis(referencePoint, direction, `${testAngle} °`));
+            testAngle += angle;
+        }
+        if (this.trackingZ) {
+            result.push(new Axis(referencePoint, plane.normal, I18n.translate("axis.z")));
+            result.push(new Axis(referencePoint, plane.normal.reverse(), I18n.translate("axis.z")));
+        }
+        return result;
     }
 
     clear(): void {

@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { ButtonSize, Command, CommandKeys, I18nKeys, Logger, PubSub } from "chili-core";
-import { Control, Label, Svg } from "../components";
+import { label, localize, svg } from "../components";
 import style from "./ribbonButton.module.css";
 
-export class RibbonButton extends Control {
+export class RibbonButton extends HTMLElement {
     constructor(
         display: I18nKeys,
         icon: string,
@@ -27,21 +27,25 @@ export class RibbonButton extends Control {
         });
     }
 
-    override dispose(): void {
-        super.dispose();
+    dispose(): void {
         this.removeEventListener("click", this.onClick);
     }
 
     private initHTML(display: I18nKeys, icon: string, size: ButtonSize) {
-        let image = new Svg(icon);
+        let image = svg({
+            icon,
+        });
         if (size === ButtonSize.large) {
-            image.addClass(style.icon);
+            image.classList.add(style.icon);
             this.className = style.normal;
         } else {
-            image.addClass(style.smallIcon);
+            image.classList.add(style.smallIcon);
             this.className = style.small;
         }
-        let text = new Label().i18nText(display).addClass(style.buttonText);
+        let text = label({
+            className: style.buttonText,
+            textContent: localize(display),
+        });
         this.append(image, text);
     }
 }

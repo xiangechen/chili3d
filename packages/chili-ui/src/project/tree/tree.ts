@@ -10,39 +10,40 @@ import {
     ShapeType,
     Transaction,
 } from "chili-core";
-import { Control } from "../../components";
+import { SelectionHandler } from "chili-vis";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
-import { SelectionHandler } from "chili-vis";
 
-export class Tree extends Control implements INodeChangedObserver {
+export class Tree extends HTMLElement implements INodeChangedObserver {
     private readonly nodeMap = new WeakMap<INode, TreeItem>();
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
     private dragging: INode[] | undefined;
 
     constructor(readonly document: IDocument) {
-        super(style.panel);
+        super();
+        this.className = style.panel;
         this.addAllNodes(document, this, document.rootNode);
-        this.addDisconnectedCallback(() => {
-            this.document.removeNodeObserver(this);
-            PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
-        });
-        this.addConnectedCallback(() => {
-            this.document.addNodeObserver(this);
-            PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
-        });
         this.addEvents(this);
+    }
+
+    connectedCallback() {
+        this.document.addNodeObserver(this);
+        PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
+    }
+
+    disconnectedCallback() {
+        this.document.removeNodeObserver(this);
+        PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
     }
 
     treeItem(node: INode): TreeItem | undefined {
         return this.nodeMap.get(node);
     }
 
-    override dispose(): void {
-        super.dispose();
+    dispose(): void {
         this.lastClicked = undefined;
         this.dragging = undefined;
         this.selectedNodes.clear();

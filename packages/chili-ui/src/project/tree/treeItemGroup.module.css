@@ -4,8 +4,13 @@
     padding: 2px 4px;
 }
 
-.container {
+.left16px {
     padding-left: 16px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
 }
 
 .hide {
@@ -19,4 +24,10 @@
 
 .header:hover {
     background-color: var(--hover-background-color);
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }

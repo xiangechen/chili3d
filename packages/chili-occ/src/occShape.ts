@@ -166,25 +166,25 @@ export class OccEdge extends OccShape implements IEdge {
             let end = OccHelps.toPnt(other.location.add(other.direction.multiply(1e22)));
             let shape = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
             return this.intersectToEdge(shape.Edge());
-        } else {
-            if (other instanceof OccEdge) {
-                return this.intersectToEdge(other.shape);
-            } else {
-                console.warn("不支持的类型");
-                return [];
-            }
         }
+        if (other instanceof OccEdge) {
+            return this.intersectToEdge(other.shape);
+        }
+        console.warn("不支持的类型");
+        return [];
     }
 
     private intersectToEdge(edge: TopoDS_Edge): XYZ[] {
-        let result = new Array<XYZ>();
         let cc = new occ.BRepExtrema_ExtCC_2(this.shape, edge);
-        if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel()) {
-            for (let i = 1; i <= cc.NbExt(); i++) {
-                if (cc.SquareDistance(i) <= occ.Precision.Confusion()) {
-                    let pnt = cc.PointOnE1(i);
-                    result.push(OccHelps.toXYZ(pnt));
-                }
+        if (!cc.IsDone() || cc.NbExt() === 0 || cc.IsParallel()) {
+            return [];
+        }
+
+        let result = new Array<XYZ>();
+        for (let i = 1; i <= cc.NbExt(); i++) {
+            if (cc.SquareDistance(i) <= occ.Precision.Confusion()) {
+                let pnt = cc.PointOnE1(i);
+                result.push(OccHelps.toXYZ(pnt));
             }
         }
         return result;
@@ -202,12 +202,12 @@ export class OccEdge extends OccShape implements IEdge {
         let curveType = OccHelps.getCurveType(curve);
         if (curveType === CurveType.Line) {
             return Result.ok(new OccLine(curve as Geom_Line, s.current, e.current));
-        } else if (curveType === CurveType.Circle) {
-            return Result.ok(new OccCircle(curve as Geom_Circle, s.current, e.current));
-        } else {
-            Logger.warn("Unsupported curve type");
-            return Result.ok(new OccCurve(curve, s.current, e.current));
         }
+        if (curveType === CurveType.Circle) {
+            return Result.ok(new OccCircle(curve as Geom_Circle, s.current, e.current));
+        }
+        Logger.warn("Unsupported curve type");
+        return Result.ok(new OccCurve(curve, s.current, e.current));
     }
 }
 

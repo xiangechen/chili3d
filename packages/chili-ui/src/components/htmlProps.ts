@@ -3,8 +3,8 @@
 import { Binding } from "chili-core/src/foundation/binding";
 import { Localize } from "./localize";
 
-export type HTMLConfig<T> = {
+export type HTMLProps<T> = {
     [P in keyof T]?: T[P] extends object
-        ? HTMLConfig<T[P]>
+        ? HTMLProps<T[P]>
         : (T[P] | Binding) | (P extends "textContent" ? Localize : never);
 };
