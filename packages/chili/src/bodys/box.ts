@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryEntity,
     I18nKeys,
     IDocument,
     IShape,
+    ParameterGeometry,
     Plane,
     Property,
     Result,
@@ -12,7 +12,7 @@ import {
 } from "chili-core";
 
 @Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
-export class BoxBody extends GeometryEntity {
+export class BoxBody extends ParameterGeometry {
     readonly display: I18nKeys = "body.box";
 
     private _dx: number;

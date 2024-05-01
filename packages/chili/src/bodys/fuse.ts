@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, I18nKeys, IDocument, IShape, Result, Serializer } from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterGeometry, Result, Serializer } from "chili-core";
 
 @Serializer.register("FuseBody", ["document", "bottom", "top"])
-export class FuseBody extends GeometryEntity {
+export class FuseBody extends ParameterGeometry {
     override display: I18nKeys = "body.fuse";
 
     private _bottom: IShape;

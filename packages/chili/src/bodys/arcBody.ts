@@ -1,9 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    I18nKeys,
+    IDocument,
+    IShape,
+    ParameterGeometry,
+    Property,
+    Result,
+    Serializer,
+    XYZ,
+} from "chili-core";
 
 @Serializer.register("ArcBody", ["document", "normal", "center", "start", "angle"])
-export class ArcBody extends GeometryEntity {
+export class ArcBody extends ParameterGeometry {
     readonly display: I18nKeys = "body.arc";
 
     private _center: XYZ;

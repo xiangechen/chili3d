@@ -1,19 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryEntity,
     I18nKeys,
     IDocument,
     IEdge,
     IShape,
     IWire,
+    ParameterGeometry,
     Result,
     Serializer,
     ShapeType,
 } from "chili-core";
 
 @Serializer.register("SweepBody", ["document", "profile", "path"])
-export class SweepBody extends GeometryEntity {
+export class SweepBody extends ParameterGeometry {
     override display: I18nKeys = "body.sweep";
 
     private _profile: IShape;
