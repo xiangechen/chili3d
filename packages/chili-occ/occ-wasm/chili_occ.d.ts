@@ -2077,6 +2077,26 @@ export declare class BRepTools {
   delete(): void;
 }
 
+export declare class BRepTools_ReShape extends Standard_Transient {
+  constructor()
+  Clear(): void;
+  Remove(shape: TopoDS_Shape): void;
+  Replace(shape: TopoDS_Shape, newshape: TopoDS_Shape): void;
+  IsRecorded(shape: TopoDS_Shape): Standard_Boolean;
+  Value(shape: TopoDS_Shape): TopoDS_Shape;
+  Status(shape: TopoDS_Shape, newsh: TopoDS_Shape, last: Standard_Boolean): Graphic3d_ZLayerId;
+  Apply(theShape: TopoDS_Shape, theUntil: TopAbs_ShapeEnum): TopoDS_Shape;
+  ModeConsiderLocation(): Standard_Boolean;
+  CopyVertex_1(theV: TopoDS_Vertex, theTol: Standard_Real): TopoDS_Vertex;
+  CopyVertex_2(theV: TopoDS_Vertex, theNewPos: gp_Pnt, aTol: Standard_Real): TopoDS_Vertex;
+  IsNewShape(theShape: TopoDS_Shape): Standard_Boolean;
+  History(): Handle_BRepTools_History;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
 export declare class Bnd_Box {
   SetWhole(): void;
   SetVoid(): void;
@@ -4153,6 +4173,18 @@ export declare class ShapeAnalysis_WireOrder {
   export declare class ShapeAnalysis_WireOrder_2 extends ShapeAnalysis_WireOrder {
     constructor(mode3d: Standard_Boolean, tol: Standard_Real);
   }
+
+export declare class ShapeBuild_ReShape extends BRepTools_ReShape {
+  constructor()
+  Apply_1(shape: TopoDS_Shape, until: TopAbs_ShapeEnum, buildmode: Graphic3d_ZLayerId): TopoDS_Shape;
+  Apply_2(shape: TopoDS_Shape, until: TopAbs_ShapeEnum): TopoDS_Shape;
+  Status_1(shape: TopoDS_Shape, newsh: TopoDS_Shape, last: Standard_Boolean): Graphic3d_ZLayerId;
+  Status_2(status: ShapeExtend_Status): Standard_Boolean;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
 
 export declare class ShapeFix_EdgeConnect {
   constructor()
@@ -6536,6 +6568,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   BRepPrimAPI_MakeTorus_7: typeof BRepPrimAPI_MakeTorus_7;
   BRepPrimAPI_MakeTorus_8: typeof BRepPrimAPI_MakeTorus_8;
   BRepTools: typeof BRepTools;
+  BRepTools_ReShape: typeof BRepTools_ReShape;
   Bnd_Box: typeof Bnd_Box;
   Bnd_Box_1: typeof Bnd_Box_1;
   Bnd_Box_2: typeof Bnd_Box_2;
@@ -6764,6 +6797,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   ShapeAnalysis_WireOrder: typeof ShapeAnalysis_WireOrder;
   ShapeAnalysis_WireOrder_1: typeof ShapeAnalysis_WireOrder_1;
   ShapeAnalysis_WireOrder_2: typeof ShapeAnalysis_WireOrder_2;
+  ShapeBuild_ReShape: typeof ShapeBuild_ReShape;
   ShapeFix_EdgeConnect: typeof ShapeFix_EdgeConnect;
   ShapeFix_Face: typeof ShapeFix_Face;
   ShapeFix_Face_1: typeof ShapeFix_Face_1;

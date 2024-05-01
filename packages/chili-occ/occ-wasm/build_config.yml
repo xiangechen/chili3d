@@ -73,6 +73,7 @@ mainBuild:
     - symbol: BRepPrimAPI_MakeSweep
     - symbol: BRepPrimAPI_MakeTorus
     - symbol: BRepTools
+    - symbol: BRepTools_ReShape
     - symbol: ChFi3d_FilletShape
     - symbol: ChFiDS_ChamfMode
     - symbol: Convert_ParameterisationType
@@ -166,6 +167,7 @@ mainBuild:
     - symbol: ProjLib
     - symbol: ShapeAnalysis_Edge
     - symbol: ShapeAnalysis_WireOrder
+    - symbol: ShapeBuild_ReShape
     - symbol: ShapeFix_EdgeConnect
     - symbol: ShapeFix_Face
     - symbol: ShapeFix_Root
