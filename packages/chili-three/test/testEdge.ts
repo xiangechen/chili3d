@@ -1,5 +1,4 @@
 import {
-    GeometryEntity,
     I18nKeys,
     ICurve,
     IDocument,
@@ -9,6 +8,7 @@ import {
     LineType,
     Matrix4,
     Orientation,
+    ParameterGeometry,
     Ray,
     Result,
     Serialized,
@@ -80,7 +80,7 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends GeometryEntity {
+export class TestBody extends ParameterGeometry {
     display: I18nKeys = "body.line";
     constructor(
         document: IDocument,
