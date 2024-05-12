@@ -14,6 +14,7 @@ import {
     IVertex,
     IWire,
     Id,
+    JoinType,
     Logger,
     Matrix4,
     Orientation,
@@ -195,6 +196,19 @@ export class OccEdge extends OccShape implements IEdge {
         return occ.GCPnts_AbscissaPoint.Length_3(curve, occ.Precision.Confusion());
     }
 
+    offset(distance: number, dir: XYZ): Result<IEdge> {
+        let s: any = { current: 0 };
+        let e: any = { current: 0 };
+        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
+        let trimmedCurve = new occ.Handle_Geom_Curve_2(
+            new occ.Geom_TrimmedCurve(curve, s.current, e.current, true, true),
+        );
+        let brepOffset = new occ.Geom_OffsetCurve(trimmedCurve, distance, OccHelps.toDir(dir), true);
+        let offsetCurve = new occ.Handle_Geom_Curve_2(brepOffset);
+        let edge = new occ.BRepBuilderAPI_MakeEdge_24(offsetCurve);
+        return Result.ok(new OccEdge(edge.Edge()));
+    }
+
     asCurve(): Result<ICurve> {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
@@ -206,7 +220,10 @@ export class OccEdge extends OccShape implements IEdge {
         if (curveType === CurveType.Circle) {
             return Result.ok(new OccCircle(curve as Geom_Circle, s.current, e.current));
         }
-        Logger.warn("Unsupported curve type");
+        if (curveType === CurveType.OffsetCurve) {
+            return Result.ok(new OccCurve(curve, s.current, e.current));
+        }
+        Logger.warn(`Unsupported curve type: ${curveType}`);
         return Result.ok(new OccCurve(curve, s.current, e.current));
     }
 }
@@ -224,6 +241,20 @@ export class OccWire extends OccShape implements IWire {
         }
         return Result.err("Wire to face error");
     }
+
+    offset(distance: number, joinType: JoinType): Result<IShape> {
+        return makeOffset(this.shape, joinType, distance);
+    }
+}
+
+function makeOffset(shape: TopoDS_Face | TopoDS_Wire, joinType: JoinType, distance: number): Result<IShape> {
+    let ctor =
+        shape.ShapeType() === occ.TopAbs_ShapeEnum.TopAbs_FACE
+            ? occ.BRepOffsetAPI_MakeOffset_2
+            : occ.BRepOffsetAPI_MakeOffset_3;
+    let brepOffset = new ctor(shape, OccHelps.getJoinType(joinType), false);
+    brepOffset.Perform(distance, 0.0);
+    return Result.ok(OccHelps.wrapShape(brepOffset.Shape()));
 }
 
 @Serializer.register("Face", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
@@ -238,6 +269,15 @@ export class OccFace extends OccShape implements IFace {
         let a = new occ.BRepGProp_Face_2(this.shape, false);
         a.Normal(u, v, pnt, dir);
         return [OccHelps.toXYZ(pnt), OccHelps.toXYZ(dir).normalize()!];
+    }
+
+    offset(distance: number, joinType: JoinType): Result<IShape> {
+        return makeOffset(this.shape, joinType, distance);
+    }
+
+    outerWire(): IWire {
+        let wire = occ.ShapeAnalysis.OuterWire(this.shape);
+        return new OccWire(wire);
     }
 }
 

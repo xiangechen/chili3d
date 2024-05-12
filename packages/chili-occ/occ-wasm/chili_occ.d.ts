@@ -3081,6 +3081,83 @@ export declare class Handle_Geom_Line {
     constructor(theHandle: Handle_Geom_Line);
   }
 
+export declare class Geom_OffsetCurve extends Geom_Curve {
+  constructor(C: Handle_Geom_Curve, Offset: Standard_Real, V: gp_Dir, isNotCheckC0: Standard_Boolean)
+  Reverse(): void;
+  ReversedParameter(U: Standard_Real): Standard_Real;
+  SetBasisCurve(C: Handle_Geom_Curve, isNotCheckC0: Standard_Boolean): void;
+  SetDirection(V: gp_Dir): void;
+  SetOffsetValue(D: Standard_Real): void;
+  BasisCurve(): Handle_Geom_Curve;
+  Continuity(): GeomAbs_Shape;
+  Direction(): gp_Dir;
+  D0(U: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, P: gp_Pnt, V1: gp_Vec): void;
+  D2(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec): void;
+  D3(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec, V3: gp_Vec): void;
+  DN(U: Standard_Real, N: Graphic3d_ZLayerId): gp_Vec;
+  FirstParameter(): Standard_Real;
+  LastParameter(): Standard_Real;
+  Offset(): Standard_Real;
+  IsClosed(): Standard_Boolean;
+  IsCN(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsPeriodic(): Standard_Boolean;
+  Period(): Standard_Real;
+  Transform(T: gp_Trsf): void;
+  TransformedParameter(U: Standard_Real, T: gp_Trsf): Standard_Real;
+  ParametricTransformation(T: gp_Trsf): Standard_Real;
+  Copy(): Handle_Geom_Geometry;
+  GetBasisCurveContinuity(): GeomAbs_Shape;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class Geom_OffsetSurface extends Geom_Surface {
+  constructor(S: Handle_Geom_Surface, Offset: Standard_Real, isNotCheckC0: Standard_Boolean)
+  SetBasisSurface(S: Handle_Geom_Surface, isNotCheckC0: Standard_Boolean): void;
+  SetOffsetValue(D: Standard_Real): void;
+  Offset(): Standard_Real;
+  BasisSurface(): Handle_Geom_Surface;
+  OsculatingSurface(): Handle_Geom_OsculatingSurface;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Continuity(): GeomAbs_Shape;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  UPeriod(): Standard_Real;
+  IsVPeriodic(): Standard_Boolean;
+  VPeriod(): Standard_Real;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Copy(): Handle_Geom_Geometry;
+  Surface(): Handle_Geom_Surface;
+  UOsculatingSurface(U: Standard_Real, V: Standard_Real, IsOpposite: Standard_Boolean, UOsculSurf: Handle_Geom_BSplineSurface): Standard_Boolean;
+  VOsculatingSurface(U: Standard_Real, V: Standard_Real, IsOpposite: Standard_Boolean, VOsculSurf: Handle_Geom_BSplineSurface): Standard_Boolean;
+  GetBasisSurfContinuity(): GeomAbs_Shape;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
 export declare class Geom_Surface extends Geom_Geometry {
   UReverse(): void;
   UReversed(): Handle_Geom_Surface;
@@ -4109,6 +4186,19 @@ export declare class STEPControl_Writer {
   export declare class STEPControl_Writer_2 extends STEPControl_Writer {
     constructor(WS: Handle_XSControl_WorkSession, scratch: Standard_Boolean);
   }
+
+export declare class ShapeAnalysis {
+  constructor();
+  static OuterWire(face: TopoDS_Face): TopoDS_Wire;
+  static TotCross2D(sewd: Handle_ShapeExtend_WireData, aFace: TopoDS_Face): Standard_Real;
+  static ContourArea(theWire: TopoDS_Wire): Standard_Real;
+  static IsOuterBound(face: TopoDS_Face): Standard_Boolean;
+  static AdjustByPeriod(Val: Standard_Real, ToVal: Standard_Real, Period: Standard_Real): Standard_Real;
+  static AdjustToPeriod(Val: Standard_Real, ValMin: Standard_Real, ValMax: Standard_Real): Standard_Real;
+  static FindBounds(shape: TopoDS_Shape, V1: TopoDS_Vertex, V2: TopoDS_Vertex): void;
+  static GetFaceUVBounds(F: TopoDS_Face, Umin: Standard_Real, Umax: Standard_Real, Vmin: Standard_Real, Vmax: Standard_Real): void;
+  delete(): void;
+}
 
 export declare class ShapeAnalysis_Edge {
   constructor()
@@ -6673,6 +6763,8 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Handle_Geom_Line_2: typeof Handle_Geom_Line_2;
   Handle_Geom_Line_3: typeof Handle_Geom_Line_3;
   Handle_Geom_Line_4: typeof Handle_Geom_Line_4;
+  Geom_OffsetCurve: typeof Geom_OffsetCurve;
+  Geom_OffsetSurface: typeof Geom_OffsetSurface;
   Geom_Surface: typeof Geom_Surface;
   Handle_Geom_Surface: typeof Handle_Geom_Surface;
   Handle_Geom_Surface_1: typeof Handle_Geom_Surface_1;
@@ -6793,6 +6885,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   STEPControl_Writer: typeof STEPControl_Writer;
   STEPControl_Writer_1: typeof STEPControl_Writer_1;
   STEPControl_Writer_2: typeof STEPControl_Writer_2;
+  ShapeAnalysis: typeof ShapeAnalysis;
   ShapeAnalysis_Edge: typeof ShapeAnalysis_Edge;
   ShapeAnalysis_WireOrder: typeof ShapeAnalysis_WireOrder;
   ShapeAnalysis_WireOrder_1: typeof ShapeAnalysis_WireOrder_1;

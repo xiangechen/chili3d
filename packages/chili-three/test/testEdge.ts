@@ -26,7 +26,14 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
+    iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape> {
+        throw new Error("Method not implemented.");
+    }
+
     findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[] {
+        throw new Error("Method not implemented.");
+    }
+    offset(distance: number, dir: XYZ): Result<IEdge> {
         throw new Error("Method not implemented.");
     }
 

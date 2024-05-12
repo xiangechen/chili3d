@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { XYZ } from "../math";
+import { Plane, XYZ } from "../math";
 import { CurveType } from "./shape";
 
 export interface ICurve {
@@ -10,15 +10,24 @@ export interface ICurve {
     point(parameter: number): XYZ;
     trim(start: number, end: number): void;
     project(point: XYZ): XYZ[];
+    isCN(n: number): boolean;
+    d0(u: number): XYZ;
+    d1(u: number): { point: XYZ; vec: XYZ };
+    d2(u: number): { point: XYZ; vec1: XYZ; vec2: XYZ };
+    d3(u: number): { point: XYZ; vec1: XYZ; vec2: XYZ; vec3: XYZ };
+    dn(u: number, n: number): XYZ;
+    nearestPoint(point: XYZ): XYZ;
 }
 
 export interface ILine extends ICurve {
-    start: XYZ;
     direction: XYZ;
-    location: XYZ;
 }
 
-export interface ICircle extends ICurve {
+export interface IConic extends ICurve {
+    plane: Plane;
+}
+
+export interface ICircle extends IConic {
     center: XYZ;
     radius: number;
 }

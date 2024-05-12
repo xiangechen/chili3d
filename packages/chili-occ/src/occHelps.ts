@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CurveType, IShape, Id, Matrix4, Orientation, Plane, ShapeType, XYZ } from "chili-core";
+import { CurveType, IShape, Id, JoinType, Matrix4, Orientation, Plane, ShapeType, XYZ } from "chili-core";
 import {
+    GeomAbs_JoinType,
     Geom_Curve,
     TopAbs_ShapeEnum,
     TopoDS_Shape,
@@ -41,6 +42,14 @@ export class OccHelps {
 
     static toVec(value: XYZ) {
         return new occ.gp_Vec_4(value.x, value.y, value.z);
+    }
+
+    static fromAx2(ax: gp_Ax2): Plane {
+        return new Plane(
+            OccHelps.toXYZ(ax.Location()),
+            OccHelps.toXYZ(ax.Direction()),
+            OccHelps.toXYZ(ax.XDirection()),
+        );
     }
 
     static toAx2(plane: Plane): gp_Ax2 {
@@ -157,6 +166,19 @@ export class OccHelps {
                 return Orientation.EXTERNAL;
             default:
                 return Orientation.FORWARD;
+        }
+    }
+
+    static getJoinType(joinType: JoinType) {
+        switch (joinType) {
+            case JoinType.arc:
+                return occ.GeomAbs_JoinType.GeomAbs_Arc as GeomAbs_JoinType;
+            case JoinType.intersection:
+                return occ.GeomAbs_JoinType.GeomAbs_Intersection as GeomAbs_JoinType;
+            case JoinType.tangent:
+                return occ.GeomAbs_JoinType.GeomAbs_Tangent as GeomAbs_JoinType;
+            default:
+                throw new Error("Unknown join type: " + joinType);
         }
     }
 

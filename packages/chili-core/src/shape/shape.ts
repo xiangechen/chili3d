@@ -59,6 +59,7 @@ export interface IShape {
     orientation(): Orientation;
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
     findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[];
+    iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape>;
 }
 
 export interface IVertex extends IShape {}
@@ -67,14 +68,24 @@ export interface IEdge extends IShape {
     intersect(other: IEdge | Ray): XYZ[];
     length(): number;
     asCurve(): Result<ICurve>;
+    offset(distance: number, dir: XYZ): Result<IEdge>;
+}
+
+export enum JoinType {
+    arc,
+    tangent,
+    intersection,
 }
 
 export interface IWire extends IShape {
     toFace(): Result<IFace>;
+    offset(distance: number, joinType: JoinType): Result<IShape>;
 }
 
 export interface IFace extends IShape {
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
+    offset(distance: number, joinType: JoinType): Result<IShape>;
+    outerWire(): IWire;
 }
 
 export interface IShell extends IShape {}
