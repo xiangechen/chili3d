@@ -35,12 +35,18 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         super(document, controller, [objectSnap, axisSnap], lengthData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string): SnapedData {
         let dist = Number(text);
         if (this.shouldReserse()) {
             dist = -dist;
         }
-        return this.lengthData.point.add(this.lengthData.direction.multiply(dist));
+        let point = this.lengthData.point.add(this.lengthData.direction.multiply(dist));
+        return {
+            view,
+            point,
+            distance: dist,
+            shapes: [],
+        };
     }
 
     private shouldReserse() {
@@ -70,14 +76,22 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string): SnapedData {
+        let point;
         let ns = text.split(",").map((x) => Number(x));
         if (ns.length === 1) {
             let vector = this._snaped?.point!.sub(this.lengthData.point()).normalize();
-            return this.lengthData.point().add(vector!.multiply(ns[0]));
+            point = this.lengthData.point().add(vector!.multiply(ns[0]));
+        } else {
+            let plane = this.lengthData.plane();
+            point = this.lengthData.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
         }
-        let plane = this.lengthData.plane();
-        return this.lengthData.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
+
+        return {
+            point,
+            view,
+            shapes: [],
+        };
     }
 
     protected inputError(text: string): I18nKeys | undefined {

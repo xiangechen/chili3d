@@ -100,7 +100,8 @@ export abstract class SelectionHandler implements IEventHandler {
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
-            x.owner.addState(VisualState.highlight, this.shapeType, ...x.indexes);
+            let shapeType = this.shapeType === ShapeType.Shape ? this.shapeType : x.shape.shapeType;
+            x.owner.addState(VisualState.highlight, shapeType, ...x.indexes);
         });
         this._highlights = detecteds;
         view.update();

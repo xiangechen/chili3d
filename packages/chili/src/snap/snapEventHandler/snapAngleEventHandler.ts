@@ -44,9 +44,14 @@ export class SnapAngleEventHandler extends SnapEventHandler {
         return undefined;
     }
 
-    protected override getPointFromInput(view: IView, text: string): XYZ {
+    protected override getPointFromInput(view: IView, text: string): SnapedData {
         let angle = (Number.parseFloat(text) * Math.PI) / 180;
         let vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
-        return this.center().add(vec);
+        let point = this.center().add(vec);
+        return {
+            point,
+            view,
+            shapes: [],
+        };
     }
 }

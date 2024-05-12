@@ -7,6 +7,7 @@ import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 import { SnapPointData } from "./snapPointData";
+import { SnapedData } from "../interfaces";
 
 export class SnapPointEventHandler extends SnapEventHandler {
     constructor(
@@ -23,21 +24,23 @@ export class SnapPointEventHandler extends SnapEventHandler {
         super(document, controller, snaps, pointData);
     }
 
-    protected getPointFromInput(view: IView, text: string): XYZ {
+    protected getPointFromInput(view: IView, text: string): SnapedData {
         let dims = text.split(",").map((x) => Number(x));
         let refPoint = this.getRefPoint();
-        let result = refPoint ?? XYZ.zero;
+        let result = {
+            point: refPoint ?? XYZ.zero,
+            view,
+            shapes: [],
+        };
         let end = this._snaped!.point!;
         if (dims.length === 1 && end !== undefined) {
             let vector = end.sub(refPoint!).normalize()!;
-            return result.add(vector.multiply(dims[0]));
-        }
-
-        if (dims.length > 1) {
+            result.point.add(vector.multiply(dims[0]));
+        } else if (dims.length > 1) {
             let plane = this.pointData.plane?.() ?? view.workplane;
-            result = result.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
+            result.point = result.point.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
             if (dims.length === 3) {
-                return result.add(plane.normal.multiply(dims[2]));
+                result.point.add(plane.normal.multiply(dims[2]));
             }
         }
         return result;

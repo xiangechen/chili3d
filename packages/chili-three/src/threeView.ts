@@ -307,6 +307,7 @@ export class ThreeView extends Observable implements IView {
             result.push({
                 owner: parent,
                 shape: parent.geometryEngity.shape.value!,
+                point: ThreeHelper.toXYZ(element.point),
                 indexes: [],
             });
         }
@@ -322,13 +323,15 @@ export class ThreeView extends Observable implements IView {
         for (const intersected of intersections) {
             const visualShape = intersected.object.parent;
             if (!(visualShape instanceof ThreeGeometry)) continue;
-            let { shape, indexes } = this.getShape(shapeType, visualShape, intersected);
+            let { shape, directShape, indexes } = this.getShape(shapeType, visualShape, intersected);
             if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
                 continue;
             }
             result.push({
                 owner: visualShape,
                 shape: shape,
+                directShape,
+                point: ThreeHelper.toXYZ(intersected.point),
                 indexes,
             });
         }
@@ -341,17 +344,18 @@ export class ThreeView extends Observable implements IView {
         element: Intersection,
     ): {
         shape: IShape | undefined;
+        directShape: IShape | undefined;
         indexes: number[];
     } {
         let { shape, index, groups } = this.findShapeAndIndex(parent, element);
-        if (!shape) return { shape: undefined, indexes: [] };
+        if (!shape) return { shape: undefined, directShape: undefined, indexes: [] };
         if (ShapeType.hasWire(shapeType)) {
             let wire = this.getWireAndIndexes(shape, groups!, parent);
             if (wire.shape) return wire;
         }
         // TODO: other type
 
-        return { shape, indexes: [index!] };
+        return { shape, directShape: shape, indexes: [index!] };
     }
 
     private getWireAndIndexes(shape: IShape, groups: ShapeMeshGroup[], parent: ThreeGeometry) {
@@ -362,7 +366,7 @@ export class ThreeView extends Observable implements IView {
         for (const edge of wire.findSubShapes(ShapeType.Edge, true)) {
             this.findIndex(groups, edge, indexes);
         }
-        return { shape: wire, indexes };
+        return { shape: wire, indexes, directShape: shape };
     }
 
     private findIndex(groups: ShapeMeshGroup[], edge: IShape, indexes: number[]) {
@@ -377,16 +381,16 @@ export class ThreeView extends Observable implements IView {
         let shape: IShape | undefined = undefined;
         let index: number | undefined = undefined;
         let groups: ShapeMeshGroup[] | undefined = undefined;
-        if (element.faceIndex !== null) {
-            groups = parent.geometryEngity.shape.value?.mesh.faces?.groups;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
-                shape = groups[index].shape;
-            }
-        } else if (element.index !== null) {
+        if (element.index !== undefined) {
             groups = parent.geometryEngity.shape.value?.mesh.edges?.groups;
             if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.index!)!;
+                index = ThreeHelper.findGroupIndex(groups, element.index)!;
+                shape = groups[index].shape;
+            }
+        } else if (element.faceIndex !== undefined) {
+            groups = parent.geometryEngity.shape.value?.mesh.faces?.groups;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, element.faceIndex * 3)!;
                 shape = groups[index].shape;
             }
         }
@@ -412,15 +416,15 @@ export class ThreeView extends Observable implements IView {
                 ShapeType.hasCompoundSolid(shapeType) ||
                 ShapeType.hasSolid(shapeType)
             ) {
-                addObject(x.faces());
                 addObject(x.edges());
-                return;
-            }
-            if (ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
                 addObject(x.faces());
+                return;
             }
             if (ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
                 addObject(x.edges());
+            }
+            if (ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+                addObject(x.faces());
             }
             // TODO: vertex
         });
