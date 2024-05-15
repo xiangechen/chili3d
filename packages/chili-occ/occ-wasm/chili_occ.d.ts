@@ -5046,6 +5046,39 @@ export declare class TopTools_IndexedDataMapOfShapeListOfShape extends NCollecti
     constructor(theOther: TopTools_IndexedDataMapOfShapeListOfShape);
   }
 
+export declare class TopTools_IndexedMapOfShape extends NCollection_BaseMap {
+  cbegin(): any;
+  cend(): any;
+  Exchange(theOther: TopTools_IndexedMapOfShape): void;
+  Assign(theOther: TopTools_IndexedMapOfShape): TopTools_IndexedMapOfShape;
+  ReSize(theExtent: Standard_Integer): void;
+  Add(theKey1: TopoDS_Shape): Standard_Integer;
+  Contains(theKey1: TopoDS_Shape): Standard_Boolean;
+  Substitute(theIndex: Standard_Integer, theKey1: TopoDS_Shape): void;
+  Swap(theIndex1: Standard_Integer, theIndex2: Standard_Integer): void;
+  RemoveLast(): void;
+  RemoveFromIndex(theIndex: Standard_Integer): void;
+  RemoveKey(theKey1: TopoDS_Shape): Standard_Boolean;
+  FindKey(theIndex: Standard_Integer): TopoDS_Shape;
+  FindIndex(theKey1: TopoDS_Shape): Standard_Integer;
+  Clear_1(doReleaseMemory: Standard_Boolean): void;
+  Clear_2(theAllocator: Handle_NCollection_BaseAllocator): void;
+  Size(): Standard_Integer;
+  delete(): void;
+}
+
+  export declare class TopTools_IndexedMapOfShape_1 extends TopTools_IndexedMapOfShape {
+    constructor();
+  }
+
+  export declare class TopTools_IndexedMapOfShape_2 extends TopTools_IndexedMapOfShape {
+    constructor(theNbBuckets: Standard_Integer, theAllocator: Handle_NCollection_BaseAllocator);
+  }
+
+  export declare class TopTools_IndexedMapOfShape_3 extends TopTools_IndexedMapOfShape {
+    constructor(theOther: TopTools_IndexedMapOfShape);
+  }
+
 export declare class TopTools_ListOfShape extends NCollection_BaseList {
   begin(): any;
   end(): any;
@@ -6973,6 +7006,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   TopTools_IndexedDataMapOfShapeListOfShape_1: typeof TopTools_IndexedDataMapOfShapeListOfShape_1;
   TopTools_IndexedDataMapOfShapeListOfShape_2: typeof TopTools_IndexedDataMapOfShapeListOfShape_2;
   TopTools_IndexedDataMapOfShapeListOfShape_3: typeof TopTools_IndexedDataMapOfShapeListOfShape_3;
+  TopTools_IndexedMapOfShape: typeof TopTools_IndexedMapOfShape;
+  TopTools_IndexedMapOfShape_1: typeof TopTools_IndexedMapOfShape_1;
+  TopTools_IndexedMapOfShape_2: typeof TopTools_IndexedMapOfShape_2;
+  TopTools_IndexedMapOfShape_3: typeof TopTools_IndexedMapOfShape_3;
   TopTools_ListOfShape: typeof TopTools_ListOfShape;
   TopTools_ListOfShape_1: typeof TopTools_ListOfShape_1;
   TopTools_ListOfShape_2: typeof TopTools_ListOfShape_2;

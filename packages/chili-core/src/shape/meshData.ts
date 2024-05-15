@@ -26,15 +26,15 @@ export interface ShapeMeshData {
 
 export namespace ShapeMeshData {
     export function isVertex(data: ShapeMeshData): data is VertexMeshData {
-        return (data as VertexMeshData).size !== undefined;
+        return (data as VertexMeshData)?.size !== undefined;
     }
 
     export function isEdge(data: ShapeMeshData): data is EdgeMeshData {
-        return (data as EdgeMeshData).lineType !== undefined;
+        return (data as EdgeMeshData)?.lineType !== undefined;
     }
 
     export function isFace(data: ShapeMeshData): data is FaceMeshData {
-        return (data as FaceMeshData).indices !== undefined;
+        return (data as FaceMeshData)?.indices !== undefined;
     }
 }
 

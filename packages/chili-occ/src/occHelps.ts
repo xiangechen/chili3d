@@ -253,6 +253,15 @@ export class OccHelps {
         }
     }
 
+    static *mapShapes(shape: TopoDS_Shape, shapeType: TopAbs_ShapeEnum) {
+        let indexShape = new occ.TopTools_IndexedMapOfShape_1();
+        occ.TopExp.MapShapes_1(shape, shapeType, indexShape);
+        for (let i = 1; i <= indexShape.Extent(); i++) {
+            const item = indexShape.FindKey(i);
+            yield this.getActualShape(item);
+        }
+    }
+
     static findAncestors(subShape: TopoDS_Shape, from: TopoDS_Shape, ancestorType: TopAbs_ShapeEnum) {
         let map = new occ.TopTools_IndexedDataMapOfShapeListOfShape_1();
         occ.TopExp.MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
@@ -266,7 +275,7 @@ export class OccHelps {
         return shapes;
     }
 
-    static *findSubShapes(
+    static *iterShapes(
         shape: TopoDS_Shape,
         shapeType: TopAbs_ShapeEnum,
         unique: boolean,

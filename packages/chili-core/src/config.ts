@@ -4,7 +4,7 @@ import { Lazy, PubSub } from "./foundation";
 import { ObjectSnapType } from "./snapType";
 
 export const VisualConfig = {
-    defaultEdgeColor: 0xcccccc,
+    defaultEdgeColor: 0x121314,
     defaultFaceColor: 0xdedede,
     highlightEdgeColor: 0xfef08a,
     highlightFaceColor: 0xfef08a,
@@ -18,7 +18,7 @@ export const VisualConfig = {
     trackingVertexColor: 0x0000ff,
     temporaryVertexSize: 3,
     temporaryVertexColor: 0x0000ff,
-    temporaryEdgeColor: 0xeeeeee,
+    temporaryEdgeColor: 0x0000ff,
 };
 
 export class Config {

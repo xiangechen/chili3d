@@ -76,6 +76,7 @@ export default {
         "command.rotate": "Rotate",
         "command.array": "Array",
         "command.mode.repeat": "Repeat",
+        "command.offset": "Offset",
         "command.prism": "Prism",
         "command.revol": "Revol",
         "command.sweep": "Sweep",

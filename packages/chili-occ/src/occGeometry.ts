@@ -45,6 +45,11 @@ export class OccCurve implements ICurve, IDisposable {
         return this.curve.LastParameter();
     }
 
+    parameter(point: XYZ): number {
+        let api = new occ.GeomAPI_ProjectPointOnCurve_2(OccHelps.toPnt(point), this.curve.BasisCurve());
+        return api.LowerDistanceParameter();
+    }
+
     trim(start: number, end: number) {
         this.curve.SetTrim(start, end, true, true);
     }

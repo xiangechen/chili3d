@@ -22,6 +22,7 @@ export type CommandKeys =
     | "create.folder"
     | "create.group"
     | "create.polygon"
+    | "create.offset"
     | "convert.toWire"
     | "convert.toFace"
     | "convert.prism"

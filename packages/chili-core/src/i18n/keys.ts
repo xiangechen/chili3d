@@ -92,6 +92,7 @@ export type I18nKeys =
     | "command.copy"
     | "command.mirror"
     | "command.array"
+    | "command.offset"
     | "command.rotate"
     | "command.polygon"
     | "command.prism"

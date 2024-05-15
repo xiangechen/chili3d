@@ -363,7 +363,7 @@ export class ThreeView extends Observable implements IView {
         if (!wire) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];
-        for (const edge of wire.findSubShapes(ShapeType.Edge, true)) {
+        for (const edge of wire.findSubShapes(ShapeType.Edge)) {
             this.findIndex(groups, edge, indexes);
         }
         return { shape: wire, indexes, directShape: shape };

@@ -1,12 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICurve, IEdge, IWire, ShapeType, XYZ } from "chili-core";
+import { ICurve, IEdge, IWire, Precision, Result, ShapeType, XYZ } from "chili-core";
 
 export class GeoUtils {
     static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ } {
         let res: { edge: IEdge; point: XYZ } | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
-        for (const edge of wire.findSubShapes(ShapeType.Edge, true) as IEdge[]) {
+        for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
             let tempPoint = edge.asCurve().unwrap().nearestPoint(point);
             let tempDistance = tempPoint.distanceTo(point);
             if (tempDistance < minDistance) {
@@ -17,32 +17,51 @@ export class GeoUtils {
         return res!;
     }
 
-    static normal(wire: IWire | IEdge): XYZ {
-        const curveNormal = (curve: ICurve) => {
-            let vec = curve.dn(0, 1);
-            if (vec.isParallelTo(XYZ.unitX)) return XYZ.unitZ;
-            return vec.cross(XYZ.unitX).normalize()!;
-        };
+    private static curveNormal = (curve: ICurve) => {
+        if (ICurve.isConic(curve)) {
+            return curve.plane.normal;
+        }
+        let vec = curve.dn(0, 1);
+        if (vec.isParallelTo(XYZ.unitX)) return XYZ.unitZ;
+        return vec.cross(XYZ.unitX).normalize()!;
+    };
 
-        if (wire.shapeType === ShapeType.Edge) {
-            let curve = (wire as IEdge).asCurve().unwrap();
-            return curveNormal(curve);
+    private static wireNormal = (wire: IWire) => {
+        let face = wire.toFace();
+        if (face.isOk) {
+            return face.unwrap().normal(0, 0)[1];
         }
 
-        let vec1: XYZ | undefined = undefined;
-        let vec2: XYZ | undefined = undefined;
-        let curve: ICurve | undefined = undefined;
+        let firstEdge: IEdge | undefined = undefined;
         for (const edge of wire.iterSubShapes(ShapeType.Edge, true)) {
-            if (vec1 === undefined) {
-                curve = (edge as IEdge).asCurve().unwrap();
-                vec1 = curve.dn(0, 1);
-            } else {
-                vec2 = (edge as IEdge).asCurve().unwrap().dn(0, 1);
-                if (!vec1.isParallelTo(vec2)) {
-                    return vec1.cross(vec2).normalize()!;
-                }
+            firstEdge = edge as IEdge;
+            break;
+        }
+        return this.curveNormal(firstEdge!.asCurve().unwrap());
+    };
+
+    static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
+        let curve = edge.asCurve().unwrap();
+        let point = curve.point(curve.lastParameter());
+        for (const e of wire.iterSubShapes(ShapeType.Edge, true)) {
+            if (e.isEqual(edge)) continue;
+            let testCurve = (e as IEdge).asCurve().unwrap();
+            if (
+                point.distanceTo(testCurve.point(testCurve.firstParameter())) < Precision.Distance ||
+                point.distanceTo(testCurve.point(testCurve.lastParameter())) < Precision.Distance
+            ) {
+                return Result.ok(e as IEdge);
             }
         }
-        return curveNormal(curve!);
+        return Result.err("Cannot find next edge");
+    }
+
+    static normal(shape: IWire | IEdge): XYZ {
+        if (shape.shapeType === ShapeType.Edge) {
+            let curve = (shape as IEdge).asCurve().unwrap();
+            return this.curveNormal(curve);
+        }
+
+        return this.wireNormal(shape as IWire);
     }
 }

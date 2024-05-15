@@ -46,7 +46,7 @@ export class OccMesh implements IShapeMeshData {
     }
 
     private edgeMeshs() {
-        let shapes = OccHelps.findSubShapes(
+        let shapes = OccHelps.iterShapes(
             this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
             true,
@@ -64,7 +64,7 @@ export class OccMesh implements IShapeMeshData {
 
     private updateEdgeMeshShapes() {
         if (!this._lines) return;
-        let shapes = OccHelps.findSubShapes(
+        let shapes = OccHelps.iterShapes(
             this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
             true,
@@ -95,7 +95,7 @@ export class OccMesh implements IShapeMeshData {
     }
 
     private faceMeshs() {
-        let shapes = OccHelps.findSubShapes(
+        let shapes = OccHelps.iterShapes(
             this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
             true,
@@ -114,7 +114,7 @@ export class OccMesh implements IShapeMeshData {
 
     private updateFaceMeshShapes() {
         if (!this._faces) return;
-        let shapes = OccHelps.findSubShapes(
+        let shapes = OccHelps.iterShapes(
             this.shape.shape,
             occ.TopAbs_ShapeEnum.TopAbs_FACE as TopAbs_ShapeEnum,
             true,

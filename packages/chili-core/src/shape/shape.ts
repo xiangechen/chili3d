@@ -58,7 +58,7 @@ export interface IShape {
     isPartner(other: IShape): boolean;
     orientation(): Orientation;
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
-    findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[];
+    findSubShapes(subshapeType: ShapeType): IShape[];
     iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape>;
 }
 
@@ -84,7 +84,6 @@ export interface IWire extends IShape {
 
 export interface IFace extends IShape {
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
-    offset(distance: number, joinType: JoinType): Result<IShape>;
     outerWire(): IWire;
 }
 

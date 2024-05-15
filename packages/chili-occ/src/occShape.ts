@@ -28,6 +28,7 @@ import {
 import {
     Geom_Circle,
     Geom_Line,
+    TopExp,
     TopoDS_Edge,
     TopoDS_Face,
     TopoDS_Shape,
@@ -101,17 +102,18 @@ export class OccShape implements IShape {
         );
     }
 
-    findSubShapes(shapeType: ShapeType, unique: boolean): IShape[] {
+    findSubShapes(shapeType: ShapeType): IShape[] {
         let result = new Array<IShape>();
-        let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
+        let iter = OccHelps.mapShapes(this.shape, OccHelps.getShapeEnum(shapeType));
         for (const it of iter) {
             result.push(OccHelps.wrapShape(it));
         }
+
         return result;
     }
 
     *iterSubShapes(shapeType: ShapeType, unique: boolean = false): IterableIterator<IShape> {
-        let iter = OccHelps.findSubShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
+        let iter = OccHelps.iterShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
         for (const it of iter) {
             yield OccHelps.wrapShape(it);
         }
@@ -234,6 +236,22 @@ export class OccWire extends OccShape implements IWire {
         super(shape, id);
     }
 
+    offset(distance: number, joinType: JoinType): Result<IShape> {
+        let brepOffset = new occ.BRepOffsetAPI_MakeOffset_3(
+            this.shape,
+            OccHelps.getJoinType(joinType),
+            false,
+        );
+        try {
+            brepOffset.Perform(distance, 0.0);
+        } catch (e) {
+            console.error(e);
+
+            return Result.err("Offset error");
+        }
+        return Result.ok(OccHelps.wrapShape(brepOffset.Shape()));
+    }
+
     toFace(): Result<IFace> {
         let make = new occ.BRepBuilderAPI_MakeFace_15(this.shape, true);
         if (make.IsDone()) {
@@ -241,20 +259,6 @@ export class OccWire extends OccShape implements IWire {
         }
         return Result.err("Wire to face error");
     }
-
-    offset(distance: number, joinType: JoinType): Result<IShape> {
-        return makeOffset(this.shape, joinType, distance);
-    }
-}
-
-function makeOffset(shape: TopoDS_Face | TopoDS_Wire, joinType: JoinType, distance: number): Result<IShape> {
-    let ctor =
-        shape.ShapeType() === occ.TopAbs_ShapeEnum.TopAbs_FACE
-            ? occ.BRepOffsetAPI_MakeOffset_2
-            : occ.BRepOffsetAPI_MakeOffset_3;
-    let brepOffset = new ctor(shape, OccHelps.getJoinType(joinType), false);
-    brepOffset.Perform(distance, 0.0);
-    return Result.ok(OccHelps.wrapShape(brepOffset.Shape()));
 }
 
 @Serializer.register("Face", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
@@ -269,10 +273,6 @@ export class OccFace extends OccShape implements IFace {
         let a = new occ.BRepGProp_Face_2(this.shape, false);
         a.Normal(u, v, pnt, dir);
         return [OccHelps.toXYZ(pnt), OccHelps.toXYZ(dir).normalize()!];
-    }
-
-    offset(distance: number, joinType: JoinType): Result<IShape> {
-        return makeOffset(this.shape, joinType, distance);
     }
 
     outerWire(): IWire {

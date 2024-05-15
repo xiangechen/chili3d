@@ -5,6 +5,7 @@ import { CurveType } from "./shape";
 
 export interface ICurve {
     get curveType(): CurveType;
+    parameter(point: XYZ): number;
     firstParameter(): number;
     lastParameter(): number;
     point(parameter: number): XYZ;
@@ -33,6 +34,11 @@ export interface ICircle extends IConic {
 }
 
 export namespace ICurve {
+    export function isConic(curve: ICurve): curve is IConic {
+        let conic = curve as IConic;
+        return conic.plane !== undefined;
+    }
+
     export function isCircle(curve: ICurve): curve is ICircle {
         let circle = curve as ICircle;
         return circle.center !== undefined && circle.radius !== undefined;

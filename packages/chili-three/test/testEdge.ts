@@ -30,7 +30,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    findSubShapes(subshapeType: ShapeType, unique: boolean): IShape[] {
+    findSubShapes(subshapeType: ShapeType): IShape[] {
         throw new Error("Method not implemented.");
     }
     offset(distance: number, dir: XYZ): Result<IEdge> {

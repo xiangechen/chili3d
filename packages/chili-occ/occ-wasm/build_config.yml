@@ -209,6 +209,7 @@ mainBuild:
     - symbol: TopoDS_Vertex
     - symbol: TopoDS_Wire
     - symbol: TopTools_ListOfShape
+    - symbol: TopTools_IndexedMapOfShape
     - symbol: TopTools_IndexedDataMapOfShapeListOfShape
     - symbol: XSControl_Reader
 

@@ -76,6 +76,7 @@ export default {
         "command.rotate": "旋转",
         "command.array": "阵列",
         "command.mode.repeat": "重复",
+        "command.offset": "偏移",
         "command.prism": "拉伸",
         "command.revol": "旋转",
         "command.sweep": "扫略",

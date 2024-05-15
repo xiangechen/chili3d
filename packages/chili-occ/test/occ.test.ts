@@ -47,19 +47,19 @@ describe("shape test", () => {
         let end = new occ.gp_Pnt_3(10, 0, 0);
         let make = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
         let edge = new OccEdge(make.Edge());
-        expect(edge.findSubShapes(ShapeType.Edge, false).length).toBe(1);
-        expect(edge.findSubShapes(ShapeType.Vertex, false).length).toBe(2);
-        expect(edge.findSubShapes(ShapeType.Shape, false).length).toBe(0);
+        expect(edge.findSubShapes(ShapeType.Edge).length).toBe(1);
+        expect(edge.findSubShapes(ShapeType.Vertex).length).toBe(2);
+        expect(edge.findSubShapes(ShapeType.Shape).length).toBe(0);
 
         let make2 = new occ.BRepPrimAPI_MakeBox_2(10, 10, 10);
         let box = new OccSolid(make2.Solid());
-        expect(box.findSubShapes(ShapeType.Edge, false).length).toBe(24);
-        expect(box.findSubShapes(ShapeType.Face, false).length).toBe(6);
-        expect(box.findSubShapes(ShapeType.Vertex, false).length).toBe(48);
-        expect(box.findSubShapes(ShapeType.Wire, false).length).toBe(6);
-        expect(box.findSubShapes(ShapeType.Shell, false).length).toBe(1);
-        expect(box.findSubShapes(ShapeType.Shell, false)[0].shapeType).toBe(ShapeType.Shell);
-        expect(box.findSubShapes(ShapeType.Shape, false).length).toBe(0);
+        expect(box.findSubShapes(ShapeType.Edge).length).toBe(12);
+        expect(box.findSubShapes(ShapeType.Face).length).toBe(6);
+        expect(box.findSubShapes(ShapeType.Vertex).length).toBe(8);
+        expect(box.findSubShapes(ShapeType.Wire).length).toBe(6);
+        expect(box.findSubShapes(ShapeType.Shell).length).toBe(1);
+        expect(box.findSubShapes(ShapeType.Shell)[0].shapeType).toBe(ShapeType.Shell);
+        expect(box.findSubShapes(ShapeType.Shape).length).toBe(0);
 
         let v1s: any[] = [];
         let iter = box.iterSubShapes(ShapeType.Vertex);
@@ -79,7 +79,7 @@ describe("shape test", () => {
     test("test ancestors", () => {
         let make2 = new occ.BRepPrimAPI_MakeBox_2(10, 10, 10);
         let box = new OccSolid(make2.Solid());
-        let edge = box.findSubShapes(ShapeType.Edge, false)[0] as any;
+        let edge = box.findSubShapes(ShapeType.Edge)[0] as any;
         let wire = OccHelps.findAncestors(edge.shape, box.shape, OccHelps.getShapeEnum(ShapeType.Wire));
         expect(wire.length).toBe(2);
         expect(wire[0].ShapeType()).toBe(OccHelps.getShapeEnum(ShapeType.Wire));
@@ -150,7 +150,7 @@ describe("curve test", () => {
             let ps = new occ.gp_Pnt_3(0, 0, 0);
             let pe = new occ.gp_Pnt_3(10, 0, 0);
             let e1 = new occ.BRepBuilderAPI_MakeEdge_3(ps, pe).Edge();
-            let vertexs1 = OccHelps.findSubShapes(
+            let vertexs1 = OccHelps.iterShapes(
                 e1,
                 occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
                 true,
@@ -174,7 +174,7 @@ describe("curve test", () => {
             c2.D0(0, pnt2);
             expect(pnt2.X()).toBeCloseTo(10);
 
-            let vertexs2 = OccHelps.findSubShapes(
+            let vertexs2 = OccHelps.iterShapes(
                 e1,
                 occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum,
                 true,

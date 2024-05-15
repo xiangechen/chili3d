@@ -6,9 +6,9 @@ export * from "./circle";
 export * from "./converter";
 export * from "./fuse";
 export * from "./line";
+export * from "./offset";
 export * from "./polygon";
 export * from "./prism";
 export * from "./rect";
 export * from "./revolve";
 export * from "./sweep";
-
