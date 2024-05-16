@@ -34,7 +34,7 @@ export abstract class GeometryEntity extends Entity {
         if (this._shape.isOk) this._shape.value.matrix = newMatrix;
     }
 
-    protected setShape(shape: Result<IShape>, notify: boolean): boolean {
+    protected changeShape(shape: Result<IShape>, notify: boolean): boolean {
         if (shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
             return false;
         }
@@ -49,16 +49,16 @@ export abstract class GeometryEntity extends Entity {
     }
 }
 
-@Serializer.register("FreeGeometryEntity", ["document", "shape", "materialId"])
-export class FreeGeometry extends GeometryEntity {
+@Serializer.register("EditableGeometryEntity", ["document", "editableShape", "materialId"])
+export class EditableGeometryEntity extends GeometryEntity {
     override display: I18nKeys = "common.angle";
 
     @Serializer.serialze()
-    override get shape(): Result<IShape> {
-        return this._shape;
+    get editableShape(): IShape {
+        return this._shape.unwrap();
     }
-    override set shape(value: Result<IShape>) {
-        this.setShape(value, true);
+    set editableShape(value: IShape) {
+        this.changeShape(Result.ok(value), true);
     }
 
     constructor(document: IDocument, shape: IShape, materialId?: string) {
@@ -71,7 +71,7 @@ export abstract class ParameterGeometry extends GeometryEntity {
     protected shouldRegenerateShape: boolean = true;
     override get shape(): Result<IShape> {
         if (this.shouldRegenerateShape) {
-            this.setShape(this.generateShape(), false);
+            this.changeShape(this.generateShape(), false);
             this.shouldRegenerateShape = false;
         }
         return this._shape;
@@ -89,7 +89,7 @@ export abstract class ParameterGeometry extends GeometryEntity {
                 PubSub.default.pub("showToast", "error.default");
                 return;
             }
-            this.setShape(shape, true);
+            this.changeShape(shape, true);
         }
     }
 

@@ -1,5 +1,5 @@
 import {
-    FreeGeometry,
+    EditableGeometryEntity,
     GeometryModel,
     IEdge,
     IFace,
@@ -26,7 +26,7 @@ export class OffsetCommand extends CreateCommand {
     protected override create(): GeometryModel {
         let normal = this.getAxis().normal;
         let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        let entity = new FreeGeometry(this.document, shape.unwrap());
+        let entity = new EditableGeometryEntity(this.document, shape.unwrap());
         return new GeometryModel(this.document, `Offset${count++}`, entity);
     }
 
