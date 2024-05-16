@@ -30,7 +30,8 @@ export class MainWindow implements IWindow {
 
     private _initSubs(app: IApplication) {
         const displayHome = debounce(this.displayHome, 100);
-        PubSub.default.sub("showToast", Toast.show);
+        PubSub.default.sub("showToast", Toast.info);
+        PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", Dialog.show);
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));

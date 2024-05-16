@@ -6,7 +6,18 @@
     z-index: 10000;
     border-radius: 0.8em;
     background-color: rgba(0, 0, 0, 0.75);
-    color: #fff;
     font-size: 1.2em;
     padding: 1em;
+}
+
+.info {
+    color: #fff;
+}
+
+.error {
+    color: #ff0000;
+}
+
+.warning {
+    color: #ffc107;
 }

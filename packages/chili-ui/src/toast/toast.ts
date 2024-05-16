@@ -7,13 +7,25 @@ import style from "./toast.module.css";
 export class Toast {
     private static _lastToast: [number, HTMLElement] | undefined;
 
-    static readonly show = (message: I18nKeys, ...args: any[]) => {
+    static readonly info = (message: I18nKeys, ...args: any[]) => {
+        Toast.display(style.info, I18n.translate(message, ...args));
+    };
+
+    static readonly error = (message: string) => {
+        Toast.display(style.error, message);
+    };
+
+    static readonly warn = (message: string) => {
+        Toast.display(style.warning, message);
+    };
+
+    private static display(type: string, message: string) {
         if (this._lastToast) {
             clearTimeout(this._lastToast[0]);
             this._lastToast[1].remove();
         }
 
-        const toast = label({ className: style.toast, textContent: I18n.translate(message, ...args) });
+        const toast = label({ className: `${style.toast} ${type}`, textContent: message });
         document.body.appendChild(toast);
         this._lastToast = [
             window.setTimeout(() => {
@@ -22,5 +34,5 @@ export class Toast {
             }, 2000),
             toast,
         ];
-    };
+    }
 }

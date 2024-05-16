@@ -35,6 +35,7 @@ export interface PubSubEventMap {
     displayHome: (show: boolean) => void;
     showProperties(document: IDocument, nodes: INode[]): void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
+    displayError: (message: string) => void;
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
     showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
     viewCursor: (cursor: CursorType) => void;

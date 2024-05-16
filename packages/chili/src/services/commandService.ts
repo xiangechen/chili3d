@@ -54,6 +54,7 @@ export class CommandService implements IService {
         await command
             .execute(this.app)
             .catch((err) => {
+                PubSub.default.pub("displayError", err);
                 Logger.error(err);
             })
             .finally(() => {
