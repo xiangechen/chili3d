@@ -28,7 +28,7 @@ import {
 } from "chili-core";
 import { Selection } from "./selection";
 
-const FILE_VERSIOM = "0.1.2";
+const FILE_VERSIOM = "0.3.0";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;

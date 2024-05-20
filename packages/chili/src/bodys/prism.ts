@@ -10,18 +10,19 @@ import {
     Result,
     Serializer,
 } from "chili-core";
+import { GeoUtils } from "chili-geo";
 
-@Serializer.register("PrismBody", ["document", "face", "length"])
+@Serializer.register("PrismBody", ["document", "section", "length"])
 export class PrismBody extends ParameterGeometry {
     override display: I18nKeys = "body.prism";
 
-    private _face: IFace;
+    private _section: IShape;
     @Serializer.serialze()
-    get face(): IFace {
-        return this._face;
+    get section(): IShape {
+        return this._section;
     }
-    set face(value: IFace) {
-        this.setPropertyAndUpdate("face", value);
+    set section(value: IFace) {
+        this.setPropertyAndUpdate("section", value);
     }
 
     private _length: number;
@@ -34,15 +35,15 @@ export class PrismBody extends ParameterGeometry {
         this.setPropertyAndUpdate("length", value);
     }
 
-    constructor(document: IDocument, face: IFace, length: number) {
+    constructor(document: IDocument, face: IShape, length: number) {
         super(document);
-        this._face = face;
+        this._section = face;
         this._length = length;
     }
 
     protected override generateShape(): Result<IShape> {
-        let [_, normal] = this.face.normal(0, 0);
+        let normal = GeoUtils.normal(this.section as any);
         let vec = normal.multiply(this.length);
-        return this.document.application.shapeFactory.prism(this.face, vec);
+        return this.document.application.shapeFactory.prism(this.section, vec);
     }
 }

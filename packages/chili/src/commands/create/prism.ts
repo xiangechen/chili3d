@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IFace, Precision, ShapeType, command } from "chili-core";
+import { GeometryModel, Precision, ShapeType, command } from "chili-core";
+import { GeoUtils } from "chili-geo";
 import { PrismBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
@@ -16,8 +17,8 @@ let count = 1;
 })
 export class Prism extends CreateCommand {
     protected override create(): GeometryModel {
-        let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
-        let [point, normal] = shape.normal(0, 0);
+        let shape = this.stepDatas[0].shapes[0].shape;
+        const { point, normal } = this.getAxis();
         let dist = this.stepDatas[1].point!.sub(point).dot(normal);
         let body = new PrismBody(this.document, shape, dist);
         return new GeometryModel(this.document, `prism${count++}`, body);
@@ -25,14 +26,17 @@ export class Prism extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false),
+            new SelectShapeStep(
+                ShapeType.Face | ShapeType.Edge | ShapeType.Wire,
+                "prompt.select.shape",
+                false,
+            ),
             new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData),
         ];
     }
 
     private getLengthStepData = (): SnapLengthAtAxisData => {
-        let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
-        let [point, normal] = shape.normal(0, 0);
+        const { point, normal } = this.getAxis();
         return {
             point,
             direction: normal,
@@ -41,8 +45,16 @@ export class Prism extends CreateCommand {
                 let dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
                 let vec = normal.multiply(dist);
+                let shape = this.stepDatas[0].shapes[0].shape;
                 return [this.application.shapeFactory.prism(shape, vec).unwrap().mesh.edges!];
             },
         };
     };
+
+    private getAxis() {
+        let point = this.stepDatas[0].shapes[0].point!;
+        let shape = this.stepDatas[0].shapes[0].shape;
+        let normal = GeoUtils.normal(shape as any);
+        return { point, normal };
+    }
 }
