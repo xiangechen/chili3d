@@ -5,6 +5,7 @@ import {
     IEdge,
     IShape,
     IShapeMeshData,
+    ITrimmedCurve,
     LineType,
     Matrix4,
     Orientation,
@@ -43,8 +44,8 @@ export class TestEdge implements IEdge {
     length(): number {
         return this.start.distanceTo(this.end);
     }
-    asCurve(): Result<ICurve, string> {
-        return Result.err("this");
+    asCurve(): ITrimmedCurve {
+        throw new Error("Method not implemented.");
     }
     get id(): string {
         return "testEdge";

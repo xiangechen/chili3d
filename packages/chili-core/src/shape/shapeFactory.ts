@@ -2,12 +2,14 @@
 
 import { Result } from "../foundation";
 import { Plane, Ray, XYZ } from "../math";
+import { IBezierCurve } from "./curve";
 import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly converter: IShapeConverter;
     face(...wire: IWire[]): Result<IFace>;
+    bezier(points: XYZ[], weights?: number[]): Result<IEdge>;
     point(point: XYZ): Result<IVertex>;
     line(start: XYZ, end: XYZ): Result<IEdge>;
     arc(normal: XYZ, center: XYZ, start: XYZ, angle: number): Result<IEdge>;

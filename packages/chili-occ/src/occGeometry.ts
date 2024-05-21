@@ -1,18 +1,35 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CurveType, ICircle, ICurve, IDisposable, ILine, Plane, XYZ } from "chili-core";
-import { Geom_Circle, Geom_Curve, Geom_Line, Geom_TrimmedCurve } from "../occ-wasm/chili_occ";
+import {
+    CurveType,
+    IBezierCurve,
+    IBoundedCurve,
+    ICircle,
+    ICurve,
+    IDisposable,
+    ILine,
+    IOffsetCurve,
+    ITrimmedCurve,
+    Plane,
+    XYZ,
+} from "chili-core";
+import {
+    Geom_BezierCurve,
+    Geom_BoundedCurve,
+    Geom_Circle,
+    Geom_Curve,
+    Geom_Line,
+    Geom_OffsetCurve,
+    Geom_TrimmedCurve,
+} from "../occ-wasm/chili_occ";
 
 import { OccHelps } from "./occHelps";
 
 export class OccCurve implements ICurve, IDisposable {
-    readonly curve: Geom_TrimmedCurve;
     readonly curveType: CurveType;
 
-    constructor(curve: Geom_Curve, start: number, end: number) {
-        let curveHandle = new occ.Handle_Geom_Curve_2(curve);
+    constructor(readonly curve: Geom_Curve) {
         this.curveType = OccHelps.getCurveType(curve);
-        this.curve = new occ.Geom_TrimmedCurve(curveHandle, start, end, true, true);
     }
 
     nearestPoint(point: XYZ): XYZ {
@@ -46,12 +63,11 @@ export class OccCurve implements ICurve, IDisposable {
     }
 
     parameter(point: XYZ): number {
-        let api = new occ.GeomAPI_ProjectPointOnCurve_2(OccHelps.toPnt(point), this.curve.BasisCurve());
+        let api = new occ.GeomAPI_ProjectPointOnCurve_2(
+            OccHelps.toPnt(point),
+            new occ.Handle_Geom_Curve_2(this.curve),
+        );
         return api.LowerDistanceParameter();
-    }
-
-    trim(start: number, end: number) {
-        this.curve.SetTrim(start, end, true, true);
     }
 
     project(point: XYZ): XYZ[] {
@@ -125,20 +141,8 @@ export class OccCurve implements ICurve, IDisposable {
 }
 
 export class OccLine extends OccCurve implements ILine {
-    constructor(
-        private line: Geom_Line,
-        start: number,
-        end: number,
-    ) {
-        super(line, start, end);
-    }
-
-    get start(): XYZ {
-        return OccHelps.toXYZ(this.curve.StartPoint());
-    }
-
-    get endPoint(): XYZ {
-        return OccHelps.toXYZ(this.curve.EndPoint());
+    constructor(private line: Geom_Line) {
+        super(line);
     }
 
     get direction(): XYZ {
@@ -170,12 +174,8 @@ export class OccCircle extends OccCurve implements ICircle {
         this.circle.SetPosition(OccHelps.toAx2(value));
     }
 
-    constructor(
-        private circle: Geom_Circle,
-        start: number,
-        end: number,
-    ) {
-        super(circle, start, end);
+    constructor(private circle: Geom_Circle) {
+        super(circle);
     }
 
     get center(): XYZ {
@@ -192,5 +192,110 @@ export class OccCircle extends OccCurve implements ICircle {
 
     set radius(value: number) {
         this.circle.SetRadius(value);
+    }
+}
+
+export class OccBoundedCurve extends OccCurve implements IBoundedCurve {
+    constructor(private boundedCurve: Geom_BoundedCurve) {
+        super(boundedCurve);
+    }
+
+    startPoint(): XYZ {
+        return OccHelps.toXYZ(this.boundedCurve.StartPoint());
+    }
+
+    endPoint(): XYZ {
+        return OccHelps.toXYZ(this.boundedCurve.EndPoint());
+    }
+}
+
+export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
+    constructor(private trimmedCurve: Geom_TrimmedCurve) {
+        super(trimmedCurve);
+    }
+
+    basisCurve(): ICurve {
+        return OccHelps.wrapCurve(this.trimmedCurve.BasisCurve().get());
+    }
+}
+
+export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
+    constructor(private offsetCurve: Geom_OffsetCurve) {
+        super(offsetCurve);
+    }
+
+    basisCurve(): ICurve {
+        return OccHelps.wrapCurve(this.offsetCurve.BasisCurve().get());
+    }
+
+    offset(): number {
+        return this.offsetCurve.Offset();
+    }
+
+    direction(): XYZ {
+        return OccHelps.toXYZ(this.offsetCurve.Direction());
+    }
+}
+
+export class OccBezierCurve extends OccBoundedCurve implements IBezierCurve {
+    constructor(private bezier: Geom_BezierCurve) {
+        super(bezier);
+    }
+
+    weight(index: number): number {
+        return this.bezier.Weight(index);
+    }
+
+    insertPoleAfter(index: number, point: XYZ, weight: number | undefined): void {
+        if (weight === undefined) {
+            this.bezier.InsertPoleAfter_1(index, OccHelps.toPnt(point));
+        } else {
+            this.bezier.InsertPoleAfter_2(index, OccHelps.toPnt(point), weight);
+        }
+    }
+
+    insertPoleBefore(index: number, point: XYZ, weight: number | undefined): void {
+        if (weight === undefined) {
+            this.bezier.InsertPoleBefore_1(index, OccHelps.toPnt(point));
+        } else {
+            this.bezier.InsertPoleBefore_2(index, OccHelps.toPnt(point), weight);
+        }
+    }
+
+    removePole(index: number): void {
+        this.bezier.RemovePole(index);
+    }
+
+    setPole(index: number, point: XYZ, weight: number | undefined): void {
+        if (weight === undefined) {
+            this.bezier.SetPole_1(index, OccHelps.toPnt(point));
+        } else {
+            this.bezier.SetPole_2(index, OccHelps.toPnt(point), weight);
+        }
+    }
+
+    setWeight(index: number, weight: number): void {
+        this.setWeight(index, weight);
+    }
+
+    nbPoles(): number {
+        return this.bezier.NbPoles();
+    }
+
+    pole(index: number): XYZ {
+        return OccHelps.toXYZ(this.bezier.Pole(index));
+    }
+
+    degree(): number {
+        return this.bezier.Degree();
+    }
+
+    poles(): XYZ[] {
+        let result: XYZ[] = [];
+        let pls = this.bezier.Poles_2();
+        for (let i = 1; i <= pls.Length(); i++) {
+            result.push(OccHelps.toXYZ(pls.Value(i)));
+        }
+        return result;
     }
 }

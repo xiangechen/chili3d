@@ -217,6 +217,9 @@ export abstract class SnapEventHandler implements IEventHandler {
         if (event.key === "Escape") {
             this._snaped = undefined;
             this.cancel();
+        } else if (event.key === "Enter") {
+            this._snaped = undefined;
+            this.finish();
         } else if (["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
             PubSub.default.pub("showInput", event.key, (text: string) => {
                 let error = this.inputError(text);

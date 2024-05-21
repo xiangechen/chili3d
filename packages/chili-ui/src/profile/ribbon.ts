@@ -23,6 +23,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.circle",
                     "create.polygon",
                     "create.box",
+                    "create.bezier",
                 ],
             },
             {

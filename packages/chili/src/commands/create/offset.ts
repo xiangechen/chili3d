@@ -84,7 +84,7 @@ export class OffsetCommand extends CreateCommand {
     }
 
     private getEdgeAxis(edge: IEdge, start: XYZ) {
-        let curve = edge.asCurve().unwrap();
+        let curve = edge.asCurve();
         let direction = curve.dn(curve.parameter(start), 1);
         let normal = GeoUtils.normal(edge);
         return {
@@ -101,9 +101,9 @@ export class OffsetCommand extends CreateCommand {
         }
         let nearest = GeoUtils.nearestPoint(wire, start);
         let nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).unwrap();
-        let direction = nearest.edge.asCurve().unwrap().dn(0, 1);
+        let direction = nearest.edge.asCurve().dn(0, 1);
         let scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
-        let nextDirection = nextEdge.asCurve().unwrap().dn(0, 1).multiply(scale);
+        let nextDirection = nextEdge.asCurve().dn(0, 1).multiply(scale);
         if (direction.cross(nextDirection).normalize()?.isOppositeTo(normal)) {
             direction = direction.multiply(-1);
         }

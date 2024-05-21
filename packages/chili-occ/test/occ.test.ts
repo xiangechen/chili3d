@@ -23,10 +23,7 @@ describe("shape test", () => {
         expect(make1.IsDone()).toBeTruthy();
         let edge1 = new OccEdge(make1.Edge());
         expect(edge1.shapeType).toBe(ShapeType.Edge);
-        let ps = edge1
-            .asCurve()
-            .unwrap()!
-            .project(new XYZ(5, 0, 0));
+        let ps = edge1.asCurve().project(new XYZ(5, 0, 0));
         expect(ps.length).toBe(1);
         expect(ps[0].x).toBe(5);
 
@@ -93,12 +90,12 @@ describe("geometry test", () => {
         let make = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
         expect(make.IsDone()).toBeTruthy();
         let edge = new OccEdge(make.Edge());
-        let curve = edge.asCurve().unwrap()!;
+        let curve = edge.asCurve();
         expect(curve instanceof OccCurve).toBe(true);
         expect(edge.length()).toBe(20);
         expect(curve.point(curve.firstParameter()).x).toBe(-10);
         expect(curve.point(curve.lastParameter()).x).toBe(10);
-        expect(curve.curveType).toBe(CurveType.Line);
+        expect(curve.curveType).toBe(CurveType.TrimmedCurve);
         expect(curve.point(0).x).toBe(-10);
         expect(curve.firstParameter()).toBe(0);
         expect(curve.lastParameter()).toBe(20);
@@ -208,9 +205,9 @@ describe("curve test", () => {
             let shape = new OccEdge(e1);
             shape.matrix = Matrix4.createTranslation(10, 20, 30);
             let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
-            let p2 = shape.asCurve().unwrap().point(0);
+            let p2 = shape.asCurve().point(0);
             expect(p2?.x).toBeCloseTo(20);
-            expect(edge.asCurve().unwrap().point(0).x).toBeCloseTo(20);
+            expect(edge.asCurve().point(0).x).toBeCloseTo(20);
         });
     });
 });

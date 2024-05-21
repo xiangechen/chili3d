@@ -86,6 +86,7 @@ export type I18nKeys =
     | "command.line"
     | "command.line.isConnected"
     | "command.box"
+    | "command.bezier"
     | "command.circle"
     | "command.rect"
     | "command.move"

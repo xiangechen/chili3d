@@ -1,9 +1,25 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CurveType, IShape, Id, JoinType, Matrix4, Orientation, Plane, ShapeType, XYZ } from "chili-core";
+import {
+    CurveType,
+    ICurve,
+    IShape,
+    Id,
+    JoinType,
+    Matrix4,
+    Orientation,
+    Plane,
+    ShapeType,
+    XYZ,
+} from "chili-core";
 import {
     GeomAbs_JoinType,
+    Geom_BezierCurve,
+    Geom_Circle,
     Geom_Curve,
+    Geom_Line,
+    Geom_OffsetCurve,
+    Geom_TrimmedCurve,
     TopAbs_ShapeEnum,
     TopoDS_Shape,
     gp_Ax2,
@@ -26,6 +42,7 @@ import {
     OccVertex,
     OccWire,
 } from "./occShape";
+import { OccBezierCurve, OccCircle, OccLine, OccOffsetCurve, OccTrimmedCurve } from "./occGeometry";
 
 export class OccHelps {
     static toXYZ(p: gp_Pnt | gp_Dir | gp_Vec): XYZ {
@@ -128,7 +145,9 @@ export class OccHelps {
         else if (isType("Geom_BezierCurve")) return CurveType.BezierCurve;
         else if (isType("Geom_BSplineCurve")) return CurveType.BSplineCurve;
         else if (isType("Geom_OffsetCurve")) return CurveType.OffsetCurve;
-        else return CurveType.OtherCurve;
+        else if (isType("Geom_TrimmedCurve")) return CurveType.TrimmedCurve;
+
+        throw new Error("Unknown curve type");
     }
 
     static getShapeType(shape: TopoDS_Shape): ShapeType {
@@ -228,6 +247,21 @@ export class OccHelps {
             default:
                 return new OccShape(shape, id);
         }
+    }
+
+    static wrapCurve(curve: Geom_Curve): ICurve {
+        let isType = (type: string) => curve.IsInstance_2(type);
+        if (isType("Geom_Line")) return new OccLine(curve as Geom_Line);
+        else if (isType("Geom_Circle")) return new OccCircle(curve as Geom_Circle);
+        // else if (isType("Geom_Ellipse")) return new OccLine(curve as Geom_Line);
+        // else if (isType("Geom_Hyperbola")) return new OccLine(curve as Geom_Line);
+        // else if (isType("Geom_Parabola")) return new OccLine(curve as Geom_Line);
+        else if (isType("Geom_BezierCurve")) return new OccBezierCurve(curve as Geom_BezierCurve);
+        // else if (isType("Geom_BSplineCurve")) return new OccLine(curve as Geom_Line);
+        else if (isType("Geom_OffsetCurve")) return new OccOffsetCurve(curve as Geom_OffsetCurve);
+        else if (isType("Geom_TrimmedCurve")) return new OccTrimmedCurve(curve as Geom_TrimmedCurve);
+
+        throw new Error("Unknown curve type");
     }
 
     static getActualShape(shape: TopoDS_Shape): TopoDS_Shape {

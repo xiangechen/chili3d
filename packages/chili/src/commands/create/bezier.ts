@@ -2,34 +2,28 @@
 
 import {
     AsyncController,
-    EdgeMeshDataBuilder,
+    EditableGeometryEntity,
     GeometryModel,
-    I18n,
-    Precision,
     ShapeMeshData,
     XYZ,
     command,
 } from "chili-core";
-import { PolygonBody } from "../../bodys";
-import { Dimension, SnapPointData, SnapedData } from "../../snap";
+import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
-import { CreateFaceableCommand } from "../createCommand";
+import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.polygon",
-    display: "command.polygon",
-    icon: "icon-polygon",
+    name: "create.bezier",
+    display: "command.bezier",
+    icon: "icon-bezier",
 })
-export class Polygon extends CreateFaceableCommand {
+export class BezierCommand extends CreateCommand {
     static count = 0;
 
     protected override create(): GeometryModel {
-        let body = new PolygonBody(
-            this.document,
-            this.stepDatas.map((step) => step.point!),
-        );
-        body.isFace = this.isFace;
-        return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
+        let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
+        let body = new EditableGeometryEntity(this.document, bezier.unwrap());
+        return new GeometryModel(this.document, `Bezier ${BezierCommand.count++}`, body);
     }
 
     protected override async executeSteps(): Promise<boolean> {
@@ -44,17 +38,7 @@ export class Polygon extends CreateFaceableCommand {
                 return this.controller.result?.status === "success";
             }
             this.stepDatas.push(data);
-            if (this.isClose(data)) {
-                return true;
-            }
         }
-    }
-
-    private isClose(data: SnapedData) {
-        return (
-            this.stepDatas.length > 1 &&
-            this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Distance
-        );
     }
 
     protected override getSteps(): IStep[] {
@@ -69,24 +53,33 @@ export class Polygon extends CreateFaceableCommand {
             dimension: Dimension.D1D2D3,
             validators: [this.validator],
             preview: this.preview,
-            featurePoints: [
-                {
-                    point: this.stepDatas.at(0)!.point!,
-                    prompt: I18n.translate("prompt.polygon.close"),
-                    when: () => this.stepDatas.length > 2,
-                },
-            ],
         };
     };
 
     private preview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let ps = this.stepDatas.map((data) => this.previewPoint(data.point!));
-        let edges = new EdgeMeshDataBuilder();
-        this.stepDatas.forEach((data) => edges.addPosition(data.point!.x, data.point!.y, data.point!.z));
+        let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.previewPoint(data.point!));
+        let points = this.stepDatas.map((data) => data.point) as XYZ[];
         if (point) {
-            edges.addPosition(point.x, point.y, point.z);
+            points.push(point);
         }
-        return [...ps, edges.build()];
+        if (points.length > 1) {
+            ps.push(...this.previewLines(points));
+            let bezier = this.application.shapeFactory.bezier(points);
+            ps.push(bezier.unwrap().mesh.edges!);
+        }
+
+        return ps;
+    };
+
+    private previewLines = (points: XYZ[]): ShapeMeshData[] => {
+        if (points.length < 2) {
+            return [];
+        }
+        let res: ShapeMeshData[] = [];
+        for (let i = 1; i < points.length; i++) {
+            res.push(this.previewLine(points[i - 1], points[i]));
+        }
+        return res;
     };
 
     private validator = (point: XYZ): boolean => {

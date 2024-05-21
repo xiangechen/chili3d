@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    IBezierCurve,
     ICompound,
     IEdge,
     IFace,
@@ -20,12 +21,14 @@ import {
 import {
     BRepAlgoAPI_BooleanOperation,
     BRepBuilderAPI_MakeWire,
+    Geom_BezierCurve,
     Message_ProgressRange,
     TopoDS_Shape,
 } from "../occ-wasm/chili_occ";
 import { OccShapeConverter } from "./occConverter";
 import { OccHelps } from "./occHelps";
 import { OccCompound, OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
+import { OccBezierCurve } from "./occGeometry";
 
 export class ShapeFactory implements IShapeFactory {
     readonly converter: IShapeConverter = new OccShapeConverter();
@@ -89,6 +92,25 @@ export class ShapeFactory implements IShapeFactory {
             return Result.ok(new OccEdge(builder.Edge()));
         }
         return Result.err("Create arc error");
+    }
+
+    bezier(points: XYZ[], weights?: number[]): Result<IEdge> {
+        let tolPoints = new occ.TColgp_Array1OfPnt_2(1, points.length);
+        points.forEach((x, i) => {
+            tolPoints.SetValue(i + 1, OccHelps.toPnt(x));
+        });
+        let bezier: Geom_BezierCurve;
+        if (weights) {
+            let tolWeights = new occ.TColStd_Array1OfReal_2(1, weights.length);
+            weights.forEach((x, i) => {
+                tolWeights.SetValue(i + 1, x);
+            });
+            bezier = new occ.Geom_BezierCurve_2(tolPoints, tolPoints);
+        } else {
+            bezier = new occ.Geom_BezierCurve_1(tolPoints);
+        }
+        let edge = new occ.BRepBuilderAPI_MakeEdge_24(new occ.Handle_Geom_Curve_2(bezier));
+        return Result.ok(new OccEdge(edge.Edge()));
     }
 
     circle(normal: XYZ, center: XYZ, radius: number): Result<IEdge, string> {

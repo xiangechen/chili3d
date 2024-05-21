@@ -54,6 +54,7 @@ export default {
         "line.end": "终点",
         "polygon.points": "点",
         "command.arc": "圆弧",
+        "command.bezier": "贝塞尔",
         "command.boolean.common": "相交",
         "command.boolean.cut": "剪切",
         "command.boolean.fuse": "融合",

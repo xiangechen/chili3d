@@ -15,6 +15,7 @@ export type CommandKeys =
     | "file.export.iges"
     | "file.export.stp"
     | "create.arc"
+    | "create.bezier"
     | "create.box"
     | "create.line"
     | "create.circle"

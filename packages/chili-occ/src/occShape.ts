@@ -11,6 +11,7 @@ import {
     IShapeMeshData,
     IShell,
     ISolid,
+    ITrimmedCurve,
     IVertex,
     IWire,
     Id,
@@ -37,7 +38,7 @@ import {
 } from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
-import { OccCircle, OccCurve, OccLine } from "./occGeometry";
+import { OccCircle, OccCurve, OccLine, OccTrimmedCurve } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
@@ -157,12 +158,6 @@ export class OccEdge extends OccShape implements IEdge {
         super(shape, id);
     }
 
-    static fromCurve(curve: OccCurve): OccEdge {
-        let trimmed = new occ.Handle_Geom_TrimmedCurve_2(curve.curve);
-        let edge = new occ.BRepBuilderAPI_MakeEdge_24(trimmed);
-        return new OccEdge(edge.Edge());
-    }
-
     intersect(other: IEdge | Ray): XYZ[] {
         if (other instanceof Ray) {
             let start = OccHelps.toPnt(other.location);
@@ -211,22 +206,11 @@ export class OccEdge extends OccShape implements IEdge {
         return Result.ok(new OccEdge(edge.Edge()));
     }
 
-    asCurve(): Result<ICurve> {
+    asCurve(): ITrimmedCurve {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
-        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e).get();
-        let curveType = OccHelps.getCurveType(curve);
-        if (curveType === CurveType.Line) {
-            return Result.ok(new OccLine(curve as Geom_Line, s.current, e.current));
-        }
-        if (curveType === CurveType.Circle) {
-            return Result.ok(new OccCircle(curve as Geom_Circle, s.current, e.current));
-        }
-        if (curveType === CurveType.OffsetCurve) {
-            return Result.ok(new OccCurve(curve, s.current, e.current));
-        }
-        Logger.warn(`Unsupported curve type: ${curveType}`);
-        return Result.ok(new OccCurve(curve, s.current, e.current));
+        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
+        return new OccTrimmedCurve(new occ.Geom_TrimmedCurve(curve, s.current, e.current, true, true));
     }
 }
 

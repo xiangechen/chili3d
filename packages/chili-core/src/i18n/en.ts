@@ -54,6 +54,7 @@ export default {
         "line.end": "End",
         "polygon.points": "Points",
         "command.arc": "Arc",
+        "command.bezier": "Bezier",
         "command.boolean.common": "Common",
         "command.boolean.cut": "Cut",
         "command.boolean.fuse": "Fuse",

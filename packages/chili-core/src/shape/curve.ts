@@ -9,7 +9,6 @@ export interface ICurve {
     firstParameter(): number;
     lastParameter(): number;
     point(parameter: number): XYZ;
-    trim(start: number, end: number): void;
     project(point: XYZ): XYZ[];
     isCN(n: number): boolean;
     d0(u: number): XYZ;
@@ -31,6 +30,34 @@ export interface IConic extends ICurve {
 export interface ICircle extends IConic {
     center: XYZ;
     radius: number;
+}
+
+export interface IBoundedCurve extends ICurve {
+    startPoint(): XYZ;
+    endPoint(): XYZ;
+}
+
+export interface IBezierCurve extends IBoundedCurve {
+    degree(): number;
+    weight(index: number): number;
+    insertPoleAfter(index: number, point: XYZ, weight: number | undefined): void;
+    insertPoleBefore(index: number, point: XYZ, weight: number | undefined): void;
+    removePole(index: number): void;
+    setPole(index: number, point: XYZ, weight: number | undefined): void;
+    setWeight(index: number, weight: number): void;
+    nbPoles(): number;
+    pole(index: number): XYZ;
+    poles(): XYZ[];
+}
+
+export interface ITrimmedCurve extends IBoundedCurve {
+    basisCurve(): ICurve;
+}
+
+export interface IOffsetCurve extends ICurve {
+    basisCurve(): ICurve;
+    offset(): number;
+    direction(): XYZ;
 }
 
 export namespace ICurve {

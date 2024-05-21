@@ -2,7 +2,7 @@
 
 import { Result } from "../foundation";
 import { Matrix4, Ray, XYZ } from "../math";
-import { ICurve } from "./curve";
+import { ICurve, ITrimmedCurve } from "./curve";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
 
@@ -16,6 +16,7 @@ export enum CurveType {
     BSplineCurve,
     OffsetCurve,
     OtherCurve,
+    TrimmedCurve,
 }
 
 export enum SurfaceType {
@@ -67,7 +68,7 @@ export interface IVertex extends IShape {}
 export interface IEdge extends IShape {
     intersect(other: IEdge | Ray): XYZ[];
     length(): number;
-    asCurve(): Result<ICurve>;
+    asCurve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
 }
 
