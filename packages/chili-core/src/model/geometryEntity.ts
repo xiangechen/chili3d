@@ -49,21 +49,24 @@ export abstract class GeometryEntity extends Entity {
     }
 }
 
-@Serializer.register("EditableGeometryEntity", ["document", "editableShape", "materialId"])
+@Serializer.register(
+    "EditableGeometryEntity",
+    ["document", "shape", "materialId"],
+    undefined,
+    EditableGeometryEntity.serializer,
+)
 export class EditableGeometryEntity extends GeometryEntity {
     override display: I18nKeys = "common.angle";
-
-    @Serializer.serialze()
-    get editableShape(): IShape {
-        return this._shape.unwrap();
-    }
-    set editableShape(value: IShape) {
-        this.changeShape(Result.ok(value), true);
-    }
 
     constructor(document: IDocument, shape: IShape, materialId?: string) {
         super(document, materialId);
         this._shape = Result.ok(shape);
+    }
+
+    static serializer(target: EditableGeometryEntity) {
+        let properties = Serializer.serializeProperties(target);
+        properties["shape"] = Serializer.serializeObject(target.shape.value!);
+        return properties;
     }
 }
 

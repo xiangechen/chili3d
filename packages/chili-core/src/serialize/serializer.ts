@@ -144,22 +144,24 @@ export namespace Serializer {
 }
 
 export namespace Serializer {
-    export function serializeObject(target: Object): Serialized {
-        let key = ClassMap.getKey(target.constructor as any);
-        if (key === undefined)
+    export function serializeObject(target: Object) {
+        let classKey = ClassMap.getKey(target.constructor as any);
+        if (classKey === undefined || !reflectMap.has(classKey)) {
             throw new Error(
                 `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );
-        let data: Serialized = {
-            classKey: key,
-            properties: {},
+        }
+        let data = reflectMap.get(classKey)!;
+        let properties = data.serialize?.(target) ?? serializeProperties(target);
+        return {
+            classKey,
+            properties,
         };
-        let properties = getAllKeysOfPrototypeChain(target, propertiesMap);
-        serializeProperties(data.properties, target, properties);
-        return data;
     }
 
-    function serializeProperties(data: SerializedProperties<any>, target: Object, keys: Set<string>) {
+    export function serializeProperties(target: Object) {
+        let data: SerializedProperties<any> = {};
+        let keys = getAllKeysOfPrototypeChain(target, propertiesMap);
         for (const key of keys) {
             let value = (target as any)[key];
             if (Array.isArray(value)) {
@@ -168,32 +170,18 @@ export namespace Serializer {
                 data[key] = serializePropertyValue(value);
             }
         }
+        return data;
     }
 
     function serializePropertyValue(value: any) {
         let type = typeof value;
         if (type === "object") {
-            return serializeObjectType(value);
+            return serializeObject(value);
         }
         if (type !== "function" && type !== "symbol") {
             return value;
         }
         throw new Error(`Unsupported serialized object: ${value}`);
-    }
-
-    function serializeObjectType(target: Object) {
-        let key = ClassMap.getKey(target.constructor as any);
-        if (key === undefined || !reflectMap.has(key)) {
-            throw new Error(`Unsupported serialized object: ${target.constructor.name}`);
-        }
-        let data = reflectMap.get(key)!;
-        if (data.serialize) {
-            return {
-                classKey: key,
-                properties: data.serialize(target),
-            };
-        }
-        return serializeObject(target);
     }
 
     function getAllKeysOfPrototypeChain(target: Object, map: Map<new (...args: any[]) => any, Set<string>>) {
