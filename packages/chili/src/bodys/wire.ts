@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IEdge, IShape, ParameterGeometry, Result, Serializer } from "chili-core";
+import { I18nKeys, IDocument, IEdge, IShape, ParameterBody, Result, Serializer } from "chili-core";
 
 @Serializer.register("WireBody", ["document", "edges"])
-export class WireBody extends ParameterGeometry {
+export class WireBody extends ParameterBody {
     override display: I18nKeys = "body.wire";
 
     private _edges: IEdge[];
@@ -12,7 +12,7 @@ export class WireBody extends ParameterGeometry {
         return this._edges;
     }
     set edges(values: IEdge[]) {
-        this.setPropertyAndUpdate("edges", values);
+        this.setProperty("edges", values);
     }
 
     constructor(document: IDocument, edges: IEdge[]) {
@@ -20,7 +20,7 @@ export class WireBody extends ParameterGeometry {
         this._edges = [...edges];
     }
 
-    protected override generateShape(): Result<IShape> {
+    override generateShape(): Result<IShape> {
         return this.document.application.shapeFactory.wire(...this.edges);
     }
 }

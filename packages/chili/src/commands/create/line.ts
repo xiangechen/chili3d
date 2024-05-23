@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, Precision, Property, XYZ, command } from "chili-core";
+import { GeometryEntity, ParameterGeometryEntity, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
 import { Dimension, SnapPointData } from "../../snap";
 import { IStep, PointStep } from "../../step";
@@ -12,8 +12,6 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    private static count: number = 1;
-
     private _isContinue: boolean = false;
     @Property.define("command.line.isConnected", {
         dependencies: [{ property: "repeatOperation", value: true }],
@@ -25,9 +23,9 @@ export class Line extends CreateCommand {
         this.setProperty("isContinue", value);
     }
 
-    create(): GeometryModel {
+    geometryEntity(): GeometryEntity {
         let body = new LineBody(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
-        return new GeometryModel(this.document, `Line ${Line.count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     getSteps(): IStep[] {

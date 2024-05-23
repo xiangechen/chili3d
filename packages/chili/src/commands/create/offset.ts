@@ -1,6 +1,6 @@
 import {
     EditableGeometryEntity,
-    GeometryModel,
+    GeometryEntity,
     IEdge,
     IFace,
     IShape,
@@ -15,19 +15,16 @@ import { GeoUtils } from "chili-geo";
 import { IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
-let count = 1;
-
 @command({
     name: "create.offset",
     display: "command.offset",
     icon: "icon-offset",
 })
 export class OffsetCommand extends CreateCommand {
-    protected override create(): GeometryModel {
+    protected override geometryEntity(): GeometryEntity {
         let normal = this.getAxis().normal;
         let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        let entity = new EditableGeometryEntity(this.document, shape.unwrap());
-        return new GeometryModel(this.document, `Offset${count++}`, entity);
+        return new EditableGeometryEntity(this.document, shape.unwrap());
     }
 
     protected override getSteps(): IStep[] {

@@ -3,8 +3,9 @@
 import {
     AsyncController,
     EdgeMeshDataBuilder,
-    GeometryModel,
+    GeometryEntity,
     I18n,
+    ParameterGeometryEntity,
     Precision,
     ShapeMeshData,
     XYZ,
@@ -21,15 +22,13 @@ import { CreateFaceableCommand } from "../createCommand";
     icon: "icon-polygon",
 })
 export class Polygon extends CreateFaceableCommand {
-    static count = 0;
-
-    protected override create(): GeometryModel {
+    protected override geometryEntity(): GeometryEntity {
         let body = new PolygonBody(
             this.document,
             this.stepDatas.map((step) => step.point!),
         );
         body.isFace = this.isFace;
-        return new GeometryModel(this.document, `Polygon ${Polygon.count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     protected override async executeSteps(): Promise<boolean> {

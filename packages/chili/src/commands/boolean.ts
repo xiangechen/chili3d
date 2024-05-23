@@ -1,14 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IShape, Result, command } from "chili-core";
+import { GeometryEntity, GeometryModel, IShape, ParameterGeometryEntity, Result, command } from "chili-core";
 import { BooleanBody } from "../bodys/boolean";
 import { IStep, SelectModelStep } from "../step";
 import { CreateCommand } from "./createCommand";
 
-let count = 1;
-
 export abstract class BooleanOperate extends CreateCommand {
-    protected override create(): GeometryModel {
+    protected override geometryEntity(): GeometryEntity {
         let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.geometry.shape.value!;
         let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.geometry.shape.value!;
         let booleanType = this.getBooleanOperateType();
@@ -25,7 +23,7 @@ export abstract class BooleanOperate extends CreateCommand {
         this.stepDatas.forEach((x) => {
             x.models?.at(0)?.parent?.remove(x.models[0]);
         });
-        return new GeometryModel(this.document, `Bolean ${count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     protected abstract getBooleanOperateType(): "common" | "cut" | "fuse";

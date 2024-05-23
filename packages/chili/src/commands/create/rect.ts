@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import {
+    GeometryEntity,
+    MathUtils,
+    ParameterGeometryEntity,
+    Plane,
+    Property,
+    XYZ,
+    command,
+} from "chili-core";
 import { RectBody } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -76,8 +84,6 @@ export abstract class RectCommandBase extends CreateCommand {
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
-    private static count: number = 1;
-
     protected _isFace: boolean = false;
     @Property.define("command.faceable.isFace")
     public get isFace() {
@@ -87,10 +93,10 @@ export class Rect extends RectCommandBase {
         this.setProperty("isFace", value);
     }
 
-    protected create(): GeometryModel {
+    protected geometryEntity(): GeometryEntity {
         let rect = this.getRectData(this.stepDatas[1].point!);
         let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
         body.isFace = this._isFace;
-        return new GeometryModel(this.document, `Rect ${Rect.count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 }

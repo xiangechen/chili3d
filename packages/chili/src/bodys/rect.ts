@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    FaceableGeometry,
+    FacebaseParameterBody,
     I18nKeys,
     IDocument,
     IShape,
@@ -13,7 +13,7 @@ import {
 } from "chili-core";
 
 @Serializer.register("RectBody", ["document", "plane", "dx", "dy"])
-export class RectBody extends FaceableGeometry {
+export class RectBody extends FacebaseParameterBody {
     readonly display: I18nKeys = "body.rect";
 
     private _dx: number;
@@ -23,7 +23,7 @@ export class RectBody extends FaceableGeometry {
         return this._dx;
     }
     set dx(dx: number) {
-        this.setPropertyAndUpdate("dx", dx);
+        this.setProperty("dx", dx);
     }
 
     private _dy: number;
@@ -33,7 +33,7 @@ export class RectBody extends FaceableGeometry {
         return this._dy;
     }
     set dy(dy: number) {
-        this.setPropertyAndUpdate("dy", dy);
+        this.setProperty("dy", dy);
     }
 
     private _plane: Plane;
@@ -49,7 +49,7 @@ export class RectBody extends FaceableGeometry {
         this._dy = dy;
     }
 
-    protected generateShape(): Result<IShape, string> {
+    generateShape(): Result<IShape, string> {
         let points = RectBody.points(this.plane, this._dx, this._dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;

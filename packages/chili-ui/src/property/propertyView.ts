@@ -8,6 +8,7 @@ import {
     IDocument,
     INode,
     IView,
+    ParameterGeometryEntity,
     Property,
     PubSub,
 } from "chili-core";
@@ -102,14 +103,16 @@ export class PropertyView extends HTMLElement {
     }
 
     private addParameters(geometries: GeometryEntity[], document: IDocument) {
-        let parameters = new Expander(geometries[0].display);
+        let entities = geometries
+            .map((x) => (x as ParameterGeometryEntity).body)
+            .filter((x) => x !== undefined);
+        if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
+        let parameters = new Expander(entities[0].display);
         this.panel.append(parameters);
         parameters.classList.add(style.expander);
-        Property.getProperties(Object.getPrototypeOf(geometries[0]), GeometryEntity.prototype).forEach(
-            (x) => {
-                appendProperty(parameters.contenxtPanel, document, geometries, x);
-            },
-        );
+        Property.getProperties(Object.getPrototypeOf(entities[0])).forEach((x) => {
+            appendProperty(parameters.contenxtPanel, document, entities, x);
+        });
     }
 
     private isAllElementsOfTypeFirstElement(arr: any[]): boolean {

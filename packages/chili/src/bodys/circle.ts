@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    FaceableGeometry,
+    FacebaseParameterBody,
     I18nKeys,
     IDocument,
     IShape,
@@ -12,7 +12,7 @@ import {
 } from "chili-core";
 
 @Serializer.register("CircleBody", ["document", "normal", "center", "radius"])
-export class CircleBody extends FaceableGeometry {
+export class CircleBody extends FacebaseParameterBody {
     readonly display: I18nKeys = "body.circle";
 
     private _center: XYZ;
@@ -23,7 +23,7 @@ export class CircleBody extends FaceableGeometry {
         return this._center;
     }
     set center(center: XYZ) {
-        this.setPropertyAndUpdate("center", center);
+        this.setProperty("center", center);
     }
 
     private _radius: number;
@@ -34,7 +34,7 @@ export class CircleBody extends FaceableGeometry {
         return this._radius;
     }
     set radius(radius: number) {
-        this.setPropertyAndUpdate("radius", radius);
+        this.setProperty("radius", radius);
     }
 
     private _normal: XYZ;
@@ -51,7 +51,7 @@ export class CircleBody extends FaceableGeometry {
         this._radius = radius;
     }
 
-    protected generateShape(): Result<IShape, string> {
+    generateShape(): Result<IShape, string> {
         let circle = this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
         if (!circle.isOk || !this.isFace) return circle;
         let wire = this.document.application.shapeFactory.wire(circle.value);

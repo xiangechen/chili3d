@@ -1,10 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    CurveType,
     ICompound,
     ICompoundSolid,
-    ICurve,
     IEdge,
     IFace,
     IShape,
@@ -16,7 +14,6 @@ import {
     IWire,
     Id,
     JoinType,
-    Logger,
     Matrix4,
     Orientation,
     Ray,
@@ -26,19 +23,10 @@ import {
     ShapeType,
     XYZ,
 } from "chili-core";
-import {
-    Geom_Circle,
-    Geom_Line,
-    TopExp,
-    TopoDS_Edge,
-    TopoDS_Face,
-    TopoDS_Shape,
-    TopoDS_Vertex,
-    TopoDS_Wire,
-} from "../occ-wasm/chili_occ";
+import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
-import { OccCircle, OccCurve, OccLine, OccTrimmedCurve } from "./occGeometry";
+import { OccTrimmedCurve } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 

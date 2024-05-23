@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, jest, test } from "@jest/globals";
-import { GeometryModel, Material, ShapeType, XY, XYZ } from "chili-core";
+import { GeometryModel, Material, ParameterGeometryEntity, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestBody } from "./testEdge";
 import { TestView } from "./testView";
@@ -27,7 +27,8 @@ describe("three test", () => {
     test("test context", () => {
         let context = doc.visual.context;
         let body = new TestBody(doc, XYZ.zero, new XYZ(100, 0, 0));
-        let model = new GeometryModel(doc, "test model", body);
+        let entity = new ParameterGeometryEntity(doc, body);
+        let model = new GeometryModel(doc, "test model", entity);
         context.addModel([model]);
         expect(context.getShape(model)).not.toBeNull();
         let mouse = view.worldToScreen(new XYZ(50, 0, 0));

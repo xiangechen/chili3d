@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import {
+    GeometryEntity,
+    ParameterGeometryEntity,
+    Plane,
+    PlaneAngle,
+    Precision,
+    ShapeMeshData,
+    XYZ,
+    command,
+} from "chili-core";
 import { ArcBody } from "../../bodys/arcBody";
 import { Dimension, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -12,7 +21,6 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-arc",
 })
 export class Arc extends CreateCommand {
-    private static count: number = 1;
     private _planeAngle: PlaneAngle | undefined;
 
     getSteps(): IStep[] {
@@ -74,12 +82,12 @@ export class Arc extends CreateCommand {
         };
     };
 
-    create(): GeometryModel {
+    geometryEntity(): GeometryEntity {
         let [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
         let body = new ArcBody(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
-        return new GeometryModel(this.document, `Arc ${Arc.count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     private circlePreview = (point: XYZ | undefined) => {

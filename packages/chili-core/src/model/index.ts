@@ -6,3 +6,4 @@ export * from "./geometryEntity";
 export * from "./model";
 export * from "./node";
 export * from "./nodeLinkedList";
+export * from "./parameterBody";

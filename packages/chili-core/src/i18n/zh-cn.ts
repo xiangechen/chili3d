@@ -20,6 +20,8 @@ export default {
         "common.type": "类型",
         "common.back": "返回",
         "common.material": "材质",
+        "entity.editable": "可编辑实体",
+        "entity.parameter": "参数化实体",
         "home.welcome": "欢迎使用 chili3d",
         "home.recent": "最近使用",
         "ribbon.tab.file": "文件",

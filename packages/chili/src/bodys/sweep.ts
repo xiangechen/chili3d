@@ -6,14 +6,14 @@ import {
     IEdge,
     IShape,
     IWire,
-    ParameterGeometry,
+    ParameterBody,
     Result,
     Serializer,
     ShapeType,
 } from "chili-core";
 
 @Serializer.register("SweepBody", ["document", "profile", "path"])
-export class SweepBody extends ParameterGeometry {
+export class SweepBody extends ParameterBody {
     override display: I18nKeys = "body.sweep";
 
     private _profile: IShape;
@@ -22,7 +22,7 @@ export class SweepBody extends ParameterGeometry {
         return this._profile;
     }
     set profile(value: IShape) {
-        this.setPropertyAndUpdate("profile", value);
+        this.setProperty("profile", value);
     }
 
     private _path: IWire;
@@ -31,7 +31,7 @@ export class SweepBody extends ParameterGeometry {
         return this._path;
     }
     set path(value: IWire) {
-        this.setPropertyAndUpdate("path", value);
+        this.setProperty("path", value);
     }
 
     constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
@@ -43,7 +43,7 @@ export class SweepBody extends ParameterGeometry {
                 : document.application.shapeFactory.wire(path as unknown as IEdge).value!;
     }
 
-    protected override generateShape(): Result<IShape> {
+    override generateShape(): Result<IShape> {
         return this.document.application.shapeFactory.sweep(this.profile, this.path);
     }
 }

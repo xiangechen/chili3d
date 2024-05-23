@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, Precision, ShapeType, command } from "chili-core";
+import { GeometryEntity, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { PrismBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
@@ -8,20 +8,18 @@ import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
-let count = 1;
-
 @command({
     name: "convert.prism",
     display: "command.prism",
     icon: "icon-prism",
 })
 export class Prism extends CreateCommand {
-    protected override create(): GeometryModel {
+    protected override geometryEntity(): GeometryEntity {
         let shape = this.stepDatas[0].shapes[0].shape;
         const { point, normal } = this.getAxis();
         let dist = this.stepDatas[1].point!.sub(point).dot(normal);
         let body = new PrismBody(this.document, shape, dist);
-        return new GeometryModel(this.document, `prism${count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     protected override getSteps(): IStep[] {

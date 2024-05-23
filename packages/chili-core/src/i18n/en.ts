@@ -20,6 +20,8 @@ export default {
         "common.angle": "Angle",
         "common.back": "Back",
         "common.material": "Material",
+        "entity.editable": "Editable Entity",
+        "entity.parameter": "Parameter Entity",
         "home.welcome": "Welcome to chili3d",
         "home.recent": "Recent",
         "ribbon.tab.file": "File",

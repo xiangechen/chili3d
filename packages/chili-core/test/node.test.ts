@@ -26,6 +26,7 @@ describe("test node", () => {
             previousSibling: undefined,
             nextSibling: undefined,
             onPropertyChanged: () => {},
+            clearPropertyChanged() {},
             removePropertyChanged: () => {},
             clone: () => ({}) as any,
             dispose() {},

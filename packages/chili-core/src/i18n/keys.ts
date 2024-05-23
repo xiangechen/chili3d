@@ -15,6 +15,8 @@ export type I18nKeys =
     | "common.type"
     | "common.back"
     | "common.material"
+    | "entity.editable"
+    | "entity.parameter"
     | "home.welcome"
     | "home.recent"
     | "body.arc"

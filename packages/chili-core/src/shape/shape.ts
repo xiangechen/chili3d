@@ -2,7 +2,7 @@
 
 import { Result } from "../foundation";
 import { Matrix4, Ray, XYZ } from "../math";
-import { ICurve, ITrimmedCurve } from "./curve";
+import { ITrimmedCurve } from "./curve";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
 

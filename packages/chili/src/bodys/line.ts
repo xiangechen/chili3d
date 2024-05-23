@@ -1,18 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    I18nKeys,
-    IDocument,
-    IShape,
-    ParameterGeometry,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
-} from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterBody, Property, Result, Serializer, XYZ } from "chili-core";
 
 @Serializer.register("LineBody", ["document", "start", "end"])
-export class LineBody extends ParameterGeometry {
+export class LineBody extends ParameterBody {
     readonly display: I18nKeys = "body.line";
 
     private _start: XYZ;
@@ -23,7 +14,7 @@ export class LineBody extends ParameterGeometry {
         return this._start;
     }
     set start(pnt: XYZ) {
-        this.setPropertyAndUpdate("start", pnt);
+        this.setProperty("start", pnt);
     }
 
     private _end: XYZ;
@@ -34,7 +25,7 @@ export class LineBody extends ParameterGeometry {
         return this._end;
     }
     set end(pnt: XYZ) {
-        this.setPropertyAndUpdate("end", pnt);
+        this.setProperty("end", pnt);
     }
 
     constructor(document: IDocument, start: XYZ, end: XYZ) {
@@ -43,7 +34,7 @@ export class LineBody extends ParameterGeometry {
         this._end = end;
     }
 
-    protected generateShape(): Result<IShape, string> {
+    generateShape(): Result<IShape, string> {
         return this.document.application.shapeFactory.line(this._start, this._end);
     }
 }

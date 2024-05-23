@@ -3,11 +3,13 @@
 import {
     AsyncController,
     CancelableCommand,
+    GeometryEntity,
     GeometryModel,
     IDocument,
     IEdge,
     IModel,
     IShapeFilter,
+    ParameterGeometryEntity,
     PubSub,
     Result,
     ShapeType,
@@ -28,18 +30,23 @@ abstract class ConvertCommand extends CancelableCommand {
             return;
         }
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let geometryModel = this.create(this.document, models!);
+            let geometryModel = this.create(this.document, models);
             if (!geometryModel.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
-                this.document.addNode(geometryModel.value);
+                let model = new GeometryModel(
+                    this.document,
+                    `${geometryModel.value.display}${count++}`,
+                    geometryModel.value,
+                );
+                this.document.addNode(model);
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
         });
     }
 
-    protected abstract create(document: IDocument, models: IModel[]): Result<GeometryModel>;
+    protected abstract create(document: IDocument, models: IModel[]): Result<GeometryEntity>;
 
     async getOrPickModels(document: IDocument) {
         let filter: IShapeFilter = {
@@ -77,14 +84,15 @@ abstract class ConvertCommand extends CancelableCommand {
     icon: "icon-toPoly",
 })
 export class ConvertToWire extends ConvertCommand {
-    protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
+    protected override create(document: IDocument, models: IModel[]): Result<GeometryEntity> {
         let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
         let wireBody = new WireBody(document, edges);
-        if (!wireBody.shape.isOk) {
-            return Result.err(wireBody.shape.error);
+        let shape = wireBody.generateShape();
+        if (!shape.isOk) {
+            return Result.err(shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
-        return Result.ok(new GeometryModel(document, `Wire ${count++}`, wireBody));
+        return Result.ok(new ParameterGeometryEntity(document, wireBody));
     }
 }
 
@@ -94,13 +102,15 @@ export class ConvertToWire extends ConvertCommand {
     icon: "icon-toFace",
 })
 export class ConvertToFace extends ConvertCommand {
-    protected override create(document: IDocument, models: IModel[]): Result<GeometryModel> {
+    protected override create(document: IDocument, models: IModel[]): Result<GeometryEntity> {
         let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
         let wireBody = new FaceBody(document, edges);
-        if (!wireBody.shape.isOk) {
-            return Result.err(wireBody.shape.error);
+        let shape = wireBody.generateShape();
+
+        if (!shape.isOk) {
+            return Result.err(shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
-        return Result.ok(new GeometryModel(document, `Face ${count++}`, wireBody));
+        return Result.ok(new ParameterGeometryEntity(document, wireBody));
     }
 }

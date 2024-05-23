@@ -11,6 +11,7 @@ export type PropertyChangedHandler<T, K extends keyof T> = (property: K, source:
 export interface IPropertyChanged extends IDisposable {
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void;
+    clearPropertyChanged(): void;
 }
 
 export class Observable implements IPropertyChanged {
@@ -66,6 +67,10 @@ export class Observable implements IPropertyChanged {
 
     removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
         this.propertyChangedHandlers.delete(handler);
+    }
+
+    clearPropertyChanged(): void {
+        this.propertyChangedHandlers.clear();
     }
 
     dispose() {

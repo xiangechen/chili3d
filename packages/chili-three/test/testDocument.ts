@@ -59,6 +59,9 @@ export class TestDocument implements IDocument, ISerialize {
         this.rootNode = {} as any;
         this.application = { views: [] } as any;
     }
+    clearPropertyChanged(): void {
+        throw new Error("Method not implemented.");
+    }
     addNodeObserver(observer: INodeChangedObserver): void {}
     removeNodeObserver(observer: INodeChangedObserver): void {
         throw new Error("Method not implemented.");

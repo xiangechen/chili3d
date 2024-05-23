@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IShape, ParameterGeometry, Ray, Result, Serializer } from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterBody, Ray, Result, Serializer } from "chili-core";
 
 @Serializer.register("RevolveBody", ["document", "profile", "axis", "angle"])
-export class RevolveBody extends ParameterGeometry {
+export class RevolveBody extends ParameterBody {
     override display: I18nKeys = "body.revol";
 
     private _profile: IShape;
@@ -12,7 +12,7 @@ export class RevolveBody extends ParameterGeometry {
         return this._profile;
     }
     set profile(value: IShape) {
-        this.setPropertyAndUpdate("profile", value);
+        this.setProperty("profile", value);
     }
 
     private _axis: Ray;
@@ -21,7 +21,7 @@ export class RevolveBody extends ParameterGeometry {
         return this._axis;
     }
     set axis(value: Ray) {
-        this.setPropertyAndUpdate("axis", value);
+        this.setProperty("axis", value);
     }
 
     private _angle: number;
@@ -30,7 +30,7 @@ export class RevolveBody extends ParameterGeometry {
         return this._angle;
     }
     set angle(value: number) {
-        this.setPropertyAndUpdate("angle", value);
+        this.setProperty("angle", value);
     }
 
     constructor(document: IDocument, profile: IShape, axis: Ray, angle: number) {
@@ -40,7 +40,7 @@ export class RevolveBody extends ParameterGeometry {
         this._angle = angle;
     }
 
-    protected override generateShape(): Result<IShape> {
+    override generateShape(): Result<IShape> {
         return this.document.application.shapeFactory.revolve(this.profile, this.axis, this.angle);
     }
 }

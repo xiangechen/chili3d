@@ -11,6 +11,7 @@ import {
     INode,
     IShape,
     NodeLinkedList,
+    ParameterGeometryEntity,
     PubSub,
     Result,
     Transaction,
@@ -52,7 +53,8 @@ export class Import implements ICommand {
         }
         let shapes = shape[1].value.map((x) => {
             let body = new ImportedBody(document, x);
-            return new GeometryModel(document, `Imported ${count++}`, body);
+            let geometry = new ParameterGeometryEntity(document, body);
+            return new GeometryModel(document, `Imported ${count++}`, geometry);
         });
         let nodeList = new NodeLinkedList(document, shape[0]!);
         document.addNode(nodeList);

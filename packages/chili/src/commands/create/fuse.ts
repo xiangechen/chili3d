@@ -1,13 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, IFace, Precision, ShapeType, command } from "chili-core";
+import { GeometryEntity, IFace, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
 import { PrismBody } from "../../bodys";
 import { SnapLengthAtAxisData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
-
-let count = 1;
 
 @command({
     name: "convert.fuse",
@@ -15,12 +13,12 @@ let count = 1;
     icon: "icon-circle",
 })
 export class Fuse extends CreateCommand {
-    protected override create(): GeometryModel {
+    protected override geometryEntity(): GeometryEntity {
         let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);
         let dist = this.stepDatas[1].point!.sub(point).dot(normal);
         let body = new PrismBody(this.document, shape, dist);
-        return new GeometryModel(this.document, `prism${count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     protected override getSteps(): IStep[] {

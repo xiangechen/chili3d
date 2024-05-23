@@ -1,6 +1,5 @@
 import {
     I18nKeys,
-    ICurve,
     IDocument,
     IEdge,
     IShape,
@@ -9,7 +8,7 @@ import {
     LineType,
     Matrix4,
     Orientation,
-    ParameterGeometry,
+    ParameterBody,
     Ray,
     Result,
     Serialized,
@@ -88,7 +87,7 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends ParameterGeometry {
+export class TestBody extends ParameterBody {
     display: I18nKeys = "body.line";
     constructor(
         document: IDocument,
@@ -98,7 +97,7 @@ export class TestBody extends ParameterGeometry {
         super(document);
     }
 
-    protected generateShape(): Result<IShape> {
+    generateShape(): Result<IShape> {
         return Result.ok(new TestEdge(this.start, this.end));
     }
 }

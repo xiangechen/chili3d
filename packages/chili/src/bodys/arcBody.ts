@@ -1,18 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    I18nKeys,
-    IDocument,
-    IShape,
-    ParameterGeometry,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
-} from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterBody, Property, Result, Serializer, XYZ } from "chili-core";
 
 @Serializer.register("ArcBody", ["document", "normal", "center", "start", "angle"])
-export class ArcBody extends ParameterGeometry {
+export class ArcBody extends ParameterBody {
     readonly display: I18nKeys = "body.arc";
 
     private _center: XYZ;
@@ -23,7 +14,7 @@ export class ArcBody extends ParameterGeometry {
         return this._center;
     }
     set center(center: XYZ) {
-        this.setPropertyAndUpdate("center", center);
+        this.setProperty("center", center);
     }
 
     private _start: XYZ;
@@ -47,7 +38,7 @@ export class ArcBody extends ParameterGeometry {
         return this._angle;
     }
     set angle(value: number) {
-        this.setPropertyAndUpdate("angle", value);
+        this.setProperty("angle", value);
     }
 
     constructor(document: IDocument, normal: XYZ, center: XYZ, start: XYZ, angle: number) {
@@ -58,7 +49,7 @@ export class ArcBody extends ParameterGeometry {
         this._angle = angle;
     }
 
-    protected generateShape(): Result<IShape, string> {
+    generateShape(): Result<IShape, string> {
         return this.document.application.shapeFactory.arc(
             this.normal,
             this._center,

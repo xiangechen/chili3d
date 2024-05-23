@@ -1,18 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    I18nKeys,
-    IDocument,
-    IShape,
-    ParameterGeometry,
-    Plane,
-    Property,
-    Result,
-    Serializer,
-} from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterBody, Plane, Property, Result, Serializer } from "chili-core";
 
 @Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
-export class BoxBody extends ParameterGeometry {
+export class BoxBody extends ParameterBody {
     readonly display: I18nKeys = "body.box";
 
     private _dx: number;
@@ -23,7 +14,7 @@ export class BoxBody extends ParameterGeometry {
         return this._dx;
     }
     set dx(dx: number) {
-        this.setPropertyAndUpdate("dx", dx);
+        this.setProperty("dx", dx);
     }
 
     private _dy: number;
@@ -34,7 +25,7 @@ export class BoxBody extends ParameterGeometry {
         return this._dy;
     }
     set dy(dy: number) {
-        this.setPropertyAndUpdate("dy", dy);
+        this.setProperty("dy", dy);
     }
 
     private _dz: number;
@@ -45,7 +36,7 @@ export class BoxBody extends ParameterGeometry {
         return this._dz;
     }
     set dz(dz: number) {
-        this.setPropertyAndUpdate("dz", dz);
+        this.setProperty("dz", dz);
     }
 
     private _plane: Plane;
@@ -63,7 +54,7 @@ export class BoxBody extends ParameterGeometry {
         this._dz = dz;
     }
 
-    protected generateShape(): Result<IShape> {
+    generateShape(): Result<IShape> {
         return this.document.application.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
     }
 }

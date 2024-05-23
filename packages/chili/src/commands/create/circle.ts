@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryModel, Plane, Precision, XYZ, command } from "chili-core";
+import { GeometryEntity, ParameterGeometryEntity, Plane, Precision, XYZ, command } from "chili-core";
 import { CircleBody } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -12,8 +12,6 @@ import { CreateFaceableCommand } from "../createCommand";
     icon: "icon-circle",
 })
 export class Circle extends CreateFaceableCommand {
-    private static count: number = 1;
-
     getSteps(): IStep[] {
         let centerStep = new PointStep("operate.pickCircleCenter");
         let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
@@ -35,12 +33,12 @@ export class Circle extends CreateFaceableCommand {
         };
     };
 
-    create(): GeometryModel {
+    geometryEntity(): GeometryEntity {
         let [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
         let body = new CircleBody(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
         body.isFace = this.isFace;
-        return new GeometryModel(this.document, `Circle ${Circle.count++}`, body);
+        return new ParameterGeometryEntity(this.document, body);
     }
 
     private circlePreview = (point: XYZ | undefined) => {
