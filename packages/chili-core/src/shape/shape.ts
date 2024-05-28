@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Result } from "../foundation";
-import { Matrix4, Ray, XYZ } from "../math";
+import { Matrix4, Plane, Ray, XYZ } from "../math";
 import { ITrimmedCurve } from "./curve";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
@@ -61,6 +61,10 @@ export interface IShape {
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
     findSubShapes(subshapeType: ShapeType): IShape[];
     iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape>;
+    section(shape: IShape | Plane): IShape;
+    split(edges: (IEdge | IWire)[]): IShape;
+    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape;
+    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape;
 }
 
 export interface IVertex extends IShape {}

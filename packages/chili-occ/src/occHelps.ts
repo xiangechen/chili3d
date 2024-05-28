@@ -14,13 +14,18 @@ import {
 } from "chili-core";
 import {
     GeomAbs_JoinType,
+    Geom_BSplineCurve,
     Geom_BezierCurve,
     Geom_Circle,
     Geom_Curve,
+    Geom_Ellipse,
+    Geom_Hyperbola,
     Geom_Line,
     Geom_OffsetCurve,
+    Geom_Parabola,
     Geom_TrimmedCurve,
     TopAbs_ShapeEnum,
+    TopTools_ListOfShape,
     TopoDS_Shape,
     gp_Ax2,
     gp_Ax3,
@@ -42,7 +47,17 @@ import {
     OccVertex,
     OccWire,
 } from "./occShape";
-import { OccBezierCurve, OccCircle, OccLine, OccOffsetCurve, OccTrimmedCurve } from "./occGeometry";
+import {
+    OccBSplineCurve,
+    OccBezierCurve,
+    OccCircle,
+    OccEllipse,
+    OccHyperbola,
+    OccLine,
+    OccOffsetCurve,
+    OccParabola,
+    OccTrimmedCurve,
+} from "./occGeometry";
 
 export class OccHelps {
     static toXYZ(p: gp_Pnt | gp_Dir | gp_Vec): XYZ {
@@ -253,15 +268,15 @@ export class OccHelps {
         let isType = (type: string) => curve.IsInstance_2(type);
         if (isType("Geom_Line")) return new OccLine(curve as Geom_Line);
         else if (isType("Geom_Circle")) return new OccCircle(curve as Geom_Circle);
-        // else if (isType("Geom_Ellipse")) return new OccLine(curve as Geom_Line);
-        // else if (isType("Geom_Hyperbola")) return new OccLine(curve as Geom_Line);
-        // else if (isType("Geom_Parabola")) return new OccLine(curve as Geom_Line);
+        else if (isType("Geom_Ellipse")) return new OccEllipse(curve as Geom_Ellipse);
+        else if (isType("Geom_Hyperbola")) return new OccHyperbola(curve as Geom_Hyperbola);
+        else if (isType("Geom_Parabola")) return new OccParabola(curve as Geom_Parabola);
         else if (isType("Geom_BezierCurve")) return new OccBezierCurve(curve as Geom_BezierCurve);
-        // else if (isType("Geom_BSplineCurve")) return new OccLine(curve as Geom_Line);
+        else if (isType("Geom_BSplineCurve")) return new OccBSplineCurve(curve as Geom_BSplineCurve);
         else if (isType("Geom_OffsetCurve")) return new OccOffsetCurve(curve as Geom_OffsetCurve);
         else if (isType("Geom_TrimmedCurve")) return new OccTrimmedCurve(curve as Geom_TrimmedCurve);
 
-        throw new Error("Unknown curve type");
+        throw new Error("Unknown curve type: " + curve.DynamicType().Name);
     }
 
     static getActualShape(shape: TopoDS_Shape): TopoDS_Shape {
@@ -285,6 +300,16 @@ export class OccHelps {
             default:
                 return shape;
         }
+    }
+
+    static toArray(shapes: TopTools_ListOfShape): IShape[] {
+        const arr: IShape[] = [];
+        while (!shapes.IsEmpty()) {
+            let first = shapes.First_1();
+            arr.push(this.wrapShape(first));
+            shapes.RemoveFirst();
+        }
+        return arr;
     }
 
     static *mapShapes(shape: TopoDS_Shape, shapeType: TopAbs_ShapeEnum) {

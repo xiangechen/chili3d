@@ -2,7 +2,6 @@
 
 import {
     Config,
-    CurveType,
     I18n,
     ICircle,
     ICurve,
@@ -270,8 +269,8 @@ export class ObjectSnap implements ISnapper {
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
         let curve = (shape.shape as IEdge).asCurve();
-        let start = curve.point(curve.firstParameter());
-        let end = curve.point(curve.lastParameter());
+        let start = curve.value(curve.firstParameter());
+        let end = curve.value(curve.lastParameter());
         let addPoint = (point: XYZ, info: string) =>
             infos.push({ view, point: point, info, shapes: [shape] });
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
@@ -279,7 +278,7 @@ export class ObjectSnap implements ISnapper {
             addPoint(end, I18n.translate("snap.end"));
         }
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint)) {
-            let mid = curve.point((curve.firstParameter() + curve.lastParameter()) * 0.5);
+            let mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, I18n.translate("snap.mid"));
         }
     }

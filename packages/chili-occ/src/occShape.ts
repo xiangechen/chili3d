@@ -16,6 +16,7 @@ import {
     JoinType,
     Matrix4,
     Orientation,
+    Plane,
     Ray,
     Result,
     SerializedProperties,
@@ -56,6 +57,19 @@ export class OccShape implements IShape {
         this._id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OccHelps.getShapeType(shape);
+    }
+
+    section(shape: IShape | Plane): IShape {
+        if (shape instanceof OccShape) {
+            let s = new occ.BRepAlgoAPI_Section_3(this.shape, shape.shape, true);
+            return OccHelps.wrapShape(s.Shape());
+        } else if (shape instanceof Plane) {
+            let pln = OccHelps.toPln(shape);
+            let s = new occ.BRepAlgoAPI_Section_5(this.shape, pln, true);
+            return OccHelps.wrapShape(s.Shape());
+        }
+
+        throw new Error("Invalid section");
     }
 
     get matrix() {
@@ -125,6 +139,39 @@ export class OccShape implements IShape {
     isEqual(other: IShape): boolean {
         if (other instanceof OccShape) return this.shape.IsEqual(other.shape);
         return false;
+    }
+
+    split(edges: (IEdge | IWire)[]): IShape {
+        let shapes = new occ.TopTools_SequenceOfShape_1();
+        edges.forEach((shape) => {
+            shapes.Append_1((shape as unknown as OccShape).shape);
+        });
+
+        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
+        spliter.Add_1(shapes);
+        let message = new occ.Message_ProgressRange_1();
+        spliter.Build(message);
+        if (!spliter.IsDone()) {
+            throw new Error("Failed to split shape");
+        }
+        return OccHelps.wrapShape(spliter.Shape());
+    }
+
+    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
+        let face = onFace as OccFace;
+        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
+        if (edges instanceof OccEdge) {
+            spliter.Add_3(edges.shape, face.shape);
+        } else if (edges instanceof OccWire) {
+            spliter.Add_2(edges.shape, face.shape);
+        }
+        return OccHelps.wrapShape(spliter.Shape());
+    }
+
+    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
+        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
+        spliter.Add_5((onEdge as OccEdge).shape, (edge as OccEdge).shape);
+        return OccHelps.wrapShape(spliter.Shape());
     }
 }
 

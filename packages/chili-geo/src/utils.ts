@@ -19,7 +19,7 @@ export class GeoUtils {
 
     private static curveNormal = (curve: ICurve) => {
         if (ICurve.isConic(curve)) {
-            return curve.plane.normal;
+            return curve.axis;
         }
         let vec = curve.dn(0, 1);
         if (vec.isParallelTo(XYZ.unitX)) return XYZ.unitZ;
@@ -42,13 +42,13 @@ export class GeoUtils {
 
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
         let curve = edge.asCurve();
-        let point = curve.point(curve.lastParameter());
+        let point = curve.value(curve.lastParameter());
         for (const e of wire.iterSubShapes(ShapeType.Edge, true)) {
             if (e.isEqual(edge)) continue;
             let testCurve = (e as IEdge).asCurve();
             if (
-                point.distanceTo(testCurve.point(testCurve.firstParameter())) < Precision.Distance ||
-                point.distanceTo(testCurve.point(testCurve.lastParameter())) < Precision.Distance
+                point.distanceTo(testCurve.value(testCurve.firstParameter())) < Precision.Distance ||
+                point.distanceTo(testCurve.value(testCurve.lastParameter())) < Precision.Distance
             ) {
                 return Result.ok(e as IEdge);
             }

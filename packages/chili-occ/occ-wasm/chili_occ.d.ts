@@ -2077,6 +2077,17 @@ export declare class BRepTools {
   delete(): void;
 }
 
+export declare class BRepTools_Quilt {
+  constructor()
+  Bind_1(Eold: TopoDS_Edge, Enew: TopoDS_Edge): void;
+  Bind_2(Vold: TopoDS_Vertex, Vnew: TopoDS_Vertex): void;
+  Add(S: TopoDS_Shape): void;
+  IsCopied(S: TopoDS_Shape): Standard_Boolean;
+  Copy(S: TopoDS_Shape): TopoDS_Shape;
+  Shells(): TopoDS_Shape;
+  delete(): void;
+}
+
 export declare class BRepTools_ReShape extends Standard_Transient {
   constructor()
   Clear(): void;
@@ -2989,6 +3000,47 @@ export declare class Geom_ElementarySurface extends Geom_Surface {
   delete(): void;
 }
 
+export declare class Geom_Ellipse extends Geom_Conic {
+  SetElips(E: gp_Elips): void;
+  SetMajorRadius(MajorRadius: Standard_Real): void;
+  SetMinorRadius(MinorRadius: Standard_Real): void;
+  Elips(): gp_Elips;
+  ReversedParameter(U: Standard_Real): Standard_Real;
+  Directrix1(): gp_Ax1;
+  Directrix2(): gp_Ax1;
+  Eccentricity(): Standard_Real;
+  Focal(): Standard_Real;
+  Focus1(): gp_Pnt;
+  Focus2(): gp_Pnt;
+  MajorRadius(): Standard_Real;
+  MinorRadius(): Standard_Real;
+  Parameter(): Standard_Real;
+  FirstParameter(): Standard_Real;
+  LastParameter(): Standard_Real;
+  IsClosed(): Standard_Boolean;
+  IsPeriodic(): Standard_Boolean;
+  D0(U: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, P: gp_Pnt, V1: gp_Vec): void;
+  D2(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec): void;
+  D3(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec, V3: gp_Vec): void;
+  DN(U: Standard_Real, N: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_Ellipse_1 extends Geom_Ellipse {
+    constructor(E: gp_Elips);
+  }
+
+  export declare class Geom_Ellipse_2 extends Geom_Ellipse {
+    constructor(A2: gp_Ax2, MajorRadius: Standard_Real, MinorRadius: Standard_Real);
+  }
+
 export declare class Geom_Geometry extends Standard_Transient {
   Mirror_1(P: gp_Pnt): void;
   Mirror_2(A1: gp_Ax1): void;
@@ -3013,6 +3065,52 @@ export declare class Geom_Geometry extends Standard_Transient {
   DynamicType(): Handle_Standard_Type;
   delete(): void;
 }
+
+export declare class Geom_Hyperbola extends Geom_Conic {
+  SetHypr(H: gp_Hypr): void;
+  SetMajorRadius(MajorRadius: Standard_Real): void;
+  SetMinorRadius(MinorRadius: Standard_Real): void;
+  Hypr(): gp_Hypr;
+  ReversedParameter(U: Standard_Real): Standard_Real;
+  FirstParameter(): Standard_Real;
+  LastParameter(): Standard_Real;
+  IsClosed(): Standard_Boolean;
+  IsPeriodic(): Standard_Boolean;
+  Asymptote1(): gp_Ax1;
+  Asymptote2(): gp_Ax1;
+  ConjugateBranch1(): gp_Hypr;
+  ConjugateBranch2(): gp_Hypr;
+  Directrix1(): gp_Ax1;
+  Directrix2(): gp_Ax1;
+  Eccentricity(): Standard_Real;
+  Focal(): Standard_Real;
+  Focus1(): gp_Pnt;
+  Focus2(): gp_Pnt;
+  MajorRadius(): Standard_Real;
+  MinorRadius(): Standard_Real;
+  OtherBranch(): gp_Hypr;
+  Parameter(): Standard_Real;
+  D0(U: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, P: gp_Pnt, V1: gp_Vec): void;
+  D2(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec): void;
+  D3(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec, V3: gp_Vec): void;
+  DN(U: Standard_Real, N: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_Hyperbola_1 extends Geom_Hyperbola {
+    constructor(H: gp_Hypr);
+  }
+
+  export declare class Geom_Hyperbola_2 extends Geom_Hyperbola {
+    constructor(A2: gp_Ax2, MajorRadius: Standard_Real, MinorRadius: Standard_Real);
+  }
 
 export declare class Geom_Line extends Geom_Curve {
   SetLin(L: gp_Lin): void;
@@ -3157,6 +3255,48 @@ export declare class Geom_OffsetSurface extends Geom_Surface {
   DynamicType(): Handle_Standard_Type;
   delete(): void;
 }
+
+export declare class Geom_Parabola extends Geom_Conic {
+  SetFocal(Focal: Standard_Real): void;
+  SetParab(Prb: gp_Parab): void;
+  Parab(): gp_Parab;
+  ReversedParameter(U: Standard_Real): Standard_Real;
+  FirstParameter(): Standard_Real;
+  LastParameter(): Standard_Real;
+  IsClosed(): Standard_Boolean;
+  IsPeriodic(): Standard_Boolean;
+  Directrix(): gp_Ax1;
+  Eccentricity(): Standard_Real;
+  Focus(): gp_Pnt;
+  Focal(): Standard_Real;
+  Parameter(): Standard_Real;
+  D0(U: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, P: gp_Pnt, V1: gp_Vec): void;
+  D2(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec): void;
+  D3(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec, V3: gp_Vec): void;
+  DN(U: Standard_Real, N: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  TransformedParameter(U: Standard_Real, T: gp_Trsf): Standard_Real;
+  ParametricTransformation(T: gp_Trsf): Standard_Real;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_Parabola_1 extends Geom_Parabola {
+    constructor(Prb: gp_Parab);
+  }
+
+  export declare class Geom_Parabola_2 extends Geom_Parabola {
+    constructor(A2: gp_Ax2, Focal: Standard_Real);
+  }
+
+  export declare class Geom_Parabola_3 extends Geom_Parabola {
+    constructor(D: gp_Ax1, F: gp_Pnt);
+  }
 
 export declare class Geom_Surface extends Geom_Geometry {
   UReverse(): void;
@@ -3839,6 +3979,13 @@ export declare class NCollection_BaseMap {
   Extent(): Graphic3d_ZLayerId;
   IsEmpty(): Standard_Boolean;
   Statistics(S: Standard_OStream): void;
+  Allocator(): Handle_NCollection_BaseAllocator;
+  delete(): void;
+}
+
+export declare class NCollection_BaseSequence {
+  IsEmpty(): Standard_Boolean;
+  Length(): Graphic3d_ZLayerId;
   Allocator(): Handle_NCollection_BaseAllocator;
   delete(): void;
 }
@@ -5110,6 +5257,54 @@ export declare class TopTools_ListOfShape extends NCollection_BaseList {
 
   export declare class TopTools_ListOfShape_3 extends TopTools_ListOfShape {
     constructor(theOther: TopTools_ListOfShape);
+  }
+
+export declare class TopTools_SequenceOfShape extends NCollection_BaseSequence {
+  begin(): any;
+  end(): any;
+  cbegin(): any;
+  cend(): any;
+  Size(): Standard_Integer;
+  Length(): Standard_Integer;
+  Lower(): Standard_Integer;
+  Upper(): Standard_Integer;
+  IsEmpty(): Standard_Boolean;
+  Reverse(): void;
+  Exchange(I: Standard_Integer, J: Standard_Integer): void;
+  static delNode(theNode: NCollection_SeqNode, theAl: Handle_NCollection_BaseAllocator): void;
+  Clear(theAllocator: Handle_NCollection_BaseAllocator): void;
+  Assign(theOther: TopTools_SequenceOfShape): TopTools_SequenceOfShape;
+  Remove_2(theIndex: Standard_Integer): void;
+  Remove_3(theFromIndex: Standard_Integer, theToIndex: Standard_Integer): void;
+  Append_1(theItem: TopoDS_Shape): void;
+  Append_2(theSeq: TopTools_SequenceOfShape): void;
+  Prepend_1(theItem: TopoDS_Shape): void;
+  Prepend_2(theSeq: TopTools_SequenceOfShape): void;
+  InsertBefore_1(theIndex: Standard_Integer, theItem: TopoDS_Shape): void;
+  InsertBefore_2(theIndex: Standard_Integer, theSeq: TopTools_SequenceOfShape): void;
+  InsertAfter_2(theIndex: Standard_Integer, theSeq: TopTools_SequenceOfShape): void;
+  InsertAfter_3(theIndex: Standard_Integer, theItem: TopoDS_Shape): void;
+  Split(theIndex: Standard_Integer, theSeq: TopTools_SequenceOfShape): void;
+  First(): TopoDS_Shape;
+  ChangeFirst(): TopoDS_Shape;
+  Last(): TopoDS_Shape;
+  ChangeLast(): TopoDS_Shape;
+  Value(theIndex: Standard_Integer): TopoDS_Shape;
+  ChangeValue(theIndex: Standard_Integer): TopoDS_Shape;
+  SetValue(theIndex: Standard_Integer, theItem: TopoDS_Shape): void;
+  delete(): void;
+}
+
+  export declare class TopTools_SequenceOfShape_1 extends TopTools_SequenceOfShape {
+    constructor();
+  }
+
+  export declare class TopTools_SequenceOfShape_2 extends TopTools_SequenceOfShape {
+    constructor(theAllocator: Handle_NCollection_BaseAllocator);
+  }
+
+  export declare class TopTools_SequenceOfShape_3 extends TopTools_SequenceOfShape {
+    constructor(theOther: TopTools_SequenceOfShape);
   }
 
 export declare class TopoDS {
@@ -6691,6 +6886,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   BRepPrimAPI_MakeTorus_7: typeof BRepPrimAPI_MakeTorus_7;
   BRepPrimAPI_MakeTorus_8: typeof BRepPrimAPI_MakeTorus_8;
   BRepTools: typeof BRepTools;
+  BRepTools_Quilt: typeof BRepTools_Quilt;
   BRepTools_ReShape: typeof BRepTools_ReShape;
   Bnd_Box: typeof Bnd_Box;
   Bnd_Box_1: typeof Bnd_Box_1;
@@ -6786,7 +6982,13 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Geom_CylindricalSurface_1: typeof Geom_CylindricalSurface_1;
   Geom_CylindricalSurface_2: typeof Geom_CylindricalSurface_2;
   Geom_ElementarySurface: typeof Geom_ElementarySurface;
+  Geom_Ellipse: typeof Geom_Ellipse;
+  Geom_Ellipse_1: typeof Geom_Ellipse_1;
+  Geom_Ellipse_2: typeof Geom_Ellipse_2;
   Geom_Geometry: typeof Geom_Geometry;
+  Geom_Hyperbola: typeof Geom_Hyperbola;
+  Geom_Hyperbola_1: typeof Geom_Hyperbola_1;
+  Geom_Hyperbola_2: typeof Geom_Hyperbola_2;
   Geom_Line: typeof Geom_Line;
   Geom_Line_1: typeof Geom_Line_1;
   Geom_Line_2: typeof Geom_Line_2;
@@ -6798,6 +7000,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Handle_Geom_Line_4: typeof Handle_Geom_Line_4;
   Geom_OffsetCurve: typeof Geom_OffsetCurve;
   Geom_OffsetSurface: typeof Geom_OffsetSurface;
+  Geom_Parabola: typeof Geom_Parabola;
+  Geom_Parabola_1: typeof Geom_Parabola_1;
+  Geom_Parabola_2: typeof Geom_Parabola_2;
+  Geom_Parabola_3: typeof Geom_Parabola_3;
   Geom_Surface: typeof Geom_Surface;
   Handle_Geom_Surface: typeof Handle_Geom_Surface;
   Handle_Geom_Surface_1: typeof Handle_Geom_Surface_1;
@@ -6877,6 +7083,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   MoniTool_TypedValue_2: typeof MoniTool_TypedValue_2;
   NCollection_BaseList: typeof NCollection_BaseList;
   NCollection_BaseMap: typeof NCollection_BaseMap;
+  NCollection_BaseSequence: typeof NCollection_BaseSequence;
   Poly_Array1OfTriangle: typeof Poly_Array1OfTriangle;
   Poly_Array1OfTriangle_1: typeof Poly_Array1OfTriangle_1;
   Poly_Array1OfTriangle_2: typeof Poly_Array1OfTriangle_2;
@@ -7014,6 +7221,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   TopTools_ListOfShape_1: typeof TopTools_ListOfShape_1;
   TopTools_ListOfShape_2: typeof TopTools_ListOfShape_2;
   TopTools_ListOfShape_3: typeof TopTools_ListOfShape_3;
+  TopTools_SequenceOfShape: typeof TopTools_SequenceOfShape;
+  TopTools_SequenceOfShape_1: typeof TopTools_SequenceOfShape_1;
+  TopTools_SequenceOfShape_2: typeof TopTools_SequenceOfShape_2;
+  TopTools_SequenceOfShape_3: typeof TopTools_SequenceOfShape_3;
   TopoDS: typeof TopoDS;
   TopoDS_Builder: typeof TopoDS_Builder;
   TopoDS_CompSolid: typeof TopoDS_CompSolid;

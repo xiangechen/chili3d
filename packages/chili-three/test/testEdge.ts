@@ -2,13 +2,16 @@ import {
     I18nKeys,
     IDocument,
     IEdge,
+    IFace,
     IShape,
     IShapeMeshData,
     ITrimmedCurve,
+    IWire,
     LineType,
     Matrix4,
     Orientation,
     ParameterBody,
+    Plane,
     Ray,
     Result,
     Serialized,
@@ -21,6 +24,18 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    section(shape: IShape | Plane): IShape {
+        throw new Error("Method not implemented.");
+    }
+    split(edges: (IEdge | IWire)[]): IShape {
+        throw new Error("Method not implemented.");
+    }
+    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
+        throw new Error("Method not implemented.");
+    }
+    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
+        throw new Error("Method not implemented.");
+    }
 
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
         throw new Error("Method not implemented.");

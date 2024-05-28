@@ -74,6 +74,7 @@ mainBuild:
     - symbol: BRepPrimAPI_MakeTorus
     - symbol: BRepTools
     - symbol: BRepTools_ReShape
+    - symbol: BRepTools_Quilt
     - symbol: ChFi3d_FilletShape
     - symbol: ChFiDS_ChamfMode
     - symbol: Convert_ParameterisationType
@@ -94,6 +95,9 @@ mainBuild:
     - symbol: Geom_Conic
     - symbol: Geom_CylindricalSurface
     - symbol: Geom_ElementarySurface
+    - symbol: Geom_Ellipse
+    - symbol: Geom_Hyperbola
+    - symbol: Geom_Parabola
     - symbol: GeomFill_Trihedron
     - symbol: Geom_Geometry
     - symbol: Geom_Line
@@ -160,6 +164,7 @@ mainBuild:
     - symbol: MoniTool_TypedValue
     - symbol: NCollection_BaseList
     - symbol: NCollection_BaseMap
+    - symbol: NCollection_BaseSequence
     - symbol: Poly_Array1OfTriangle
     - symbol: Poly_Connect
     - symbol: Poly_PolygonOnTriangulation
@@ -209,6 +214,7 @@ mainBuild:
     - symbol: TopoDS_Vertex
     - symbol: TopoDS_Wire
     - symbol: TopTools_ListOfShape
+    - symbol: TopTools_SequenceOfShape
     - symbol: TopTools_IndexedMapOfShape
     - symbol: TopTools_IndexedDataMapOfShapeListOfShape
     - symbol: XSControl_Reader
