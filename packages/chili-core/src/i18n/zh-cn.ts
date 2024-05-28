@@ -89,6 +89,8 @@ export default {
         "command.import": "导入",
         "command.export.iges": "导出IGS",
         "command.export.step": "导出STP",
+        "command.split": "分割",
+        "command.section": "相交线",
         "snap.end": "端点",
         "snap.mid": "中点",
         "snap.center": "圆心",

@@ -12,4 +12,5 @@ export * from "./polygon";
 export * from "./prism";
 export * from "./rect";
 export * from "./revolve";
+export * from "./section";
 export * from "./sweep";

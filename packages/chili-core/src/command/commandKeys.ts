@@ -24,6 +24,7 @@ export type CommandKeys =
     | "create.group"
     | "create.polygon"
     | "create.offset"
+    | "create.section"
     | "convert.toWire"
     | "convert.toFace"
     | "convert.prism"
@@ -35,5 +36,6 @@ export type CommandKeys =
     | "modify.rotate"
     | "modify.mirror"
     | "modify.delete"
+    | "modify.split"
     | "workingPlane.alignToPlane"
     | "workingPlane.set";

@@ -108,6 +108,8 @@ export type I18nKeys =
     | "command.import"
     | "command.export.iges"
     | "command.export.step"
+    | "command.split"
+    | "command.section"
     | "operate.pickFistPoint"
     | "operate.pickNextPoint"
     | "operate.pickCircleCenter"

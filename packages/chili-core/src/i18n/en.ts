@@ -89,6 +89,8 @@ export default {
         "command.import": "Import",
         "command.export.iges": "Export IGS",
         "command.export.step": "Export STP",
+        "command.section": "Section",
+        "command.split": "Split",
         "snap.end": "End",
         "snap.mid": "Middle",
         "snap.center": "Center",

@@ -28,7 +28,14 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.modify",
-                items: ["modify.move", "modify.rotate", "modify.mirror", "modify.delete", "create.offset"],
+                items: [
+                    "modify.move",
+                    "modify.rotate",
+                    "modify.mirror",
+                    "modify.delete",
+                    "create.offset",
+                    "modify.split",
+                ],
             },
             {
                 groupName: "ribbon.group.converter",
@@ -42,7 +49,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.boolean",
-                items: ["boolean.common", "boolean.cut", "boolean.fuse"],
+                items: ["boolean.common", "boolean.cut", "boolean.fuse", "create.section"],
             },
             {
                 groupName: "ribbon.group.workingPlane",
