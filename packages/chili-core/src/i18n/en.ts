@@ -33,6 +33,7 @@ export default {
         "ribbon.group.converter": "Converter",
         "ribbon.group.boolean": "Boolean",
         "ribbon.group.workingPlane": "Working Plane",
+        "ribbon.group.tools": "Tools",
         "ribbon.group.importExport": "Import/Export",
         "items.header": "Items",
         "items.tool.newFolder": "New Folder",

@@ -33,6 +33,7 @@ export default {
         "ribbon.group.selection": "选择",
         "ribbon.group.boolean": "布尔运算",
         "ribbon.group.workingPlane": "工作平面",
+        "ribbon.group.tools": "工具",
         "ribbon.group.importExport": "导入/导出",
         "items.header": "项目",
         "items.tool.newFolder": "文件夹",

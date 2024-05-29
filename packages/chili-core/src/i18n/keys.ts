@@ -42,6 +42,7 @@ export type I18nKeys =
     | "ribbon.group.selection"
     | "ribbon.group.boolean"
     | "ribbon.group.workingPlane"
+    | "ribbon.group.tools"
     | "ribbon.group.importExport"
     | "items.header"
     | "items.tool.newFolder"

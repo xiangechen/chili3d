@@ -21,21 +21,14 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.arc",
                     "create.rect",
                     "create.circle",
+                    "create.bezier",
                     "create.polygon",
                     "create.box",
-                    "create.bezier",
                 ],
             },
             {
                 groupName: "ribbon.group.modify",
-                items: [
-                    "modify.move",
-                    "modify.rotate",
-                    "modify.mirror",
-                    "modify.delete",
-                    "create.offset",
-                    "modify.split",
-                ],
+                items: ["modify.move", "modify.rotate", "modify.mirror", "create.offset", "modify.delete"],
             },
             {
                 groupName: "ribbon.group.converter",
@@ -49,11 +42,15 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.boolean",
-                items: ["boolean.common", "boolean.cut", "boolean.fuse", "create.section"],
+                items: ["boolean.common", "boolean.cut", "boolean.fuse"],
             },
             {
                 groupName: "ribbon.group.workingPlane",
                 items: ["workingPlane.set", "workingPlane.alignToPlane"],
+            },
+            {
+                groupName: "ribbon.group.tools",
+                items: ["create.section", "modify.split"],
             },
             {
                 groupName: "ribbon.group.importExport",
