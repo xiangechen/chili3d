@@ -57,7 +57,7 @@ class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
             let edge = shape as IEdge;
-            let curve = edge.asCurve();
+            let curve = edge.asCurve().basisCurve();
             return ICurve.isLine(curve);
         }
         return false;
