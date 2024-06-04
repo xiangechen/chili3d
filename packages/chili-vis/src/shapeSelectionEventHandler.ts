@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, IView, VisualShapeData, VisualState } from "chili-core";
+import { IDocument, IView, ShapeType, VisualShapeData, VisualState } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ShapeSelectionHandler extends SelectionHandler {
@@ -10,14 +10,15 @@ export class ShapeSelectionHandler extends SelectionHandler {
         return [...this._shapes];
     }
 
-    override dispose(): void {
-        super.dispose();
-        this._shapes.clear();
-    }
-
     override clearSelected(document: IDocument): void {
+        let highlighter = document.visual.highlighter;
         for (const shape of this._shapes.values()) {
-            shape.owner.removeState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
+            highlighter.removeState(
+                shape.owner,
+                VisualState.selected,
+                shape.shape.shapeType,
+                ...shape.indexes,
+            );
         }
         this._shapes.clear();
     }
@@ -42,11 +43,13 @@ export class ShapeSelectionHandler extends SelectionHandler {
 
     private removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape);
-        shape.owner.removeState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
+        let highlighter = shape.owner.geometryEngity.document.visual.highlighter;
+        highlighter.removeState(shape.owner, VisualState.selected, shape.shape.shapeType, ...shape.indexes);
     }
 
     private addSelected(shape: VisualShapeData) {
-        shape.owner.addState(VisualState.selected, shape.shape.shapeType, ...shape.indexes);
+        let highlighter = shape.owner.geometryEngity.document.visual.highlighter;
+        highlighter.addState(shape.owner, VisualState.selected, this.shapeType, ...shape.indexes);
         this._shapes.add(shape);
     }
 }

@@ -42,7 +42,6 @@ export class Split extends CreateCommand {
                 );
                 this.document.addNode(model);
             }
-            this.document.visual.highlighter.clear();
             this.document.visual.update();
         });
     }
@@ -57,7 +56,7 @@ export class Split extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.shape", true),
+            new SelectShapeStep(ShapeType.Wire, "prompt.select.shape", true),
         ];
     }
 }

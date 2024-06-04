@@ -21,7 +21,6 @@ export abstract class CreateCommand extends MultistepCommand {
             let name = this.getModelName(geometry) + count++;
             let model = new GeometryModel(this.document, name, geometry);
             this.document.addNode(model);
-            this.document.visual.highlighter.clear();
             this.document.visual.update();
         });
     }

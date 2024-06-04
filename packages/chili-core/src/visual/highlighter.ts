@@ -4,13 +4,9 @@ import { ShapeType } from "../shape";
 import { IVisualGeometry, VisualState } from "./visualShape";
 
 export interface IHighlighter {
+    getState(shape: IVisualGeometry, type: ShapeType, index?: number): VisualState | undefined;
     clear(): void;
-    removeAllStates(shape: IVisualGeometry, resetState: boolean): void;
-    updateStateData(
-        shape: IVisualGeometry,
-        mode: "add" | "remove",
-        state: VisualState,
-        type: ShapeType,
-        index?: number,
-    ): VisualState;
+    resetState(shape: IVisualGeometry): void;
+    addState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
+    removeState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
 }

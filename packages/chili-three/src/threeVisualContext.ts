@@ -300,7 +300,7 @@ export class ThreeVisualContext implements IVisualContext {
     private displayModel(model: IModel) {
         let modelShape = model.geometry.shape.value;
         if (modelShape === undefined) return;
-        let threeShape = new ThreeGeometry(model.geometry, this.visual.highlighter, this);
+        let threeShape = new ThreeGeometry(model.geometry, this);
         this.visualShapes.add(threeShape);
         this._shapeModelMap.set(threeShape, model);
         this._modelShapeMap.set(model, threeShape);

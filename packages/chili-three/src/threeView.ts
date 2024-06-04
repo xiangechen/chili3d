@@ -278,7 +278,8 @@ export class ThreeView extends Observable implements IView {
         shapeFilter?: IShapeFilter,
     ) {
         if (!(shape.parent instanceof ThreeGeometry) || !shape.parent.visible) return;
-        if (shapeType === ShapeType.Shape && shape instanceof LineSegments) {
+
+        if (shape instanceof LineSegments) {
             if (shapeFilter && !shapeFilter.allow(shape.parent.geometryEngity.shape.value!)) return;
             detecteds.push({
                 shape: shape.parent.geometryEngity.shape.value!,

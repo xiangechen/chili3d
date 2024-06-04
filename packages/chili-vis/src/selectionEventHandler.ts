@@ -50,10 +50,7 @@ export abstract class SelectionHandler implements IEventHandler {
         });
     }
 
-    dispose() {
-        this._highlights = undefined;
-        this._detectAtMouse = undefined;
-    }
+    dispose() {}
 
     pointerMove(view: IView, event: PointerEvent): void {
         this._detectAtMouse = undefined;
@@ -100,8 +97,12 @@ export abstract class SelectionHandler implements IEventHandler {
     private setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
-            let shapeType = this.shapeType === ShapeType.Shape ? this.shapeType : x.shape.shapeType;
-            x.owner.addState(VisualState.highlight, shapeType, ...x.indexes);
+            view.document.visual.highlighter.addState(
+                x.owner,
+                VisualState.highlight,
+                this.shapeType,
+                ...x.indexes,
+            );
         });
         this._highlights = detecteds;
         view.update();
@@ -173,7 +174,12 @@ export abstract class SelectionHandler implements IEventHandler {
 
     protected cleanHighlights() {
         this._highlights?.forEach((x) => {
-            x.owner.removeState(VisualState.highlight, this.shapeType, ...x.indexes);
+            x.owner.geometryEngity.document.visual.highlighter.removeState(
+                x.owner,
+                VisualState.highlight,
+                this.shapeType,
+                ...x.indexes,
+            );
         });
         this._highlights = undefined;
     }

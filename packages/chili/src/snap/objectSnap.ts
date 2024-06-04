@@ -183,13 +183,17 @@ export class ObjectSnap implements ISnapper {
     }
 
     private hilighted(view: IView, shapes: VisualShapeData[]) {
-        shapes.forEach((x) => x.owner.addState(VisualState.highlight, x.shape.shapeType, ...x.indexes));
+        shapes.forEach((x) => {
+            let highlighter = x.owner.geometryEngity.document.visual.highlighter;
+            highlighter.addState(x.owner, VisualState.highlight, x.shape.shapeType, ...x.indexes);
+        });
         this._hilightedShapes.push(...shapes);
     }
 
     private unHilighted() {
         this._hilightedShapes.forEach((x) => {
-            x.owner.removeState(VisualState.highlight, x.shape.shapeType, ...x.indexes);
+            let highlighter = x.owner.geometryEngity.document.visual.highlighter;
+            highlighter.removeState(x.owner, VisualState.highlight, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.length = 0;
     }

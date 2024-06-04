@@ -36,9 +36,7 @@ export class Selection implements ISelection, IDisposable {
             this.filter,
         );
         await this.pickAsync(handler, prompt, controller, multiMode);
-        let shapes = handler.shapes();
-        handler.dispose();
-        return shapes;
+        return handler.shapes();
     }
 
     async pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
@@ -47,9 +45,7 @@ export class Selection implements ISelection, IDisposable {
             this.nodeType = "model";
             let handler = new ModelSelectionHandler(this.document, multiMode, controller, this.filter);
             await this.pickAsync(handler, prompt, controller, multiMode);
-            let models = handler.models();
-            handler.dispose();
-            return models;
+            return handler.models();
         } finally {
             this.nodeType = oldNodeType;
         }
@@ -132,7 +128,9 @@ export class Selection implements ISelection, IDisposable {
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
             if (INode.isModelNode(m)) {
-                this.document.visual.context.getShape(m)?.addState(VisualState.selected, ShapeType.Shape);
+                let visual = this.document.visual.context.getShape(m);
+                if (visual)
+                    this.document.visual.highlighter.addState(visual, VisualState.selected, ShapeType.Shape);
             }
         });
         this._selectedNodes.push(...nodes);
@@ -142,9 +140,13 @@ export class Selection implements ISelection, IDisposable {
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
             if (INode.isModelNode(node)) {
-                this.document.visual.context
-                    .getShape(node)
-                    ?.removeState(VisualState.selected, ShapeType.Shape);
+                let visual = this.document.visual.context.getShape(node);
+                if (visual)
+                    this.document.visual.highlighter.removeState(
+                        visual,
+                        VisualState.selected,
+                        ShapeType.Shape,
+                    );
             }
         }
         this._selectedNodes = this._selectedNodes.filter((m) => !nodes.includes(m));

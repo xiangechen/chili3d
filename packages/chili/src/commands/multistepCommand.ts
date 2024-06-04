@@ -48,15 +48,20 @@ export abstract class MultistepCommand extends CancelableCommand {
 
     protected async executeSteps(): Promise<boolean> {
         let steps = this.getSteps();
-        while (this.stepDatas.length < steps.length) {
-            this.controller = new AsyncController();
-            let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
-            if (data === undefined || this.controller.result?.status !== "success") {
-                return false;
+        try {
+            while (this.stepDatas.length < steps.length) {
+                this.controller = new AsyncController();
+                let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
+                if (data === undefined || this.controller.result?.status !== "success") {
+                    return false;
+                }
+                this.stepDatas.push(data);
             }
-            this.stepDatas.push(data);
+            return true;
+        } finally {
+            this.document.selection.clearSelection();
+            this.document.visual.highlighter.clear();
         }
-        return true;
     }
 
     protected resetSteps() {
