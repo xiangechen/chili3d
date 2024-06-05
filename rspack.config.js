@@ -1,11 +1,18 @@
+const rspack = require("@rspack/core");
+const { defineConfig } = require("@rspack/cli");
 const path = require("path");
 const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 
-module.exports = {
+const config = defineConfig({
     entry: {
         main: "./packages/chili-web/src/index.ts",
     },
     module: {
+        parser: {
+            "css/auto": {
+                namedExports: false,
+            },
+        },
         rules: [
             {
                 test: /\.wasm$/,
@@ -15,23 +22,18 @@ module.exports = {
                 test: /\.cur$/,
                 type: "asset",
             },
-        ],
-    },
-    builtins: {
-        copy: {
-            patterns: [
-                {
-                    from: "./public",
-                    globOptions: {
-                        ignore: ["**/**/index.html"],
+            {
+                test: /\.(j|t)s$/,
+                loader: "builtin:swc-loader",
+                options: {
+                    jsc: {
+                        parser: {
+                            syntax: "typescript",
+                            decorators: true,
+                        },
+                        target: "esnext",
                     },
                 },
-            ],
-        },
-        html: [
-            {
-                template: "./public/index.html",
-                inject: "body",
             },
         ],
     },
@@ -46,9 +48,27 @@ module.exports = {
             path: false,
         },
     },
-    plugins: [new ForkTsCheckerWebpackPlugin()],
+    plugins: [
+        new ForkTsCheckerWebpackPlugin(),
+        new rspack.CopyRspackPlugin({
+            patterns: [
+                {
+                    from: "./public",
+                    globOptions: {
+                        ignore: ["**/**/index.html"],
+                    },
+                },
+            ],
+        }),
+        new rspack.HtmlRspackPlugin({
+            template: "./public/index.html",
+            inject: "body",
+        }),
+    ],
     output: {
         filename: "[contenthash].bundle.js",
         path: path.resolve(__dirname, "build"),
     },
-};
+});
+
+module.exports = config;
