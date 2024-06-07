@@ -67,7 +67,7 @@ export class GeometryState {
     }
 
     private displayState(type: ShapeType, newState: VisualState, index: number | undefined) {
-        if (type === ShapeType.Shape) {
+        if (ShapeType.isWhole(type)) {
             this.setGeometryState(newState);
         } else if (index !== undefined) {
             this.setSubGeometryState(type, newState, index);
@@ -111,7 +111,7 @@ export class GeometryState {
     }
 
     private setSubGeometryState(type: ShapeType, newState: VisualState, index: number) {
-        if (ShapeType.hasFace(type)) {
+        if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
             this.setSubFaceState(newState, index);
         }
         if (ShapeType.hasEdge(type) || ShapeType.hasWire(type)) {
@@ -208,7 +208,7 @@ export class ThreeHighlighter implements IHighlighter {
 
     addState(geometry: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]) {
         let geometryState = this.getOrInitState(geometry);
-        if (type === ShapeType.Shape) {
+        if (ShapeType.isWhole(type) || index.length === 0) {
             geometryState.addState(state, type);
         } else {
             index.forEach((i) => {
@@ -219,7 +219,7 @@ export class ThreeHighlighter implements IHighlighter {
 
     removeState(geometry: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]) {
         let geometryState = this.getOrInitState(geometry);
-        if (type === ShapeType.Shape) {
+        if (ShapeType.isWhole(type) || index.length === 0) {
             geometryState.removeState(state, type);
         } else {
             index.forEach((i) => {

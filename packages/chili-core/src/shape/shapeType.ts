@@ -13,6 +13,15 @@ export enum ShapeType {
 }
 
 export namespace ShapeType {
+    export function isWhole(type: ShapeType) {
+        return (
+            type === ShapeType.Shape ||
+            type === ShapeType.Compound ||
+            type === ShapeType.CompoundSolid ||
+            type === ShapeType.Solid
+        );
+    }
+
     export function hasCompound(type: ShapeType): boolean {
         return (type & ShapeType.Compound) !== 0;
     }

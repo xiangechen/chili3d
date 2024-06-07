@@ -56,7 +56,7 @@ export class Split extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectShapeStep(ShapeType.Wire, "prompt.select.shape", true),
+            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", true),
         ];
     }
 }

@@ -263,41 +263,51 @@ export class ThreeView extends Observable implements IView {
         selectionBox.startPoint.set(start.x, start.y, 0.5);
         selectionBox.endPoint.set(end.x, end.y, 0.5);
         let detecteds: VisualShapeData[] = [];
-        let containsCache = new Map<string, boolean>();
-        for (const shape of selectionBox.select()) {
-            this.addDetectedShape(detecteds, containsCache, shapeType, shape, shapeFilter);
+        let containsCache = new Set<IShape>();
+        for (const obj of selectionBox.select()) {
+            this.addDetectedShape(detecteds, containsCache, shapeType, obj, shapeFilter);
         }
         return detecteds;
     }
 
     private addDetectedShape(
         detecteds: VisualShapeData[],
-        cache: Map<string, boolean>,
+        cache: Set<IShape>,
         shapeType: ShapeType,
-        shape: Mesh | LineSegments,
+        obj: Mesh | LineSegments,
         shapeFilter?: IShapeFilter,
     ) {
-        if (!(shape.parent instanceof ThreeGeometry) || !shape.parent.visible) return;
-
-        if (shape instanceof LineSegments) {
-            if (shapeFilter && !shapeFilter.allow(shape.parent.geometryEngity.shape.value!)) return;
+        if (!(obj.parent instanceof ThreeGeometry) || !obj.parent.visible) return;
+        let shape = obj.parent.geometryEngity.shape.value!;
+        const addShape = (indexes: number[]) => {
             detecteds.push({
-                shape: shape.parent.geometryEngity.shape.value!,
-                owner: shape.parent,
-                indexes: [],
+                shape,
+                owner: obj.parent as any,
+                indexes,
             });
+            cache.add(shape);
+        };
+
+        if (shapeType === ShapeType.Shape) {
+            addShape([]);
+            return;
         }
+        if ((shape.shapeType & shapeType) === 0) return;
+        if (shapeFilter && !shapeFilter.allow(shape)) return;
+        if (cache.has(shape)) return;
+
+        let groups = obj instanceof Mesh ? shape.mesh.faces?.groups : shape.mesh.edges?.groups;
+        addShape([...Array(groups?.length).keys()]);
     }
 
     detected(shapeType: ShapeType, mx: number, my: number, shapeFilter?: IShapeFilter): VisualShapeData[] {
         let intersections = this.findIntersections(shapeType, mx, my);
-        return shapeType === ShapeType.Shape
+        return ShapeType.isWhole(shapeType)
             ? this.detectThreeShapes(intersections, shapeFilter)
             : this.detectSubShapes(shapeType, intersections, shapeFilter);
     }
 
-    private detectThreeShapes(intersections: Intersection<Object3D>[], shapeFilter?: IShapeFilter) {
-        let result: VisualShapeData[] = [];
+    private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
             if (
@@ -306,14 +316,16 @@ export class ThreeView extends Observable implements IView {
             ) {
                 continue;
             }
-            result.push({
-                owner: parent,
-                shape: parent.geometryEngity.shape.value!,
-                point: ThreeHelper.toXYZ(element.point),
-                indexes: [],
-            });
+            return [
+                {
+                    owner: parent,
+                    shape: parent.geometryEngity.shape.value!,
+                    point: ThreeHelper.toXYZ(element.point),
+                    indexes: [],
+                },
+            ];
         }
-        return result;
+        return [];
     }
 
     private detectSubShapes(
@@ -351,29 +363,43 @@ export class ThreeView extends Observable implements IView {
     } {
         let { shape, index, groups } = this.findShapeAndIndex(parent, element);
         if (!shape) return { shape: undefined, directShape: undefined, indexes: [] };
-        if (ShapeType.hasWire(shapeType)) {
-            let wire = this.getWireAndIndexes(shape, groups!, parent);
+        if (ShapeType.hasShell(shapeType) && shape.shapeType === ShapeType.Face) {
+            let shell = this.getAncestor(ShapeType.Shell, shape, groups!, parent);
+            if (shell.shape) return shell;
+        }
+        if (ShapeType.hasWire(shapeType) && shape.shapeType === ShapeType.Edge) {
+            let wire = this.getAncestor(ShapeType.Wire, shape, groups!, parent);
             if (wire.shape) return wire;
         }
-        // TODO: other type
+        if (!ShapeType.hasFace(shapeType) && shape.shapeType === ShapeType.Face) {
+            return { shape: undefined, directShape: undefined, indexes: [index!] };
+        }
+        if (!ShapeType.hasEdge(shapeType) && shape.shapeType === ShapeType.Edge) {
+            return { shape: undefined, directShape: undefined, indexes: [index!] };
+        }
 
         return { shape, directShape: shape, indexes: [index!] };
     }
 
-    private getWireAndIndexes(shape: IShape, groups: ShapeMeshGroup[], parent: ThreeGeometry) {
-        let wire = shape.findAncestor(ShapeType.Wire, parent.geometryEngity.shape.value!).at(0);
-        if (!wire) return { shape: undefined, indexes: [] };
+    private getAncestor(
+        type: ShapeType,
+        directShape: IShape,
+        groups: ShapeMeshGroup[],
+        parent: ThreeGeometry,
+    ) {
+        let ancestor = directShape.findAncestor(type, parent.geometryEngity.shape.value!).at(0);
+        if (!ancestor) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];
-        for (const edge of wire.findSubShapes(ShapeType.Edge)) {
-            this.findIndex(groups, edge, indexes);
+        for (const subShape of ancestor.findSubShapes(directShape.shapeType)) {
+            this.findIndex(groups, subShape, indexes);
         }
-        return { shape: wire, indexes, directShape: shape };
+        return { shape: ancestor, indexes, directShape };
     }
 
-    private findIndex(groups: ShapeMeshGroup[], edge: IShape, indexes: number[]) {
+    private findIndex(groups: ShapeMeshGroup[], shape: IShape, indexes: number[]) {
         for (let i = 0; i < groups.length; i++) {
-            if (edge.isEqual(groups[i].shape)) {
+            if (shape.isEqual(groups[i].shape)) {
                 indexes.push(i);
             }
         }
