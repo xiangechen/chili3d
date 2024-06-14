@@ -5,6 +5,7 @@ import { Matrix4, Plane, Ray, XYZ } from "../math";
 import { ITrimmedCurve } from "./curve";
 import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
+import { ISurface } from "./surface";
 
 export enum CurveType {
     Line,
@@ -20,17 +21,19 @@ export enum CurveType {
 }
 
 export enum SurfaceType {
-    Plane,
+    Plate,
+    Bezier,
+    BSpline,
+    RectangularTrimmed,
+    Conical,
     Cylinder,
-    Cone,
-    Sphere,
-    Torus,
-    BezierSurface,
-    BSplineSurface,
-    SurfaceOfRevolution,
-    SurfaceOfExtrusion,
-    OffsetSurface,
-    OtherSurface,
+    Plane,
+    Spherical,
+    Toroidal,
+    Revolution,
+    Extrusion,
+    Offset,
+    Composite,
 }
 
 export enum Orientation {
@@ -72,7 +75,7 @@ export interface IVertex extends IShape {}
 export interface IEdge extends IShape {
     intersect(other: IEdge | Ray): XYZ[];
     length(): number;
-    asCurve(): ITrimmedCurve;
+    curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
 }
 
@@ -90,6 +93,7 @@ export interface IWire extends IShape {
 export interface IFace extends IShape {
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
     outerWire(): IWire;
+    surface(): ISurface;
 }
 
 export interface IShell extends IShape {}

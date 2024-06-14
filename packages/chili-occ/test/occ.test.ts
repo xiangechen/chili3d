@@ -4,7 +4,7 @@ import { expect, test } from "@jest/globals";
 import { CurveType, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { TopAbs_ShapeEnum, TopoDS_Edge } from "../occ-wasm/chili_occ";
-import { OccCurve } from "../src/occGeometry";
+import { OccCurve } from "../src/occCurve";
 import { OccHelps } from "../src/occHelps";
 import { OccEdge, OccSolid } from "../src/occShape";
 
@@ -23,7 +23,7 @@ describe("shape test", () => {
         expect(make1.IsDone()).toBeTruthy();
         let edge1 = new OccEdge(make1.Edge());
         expect(edge1.shapeType).toBe(ShapeType.Edge);
-        let ps = edge1.asCurve().project(new XYZ(5, 0, 0));
+        let ps = edge1.curve().project(new XYZ(5, 0, 0));
         expect(ps.length).toBe(1);
         expect(ps[0].x).toBe(5);
 
@@ -90,7 +90,7 @@ describe("geometry test", () => {
         let make = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
         expect(make.IsDone()).toBeTruthy();
         let edge = new OccEdge(make.Edge());
-        let curve = edge.asCurve();
+        let curve = edge.curve();
         expect(curve instanceof OccCurve).toBe(true);
         expect(edge.length()).toBe(20);
         expect(curve.value(curve.firstParameter()).x).toBe(-10);
@@ -205,9 +205,9 @@ describe("curve test", () => {
             let shape = new OccEdge(e1);
             shape.matrix = Matrix4.createTranslation(10, 20, 30);
             let edge = shape.mesh.edges?.groups.at(0)?.shape as OccEdge;
-            let p2 = shape.asCurve().value(0);
+            let p2 = shape.curve().value(0);
             expect(p2?.x).toBeCloseTo(20);
-            expect(edge.asCurve().value(0).x).toBeCloseTo(20);
+            expect(edge.curve().value(0).x).toBeCloseTo(20);
         });
     });
 });

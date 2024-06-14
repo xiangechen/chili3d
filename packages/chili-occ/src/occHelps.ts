@@ -1,19 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    Continuity,
     CurveType,
     ICurve,
     IShape,
+    ISurface,
     Id,
     JoinType,
     Matrix4,
     Orientation,
     Plane,
     ShapeType,
+    SurfaceType,
     XYZ,
 } from "chili-core";
 import {
     GeomAbs_JoinType,
+    GeomAbs_Shape,
+    GeomPlate_Surface,
     Geom_BSplineCurve,
     Geom_BezierCurve,
     Geom_Circle,
@@ -23,6 +28,8 @@ import {
     Geom_Line,
     Geom_OffsetCurve,
     Geom_Parabola,
+    Geom_Surface,
+    Geom_SurfaceOfRevolution,
     Geom_TrimmedCurve,
     TopAbs_ShapeEnum,
     TopTools_ListOfShape,
@@ -37,6 +44,17 @@ import {
 } from "../occ-wasm/chili_occ";
 
 import {
+    OccBSplineCurve,
+    OccBezierCurve,
+    OccCircle,
+    OccEllipse,
+    OccHyperbola,
+    OccLine,
+    OccOffsetCurve,
+    OccParabola,
+    OccTrimmedCurve,
+} from "./occCurve";
+import {
     OccCompound,
     OccCompoundSolid,
     OccEdge,
@@ -48,16 +66,20 @@ import {
     OccWire,
 } from "./occShape";
 import {
-    OccBSplineCurve,
-    OccBezierCurve,
-    OccCircle,
-    OccEllipse,
-    OccHyperbola,
-    OccLine,
-    OccOffsetCurve,
-    OccParabola,
-    OccTrimmedCurve,
-} from "./occGeometry";
+    OccBSplineSurface,
+    OccBezierSurface,
+    OccCompositeSurface,
+    OccConicalSurface,
+    OccCylindricalSurface,
+    OccOffsetSurface,
+    OccPlane,
+    OccPlateSurface,
+    OccRectangularSurface,
+    OccSphericalSurface,
+    OccSurfaceOfLinearExtrusion,
+    OccSurfaceOfRevolution,
+    OccToroidalSurface,
+} from "./occSurface";
 
 export class OccHelps {
     static toXYZ(p: gp_Pnt | gp_Dir | gp_Vec): XYZ {
@@ -76,7 +98,7 @@ export class OccHelps {
         return new occ.gp_Vec_4(value.x, value.y, value.z);
     }
 
-    static fromAx2(ax: gp_Ax2): Plane {
+    static fromAx23(ax: gp_Ax2 | gp_Ax3): Plane {
         return new Plane(
             OccHelps.toXYZ(ax.Location()),
             OccHelps.toXYZ(ax.Direction()),
@@ -98,6 +120,11 @@ export class OccHelps {
             OccHelps.toDir(plane.normal),
             OccHelps.toDir(plane.xvec),
         );
+    }
+
+    static fromPln(pln: gp_Pln): Plane {
+        let ax3 = pln.Position();
+        return this.fromAx23(ax3);
     }
 
     static toPln(plane: Plane): gp_Pln {
@@ -163,6 +190,25 @@ export class OccHelps {
         else if (isType("Geom_TrimmedCurve")) return CurveType.TrimmedCurve;
 
         throw new Error("Unknown curve type");
+    }
+
+    static getSurfaceType(surface: Geom_Surface): SurfaceType {
+        let isType = (type: string) => surface.IsInstance_2(type);
+        if (isType("GeomPlate_Surface")) return SurfaceType.Plate;
+        else if (isType("Geom_Plane")) return SurfaceType.Plane;
+        else if (isType("Geom_SurfaceOfLinearExtrusion")) return SurfaceType.Extrusion;
+        else if (isType("Geom_SurfaceOfRevolution")) return SurfaceType.Revolution;
+        else if (isType("Geom_OffsetSurface")) return SurfaceType.Offset;
+        else if (isType("Geom_BSplineSurface")) return SurfaceType.BSpline;
+        else if (isType("Geom_BezierSurface")) return SurfaceType.Bezier;
+        else if (isType("Geom_CylindricalSurface")) return SurfaceType.Cylinder;
+        else if (isType("Geom_ConicalSurface")) return SurfaceType.Conical;
+        else if (isType("Geom_SphericalSurface")) return SurfaceType.Spherical;
+        else if (isType("Geom_RectangularTrimmedSurface")) return SurfaceType.RectangularTrimmed;
+        else if (isType("Geom_ToroidalSurface")) return SurfaceType.Toroidal;
+        else if (isType("ShapeExtent_CompositeSurface")) return SurfaceType.Composite;
+
+        throw new Error("Unknown surface type");
     }
 
     static getShapeType(shape: TopoDS_Shape): ShapeType {
@@ -264,6 +310,27 @@ export class OccHelps {
         }
     }
 
+    static wrapSurface(surface: Geom_Surface): ISurface {
+        let isType = (type: string) => surface.IsInstance_2(type);
+        let actualSurface = surface as any;
+        if (isType("GeomPlate_Surface")) return new OccPlateSurface(actualSurface);
+        else if (isType("Geom_Plane")) return new OccPlane(actualSurface);
+        else if (isType("Geom_SurfaceOfLinearExtrusion"))
+            return new OccSurfaceOfLinearExtrusion(actualSurface);
+        else if (isType("Geom_SurfaceOfRevolution")) return new OccSurfaceOfRevolution(actualSurface);
+        else if (isType("Geom_OffsetSurface")) return new OccOffsetSurface(actualSurface);
+        else if (isType("Geom_BSplineSurface")) return new OccBSplineSurface(actualSurface);
+        else if (isType("Geom_BezierSurface")) return new OccBezierSurface(actualSurface);
+        else if (isType("Geom_CylindricalSurface")) return new OccCylindricalSurface(actualSurface);
+        else if (isType("Geom_ConicalSurface")) return new OccConicalSurface(actualSurface);
+        else if (isType("Geom_SphericalSurface")) return new OccSphericalSurface(actualSurface);
+        else if (isType("Geom_RectangularTrimmedSurface")) return new OccRectangularSurface(actualSurface);
+        else if (isType("Geom_ToroidalSurface")) return new OccToroidalSurface(actualSurface);
+        else if (isType("ShapeExtent_CompositeSurface")) return new OccCompositeSurface(actualSurface);
+
+        throw new Error("Unknown surface type: " + surface.DynamicType().Name);
+    }
+
     static wrapCurve(curve: Geom_Curve): ICurve {
         let isType = (type: string) => curve.IsInstance_2(type);
         if (isType("Geom_Line")) return new OccLine(curve as Geom_Line);
@@ -299,6 +366,27 @@ export class OccHelps {
                 return occ.TopoDS.Vertex_1(shape);
             default:
                 return shape;
+        }
+    }
+
+    static convertContinuity(cni: GeomAbs_Shape) {
+        switch (cni) {
+            case occ.GeomAbs_Shape.GeomAbs_C0:
+                return Continuity.C0;
+            case occ.GeomAbs_Shape.GeomAbs_G1:
+                return Continuity.G1;
+            case occ.GeomAbs_Shape.GeomAbs_C1:
+                return Continuity.C1;
+            case occ.GeomAbs_Shape.GeomAbs_G2:
+                return Continuity.G2;
+            case occ.GeomAbs_Shape.GeomAbs_C2:
+                return Continuity.C2;
+            case occ.GeomAbs_Shape.GeomAbs_C3:
+                return Continuity.C3;
+            case occ.GeomAbs_Shape.GeomAbs_CN:
+                return Continuity.CN;
+            default:
+                throw new Error("unknown continuity");
         }
     }
 

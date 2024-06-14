@@ -58,7 +58,7 @@ export class TestEdge implements IEdge {
     length(): number {
         return this.start.distanceTo(this.end);
     }
-    asCurve(): ITrimmedCurve {
+    curve(): ITrimmedCurve {
         throw new Error("Method not implemented.");
     }
     get id(): string {

@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    IBezierCurve,
     ICompound,
     IEdge,
     IFace,
@@ -28,7 +27,6 @@ import {
 import { OccShapeConverter } from "./occConverter";
 import { OccHelps } from "./occHelps";
 import { OccCompound, OccEdge, OccFace, OccShape, OccSolid, OccVertex, OccWire } from "./occShape";
-import { OccBezierCurve } from "./occGeometry";
 
 export class ShapeFactory implements IShapeFactory {
     readonly converter: IShapeConverter = new OccShapeConverter();

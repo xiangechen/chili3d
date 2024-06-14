@@ -9,6 +9,7 @@ import {
     IShapeMeshData,
     IShell,
     ISolid,
+    ISurface,
     ITrimmedCurve,
     IVertex,
     IWire,
@@ -22,12 +23,13 @@ import {
     SerializedProperties,
     Serializer,
     ShapeType,
+    SurfaceType,
     XYZ,
 } from "chili-core";
 import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
-import { OccTrimmedCurve } from "./occGeometry";
+import { OccTrimmedCurve } from "./occCurve";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
 
@@ -241,7 +243,7 @@ export class OccEdge extends OccShape implements IEdge {
         return Result.ok(new OccEdge(edge.Edge()));
     }
 
-    asCurve(): ITrimmedCurve {
+    curve(): ITrimmedCurve {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
         let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
@@ -297,6 +299,13 @@ export class OccFace extends OccShape implements IFace {
     outerWire(): IWire {
         let wire = occ.ShapeAnalysis.OuterWire(this.shape);
         return new OccWire(wire);
+    }
+
+    surface(): ISurface {
+        let surface = occ.BRep_Tool.Surface_2(this.shape);
+        console.log(SurfaceType[OccHelps.getSurfaceType(surface.get())]);
+
+        throw new Error("Not implemented");
     }
 }
 

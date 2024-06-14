@@ -2728,6 +2728,79 @@ export declare class Handle_Geom_BezierCurve {
     constructor(theHandle: Handle_Geom_BezierCurve);
   }
 
+export declare class Geom_BezierSurface extends Geom_BoundedSurface {
+  ExchangeUV(): void;
+  Increase(UDeg: Graphic3d_ZLayerId, VDeg: Graphic3d_ZLayerId): void;
+  InsertPoleColAfter_1(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  InsertPoleColAfter_2(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  InsertPoleColBefore_1(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  InsertPoleColBefore_2(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  InsertPoleRowAfter_1(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  InsertPoleRowAfter_2(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  InsertPoleRowBefore_1(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  InsertPoleRowBefore_2(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  RemovePoleCol(VIndex: Graphic3d_ZLayerId): void;
+  RemovePoleRow(UIndex: Graphic3d_ZLayerId): void;
+  Segment(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  SetPole_1(UIndex: Graphic3d_ZLayerId, VIndex: Graphic3d_ZLayerId, P: gp_Pnt): void;
+  SetPole_2(UIndex: Graphic3d_ZLayerId, VIndex: Graphic3d_ZLayerId, P: gp_Pnt, Weight: Standard_Real): void;
+  SetPoleCol_1(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  SetPoleCol_2(VIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  SetPoleRow_1(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt): void;
+  SetPoleRow_2(UIndex: Graphic3d_ZLayerId, CPoles: TColgp_Array1OfPnt, CPoleWeights: IntTools_CArray1OfReal): void;
+  SetWeight(UIndex: Graphic3d_ZLayerId, VIndex: Graphic3d_ZLayerId, Weight: Standard_Real): void;
+  SetWeightCol(VIndex: Graphic3d_ZLayerId, CPoleWeights: IntTools_CArray1OfReal): void;
+  SetWeightRow(UIndex: Graphic3d_ZLayerId, CPoleWeights: IntTools_CArray1OfReal): void;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Continuity(): GeomAbs_Shape;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  NbUPoles(): Graphic3d_ZLayerId;
+  NbVPoles(): Graphic3d_ZLayerId;
+  Pole(UIndex: Graphic3d_ZLayerId, VIndex: Graphic3d_ZLayerId): gp_Pnt;
+  Poles_1(P: TColgp_Array2OfPnt): void;
+  Poles_2(): TColgp_Array2OfPnt;
+  UDegree(): Graphic3d_ZLayerId;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VDegree(): Graphic3d_ZLayerId;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  Weight(UIndex: Graphic3d_ZLayerId, VIndex: Graphic3d_ZLayerId): Standard_Real;
+  Weights_1(W: TColStd_Array2OfReal): void;
+  Weights_2(): TColStd_Array2OfReal;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  IsURational(): Standard_Boolean;
+  IsVRational(): Standard_Boolean;
+  Transform(T: gp_Trsf): void;
+  static MaxDegree(): Graphic3d_ZLayerId;
+  Resolution(Tolerance3D: Standard_Real, UTolerance: Standard_Real, VTolerance: Standard_Real): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_BezierSurface_1 extends Geom_BezierSurface {
+    constructor(SurfacePoles: TColgp_Array2OfPnt);
+  }
+
+  export declare class Geom_BezierSurface_2 extends Geom_BezierSurface {
+    constructor(SurfacePoles: TColgp_Array2OfPnt, PoleWeights: TColStd_Array2OfReal);
+  }
+
 export declare class Geom_BoundedCurve extends Geom_Curve {
   EndPoint(): gp_Pnt;
   StartPoint(): gp_Pnt;
@@ -3298,6 +3371,136 @@ export declare class Geom_Parabola extends Geom_Conic {
     constructor(D: gp_Ax1, F: gp_Pnt);
   }
 
+export declare class Geom_Plane extends Geom_ElementarySurface {
+  SetPln(Pl: gp_Pln): void;
+  Pln(): gp_Pln;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Coefficients(A: Standard_Real, B: Standard_Real, C: Standard_Real, D: Standard_Real): void;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_Plane_1 extends Geom_Plane {
+    constructor(A3: gp_Ax3);
+  }
+
+  export declare class Geom_Plane_2 extends Geom_Plane {
+    constructor(Pl: gp_Pln);
+  }
+
+  export declare class Geom_Plane_3 extends Geom_Plane {
+    constructor(P: gp_Pnt, V: gp_Dir);
+  }
+
+  export declare class Geom_Plane_4 extends Geom_Plane {
+    constructor(A: Standard_Real, B: Standard_Real, C: Standard_Real, D: Standard_Real);
+  }
+
+export declare class Geom_RectangularTrimmedSurface extends Geom_BoundedSurface {
+  SetTrim_1(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real, USense: Standard_Boolean, VSense: Standard_Boolean): void;
+  SetTrim_2(Param1: Standard_Real, Param2: Standard_Real, UTrim: Standard_Boolean, Sense: Standard_Boolean): void;
+  BasisSurface(): Handle_Geom_Surface;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Continuity(): GeomAbs_Shape;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  UPeriod(): Standard_Real;
+  IsVPeriodic(): Standard_Boolean;
+  VPeriod(): Standard_Real;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_RectangularTrimmedSurface_1 extends Geom_RectangularTrimmedSurface {
+    constructor(S: Handle_Geom_Surface, U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real, USense: Standard_Boolean, VSense: Standard_Boolean);
+  }
+
+  export declare class Geom_RectangularTrimmedSurface_2 extends Geom_RectangularTrimmedSurface {
+    constructor(S: Handle_Geom_Surface, Param1: Standard_Real, Param2: Standard_Real, UTrim: Standard_Boolean, Sense: Standard_Boolean);
+  }
+
+export declare class Geom_SphericalSurface extends Geom_ElementarySurface {
+  SetRadius(R: Standard_Real): void;
+  SetSphere(S: gp_Sphere): void;
+  Sphere(): gp_Sphere;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Area(): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Coefficients(A1: Standard_Real, A2: Standard_Real, A3: Standard_Real, B1: Standard_Real, B2: Standard_Real, B3: Standard_Real, C1: Standard_Real, C2: Standard_Real, C3: Standard_Real, D: Standard_Real): void;
+  Radius(): Standard_Real;
+  Volume(): Standard_Real;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_SphericalSurface_1 extends Geom_SphericalSurface {
+    constructor(A3: gp_Ax3, Radius: Standard_Real);
+  }
+
+  export declare class Geom_SphericalSurface_2 extends Geom_SphericalSurface {
+    constructor(S: gp_Sphere);
+  }
+
 export declare class Geom_Surface extends Geom_Geometry {
   UReverse(): void;
   UReversed(): Handle_Geom_Surface;
@@ -3354,6 +3557,129 @@ export declare class Handle_Geom_Surface {
 
   export declare class Handle_Geom_Surface_4 extends Handle_Geom_Surface {
     constructor(theHandle: Handle_Geom_Surface);
+  }
+
+export declare class Geom_SurfaceOfLinearExtrusion extends Geom_SweptSurface {
+  constructor(C: Handle_Geom_Curve, V: gp_Dir)
+  SetDirection(V: gp_Dir): void;
+  SetBasisCurve(C: Handle_Geom_Curve): void;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class Geom_SurfaceOfRevolution extends Geom_SweptSurface {
+  constructor(C: Handle_Geom_Curve, A1: gp_Ax1)
+  SetAxis(A1: gp_Ax1): void;
+  SetDirection(V: gp_Dir): void;
+  SetBasisCurve(C: Handle_Geom_Curve): void;
+  SetLocation(P: gp_Pnt): void;
+  Axis(): gp_Ax1;
+  Location(): gp_Pnt;
+  ReferencePlane(): gp_Ax2;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class Geom_SweptSurface extends Geom_Surface {
+  Continuity(): GeomAbs_Shape;
+  Direction(): gp_Dir;
+  BasisCurve(): Handle_Geom_Curve;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class Geom_ToroidalSurface extends Geom_ElementarySurface {
+  SetMajorRadius(MajorRadius: Standard_Real): void;
+  SetMinorRadius(MinorRadius: Standard_Real): void;
+  SetTorus(T: gp_Torus): void;
+  Torus(): gp_Torus;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReversedParameter(U: Standard_Real): Standard_Real;
+  Area(): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Coefficients(Coef: IntTools_CArray1OfReal): void;
+  MajorRadius(): Standard_Real;
+  MinorRadius(): Standard_Real;
+  Volume(): Standard_Real;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  DumpJson(theOStream: Standard_OStream, theDepth: Graphic3d_ZLayerId): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class Geom_ToroidalSurface_1 extends Geom_ToroidalSurface {
+    constructor(A3: gp_Ax3, MajorRadius: Standard_Real, MinorRadius: Standard_Real);
+  }
+
+  export declare class Geom_ToroidalSurface_2 extends Geom_ToroidalSurface {
+    constructor(T: gp_Torus);
   }
 
 export declare class Geom_TrimmedCurve extends Geom_BoundedCurve {
@@ -3641,6 +3967,43 @@ export declare class GeomLib {
   static IsBzVClosed(S: Handle_Geom_BezierSurface, V1: Standard_Real, V2: Standard_Real, Tol: Standard_Real): Standard_Boolean;
   static isIsoLine(theC2D: Handle_Adaptor2d_Curve2d, theIsU: Standard_Boolean, theParam: Standard_Real, theIsForward: Standard_Boolean): Standard_Boolean;
   static buildC3dOnIsoLine(theC2D: Handle_Adaptor2d_Curve2d, theSurf: Handle_Adaptor3d_Surface, theFirst: Standard_Real, theLast: Standard_Real, theTolerance: Standard_Real, theIsU: Standard_Boolean, theParam: Standard_Real, theIsForward: Standard_Boolean): Handle_Geom_Curve;
+  delete(): void;
+}
+
+export declare class GeomPlate_Surface extends Geom_Surface {
+  constructor(Surfinit: Handle_Geom_Surface, Surfinter: Plate_Plate)
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  TransformParameters(U: Standard_Real, V: Standard_Real, T: gp_Trsf): void;
+  ParametricTransformation(T: gp_Trsf): gp_GTrsf2d;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  UPeriod(): Standard_Real;
+  IsVPeriodic(): Standard_Boolean;
+  VPeriod(): Standard_Real;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  Continuity(): GeomAbs_Shape;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Copy(): Handle_Geom_Geometry;
+  Transform(T: gp_Trsf): void;
+  CallSurfinit(): Handle_Geom_Surface;
+  SetBounds(Umin: Standard_Real, Umax: Standard_Real, Vmin: Standard_Real, Vmax: Standard_Real): void;
+  RealBounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  Constraints(Seq: TColgp_SequenceOfXY): void;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
   delete(): void;
 }
 
@@ -4422,6 +4785,75 @@ export declare class ShapeBuild_ReShape extends BRepTools_ReShape {
   DynamicType(): Handle_Standard_Type;
   delete(): void;
 }
+
+export declare class ShapeExtend_CompositeSurface extends Geom_Surface {
+  Init_1(GridSurf: Handle_TColGeom_HArray2OfSurface, param: ShapeExtend_Parametrisation): Standard_Boolean;
+  Init_2(GridSurf: Handle_TColGeom_HArray2OfSurface, UJoints: IntTools_CArray1OfReal, VJoints: IntTools_CArray1OfReal): Standard_Boolean;
+  NbUPatches(): Graphic3d_ZLayerId;
+  NbVPatches(): Graphic3d_ZLayerId;
+  Patch_1(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId): Handle_Geom_Surface;
+  Patches(): Handle_TColGeom_HArray2OfSurface;
+  UJointValues(): Handle_TColStd_HArray1OfReal;
+  VJointValues(): Handle_TColStd_HArray1OfReal;
+  UJointValue(i: Graphic3d_ZLayerId): Standard_Real;
+  VJointValue(j: Graphic3d_ZLayerId): Standard_Real;
+  SetUJointValues(UJoints: IntTools_CArray1OfReal): Standard_Boolean;
+  SetVJointValues(VJoints: IntTools_CArray1OfReal): Standard_Boolean;
+  SetUFirstValue(UFirst: Standard_Real): void;
+  SetVFirstValue(VFirst: Standard_Real): void;
+  LocateUParameter(U: Standard_Real): Graphic3d_ZLayerId;
+  LocateVParameter(V: Standard_Real): Graphic3d_ZLayerId;
+  LocateUVPoint(pnt: gp_Pnt2d, i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId): void;
+  Patch_2(U: Standard_Real, V: Standard_Real): Handle_Geom_Surface;
+  Patch_3(pnt: gp_Pnt2d): Handle_Geom_Surface;
+  ULocalToGlobal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, u: Standard_Real): Standard_Real;
+  VLocalToGlobal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, v: Standard_Real): Standard_Real;
+  LocalToGlobal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, uv: gp_Pnt2d): gp_Pnt2d;
+  UGlobalToLocal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, U: Standard_Real): Standard_Real;
+  VGlobalToLocal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, V: Standard_Real): Standard_Real;
+  GlobalToLocal(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, UV: gp_Pnt2d): gp_Pnt2d;
+  GlobalToLocalTransformation(i: Graphic3d_ZLayerId, j: Graphic3d_ZLayerId, uFact: Standard_Real, Trsf: gp_Trsf2d): Standard_Boolean;
+  Transform(T: gp_Trsf): void;
+  Copy(): Handle_Geom_Geometry;
+  UReverse(): void;
+  UReversedParameter(U: Standard_Real): Standard_Real;
+  VReverse(): void;
+  VReversedParameter(V: Standard_Real): Standard_Real;
+  Bounds(U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real): void;
+  IsUClosed(): Standard_Boolean;
+  IsVClosed(): Standard_Boolean;
+  IsUPeriodic(): Standard_Boolean;
+  IsVPeriodic(): Standard_Boolean;
+  UIso(U: Standard_Real): Handle_Geom_Curve;
+  VIso(V: Standard_Real): Handle_Geom_Curve;
+  Continuity(): GeomAbs_Shape;
+  IsCNu(N: Graphic3d_ZLayerId): Standard_Boolean;
+  IsCNv(N: Graphic3d_ZLayerId): Standard_Boolean;
+  D0(U: Standard_Real, V: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec): void;
+  D2(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec): void;
+  D3(U: Standard_Real, V: Standard_Real, P: gp_Pnt, D1U: gp_Vec, D1V: gp_Vec, D2U: gp_Vec, D2V: gp_Vec, D2UV: gp_Vec, D3U: gp_Vec, D3V: gp_Vec, D3UUV: gp_Vec, D3UVV: gp_Vec): void;
+  DN(U: Standard_Real, V: Standard_Real, Nu: Graphic3d_ZLayerId, Nv: Graphic3d_ZLayerId): gp_Vec;
+  Value(pnt: gp_Pnt2d): gp_Pnt;
+  ComputeJointValues(param: ShapeExtend_Parametrisation): void;
+  CheckConnectivity(prec: Standard_Real): Standard_Boolean;
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+  export declare class ShapeExtend_CompositeSurface_1 extends ShapeExtend_CompositeSurface {
+    constructor();
+  }
+
+  export declare class ShapeExtend_CompositeSurface_2 extends ShapeExtend_CompositeSurface {
+    constructor(GridSurf: Handle_TColGeom_HArray2OfSurface, param: ShapeExtend_Parametrisation);
+  }
+
+  export declare class ShapeExtend_CompositeSurface_3 extends ShapeExtend_CompositeSurface {
+    constructor(GridSurf: Handle_TColGeom_HArray2OfSurface, UJoints: IntTools_CArray1OfReal, VJoints: IntTools_CArray1OfReal);
+  }
 
 export declare class ShapeFix_EdgeConnect {
   constructor()
@@ -6953,6 +7385,9 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Handle_Geom_BezierCurve_2: typeof Handle_Geom_BezierCurve_2;
   Handle_Geom_BezierCurve_3: typeof Handle_Geom_BezierCurve_3;
   Handle_Geom_BezierCurve_4: typeof Handle_Geom_BezierCurve_4;
+  Geom_BezierSurface: typeof Geom_BezierSurface;
+  Geom_BezierSurface_1: typeof Geom_BezierSurface_1;
+  Geom_BezierSurface_2: typeof Geom_BezierSurface_2;
   Geom_BoundedCurve: typeof Geom_BoundedCurve;
   Geom_BoundedSurface: typeof Geom_BoundedSurface;
   Geom_Circle: typeof Geom_Circle;
@@ -7004,12 +7439,29 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Geom_Parabola_1: typeof Geom_Parabola_1;
   Geom_Parabola_2: typeof Geom_Parabola_2;
   Geom_Parabola_3: typeof Geom_Parabola_3;
+  Geom_Plane: typeof Geom_Plane;
+  Geom_Plane_1: typeof Geom_Plane_1;
+  Geom_Plane_2: typeof Geom_Plane_2;
+  Geom_Plane_3: typeof Geom_Plane_3;
+  Geom_Plane_4: typeof Geom_Plane_4;
+  Geom_RectangularTrimmedSurface: typeof Geom_RectangularTrimmedSurface;
+  Geom_RectangularTrimmedSurface_1: typeof Geom_RectangularTrimmedSurface_1;
+  Geom_RectangularTrimmedSurface_2: typeof Geom_RectangularTrimmedSurface_2;
+  Geom_SphericalSurface: typeof Geom_SphericalSurface;
+  Geom_SphericalSurface_1: typeof Geom_SphericalSurface_1;
+  Geom_SphericalSurface_2: typeof Geom_SphericalSurface_2;
   Geom_Surface: typeof Geom_Surface;
   Handle_Geom_Surface: typeof Handle_Geom_Surface;
   Handle_Geom_Surface_1: typeof Handle_Geom_Surface_1;
   Handle_Geom_Surface_2: typeof Handle_Geom_Surface_2;
   Handle_Geom_Surface_3: typeof Handle_Geom_Surface_3;
   Handle_Geom_Surface_4: typeof Handle_Geom_Surface_4;
+  Geom_SurfaceOfLinearExtrusion: typeof Geom_SurfaceOfLinearExtrusion;
+  Geom_SurfaceOfRevolution: typeof Geom_SurfaceOfRevolution;
+  Geom_SweptSurface: typeof Geom_SweptSurface;
+  Geom_ToroidalSurface: typeof Geom_ToroidalSurface;
+  Geom_ToroidalSurface_1: typeof Geom_ToroidalSurface_1;
+  Geom_ToroidalSurface_2: typeof Geom_ToroidalSurface_2;
   Geom_TrimmedCurve: typeof Geom_TrimmedCurve;
   Handle_Geom_TrimmedCurve: typeof Handle_Geom_TrimmedCurve;
   Handle_Geom_TrimmedCurve_1: typeof Handle_Geom_TrimmedCurve_1;
@@ -7047,6 +7499,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GeomAbs_SurfaceType: GeomAbs_SurfaceType;
   GeomFill_Trihedron: GeomFill_Trihedron;
   GeomLib: typeof GeomLib;
+  GeomPlate_Surface: typeof GeomPlate_Surface;
   IFSelect_ReturnStatus: IFSelect_ReturnStatus;
   IGESControl_Controller: typeof IGESControl_Controller;
   IGESControl_Reader: typeof IGESControl_Reader;
@@ -7131,6 +7584,10 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   ShapeAnalysis_WireOrder_1: typeof ShapeAnalysis_WireOrder_1;
   ShapeAnalysis_WireOrder_2: typeof ShapeAnalysis_WireOrder_2;
   ShapeBuild_ReShape: typeof ShapeBuild_ReShape;
+  ShapeExtend_CompositeSurface: typeof ShapeExtend_CompositeSurface;
+  ShapeExtend_CompositeSurface_1: typeof ShapeExtend_CompositeSurface_1;
+  ShapeExtend_CompositeSurface_2: typeof ShapeExtend_CompositeSurface_2;
+  ShapeExtend_CompositeSurface_3: typeof ShapeExtend_CompositeSurface_3;
   ShapeFix_EdgeConnect: typeof ShapeFix_EdgeConnect;
   ShapeFix_Face: typeof ShapeFix_Face;
   ShapeFix_Face_1: typeof ShapeFix_Face_1;

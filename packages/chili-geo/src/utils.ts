@@ -7,7 +7,7 @@ export class GeoUtils {
         let res: { edge: IEdge; point: XYZ } | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
         for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
-            let tempPoint = edge.asCurve().nearestPoint(point);
+            let tempPoint = edge.curve().nearestPoint(point);
             let tempDistance = tempPoint.distanceTo(point);
             if (tempDistance < minDistance) {
                 res = { edge, point: tempPoint };
@@ -37,15 +37,15 @@ export class GeoUtils {
             firstEdge = edge as IEdge;
             break;
         }
-        return this.curveNormal(firstEdge!.asCurve());
+        return this.curveNormal(firstEdge!.curve());
     };
 
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
-        let curve = edge.asCurve();
+        let curve = edge.curve();
         let point = curve.value(curve.lastParameter());
         for (const e of wire.iterSubShapes(ShapeType.Edge, true)) {
             if (e.isEqual(edge)) continue;
-            let testCurve = (e as IEdge).asCurve();
+            let testCurve = (e as IEdge).curve();
             if (
                 point.distanceTo(testCurve.value(testCurve.firstParameter())) < Precision.Distance ||
                 point.distanceTo(testCurve.value(testCurve.lastParameter())) < Precision.Distance
@@ -62,7 +62,7 @@ export class GeoUtils {
         }
 
         if (shape.shapeType === ShapeType.Edge) {
-            let curve = (shape as IEdge).asCurve();
+            let curve = (shape as IEdge).curve();
             return this.curveNormal(curve);
         }
 

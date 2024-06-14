@@ -85,6 +85,7 @@ mainBuild:
     - symbol: GCPnts_AbscissaPoint
     - symbol: GCPnts_TangentialDeflection
     - symbol: Geom_BezierCurve
+    - symbol: Geom_BezierSurface
     - symbol: Geom_BoundedCurve
     - symbol: Geom_BoundedSurface
     - symbol: Geom_BSplineCurve
@@ -103,8 +104,15 @@ mainBuild:
     - symbol: Geom_Line
     - symbol: Geom_OffsetCurve
     - symbol: Geom_OffsetSurface
+    - symbol: Geom_Plane
+    - symbol: Geom_RectangularTrimmedSurface
     - symbol: Geom_Surface
+    - symbol: Geom_SweptSurface
+    - symbol: Geom_SphericalSurface
+    - symbol: Geom_SurfaceOfLinearExtrusion
+    - symbol: Geom_SurfaceOfRevolution
     - symbol: Geom_TrimmedCurve
+    - symbol: Geom_ToroidalSurface
     - symbol: GeomAbs_CurveType
     - symbol: GeomAbs_JoinType
     - symbol: GeomAbs_Shape
@@ -114,6 +122,7 @@ mainBuild:
     - symbol: GeomAPI_PointsToBSplineSurface
     - symbol: GeomAPI_ProjectPointOnCurve
     - symbol: GeomAPI_ProjectPointOnSurf
+    - symbol: GeomPlate_Surface
     - symbol: GeomLib
     - symbol: gp_Ax1
     - symbol: gp_Ax2
@@ -176,6 +185,7 @@ mainBuild:
     - symbol: ShapeAnalysis_Edge
     - symbol: ShapeAnalysis_WireOrder
     - symbol: ShapeBuild_ReShape
+    - symbol: ShapeExtend_CompositeSurface
     - symbol: ShapeFix_EdgeConnect
     - symbol: ShapeFix_Face
     - symbol: ShapeFix_Root

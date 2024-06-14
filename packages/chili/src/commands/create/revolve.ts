@@ -35,7 +35,7 @@ export class Revolve extends CreateCommand {
 
     protected override geometryEntity(): GeometryEntity {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
-        let edge = (this.stepDatas[1].shapes[0].shape as IEdge).asCurve().basisCurve() as ILine;
+        let edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve().basisCurve() as ILine;
         let axis = new Ray(edge.value(0), edge.direction);
         let body = new RevolveBody(this.document, shape, axis, this._angle);
         return new ParameterGeometryEntity(this.document, body);
@@ -57,7 +57,7 @@ class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
             let edge = shape as IEdge;
-            let curve = edge.asCurve().basisCurve();
+            let curve = edge.curve().basisCurve();
             return ICurve.isLine(curve);
         }
         return false;

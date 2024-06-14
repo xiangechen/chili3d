@@ -7,3 +7,4 @@ export * from "./shape";
 export * from "./shapeConverter";
 export * from "./shapeFactory";
 export * from "./shapeType";
+export * from "./surface";
