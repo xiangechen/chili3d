@@ -2,7 +2,6 @@
 
 import { Result } from "../foundation";
 import { Plane, Ray, XYZ } from "../math";
-import { IBezierCurve } from "./curve";
 import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
@@ -26,4 +25,6 @@ export interface IShapeFactory {
     booleanCut(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanFuse(shape1: IShape, shape2: IShape): Result<IShape>;
     combine(...shapes: IShape[]): Result<ICompound>;
+    makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
+    makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
 }

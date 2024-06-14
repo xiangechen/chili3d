@@ -390,6 +390,17 @@ export class OccHelps {
         }
     }
 
+    static fromArray(shapes: IShape[]): TopTools_ListOfShape {
+        let listOfShape = new occ.TopTools_ListOfShape_1();
+        shapes.forEach((shape) => {
+            if (!(shape instanceof OccFace)) {
+                throw new Error("The OCC kernel only supports OCC geometries.");
+            }
+            listOfShape.Append_1(shape.shape);
+        });
+        return listOfShape;
+    }
+
     static toArray(shapes: TopTools_ListOfShape): IShape[] {
         const arr: IShape[] = [];
         while (!shapes.IsEmpty()) {

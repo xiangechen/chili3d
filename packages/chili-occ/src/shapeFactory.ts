@@ -20,6 +20,8 @@ import {
 import {
     BRepAlgoAPI_BooleanOperation,
     BRepBuilderAPI_MakeWire,
+    BRepOffset_Mode,
+    GeomAbs_JoinType,
     Geom_BezierCurve,
     Message_ProgressRange,
     TopoDS_Shape,
@@ -220,6 +222,45 @@ export class ShapeFactory implements IShapeFactory {
                 builder.Add_1(index > 0 ? edge : OccHelps.getActualShape(edge.Reversed()));
             }
         }
+    }
+
+    makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape> {
+        if (!(shape instanceof OccShape)) {
+            throw new Error("The OCC kernel only supports OCC geometries.");
+        }
+
+        let builder = new occ.BRepOffsetAPI_MakeThickSolid();
+        builder.MakeThickSolidBySimple(shape.shape, thickness);
+        if (builder.IsDone()) {
+            return Result.ok(OccHelps.wrapShape(builder.Shape()));
+        }
+        return Result.err("error");
+    }
+
+    makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape> {
+        if (!(shape instanceof OccShape)) {
+            throw new Error("The OCC kernel only supports OCC geometries.");
+        }
+
+        let listOfShape = OccHelps.fromArray(closingFaces);
+        let builder = new occ.BRepOffsetAPI_MakeThickSolid();
+        let messageRange = new occ.Message_ProgressRange_1();
+        builder.MakeThickSolidByJoin(
+            shape.shape,
+            listOfShape,
+            thickness,
+            0.00001,
+            occ.BRepOffset_Mode.BRepOffset_Skin as BRepOffset_Mode,
+            false,
+            false,
+            occ.GeomAbs_JoinType.GeomAbs_Intersection as GeomAbs_JoinType,
+            false,
+            messageRange,
+        );
+        if (builder.IsDone()) {
+            return Result.ok(OccHelps.wrapShape(builder.Shape()));
+        }
+        return Result.err("error");
     }
 
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape> {

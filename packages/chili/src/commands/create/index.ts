@@ -14,3 +14,4 @@ export * from "./rect";
 export * from "./revolve";
 export * from "./section";
 export * from "./sweep";
+export * from "./thickSolid";

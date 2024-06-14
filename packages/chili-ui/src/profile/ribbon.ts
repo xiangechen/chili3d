@@ -24,6 +24,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.bezier",
                     "create.polygon",
                     "create.box",
+                    "create.thickSolid",
                 ],
             },
             {

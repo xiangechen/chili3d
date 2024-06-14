@@ -48,6 +48,8 @@ export interface IShape {
     get id(): string;
     get mesh(): IShapeMeshData;
     matrix: Matrix4;
+    isClosed(): boolean;
+    isEmpty(): boolean;
     /**
      * they share the same TShape with the same Locations and Orientations.
      */

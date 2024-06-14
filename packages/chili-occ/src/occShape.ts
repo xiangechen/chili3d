@@ -26,7 +26,16 @@ import {
     SurfaceType,
     XYZ,
 } from "chili-core";
-import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
+import {
+    BOPTools_AlgoTools3D,
+    BRepTools,
+    BRep_Tool,
+    TopoDS_Edge,
+    TopoDS_Face,
+    TopoDS_Shape,
+    TopoDS_Vertex,
+    TopoDS_Wire,
+} from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
 import { OccTrimmedCurve } from "./occCurve";
@@ -59,6 +68,13 @@ export class OccShape implements IShape {
         this._id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OccHelps.getShapeType(shape);
+    }
+    isEmpty(): boolean {
+        return BOPTools_AlgoTools3D.IsEmptyShape(this.shape);
+    }
+
+    isClosed(): boolean {
+        return BRep_Tool.IsClosed_1(this.shape);
     }
 
     section(shape: IShape | Plane): IShape {

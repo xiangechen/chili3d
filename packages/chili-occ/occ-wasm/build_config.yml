@@ -75,6 +75,7 @@ mainBuild:
     - symbol: BRepTools
     - symbol: BRepTools_ReShape
     - symbol: BRepTools_Quilt
+    - symbol: BOPTools_AlgoTools3D
     - symbol: ChFi3d_FilletShape
     - symbol: ChFiDS_ChamfMode
     - symbol: Convert_ParameterisationType

@@ -130,6 +130,30 @@ export declare class BOPAlgo_Options {
     constructor(theAllocator: Handle_NCollection_BaseAllocator);
   }
 
+export declare class BOPTools_AlgoTools3D {
+  constructor();
+  static DoSplitSEAMOnFace_1(theESplit: TopoDS_Edge, theFace: TopoDS_Face): Standard_Boolean;
+  static DoSplitSEAMOnFace_2(theEOrigin: TopoDS_Edge, theESplit: TopoDS_Edge, theFace: TopoDS_Face): Standard_Boolean;
+  static GetNormalToFaceOnEdge_1(aE: TopoDS_Edge, aF: TopoDS_Face, aT: Standard_Real, aD: gp_Dir, theContext: Handle_IntTools_Context): void;
+  static GetNormalToFaceOnEdge_2(aE: TopoDS_Edge, aF: TopoDS_Face, aD: gp_Dir, theContext: Handle_IntTools_Context): void;
+  static SenseFlag(aNF1: gp_Dir, aNF2: gp_Dir): Graphic3d_ZLayerId;
+  static GetNormalToSurface(aS: Handle_Geom_Surface, U: Standard_Real, V: Standard_Real, aD: gp_Dir): Standard_Boolean;
+  static GetApproxNormalToFaceOnEdge_1(aE: TopoDS_Edge, aF: TopoDS_Face, aT: Standard_Real, aPx: gp_Pnt, aD: gp_Dir, theContext: Handle_IntTools_Context): Standard_Boolean;
+  static GetApproxNormalToFaceOnEdge_2(theE: TopoDS_Edge, theF: TopoDS_Face, aT: Standard_Real, aP: gp_Pnt, aDNF: gp_Dir, aDt2D: Standard_Real): Standard_Boolean;
+  static GetApproxNormalToFaceOnEdge_3(theE: TopoDS_Edge, theF: TopoDS_Face, aT: Standard_Real, aDt2D: Standard_Real, aP: gp_Pnt, aDNF: gp_Dir, theContext: Handle_IntTools_Context): Standard_Boolean;
+  static PointNearEdge_1(aE: TopoDS_Edge, aF: TopoDS_Face, aT: Standard_Real, aDt2D: Standard_Real, aP2D: gp_Pnt2d, aPx: gp_Pnt, theContext: Handle_IntTools_Context): Graphic3d_ZLayerId;
+  static PointNearEdge_2(aE: TopoDS_Edge, aF: TopoDS_Face, aT: Standard_Real, aDt2D: Standard_Real, aP2D: gp_Pnt2d, aPx: gp_Pnt): Graphic3d_ZLayerId;
+  static PointNearEdge_3(aE: TopoDS_Edge, aF: TopoDS_Face, aT: Standard_Real, aP2D: gp_Pnt2d, aPx: gp_Pnt, theContext: Handle_IntTools_Context): Graphic3d_ZLayerId;
+  static PointNearEdge_4(aE: TopoDS_Edge, aF: TopoDS_Face, aP2D: gp_Pnt2d, aPx: gp_Pnt, theContext: Handle_IntTools_Context): Graphic3d_ZLayerId;
+  static MinStepIn2d(): Standard_Real;
+  static IsEmptyShape(aS: TopoDS_Shape): Standard_Boolean;
+  static OrientEdgeOnFace(aE: TopoDS_Edge, aF: TopoDS_Face, aER: TopoDS_Edge): void;
+  static PointInFace_1(theF: TopoDS_Face, theP: gp_Pnt, theP2D: gp_Pnt2d, theContext: Handle_IntTools_Context): Graphic3d_ZLayerId;
+  static PointInFace_2(theF: TopoDS_Face, theE: TopoDS_Edge, theT: Standard_Real, theDt2D: Standard_Real, theP: gp_Pnt, theP2D: gp_Pnt2d, theContext: Handle_IntTools_Context): Graphic3d_ZLayerId;
+  static PointInFace_3(theF: TopoDS_Face, theL: Handle_Geom2d_Curve, theP: gp_Pnt, theP2D: gp_Pnt2d, theContext: Handle_IntTools_Context, theDt2D: Standard_Real): Graphic3d_ZLayerId;
+  delete(): void;
+}
+
 export declare class BRep_Builder extends TopoDS_Builder {
   constructor();
   MakeFace_1(F: TopoDS_Face): void;
@@ -7068,6 +7092,7 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   BOPAlgo_Options: typeof BOPAlgo_Options;
   BOPAlgo_Options_1: typeof BOPAlgo_Options_1;
   BOPAlgo_Options_2: typeof BOPAlgo_Options_2;
+  BOPTools_AlgoTools3D: typeof BOPTools_AlgoTools3D;
   BRep_Builder: typeof BRep_Builder;
   BRep_Tool: typeof BRep_Tool;
   BRepAdaptor_CompCurve: typeof BRepAdaptor_CompCurve;

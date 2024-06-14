@@ -25,6 +25,7 @@ export type CommandKeys =
     | "create.polygon"
     | "create.offset"
     | "create.section"
+    | "create.thickSolid"
     | "convert.toWire"
     | "convert.toFace"
     | "convert.prism"

@@ -24,6 +24,12 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    isClosed(): boolean {
+        throw new Error("Method not implemented.");
+    }
+    isEmpty(): boolean {
+        throw new Error("Method not implemented.");
+    }
     section(shape: IShape | Plane): IShape {
         throw new Error("Method not implemented.");
     }
