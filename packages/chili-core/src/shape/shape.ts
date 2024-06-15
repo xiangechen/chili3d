@@ -7,35 +7,6 @@ import { IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
 import { ISurface } from "./surface";
 
-export enum CurveType {
-    Line,
-    Circle,
-    Ellipse,
-    Hyperbola,
-    Parabola,
-    BezierCurve,
-    BSplineCurve,
-    OffsetCurve,
-    OtherCurve,
-    TrimmedCurve,
-}
-
-export enum SurfaceType {
-    Plate,
-    Bezier,
-    BSpline,
-    RectangularTrimmed,
-    Conical,
-    Cylinder,
-    Plane,
-    Spherical,
-    Toroidal,
-    Revolution,
-    Extrusion,
-    Offset,
-    Composite,
-}
-
 export enum Orientation {
     FORWARD,
     REVERSED,

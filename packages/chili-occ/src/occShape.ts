@@ -28,7 +28,6 @@ import {
 } from "chili-core";
 import {
     BOPTools_AlgoTools3D,
-    BRepTools,
     BRep_Tool,
     TopoDS_Edge,
     TopoDS_Face,
@@ -70,11 +69,11 @@ export class OccShape implements IShape {
         this.shapeType = OccHelps.getShapeType(shape);
     }
     isEmpty(): boolean {
-        return BOPTools_AlgoTools3D.IsEmptyShape(this.shape);
+        return occ.BOPTools_AlgoTools3D.IsEmptyShape(this.shape);
     }
 
     isClosed(): boolean {
-        return BRep_Tool.IsClosed_1(this.shape);
+        return occ.BRep_Tool.IsClosed_1(this.shape);
     }
 
     section(shape: IShape | Plane): IShape {

@@ -25,14 +25,13 @@ import {
     Geom_Circle,
     Geom_Conic,
     Geom_Curve,
+    Geom_Ellipse,
     Geom_Hyperbola,
     Geom_Line,
     Geom_OffsetCurve,
     Geom_Parabola,
     Geom_TrimmedCurve,
 } from "../occ-wasm/chili_occ";
-
-import { Geom_Ellipse } from "opencascade.js/dist/opencascade.full";
 import { OccHelps } from "./occHelps";
 
 export class OccCurve implements ICurve, IDisposable {

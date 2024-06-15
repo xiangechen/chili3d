@@ -3,6 +3,22 @@
 import { Plane, XYZ } from "../math";
 import { Continuity, ICurve } from "./curve";
 
+export enum SurfaceType {
+    Plate,
+    Bezier,
+    BSpline,
+    RectangularTrimmed,
+    Conical,
+    Cylinder,
+    Plane,
+    Spherical,
+    Toroidal,
+    Revolution,
+    Extrusion,
+    Offset,
+    Composite,
+}
+
 export interface ISurface {
     continuity(): Continuity;
     uIso(u: number): ICurve;

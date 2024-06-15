@@ -18,7 +18,6 @@ import {
 import {
     GeomAbs_JoinType,
     GeomAbs_Shape,
-    GeomPlate_Surface,
     Geom_BSplineCurve,
     Geom_BezierCurve,
     Geom_Circle,
@@ -29,7 +28,6 @@ import {
     Geom_OffsetCurve,
     Geom_Parabola,
     Geom_Surface,
-    Geom_SurfaceOfRevolution,
     Geom_TrimmedCurve,
     TopAbs_ShapeEnum,
     TopTools_ListOfShape,
@@ -393,7 +391,7 @@ export class OccHelps {
     static fromArray(shapes: IShape[]): TopTools_ListOfShape {
         let listOfShape = new occ.TopTools_ListOfShape_1();
         shapes.forEach((shape) => {
-            if (!(shape instanceof OccFace)) {
+            if (!(shape instanceof OccShape)) {
                 throw new Error("The OCC kernel only supports OCC geometries.");
             }
             listOfShape.Append_1(shape.shape);

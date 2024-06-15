@@ -1,7 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { XYZ } from "../math";
-import { CurveType } from "./shape";
+
+export enum CurveType {
+    Line,
+    Circle,
+    Ellipse,
+    Hyperbola,
+    Parabola,
+    BezierCurve,
+    BSplineCurve,
+    OffsetCurve,
+    OtherCurve,
+    TrimmedCurve,
+}
 
 export enum Continuity {
     C0,
