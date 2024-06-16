@@ -179,7 +179,7 @@ describe("curve test", () => {
             let v12: TopoDS_Edge = vertexs2.next().value;
             let v12HasCode = v12.HashCode(1000);
             expect(v12.ShapeType()).toBe(occ.TopAbs_ShapeEnum.TopAbs_EDGE as TopAbs_ShapeEnum);
-            expect(v12HasCode === v11HasCode).toBeFalsy();
+            expect(v12HasCode).not.toBe(v11HasCode);
             expect(v11.IsEqual(v12)).toBeFalsy();
             expect(v11.IsSame(v12)).toBeFalsy();
             expect(v11.IsPartner(v12)).toBeTruthy();
