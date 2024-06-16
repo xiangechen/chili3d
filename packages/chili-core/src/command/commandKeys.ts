@@ -1,42 +1,45 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-export type CommandKeys =
-    | "boolean.common"
-    | "boolean.cut"
-    | "boolean.fuse"
-    | "doc.new"
-    | "doc.save"
-    | "doc.open"
-    | "doc.saveToFile"
-    | "special.last"
-    | "edit.undo"
-    | "edit.redo"
-    | "file.import"
-    | "file.export.iges"
-    | "file.export.stp"
-    | "create.arc"
-    | "create.bezier"
-    | "create.box"
-    | "create.line"
-    | "create.circle"
-    | "create.rect"
-    | "create.folder"
-    | "create.group"
-    | "create.polygon"
-    | "create.offset"
-    | "create.section"
-    | "create.thickSolid"
-    | "convert.toWire"
-    | "convert.toFace"
-    | "convert.prism"
-    | "convert.revol"
-    | "convert.sweep"
-    | "convert.fuse"
-    | "modify.array"
-    | "modify.move"
-    | "modify.rotate"
-    | "modify.mirror"
-    | "modify.delete"
-    | "modify.split"
-    | "workingPlane.alignToPlane"
-    | "workingPlane.set";
+const COMMAND_KEYS = [
+    "boolean.common",
+    "boolean.cut",
+    "boolean.fuse",
+    "convert.fuse",
+    "convert.prism",
+    "convert.revol",
+    "convert.sweep",
+    "convert.toFace",
+    "convert.toWire",
+    "create.arc",
+    "create.bezier",
+    "create.box",
+    "create.circle",
+    "create.folder",
+    "create.group",
+    "create.line",
+    "create.offset",
+    "create.polygon",
+    "create.rect",
+    "create.section",
+    "create.thickSolid",
+    "doc.new",
+    "doc.open",
+    "doc.save",
+    "doc.saveToFile",
+    "edit.redo",
+    "edit.undo",
+    "file.export.iges",
+    "file.export.stp",
+    "file.import",
+    "modify.array",
+    "modify.delete",
+    "modify.mirror",
+    "modify.move",
+    "modify.rotate",
+    "modify.split",
+    "special.last",
+    "workingPlane.alignToPlane",
+    "workingPlane.set",
+] as const;
+
+export type CommandKeys = (typeof COMMAND_KEYS)[number];
