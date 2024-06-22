@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { XYZ } from "../math";
+import { IGeometry } from "./geometry";
 
 export enum CurveType {
     Line,
@@ -25,21 +26,24 @@ export enum Continuity {
     CN,
 }
 
-export interface ICurve {
+export interface ICurve extends IGeometry {
     get curveType(): CurveType;
-    parameter(point: XYZ): number;
+    length(): number;
+    parameter(point: XYZ, maxDistance: number): number | undefined;
     firstParameter(): number;
     lastParameter(): number;
     project(point: XYZ): XYZ[];
     value(parameter: number): XYZ;
     isCN(n: number): boolean;
+    trim(u1: number, u2: number): ITrimmedCurve;
     d0(u: number): XYZ;
     d1(u: number): { point: XYZ; vec: XYZ };
     d2(u: number): { point: XYZ; vec1: XYZ; vec2: XYZ };
     d3(u: number): { point: XYZ; vec1: XYZ; vec2: XYZ; vec3: XYZ };
     dn(u: number, n: number): XYZ;
+    reverse(): void;
     reversed(): ICurve;
-    nearestPoint(point: XYZ): XYZ;
+    nearestPoint(point: XYZ): [XYZ, number];
     isClosed(): boolean;
     period(): number;
     isPeriodic(): boolean;

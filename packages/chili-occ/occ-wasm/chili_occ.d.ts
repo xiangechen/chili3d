@@ -2264,6 +2264,133 @@ export declare type Extrema_ExtAlgo = {
   Extrema_ExtAlgo_Tree: {};
 }
 
+export declare class Extrema_ExtCC {
+  Initialize_1(C1: Adaptor3d_Curve, C2: Adaptor3d_Curve, TolC1: Standard_Real, TolC2: Standard_Real): void;
+  Initialize_2(C1: Adaptor3d_Curve, C2: Adaptor3d_Curve, U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real, TolC1: Standard_Real, TolC2: Standard_Real): void;
+  SetCurve_1(theRank: Graphic3d_ZLayerId, C: Adaptor3d_Curve): void;
+  SetCurve_2(theRank: Graphic3d_ZLayerId, C: Adaptor3d_Curve, Uinf: Standard_Real, Usup: Standard_Real): void;
+  SetRange(theRank: Graphic3d_ZLayerId, Uinf: Standard_Real, Usup: Standard_Real): void;
+  SetTolerance(theRank: Graphic3d_ZLayerId, Tol: Standard_Real): void;
+  Perform(): void;
+  IsDone(): Standard_Boolean;
+  NbExt(): Graphic3d_ZLayerId;
+  IsParallel(): Standard_Boolean;
+  SquareDistance(N: Graphic3d_ZLayerId): Standard_Real;
+  Points(N: Graphic3d_ZLayerId, P1: Extrema_POnCurv, P2: Extrema_POnCurv): void;
+  TrimmedSquareDistances(dist11: Standard_Real, distP12: Standard_Real, distP21: Standard_Real, distP22: Standard_Real, P11: gp_Pnt, P12: gp_Pnt, P21: gp_Pnt, P22: gp_Pnt): void;
+  SetSingleSolutionFlag(theSingleSolutionFlag: Standard_Boolean): void;
+  GetSingleSolutionFlag(): Standard_Boolean;
+  delete(): void;
+}
+
+  export declare class Extrema_ExtCC_1 extends Extrema_ExtCC {
+    constructor(TolC1: Standard_Real, TolC2: Standard_Real);
+  }
+
+  export declare class Extrema_ExtCC_2 extends Extrema_ExtCC {
+    constructor(C1: Adaptor3d_Curve, C2: Adaptor3d_Curve, TolC1: Standard_Real, TolC2: Standard_Real);
+  }
+
+  export declare class Extrema_ExtCC_3 extends Extrema_ExtCC {
+    constructor(C1: Adaptor3d_Curve, C2: Adaptor3d_Curve, U1: Standard_Real, U2: Standard_Real, V1: Standard_Real, V2: Standard_Real, TolC1: Standard_Real, TolC2: Standard_Real);
+  }
+
+export declare class Extrema_ExtCS {
+  Initialize_1(S: Adaptor3d_Surface, TolC: Standard_Real, TolS: Standard_Real): void;
+  Initialize_2(S: Adaptor3d_Surface, Uinf: Standard_Real, Usup: Standard_Real, Vinf: Standard_Real, Vsup: Standard_Real, TolC: Standard_Real, TolS: Standard_Real): void;
+  Perform(C: Adaptor3d_Curve, Uinf: Standard_Real, Usup: Standard_Real): void;
+  IsDone(): Standard_Boolean;
+  IsParallel(): Standard_Boolean;
+  NbExt(): Graphic3d_ZLayerId;
+  SquareDistance(N: Graphic3d_ZLayerId): Standard_Real;
+  Points(N: Graphic3d_ZLayerId, P1: Extrema_POnCurv, P2: Extrema_POnSurf): void;
+  delete(): void;
+}
+
+  export declare class Extrema_ExtCS_1 extends Extrema_ExtCS {
+    constructor();
+  }
+
+  export declare class Extrema_ExtCS_2 extends Extrema_ExtCS {
+    constructor(C: Adaptor3d_Curve, S: Adaptor3d_Surface, TolC: Standard_Real, TolS: Standard_Real);
+  }
+
+  export declare class Extrema_ExtCS_3 extends Extrema_ExtCS {
+    constructor(C: Adaptor3d_Curve, S: Adaptor3d_Surface, UCinf: Standard_Real, UCsup: Standard_Real, Uinf: Standard_Real, Usup: Standard_Real, Vinf: Standard_Real, Vsup: Standard_Real, TolC: Standard_Real, TolS: Standard_Real);
+  }
+
+export declare class Extrema_ExtPC {
+  Initialize(C: Adaptor3d_Curve, Uinf: Standard_Real, Usup: Standard_Real, TolF: Standard_Real): void;
+  Perform(P: gp_Pnt): void;
+  IsDone(): Standard_Boolean;
+  SquareDistance(N: Graphic3d_ZLayerId): Standard_Real;
+  NbExt(): Graphic3d_ZLayerId;
+  IsMin(N: Graphic3d_ZLayerId): Standard_Boolean;
+  Point(N: Graphic3d_ZLayerId): Extrema_POnCurv;
+  TrimmedSquareDistances(dist1: Standard_Real, dist2: Standard_Real, P1: gp_Pnt, P2: gp_Pnt): void;
+  delete(): void;
+}
+
+  export declare class Extrema_ExtPC_1 extends Extrema_ExtPC {
+    constructor();
+  }
+
+  export declare class Extrema_ExtPC_2 extends Extrema_ExtPC {
+    constructor(P: gp_Pnt, C: Adaptor3d_Curve, Uinf: Standard_Real, Usup: Standard_Real, TolF: Standard_Real);
+  }
+
+  export declare class Extrema_ExtPC_3 extends Extrema_ExtPC {
+    constructor(P: gp_Pnt, C: Adaptor3d_Curve, TolF: Standard_Real);
+  }
+
+export declare class Extrema_ExtPS {
+  Initialize(S: Adaptor3d_Surface, Uinf: Standard_Real, Usup: Standard_Real, Vinf: Standard_Real, Vsup: Standard_Real, TolU: Standard_Real, TolV: Standard_Real): void;
+  Perform(P: gp_Pnt): void;
+  IsDone(): Standard_Boolean;
+  NbExt(): Graphic3d_ZLayerId;
+  SquareDistance(N: Graphic3d_ZLayerId): Standard_Real;
+  Point(N: Graphic3d_ZLayerId): Extrema_POnSurf;
+  TrimmedSquareDistances(dUfVf: Standard_Real, dUfVl: Standard_Real, dUlVf: Standard_Real, dUlVl: Standard_Real, PUfVf: gp_Pnt, PUfVl: gp_Pnt, PUlVf: gp_Pnt, PUlVl: gp_Pnt): void;
+  SetFlag(F: Extrema_ExtFlag): void;
+  SetAlgo(A: Extrema_ExtAlgo): void;
+  delete(): void;
+}
+
+  export declare class Extrema_ExtPS_1 extends Extrema_ExtPS {
+    constructor();
+  }
+
+  export declare class Extrema_ExtPS_2 extends Extrema_ExtPS {
+    constructor(P: gp_Pnt, S: Adaptor3d_Surface, TolU: Standard_Real, TolV: Standard_Real, F: Extrema_ExtFlag, A: Extrema_ExtAlgo);
+  }
+
+  export declare class Extrema_ExtPS_3 extends Extrema_ExtPS {
+    constructor(P: gp_Pnt, S: Adaptor3d_Surface, Uinf: Standard_Real, Usup: Standard_Real, Vinf: Standard_Real, Vsup: Standard_Real, TolU: Standard_Real, TolV: Standard_Real, F: Extrema_ExtFlag, A: Extrema_ExtAlgo);
+  }
+
+export declare class Extrema_ExtSS {
+  Initialize(S2: Adaptor3d_Surface, Uinf2: Standard_Real, Usup2: Standard_Real, Vinf2: Standard_Real, Vsup2: Standard_Real, TolS1: Standard_Real): void;
+  Perform(S1: Adaptor3d_Surface, Uinf1: Standard_Real, Usup1: Standard_Real, Vinf1: Standard_Real, Vsup1: Standard_Real, TolS1: Standard_Real): void;
+  IsDone(): Standard_Boolean;
+  IsParallel(): Standard_Boolean;
+  NbExt(): Graphic3d_ZLayerId;
+  SquareDistance(N: Graphic3d_ZLayerId): Standard_Real;
+  Points(N: Graphic3d_ZLayerId, P1: Extrema_POnSurf, P2: Extrema_POnSurf): void;
+  delete(): void;
+}
+
+  export declare class Extrema_ExtSS_1 extends Extrema_ExtSS {
+    constructor();
+  }
+
+  export declare class Extrema_ExtSS_2 extends Extrema_ExtSS {
+    constructor(S1: Adaptor3d_Surface, S2: Adaptor3d_Surface, TolS1: Standard_Real, TolS2: Standard_Real);
+  }
+
+  export declare class Extrema_ExtSS_3 extends Extrema_ExtSS {
+    constructor(S1: Adaptor3d_Surface, S2: Adaptor3d_Surface, Uinf1: Standard_Real, Usup1: Standard_Real, Vinf1: Standard_Real, Vsup1: Standard_Real, Uinf2: Standard_Real, Usup2: Standard_Real, Vinf2: Standard_Real, Vsup2: Standard_Real, TolS1: Standard_Real, TolS2: Standard_Real);
+  }
+
 export declare class GC_MakeArcOfCircle extends GC_Root {
   Value(): Handle_Geom_TrimmedCurve;
   delete(): void;
@@ -2394,6 +2521,58 @@ export declare class GCPnts_TangentialDeflection {
 
   export declare class GCPnts_TangentialDeflection_5 extends GCPnts_TangentialDeflection {
     constructor(theC: Adaptor2d_Curve2d, theFirstParameter: Standard_Real, theLastParameter: Standard_Real, theAngularDeflection: Standard_Real, theCurvatureDeflection: Standard_Real, theMinimumOfPoints: Graphic3d_ZLayerId, theUTol: Standard_Real, theMinLen: Standard_Real);
+  }
+
+export declare class GCPnts_UniformAbscissa {
+  Initialize_1(theC: Adaptor3d_Curve, theAbscissa: Standard_Real, theToler: Standard_Real): void;
+  Initialize_2(theC: Adaptor3d_Curve, theAbscissa: Standard_Real, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real): void;
+  Initialize_3(theC: Adaptor3d_Curve, theNbPoints: Graphic3d_ZLayerId, theToler: Standard_Real): void;
+  Initialize_4(theC: Adaptor3d_Curve, theNbPoints: Graphic3d_ZLayerId, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real): void;
+  Initialize_5(theC: Adaptor2d_Curve2d, theAbscissa: Standard_Real, theToler: Standard_Real): void;
+  Initialize_6(theC: Adaptor2d_Curve2d, theAbscissa: Standard_Real, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real): void;
+  Initialize_7(theC: Adaptor2d_Curve2d, theNbPoints: Graphic3d_ZLayerId, theToler: Standard_Real): void;
+  Initialize_8(theC: Adaptor2d_Curve2d, theNbPoints: Graphic3d_ZLayerId, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real): void;
+  IsDone(): Standard_Boolean;
+  NbPoints(): Graphic3d_ZLayerId;
+  Parameter(Index: Graphic3d_ZLayerId): Standard_Real;
+  Abscissa(): Standard_Real;
+  delete(): void;
+}
+
+  export declare class GCPnts_UniformAbscissa_1 extends GCPnts_UniformAbscissa {
+    constructor();
+  }
+
+  export declare class GCPnts_UniformAbscissa_2 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor3d_Curve, theAbscissa: Standard_Real, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_3 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor3d_Curve, theAbscissa: Standard_Real, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_4 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor3d_Curve, theNbPoints: Graphic3d_ZLayerId, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_5 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor3d_Curve, theNbPoints: Graphic3d_ZLayerId, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_6 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor2d_Curve2d, theAbscissa: Standard_Real, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_7 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor2d_Curve2d, theAbscissa: Standard_Real, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_8 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor2d_Curve2d, theNbPoints: Graphic3d_ZLayerId, theToler: Standard_Real);
+  }
+
+  export declare class GCPnts_UniformAbscissa_9 extends GCPnts_UniformAbscissa {
+    constructor(theC: Adaptor2d_Curve2d, theNbPoints: Graphic3d_ZLayerId, theU1: Standard_Real, theU2: Standard_Real, theToler: Standard_Real);
   }
 
 export declare class GProp_GProps {
@@ -3163,6 +3342,30 @@ export declare class Geom_Geometry extends Standard_Transient {
   delete(): void;
 }
 
+export declare class Handle_Geom_Geometry {
+  Nullify(): void;
+  IsNull(): boolean;
+  reset(thePtr: Geom_Geometry): void;
+  get(): Geom_Geometry;
+  delete(): void;
+}
+
+  export declare class Handle_Geom_Geometry_1 extends Handle_Geom_Geometry {
+    constructor();
+  }
+
+  export declare class Handle_Geom_Geometry_2 extends Handle_Geom_Geometry {
+    constructor(thePtr: Geom_Geometry);
+  }
+
+  export declare class Handle_Geom_Geometry_3 extends Handle_Geom_Geometry {
+    constructor(theHandle: Handle_Geom_Geometry);
+  }
+
+  export declare class Handle_Geom_Geometry_4 extends Handle_Geom_Geometry {
+    constructor(theHandle: Handle_Geom_Geometry);
+  }
+
 export declare class Geom_Hyperbola extends Geom_Conic {
   SetHypr(H: gp_Hypr): void;
   SetMajorRadius(MajorRadius: Standard_Real): void;
@@ -3761,6 +3964,30 @@ export declare class Handle_Geom_TrimmedCurve {
     constructor(theHandle: Handle_Geom_TrimmedCurve);
   }
 
+export declare class Handle_Geom2d_Curve {
+  Nullify(): void;
+  IsNull(): boolean;
+  reset(thePtr: Geom2d_Curve): void;
+  get(): Geom2d_Curve;
+  delete(): void;
+}
+
+  export declare class Handle_Geom2d_Curve_1 extends Handle_Geom2d_Curve {
+    constructor();
+  }
+
+  export declare class Handle_Geom2d_Curve_2 extends Handle_Geom2d_Curve {
+    constructor(thePtr: Geom2d_Curve);
+  }
+
+  export declare class Handle_Geom2d_Curve_3 extends Handle_Geom2d_Curve {
+    constructor(theHandle: Handle_Geom2d_Curve);
+  }
+
+  export declare class Handle_Geom2d_Curve_4 extends Handle_Geom2d_Curve {
+    constructor(theHandle: Handle_Geom2d_Curve);
+  }
+
 export declare class GeomAPI_Interpolate {
   Load_1(InitialTangent: gp_Vec, FinalTangent: gp_Vec, Scale: Standard_Boolean): void;
   Load_2(Tangents: TColgp_Array1OfVec, TangentFlags: Handle_TColStd_HArray1OfBoolean, Scale: Standard_Boolean): void;
@@ -3953,6 +4180,59 @@ export declare type GeomAbs_SurfaceType = {
   GeomAbs_OtherSurface: {};
 }
 
+export declare class GeomAdaptor_Curve extends Adaptor3d_Curve {
+  static get_type_name(): Standard_Character;
+  static get_type_descriptor(): Handle_Standard_Type;
+  DynamicType(): Handle_Standard_Type;
+  ShallowCopy(): Handle_Adaptor3d_Curve;
+  Reset(): void;
+  Load_1(theCurve: Handle_Geom_Curve): void;
+  Load_2(theCurve: Handle_Geom_Curve, theUFirst: Standard_Real, theULast: Standard_Real): void;
+  Curve(): Handle_Geom_Curve;
+  FirstParameter(): Standard_Real;
+  LastParameter(): Standard_Real;
+  Continuity(): GeomAbs_Shape;
+  NbIntervals(S: GeomAbs_Shape): Graphic3d_ZLayerId;
+  Intervals(T: IntTools_CArray1OfReal, S: GeomAbs_Shape): void;
+  Trim(First: Standard_Real, Last: Standard_Real, Tol: Standard_Real): Handle_Adaptor3d_Curve;
+  IsClosed(): Standard_Boolean;
+  IsPeriodic(): Standard_Boolean;
+  Period(): Standard_Real;
+  Value(U: Standard_Real): gp_Pnt;
+  D0(U: Standard_Real, P: gp_Pnt): void;
+  D1(U: Standard_Real, P: gp_Pnt, V: gp_Vec): void;
+  D2(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec): void;
+  D3(U: Standard_Real, P: gp_Pnt, V1: gp_Vec, V2: gp_Vec, V3: gp_Vec): void;
+  DN(U: Standard_Real, N: Graphic3d_ZLayerId): gp_Vec;
+  Resolution(R3d: Standard_Real): Standard_Real;
+  GetType(): GeomAbs_CurveType;
+  Line(): gp_Lin;
+  Circle(): gp_Circ;
+  Ellipse(): gp_Elips;
+  Hyperbola(): gp_Hypr;
+  Parabola(): gp_Parab;
+  Degree(): Graphic3d_ZLayerId;
+  IsRational(): Standard_Boolean;
+  NbPoles(): Graphic3d_ZLayerId;
+  NbKnots(): Graphic3d_ZLayerId;
+  Bezier(): Handle_Geom_BezierCurve;
+  BSpline(): Handle_Geom_BSplineCurve;
+  OffsetCurve(): Handle_Geom_OffsetCurve;
+  delete(): void;
+}
+
+  export declare class GeomAdaptor_Curve_1 extends GeomAdaptor_Curve {
+    constructor();
+  }
+
+  export declare class GeomAdaptor_Curve_2 extends GeomAdaptor_Curve {
+    constructor(theCurve: Handle_Geom_Curve);
+  }
+
+  export declare class GeomAdaptor_Curve_3 extends GeomAdaptor_Curve {
+    constructor(theCurve: Handle_Geom_Curve, theUFirst: Standard_Real, theULast: Standard_Real);
+  }
+
 export declare type GeomFill_Trihedron = {
   GeomFill_IsCorrectedFrenet: {};
   GeomFill_IsFixed: {};
@@ -3994,6 +4274,21 @@ export declare class GeomLib {
   delete(): void;
 }
 
+export declare class GeomLib_IsPlanarSurface {
+  constructor(S: Handle_Geom_Surface, Tol: Standard_Real)
+  IsPlanar(): Standard_Boolean;
+  Plan(): gp_Pln;
+  delete(): void;
+}
+
+export declare class GeomLib_Tool {
+  constructor();
+  static Parameter_1(Curve: Handle_Geom_Curve, Point: gp_Pnt, MaxDist: Standard_Real, U: Standard_Real): Standard_Boolean;
+  static Parameters(Surface: Handle_Geom_Surface, Point: gp_Pnt, MaxDist: Standard_Real, U: Standard_Real, V: Standard_Real): Standard_Boolean;
+  static Parameter_2(Curve: Handle_Geom2d_Curve, Point: gp_Pnt2d, MaxDist: Standard_Real, U: Standard_Real): Standard_Boolean;
+  delete(): void;
+}
+
 export declare class GeomPlate_Surface extends Geom_Surface {
   constructor(Surfinit: Handle_Geom_Surface, Surfinter: Plate_Plate)
   UReverse(): void;
@@ -4028,6 +4323,19 @@ export declare class GeomPlate_Surface extends Geom_Surface {
   static get_type_name(): Standard_Character;
   static get_type_descriptor(): Handle_Standard_Type;
   DynamicType(): Handle_Standard_Type;
+  delete(): void;
+}
+
+export declare class GeomProjLib {
+  constructor();
+  static Curve2d_1(C: Handle_Geom_Curve, First: Standard_Real, Last: Standard_Real, S: Handle_Geom_Surface, UFirst: Standard_Real, ULast: Standard_Real, VFirst: Standard_Real, VLast: Standard_Real, Tolerance: Standard_Real): Handle_Geom2d_Curve;
+  static Curve2d_2(C: Handle_Geom_Curve, First: Standard_Real, Last: Standard_Real, S: Handle_Geom_Surface, Tolerance: Standard_Real): Handle_Geom2d_Curve;
+  static Curve2d_3(C: Handle_Geom_Curve, First: Standard_Real, Last: Standard_Real, S: Handle_Geom_Surface): Handle_Geom2d_Curve;
+  static Curve2d_4(C: Handle_Geom_Curve, S: Handle_Geom_Surface): Handle_Geom2d_Curve;
+  static Curve2d_5(C: Handle_Geom_Curve, S: Handle_Geom_Surface, UDeb: Standard_Real, UFin: Standard_Real, VDeb: Standard_Real, VFin: Standard_Real): Handle_Geom2d_Curve;
+  static Curve2d_6(C: Handle_Geom_Curve, S: Handle_Geom_Surface, UDeb: Standard_Real, UFin: Standard_Real, VDeb: Standard_Real, VFin: Standard_Real, Tolerance: Standard_Real): Handle_Geom2d_Curve;
+  static Project(C: Handle_Geom_Curve, S: Handle_Geom_Surface): Handle_Geom_Curve;
+  static ProjectOnPlane(Curve: Handle_Geom_Curve, Plane: Handle_Geom_Plane, Dir: gp_Dir, KeepParametrization: Standard_Boolean): Handle_Geom_Curve;
   delete(): void;
 }
 
@@ -7356,6 +7664,26 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   ChFiDS_ChamfMode: ChFiDS_ChamfMode;
   Convert_ParameterisationType: Convert_ParameterisationType;
   Extrema_ExtAlgo: Extrema_ExtAlgo;
+  Extrema_ExtCC: typeof Extrema_ExtCC;
+  Extrema_ExtCC_1: typeof Extrema_ExtCC_1;
+  Extrema_ExtCC_2: typeof Extrema_ExtCC_2;
+  Extrema_ExtCC_3: typeof Extrema_ExtCC_3;
+  Extrema_ExtCS: typeof Extrema_ExtCS;
+  Extrema_ExtCS_1: typeof Extrema_ExtCS_1;
+  Extrema_ExtCS_2: typeof Extrema_ExtCS_2;
+  Extrema_ExtCS_3: typeof Extrema_ExtCS_3;
+  Extrema_ExtPC: typeof Extrema_ExtPC;
+  Extrema_ExtPC_1: typeof Extrema_ExtPC_1;
+  Extrema_ExtPC_2: typeof Extrema_ExtPC_2;
+  Extrema_ExtPC_3: typeof Extrema_ExtPC_3;
+  Extrema_ExtPS: typeof Extrema_ExtPS;
+  Extrema_ExtPS_1: typeof Extrema_ExtPS_1;
+  Extrema_ExtPS_2: typeof Extrema_ExtPS_2;
+  Extrema_ExtPS_3: typeof Extrema_ExtPS_3;
+  Extrema_ExtSS: typeof Extrema_ExtSS;
+  Extrema_ExtSS_1: typeof Extrema_ExtSS_1;
+  Extrema_ExtSS_2: typeof Extrema_ExtSS_2;
+  Extrema_ExtSS_3: typeof Extrema_ExtSS_3;
   GC_MakeArcOfCircle: typeof GC_MakeArcOfCircle;
   GC_MakeArcOfCircle_1: typeof GC_MakeArcOfCircle_1;
   GC_MakeArcOfCircle_2: typeof GC_MakeArcOfCircle_2;
@@ -7383,6 +7711,16 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GCPnts_TangentialDeflection_3: typeof GCPnts_TangentialDeflection_3;
   GCPnts_TangentialDeflection_4: typeof GCPnts_TangentialDeflection_4;
   GCPnts_TangentialDeflection_5: typeof GCPnts_TangentialDeflection_5;
+  GCPnts_UniformAbscissa: typeof GCPnts_UniformAbscissa;
+  GCPnts_UniformAbscissa_1: typeof GCPnts_UniformAbscissa_1;
+  GCPnts_UniformAbscissa_2: typeof GCPnts_UniformAbscissa_2;
+  GCPnts_UniformAbscissa_3: typeof GCPnts_UniformAbscissa_3;
+  GCPnts_UniformAbscissa_4: typeof GCPnts_UniformAbscissa_4;
+  GCPnts_UniformAbscissa_5: typeof GCPnts_UniformAbscissa_5;
+  GCPnts_UniformAbscissa_6: typeof GCPnts_UniformAbscissa_6;
+  GCPnts_UniformAbscissa_7: typeof GCPnts_UniformAbscissa_7;
+  GCPnts_UniformAbscissa_8: typeof GCPnts_UniformAbscissa_8;
+  GCPnts_UniformAbscissa_9: typeof GCPnts_UniformAbscissa_9;
   GProp_GProps: typeof GProp_GProps;
   GProp_GProps_1: typeof GProp_GProps_1;
   GProp_GProps_2: typeof GProp_GProps_2;
@@ -7446,6 +7784,11 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Geom_Ellipse_1: typeof Geom_Ellipse_1;
   Geom_Ellipse_2: typeof Geom_Ellipse_2;
   Geom_Geometry: typeof Geom_Geometry;
+  Handle_Geom_Geometry: typeof Handle_Geom_Geometry;
+  Handle_Geom_Geometry_1: typeof Handle_Geom_Geometry_1;
+  Handle_Geom_Geometry_2: typeof Handle_Geom_Geometry_2;
+  Handle_Geom_Geometry_3: typeof Handle_Geom_Geometry_3;
+  Handle_Geom_Geometry_4: typeof Handle_Geom_Geometry_4;
   Geom_Hyperbola: typeof Geom_Hyperbola;
   Geom_Hyperbola_1: typeof Geom_Hyperbola_1;
   Geom_Hyperbola_2: typeof Geom_Hyperbola_2;
@@ -7493,6 +7836,11 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Handle_Geom_TrimmedCurve_2: typeof Handle_Geom_TrimmedCurve_2;
   Handle_Geom_TrimmedCurve_3: typeof Handle_Geom_TrimmedCurve_3;
   Handle_Geom_TrimmedCurve_4: typeof Handle_Geom_TrimmedCurve_4;
+  Handle_Geom2d_Curve: typeof Handle_Geom2d_Curve;
+  Handle_Geom2d_Curve_1: typeof Handle_Geom2d_Curve_1;
+  Handle_Geom2d_Curve_2: typeof Handle_Geom2d_Curve_2;
+  Handle_Geom2d_Curve_3: typeof Handle_Geom2d_Curve_3;
+  Handle_Geom2d_Curve_4: typeof Handle_Geom2d_Curve_4;
   GeomAPI_Interpolate: typeof GeomAPI_Interpolate;
   GeomAPI_Interpolate_1: typeof GeomAPI_Interpolate_1;
   GeomAPI_Interpolate_2: typeof GeomAPI_Interpolate_2;
@@ -7522,9 +7870,16 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   GeomAbs_JoinType: GeomAbs_JoinType;
   GeomAbs_Shape: GeomAbs_Shape;
   GeomAbs_SurfaceType: GeomAbs_SurfaceType;
+  GeomAdaptor_Curve: typeof GeomAdaptor_Curve;
+  GeomAdaptor_Curve_1: typeof GeomAdaptor_Curve_1;
+  GeomAdaptor_Curve_2: typeof GeomAdaptor_Curve_2;
+  GeomAdaptor_Curve_3: typeof GeomAdaptor_Curve_3;
   GeomFill_Trihedron: GeomFill_Trihedron;
   GeomLib: typeof GeomLib;
+  GeomLib_IsPlanarSurface: typeof GeomLib_IsPlanarSurface;
+  GeomLib_Tool: typeof GeomLib_Tool;
   GeomPlate_Surface: typeof GeomPlate_Surface;
+  GeomProjLib: typeof GeomProjLib;
   IFSelect_ReturnStatus: IFSelect_ReturnStatus;
   IGESControl_Controller: typeof IGESControl_Controller;
   IGESControl_Reader: typeof IGESControl_Reader;

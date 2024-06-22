@@ -33,12 +33,29 @@ import {
     Geom_TrimmedCurve,
 } from "../occ-wasm/chili_occ";
 import { OccHelps } from "./occHelps";
+import { OccGeometry } from "./occGeometry";
 
-export class OccCurve implements ICurve, IDisposable {
+export class OccCurve extends OccGeometry implements ICurve, IDisposable {
     readonly curveType: CurveType;
 
     constructor(readonly curve: Geom_Curve) {
+        super(curve);
         this.curveType = OccHelps.getCurveType(curve);
+    }
+
+    length(): number {
+        let curve = new occ.GeomAdaptor_Curve_2(new occ.Handle_Geom_Curve_2(this.curve));
+        return occ.GCPnts_AbscissaPoint.Length_1(curve);
+    }
+
+    trim(u1: number, u2: number): ITrimmedCurve {
+        let curve = new occ.Handle_Geom_Curve_2(this.curve);
+        let trimmedCurve = new occ.Geom_TrimmedCurve(curve, u1, u2, true, true);
+        return new OccTrimmedCurve(trimmedCurve);
+    }
+
+    reverse() {
+        this.curve.Reverse();
     }
 
     reversed(): ICurve {
@@ -62,7 +79,7 @@ export class OccCurve implements ICurve, IDisposable {
         return OccHelps.convertContinuity(cni);
     }
 
-    nearestPoint(point: XYZ): XYZ {
+    nearestPoint(point: XYZ): [XYZ, number] {
         let api = new occ.GeomAPI_ProjectPointOnCurve_2(
             OccHelps.toPnt(point),
             new occ.Handle_Geom_Curve_2(this.curve),
@@ -72,11 +89,15 @@ export class OccCurve implements ICurve, IDisposable {
             let end = this.value(this.curve.LastParameter());
             let distStart = point.distanceTo(start);
             let distEnd = point.distanceTo(end);
-            return distStart < distEnd ? start : end;
+            if (distStart < distEnd) {
+                return [start, distStart];
+            } else {
+                return [end, distEnd];
+            }
         }
 
         let pnt = api.NearestPoint();
-        return OccHelps.toXYZ(pnt);
+        return [OccHelps.toXYZ(pnt), api.LowerDistanceParameter()];
     }
 
     value(parameter: number): XYZ {
@@ -92,12 +113,20 @@ export class OccCurve implements ICurve, IDisposable {
         return this.curve.LastParameter();
     }
 
-    parameter(point: XYZ): number {
-        let api = new occ.GeomAPI_ProjectPointOnCurve_2(
-            OccHelps.toPnt(point),
-            new occ.Handle_Geom_Curve_2(this.curve),
-        );
-        return api.LowerDistanceParameter();
+    parameter(point: XYZ, maxDistance: number): number | undefined {
+        let parameter: any = { current: 0 };
+        if (
+            occ.GeomLib_Tool.Parameter_1(
+                new occ.Handle_Geom_Curve_2(this.curve),
+                OccHelps.toPnt(point),
+                maxDistance,
+                parameter,
+            )
+        ) {
+            return parameter.current;
+        }
+
+        return undefined;
     }
 
     project(point: XYZ): XYZ[] {
@@ -343,6 +372,10 @@ export class OccBoundedCurve extends OccCurve implements IBoundedCurve {
 export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
     constructor(private trimmedCurve: Geom_TrimmedCurve) {
         super(trimmedCurve);
+    }
+
+    setTrim(u1: number, u2: number): void {
+        this.trimmedCurve.SetTrim(u1, u2, true, true);
     }
 
     basisCurve(): ICurve {

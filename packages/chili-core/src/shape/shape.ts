@@ -50,6 +50,7 @@ export interface IEdge extends IShape {
     length(): number;
     curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
+    trim(start: number, end: number): IEdge;
 }
 
 export enum JoinType {
@@ -67,6 +68,12 @@ export interface IFace extends IShape {
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
     outerWire(): IWire;
     surface(): ISurface;
+    segmentsOfEdgeOnFace(edge: IEdge):
+        | undefined
+        | {
+              start: number;
+              end: number;
+          };
 }
 
 export interface IShell extends IShape {}

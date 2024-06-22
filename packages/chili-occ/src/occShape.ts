@@ -26,15 +26,7 @@ import {
     SurfaceType,
     XYZ,
 } from "chili-core";
-import {
-    BOPTools_AlgoTools3D,
-    BRep_Tool,
-    TopoDS_Edge,
-    TopoDS_Face,
-    TopoDS_Shape,
-    TopoDS_Vertex,
-    TopoDS_Wire,
-} from "../occ-wasm/chili_occ";
+import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
 import { OccTrimmedCurve } from "./occCurve";
@@ -210,6 +202,15 @@ export class OccEdge extends OccShape implements IEdge {
         super(shape, id);
     }
 
+    trim(start: number, end: number): IEdge {
+        let s: any = { current: 0 };
+        let e: any = { current: 0 };
+        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
+
+        let edge = new occ.BRepBuilderAPI_MakeEdge_25(curve, start, end);
+        return new OccEdge(edge.Edge());
+    }
+
     intersect(other: IEdge | Ray): XYZ[] {
         if (other instanceof Ray) {
             let start = OccHelps.toPnt(other.location);
@@ -303,6 +304,21 @@ export class OccFace extends OccShape implements IFace {
         super(shape, id);
     }
 
+    segmentsOfEdgeOnFace(edge: IEdge): { start: number; end: number } | undefined {
+        let first: any = { current: 0 };
+        let last: any = { current: 0 };
+        if (
+            occ.BRep_Tool.CurveOnSurface_1(this.shape, (edge as OccEdge).shape, first, last, false).IsNull()
+        ) {
+            return undefined;
+        }
+
+        return {
+            start: first.current,
+            end: last.current,
+        };
+    }
+
     normal(u: number, v: number): [point: XYZ, normal: XYZ] {
         let pnt = new occ.gp_Pnt_1();
         let dir = new occ.gp_Vec_1();
@@ -318,9 +334,7 @@ export class OccFace extends OccShape implements IFace {
 
     surface(): ISurface {
         let surface = occ.BRep_Tool.Surface_2(this.shape);
-        console.log(SurfaceType[OccHelps.getSurfaceType(surface.get())]);
-
-        throw new Error("Not implemented");
+        return OccHelps.wrapSurface(surface.get());
     }
 }
 

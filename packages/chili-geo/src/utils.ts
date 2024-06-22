@@ -8,10 +8,9 @@ export class GeoUtils {
         let minDistance = Number.MAX_VALUE;
         for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
             let tempPoint = edge.curve().nearestPoint(point);
-            let tempDistance = tempPoint.distanceTo(point);
-            if (tempDistance < minDistance) {
-                res = { edge, point: tempPoint };
-                minDistance = tempDistance;
+            if (tempPoint[1] < minDistance) {
+                res = { edge, point: tempPoint[0] };
+                minDistance = tempPoint[1];
             }
         }
         return res!;

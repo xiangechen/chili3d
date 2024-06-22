@@ -2,6 +2,7 @@
 
 import { Plane, XYZ } from "../math";
 import { Continuity, ICurve } from "./curve";
+import { IGeometry } from "./geometry";
 
 export enum SurfaceType {
     Plate,
@@ -19,10 +20,15 @@ export enum SurfaceType {
     Composite,
 }
 
-export interface ISurface {
+export interface ISurface extends IGeometry {
+    nearestPoint(point: XYZ): [XYZ, number] | undefined;
+    project(point: XYZ): XYZ[];
+    projectCurve(curve: ICurve): ICurve | undefined;
+    parameter(point: XYZ, maxDistance: number): { u: number; v: number } | undefined;
     continuity(): Continuity;
     uIso(u: number): ICurve;
     vIso(v: number): ICurve;
+    isPlanar(): boolean;
     isUClosed(): boolean;
     isVClosed(): boolean;
     isUPreiodic(): boolean;

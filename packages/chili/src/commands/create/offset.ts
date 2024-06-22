@@ -82,7 +82,7 @@ export class OffsetCommand extends CreateCommand {
 
     private getEdgeAxis(edge: IEdge, start: XYZ) {
         let curve = edge.curve();
-        let direction = curve.dn(curve.parameter(start), 1);
+        let direction = curve.dn(curve.parameter(start, 1e-3)!, 1);
         let normal = GeoUtils.normal(edge);
         return {
             point: start,

@@ -7,8 +7,9 @@ mainBuild:
     - symbol: Bnd_OBB
     - symbol: BOPAlgo_GlueEnum
     - symbol: BOPAlgo_Options
-    - symbol: BRep_Tool
+    - symbol: BOPTools_AlgoTools3D
     - symbol: BRep_Builder
+    - symbol: BRep_Tool
     - symbol: BRepAdaptor_CompCurve
     - symbol: BRepAdaptor_Curve
     - symbol: BRepAdaptor_Surface
@@ -23,6 +24,7 @@ mainBuild:
     - symbol: BRepBuilderAPI_Command
     - symbol: BRepBuilderAPI_MakeEdge
     - symbol: BRepBuilderAPI_MakeFace
+    - symbol: BRepBuilderAPI_MakePolygon
     - symbol: BRepBuilderAPI_MakeShape
     - symbol: BRepBuilderAPI_MakeSolid
     - symbol: BRepBuilderAPI_MakeVertex
@@ -33,8 +35,8 @@ mainBuild:
     - symbol: BRepBuilderAPI_TransitionMode
     - symbol: BRepBuilderAPI_WireError
     - symbol: BRepCheck_Analyzer
-    - symbol: BRepExtrema_ExtCC
     - symbol: BRepExtrema_DistShapeShape
+    - symbol: BRepExtrema_ExtCC
     - symbol: BRepFeat_Form
     - symbol: BRepFeat_Gluer
     - symbol: BRepFeat_MakeDPrism
@@ -60,7 +62,6 @@ mainBuild:
     - symbol: BRepOffsetAPI_MakeOffsetShape
     - symbol: BRepOffsetAPI_MakePipe
     - symbol: BRepOffsetAPI_MakePipeShell
-    - symbol: BRepBuilderAPI_MakePolygon
     - symbol: BRepOffsetAPI_MakeThickSolid
     - symbol: BRepOffsetAPI_ThruSections
     - symbol: BRepPrimAPI_MakeBox
@@ -73,17 +74,22 @@ mainBuild:
     - symbol: BRepPrimAPI_MakeSweep
     - symbol: BRepPrimAPI_MakeTorus
     - symbol: BRepTools
-    - symbol: BRepTools_ReShape
     - symbol: BRepTools_Quilt
-    - symbol: BOPTools_AlgoTools3D
+    - symbol: BRepTools_ReShape
     - symbol: ChFi3d_FilletShape
     - symbol: ChFiDS_ChamfMode
     - symbol: Convert_ParameterisationType
     - symbol: Extrema_ExtAlgo
+    - symbol: Extrema_ExtCC
+    - symbol: Extrema_ExtCS
+    - symbol: Extrema_ExtPC
+    - symbol: Extrema_ExtPS
+    - symbol: Extrema_ExtSS
     - symbol: GC_MakeArcOfCircle
     - symbol: GC_MakeArcOfEllipse
     - symbol: GC_Root
     - symbol: GCPnts_AbscissaPoint
+    - symbol: GCPnts_UniformAbscissa
     - symbol: GCPnts_TangentialDeflection
     - symbol: Geom_BezierCurve
     - symbol: Geom_BezierSurface
@@ -91,40 +97,44 @@ mainBuild:
     - symbol: Geom_BoundedSurface
     - symbol: Geom_BSplineCurve
     - symbol: Geom_BSplineSurface
-    - symbol: Geom_ConicalSurface
-    - symbol: Geom_Curve
     - symbol: Geom_Circle
     - symbol: Geom_Conic
+    - symbol: Geom_ConicalSurface
+    - symbol: Geom_Curve
     - symbol: Geom_CylindricalSurface
     - symbol: Geom_ElementarySurface
     - symbol: Geom_Ellipse
-    - symbol: Geom_Hyperbola
-    - symbol: Geom_Parabola
-    - symbol: GeomFill_Trihedron
     - symbol: Geom_Geometry
+    - symbol: Geom_Hyperbola
     - symbol: Geom_Line
     - symbol: Geom_OffsetCurve
     - symbol: Geom_OffsetSurface
+    - symbol: Geom_Parabola
     - symbol: Geom_Plane
     - symbol: Geom_RectangularTrimmedSurface
-    - symbol: Geom_Surface
-    - symbol: Geom_SweptSurface
     - symbol: Geom_SphericalSurface
+    - symbol: Geom_Surface
     - symbol: Geom_SurfaceOfLinearExtrusion
     - symbol: Geom_SurfaceOfRevolution
-    - symbol: Geom_TrimmedCurve
+    - symbol: Geom_SweptSurface
     - symbol: Geom_ToroidalSurface
+    - symbol: Geom_TrimmedCurve
     - symbol: GeomAbs_CurveType
     - symbol: GeomAbs_JoinType
     - symbol: GeomAbs_Shape
     - symbol: GeomAbs_SurfaceType
+    - symbol: GeomAdaptor_Curve
     - symbol: GeomAPI_Interpolate
     - symbol: GeomAPI_PointsToBSpline
     - symbol: GeomAPI_PointsToBSplineSurface
     - symbol: GeomAPI_ProjectPointOnCurve
     - symbol: GeomAPI_ProjectPointOnSurf
-    - symbol: GeomPlate_Surface
+    - symbol: GeomFill_Trihedron
     - symbol: GeomLib
+    - symbol: GeomLib_Tool
+    - symbol: GeomLib_IsPlanarSurface
+    - symbol: GeomPlate_Surface
+    - symbol: GeomProjLib
     - symbol: gp_Ax1
     - symbol: gp_Ax2
     - symbol: gp_Ax3
@@ -148,20 +158,22 @@ mainBuild:
     - symbol: Handle_Geom_BezierCurve
     - symbol: Handle_Geom_BSplineCurve
     - symbol: Handle_Geom_BSplineSurface
-    - symbol: Handle_Geom_Curve
     - symbol: Handle_Geom_Circle
     - symbol: Handle_Geom_Conic
+    - symbol: Handle_Geom_Curve
+    - symbol: Handle_Geom_Geometry
     - symbol: Handle_Geom_Line
     - symbol: Handle_Geom_Surface
     - symbol: Handle_Geom_TrimmedCurve
+    - symbol: Handle_Geom2d_Curve
     - symbol: Handle_Law_Function
-    - symbol: Handle_StepData_StepModel
     - symbol: Handle_Poly_PolygonOnTriangulation
     - symbol: Handle_Poly_Triangulation
+    - symbol: Handle_StepData_StepModel
     - symbol: IFSelect_ReturnStatus
+    - symbol: IGESControl_Controller
     - symbol: IGESControl_Reader
     - symbol: IGESControl_Writer
-    - symbol: IGESControl_Controller
     - symbol: Interface_Static
     - symbol: Interface_TypedValue
     - symbol: Law_BSpFunc
@@ -224,10 +236,10 @@ mainBuild:
     - symbol: TopoDS_Solid
     - symbol: TopoDS_Vertex
     - symbol: TopoDS_Wire
+    - symbol: TopTools_IndexedDataMapOfShapeListOfShape
+    - symbol: TopTools_IndexedMapOfShape
     - symbol: TopTools_ListOfShape
     - symbol: TopTools_SequenceOfShape
-    - symbol: TopTools_IndexedMapOfShape
-    - symbol: TopTools_IndexedDataMapOfShapeListOfShape
     - symbol: XSControl_Reader
 
   emccFlags:

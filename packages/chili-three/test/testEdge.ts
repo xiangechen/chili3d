@@ -24,6 +24,9 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    trim(start: number, end: number): IEdge {
+        throw new Error("Method not implemented.");
+    }
     isClosed(): boolean {
         throw new Error("Method not implemented.");
     }

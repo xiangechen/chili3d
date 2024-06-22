@@ -24,6 +24,7 @@ import {
     XYZ,
 } from "chili-core";
 import {
+    Extrema_ExtAlgo,
     GeomPlate_Surface,
     Geom_BSplineSurface,
     Geom_BezierSurface,
@@ -42,10 +43,77 @@ import {
     ShapeExtend_CompositeSurface,
 } from "../occ-wasm/chili_occ";
 import { OccCurve } from "./occCurve";
+import { OccGeometry } from "./occGeometry";
 import { OccHelps } from "./occHelps";
 
-export class OccSurface implements ISurface {
-    constructor(readonly surface: Geom_Surface) {}
+export class OccSurface extends OccGeometry implements ISurface {
+    constructor(readonly surface: Geom_Surface) {
+        super(surface);
+    }
+
+    projectCurve(curve: ICurve): ICurve | undefined {
+        if (!(curve instanceof OccCurve)) return undefined;
+        let surface = new occ.Handle_Geom_Surface_2(this.surface);
+        let testCurve = new occ.Handle_Geom_Curve_2(curve.curve);
+        let result = occ.GeomProjLib.Project(testCurve, surface);
+        if (result.IsNull()) return undefined;
+        return OccHelps.wrapCurve(result.get());
+    }
+
+    project(point: XYZ): XYZ[] {
+        let api = new occ.GeomAPI_ProjectPointOnSurf_2(
+            OccHelps.toPnt(point),
+            new occ.Handle_Geom_Surface_2(this.surface),
+            occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
+        );
+
+        let result = new Array<XYZ>();
+        for (let i = 1; i <= api.NbPoints(); i++) {
+            let point = api.Point(i);
+            result.push(OccHelps.toXYZ(point));
+        }
+        result.sort((a, b) => a.distanceTo(point) - b.distanceTo(point));
+        return result;
+    }
+
+    isPlanar(): boolean {
+        let surface = new occ.Handle_Geom_Surface_2(this.surface);
+        let lib = new occ.GeomLib_IsPlanarSurface(surface, 1e-7);
+        return lib.IsPlanar();
+    }
+
+    parameter(point: XYZ, maxDistance: number): { u: number; v: number } | undefined {
+        let u: any = { current: 0 };
+        let v: any = { current: 0 };
+        if (
+            occ.GeomLib_Tool.Parameters(
+                new occ.Handle_Geom_Surface_2(this.surface),
+                OccHelps.toPnt(point),
+                maxDistance,
+                u,
+                v,
+            )
+        ) {
+            return {
+                u: u.current,
+                v: v.current,
+            };
+        }
+
+        return undefined;
+    }
+
+    nearestPoint(point: XYZ): [XYZ, number] | undefined {
+        let api = new occ.GeomAPI_ProjectPointOnSurf_2(
+            OccHelps.toPnt(point),
+            new occ.Handle_Geom_Surface_2(this.surface),
+            occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
+        );
+        if (api.IsDone()) {
+            return [OccHelps.toXYZ(api.NearestPoint()), api.LowerDistance()];
+        }
+        return undefined;
+    }
 
     continuity(): Continuity {
         return OccHelps.convertContinuity(this.surface.Continuity());
