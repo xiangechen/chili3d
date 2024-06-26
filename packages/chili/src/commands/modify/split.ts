@@ -2,7 +2,6 @@
 
 import {
     EditableGeometryEntity,
-    GeometryEntity,
     GeometryModel,
     IEdge,
     IVisualGeometry,
@@ -12,15 +11,15 @@ import {
 } from "chili-core";
 import { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
-import { CreateCommand } from "../createCommand";
+import { MultistepCommand } from "../multistepCommand";
 
 @command({
     name: "modify.split",
     display: "command.split",
     icon: "icon-split",
 })
-export class Split extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+export class Split extends MultistepCommand {
+    private geometryEntity(): EditableGeometryEntity {
         let shape1 = this.stepDatas[0].shapes[0].shape;
         let edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
         let shapes = shape1.split(edges);
@@ -29,7 +28,7 @@ export class Split extends CreateCommand {
 
     protected override executeMainTask() {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let geometry = this.geometryEntity() as EditableGeometryEntity;
+            let geometry = this.geometryEntity();
             let old = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
             if (old instanceof EditableGeometryEntity) {
                 old.replaceShape(geometry.shape.unwrap());

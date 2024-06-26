@@ -11,7 +11,7 @@ export enum ObjectSnapType {
     extension = 1 << 6,
     parallel = 1 << 7,
     special = 1 << 8,
-    near = 1 << 9,
+    nearest = 1 << 9,
     vertex = 1 << 10,
     grid = 1 << 11,
 }

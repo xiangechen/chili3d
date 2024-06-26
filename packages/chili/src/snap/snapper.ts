@@ -12,6 +12,8 @@ import {
     SnapLengthAtPlaneHandler,
     SnapPointData,
     SnapPointEventHandler,
+    SnapPointOnCurveData,
+    SnapPointOnCurveEventHandler,
 } from "./snapEventHandler";
 
 export abstract class Snapper {
@@ -49,6 +51,16 @@ export class PointSnapper extends Snapper {
 
     protected getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
         return new SnapPointEventHandler(document, controller, this.data);
+    }
+}
+
+export class PointOnCurveSnapper extends Snapper {
+    constructor(readonly data: SnapPointOnCurveData) {
+        super();
+    }
+
+    protected override getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler {
+        return new SnapPointOnCurveEventHandler(document, controller, this.data);
     }
 }
 

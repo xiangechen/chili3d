@@ -3,6 +3,7 @@
 import {
     ICompound,
     ICompoundSolid,
+    ICurve,
     IEdge,
     IFace,
     IShape,
@@ -29,9 +30,10 @@ import {
 import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
 
 import { OccShapeConverter } from "./occConverter";
-import { OccTrimmedCurve } from "./occCurve";
+import { OccCurve, OccTrimmedCurve } from "./occCurve";
 import { OccHelps } from "./occHelps";
 import { OccMesh } from "./occMesh";
+import { OccSurface } from "./occSurface";
 
 @Serializer.register("Shape", ["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShape implements IShape {
@@ -42,12 +44,12 @@ export class OccShape implements IShape {
         return this._id;
     }
 
-    private _shape: TopoDS_Shape;
+    protected _shape: TopoDS_Shape;
     get shape() {
         return this._shape;
     }
 
-    private _mesh: IShapeMeshData | undefined;
+    protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
         if (this._mesh === undefined) {
             this._mesh = new OccMesh(this);
@@ -202,6 +204,15 @@ export class OccEdge extends OccShape implements IEdge {
         super(shape, id);
     }
 
+    update(curve: ICurve) {
+        if (!(curve instanceof OccCurve)) {
+            throw new Error("Invalid curve");
+        }
+        let builder = new occ.BRepBuilderAPI_MakeEdge_24(new occ.Handle_Geom_Curve_2(curve.curve));
+        this._shape = builder.Edge();
+        this._mesh = undefined;
+    }
+
     trim(start: number, end: number): IEdge {
         let s: any = { current: 0 };
         let e: any = { current: 0 };
@@ -330,6 +341,18 @@ export class OccFace extends OccShape implements IFace {
     outerWire(): IWire {
         let wire = occ.ShapeAnalysis.OuterWire(this.shape);
         return new OccWire(wire);
+    }
+
+    update(surface: ISurface) {
+        if (!(surface instanceof OccSurface)) {
+            return Result.err("Invalid surface");
+        }
+        let builder = new occ.BRepBuilderAPI_MakeFace_8(
+            new occ.Handle_Geom_Surface_2(surface.surface),
+            1e-3,
+        );
+        this._shape = builder.Face();
+        this._mesh = undefined;
     }
 
     surface(): ISurface {

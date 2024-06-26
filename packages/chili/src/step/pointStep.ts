@@ -1,7 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18nKeys, Precision, XYZ } from "chili-core";
-import { Dimension, PointSnapper, SnapPointData, Snapper } from "../snap";
+import {
+    Dimension,
+    PointOnCurveSnapper,
+    PointSnapper,
+    SnapPointData,
+    SnapPointOnCurveData,
+    Snapper,
+} from "../snap";
 import { StepBase } from "./step";
 
 function defaultSnapedData(): SnapPointData {
@@ -22,5 +29,19 @@ export class PointStep extends StepBase<SnapPointData> {
     protected validator(data: SnapPointData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
         return data.refPoint().distanceTo(point) > Precision.Distance;
+    }
+}
+
+export class PointOnCurveStep extends StepBase<SnapPointOnCurveData> {
+    constructor(tip: I18nKeys, handleData: () => SnapPointOnCurveData) {
+        super(tip, handleData);
+    }
+
+    protected override validator(data: SnapPointOnCurveData, point: XYZ): boolean {
+        return true;
+    }
+
+    protected override snapper(data: SnapPointOnCurveData): Snapper {
+        return new PointOnCurveSnapper(data);
     }
 }

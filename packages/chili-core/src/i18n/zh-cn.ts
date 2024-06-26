@@ -145,6 +145,7 @@ export default {
         "snap.intersection": "交点",
         "snap.mid": "中点",
         "snap.perpendicular": "垂点",
+        "snap.nearest": "最近点",
         "toast.command.{0}excuting": "{0}命令正在执行",
         "toast.converter.error": "转换错误",
         "toast.converter.invalidColor": "无效的颜色",

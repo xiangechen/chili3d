@@ -1,5 +1,6 @@
 import {
     I18nKeys,
+    ICurve,
     IDocument,
     IEdge,
     IFace,
@@ -24,6 +25,9 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    update(curve: ICurve): void {
+        throw new Error("Method not implemented.");
+    }
     trim(start: number, end: number): IEdge {
         throw new Error("Method not implemented.");
     }

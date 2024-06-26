@@ -85,6 +85,8 @@ mainBuild:
     - symbol: Extrema_ExtPC
     - symbol: Extrema_ExtPS
     - symbol: Extrema_ExtSS
+    - symbol: Extrema_POnCurv
+    - symbol: Extrema_POnSurf
     - symbol: GC_MakeArcOfCircle
     - symbol: GC_MakeArcOfEllipse
     - symbol: GC_Root
@@ -124,7 +126,12 @@ mainBuild:
     - symbol: GeomAbs_Shape
     - symbol: GeomAbs_SurfaceType
     - symbol: GeomAdaptor_Curve
+    - symbol: GeomAPI_ExtremaCurveCurve
+    - symbol: GeomAPI_ExtremaCurveSurface
+    - symbol: GeomAPI_ExtremaSurfaceSurface
+    - symbol: GeomAPI_IntCS
     - symbol: GeomAPI_Interpolate
+    - symbol: GeomAPI_IntSS
     - symbol: GeomAPI_PointsToBSpline
     - symbol: GeomAPI_PointsToBSplineSurface
     - symbol: GeomAPI_ProjectPointOnCurve

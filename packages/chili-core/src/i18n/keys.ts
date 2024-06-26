@@ -140,6 +140,7 @@ const I18N_KEYS = [
     "snap.intersection",
     "snap.mid",
     "snap.perpendicular",
+    "snap.nearest",
     "toast.command.{0}excuting",
     "toast.converter.error",
     "toast.converter.invalidColor",

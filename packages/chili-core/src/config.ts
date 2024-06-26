@@ -46,6 +46,7 @@ export class Config {
             ObjectSnapType.endPoint |
             ObjectSnapType.center |
             ObjectSnapType.perpendicular |
-            ObjectSnapType.intersection;
+            ObjectSnapType.intersection |
+            ObjectSnapType.nearest;
     }
 }

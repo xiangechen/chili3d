@@ -2,12 +2,13 @@
 
 import { AsyncController, Config, I18nKeys, IDocument, IView, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
+import { SnapedData } from "../interfaces";
 import { ObjectSnap } from "../objectSnap";
 import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
+import { PointOnCurveSnap } from "../pointAtCurveSnap";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
-import { SnapPointData } from "./snapPointData";
-import { SnapedData } from "../interfaces";
+import { SnapPointData, SnapPointOnCurveData } from "./snapPointData";
 
 export class SnapPointEventHandler extends SnapEventHandler {
     constructor(
@@ -76,5 +77,32 @@ export class SnapPointEventHandler extends SnapEventHandler {
 
     private getRefPoint(): XYZ | undefined {
         return this.pointData.refPoint?.() ?? this._snaped?.refPoint;
+    }
+}
+
+export class SnapPointOnCurveEventHandler extends SnapEventHandler {
+    constructor(
+        document: IDocument,
+        controller: AsyncController,
+        protected pointData: SnapPointOnCurveData,
+    ) {
+        let objectSnap = new ObjectSnap(Config.instance.snapType);
+        let snap = new PointOnCurveSnap(pointData);
+        let workplaneSnap = new WorkplaneSnap();
+        super(document, controller, [objectSnap, snap, workplaneSnap], pointData);
+    }
+
+    protected override getPointFromInput(view: IView, text: string): SnapedData {
+        let length = this.pointData.curve.length();
+        let parameter = Number(text) / length;
+        return {
+            point: this.pointData.curve.value(parameter),
+            view,
+            shapes: [],
+        };
+    }
+
+    protected override inputError(text: string) {
+        return Number.isNaN(Number(text)) ? "error.input.invalidNumber" : undefined;
     }
 }

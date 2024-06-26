@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Plane, XYZ } from "chili-core";
+import { ICurve, Plane, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
 import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
 
@@ -16,4 +16,8 @@ export interface SnapPointData {
         prompt: string;
         when?: () => boolean;
     }[];
+}
+
+export interface SnapPointOnCurveData extends SnapPointData {
+    curve: ICurve;
 }

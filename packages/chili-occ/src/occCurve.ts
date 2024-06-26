@@ -10,15 +10,19 @@ import {
     IConic,
     ICurve,
     IDisposable,
+    IEdge,
     IEllipse,
     IHyperbola,
     ILine,
     IOffsetCurve,
     IParabola,
     ITrimmedCurve,
+    Ray,
     XYZ,
 } from "chili-core";
 import {
+    GCPnts_UniformAbscissa,
+    GeomAdaptor_Curve,
     Geom_BSplineCurve,
     Geom_BezierCurve,
     Geom_BoundedCurve,
@@ -32,8 +36,9 @@ import {
     Geom_Parabola,
     Geom_TrimmedCurve,
 } from "../occ-wasm/chili_occ";
-import { OccHelps } from "./occHelps";
 import { OccGeometry } from "./occGeometry";
+import { OccHelps } from "./occHelps";
+import { OccEdge } from "./occShape";
 
 export class OccCurve extends OccGeometry implements ICurve, IDisposable {
     readonly curveType: CurveType;
@@ -43,8 +48,87 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         this.curveType = OccHelps.getCurveType(curve);
     }
 
+    makeEdge(): IEdge {
+        let curve = new occ.Handle_Geom_Curve_2(this.curve);
+        let builder = new occ.BRepBuilderAPI_MakeEdge_24(curve);
+        return new OccEdge(builder.Edge());
+    }
+
+    nearestExtrema(curve: ICurve | Ray):
+        | undefined
+        | {
+              isParallel: boolean;
+              distance: number;
+              p1: XYZ;
+              p2: XYZ;
+              u1: number;
+              u2: number;
+          } {
+        if (curve instanceof Ray) {
+            curve = new OccLine(
+                new occ.Geom_Line_3(OccHelps.toPnt(curve.location), OccHelps.toDir(curve.direction)),
+            );
+        } else if (!(curve instanceof OccCurve)) {
+            throw new Error("nearestFromCurve: curve is not an OccCurve");
+        }
+        return this.nearestExtremaCurve(curve as OccCurve);
+    }
+
+    private nearestExtremaCurve(curve: OccCurve) {
+        let curve1 = new occ.Handle_Geom_Curve_2(this.curve);
+        let curve2 = new occ.Handle_Geom_Curve_2(curve.curve);
+        let cc = new occ.GeomAPI_ExtremaCurveCurve_2(curve1, curve2);
+        if (cc.NbExtrema() === 0) {
+            return undefined;
+        }
+        let distance = cc.LowerDistance();
+        let isParallel = cc.IsParallel();
+        let u1: any = { current: 0 };
+        let u2: any = { current: 0 };
+        let p1 = new occ.gp_Pnt_1();
+        let p2 = new occ.gp_Pnt_1();
+        cc.NearestPoints(p1, p2);
+        cc.LowerDistanceParameters(u1, u2);
+        return {
+            isParallel,
+            distance,
+            p1: OccHelps.toXYZ(p1),
+            p2: OccHelps.toXYZ(p2),
+            u1: u1.current,
+            u2: u2.current,
+        };
+    }
+
+    private adaptorCurve(curve: Geom_Curve) {
+        let geom_curve = new occ.Handle_Geom_Curve_2(curve);
+        return new occ.GeomAdaptor_Curve_2(geom_curve);
+    }
+
+    private uniformAbscissa(ctor: (adaptor: GeomAdaptor_Curve) => GCPnts_UniformAbscissa) {
+        let adaptor = this.adaptorCurve(this.curve);
+        let gc = ctor(adaptor);
+        let points: XYZ[] = [];
+        if (gc.IsDone()) {
+            for (let i = 1; i <= gc.NbPoints(); i++) {
+                let pnt = this.curve.Value(gc.Parameter(i));
+                points.push(OccHelps.toXYZ(pnt));
+            }
+        }
+        return points;
+    }
+
+    uniformAbscissaByLength(length: number): XYZ[] {
+        return this.uniformAbscissa((adaptor) => new occ.GCPnts_UniformAbscissa_2(adaptor, length, 1e-3));
+    }
+
+    uniformAbscissaByCount(curveCount: number): XYZ[] {
+        return this.uniformAbscissa(
+            (adaptor) => new occ.GCPnts_UniformAbscissa_2(adaptor, curveCount + 1, 1e-3),
+        );
+    }
+
     length(): number {
-        let curve = new occ.GeomAdaptor_Curve_2(new occ.Handle_Geom_Curve_2(this.curve));
+        let curve = this.adaptorCurve(this.curve);
         return occ.GCPnts_AbscissaPoint.Length_1(curve);
     }
 
@@ -79,25 +163,36 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         return OccHelps.convertContinuity(cni);
     }
 
-    nearestPoint(point: XYZ): [XYZ, number] {
+    nearestFromPoint(point: XYZ) {
         let api = new occ.GeomAPI_ProjectPointOnCurve_2(
             OccHelps.toPnt(point),
             new occ.Handle_Geom_Curve_2(this.curve),
         );
-        if (api.NbPoints() == 0) {
-            let start = this.value(this.curve.FirstParameter());
-            let end = this.value(this.curve.LastParameter());
-            let distStart = point.distanceTo(start);
-            let distEnd = point.distanceTo(end);
-            if (distStart < distEnd) {
-                return [start, distStart];
-            } else {
-                return [end, distEnd];
-            }
+        if (api.NbPoints() > 0) {
+            return {
+                point: OccHelps.toXYZ(api.NearestPoint()),
+                distance: api.LowerDistance(),
+                parameter: api.LowerDistanceParameter(),
+            };
         }
 
-        let pnt = api.NearestPoint();
-        return [OccHelps.toXYZ(pnt), api.LowerDistanceParameter()];
+        let start = this.value(this.curve.FirstParameter());
+        let end = this.value(this.curve.LastParameter());
+        let distStart = point.distanceTo(start);
+        let distEnd = point.distanceTo(end);
+        if (distStart < distEnd) {
+            return {
+                point: start,
+                distance: distStart,
+                parameter: this.curve.FirstParameter(),
+            };
+        } else {
+            return {
+                point: end,
+                distance: distEnd,
+                parameter: this.curve.LastParameter(),
+            };
+        }
     }
 
     value(parameter: number): XYZ {
@@ -113,13 +208,13 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         return this.curve.LastParameter();
     }
 
-    parameter(point: XYZ, maxDistance: number): number | undefined {
+    parameter(point: XYZ, tolerance: number): number | undefined {
         let parameter: any = { current: 0 };
         if (
             occ.GeomLib_Tool.Parameter_1(
                 new occ.Handle_Geom_Curve_2(this.curve),
                 OccHelps.toPnt(point),
-                maxDistance,
+                tolerance,
                 parameter,
             )
         ) {

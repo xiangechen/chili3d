@@ -3,6 +3,7 @@
 import { Plane, XYZ } from "../math";
 import { Continuity, ICurve } from "./curve";
 import { IGeometry } from "./geometry";
+import { IFace } from "./shape";
 
 export enum SurfaceType {
     Plate,
@@ -80,6 +81,7 @@ export interface ISurface extends IGeometry {
     };
     dn(u: number, v: number, nu: number, nv: number): XYZ;
     value(u: number, v: number): XYZ;
+    makeFace(): IFace;
 }
 
 export interface IPlateSurface extends ISurface {

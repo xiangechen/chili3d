@@ -2391,6 +2391,36 @@ export declare class Extrema_ExtSS {
     constructor(S1: Adaptor3d_Surface, S2: Adaptor3d_Surface, Uinf1: Standard_Real, Usup1: Standard_Real, Vinf1: Standard_Real, Vsup1: Standard_Real, Uinf2: Standard_Real, Usup2: Standard_Real, Vinf2: Standard_Real, Vsup2: Standard_Real, TolS1: Standard_Real, TolS2: Standard_Real);
   }
 
+export declare class Extrema_POnCurv {
+  SetValues(U: Standard_Real, P: gp_Pnt): void;
+  Value(): gp_Pnt;
+  Parameter(): Standard_Real;
+  delete(): void;
+}
+
+  export declare class Extrema_POnCurv_1 extends Extrema_POnCurv {
+    constructor();
+  }
+
+  export declare class Extrema_POnCurv_2 extends Extrema_POnCurv {
+    constructor(U: Standard_Real, P: gp_Pnt);
+  }
+
+export declare class Extrema_POnSurf {
+  Value(): gp_Pnt;
+  SetParameters(theU: Standard_Real, theV: Standard_Real, thePnt: gp_Pnt): void;
+  Parameter(U: Standard_Real, V: Standard_Real): void;
+  delete(): void;
+}
+
+  export declare class Extrema_POnSurf_1 extends Extrema_POnSurf {
+    constructor();
+  }
+
+  export declare class Extrema_POnSurf_2 extends Extrema_POnSurf {
+    constructor(U: Standard_Real, V: Standard_Real, P: gp_Pnt);
+  }
+
 export declare class GC_MakeArcOfCircle extends GC_Root {
   Value(): Handle_Geom_TrimmedCurve;
   delete(): void;
@@ -3986,6 +4016,124 @@ export declare class Handle_Geom2d_Curve {
 
   export declare class Handle_Geom2d_Curve_4 extends Handle_Geom2d_Curve {
     constructor(theHandle: Handle_Geom2d_Curve);
+  }
+
+export declare class GeomAPI_ExtremaCurveCurve {
+  Init_1(C1: Handle_Geom_Curve, C2: Handle_Geom_Curve): void;
+  Init_2(C1: Handle_Geom_Curve, C2: Handle_Geom_Curve, U1min: Standard_Real, U1max: Standard_Real, U2min: Standard_Real, U2max: Standard_Real): void;
+  NbExtrema(): Graphic3d_ZLayerId;
+  Points(Index: Graphic3d_ZLayerId, P1: gp_Pnt, P2: gp_Pnt): void;
+  Parameters(Index: Graphic3d_ZLayerId, U1: Standard_Real, U2: Standard_Real): void;
+  Distance(Index: Graphic3d_ZLayerId): Standard_Real;
+  IsParallel(): Standard_Boolean;
+  NearestPoints(P1: gp_Pnt, P2: gp_Pnt): void;
+  LowerDistanceParameters(U1: Standard_Real, U2: Standard_Real): void;
+  LowerDistance(): Standard_Real;
+  TotalNearestPoints(P1: gp_Pnt, P2: gp_Pnt): Standard_Boolean;
+  TotalLowerDistanceParameters(U1: Standard_Real, U2: Standard_Real): Standard_Boolean;
+  TotalLowerDistance(): Standard_Real;
+  delete(): void;
+}
+
+  export declare class GeomAPI_ExtremaCurveCurve_1 extends GeomAPI_ExtremaCurveCurve {
+    constructor();
+  }
+
+  export declare class GeomAPI_ExtremaCurveCurve_2 extends GeomAPI_ExtremaCurveCurve {
+    constructor(C1: Handle_Geom_Curve, C2: Handle_Geom_Curve);
+  }
+
+  export declare class GeomAPI_ExtremaCurveCurve_3 extends GeomAPI_ExtremaCurveCurve {
+    constructor(C1: Handle_Geom_Curve, C2: Handle_Geom_Curve, U1min: Standard_Real, U1max: Standard_Real, U2min: Standard_Real, U2max: Standard_Real);
+  }
+
+export declare class GeomAPI_ExtremaCurveSurface {
+  Init_1(Curve: Handle_Geom_Curve, Surface: Handle_Geom_Surface): void;
+  Init_2(Curve: Handle_Geom_Curve, Surface: Handle_Geom_Surface, Wmin: Standard_Real, Wmax: Standard_Real, Umin: Standard_Real, Umax: Standard_Real, Vmin: Standard_Real, Vmax: Standard_Real): void;
+  NbExtrema(): Graphic3d_ZLayerId;
+  Points(Index: Graphic3d_ZLayerId, P1: gp_Pnt, P2: gp_Pnt): void;
+  Parameters(Index: Graphic3d_ZLayerId, W: Standard_Real, U: Standard_Real, V: Standard_Real): void;
+  Distance(Index: Graphic3d_ZLayerId): Standard_Real;
+  IsParallel(): Standard_Boolean;
+  NearestPoints(PC: gp_Pnt, PS: gp_Pnt): void;
+  LowerDistanceParameters(W: Standard_Real, U: Standard_Real, V: Standard_Real): void;
+  LowerDistance(): Standard_Real;
+  delete(): void;
+}
+
+  export declare class GeomAPI_ExtremaCurveSurface_1 extends GeomAPI_ExtremaCurveSurface {
+    constructor();
+  }
+
+  export declare class GeomAPI_ExtremaCurveSurface_2 extends GeomAPI_ExtremaCurveSurface {
+    constructor(Curve: Handle_Geom_Curve, Surface: Handle_Geom_Surface);
+  }
+
+  export declare class GeomAPI_ExtremaCurveSurface_3 extends GeomAPI_ExtremaCurveSurface {
+    constructor(Curve: Handle_Geom_Curve, Surface: Handle_Geom_Surface, Wmin: Standard_Real, Wmax: Standard_Real, Umin: Standard_Real, Umax: Standard_Real, Vmin: Standard_Real, Vmax: Standard_Real);
+  }
+
+export declare class GeomAPI_ExtremaSurfaceSurface {
+  Init_1(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface): void;
+  Init_2(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface, U1min: Standard_Real, U1max: Standard_Real, V1min: Standard_Real, V1max: Standard_Real, U2min: Standard_Real, U2max: Standard_Real, V2min: Standard_Real, V2max: Standard_Real): void;
+  NbExtrema(): Graphic3d_ZLayerId;
+  Points(Index: Graphic3d_ZLayerId, P1: gp_Pnt, P2: gp_Pnt): void;
+  Parameters(Index: Graphic3d_ZLayerId, U1: Standard_Real, V1: Standard_Real, U2: Standard_Real, V2: Standard_Real): void;
+  Distance(Index: Graphic3d_ZLayerId): Standard_Real;
+  IsParallel(): Standard_Boolean;
+  NearestPoints(P1: gp_Pnt, P2: gp_Pnt): void;
+  LowerDistanceParameters(U1: Standard_Real, V1: Standard_Real, U2: Standard_Real, V2: Standard_Real): void;
+  LowerDistance(): Standard_Real;
+  Extrema(): Extrema_ExtSS;
+  delete(): void;
+}
+
+  export declare class GeomAPI_ExtremaSurfaceSurface_1 extends GeomAPI_ExtremaSurfaceSurface {
+    constructor();
+  }
+
+  export declare class GeomAPI_ExtremaSurfaceSurface_2 extends GeomAPI_ExtremaSurfaceSurface {
+    constructor(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface);
+  }
+
+  export declare class GeomAPI_ExtremaSurfaceSurface_3 extends GeomAPI_ExtremaSurfaceSurface {
+    constructor(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface, U1min: Standard_Real, U1max: Standard_Real, V1min: Standard_Real, V1max: Standard_Real, U2min: Standard_Real, U2max: Standard_Real, V2min: Standard_Real, V2max: Standard_Real);
+  }
+
+export declare class GeomAPI_IntCS {
+  Perform(C: Handle_Geom_Curve, S: Handle_Geom_Surface): void;
+  IsDone(): Standard_Boolean;
+  NbPoints(): Graphic3d_ZLayerId;
+  Point(Index: Graphic3d_ZLayerId): gp_Pnt;
+  Parameters_1(Index: Graphic3d_ZLayerId, U: Standard_Real, V: Standard_Real, W: Standard_Real): void;
+  NbSegments(): Graphic3d_ZLayerId;
+  Segment(Index: Graphic3d_ZLayerId): Handle_Geom_Curve;
+  Parameters_2(Index: Graphic3d_ZLayerId, U1: Standard_Real, V1: Standard_Real, U2: Standard_Real, V2: Standard_Real): void;
+  delete(): void;
+}
+
+  export declare class GeomAPI_IntCS_1 extends GeomAPI_IntCS {
+    constructor();
+  }
+
+  export declare class GeomAPI_IntCS_2 extends GeomAPI_IntCS {
+    constructor(C: Handle_Geom_Curve, S: Handle_Geom_Surface);
+  }
+
+export declare class GeomAPI_IntSS {
+  Perform(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface, Tol: Standard_Real): void;
+  IsDone(): Standard_Boolean;
+  NbLines(): Graphic3d_ZLayerId;
+  Line(Index: Graphic3d_ZLayerId): Handle_Geom_Curve;
+  delete(): void;
+}
+
+  export declare class GeomAPI_IntSS_1 extends GeomAPI_IntSS {
+    constructor();
+  }
+
+  export declare class GeomAPI_IntSS_2 extends GeomAPI_IntSS {
+    constructor(S1: Handle_Geom_Surface, S2: Handle_Geom_Surface, Tol: Standard_Real);
   }
 
 export declare class GeomAPI_Interpolate {
@@ -7684,6 +7832,12 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Extrema_ExtSS_1: typeof Extrema_ExtSS_1;
   Extrema_ExtSS_2: typeof Extrema_ExtSS_2;
   Extrema_ExtSS_3: typeof Extrema_ExtSS_3;
+  Extrema_POnCurv: typeof Extrema_POnCurv;
+  Extrema_POnCurv_1: typeof Extrema_POnCurv_1;
+  Extrema_POnCurv_2: typeof Extrema_POnCurv_2;
+  Extrema_POnSurf: typeof Extrema_POnSurf;
+  Extrema_POnSurf_1: typeof Extrema_POnSurf_1;
+  Extrema_POnSurf_2: typeof Extrema_POnSurf_2;
   GC_MakeArcOfCircle: typeof GC_MakeArcOfCircle;
   GC_MakeArcOfCircle_1: typeof GC_MakeArcOfCircle_1;
   GC_MakeArcOfCircle_2: typeof GC_MakeArcOfCircle_2;
@@ -7841,6 +7995,24 @@ export type OpenCascadeInstance = {FS: typeof FS} & {
   Handle_Geom2d_Curve_2: typeof Handle_Geom2d_Curve_2;
   Handle_Geom2d_Curve_3: typeof Handle_Geom2d_Curve_3;
   Handle_Geom2d_Curve_4: typeof Handle_Geom2d_Curve_4;
+  GeomAPI_ExtremaCurveCurve: typeof GeomAPI_ExtremaCurveCurve;
+  GeomAPI_ExtremaCurveCurve_1: typeof GeomAPI_ExtremaCurveCurve_1;
+  GeomAPI_ExtremaCurveCurve_2: typeof GeomAPI_ExtremaCurveCurve_2;
+  GeomAPI_ExtremaCurveCurve_3: typeof GeomAPI_ExtremaCurveCurve_3;
+  GeomAPI_ExtremaCurveSurface: typeof GeomAPI_ExtremaCurveSurface;
+  GeomAPI_ExtremaCurveSurface_1: typeof GeomAPI_ExtremaCurveSurface_1;
+  GeomAPI_ExtremaCurveSurface_2: typeof GeomAPI_ExtremaCurveSurface_2;
+  GeomAPI_ExtremaCurveSurface_3: typeof GeomAPI_ExtremaCurveSurface_3;
+  GeomAPI_ExtremaSurfaceSurface: typeof GeomAPI_ExtremaSurfaceSurface;
+  GeomAPI_ExtremaSurfaceSurface_1: typeof GeomAPI_ExtremaSurfaceSurface_1;
+  GeomAPI_ExtremaSurfaceSurface_2: typeof GeomAPI_ExtremaSurfaceSurface_2;
+  GeomAPI_ExtremaSurfaceSurface_3: typeof GeomAPI_ExtremaSurfaceSurface_3;
+  GeomAPI_IntCS: typeof GeomAPI_IntCS;
+  GeomAPI_IntCS_1: typeof GeomAPI_IntCS_1;
+  GeomAPI_IntCS_2: typeof GeomAPI_IntCS_2;
+  GeomAPI_IntSS: typeof GeomAPI_IntSS;
+  GeomAPI_IntSS_1: typeof GeomAPI_IntSS_1;
+  GeomAPI_IntSS_2: typeof GeomAPI_IntSS_2;
   GeomAPI_Interpolate: typeof GeomAPI_Interpolate;
   GeomAPI_Interpolate_1: typeof GeomAPI_Interpolate_1;
   GeomAPI_Interpolate_2: typeof GeomAPI_Interpolate_2;

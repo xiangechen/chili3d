@@ -7,23 +7,23 @@ export class GeoUtils {
         let res: { edge: IEdge; point: XYZ } | undefined = undefined;
         let minDistance = Number.MAX_VALUE;
         for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
-            let tempPoint = edge.curve().nearestPoint(point);
-            if (tempPoint[1] < minDistance) {
-                res = { edge, point: tempPoint[0] };
-                minDistance = tempPoint[1];
+            let tempPoint = edge.curve().nearestFromPoint(point);
+            if (tempPoint.distance < minDistance) {
+                res = { edge, point: tempPoint.point };
+                minDistance = tempPoint.distance;
             }
         }
         return res!;
     }
 
-    private static curveNormal = (curve: ICurve) => {
+    static curveNormal(curve: ICurve) {
         if (ICurve.isConic(curve)) {
             return curve.axis;
         }
         let vec = curve.dn(0, 1);
         if (vec.isParallelTo(XYZ.unitX)) return XYZ.unitZ;
         return vec.cross(XYZ.unitX).normalize()!;
-    };
+    }
 
     private static wireNormal = (wire: IWire) => {
         let face = wire.toFace();

@@ -45,6 +45,7 @@ import {
 import { OccCurve } from "./occCurve";
 import { OccGeometry } from "./occGeometry";
 import { OccHelps } from "./occHelps";
+import { OccFace } from "./occShape";
 
 export class OccSurface extends OccGeometry implements ISurface {
     constructor(readonly surface: Geom_Surface) {
@@ -238,6 +239,11 @@ export class OccSurface extends OccGeometry implements ISurface {
     value(u: number, v: number): XYZ {
         let pnt = this.surface.Value(u, v);
         return OccHelps.toXYZ(pnt);
+    }
+    makeFace() {
+        let surface = new occ.Handle_Geom_Surface_2(this.surface);
+        let builder = new occ.BRepBuilderAPI_MakeFace_8(surface, 1e-3);
+        return new OccFace(builder.Face());
     }
 }
 

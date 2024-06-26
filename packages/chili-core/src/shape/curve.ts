@@ -1,7 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { XYZ } from "../math";
+import { Ray, XYZ } from "../math";
 import { IGeometry } from "./geometry";
+import { IEdge } from "./shape";
 
 export enum CurveType {
     Line,
@@ -28,8 +29,10 @@ export enum Continuity {
 
 export interface ICurve extends IGeometry {
     get curveType(): CurveType;
+    uniformAbscissaByLength(length: number): XYZ[];
+    uniformAbscissaByCount(curveCount: number): XYZ[];
     length(): number;
-    parameter(point: XYZ, maxDistance: number): number | undefined;
+    parameter(point: XYZ, tolerance: number): number | undefined;
     firstParameter(): number;
     lastParameter(): number;
     project(point: XYZ): XYZ[];
@@ -43,11 +46,26 @@ export interface ICurve extends IGeometry {
     dn(u: number, n: number): XYZ;
     reverse(): void;
     reversed(): ICurve;
-    nearestPoint(point: XYZ): [XYZ, number];
+    nearestFromPoint(point: XYZ): {
+        point: XYZ;
+        parameter: number;
+        distance: number;
+    };
+    nearestExtrema(curve: ICurve | Ray):
+        | undefined
+        | {
+              isParallel: boolean;
+              distance: number;
+              p1: XYZ;
+              p2: XYZ;
+              u1: number;
+              u2: number;
+          };
     isClosed(): boolean;
     period(): number;
     isPeriodic(): boolean;
     continutity(): Continuity;
+    makeEdge(): IEdge;
 }
 
 export interface ILine extends ICurve {
@@ -122,6 +140,7 @@ export interface IBSplineCurve extends IBoundedCurve {
 
 export interface ITrimmedCurve extends IBoundedCurve {
     basisCurve(): ICurve;
+    setTrim(u1: number, u2: number): void;
 }
 
 export interface IOffsetCurve extends ICurve {
