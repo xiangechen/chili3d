@@ -10,6 +10,7 @@ import {
     ICurve,
     ICylindricalSurface,
     IElementarySurface,
+    IGeometry,
     IOffsetSurface,
     IPlaneSurface,
     IPlateSurface,
@@ -50,6 +51,10 @@ import { OccFace } from "./occShape";
 export class OccSurface extends OccGeometry implements ISurface {
     constructor(readonly surface: Geom_Surface) {
         super(surface);
+    }
+
+    override copy(): IGeometry {
+        return OccHelps.wrapSurface(this.surface);
     }
 
     projectCurve(curve: ICurve): ICurve | undefined {

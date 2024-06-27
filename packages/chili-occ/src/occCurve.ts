@@ -12,6 +12,7 @@ import {
     IDisposable,
     IEdge,
     IEllipse,
+    IGeometry,
     IHyperbola,
     ILine,
     IOffsetCurve,
@@ -46,6 +47,10 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
     constructor(readonly curve: Geom_Curve) {
         super(curve);
         this.curveType = OccHelps.getCurveType(curve);
+    }
+
+    override copy(): IGeometry {
+        return OccHelps.wrapCurve(this.curve);
     }
 
     makeEdge(): IEdge {

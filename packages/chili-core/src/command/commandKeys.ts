@@ -32,6 +32,7 @@ const COMMAND_KEYS = [
     "file.export.stp",
     "file.import",
     "modify.array",
+    "modify.break",
     "modify.delete",
     "modify.mirror",
     "modify.move",

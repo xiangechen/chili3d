@@ -32,6 +32,7 @@ const I18N_KEYS = [
     "command.boolean.cut",
     "command.boolean.fuse",
     "command.box",
+    "command.break",
     "command.circle",
     "command.copy",
     "command.delete",

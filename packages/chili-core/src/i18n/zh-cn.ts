@@ -37,6 +37,7 @@ export default {
         "command.boolean.cut": "剪切",
         "command.boolean.fuse": "融合",
         "command.box": "立方体",
+        "command.break": "打断",
         "command.circle": "圆",
         "command.copy": "复制",
         "command.delete": "删除",

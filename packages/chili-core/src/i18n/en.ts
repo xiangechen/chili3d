@@ -37,6 +37,7 @@ export default {
         "command.boolean.cut": "Cut",
         "command.boolean.fuse": "Fuse",
         "command.box": "Box",
+        "command.break": "Break",
         "command.circle": "Circle",
         "command.copy": "Copy",
         "command.delete": "Delete",
