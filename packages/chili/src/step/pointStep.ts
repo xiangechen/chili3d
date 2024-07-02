@@ -1,38 +1,37 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, Precision, XYZ } from "chili-core";
+import { AsyncController, I18nKeys, IDocument, Precision, XYZ } from "chili-core";
 import {
     Dimension,
-    PointOnCurveSnapper,
-    PointSnapper,
-    SnapPointData,
+    PointSnapData,
+    PointSnapEventHandler,
     SnapPointOnCurveData,
-    Snapper,
+    SnapPointOnCurveEventHandler,
 } from "../snap";
-import { StepBase } from "./step";
+import { Step } from "./step";
 
-function defaultSnapedData(): SnapPointData {
+function defaultSnapedData(): PointSnapData {
     return {
         dimension: Dimension.D1 | Dimension.D1D2D3,
     };
 }
 
-export class PointStep extends StepBase<SnapPointData> {
-    constructor(tip: I18nKeys, handleData: () => SnapPointData = defaultSnapedData) {
+export class PointStep extends Step<PointSnapData> {
+    constructor(tip: I18nKeys, handleData: () => PointSnapData = defaultSnapedData) {
         super(tip, handleData);
     }
 
-    protected override snapper(data: SnapPointData): Snapper {
-        return new PointSnapper(data);
+    protected getEventHandler(document: IDocument, controller: AsyncController) {
+        return new PointSnapEventHandler(document, controller, this.handleStepData());
     }
 
-    protected validator(data: SnapPointData, point: XYZ): boolean {
+    protected validator(data: PointSnapData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
         return data.refPoint().distanceTo(point) > Precision.Distance;
     }
 }
 
-export class PointOnCurveStep extends StepBase<SnapPointOnCurveData> {
+export class PointOnCurveStep extends Step<SnapPointOnCurveData> {
     constructor(tip: I18nKeys, handleData: () => SnapPointOnCurveData) {
         super(tip, handleData);
     }
@@ -41,7 +40,7 @@ export class PointOnCurveStep extends StepBase<SnapPointOnCurveData> {
         return true;
     }
 
-    protected override snapper(data: SnapPointOnCurveData): Snapper {
-        return new PointOnCurveSnapper(data);
+    protected override getEventHandler(document: IDocument, controller: AsyncController) {
+        return new SnapPointOnCurveEventHandler(document, controller, this.handleStepData());
     }
 }

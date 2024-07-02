@@ -1,35 +1,23 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
-import { AxisSnap } from "../axisSnap";
-import { SnapPreviewer, SnapValidator, SnapedData } from "../interfaces";
-import { ObjectSnap } from "../objectSnap";
-import { PlaneSnap } from "../planeSnap";
+import { SnapData, SnapedData } from "../snap";
+import { AxisSnap, ObjectSnap, PlaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 
-export interface SnapLengthAtAxisData {
+export interface LengthAtAxisSnapData extends SnapData {
     point: XYZ;
     direction: XYZ;
-    validators?: SnapValidator[];
-    preview: SnapPreviewer;
-    prompt?: (snaped: SnapedData) => string;
 }
 
-export interface SnapLengthAtPlaneData {
+export interface SnapLengthAtPlaneData extends SnapData {
     point: () => XYZ;
     plane: () => Plane;
-    validators?: SnapValidator[];
-    preview: SnapPreviewer;
-    prompt?: (snaped: SnapedData) => string;
 }
 
-export class SnapLengthAtAxisHandler extends SnapEventHandler {
-    constructor(
-        document: IDocument,
-        controller: AsyncController,
-        readonly lengthData: SnapLengthAtAxisData,
-    ) {
+export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapData> {
+    constructor(document: IDocument, controller: AsyncController, lengthData: LengthAtAxisSnapData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, () => lengthData.point);
         let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
         super(document, controller, [objectSnap, axisSnap], lengthData);
@@ -40,7 +28,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
         if (this.shouldReserse()) {
             dist = -dist;
         }
-        let point = this.lengthData.point.add(this.lengthData.direction.multiply(dist));
+        let point = this.data.point.add(this.data.direction.multiply(dist));
         return {
             view,
             point,
@@ -52,8 +40,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
     private shouldReserse() {
         return (
             this._snaped?.point &&
-            this._snaped.point.sub(this.lengthData.point).dot(this.lengthData.direction) <
-                -Precision.Distance
+            this._snaped.point.sub(this.data.point).dot(this.data.direction) < -Precision.Distance
         );
     }
 
@@ -64,12 +51,8 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler {
     }
 }
 
-export class SnapLengthAtPlaneHandler extends SnapEventHandler {
-    constructor(
-        document: IDocument,
-        controller: AsyncController,
-        readonly lengthData: SnapLengthAtPlaneData,
-    ) {
+export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlaneData> {
+    constructor(document: IDocument, controller: AsyncController, lengthData: SnapLengthAtPlaneData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, lengthData.point);
         let trackingSnap = new TrackingSnap(lengthData.point, false);
         let planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
@@ -80,11 +63,11 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler {
         let point;
         let ns = text.split(",").map((x) => Number(x));
         if (ns.length === 1) {
-            let vector = this._snaped?.point!.sub(this.lengthData.point()).normalize();
-            point = this.lengthData.point().add(vector!.multiply(ns[0]));
+            let vector = this._snaped?.point!.sub(this.data.point()).normalize();
+            point = this.data.point().add(vector!.multiply(ns[0]));
         } else {
-            let plane = this.lengthData.plane();
-            point = this.lengthData.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
+            let plane = this.data.plane();
+            point = this.data.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
         }
 
         return {

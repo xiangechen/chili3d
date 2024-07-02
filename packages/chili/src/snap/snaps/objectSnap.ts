@@ -18,8 +18,7 @@ import {
     VisualState,
     XYZ,
 } from "chili-core";
-
-import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
+import { ISnap, MouseAndDetected, SnapedData } from "../snap";
 
 interface InvisibleSnapInfo {
     view: IView;
@@ -27,7 +26,7 @@ interface InvisibleSnapInfo {
     displays: number[];
 }
 
-export class ObjectSnap implements ISnapper {
+export class ObjectSnap implements ISnap {
     private _featureInfos: Map<VisualShapeData, SnapedData[]>;
     private _intersectionInfos: Map<string, SnapedData[]>;
     private _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;

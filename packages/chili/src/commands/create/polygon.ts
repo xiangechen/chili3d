@@ -12,7 +12,7 @@ import {
     command,
 } from "chili-core";
 import { PolygonBody } from "../../bodys";
-import { Dimension, SnapPointData, SnapedData } from "../../snap";
+import { Dimension, PointSnapData, SnapedData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
@@ -62,7 +62,7 @@ export class Polygon extends CreateFaceableCommand {
         return [firstStep, secondStep];
     }
 
-    private getNextData = (): SnapPointData => {
+    private getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,

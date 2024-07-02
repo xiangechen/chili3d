@@ -2,7 +2,7 @@
 
 import { GeometryEntity, ParameterGeometryEntity, Plane, XYZ, command } from "chili-core";
 import { BoxBody } from "../../bodys";
-import { SnapLengthAtAxisData } from "../../snap";
+import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
@@ -18,7 +18,7 @@ export class Box extends RectCommandBase {
         return [...steps, third];
     }
 
-    private getHeightStepData = (): SnapLengthAtAxisData => {
+    private getHeightStepData = (): LengthAtAxisSnapData => {
         return {
             point: this.stepDatas[1].point!,
             direction: this.stepDatas[0].view.workplane.normal,

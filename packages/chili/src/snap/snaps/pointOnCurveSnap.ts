@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ISnapper, MouseAndDetected, SnapedData } from "./interfaces";
-import { SnapPointOnCurveData } from "./snapEventHandler";
+import { ISnap, MouseAndDetected, SnapedData } from "../snap";
+import { SnapPointOnCurveData } from "../snapEventHandler";
 
-export class PointOnCurveSnap implements ISnapper {
+export class PointOnCurveSnap implements ISnap {
     constructor(readonly pointData: SnapPointOnCurveData) {}
 
     snap(data: MouseAndDetected): SnapedData | undefined {

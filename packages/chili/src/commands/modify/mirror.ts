@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Matrix4, Plane, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
@@ -26,7 +26,7 @@ export class Mirror extends TransformedCommand {
         return [firstStep, secondStep];
     }
 
-    private getSecondPointData = (): SnapPointData => {
+    private getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2,

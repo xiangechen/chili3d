@@ -4,7 +4,7 @@ import { I18n, IView, Plane, XYZ } from "chili-core";
 
 import { Axis } from "./axis";
 
-export class AxesTracking {
+export class AxisTracking {
     private axies: Map<IView, Axis[]> = new Map();
 
     constructor(readonly trackingZ: boolean) {}

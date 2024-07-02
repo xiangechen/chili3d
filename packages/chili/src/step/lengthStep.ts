@@ -1,28 +1,27 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Precision, XYZ } from "chili-core";
+import { AsyncController, IDocument, Precision, XYZ } from "chili-core";
 import {
-    LengthAtAxisSnapper,
-    LengthAtPlaneSnapper,
-    SnapLengthAtAxisData,
+    LengthAtAxisSnapData,
+    SnapLengthAtAxisHandler,
     SnapLengthAtPlaneData,
-    Snapper,
+    SnapLengthAtPlaneHandler,
 } from "../snap";
-import { StepBase } from "./step";
+import { Step } from "./step";
 
-export class LengthAtAxisStep extends StepBase<SnapLengthAtAxisData> {
-    protected override snapper(data: SnapLengthAtAxisData): Snapper {
-        return new LengthAtAxisSnapper(data);
+export class LengthAtAxisStep extends Step<LengthAtAxisSnapData> {
+    protected getEventHandler(document: IDocument, controller: AsyncController) {
+        return new SnapLengthAtAxisHandler(document, controller, this.handleStepData());
     }
 
-    protected validator(data: SnapLengthAtAxisData, point: XYZ): boolean {
+    protected validator(data: LengthAtAxisSnapData, point: XYZ): boolean {
         return Math.abs(point.sub(data.point).dot(data.direction)) > Precision.Distance;
     }
 }
 
-export class LengthAtPlaneStep extends StepBase<SnapLengthAtPlaneData> {
-    protected override snapper(data: SnapLengthAtPlaneData): Snapper {
-        return new LengthAtPlaneSnapper(data);
+export class LengthAtPlaneStep extends Step<SnapLengthAtPlaneData> {
+    protected getEventHandler(document: IDocument, controller: AsyncController) {
+        return new SnapLengthAtPlaneHandler(document, controller, this.handleStepData());
     }
 
     protected validator(data: SnapLengthAtPlaneData, point: XYZ): boolean {

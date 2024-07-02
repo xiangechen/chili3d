@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { EdgeMeshData, IView, LineType, Plane, VisualConfig, XYZ } from "chili-core";
+import { ISnap, MouseAndDetected, SnapedData } from "../snap";
 
-import { ISnapper, MouseAndDetected, SnapedData } from ".";
-
-export class AxisSnap implements ISnapper {
+export class AxisSnap implements ISnap {
     private _tempLines?: [IView, number];
 
     constructor(

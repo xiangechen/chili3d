@@ -2,20 +2,14 @@
 
 import { AsyncController, Config, I18nKeys, IDocument, IView, XYZ } from "chili-core";
 import { Dimension } from "../dimension";
-import { SnapedData } from "../interfaces";
-import { ObjectSnap } from "../objectSnap";
-import { PlaneSnap, WorkplaneSnap } from "../planeSnap";
-import { PointOnCurveSnap } from "../pointAtCurveSnap";
+import { SnapedData } from "../snap";
+import { ObjectSnap, PlaneSnap, PointOnCurveSnap, WorkplaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
+import { PointSnapData, SnapPointOnCurveData } from "./pointSnapData";
 import { SnapEventHandler } from "./snapEventHandler";
-import { SnapPointData, SnapPointOnCurveData } from "./snapPointData";
 
-export class SnapPointEventHandler extends SnapEventHandler {
-    constructor(
-        document: IDocument,
-        controller: AsyncController,
-        protected pointData: SnapPointData,
-    ) {
+export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
+    constructor(document: IDocument, controller: AsyncController, pointData: PointSnapData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
         let workplaneSnap = pointData.plane
             ? new PlaneSnap(pointData.plane, pointData.refPoint)
@@ -36,12 +30,12 @@ export class SnapPointEventHandler extends SnapEventHandler {
         let end = this._snaped!.point!;
         if (dims.length === 1 && end !== undefined) {
             let vector = end.sub(refPoint!).normalize()!;
-            result.point.add(vector.multiply(dims[0]));
+            result.point = result.point.add(vector.multiply(dims[0]));
         } else if (dims.length > 1) {
-            let plane = this.pointData.plane?.() ?? view.workplane;
+            let plane = this.data.plane?.() ?? view.workplane;
             result.point = result.point.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
             if (dims.length === 3) {
-                result.point.add(plane.normal.multiply(dims[2]));
+                result.point = result.point.add(plane.normal.multiply(dims[2]));
             }
         }
         return result;
@@ -50,7 +44,7 @@ export class SnapPointEventHandler extends SnapEventHandler {
     protected inputError(text: string): I18nKeys | undefined {
         let dims = text.split(",").map((x) => Number(x));
         let dimension = Dimension.from(dims.length);
-        if (!Dimension.contains(this.pointData.dimension!, dimension)) {
+        if (!Dimension.contains(this.data.dimension!, dimension)) {
             return "error.input.unsupportedInputs";
         }
         if (dims.some((x) => Number.isNaN(x))) {
@@ -76,16 +70,12 @@ export class SnapPointEventHandler extends SnapEventHandler {
     }
 
     private getRefPoint(): XYZ | undefined {
-        return this.pointData.refPoint?.() ?? this._snaped?.refPoint;
+        return this.data.refPoint?.() ?? this._snaped?.refPoint;
     }
 }
 
-export class SnapPointOnCurveEventHandler extends SnapEventHandler {
-    constructor(
-        document: IDocument,
-        controller: AsyncController,
-        protected pointData: SnapPointOnCurveData,
-    ) {
+export class SnapPointOnCurveEventHandler extends SnapEventHandler<SnapPointOnCurveData> {
+    constructor(document: IDocument, controller: AsyncController, pointData: SnapPointOnCurveData) {
         let objectSnap = new ObjectSnap(Config.instance.snapType);
         let snap = new PointOnCurveSnap(pointData);
         let workplaneSnap = new WorkplaneSnap();
@@ -93,10 +83,10 @@ export class SnapPointOnCurveEventHandler extends SnapEventHandler {
     }
 
     protected override getPointFromInput(view: IView, text: string): SnapedData {
-        let length = this.pointData.curve.length();
+        let length = this.data.curve.length();
         let parameter = Number(text) / length;
         return {
-            point: this.pointData.curve.value(parameter),
+            point: this.data.curve.value(parameter),
             view,
             shapes: [],
         };

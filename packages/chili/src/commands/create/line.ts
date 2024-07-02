@@ -2,7 +2,7 @@
 
 import { GeometryEntity, ParameterGeometryEntity, Precision, Property, XYZ, command } from "chili-core";
 import { LineBody } from "../../bodys";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
@@ -43,7 +43,7 @@ export class Line extends CreateCommand {
         }
     }
 
-    private getSecondPointData = (): SnapPointData => {
+    private getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,

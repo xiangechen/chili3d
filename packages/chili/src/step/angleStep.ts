@@ -1,31 +1,37 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, Precision, XYZ } from "chili-core";
+import { AsyncController, I18nKeys, IDocument, Precision, XYZ } from "chili-core";
 
-import { AngleSnapper, Dimension, SnapPointData, Snapper } from "../snap";
-import { StepBase } from "./step";
+import { AngleSnapEventHandler, Dimension, PointSnapData } from "../snap";
+import { Step } from "./step";
 
-function defaultSnapedData(): SnapPointData {
+function defaultSnapedData(): PointSnapData {
     return {
         dimension: Dimension.D1D2D3,
     };
 }
 
-export class AngleStep extends StepBase<SnapPointData> {
+export class AngleStep extends Step<PointSnapData> {
     constructor(
         tip: I18nKeys,
         private handleCenter: () => XYZ,
         private handleP1: () => XYZ,
-        handleP2Data: () => SnapPointData = defaultSnapedData,
+        handleP2Data: () => PointSnapData = defaultSnapedData,
     ) {
         super(tip, handleP2Data);
     }
 
-    protected override snapper(data: SnapPointData): Snapper {
-        return new AngleSnapper(this.handleCenter, this.handleP1(), data);
+    protected getEventHandler(document: IDocument, controller: AsyncController) {
+        return new AngleSnapEventHandler(
+            document,
+            controller,
+            this.handleCenter,
+            this.handleP1(),
+            this.handleStepData(),
+        );
     }
 
-    protected validator(data: SnapPointData, point: XYZ): boolean {
+    protected validator(data: PointSnapData, point: XYZ): boolean {
         if (data.refPoint === undefined) return true;
         return data.refPoint().distanceTo(point) > Precision.Distance;
     }

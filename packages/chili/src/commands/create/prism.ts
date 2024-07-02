@@ -3,7 +3,7 @@
 import { GeometryEntity, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { PrismBody } from "../../bodys";
-import { SnapLengthAtAxisData } from "../../snap";
+import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
@@ -33,7 +33,7 @@ export class Prism extends CreateCommand {
         ];
     }
 
-    private getLengthStepData = (): SnapLengthAtAxisData => {
+    private getLengthStepData = (): LengthAtAxisSnapData => {
         const { point, normal } = this.getAxis();
         return {
             point,

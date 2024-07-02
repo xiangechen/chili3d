@@ -11,7 +11,7 @@ import {
     XYZ,
     command,
 } from "chili-core";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -30,7 +30,7 @@ export class Array extends MultistepCommand {
         return [firstStep, secondStep];
     }
 
-    private getSecondPointData = (): SnapPointData => {
+    private getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,

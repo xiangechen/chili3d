@@ -2,7 +2,7 @@
 
 import { GeometryEntity, IFace, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
 import { PrismBody } from "../../bodys";
-import { SnapLengthAtAxisData } from "../../snap";
+import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
@@ -28,7 +28,7 @@ export class Fuse extends CreateCommand {
         ];
     }
 
-    private getLengthStepData = (): SnapLengthAtAxisData => {
+    private getLengthStepData = (): LengthAtAxisSnapData => {
         let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);
         return {

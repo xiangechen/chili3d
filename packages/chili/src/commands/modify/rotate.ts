@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Matrix4, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, PointSnapData } from "../../snap";
 import { AngleStep, IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
@@ -33,7 +33,7 @@ export class Rotate extends TransformedCommand {
         return [firstStep, secondStep, thirdStep];
     }
 
-    private getSecondPointData = (): SnapPointData => {
+    private getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -43,7 +43,7 @@ export class Rotate extends TransformedCommand {
         };
     };
 
-    private getThirdPointData = (): SnapPointData => {
+    private getThirdPointData = (): PointSnapData => {
         return {
             dimension: Dimension.D1D2,
             preview: this.rotatePreview,

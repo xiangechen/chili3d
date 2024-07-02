@@ -6,7 +6,6 @@ import {
     I18nKeys,
     IDocument,
     IEventHandler,
-    IShapeFilter,
     IView,
     MessageType,
     PubSub,
@@ -16,11 +15,9 @@ import {
     VisualConfig,
     XYZ,
 } from "chili-core";
+import { ISnap, MouseAndDetected, SnapData, SnapValidator, SnapedData } from "../snap";
 
-import { ISnapper, MouseAndDetected, SnapValidator, SnapedData } from "../interfaces";
-import { SnapPointData } from "./snapPointData";
-
-export abstract class SnapEventHandler implements IEventHandler {
+export abstract class SnapEventHandler<D extends SnapData = SnapData> implements IEventHandler {
     private _tempPoint?: number;
     private _tempShapes?: number[];
     protected _snaped?: SnapedData;
@@ -29,9 +26,8 @@ export abstract class SnapEventHandler implements IEventHandler {
     constructor(
         readonly document: IDocument,
         readonly controller: AsyncController,
-        readonly snaps: ISnapper[],
-        readonly data: SnapPointData,
-        readonly filter?: IShapeFilter,
+        readonly snaps: ISnap[],
+        readonly data: D,
     ) {
         if (data.validators) {
             this.validators.push(...data.validators);
@@ -152,7 +148,7 @@ export abstract class SnapEventHandler implements IEventHandler {
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view.detected(shapeType, event.offsetX, event.offsetY, this.filter);
+        let shapes = view.detected(shapeType, event.offsetX, event.offsetY, this.data.filter);
         return {
             shapes,
             view,

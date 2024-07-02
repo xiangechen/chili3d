@@ -1,14 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, Config, IDocument, IView, Plane, PlaneAngle, XYZ } from "chili-core";
-import { SnapedData } from "../interfaces";
-import { ObjectSnap } from "../objectSnap";
-import { PlaneSnap } from "../planeSnap";
+import { SnapedData } from "../snap";
+import { ObjectSnap, PlaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
+import { PointSnapData } from "./pointSnapData";
 import { SnapEventHandler } from "./snapEventHandler";
-import { SnapPointData } from "./snapPointData";
 
-export class SnapAngleEventHandler extends SnapEventHandler {
+export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
     readonly plane: Plane;
     readonly planeAngle: PlaneAngle;
 
@@ -17,9 +16,9 @@ export class SnapAngleEventHandler extends SnapEventHandler {
         controller: AsyncController,
         readonly center: () => XYZ,
         p1: XYZ,
-        readonly snapPointData: SnapPointData,
+        snapPointData: PointSnapData,
     ) {
-        if (!snapPointData.plane) throw new Error("SnapAngleEventHandler requires a plane");
+        if (!snapPointData.plane) throw new Error("AngleSnapEventHandler: no plane");
         let objectSnap = new ObjectSnap(Config.instance.snapType, snapPointData.refPoint);
         let workplaneSnap = new PlaneSnap(snapPointData.plane, center);
         let trackingSnap = new TrackingSnap(center, false);

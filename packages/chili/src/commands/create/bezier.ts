@@ -8,7 +8,7 @@ import {
     XYZ,
     command,
 } from "chili-core";
-import { Dimension, SnapPointData } from "../../snap";
+import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
@@ -44,7 +44,7 @@ export class BezierCommand extends CreateCommand {
         return [firstStep, secondStep];
     }
 
-    private getNextData = (): SnapPointData => {
+    private getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
