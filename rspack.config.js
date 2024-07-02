@@ -69,6 +69,14 @@ const config = defineConfig({
         filename: "[contenthash].bundle.js",
         path: path.resolve(__dirname, "build"),
     },
+    optimization: {
+        minimizer: [
+            new rspack.SwcJsMinimizerRspackPlugin({
+                mangle: false,
+            }),
+            new rspack.SwcCssMinimizerRspackPlugin(),
+        ],
+    },
 });
 
 module.exports = config;

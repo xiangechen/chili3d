@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Property, Result, Serializer, XYZ } from "chili-core";
 
-@Serializer.register("LineBody", ["document", "start", "end"])
+@Serializer.register(["document", "start", "end"])
 export class LineBody extends ParameterBody {
     readonly display: I18nKeys = "body.line";
 

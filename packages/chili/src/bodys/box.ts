@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Plane, Property, Result, Serializer } from "chili-core";
 
-@Serializer.register("BoxBody", ["document", "plane", "dx", "dy", "dz"])
+@Serializer.register(["document", "plane", "dx", "dy", "dz"])
 export class BoxBody extends ParameterBody {
     readonly display: I18nKeys = "body.box";
 

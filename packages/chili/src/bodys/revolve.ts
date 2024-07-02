@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Ray, Result, Serializer } from "chili-core";
 
-@Serializer.register("RevolveBody", ["document", "profile", "axis", "angle"])
+@Serializer.register(["document", "profile", "axis", "angle"])
 export class RevolveBody extends ParameterBody {
     override display: I18nKeys = "body.revol";
 

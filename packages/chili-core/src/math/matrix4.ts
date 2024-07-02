@@ -9,7 +9,7 @@ import { XYZ } from "./xyz";
 /**
  * Matrix in column-major order
  */
-@Serializer.register("Matrix4", ["array"], (array: Float32Array) => {
+@Serializer.register(["array"], (array: Float32Array) => {
     return Matrix4.fromArray(array);
 })
 export class Matrix4 {

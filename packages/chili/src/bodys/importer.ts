@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Result, Serializer } from "chili-core";
 
-@Serializer.register("ImportedBody", ["document", "importedShape"])
+@Serializer.register(["document", "importedShape"])
 export class ImportedBody extends ParameterBody {
     override display: I18nKeys = "body.imported";
 

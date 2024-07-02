@@ -3,7 +3,7 @@
 import { I18nKeys, IDocument, IFace, IShape, ParameterBody, Property, Result, Serializer } from "chili-core";
 import { GeoUtils } from "chili-geo";
 
-@Serializer.register("PrismBody", ["document", "section", "length"])
+@Serializer.register(["document", "section", "length"])
 export class PrismBody extends ParameterBody {
     override display: I18nKeys = "body.prism";
 

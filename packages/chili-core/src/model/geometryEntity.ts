@@ -53,12 +53,7 @@ export abstract class GeometryEntity extends Entity {
     }
 }
 
-@Serializer.register(
-    "EditableGeometryEntity",
-    ["document", "shape", "materialId"],
-    undefined,
-    EditableGeometryEntity.serializer,
-)
+@Serializer.register(["document", "shape", "materialId"], undefined, EditableGeometryEntity.serializer)
 export class EditableGeometryEntity extends GeometryEntity {
     override display: I18nKeys = "entity.parameter";
 
@@ -78,7 +73,7 @@ export class EditableGeometryEntity extends GeometryEntity {
     }
 }
 
-@Serializer.register("ParameterGeometryEntity", ["document", "body", "materialId"])
+@Serializer.register(["document", "body", "materialId"])
 export class ParameterGeometryEntity extends GeometryEntity {
     override display: I18nKeys = "entity.parameter";
 

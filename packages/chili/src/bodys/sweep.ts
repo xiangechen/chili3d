@@ -12,7 +12,7 @@ import {
     ShapeType,
 } from "chili-core";
 
-@Serializer.register("SweepBody", ["document", "profile", "path"])
+@Serializer.register(["document", "profile", "path"])
 export class SweepBody extends ParameterBody {
     override display: I18nKeys = "body.sweep";
 

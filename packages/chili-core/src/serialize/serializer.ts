@@ -39,14 +39,13 @@ export namespace Serializer {
     }
 
     export function register<T>(
-        className: string,
         ctorParamNames: (keyof T & string)[],
         deserialize?: (...args: any[]) => T,
         serialize?: (target: T) => SerializedProperties<T>,
     ) {
         return (target: new (...args: any[]) => T) => {
-            ClassMap.save(className, target);
-            reflectMap.set(className, {
+            ClassMap.save(target.name, target);
+            reflectMap.set(target.name, {
                 ctor: target,
                 ctorParamNames,
                 serialize,
@@ -145,8 +144,8 @@ export namespace Serializer {
 
 export namespace Serializer {
     export function serializeObject(target: Object) {
-        let classKey = ClassMap.getKey(target.constructor as any);
-        if (classKey === undefined || !reflectMap.has(classKey)) {
+        let classKey = target.constructor.name;
+        if (!reflectMap.has(classKey)) {
             throw new Error(
                 `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );

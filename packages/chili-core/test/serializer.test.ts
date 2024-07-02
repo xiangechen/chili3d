@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { History, IDocument, NodeLinkedList, NodeSerializer, Serialized, Serializer } from "../src";
+import { IDocument, NodeLinkedList, NodeSerializer, Serialized, Serializer } from "../src";
 import { TestDocument } from "./testDocument";
 
-@Serializer.register("BoxBody", ["k1" as any])
+@Serializer.register(["k1" as any])
 class TestObject {
     protected k2: string = "k2";
     public k3: string = "k3";

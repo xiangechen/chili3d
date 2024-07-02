@@ -4,7 +4,7 @@ import { Precision } from "../foundation";
 import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
-@Serializer.register("XYZ", ["x", "y", "z"])
+@Serializer.register(["x", "y", "z"])
 export class XYZ {
     static readonly zero = new XYZ(0, 0, 0);
     static readonly unitX = new XYZ(1, 0, 0);

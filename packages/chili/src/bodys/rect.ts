@@ -12,7 +12,7 @@ import {
     XYZ,
 } from "chili-core";
 
-@Serializer.register("RectBody", ["document", "plane", "dx", "dy"])
+@Serializer.register(["document", "plane", "dx", "dy"])
 export class RectBody extends FacebaseParameterBody {
     readonly display: I18nKeys = "body.rect";
 

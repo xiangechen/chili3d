@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IEdge, IShape, IWire, ParameterBody, Result, Serializer } from "chili-core";
 
-@Serializer.register("FaceBody", ["document", "shapes"])
+@Serializer.register(["document", "shapes"])
 export class FaceBody extends ParameterBody {
     override display: I18nKeys = "body.face";
 

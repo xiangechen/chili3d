@@ -11,7 +11,7 @@ import {
     XYZ,
 } from "chili-core";
 
-@Serializer.register("PolygonBody", ["document", "points"])
+@Serializer.register(["document", "points"])
 export class PolygonBody extends FacebaseParameterBody {
     readonly display: I18nKeys = "body.polygon";
 

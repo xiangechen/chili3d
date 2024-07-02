@@ -5,7 +5,7 @@ import { Id, Logger, NodeAction, NodeRecord } from "../foundation";
 import { Serializer } from "../serialize";
 import { INode, INodeLinkedList, Node } from "./node";
 
-@Serializer.register("NodeLinkedList", ["document", "name", "id"])
+@Serializer.register(["document", "name", "id"])
 export class NodeLinkedList extends Node implements INodeLinkedList {
     private _count: number = 0;
 

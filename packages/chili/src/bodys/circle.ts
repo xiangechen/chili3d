@@ -11,7 +11,7 @@ import {
     XYZ,
 } from "chili-core";
 
-@Serializer.register("CircleBody", ["document", "normal", "center", "radius"])
+@Serializer.register(["document", "normal", "center", "radius"])
 export class CircleBody extends FacebaseParameterBody {
     readonly display: I18nKeys = "body.circle";
 

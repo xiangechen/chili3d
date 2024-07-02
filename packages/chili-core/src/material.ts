@@ -5,7 +5,7 @@ import { HistoryObservable, Id } from "./foundation";
 import { Property } from "./property";
 import { Serializer } from "./serialize";
 
-@Serializer.register("Material", ["document", "name", "color", "id"])
+@Serializer.register(["document", "name", "color", "id"])
 export class Material extends HistoryObservable {
     @Serializer.serialze()
     readonly id: string;

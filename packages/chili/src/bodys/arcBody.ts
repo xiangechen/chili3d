@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Property, Result, Serializer, XYZ } from "chili-core";
 
-@Serializer.register("ArcBody", ["document", "normal", "center", "start", "angle"])
+@Serializer.register(["document", "normal", "center", "start", "angle"])
 export class ArcBody extends ParameterBody {
     readonly display: I18nKeys = "body.arc";
 

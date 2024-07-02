@@ -16,7 +16,7 @@ export abstract class Model extends Node implements IModel {
     }
 }
 
-@Serializer.register("GeometryModel", ["document", "name", "geometry", "id"])
+@Serializer.register(["document", "name", "geometry", "id"])
 export class GeometryModel extends Model {
     constructor(document: IDocument, name: string, geometry: GeometryEntity, id: string = Id.generate()) {
         super(document, name, geometry, id);

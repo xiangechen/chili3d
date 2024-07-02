@@ -6,7 +6,7 @@ import { Matrix4 } from "./matrix4";
 import { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
-@Serializer.register("Plane", ["origin", "normal", "xvec"])
+@Serializer.register(["origin", "normal", "xvec"])
 export class Plane {
     static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
     static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);

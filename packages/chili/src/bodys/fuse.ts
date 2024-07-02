@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Result, Serializer } from "chili-core";
 
-@Serializer.register("FuseBody", ["document", "bottom", "top"])
+@Serializer.register(["document", "bottom", "top"])
 export class FuseBody extends ParameterBody {
     override display: I18nKeys = "body.fuse";
 

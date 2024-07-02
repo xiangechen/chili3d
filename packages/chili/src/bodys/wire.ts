@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IEdge, IShape, ParameterBody, Result, Serializer } from "chili-core";
 
-@Serializer.register("WireBody", ["document", "edges"])
+@Serializer.register(["document", "edges"])
 export class WireBody extends ParameterBody {
     override display: I18nKeys = "body.wire";
 

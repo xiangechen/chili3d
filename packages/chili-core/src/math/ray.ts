@@ -4,7 +4,7 @@ import { Serializer } from "../serialize";
 import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
-@Serializer.register("Ray", ["location", "direction"])
+@Serializer.register(["location", "direction"])
 export class Ray {
     @Serializer.serialze()
     readonly location: XYZ;

@@ -2,7 +2,7 @@
 
 import { I18nKeys, IDocument, IShape, ParameterBody, Result, Serializer } from "chili-core";
 
-@Serializer.register("BooleanBody", ["document", "booleanShape"])
+@Serializer.register(["document", "booleanShape"])
 export class BooleanBody extends ParameterBody {
     override display: I18nKeys = "body.bolean";
 
