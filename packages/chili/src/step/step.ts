@@ -10,19 +10,23 @@ export interface IStep {
 export abstract class Step<D extends SnapData> implements IStep {
     constructor(
         readonly tip: I18nKeys,
-        readonly handleStepData: () => D,
+        private readonly handleStepData: () => D,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         let data = this.handleStepData();
         if (data.validators === undefined) data.validators = [];
         data.validators.push((point) => this.validator(data, point));
-        let executorHandler = this.getEventHandler(document, controller);
+        let executorHandler = this.getEventHandler(document, controller, data);
         await document.selection.pickAsync(executorHandler, this.tip, controller, false, "draw");
         return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
 
-    protected abstract getEventHandler(document: IDocument, controller: AsyncController): SnapEventHandler;
+    protected abstract getEventHandler(
+        document: IDocument,
+        controller: AsyncController,
+        data: D,
+    ): SnapEventHandler;
 
     protected abstract validator(data: D, point: XYZ): boolean;
 }

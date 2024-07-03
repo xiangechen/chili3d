@@ -21,8 +21,8 @@ export class PointStep extends Step<PointSnapData> {
         super(tip, handleData);
     }
 
-    protected getEventHandler(document: IDocument, controller: AsyncController) {
-        return new PointSnapEventHandler(document, controller, this.handleStepData());
+    protected getEventHandler(document: IDocument, controller: AsyncController, data: PointSnapData) {
+        return new PointSnapEventHandler(document, controller, data);
     }
 
     protected validator(data: PointSnapData, point: XYZ): boolean {
@@ -40,7 +40,11 @@ export class PointOnCurveStep extends Step<SnapPointOnCurveData> {
         return true;
     }
 
-    protected override getEventHandler(document: IDocument, controller: AsyncController) {
-        return new SnapPointOnCurveEventHandler(document, controller, this.handleStepData());
+    protected override getEventHandler(
+        document: IDocument,
+        controller: AsyncController,
+        data: SnapPointOnCurveData,
+    ) {
+        return new SnapPointOnCurveEventHandler(document, controller, data);
     }
 }

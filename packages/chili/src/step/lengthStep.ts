@@ -10,8 +10,8 @@ import {
 import { Step } from "./step";
 
 export class LengthAtAxisStep extends Step<LengthAtAxisSnapData> {
-    protected getEventHandler(document: IDocument, controller: AsyncController) {
-        return new SnapLengthAtAxisHandler(document, controller, this.handleStepData());
+    protected getEventHandler(document: IDocument, controller: AsyncController, data: LengthAtAxisSnapData) {
+        return new SnapLengthAtAxisHandler(document, controller, data);
     }
 
     protected validator(data: LengthAtAxisSnapData, point: XYZ): boolean {
@@ -20,8 +20,12 @@ export class LengthAtAxisStep extends Step<LengthAtAxisSnapData> {
 }
 
 export class LengthAtPlaneStep extends Step<SnapLengthAtPlaneData> {
-    protected getEventHandler(document: IDocument, controller: AsyncController) {
-        return new SnapLengthAtPlaneHandler(document, controller, this.handleStepData());
+    protected getEventHandler(
+        document: IDocument,
+        controller: AsyncController,
+        data: SnapLengthAtPlaneData,
+    ) {
+        return new SnapLengthAtPlaneHandler(document, controller, data);
     }
 
     protected validator(data: SnapLengthAtPlaneData, point: XYZ): boolean {

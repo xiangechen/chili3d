@@ -21,14 +21,8 @@ export class AngleStep extends Step<PointSnapData> {
         super(tip, handleP2Data);
     }
 
-    protected getEventHandler(document: IDocument, controller: AsyncController) {
-        return new AngleSnapEventHandler(
-            document,
-            controller,
-            this.handleCenter,
-            this.handleP1(),
-            this.handleStepData(),
-        );
+    protected getEventHandler(document: IDocument, controller: AsyncController, data: PointSnapData) {
+        return new AngleSnapEventHandler(document, controller, this.handleCenter, this.handleP1(), data);
     }
 
     protected validator(data: PointSnapData, point: XYZ): boolean {
