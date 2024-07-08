@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IVisualObject, Matrix4 } from "chili-core";
-import { Mesh, MeshBasicMaterial } from "three";
+import { IVisualObject, Matrix4, XYZ } from "chili-core";
+import { Box3, Mesh, MeshBasicMaterial } from "three";
 import { ThreeHelper } from "./threeHelper";
 
 export class ThreeMeshObject extends Mesh implements IVisualObject {
@@ -19,6 +19,12 @@ export class ThreeMeshObject extends Mesh implements IVisualObject {
 
     get opacity() {
         return (this.material as MeshBasicMaterial).opacity; // TODO: assert
+    }
+
+    boundingBox(): { min: XYZ; max: XYZ } {
+        const box = new Box3();
+        box.setFromObject(this);
+        return { min: ThreeHelper.toXYZ(box.min), max: ThreeHelper.toXYZ(box.max) };
     }
 
     dispose(): void {

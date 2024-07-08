@@ -142,7 +142,7 @@ export class CameraController implements ICameraController {
         let box = new Box3();
         for (let shape of shapes) {
             let threeGeometry = context.getShape(shape as IModel) as ThreeGeometry;
-            let boundingBox = threeGeometry?.boundingBox();
+            let boundingBox = new Box3().setFromObject(threeGeometry);
             if (boundingBox) {
                 box.union(boundingBox);
             }
