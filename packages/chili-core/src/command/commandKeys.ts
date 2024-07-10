@@ -38,6 +38,7 @@ const COMMAND_KEYS = [
     "modify.move",
     "modify.rotate",
     "modify.split",
+    "modify.trim",
     "special.last",
     "workingPlane.alignToPlane",
     "workingPlane.set",

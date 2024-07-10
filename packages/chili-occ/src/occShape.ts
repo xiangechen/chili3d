@@ -221,7 +221,7 @@ export class OccEdge extends OccShape implements IEdge {
         return new OccEdge(edge.Edge());
     }
 
-    intersect(other: IEdge | Ray): XYZ[] {
+    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[] {
         if (other instanceof Ray) {
             let start = OccHelps.toPnt(other.location);
             let end = OccHelps.toPnt(other.location.add(other.direction.multiply(1e22)));
@@ -235,17 +235,19 @@ export class OccEdge extends OccShape implements IEdge {
         return [];
     }
 
-    private intersectToEdge(edge: TopoDS_Edge): XYZ[] {
+    private intersectToEdge(edge: TopoDS_Edge) {
         let cc = new occ.BRepExtrema_ExtCC_2(this.shape, edge);
         if (!cc.IsDone() || cc.NbExt() === 0 || cc.IsParallel()) {
             return [];
         }
 
-        let result = new Array<XYZ>();
+        let result = [];
         for (let i = 1; i <= cc.NbExt(); i++) {
             if (cc.SquareDistance(i) <= occ.Precision.Confusion()) {
-                let pnt = cc.PointOnE1(i);
-                result.push(OccHelps.toXYZ(pnt));
+                result.push({
+                    parameter: cc.ParameterOnE1(i),
+                    point: OccHelps.toXYZ(cc.PointOnE1(i)),
+                });
             }
         }
         return result;

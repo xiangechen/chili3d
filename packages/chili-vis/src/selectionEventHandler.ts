@@ -33,7 +33,7 @@ interface SelectionRect {
 export abstract class SelectionHandler implements IEventHandler {
     private rect?: SelectionRect;
     private mouse = { isDown: false, x: 0, y: 0 };
-    private _highlights: VisualShapeData[] | undefined;
+    protected _highlights: VisualShapeData[] | undefined;
     private _detectAtMouse: VisualShapeData[] | undefined;
     private _lockDetected: IShape | undefined; // 用于切换捕获的对象
 
@@ -94,7 +94,7 @@ export abstract class SelectionHandler implements IEventHandler {
         return undefined;
     }
 
-    private setHighlight(view: IView, detecteds: VisualShapeData[]) {
+    protected setHighlight(view: IView, detecteds: VisualShapeData[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
             view.document.visual.highlighter.addState(

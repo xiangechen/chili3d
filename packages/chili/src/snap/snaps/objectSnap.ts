@@ -251,7 +251,7 @@ export class ObjectSnap implements ISnap {
         return intersections.map((point) => {
             return {
                 view,
-                point,
+                point: point.point,
                 info: I18n.translate("snap.intersection"),
                 shapes: [s1, s2],
             };

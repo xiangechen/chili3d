@@ -8,6 +8,7 @@ import {
     IDisposable,
     IModel,
     INode,
+    IShapeFilter,
     IVisual,
     IVisualContext,
     IVisualGeometry,
@@ -20,9 +21,11 @@ import {
     ShapeMeshData,
     ShapeType,
     VertexMeshData,
+    XYZ,
 } from "chili-core";
 import {
     AlwaysDepth,
+    Box3,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
@@ -41,6 +44,7 @@ import {
     MeshLambertMaterial as ThreeMaterial,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
+import { ThreeHelper } from "./threeHelper";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _shapeModelMap = new WeakMap<IVisualGeometry, IModel>();
@@ -196,6 +200,29 @@ export class ThreeVisualContext implements IVisualContext {
         let shapes = new Array<ThreeGeometry>();
         this.visualShapes.children.forEach((x) => this._getThreeShapes(shapes, x));
         return shapes;
+    }
+
+    boundingBoxIntersectFilter(
+        boundingBox: {
+            min: XYZ;
+            max: XYZ;
+        },
+        filter?: IShapeFilter,
+    ): IVisualGeometry[] {
+        let box = new Box3().setFromPoints([
+            ThreeHelper.fromXYZ(boundingBox.min),
+            ThreeHelper.fromXYZ(boundingBox.max),
+        ]);
+        return this.shapes().filter((x) => {
+            if (filter && x.geometryEngity.shape.isOk && !filter.allow(x.geometryEngity.shape.value)) {
+                return false;
+            }
+            let testBox = (x as ThreeGeometry).box();
+            if (testBox === undefined) {
+                return false;
+            }
+            return box.intersectsBox(testBox);
+        });
     }
 
     private _getThreeShapes(shapes: Array<ThreeGeometry>, shape: Object3D) {

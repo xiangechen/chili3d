@@ -66,6 +66,7 @@ const I18N_KEYS = [
     "command.thickSolid",
     "command.toFace",
     "command.toWire",
+    "command.trim",
     "command.undo",
     "common.angle",
     "common.back",

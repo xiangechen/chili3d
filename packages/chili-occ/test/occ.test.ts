@@ -33,10 +33,10 @@ describe("shape test", () => {
         let edge2 = new OccEdge(make2.Edge());
         let intersections = edge2.intersect(edge1);
         expect(intersections.length).toBe(1);
-        expect(intersections[0].x).toBe(5);
+        expect(intersections[0].point.x).toBe(5);
 
         let ray = new Ray(XYZ.unitZ.reverse(), XYZ.unitX.add(XYZ.unitZ));
-        expect(edge1.intersect(ray)[0].isEqualTo(XYZ.unitX)).toBeTruthy();
+        expect(edge1.intersect(ray)[0].point.isEqualTo(XYZ.unitX)).toBeTruthy();
     });
 
     test("test findSubShape", () => {

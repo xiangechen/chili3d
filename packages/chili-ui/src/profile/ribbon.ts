@@ -36,6 +36,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.offset",
                     "modify.delete",
                     "modify.break",
+                    "modify.trim",
                 ],
             },
             {

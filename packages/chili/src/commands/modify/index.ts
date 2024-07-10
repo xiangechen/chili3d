@@ -6,3 +6,4 @@ export * from "./mirror";
 export * from "./move";
 export * from "./rotate";
 export * from "./split";
+export * from "./trim";

@@ -67,4 +67,15 @@ export class GeoUtils {
 
         return this.wireNormal(shape as IWire);
     }
+
+    static intersects(edge: IEdge, otherEdges: IEdge[]): { point: XYZ; parameter: number }[] {
+        let result: { point: XYZ; parameter: number }[] = [];
+        otherEdges.forEach((e) => {
+            let intersect = edge.intersect(e);
+            if (intersect.length > 0) {
+                result.push(...intersect);
+            }
+        });
+        return result;
+    }
 }

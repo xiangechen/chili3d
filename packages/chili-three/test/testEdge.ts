@@ -65,7 +65,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    intersect(other: IEdge | Ray): XYZ[] {
+    intersect(other: IEdge | Ray) {
         return [];
     }
     length(): number {

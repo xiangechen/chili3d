@@ -62,6 +62,10 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         geometryEngity.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
+    box() {
+        return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox ?? undefined;
+    }
+
     boundingBox() {
         let box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
         let min = ThreeHelper.toXYZ(box!.min);

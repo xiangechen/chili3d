@@ -47,7 +47,7 @@ export interface IVertex extends IShape {}
 
 export interface IEdge extends IShape {
     update(curve: ICurve): void;
-    intersect(other: IEdge | Ray): XYZ[];
+    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[];
     length(): number;
     curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;

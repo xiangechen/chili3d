@@ -71,6 +71,7 @@ export default {
         "command.thickSolid": "Thick Solid",
         "command.toFace": "To Face",
         "command.toWire": "To Wire",
+        "command.trim": "Trim",
         "command.undo": "Undo",
         "common.angle": "Angle",
         "common.back": "Back",

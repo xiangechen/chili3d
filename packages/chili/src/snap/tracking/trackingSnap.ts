@@ -125,7 +125,7 @@ export class TrackingSnap implements ISnap {
         let points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {
-                points.push({ intersect: p, location: x.axis.location });
+                points.push({ intersect: p.point, location: x.axis.location });
             });
         });
         points.sort((p) => IView.screenDistance(data.view, data.mx, data.my, p.intersect));
