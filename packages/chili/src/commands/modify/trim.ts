@@ -35,28 +35,32 @@ export class Trim extends CancelableCommand {
         );
         transaction.start();
         try {
-            while (!this.isCompleted) {
-                this.controller = new AsyncController();
-                let handler = new PickTrimEdgeEventHandler(this.document, this.controller);
-                await this.document.selection.pickAsync(
-                    handler,
-                    "prompt.select.edges",
-                    this.controller,
-                    false,
-                    "select.default",
-                );
-                if (this.controller.result?.status !== "success") {
-                    break;
-                }
-                if (handler.selected) {
-                    this.trimEdge(handler.selected);
-                }
-            }
+            await this.trimAsync();
         } catch (e) {
             transaction.rollback();
             throw e;
         }
         transaction.commit();
+    }
+
+    private async trimAsync() {
+        while (!this.isCompleted) {
+            this.controller = new AsyncController();
+            let handler = new PickTrimEdgeEventHandler(this.document, this.controller);
+            await this.document.selection.pickAsync(
+                handler,
+                "prompt.select.edges",
+                this.controller,
+                false,
+                "select.default",
+            );
+            if (this.controller.result?.status !== "success") {
+                break;
+            }
+            if (handler.selected) {
+                this.trimEdge(handler.selected);
+            }
+        }
     }
 
     private trimEdge(selected: TrimEdge) {
