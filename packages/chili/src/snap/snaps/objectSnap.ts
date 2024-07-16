@@ -184,7 +184,7 @@ export class ObjectSnap implements ISnap {
     private hilighted(view: IView, shapes: VisualShapeData[]) {
         shapes.forEach((x) => {
             let highlighter = x.owner.geometryEngity.document.visual.highlighter;
-            highlighter.addState(x.owner, VisualState.highlight, x.shape.shapeType, ...x.indexes);
+            highlighter.addState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.push(...shapes);
     }
@@ -192,7 +192,7 @@ export class ObjectSnap implements ISnap {
     private unHilighted() {
         this._hilightedShapes.forEach((x) => {
             let highlighter = x.owner.geometryEngity.document.visual.highlighter;
-            highlighter.removeState(x.owner, VisualState.highlight, x.shape.shapeType, ...x.indexes);
+            highlighter.removeState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.length = 0;
     }

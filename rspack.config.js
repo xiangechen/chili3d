@@ -23,6 +23,10 @@ const config = defineConfig({
                 type: "asset",
             },
             {
+                test: /\.jpg$/,
+                type: "asset",
+            },
+            {
                 test: /\.(j|t)s$/,
                 loader: "builtin:swc-loader",
                 options: {

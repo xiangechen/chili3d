@@ -99,7 +99,7 @@ export abstract class SelectionHandler implements IEventHandler {
         detecteds.forEach((x) => {
             view.document.visual.highlighter.addState(
                 x.owner,
-                VisualState.highlight,
+                VisualState.highlighter,
                 this.shapeType,
                 ...x.indexes,
             );
@@ -176,7 +176,7 @@ export abstract class SelectionHandler implements IEventHandler {
         this._highlights?.forEach((x) => {
             x.owner.geometryEngity.document.visual.highlighter.removeState(
                 x.owner,
-                VisualState.highlight,
+                VisualState.highlighter,
                 this.shapeType,
                 ...x.indexes,
             );

@@ -5,7 +5,7 @@ import { IVisualObject } from "./visualObject";
 
 export enum VisualState {
     normal = 0,
-    highlight = 1,
+    highlighter = 1,
     selected = 1 << 1,
 }
 

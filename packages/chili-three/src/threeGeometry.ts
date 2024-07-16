@@ -164,17 +164,17 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         if (this._faces) this._faces.material = this._faceMaterial;
     }
 
-    cloneSubEdge(index: number, material: LineBasicMaterial) {
+    cloneSubEdge(index: number) {
         let mesh = MeshUtils.subEdge(this.geometryEngity.shape.value!.mesh.edges!, index);
         if (!mesh) return undefined;
 
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
 
-        return new LineSegments(buff, material);
+        return new LineSegments(buff, this._edgeMaterial);
     }
 
-    cloneSubFace(index: number, material: MeshLambertMaterial) {
+    cloneSubFace(index: number) {
         let mesh = MeshUtils.subFace(this.geometryEngity.shape.value!.mesh.faces!, index);
         if (!mesh) return undefined;
 
@@ -183,7 +183,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         buff.setAttribute("normal", new Float32BufferAttribute(mesh.normals, 3));
         buff.setIndex(mesh.indices);
 
-        return new Mesh(buff, material);
+        return new Mesh(buff, this._faceMaterial);
     }
 
     faces() {

@@ -25,7 +25,7 @@ export class ThreeVisual implements IVisual {
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
-    readonly highlighter: IHighlighter;
+    readonly highlighter: ThreeHighlighter;
     readonly textGenerator: ITextGenerator;
 
     private _eventHandler: IEventHandler;
@@ -69,7 +69,7 @@ export class ThreeVisual implements IVisual {
     }
 
     createView(name: string, workplane: Plane) {
-        return new ThreeView(this.document, name, workplane, this.context);
+        return new ThreeView(this.document, name, workplane, this.highlighter, this.context);
     }
 
     update(): void {

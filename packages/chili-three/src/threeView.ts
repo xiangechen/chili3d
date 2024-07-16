@@ -31,10 +31,13 @@ import {
     WebGLRenderer,
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
+import { ThreeRenderBuilder } from "./threeRenderBuilder";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ViewGizmo } from "./viewGizmo";
 
@@ -44,6 +47,7 @@ export class ThreeView extends Observable implements IView {
 
     private _scene: Scene;
     private _renderer: WebGLRenderer;
+    private _composer: EffectComposer;
     private _workplane: Plane;
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
@@ -67,20 +71,25 @@ export class ThreeView extends Observable implements IView {
         return this.cameraController.camera;
     }
 
+    get composer(): EffectComposer {
+        return this._composer;
+    }
+
     constructor(
         readonly document: IDocument,
         name: string,
         workplane: Plane,
+        readonly highlighter: ThreeHighlighter,
         readonly content: ThreeVisualContext,
     ) {
         super();
         this._name = name;
         this._scene = content.scene;
         this._workplane = workplane;
-        this._renderer = this.initRender();
         let resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
+        [this._renderer, this._composer] = this.initRender();
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
         this.animate();
@@ -119,14 +128,12 @@ export class ThreeView extends Observable implements IView {
         return this._renderer;
     }
 
-    protected initRender(): WebGLRenderer {
-        let renderer = new WebGLRenderer({
-            antialias: true,
-            alpha: true,
-            logarithmicDepthBuffer: true,
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        return renderer;
+    protected initRender() {
+        return new ThreeRenderBuilder(this._scene, this.camera)
+            .addOutlinePass(this.highlighter.sceneHorver, 0xffff00, true)
+            .addOutlinePass(this.highlighter.sceneSelected, 0x0000ff, true)
+            .addGammaCorrection()
+            .build();
     }
 
     setDom(element: HTMLElement) {
@@ -134,7 +141,7 @@ export class ThreeView extends Observable implements IView {
             this._resizeObserver.unobserve(this._dom);
         }
         this._dom = element;
-        this._gizmo.remove();
+        this._gizmo?.remove();
         element.appendChild(this._gizmo);
         this._renderer.domElement.remove();
         element.appendChild(this._renderer.domElement);
@@ -167,17 +174,12 @@ export class ThreeView extends Observable implements IView {
             this.animate();
         });
         if (!this._needsUpdate) return;
-        const oldAutoClear = this._renderer.autoClear;
-        try {
-            this._renderer.clearDepth();
-            this._renderer.autoClear = false;
-            this._renderer.render(this._scene, this.camera);
-            this.dynamicLight.position.copy(this.camera.position);
-            this._gizmo.update();
-        } finally {
-            this._renderer.autoClear = oldAutoClear;
-            this._needsUpdate = false;
-        }
+
+        this.dynamicLight.position.copy(this.camera.position);
+        this._composer.render();
+        this._gizmo?.update();
+
+        this._needsUpdate = false;
     }
 
     resize(width: number, heigth: number) {
@@ -188,6 +190,7 @@ export class ThreeView extends Observable implements IView {
             this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
+        this._composer.setSize(width, heigth);
         this.update();
     }
 

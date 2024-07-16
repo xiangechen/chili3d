@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { Renderer } from "three";
 import { ThreeView } from "../src/threeView";
 import { ThreeVisualContext } from "../src/threeVisualContext";
+import { ThreeHighlighter } from "../src/threeHighlighter";
 
 class TestWebGLRenderer implements THREE.Renderer {
     constructor(readonly domElement = document.createElement("canvas")) {}
@@ -60,7 +61,7 @@ Object.defineProperties(container, {
 
 export class TestView extends ThreeView {
     constructor(document: IDocument, content: ThreeVisualContext) {
-        super(document, "test", Plane.XY, content);
+        super(document, "test", Plane.XY, new ThreeHighlighter(), content);
         this.setDom(container);
         this.cameraController.lookAt(
             new THREE.Vector3(0, 0, 1),
@@ -69,10 +70,10 @@ export class TestView extends ThreeView {
         );
     }
 
-    protected override initRender(): THREE.WebGLRenderer {
+    protected override initRender() {
         let render = new TestWebGLRenderer() as any;
         render.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(render.domElement);
-        return render;
+        return [render, render] as any;
     }
 }

@@ -19,3 +19,8 @@ declare module "*.svg" {
     const icon: string;
     export default icon;
 }
+
+declare module "*.jpg" {
+    const path: string;
+    export default path;
+}
