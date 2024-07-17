@@ -283,6 +283,8 @@ export class ThreeView extends Observable implements IView {
     ) {
         if (!(obj.parent instanceof ThreeGeometry) || !obj.parent.visible) return;
         let shape = obj.parent.geometryEngity.shape.value!;
+        if (cache.has(shape)) return;
+
         const addShape = (indexes: number[]) => {
             detecteds.push({
                 shape,
@@ -298,7 +300,6 @@ export class ThreeView extends Observable implements IView {
         }
         if ((shape.shapeType & shapeType) === 0) return;
         if (shapeFilter && !shapeFilter.allow(shape)) return;
-        if (cache.has(shape)) return;
 
         let groups = obj instanceof Mesh ? shape.mesh.faces?.groups : shape.mesh.edges?.groups;
         addShape([...Array(groups?.length).keys()]);
