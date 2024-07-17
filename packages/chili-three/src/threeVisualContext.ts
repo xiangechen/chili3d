@@ -3,8 +3,6 @@
 import {
     CollectionAction,
     CollectionChangedArgs,
-    EdgeMeshData,
-    FaceMeshData,
     IDisposable,
     IModel,
     INode,
@@ -13,37 +11,29 @@ import {
     IVisualContext,
     IVisualGeometry,
     IVisualObject,
-    LineType,
     Material,
     MathUtils,
     NodeAction,
     NodeRecord,
     ShapeMeshData,
     ShapeType,
-    VertexMeshData,
     XYZ,
 } from "chili-core";
 import {
-    AlwaysDepth,
     Box3,
-    BufferGeometry,
     DoubleSide,
-    Float32BufferAttribute,
     Group,
-    LineBasicMaterial,
-    LineDashedMaterial,
     LineSegments,
     Mesh,
-    MeshLambertMaterial,
     Object3D,
     Points,
-    PointsMaterial,
     RepeatWrapping,
     Scene,
     TextureLoader,
     MeshLambertMaterial as ThreeMaterial,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
+import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 
 export class ThreeVisualContext implements IVisualContext {
@@ -236,57 +226,15 @@ export class ThreeVisualContext implements IVisualContext {
         let group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
-                group.add(this.createVertexGeometry(data));
+                group.add(ThreeGeometryFactory.createVertexGeometry(data));
             } else if (ShapeMeshData.isEdge(data)) {
-                group.add(this.createEdgeGeometry(data));
+                group.add(ThreeGeometryFactory.createEdgeGeometry(data));
             } else if (ShapeMeshData.isFace(data)) {
-                group.add(this.createFaceGeometry(data));
+                group.add(ThreeGeometryFactory.createFaceGeometry(data));
             }
         });
         this.tempShapes.add(group);
         return group.id;
-    }
-
-    private createFaceGeometry(data: FaceMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
-        buff.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
-        buff.setIndex(data.indices);
-        buff.computeBoundingBox();
-        let material = new MeshLambertMaterial({ side: DoubleSide });
-        if (typeof data.color === "number") {
-            material.color.set(data.color);
-        } else {
-            material.vertexColors = true;
-            buff.setAttribute("color", new Float32BufferAttribute(data.color, 3));
-        }
-
-        return new Mesh(buff, material);
-    }
-
-    private createEdgeGeometry(data: EdgeMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        let color = data.color as number;
-        let material: LineBasicMaterial =
-            data.lineType === LineType.Dash
-                ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
-                : new LineBasicMaterial({ color });
-        return new LineSegments(buff, material).computeLineDistances();
-    }
-
-    private createVertexGeometry(data: VertexMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        let color = data.color as number;
-        let material = new PointsMaterial({
-            size: data.size,
-            sizeAttenuation: false,
-            color,
-        });
-        material.depthFunc = AlwaysDepth;
-        return new Points(buff, material);
     }
 
     removeMesh(id: number) {

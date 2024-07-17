@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ShapeType } from "../shape";
+import { ShapeMeshData, ShapeType } from "../shape";
 import { IVisualGeometry, VisualState } from "./visualShape";
 
 export interface IHighlighter {
@@ -9,4 +9,6 @@ export interface IHighlighter {
     resetState(shape: IVisualGeometry): void;
     addState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
     removeState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
+    highliteMesh(...datas: ShapeMeshData[]): number;
+    removeMesh(id: number): void;
 }

@@ -1,18 +1,29 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IHighlighter, IVisualGeometry, ShapeType, VisualConfig, VisualState } from "chili-core";
+import {
+    IDisposable,
+    IHighlighter,
+    IVisualGeometry,
+    ShapeMeshData,
+    ShapeType,
+    VisualConfig,
+    VisualState,
+} from "chili-core";
 import {
     DoubleSide,
+    Group,
     LineBasicMaterial,
     LineSegments,
     Mesh,
     MeshBasicMaterial,
     MeshLambertMaterial,
     Object3D,
+    Points,
     Scene,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeGeometryFactory } from "./threeGeometryFactory";
 
 const hilightEdgeMaterial = new LineBasicMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
@@ -211,8 +222,13 @@ export class GeometryState {
 export class ThreeHighlighter implements IHighlighter {
     private readonly _stateMap = new Map<IVisualGeometry, GeometryState>();
 
+    readonly tempShapes: Group = new Group();
     readonly sceneHorver: Scene = new Scene();
     readonly sceneSelected: Scene = new Scene();
+
+    constructor() {
+        this.sceneHorver.add(this.tempShapes);
+    }
 
     clear(): void {
         this._stateMap.forEach((v, k) => {
@@ -252,5 +268,36 @@ export class ThreeHighlighter implements IHighlighter {
             this._stateMap.set(geometry, geometryState);
         }
         return geometryState;
+    }
+
+    highliteMesh(...datas: ShapeMeshData[]): number {
+        let group = new Group();
+        datas.forEach((data) => {
+            if (ShapeMeshData.isVertex(data)) {
+                group.add(ThreeGeometryFactory.createVertexGeometry(data));
+            } else if (ShapeMeshData.isEdge(data)) {
+                group.add(ThreeGeometryFactory.createEdgeGeometry(data));
+            } else if (ShapeMeshData.isFace(data)) {
+                group.add(ThreeGeometryFactory.createFaceGeometry(data));
+            }
+        });
+        this.tempShapes.add(group);
+        return group.id;
+    }
+
+    removeMesh(id: number) {
+        let shape = this.tempShapes.getObjectById(id);
+        if (shape === undefined) return;
+        shape.children.forEach((x) => {
+            if (x instanceof Mesh || x instanceof LineSegments || x instanceof Points) {
+                x.geometry.dispose();
+                x.material.dispose();
+            }
+            if (IDisposable.isDisposable(x)) {
+                x.dispose();
+            }
+        });
+        shape.children.length = 0;
+        this.tempShapes.remove(shape);
     }
 }

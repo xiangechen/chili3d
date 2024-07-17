@@ -114,7 +114,7 @@ export class PickTrimEdgeEventHandler extends SelectionHandler {
         let segments = findSegments(curve, edge, otherEdges, detecteds);
         let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = 0xff0000;
-        this.highlightedEdge = view.document.visual.context.displayMesh(mesh);
+        this.highlightedEdge = view.document.visual.highlighter.highliteMesh(mesh);
         this.highlight = {
             edge: detecteds[0],
             segments,
@@ -126,7 +126,7 @@ export class PickTrimEdgeEventHandler extends SelectionHandler {
 
     protected override cleanHighlights(): void {
         if (this.highlightedEdge !== undefined) {
-            this.document.visual.context.removeMesh(this.highlightedEdge);
+            this.document.visual.highlighter.removeMesh(this.highlightedEdge);
             this.highlightedEdge = undefined;
             this.highlight = undefined;
             this.document.application.activeView?.update();
