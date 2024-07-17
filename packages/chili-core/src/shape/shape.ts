@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Result } from "../foundation";
+import { IDisposable, Result } from "../foundation";
 import { Matrix4, Plane, Ray, XYZ } from "../math";
 import { ICurve, ITrimmedCurve } from "./curve";
 import { IShapeMeshData } from "./meshData";
@@ -14,7 +14,7 @@ export enum Orientation {
     EXTERNAL,
 }
 
-export interface IShape {
+export interface IShape extends IDisposable {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;

@@ -3,7 +3,7 @@
 import { INode, INodeLinkedList } from "../model";
 import { IDisposable } from "./disposable";
 
-export interface IHistoryRecord {
+export interface IHistoryRecord extends IDisposable {
     readonly name: string;
     undo(): void;
     redo(): void;
@@ -25,7 +25,7 @@ export class History implements IDisposable {
         this._redos.length = 0;
         this._undos.push(record);
         if (this._undos.length > this.undoLimits) {
-            this._undos = this._undos.slice(this._undos.length - this.undoLimits);
+            this._undos.shift()?.dispose();
         }
     }
 
@@ -77,6 +77,8 @@ export class PropertyHistoryRecord implements IHistoryRecord {
         this.name = `change ${String(property)} property`;
     }
 
+    dispose(): void {}
+
     undo(): void {
         this.object[this.property] = this.oldValue;
     }
@@ -111,6 +113,14 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
     readonly name: string;
     constructor(readonly records: NodeRecord[]) {
         this.name = `change node`;
+    }
+
+    dispose(): void {
+        this.records.forEach((record) => {
+            if (record.action === NodeAction.remove) {
+                record.node.dispose();
+            }
+        });
     }
 
     undo() {
@@ -151,6 +161,10 @@ export class ArrayRecord implements IHistoryRecord {
     readonly records: Array<IHistoryRecord> = [];
 
     constructor(readonly name: string) {}
+
+    dispose(): void {
+        this.records.forEach((r) => r.dispose());
+    }
 
     undo() {
         for (let index = this.records.length - 1; index >= 0; index--) {

@@ -188,12 +188,14 @@ export class Document extends Observable implements IDocument {
         if (args.action === CollectionAction.add) {
             Transaction.add(this, this.history, {
                 name: "MaterialChanged",
+                dispose() {},
                 undo: () => this.materials.remove(...args.items),
                 redo: () => this.materials.push(...args.items),
             });
         } else if (args.action === CollectionAction.remove) {
             Transaction.add(this, this.history, {
                 name: "MaterialChanged",
+                dispose() {},
                 undo: () => this.materials.push(...args.items),
                 redo: () => this.materials.remove(...args.items),
             });

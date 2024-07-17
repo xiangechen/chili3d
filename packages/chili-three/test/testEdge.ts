@@ -25,6 +25,9 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    dispose(): void {
+        throw new Error("Method not implemented.");
+    }
     update(curve: ICurve): void {
         throw new Error("Method not implemented.");
     }

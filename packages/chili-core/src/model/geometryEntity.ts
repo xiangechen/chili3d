@@ -51,6 +51,11 @@ export abstract class GeometryEntity extends Entity {
         if (notify) this.emitPropertyChanged("shape", oldShape);
         return true;
     }
+
+    override dispose(): void {
+        super.dispose();
+        this._shape.value?.dispose();
+    }
 }
 
 @Serializer.register(["document", "shape", "materialId"], undefined, EditableGeometryEntity.serializer)

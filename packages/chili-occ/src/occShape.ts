@@ -61,6 +61,10 @@ export class OccShape implements IShape {
         this._shape = shape;
         this.shapeType = OccHelps.getShapeType(shape);
     }
+    dispose(): void {
+        this._shape.delete();
+        this._shape = null as any;
+    }
     isEmpty(): boolean {
         return occ.BOPTools_AlgoTools3D.IsEmptyShape(this.shape);
     }

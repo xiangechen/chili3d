@@ -14,6 +14,11 @@ export abstract class Model extends Node implements IModel {
         super(document, name, id);
         this.geometry = body;
     }
+
+    override dispose(): void {
+        super.dispose();
+        this.geometry.dispose();
+    }
 }
 
 @Serializer.register(["document", "name", "geometry", "id"])
