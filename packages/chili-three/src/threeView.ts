@@ -11,6 +11,7 @@ import {
     Ray,
     ShapeMeshGroup,
     ShapeType,
+    VisualConfig,
     VisualShapeData,
     XY,
     XYZ,
@@ -130,8 +131,8 @@ export class ThreeView extends Observable implements IView {
 
     protected initRender() {
         return new ThreeRenderBuilder(this._scene, this.camera)
-            .addOutlinePass(this.highlighter.sceneHorver, 0xffff00, true)
-            .addOutlinePass(this.highlighter.sceneSelected, 0x0000ff, true)
+            .addOutlinePass(this.highlighter.sceneHorver, VisualConfig.highlightEdgeColor, true)
+            .addOutlinePass(this.highlighter.sceneSelected, VisualConfig.selectedEdgeColor, true)
             .addGammaCorrection()
             .build();
     }
