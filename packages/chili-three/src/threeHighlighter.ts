@@ -136,8 +136,8 @@ export class GeometryState {
 
         this.removeSceneItem(this.highlighter.sceneHorver, hovers);
         this.removeSceneItem(this.highlighter.sceneSelected, selected);
-        hovers.forEach((x) => x.geometry.dispose());
-        selected.forEach((x) => x.geometry.dispose());
+        hovers.forEach((x) => x.geometry?.dispose());
+        selected.forEach((x) => x.geometry?.dispose());
 
         this._states.clear();
     }
