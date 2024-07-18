@@ -4,4 +4,7 @@ module.exports = {
     testRegex: "packages/.*/test/(.+)\\.test\\.(js|ts)$",
     testEnvironment: "jsdom",
     moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+    moduleNameMapper: {
+        threeRenderBuilder: "<rootDir>/packages/chili-three/test/threeRenderBuilder.ts",
+    },
 };
