@@ -170,6 +170,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
 
         let buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
+        buff.applyMatrix4(this.matrixWorld);
 
         return new LineSegments(buff, this._edgeMaterial);
     }
@@ -182,7 +183,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         buff.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
         buff.setAttribute("normal", new Float32BufferAttribute(mesh.normals, 3));
         buff.setIndex(mesh.indices);
-
+        buff.applyMatrix4(this.matrixWorld);
         return new Mesh(buff, this._faceMaterial);
     }
 
