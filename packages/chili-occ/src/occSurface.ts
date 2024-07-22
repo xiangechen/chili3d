@@ -23,6 +23,7 @@ import {
     IToroidalSurface,
     Plane,
     XYZ,
+    gc,
 } from "chili-core";
 import {
     Extrema_ExtAlgo,
@@ -67,58 +68,70 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
 
     project(point: XYZ): XYZ[] {
-        let api = new occ.GeomAPI_ProjectPointOnSurf_2(
-            OccHelps.toPnt(point),
-            new occ.Handle_Geom_Surface_2(this.surface),
-            occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
-        );
+        return gc((c) => {
+            let api = c(
+                new occ.GeomAPI_ProjectPointOnSurf_2(
+                    c(OccHelps.toPnt(point)),
+                    new occ.Handle_Geom_Surface_2(this.surface),
+                    occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
+                ),
+            );
 
-        let result = new Array<XYZ>();
-        for (let i = 1; i <= api.NbPoints(); i++) {
-            let point = api.Point(i);
-            result.push(OccHelps.toXYZ(point));
-        }
-        result.sort((a, b) => a.distanceTo(point) - b.distanceTo(point));
-        return result;
+            let result = new Array<XYZ>();
+            for (let i = 1; i <= api.NbPoints(); i++) {
+                let point = c(api.Point(i));
+                result.push(OccHelps.toXYZ(point));
+            }
+            result.sort((a, b) => a.distanceTo(point) - b.distanceTo(point));
+            return result;
+        });
     }
 
     isPlanar(): boolean {
-        let surface = new occ.Handle_Geom_Surface_2(this.surface);
-        let lib = new occ.GeomLib_IsPlanarSurface(surface, 1e-7);
-        return lib.IsPlanar();
+        return gc((c) => {
+            let surface = new occ.Handle_Geom_Surface_2(this.surface);
+            let lib = c(new occ.GeomLib_IsPlanarSurface(surface, 1e-7));
+            return lib.IsPlanar();
+        });
     }
 
     parameter(point: XYZ, maxDistance: number): { u: number; v: number } | undefined {
-        let u: any = { current: 0 };
-        let v: any = { current: 0 };
-        if (
-            occ.GeomLib_Tool.Parameters(
-                new occ.Handle_Geom_Surface_2(this.surface),
-                OccHelps.toPnt(point),
-                maxDistance,
-                u,
-                v,
-            )
-        ) {
-            return {
-                u: u.current,
-                v: v.current,
-            };
-        }
+        return gc((c) => {
+            let u: any = { current: 0 };
+            let v: any = { current: 0 };
+            if (
+                occ.GeomLib_Tool.Parameters(
+                    new occ.Handle_Geom_Surface_2(this.surface),
+                    c(OccHelps.toPnt(point)),
+                    maxDistance,
+                    u,
+                    v,
+                )
+            ) {
+                return {
+                    u: u.current,
+                    v: v.current,
+                };
+            }
 
-        return undefined;
+            return undefined;
+        });
     }
 
     nearestPoint(point: XYZ): [XYZ, number] | undefined {
-        let api = new occ.GeomAPI_ProjectPointOnSurf_2(
-            OccHelps.toPnt(point),
-            new occ.Handle_Geom_Surface_2(this.surface),
-            occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
-        );
-        if (api.IsDone()) {
-            return [OccHelps.toXYZ(api.NearestPoint()), api.LowerDistance()];
-        }
-        return undefined;
+        return gc((c) => {
+            let api = c(
+                new occ.GeomAPI_ProjectPointOnSurf_2(
+                    c(OccHelps.toPnt(point)),
+                    new occ.Handle_Geom_Surface_2(this.surface),
+                    occ.Extrema_ExtAlgo.Extrema_ExtAlgo_Grad as Extrema_ExtAlgo,
+                ),
+            );
+            if (api.IsDone()) {
+                return [OccHelps.toXYZ(c(api.NearestPoint())), api.LowerDistance()];
+            }
+            return undefined;
+        });
     }
 
     continuity(): Continuity {
@@ -171,9 +184,11 @@ export class OccSurface extends OccGeometry implements ISurface {
         return this.surface.IsCNv(n);
     }
     d0(u: number, v: number): XYZ {
-        let pnt = new occ.gp_Pnt_1();
-        this.surface.D0(u, v, pnt);
-        return OccHelps.toXYZ(pnt);
+        return gc((c) => {
+            let pnt = c(new occ.gp_Pnt_1());
+            this.surface.D0(u, v, pnt);
+            return OccHelps.toXYZ(pnt);
+        });
     }
     d1(
         u: number,
@@ -183,72 +198,84 @@ export class OccSurface extends OccGeometry implements ISurface {
         d1u: XYZ;
         d1v: XYZ;
     } {
-        let pnt = new occ.gp_Pnt_1();
-        let d1u = new occ.gp_Vec_1();
-        let d1v = new occ.gp_Vec_1();
-        this.surface.D1(u, v, pnt, d1u, d1v);
-        return {
-            point: OccHelps.toXYZ(pnt),
-            d1u: OccHelps.toXYZ(d1u),
-            d1v: OccHelps.toXYZ(d1v),
-        };
+        return gc((c) => {
+            let pnt = c(new occ.gp_Pnt_1());
+            let d1u = c(new occ.gp_Vec_1());
+            let d1v = c(new occ.gp_Vec_1());
+            this.surface.D1(u, v, pnt, d1u, d1v);
+            return {
+                point: OccHelps.toXYZ(pnt),
+                d1u: OccHelps.toXYZ(d1u),
+                d1v: OccHelps.toXYZ(d1v),
+            };
+        });
     }
     d2(u: number, v: number) {
-        let pnt = new occ.gp_Pnt_1();
-        let d1u = new occ.gp_Vec_1();
-        let d1v = new occ.gp_Vec_1();
-        let d2u = new occ.gp_Vec_1();
-        let d2v = new occ.gp_Vec_1();
-        let d2uv = new occ.gp_Vec_1();
-        this.surface.D2(u, v, pnt, d1u, d1v, d2u, d2v, d2uv);
+        return gc((c) => {
+            let pnt = c(new occ.gp_Pnt_1());
+            let d1u = c(new occ.gp_Vec_1());
+            let d1v = c(new occ.gp_Vec_1());
+            let d2u = c(new occ.gp_Vec_1());
+            let d2v = c(new occ.gp_Vec_1());
+            let d2uv = c(new occ.gp_Vec_1());
+            this.surface.D2(u, v, pnt, d1u, d1v, d2u, d2v, d2uv);
 
-        return {
-            point: OccHelps.toXYZ(pnt),
-            d1u: OccHelps.toXYZ(d1u),
-            d1v: OccHelps.toXYZ(d1v),
-            d2u: OccHelps.toXYZ(d2u),
-            d2v: OccHelps.toXYZ(d2v),
-            d2uv: OccHelps.toXYZ(d2uv),
-        };
+            return {
+                point: OccHelps.toXYZ(pnt),
+                d1u: OccHelps.toXYZ(d1u),
+                d1v: OccHelps.toXYZ(d1v),
+                d2u: OccHelps.toXYZ(d2u),
+                d2v: OccHelps.toXYZ(d2v),
+                d2uv: OccHelps.toXYZ(d2uv),
+            };
+        });
     }
     d3(u: number, v: number) {
-        let pnt = new occ.gp_Pnt_1();
-        let d1u = new occ.gp_Vec_1();
-        let d1v = new occ.gp_Vec_1();
-        let d2u = new occ.gp_Vec_1();
-        let d2v = new occ.gp_Vec_1();
-        let d2uv = new occ.gp_Vec_1();
-        let d3u = new occ.gp_Vec_1();
-        let d3v = new occ.gp_Vec_1();
-        let d3uuv = new occ.gp_Vec_1();
-        let d3uvv = new occ.gp_Vec_1();
-        this.surface.D3(u, v, pnt, d1u, d1v, d2u, d2v, d2uv, d3u, d3v, d3uuv, d3uvv);
+        return gc((c) => {
+            let pnt = c(new occ.gp_Pnt_1());
+            let d1u = c(new occ.gp_Vec_1());
+            let d1v = c(new occ.gp_Vec_1());
+            let d2u = c(new occ.gp_Vec_1());
+            let d2v = c(new occ.gp_Vec_1());
+            let d2uv = c(new occ.gp_Vec_1());
+            let d3u = c(new occ.gp_Vec_1());
+            let d3v = c(new occ.gp_Vec_1());
+            let d3uuv = c(new occ.gp_Vec_1());
+            let d3uvv = c(new occ.gp_Vec_1());
+            this.surface.D3(u, v, pnt, d1u, d1v, d2u, d2v, d2uv, d3u, d3v, d3uuv, d3uvv);
 
-        return {
-            point: OccHelps.toXYZ(pnt),
-            d1u: OccHelps.toXYZ(d1u),
-            d1v: OccHelps.toXYZ(d1v),
-            d2u: OccHelps.toXYZ(d2u),
-            d2v: OccHelps.toXYZ(d2v),
-            d2uv: OccHelps.toXYZ(d2uv),
-            d3u: OccHelps.toXYZ(d3u),
-            d3v: OccHelps.toXYZ(d3v),
-            d3uuv: OccHelps.toXYZ(d3uuv),
-            d3uvv: OccHelps.toXYZ(d3uvv),
-        };
+            return {
+                point: OccHelps.toXYZ(pnt),
+                d1u: OccHelps.toXYZ(d1u),
+                d1v: OccHelps.toXYZ(d1v),
+                d2u: OccHelps.toXYZ(d2u),
+                d2v: OccHelps.toXYZ(d2v),
+                d2uv: OccHelps.toXYZ(d2uv),
+                d3u: OccHelps.toXYZ(d3u),
+                d3v: OccHelps.toXYZ(d3v),
+                d3uuv: OccHelps.toXYZ(d3uuv),
+                d3uvv: OccHelps.toXYZ(d3uvv),
+            };
+        });
     }
     dn(u: number, v: number, nu: number, nv: number): XYZ {
-        let vec = this.surface.DN(u, v, nu, nv);
-        return OccHelps.toXYZ(vec);
+        return gc((c) => {
+            let vec = c(this.surface.DN(u, v, nu, nv));
+            return OccHelps.toXYZ(vec);
+        });
     }
     value(u: number, v: number): XYZ {
-        let pnt = this.surface.Value(u, v);
-        return OccHelps.toXYZ(pnt);
+        return gc((c) => {
+            let pnt = c(this.surface.Value(u, v));
+            return OccHelps.toXYZ(pnt);
+        });
     }
     makeFace() {
-        let surface = new occ.Handle_Geom_Surface_2(this.surface);
-        let builder = new occ.BRepBuilderAPI_MakeFace_8(surface, 1e-3);
-        return new OccFace(builder.Face());
+        return gc((c) => {
+            let surface = c(new occ.Handle_Geom_Surface_2(this.surface));
+            let builder = c(new occ.BRepBuilderAPI_MakeFace_8(surface, 1e-3));
+            return new OccFace(builder.Face());
+        });
     }
 }
 
@@ -270,25 +297,35 @@ export class OccElementarySurface extends OccSurface implements IElementarySurfa
     }
 
     get location() {
-        return OccHelps.toXYZ(this.elementarySurface.Location());
+        return gc((c) => OccHelps.toXYZ(c(this.elementarySurface.Location())));
     }
     set location(value: XYZ) {
-        this.elementarySurface.SetLocation(OccHelps.toPnt(value));
+        gc((c) => {
+            this.elementarySurface.SetLocation(c(OccHelps.toPnt(value)));
+        });
     }
 
     get axis() {
-        return OccHelps.toXYZ(this.elementarySurface.Axis().Direction());
+        return gc((c) => {
+            return OccHelps.toXYZ(c(c(this.elementarySurface.Axis()).Direction()));
+        });
     }
     set axis(value: XYZ) {
-        let pnt = this.elementarySurface.Location();
-        let axis = new occ.gp_Ax1_2(pnt, OccHelps.toDir(value));
-        this.elementarySurface.SetAxis(axis);
+        gc((c) => {
+            let pnt = c(this.elementarySurface.Location());
+            let axis = c(new occ.gp_Ax1_2(pnt, c(OccHelps.toDir(value))));
+            this.elementarySurface.SetAxis(axis);
+        });
     }
     get coordinates() {
-        return OccHelps.fromAx23(this.elementarySurface.Position());
+        return gc((c) => {
+            return OccHelps.fromAx23(c(this.elementarySurface.Position()));
+        });
     }
     set coordinates(value: Plane) {
-        this.elementarySurface.SetPosition(OccHelps.toAx3(value));
+        gc((c) => {
+            this.elementarySurface.SetPosition(c(OccHelps.toAx3(value)));
+        });
     }
 }
 
@@ -319,7 +356,9 @@ export class OccSweptSurface extends OccSurface implements ISweptSurface {
         super(sweptSurface);
     }
     direction(): XYZ {
-        return OccHelps.toXYZ(this.sweptSurface.Direction());
+        return gc((c) => {
+            return OccHelps.toXYZ(c(this.sweptSurface.Direction()));
+        });
     }
     basisCurve(): ICurve {
         return OccHelps.wrapCurve(this.sweptSurface.BasisCurve().get());
@@ -376,7 +415,9 @@ export class OccConicalSurface extends OccElementarySurface implements IConicalS
         return this.conicalSurface.SetRadius(value);
     }
     apex(): XYZ {
-        return OccHelps.toXYZ(this.conicalSurface.Apex());
+        return gc((c) => {
+            return OccHelps.toXYZ(c(this.conicalSurface.Apex()));
+        });
     }
     refRadius(): number {
         return this.conicalSurface.RefRadius();
@@ -400,10 +441,14 @@ export class OccPlane extends OccElementarySurface implements IPlaneSurface {
         super(geom_plane);
     }
     get plane(): Plane {
-        return OccHelps.fromPln(this.geom_plane.Pln());
+        return gc((c) => {
+            return OccHelps.fromPln(c(this.geom_plane.Pln()));
+        });
     }
     set plane(value: Plane) {
-        this.geom_plane.SetPln(OccHelps.toPln(value));
+        gc((c) => {
+            this.geom_plane.SetPln(c(OccHelps.toPln(value)));
+        });
     }
 }
 
@@ -454,7 +499,9 @@ export class OccSurfaceOfLinearExtrusion extends OccSweptSurface implements ISur
         super(surfaceOfLinearExtrusion);
     }
     setDirection(direction: XYZ) {
-        this.surfaceOfLinearExtrusion.SetDirection(OccHelps.toDir(direction));
+        gc((c) => {
+            this.surfaceOfLinearExtrusion.SetDirection(c(OccHelps.toDir(direction)));
+        });
     }
     setBasisCurve(curve: ICurve) {
         if (!(curve instanceof OccCurve)) {
@@ -469,16 +516,24 @@ export class OccSurfaceOfRevolution extends OccSweptSurface implements ISurfaceO
         super(surfaceOfRevolution);
     }
     get location(): XYZ {
-        return OccHelps.toXYZ(this.surfaceOfRevolution.Location());
+        return gc((c) => {
+            return OccHelps.toXYZ(c(this.surfaceOfRevolution.Location()));
+        });
     }
     set location(value: XYZ) {
-        this.surfaceOfRevolution.SetLocation(OccHelps.toPnt(value));
+        gc((c) => {
+            this.surfaceOfRevolution.SetLocation(c(OccHelps.toPnt(value)));
+        });
     }
     referencePlane(): Plane {
-        return OccHelps.fromAx23(this.surfaceOfRevolution.ReferencePlane());
+        return gc((c) => {
+            return OccHelps.fromAx23(c(this.surfaceOfRevolution.ReferencePlane()));
+        });
     }
     setDirection(direction: XYZ) {
-        this.surfaceOfRevolution.SetDirection(OccHelps.toDir(direction));
+        gc((c) => {
+            this.surfaceOfRevolution.SetDirection(c(OccHelps.toDir(direction)));
+        });
     }
     setBasisCurve(curve: ICurve) {
         if (!(curve instanceof OccCurve)) {

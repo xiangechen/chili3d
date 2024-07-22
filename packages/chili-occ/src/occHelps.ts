@@ -14,6 +14,7 @@ import {
     ShapeType,
     SurfaceType,
     XYZ,
+    gc,
 } from "chili-core";
 import {
     GeomAbs_JoinType,
@@ -97,36 +98,46 @@ export class OccHelps {
     }
 
     static fromAx23(ax: gp_Ax2 | gp_Ax3): Plane {
-        return new Plane(
-            OccHelps.toXYZ(ax.Location()),
-            OccHelps.toXYZ(ax.Direction()),
-            OccHelps.toXYZ(ax.XDirection()),
-        );
+        return gc((c) => {
+            return new Plane(
+                OccHelps.toXYZ(c(ax.Location())),
+                OccHelps.toXYZ(c(ax.Direction())),
+                OccHelps.toXYZ(c(ax.XDirection())),
+            );
+        });
     }
 
     static toAx2(plane: Plane): gp_Ax2 {
-        return new occ.gp_Ax2_2(
-            OccHelps.toPnt(plane.origin),
-            OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xvec),
-        );
+        return gc((c) => {
+            return new occ.gp_Ax2_2(
+                c(OccHelps.toPnt(plane.origin)),
+                c(OccHelps.toDir(plane.normal)),
+                c(OccHelps.toDir(plane.xvec)),
+            );
+        });
     }
 
     static toAx3(plane: Plane): gp_Ax3 {
-        return new occ.gp_Ax3_3(
-            OccHelps.toPnt(plane.origin),
-            OccHelps.toDir(plane.normal),
-            OccHelps.toDir(plane.xvec),
-        );
+        return gc((c) => {
+            return new occ.gp_Ax3_3(
+                c(OccHelps.toPnt(plane.origin)),
+                c(OccHelps.toDir(plane.normal)),
+                c(OccHelps.toDir(plane.xvec)),
+            );
+        });
     }
 
     static fromPln(pln: gp_Pln): Plane {
-        let ax3 = pln.Position();
-        return this.fromAx23(ax3);
+        return gc((c) => {
+            let ax3 = c(pln.Position());
+            return this.fromAx23(ax3);
+        });
     }
 
     static toPln(plane: Plane): gp_Pln {
-        return new occ.gp_Pln_2(OccHelps.toAx3(plane));
+        return gc((c) => {
+            return new occ.gp_Pln_2(c(OccHelps.toAx3(plane)));
+        });
     }
 
     static hashCode(shape: TopoDS_Shape) {
@@ -416,19 +427,23 @@ export class OccHelps {
             const item = indexShape.FindKey(i);
             yield this.getActualShape(item);
         }
+
+        indexShape.delete();
     }
 
     static findAncestors(subShape: TopoDS_Shape, from: TopoDS_Shape, ancestorType: TopAbs_ShapeEnum) {
-        let map = new occ.TopTools_IndexedDataMapOfShapeListOfShape_1();
-        occ.TopExp.MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
-        const index = map.FindIndex(subShape);
-        let item = map.FindFromIndex(index);
-        let shapes: TopoDS_Shape[] = [];
-        while (!item.IsEmpty()) {
-            shapes.push(this.getActualShape(item.Last_1()));
-            item.RemoveFirst();
-        }
-        return shapes;
+        return gc((c) => {
+            let map = c(new occ.TopTools_IndexedDataMapOfShapeListOfShape_1());
+            occ.TopExp.MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
+            const index = map.FindIndex(subShape);
+            let item = c(map.FindFromIndex(index));
+            let shapes: TopoDS_Shape[] = [];
+            while (!item.IsEmpty()) {
+                shapes.push(this.getActualShape(item.Last_1()));
+                item.RemoveFirst();
+            }
+            return shapes;
+        });
     }
 
     static *iterShapes(
@@ -455,5 +470,7 @@ export class OccHelps {
             }
             explorer.Next();
         }
+
+        explorer.delete();
     }
 }

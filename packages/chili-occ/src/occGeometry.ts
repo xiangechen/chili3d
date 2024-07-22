@@ -24,5 +24,9 @@ export abstract class OccGeometry implements IGeometry {
         throw new Error("Unknown geometry type");
     }
 
+    dispose() {
+        this.geometry.delete();
+    }
+
     abstract copy(): IGeometry;
 }

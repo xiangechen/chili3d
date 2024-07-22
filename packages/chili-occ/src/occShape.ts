@@ -25,6 +25,7 @@ import {
     Serializer,
     ShapeType,
     XYZ,
+    gc,
 } from "chili-core";
 import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../occ-wasm/chili_occ";
 
@@ -74,26 +75,32 @@ export class OccShape implements IShape {
     }
 
     section(shape: IShape | Plane): IShape {
-        if (shape instanceof OccShape) {
-            let s = new occ.BRepAlgoAPI_Section_3(this.shape, shape.shape, true);
-            return OccHelps.wrapShape(s.Shape());
-        } else if (shape instanceof Plane) {
-            let pln = OccHelps.toPln(shape);
-            let s = new occ.BRepAlgoAPI_Section_5(this.shape, pln, true);
-            return OccHelps.wrapShape(s.Shape());
-        }
+        return gc((c) => {
+            if (shape instanceof OccShape) {
+                let s = c(new occ.BRepAlgoAPI_Section_3(this.shape, shape.shape, true));
+                return OccHelps.wrapShape(s.Shape());
+            } else if (shape instanceof Plane) {
+                let pln = c(OccHelps.toPln(shape));
+                let s = c(new occ.BRepAlgoAPI_Section_5(this.shape, pln, true));
+                return OccHelps.wrapShape(s.Shape());
+            }
 
-        throw new Error("Invalid section");
+            throw new Error("Invalid section");
+        });
     }
 
     get matrix() {
-        return OccHelps.convertToMatrix(this.shape.Location_1().Transformation());
+        return gc((c) => {
+            return OccHelps.convertToMatrix(c(c(this.shape.Location_1()).Transformation()));
+        });
     }
 
     set matrix(value: Matrix4) {
-        let trsf = OccHelps.convertFromMatrix(value);
-        this.shape.Location_2(new occ.TopLoc_Location_2(trsf), false);
-        this._mesh?.updateMeshShape();
+        gc((c) => {
+            let trsf = c(OccHelps.convertFromMatrix(value));
+            this.shape.Location_2(c(new occ.TopLoc_Location_2(trsf)), false);
+            this._mesh?.updateMeshShape();
+        });
     }
 
     static serialize(target: OccShape): SerializedProperties<OccShape> {
@@ -156,36 +163,42 @@ export class OccShape implements IShape {
     }
 
     split(edges: (IEdge | IWire)[]): IShape {
-        let shapes = new occ.TopTools_SequenceOfShape_1();
-        edges.forEach((shape) => {
-            shapes.Append_1((shape as unknown as OccShape).shape);
-        });
+        return gc((c) => {
+            let shapes = c(new occ.TopTools_SequenceOfShape_1());
+            edges.forEach((shape) => {
+                shapes.Append_1((shape as unknown as OccShape).shape);
+            });
 
-        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
-        spliter.Add_1(shapes);
-        let message = new occ.Message_ProgressRange_1();
-        spliter.Build(message);
-        if (!spliter.IsDone()) {
-            throw new Error("Failed to split shape");
-        }
-        return OccHelps.wrapShape(spliter.Shape());
+            let spliter = c(new occ.BRepFeat_SplitShape_2(this.shape));
+            spliter.Add_1(shapes);
+            let message = c(new occ.Message_ProgressRange_1());
+            spliter.Build(message);
+            if (!spliter.IsDone()) {
+                throw new Error("Failed to split shape");
+            }
+            return OccHelps.wrapShape(spliter.Shape());
+        });
     }
 
     splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
-        let face = onFace as OccFace;
-        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
-        if (edges instanceof OccEdge) {
-            spliter.Add_3(edges.shape, face.shape);
-        } else if (edges instanceof OccWire) {
-            spliter.Add_2(edges.shape, face.shape);
-        }
-        return OccHelps.wrapShape(spliter.Shape());
+        return gc((c) => {
+            let face = onFace as OccFace;
+            let spliter = c(new occ.BRepFeat_SplitShape_2(this.shape));
+            if (edges instanceof OccEdge) {
+                spliter.Add_3(edges.shape, face.shape);
+            } else if (edges instanceof OccWire) {
+                spliter.Add_2(edges.shape, face.shape);
+            }
+            return OccHelps.wrapShape(spliter.Shape());
+        });
     }
 
     splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
-        let spliter = new occ.BRepFeat_SplitShape_2(this.shape);
-        spliter.Add_5((onEdge as OccEdge).shape, (edge as OccEdge).shape);
-        return OccHelps.wrapShape(spliter.Shape());
+        return gc((c) => {
+            let spliter = c(new occ.BRepFeat_SplitShape_2(this.shape));
+            spliter.Add_5((onEdge as OccEdge).shape, (edge as OccEdge).shape);
+            return OccHelps.wrapShape(spliter.Shape());
+        });
     }
 }
 
@@ -196,8 +209,10 @@ export class OccVertex extends OccShape implements IVertex {
     }
 
     point() {
-        let pnt = occ.BRep_Tool.Pnt(this.shape);
-        return OccHelps.toXYZ(pnt);
+        return gc((c) => {
+            let pnt = c(occ.BRep_Tool.Pnt(this.shape));
+            return OccHelps.toXYZ(pnt);
+        });
     }
 }
 
@@ -208,71 +223,82 @@ export class OccEdge extends OccShape implements IEdge {
     }
 
     update(curve: ICurve) {
-        if (!(curve instanceof OccCurve)) {
-            throw new Error("Invalid curve");
-        }
-        let builder = new occ.BRepBuilderAPI_MakeEdge_24(new occ.Handle_Geom_Curve_2(curve.curve));
-        this._shape = builder.Edge();
-        this._mesh = undefined;
+        gc((c) => {
+            if (!(curve instanceof OccCurve)) {
+                throw new Error("Invalid curve");
+            }
+            let builder = c(new occ.BRepBuilderAPI_MakeEdge_24(new occ.Handle_Geom_Curve_2(curve.curve)));
+            this._shape = builder.Edge();
+            this._mesh = undefined;
+        });
     }
 
     trim(start: number, end: number): IEdge {
-        let s: any = { current: 0 };
-        let e: any = { current: 0 };
-        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
-
-        let edge = new occ.BRepBuilderAPI_MakeEdge_25(curve, start, end);
-        return new OccEdge(edge.Edge());
+        return gc((c) => {
+            let s: any = { current: 0 };
+            let e: any = { current: 0 };
+            let curve = c(occ.BRep_Tool.Curve_2(this.shape, s, e));
+            let edge = c(new occ.BRepBuilderAPI_MakeEdge_25(curve, start, end));
+            return new OccEdge(edge.Edge());
+        });
     }
 
     intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[] {
-        if (other instanceof Ray) {
-            let start = OccHelps.toPnt(other.location);
-            let end = OccHelps.toPnt(other.location.add(other.direction.multiply(1e22)));
-            let shape = new occ.BRepBuilderAPI_MakeEdge_3(start, end);
-            return this.intersectToEdge(shape.Edge());
-        }
-        if (other instanceof OccEdge) {
-            return this.intersectToEdge(other.shape);
-        }
-        console.warn("不支持的类型");
-        return [];
+        return gc((c) => {
+            if (other instanceof Ray) {
+                let start = c(OccHelps.toPnt(other.location));
+                let end = c(OccHelps.toPnt(other.location.add(other.direction.multiply(1e22))));
+                let shape = c(new occ.BRepBuilderAPI_MakeEdge_3(start, end));
+                return this.intersectToEdge(c(shape.Edge()));
+            }
+            if (other instanceof OccEdge) {
+                return this.intersectToEdge(other.shape);
+            }
+            console.warn("不支持的类型");
+            return [];
+        });
     }
 
     private intersectToEdge(edge: TopoDS_Edge) {
-        let cc = new occ.BRepExtrema_ExtCC_2(this.shape, edge);
-        if (!cc.IsDone() || cc.NbExt() === 0 || cc.IsParallel()) {
-            return [];
-        }
-
-        let result = [];
-        for (let i = 1; i <= cc.NbExt(); i++) {
-            if (cc.SquareDistance(i) <= occ.Precision.Confusion()) {
-                result.push({
-                    parameter: cc.ParameterOnE1(i),
-                    point: OccHelps.toXYZ(cc.PointOnE1(i)),
-                });
+        return gc((c) => {
+            let cc = c(new occ.BRepExtrema_ExtCC_2(this.shape, edge));
+            if (!cc.IsDone() || cc.NbExt() === 0 || cc.IsParallel()) {
+                return [];
             }
-        }
-        return result;
+
+            let result = [];
+            for (let i = 1; i <= cc.NbExt(); i++) {
+                if (cc.SquareDistance(i) <= occ.Precision.Confusion()) {
+                    result.push({
+                        parameter: cc.ParameterOnE1(i),
+                        point: OccHelps.toXYZ(c(cc.PointOnE1(i))),
+                    });
+                }
+            }
+            return result;
+        });
     }
 
     length(): number {
-        let curve = new occ.BRepAdaptor_Curve_2(this.shape);
-        return occ.GCPnts_AbscissaPoint.Length_3(curve, occ.Precision.Confusion());
+        return gc((c) => {
+            let curve = c(new occ.BRepAdaptor_Curve_2(this.shape));
+            return occ.GCPnts_AbscissaPoint.Length_3(curve, occ.Precision.Confusion());
+        });
     }
 
     offset(distance: number, dir: XYZ): Result<IEdge> {
-        let s: any = { current: 0 };
-        let e: any = { current: 0 };
-        let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
-        let trimmedCurve = new occ.Handle_Geom_Curve_2(
-            new occ.Geom_TrimmedCurve(curve, s.current, e.current, true, true),
-        );
-        let brepOffset = new occ.Geom_OffsetCurve(trimmedCurve, distance, OccHelps.toDir(dir), true);
-        let offsetCurve = new occ.Handle_Geom_Curve_2(brepOffset);
-        let edge = new occ.BRepBuilderAPI_MakeEdge_24(offsetCurve);
-        return Result.ok(new OccEdge(edge.Edge()));
+        return gc((c) => {
+            let s: any = { current: 0 };
+            let e: any = { current: 0 };
+            let curve = occ.BRep_Tool.Curve_2(this.shape, s, e);
+            let trimmedCurve = new occ.Handle_Geom_Curve_2(
+                new occ.Geom_TrimmedCurve(curve, s.current, e.current, true, true),
+            );
+            let brepOffset = new occ.Geom_OffsetCurve(trimmedCurve, distance, OccHelps.toDir(dir), true);
+            let offsetCurve = new occ.Handle_Geom_Curve_2(brepOffset);
+            let edge = c(new occ.BRepBuilderAPI_MakeEdge_24(offsetCurve));
+            return Result.ok(new OccEdge(edge.Edge()));
+        });
     }
 
     curve(): ITrimmedCurve {
@@ -290,27 +316,29 @@ export class OccWire extends OccShape implements IWire {
     }
 
     offset(distance: number, joinType: JoinType): Result<IShape> {
-        let brepOffset = new occ.BRepOffsetAPI_MakeOffset_3(
-            this.shape,
-            OccHelps.getJoinType(joinType),
-            false,
-        );
-        try {
-            brepOffset.Perform(distance, 0.0);
-        } catch (e) {
-            console.error(e);
+        return gc((c) => {
+            let brepOffset = c(
+                new occ.BRepOffsetAPI_MakeOffset_3(this.shape, OccHelps.getJoinType(joinType), false),
+            );
+            try {
+                brepOffset.Perform(distance, 0.0);
+            } catch (e) {
+                console.error(e);
 
-            return Result.err("Offset error");
-        }
-        return Result.ok(OccHelps.wrapShape(brepOffset.Shape()));
+                return Result.err("Offset error");
+            }
+            return Result.ok(OccHelps.wrapShape(brepOffset.Shape()));
+        });
     }
 
     toFace(): Result<IFace> {
-        let make = new occ.BRepBuilderAPI_MakeFace_15(this.shape, true);
-        if (make.IsDone()) {
-            return Result.ok(new OccFace(make.Face()));
-        }
-        return Result.err("Wire to face error");
+        return gc((c) => {
+            let make = c(new occ.BRepBuilderAPI_MakeFace_15(this.shape, true));
+            if (make.IsDone()) {
+                return Result.ok(new OccFace(make.Face()));
+            }
+            return Result.err("Wire to face error");
+        });
     }
 }
 
@@ -336,11 +364,13 @@ export class OccFace extends OccShape implements IFace {
     }
 
     normal(u: number, v: number): [point: XYZ, normal: XYZ] {
-        let pnt = new occ.gp_Pnt_1();
-        let dir = new occ.gp_Vec_1();
-        let a = new occ.BRepGProp_Face_2(this.shape, false);
-        a.Normal(u, v, pnt, dir);
-        return [OccHelps.toXYZ(pnt), OccHelps.toXYZ(dir).normalize()!];
+        return gc((c) => {
+            let pnt = c(new occ.gp_Pnt_1());
+            let dir = c(new occ.gp_Vec_1());
+            let a = c(new occ.BRepGProp_Face_2(this.shape, false));
+            a.Normal(u, v, pnt, dir);
+            return [OccHelps.toXYZ(pnt), OccHelps.toXYZ(dir).normalize()!];
+        });
     }
 
     outerWire(): IWire {
@@ -358,6 +388,7 @@ export class OccFace extends OccShape implements IFace {
         );
         this._shape = builder.Face();
         this._mesh = undefined;
+        builder.delete();
     }
 
     surface(): ISurface {
@@ -383,6 +414,7 @@ export class OccCompound extends OccShape implements ICompound {
                 builder.Add(compound, shape.shape);
             }
         }
+        builder.delete();
         return Result.ok(new OccCompound(compound));
     }
 }
