@@ -42,6 +42,7 @@ const COMMAND_KEYS = [
     "special.last",
     "workingPlane.alignToPlane",
     "workingPlane.set",
+    "test.performace",
 ] as const;
 
 export type CommandKeys = (typeof COMMAND_KEYS)[number];

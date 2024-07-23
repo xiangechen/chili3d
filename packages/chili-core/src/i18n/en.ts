@@ -167,5 +167,6 @@ export default {
         "vertex.point": "Point",
         "workingPlane.alignToPlane": "Align to plane",
         "workingPlane.set": "Set workplane",
+        "test.performace": "Performace test",
     },
 } satisfies Locale;

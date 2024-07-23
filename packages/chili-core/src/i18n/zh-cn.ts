@@ -166,5 +166,6 @@ export default {
         "vertex.point": "点",
         "workingPlane.alignToPlane": "对齐到平面",
         "workingPlane.set": "设置工作平面",
+        "test.performace": "性能测试",
     },
 } satisfies Locale;

@@ -161,6 +161,7 @@ const I18N_KEYS = [
     "vertex.point",
     "workingPlane.alignToPlane",
     "workingPlane.set",
+    "test.performace",
 ] as const;
 
 export type I18nKeys = (typeof I18N_KEYS)[number];

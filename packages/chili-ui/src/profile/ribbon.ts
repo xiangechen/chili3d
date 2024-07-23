@@ -76,7 +76,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["create.line", "create.rect", ["create.circle", "create.box"]],
+                items: ["test.performace", "create.rect", ["create.circle", "create.box"]],
             },
         ],
     },
