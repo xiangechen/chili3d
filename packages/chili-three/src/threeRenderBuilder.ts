@@ -42,13 +42,9 @@ export class ThreeRenderBuilder {
 
     addOutlinePass(scene: Scene, color: number, usePatternTexture: boolean) {
         const outlinePass = new OutlinePass(scene, this.camera);
-        outlinePass.usePatternTexture = usePatternTexture;
         outlinePass.visibleEdgeColor = new Color(color).convertSRGBToLinear();
         outlinePass.hiddenEdgeColor = new Color(color).convertSRGBToLinear();
         outlinePass.edgeStrength = 5;
-        if (usePatternTexture) {
-            this.loadPatternTexture((t) => (outlinePass.patternTexture = t));
-        }
         this.composer.addPass(outlinePass);
 
         return this;

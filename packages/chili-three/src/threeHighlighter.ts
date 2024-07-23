@@ -104,10 +104,8 @@ export class GeometryState {
             this.geometry.removeTemperaryMaterial();
         } else if (VisualState.hasState(newState, VisualState.highlighter)) {
             this.geometry.setEdgesMateiralTemperary(hilightEdgeMaterial);
-            this.geometry.setFacesMateiralTemperary(highlightFaceMaterial);
         } else if (VisualState.hasState(newState, VisualState.selected)) {
             this.geometry.setEdgesMateiralTemperary(selectedEdgeMaterial);
-            this.geometry.setFacesMateiralTemperary(selectedFaceMaterial);
         }
 
         this._states.set(key, [newState, this.geometry as any]);

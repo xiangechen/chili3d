@@ -7,6 +7,7 @@ import {
     IVisualGeometry,
     Matrix4,
     ShapeMeshData,
+    VisualConfig,
 } from "chili-core";
 import {
     BufferGeometry,
@@ -26,7 +27,10 @@ import { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeGeometry extends Object3D implements IVisualGeometry {
     private _faceMaterial: Material;
-    private _edgeMaterial = new LineBasicMaterial();
+    private _edgeMaterial = new LineBasicMaterial({
+        linewidth: 2,
+        color: VisualConfig.defaultEdgeColor,
+    });
     private _edges?: LineSegments;
     private _faces?: Mesh;
 

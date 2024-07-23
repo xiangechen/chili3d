@@ -176,7 +176,8 @@ export class ThreeView extends Observable implements IView {
         });
         if (!this._needsUpdate) return;
 
-        this.dynamicLight.position.copy(this.camera.position);
+        let dir = this.camera.position.clone().sub(this.cameraController.target);
+        this.dynamicLight.position.copy(dir);
         this._composer.render();
         this._gizmo?.update();
 

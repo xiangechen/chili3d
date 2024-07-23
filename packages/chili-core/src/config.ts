@@ -4,12 +4,12 @@ import { Lazy, PubSub } from "./foundation";
 import { ObjectSnapType } from "./snapType";
 
 export const VisualConfig = {
-    defaultEdgeColor: 0x121314,
+    defaultEdgeColor: 0x111111,
     defaultFaceColor: 0xdedede,
     highlightEdgeColor: 0x0000ee,
     highlightFaceColor: 0x0000ee,
-    selectedEdgeColor: 0x0000ff,
-    selectedFaceColor: 0x0000ff,
+    selectedEdgeColor: 0x2222ff,
+    selectedFaceColor: 0x2222ff,
     editVertexSize: 7,
     editVertexColor: 0x0000ff,
     hintVertexSize: 5,
