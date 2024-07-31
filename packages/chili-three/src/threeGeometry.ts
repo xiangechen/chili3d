@@ -6,32 +6,36 @@ import {
     GeometryEntity,
     IVisualGeometry,
     Matrix4,
-    ShapeMeshData,
     VisualConfig,
 } from "chili-core";
 import {
     BufferGeometry,
+    DoubleSide,
     Float32BufferAttribute,
-    LineBasicMaterial,
-    LineSegments,
     Material,
     Mesh,
     MeshLambertMaterial,
     Object3D,
-    Color as ThreeColor,
 } from "three";
 
 import { MeshUtils } from "chili-geo";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeGeometry extends Object3D implements IVisualGeometry {
     private _faceMaterial: Material;
-    private _edgeMaterial = new LineBasicMaterial({
-        linewidth: 2,
+    private _edgeMaterial = new LineMaterial({
+        linewidth: 1,
         color: VisualConfig.defaultEdgeColor,
+        side: DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
     });
-    private _edges?: LineSegments;
+    private _edges?: LineSegments2;
     private _faces?: Mesh;
 
     getMainMaterial() {
@@ -94,8 +98,8 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
 
     private generateShape() {
         let mesh = this.geometryEngity.shape.value?.mesh;
-        if (mesh?.faces?.positions.length) this.add(this.initFaces(mesh.faces));
-        if (mesh?.edges?.positions.length) this.add(this.initEdges(mesh.edges));
+        if (mesh?.faces?.positions.length) this.initFaces(mesh.faces);
+        if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
     }
 
     dispose() {
@@ -118,12 +122,12 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     private initEdges(data: EdgeMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        this.initColor(data, buff, this._edgeMaterial);
+        let buff = new LineSegmentsGeometry();
+        buff.setPositions(data.positions);
         buff.computeBoundingBox();
-        this._edges = new LineSegments(buff, this._edgeMaterial);
-        return this._edges;
+
+        this._edges = new LineSegments2(buff, this._edgeMaterial);
+        this.add(this._edges);
     }
 
     private initFaces(data: FaceMeshData) {
@@ -132,23 +136,10 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
         buff.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
         buff.setIndex(data.indices);
-        // this.initColor(data, buff, this._faceMaterial);
         buff.computeBoundingBox();
-        this._faces = new Mesh(buff, this._faceMaterial);
-        return this._faces;
-    }
 
-    private initColor(
-        meshData: ShapeMeshData,
-        geometry: BufferGeometry,
-        material: LineBasicMaterial | MeshLambertMaterial,
-    ) {
-        if (meshData.color instanceof Array) {
-            material.vertexColors = true;
-            geometry.setAttribute("color", new Float32BufferAttribute(meshData.color, 3));
-        } else {
-            material.color = new ThreeColor(meshData.color);
-        }
+        this._faces = new Mesh(buff, this._faceMaterial);
+        this.add(this._faces);
     }
 
     setFacesMateiralTemperary(material: MeshLambertMaterial) {
@@ -157,7 +148,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         }
     }
 
-    setEdgesMateiralTemperary(material: LineBasicMaterial) {
+    setEdgesMateiralTemperary(material: LineMaterial) {
         if (this._edges) {
             this._edges.material = material;
         }
@@ -169,14 +160,14 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     cloneSubEdge(index: number) {
-        let mesh = MeshUtils.subEdge(this.geometryEngity.shape.value!.mesh.edges!, index);
-        if (!mesh) return undefined;
+        let positions = MeshUtils.subEdge(this.geometryEngity.shape.value!.mesh.edges!, index);
+        if (!positions) return undefined;
 
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
+        let buff = new LineSegmentsGeometry();
+        buff.setPositions(positions);
         buff.applyMatrix4(this.matrixWorld);
 
-        return new LineSegments(buff, this._edgeMaterial);
+        return new LineSegments2(buff, this._edgeMaterial);
     }
 
     cloneSubFace(index: number) {
@@ -188,6 +179,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         buff.setAttribute("normal", new Float32BufferAttribute(mesh.normals, 3));
         buff.setIndex(mesh.indices);
         buff.applyMatrix4(this.matrixWorld);
+
         return new Mesh(buff, this._faceMaterial);
     }
 

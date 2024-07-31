@@ -36,7 +36,7 @@ export class ThreeVisual implements IVisual {
         this.defaultEventHandler = new ModelSelectionHandler(document, true);
         this.context = new ThreeVisualContext(this, this.scene);
         this.viewHandler = new ThreeViewHandler();
-        this.highlighter = new ThreeHighlighter();
+        this.highlighter = new ThreeHighlighter(this.context);
         this.textGenerator = new ThreeTextGenerator();
         this._eventHandler = this.defaultEventHandler;
     }

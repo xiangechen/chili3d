@@ -55,6 +55,7 @@ export namespace VertexMeshData {
 
 export interface EdgeMeshData extends ShapeMeshData {
     lineType: LineType;
+    lineWidth?: number;
 }
 
 export namespace EdgeMeshData {

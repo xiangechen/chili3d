@@ -9,6 +9,6 @@ export interface IHighlighter {
     resetState(shape: IVisualGeometry): void;
     addState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
     removeState(shape: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]): void;
-    highliteMesh(...datas: ShapeMeshData[]): number;
-    removeMesh(id: number): void;
+    highlightMesh(...datas: ShapeMeshData[]): number;
+    removeHighlightMesh(id: number): void;
 }

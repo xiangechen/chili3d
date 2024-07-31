@@ -32,7 +32,7 @@ export class AxisSnap implements ISnap {
     }
 
     private showTempLine(view: IView, dot: number) {
-        let dist = Math.abs(dot) < 0.000001 ? 1e20 : 1e20 * dot;
+        let dist = Math.abs(dot) < 0.000001 ? 1e15 : 1e15 * dot;
         let lineDats = EdgeMeshData.from(
             this.point,
             this.point.add(this.direction.multiply(dist)),

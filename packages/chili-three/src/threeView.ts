@@ -11,7 +11,6 @@ import {
     Ray,
     ShapeMeshGroup,
     ShapeType,
-    VisualConfig,
     VisualShapeData,
     XY,
     XYZ,
@@ -20,7 +19,6 @@ import {
 import {
     DirectionalLight,
     Intersection,
-    LineSegments,
     Mesh,
     Object3D,
     OrthographicCamera,
@@ -32,10 +30,9 @@ import {
     WebGLRenderer,
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
-import { ThreeRenderBuilder } from "./threeRenderBuilder";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeHighlighter } from "./threeHighlighter";
@@ -48,7 +45,6 @@ export class ThreeView extends Observable implements IView {
 
     private _scene: Scene;
     private _renderer: WebGLRenderer;
-    private _composer: EffectComposer;
     private _workplane: Plane;
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
@@ -72,10 +68,6 @@ export class ThreeView extends Observable implements IView {
         return this.cameraController.camera;
     }
 
-    get composer(): EffectComposer {
-        return this._composer;
-    }
-
     constructor(
         readonly document: IDocument,
         name: string,
@@ -90,7 +82,7 @@ export class ThreeView extends Observable implements IView {
         let resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
-        [this._renderer, this._composer] = this.initRender();
+        this._renderer = this.initRenderer();
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
         this.animate();
@@ -129,12 +121,14 @@ export class ThreeView extends Observable implements IView {
         return this._renderer;
     }
 
-    protected initRender() {
-        return new ThreeRenderBuilder(this._scene, this.camera)
-            .addOutlinePass(this.highlighter.sceneHorver, VisualConfig.highlightEdgeColor, true)
-            .addOutlinePass(this.highlighter.sceneSelected, VisualConfig.selectedEdgeColor, true)
-            .addGammaCorrection()
-            .build();
+    protected initRenderer() {
+        let renderer = new WebGLRenderer({
+            antialias: false,
+            alpha: true,
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        return renderer;
     }
 
     setDom(element: HTMLElement) {
@@ -178,7 +172,7 @@ export class ThreeView extends Observable implements IView {
 
         let dir = this.camera.position.clone().sub(this.cameraController.target);
         this.dynamicLight.position.copy(dir);
-        this._composer.render();
+        this._renderer.render(this._scene, this.camera);
         this._gizmo?.update();
 
         this._needsUpdate = false;
@@ -192,7 +186,6 @@ export class ThreeView extends Observable implements IView {
             this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, heigth);
-        this._composer.setSize(width, heigth);
         this.update();
     }
 
@@ -279,7 +272,7 @@ export class ThreeView extends Observable implements IView {
         detecteds: VisualShapeData[],
         cache: Set<IShape>,
         shapeType: ShapeType,
-        obj: Mesh | LineSegments,
+        obj: Mesh | LineSegments2,
         shapeFilter?: IShapeFilter,
     ) {
         if (!(obj.parent instanceof ThreeGeometry) || !obj.parent.visible) return;
@@ -302,7 +295,7 @@ export class ThreeView extends Observable implements IView {
         if ((shape.shapeType & shapeType) === 0) return;
         if (shapeFilter && !shapeFilter.allow(shape)) return;
 
-        let groups = obj instanceof Mesh ? shape.mesh.faces?.groups : shape.mesh.edges?.groups;
+        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.groups : shape.mesh.faces?.groups;
         addShape([...Array(groups?.length).keys()]);
     }
 
@@ -316,17 +309,16 @@ export class ThreeView extends Observable implements IView {
     private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
-            if (
-                !(parent instanceof ThreeGeometry) ||
-                (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.value!))
-            ) {
+            if (!(parent instanceof ThreeGeometry)) continue;
+
+            if (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.value!)) {
                 continue;
             }
             return [
                 {
                     owner: parent,
                     shape: parent.geometryEngity.shape.value!,
-                    point: ThreeHelper.toXYZ(element.point),
+                    point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
             ];
@@ -351,7 +343,7 @@ export class ThreeView extends Observable implements IView {
                 owner: visualShape,
                 shape: shape,
                 directShape,
-                point: ThreeHelper.toXYZ(intersected.point),
+                point: ThreeHelper.toXYZ(intersected.pointOnLine ?? intersected.point),
                 indexes,
             });
         }
@@ -415,16 +407,16 @@ export class ThreeView extends Observable implements IView {
         let shape: IShape | undefined = undefined;
         let index: number | undefined = undefined;
         let groups: ShapeMeshGroup[] | undefined = undefined;
-        if (element.index !== undefined) {
+        if (element.pointOnLine !== undefined) {
             groups = parent.geometryEngity.shape.value?.mesh.edges?.groups;
             if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.index)!;
+                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 2)!;
                 shape = groups[index].shape;
             }
-        } else if (element.faceIndex !== undefined) {
+        } else {
             groups = parent.geometryEngity.shape.value?.mesh.faces?.groups;
             if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.faceIndex * 3)!;
+                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
                 shape = groups[index].shape;
             }
         }
@@ -472,7 +464,12 @@ export class ThreeView extends Observable implements IView {
         let { x, y } = this.screenToCameraRect(mx, my);
         let mousePos = new Vector2(x, y);
         raycaster.setFromCamera(mousePos, this.camera);
-        raycaster.params = { ...raycaster.params, Line: { threshold }, Points: { threshold } };
+        raycaster.params = {
+            ...raycaster.params,
+            Line2: { threshold },
+            Line: { threshold },
+            Points: { threshold },
+        };
         return raycaster;
     }
 }

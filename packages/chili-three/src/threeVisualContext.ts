@@ -63,9 +63,6 @@ export class ThreeVisualContext implements IVisualContext {
                     side: DoubleSide,
                     transparent: true,
                     name: item.name,
-                    polygonOffset: true,
-                    polygonOffsetFactor: 1,
-                    polygonOffsetUnits: 2,
                 });
                 material.map = this.loadTexture(item);
                 item.onPropertyChanged(this.onMaterialPropertyChanged);

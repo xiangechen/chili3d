@@ -1,19 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { EdgeMeshData, FaceMeshData, LineType, VertexMeshData } from "chili-core";
 import {
     AlwaysDepth,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
-    LineBasicMaterial,
-    LineDashedMaterial,
-    LineSegments,
     Mesh,
     MeshLambertMaterial,
     Points,
     PointsMaterial,
 } from "three";
-import { EdgeMeshData, FaceMeshData, LineType, VertexMeshData } from "chili-core";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData) {
@@ -48,13 +48,31 @@ export class ThreeGeometryFactory {
     }
 
     static createEdgeGeometry(data: EdgeMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+        let buff = new LineSegmentsGeometry();
+        buff.setPositions(data.positions);
+
         let color = data.color as number;
-        let material: LineBasicMaterial =
+        let linewidth = data.lineWidth ?? 1;
+        let material =
             data.lineType === LineType.Dash
-                ? new LineDashedMaterial({ color, dashSize: 6, gapSize: 6 })
-                : new LineBasicMaterial({ color });
-        return new LineSegments(buff, material).computeLineDistances();
+                ? new LineMaterial({
+                      color,
+                      dashed: true,
+                      dashScale: 100,
+                      dashSize: 100,
+                      gapSize: 100,
+                      linewidth,
+                      polygonOffset: true,
+                      polygonOffsetFactor: -4,
+                      polygonOffsetUnits: -4,
+                  })
+                : new LineMaterial({
+                      color,
+                      linewidth,
+                      polygonOffset: true,
+                      polygonOffsetFactor: -4,
+                      polygonOffsetUnits: -4,
+                  });
+        return new LineSegments2(buff, material).computeLineDistances();
     }
 }

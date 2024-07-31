@@ -6,49 +6,19 @@ import {
     IVisualGeometry,
     ShapeMeshData,
     ShapeType,
-    VisualConfig,
     VisualState,
 } from "chili-core";
-import {
-    DoubleSide,
-    Group,
-    LineBasicMaterial,
-    LineSegments,
-    Mesh,
-    MeshBasicMaterial,
-    MeshLambertMaterial,
-    Object3D,
-    Points,
-    Scene,
-} from "three";
+import { MeshUtils } from "chili-geo";
+import { Group, Mesh, Points } from "three";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import { hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
 import { ThreeGeometry } from "./threeGeometry";
-import { ThreeHelper } from "./threeHelper";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
-
-const hilightEdgeMaterial = new LineBasicMaterial({
-    color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
-});
-
-const selectedEdgeMaterial = new LineBasicMaterial({
-    color: ThreeHelper.fromColor(VisualConfig.selectedEdgeColor),
-});
-
-const highlightFaceMaterial = new MeshLambertMaterial({
-    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
-    side: DoubleSide,
-    transparent: true,
-    opacity: 0.85,
-});
-
-const selectedFaceMaterial = new MeshLambertMaterial({
-    color: ThreeHelper.fromColor(VisualConfig.selectedFaceColor),
-    side: DoubleSide,
-    transparent: true,
-    opacity: 0.32,
-});
+import { ThreeVisualContext } from "./threeVisualContext";
 
 export class GeometryState {
-    private readonly _states: Map<string, [VisualState, LineSegments | Mesh]> = new Map();
+    private readonly _states: Map<string, [VisualState, LineSegments2]> = new Map();
 
     constructor(
         readonly highlighter: ThreeHighlighter,
@@ -111,32 +81,11 @@ export class GeometryState {
         this._states.set(key, [newState, this.geometry as any]);
     }
 
-    private addSceneItem(scene: Scene, items: Object3D[]) {
-        let itemsToAdd = items.filter((x) => !scene.children.includes(x));
-        scene.children.push(...itemsToAdd);
-    }
-
-    private removeSceneItem(scene: Scene, items: Object3D[]) {
-        scene.children = scene.children.filter((x) => !items.includes(x));
-    }
-
     resetState() {
-        let hovers: (LineSegments | Mesh)[] = [];
-        let selected: (LineSegments | Mesh)[] = [];
-        this._states.forEach((state, key) => {
-            if (VisualState.hasState(state[0], VisualState.highlighter)) {
-                hovers.push(state[1]);
-            }
-            if (VisualState.hasState(state[0], VisualState.selected)) {
-                selected.push(state[1]);
-            }
+        this.highlighter.container.children.forEach((x) => {
+            (x as any).geometry?.dispose();
         });
-
-        this.removeSceneItem(this.highlighter.sceneHorver, hovers);
-        this.removeSceneItem(this.highlighter.sceneSelected, selected);
-        hovers.forEach((x) => x.geometry?.dispose());
-        selected.forEach((x) => x.geometry?.dispose());
-
+        this.highlighter.container.clear();
         this._states.clear();
     }
 
@@ -146,86 +95,67 @@ export class GeometryState {
         type: ShapeType,
         index: number[],
     ) {
-        let addToHover: Object3D[] = [];
-        let addToSelected: Object3D[] = [];
-        let removeFromHover: Object3D[] = [];
-        let removeFromSelected: Object3D[] = [];
-
+        let shouldRemoved: string[] = [];
         index.forEach((i) => {
             let key = this.state_key(type, i);
             let [oldState, newState] = this.updateStates(key, method, state);
-            this.addStateToRemove(key, oldState, newState, removeFromHover, removeFromSelected);
-            this.addStateToAdd(type, newState, key, i, addToHover, addToSelected);
+            if (oldState !== undefined && newState === VisualState.normal) {
+                shouldRemoved.push(key);
+            } else {
+                let geometry = this.getOrCloneGeometry(type, key, i);
+                if (geometry) {
+                    let material = VisualState.hasState(newState, VisualState.highlighter)
+                        ? hilightEdgeMaterial
+                        : selectedEdgeMaterial;
+                    geometry.material = material;
+                    this._states.set(key, [newState, geometry]);
+                }
+            }
         });
 
-        this.removeSceneItem(this.highlighter.sceneHorver, removeFromHover);
-        this.removeSceneItem(this.highlighter.sceneSelected, removeFromSelected);
-        this.addSceneItem(this.highlighter.sceneHorver, addToHover);
-        this.addSceneItem(this.highlighter.sceneSelected, addToSelected);
-    }
-
-    private addStateToRemove(
-        key: string,
-        oldState: VisualState | undefined,
-        newState: VisualState,
-        removeFromHover: Object3D[],
-        removeFromSelected: Object3D[],
-    ) {
-        let item = this._states.get(key)?.[1];
-        if (!item) return;
-
-        if (oldState !== undefined && !VisualState.hasState(newState, VisualState.highlighter)) {
-            removeFromHover.push(item);
-        }
-        if (oldState !== undefined && !VisualState.hasState(newState, VisualState.selected)) {
-            removeFromSelected.push(item);
-        }
-        if (newState === VisualState.normal) this._states.delete(key);
-    }
-
-    private addStateToAdd(
-        type: ShapeType,
-        newState: VisualState,
-        key: string,
-        i: number,
-        addToHover: Object3D[],
-        addToSelected: Object3D[],
-    ) {
-        let item = this.getOrCloneGeometry(type, key, i);
-        if (!item) return;
-        if (VisualState.hasState(newState, VisualState.highlighter)) {
-            addToHover.push(item);
-        }
-        if (VisualState.hasState(newState, VisualState.selected)) {
-            addToSelected.push(item);
-        }
-        this._states.set(key, [newState, item]);
+        shouldRemoved.forEach((key) => {
+            let item = this._states.get(key)?.[1];
+            if (item) {
+                this.highlighter.container.remove(item);
+                item.geometry?.dispose();
+                this._states.delete(key);
+            }
+        });
     }
 
     private getOrCloneGeometry(type: ShapeType, key: string, index: number) {
         let geometry = this._states.get(key)?.[1];
         if (geometry !== undefined) return geometry;
+
+        let points: number[] | undefined = undefined;
         if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
-            return this.geometry.cloneSubFace(index);
+            points = MeshUtils.subFaceOutlines(this.geometry.geometryEngity.shape.value!.mesh.faces!, index);
         }
-        if (ShapeType.hasEdge(type) || ShapeType.hasWire(type)) {
-            return this.geometry.cloneSubEdge(index);
+        if (points === undefined && (ShapeType.hasEdge(type) || ShapeType.hasWire(type))) {
+            points = MeshUtils.subEdge(this.geometry.geometryEngity.shape.value!.mesh.edges!, index);
         }
 
-        console.warn(`Invalid type ${type} for ${key}`);
-        return undefined;
+        if (!points) {
+            console.warn(`Invalid type ${type} for ${key}`);
+            return undefined;
+        }
+
+        let lineGeometry = new LineSegmentsGeometry();
+        lineGeometry.setPositions(points);
+        let segment = new LineSegments2(lineGeometry);
+        this.highlighter.container.add(segment);
+        return segment;
     }
 }
 
 export class ThreeHighlighter implements IHighlighter {
     private readonly _stateMap = new Map<IVisualGeometry, GeometryState>();
+    readonly container: Group;
 
-    readonly tempShapes: Group = new Group();
-    readonly sceneHorver: Scene = new Scene();
-    readonly sceneSelected: Scene = new Scene();
-
-    constructor() {
-        this.sceneHorver.add(this.tempShapes);
+    constructor(readonly content: ThreeVisualContext) {
+        this.container = new Group();
+        this.container.name = "highlighter";
+        this.content.scene.add(this.container);
     }
 
     clear(): void {
@@ -268,7 +198,7 @@ export class ThreeHighlighter implements IHighlighter {
         return geometryState;
     }
 
-    highliteMesh(...datas: ShapeMeshData[]): number {
+    highlightMesh(...datas: ShapeMeshData[]): number {
         let group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
@@ -279,15 +209,15 @@ export class ThreeHighlighter implements IHighlighter {
                 group.add(ThreeGeometryFactory.createFaceGeometry(data));
             }
         });
-        this.tempShapes.add(group);
+        this.container.add(group);
         return group.id;
     }
 
-    removeMesh(id: number) {
-        let shape = this.tempShapes.getObjectById(id);
+    removeHighlightMesh(id: number) {
+        let shape = this.container.getObjectById(id);
         if (shape === undefined) return;
         shape.children.forEach((x) => {
-            if (x instanceof Mesh || x instanceof LineSegments || x instanceof Points) {
+            if (x instanceof Mesh || x instanceof LineSegments2 || x instanceof Points) {
                 x.geometry.dispose();
                 x.material.dispose();
             }
@@ -296,6 +226,6 @@ export class ThreeHighlighter implements IHighlighter {
             }
         });
         shape.children.length = 0;
-        this.tempShapes.remove(shape);
+        this.container.remove(shape);
     }
 }

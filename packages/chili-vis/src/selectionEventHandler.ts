@@ -53,6 +53,9 @@ export abstract class SelectionHandler implements IEventHandler {
     dispose() {}
 
     pointerMove(view: IView, event: PointerEvent): void {
+        if (event.buttons === 4) {
+            return;
+        }
         this._detectAtMouse = undefined;
         if (this.rect) {
             this.updateRect(this.rect, event);

@@ -61,7 +61,7 @@ Object.defineProperties(container, {
 
 export class TestView extends ThreeView {
     constructor(document: IDocument, content: ThreeVisualContext) {
-        super(document, "test", Plane.XY, new ThreeHighlighter(), content);
+        super(document, "test", Plane.XY, new ThreeHighlighter(content), content);
         this.setDom(container);
         this.cameraController.lookAt(
             new THREE.Vector3(0, 0, 1),
@@ -70,10 +70,10 @@ export class TestView extends ThreeView {
         );
     }
 
-    protected override initRender() {
+    protected override initRenderer() {
         let render = new TestWebGLRenderer() as any;
         render.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(render.domElement);
-        return [render, render] as any;
+        return render;
     }
 }
