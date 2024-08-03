@@ -459,8 +459,7 @@ export class ThreeView extends Observable implements IView {
 
     private initRaycaster(mx: number, my: number) {
         let raycaster = new Raycaster();
-        let scale = this.cameraController.target.distanceTo(this.camera.position) / 1000.0;
-        let threshold = Constants.RaycasterThreshold * scale;
+        let threshold = Constants.RaycasterThreshold;
         let { x, y } = this.screenToCameraRect(mx, my);
         let mousePos = new Vector2(x, y);
         raycaster.setFromCamera(mousePos, this.camera);
