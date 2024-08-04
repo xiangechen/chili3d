@@ -1,6 +1,6 @@
 {
     "name": "chili3d",
-    "version": "0.1.0",
+    "version": "0.3.0-beta",
     "description": "",
     "author": "仙阁",
     "scripts": {
@@ -8,7 +8,8 @@
         "dev": "npx rspack dev",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-        "prettier": "npx prettier --write ."
+        "prettier": "npx prettier --write .",
+        "version": "node scripts/version.mjs"
     },
     "simple-git-hooks": {
         "pre-commit": "npx lint-staged"
