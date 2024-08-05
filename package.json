@@ -9,7 +9,7 @@
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "prettier": "npx prettier --write .",
-        "version": "node scripts/version.mjs"
+        "release": "node scripts/release.mjs"
     },
     "simple-git-hooks": {
         "pre-commit": "npx lint-staged"

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
 
 /**
  * @typedef {{
@@ -32,6 +33,7 @@ function updateVersions(version) {
     packages.forEach(p =>
         updatePackage(getPkgRoot(p), version),
     )
+    console.log(`Updated all packages to version ${version}`);
 }
 
 /**
@@ -54,6 +56,35 @@ function updatePackage(pkgRoot, version) {
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
 }
 
+/**
+ * 
+ * @param {string} cmd 
+ */
+async function run(cmd) {
+    console.log(`> ${cmd}`)
+    return new Promise((resolve, reject) => {
+        exec(cmd, (err, stdout) => {
+            if (err) {
+                reject(err)
+                process.exit(1)
+            }
+            resolve(stdout)
+        })
+    })
+}
+
+/**
+ * 
+ * @param {string} version 
+ */
+async function tag(version) {
+    await run(`git add -A`)
+    await run(`git commit -m '🐎 ci: release ${version}'`)
+    await run(`git tag ${version}`)
+    await run(`git push origin refs/tags/${version}`)
+    await run(`git push`)
+}
+
 async function main() {
     const version = process.argv[2]
     if (!version) {
@@ -61,8 +92,18 @@ async function main() {
         process.exit(1)
     }
 
-    updateVersions(version)
-    console.log('Releasing ' + version)
+    console.log(`Releasing ${version}. Confirm?<y/n>`)
+    
+    process.stdin.on('data', async (data) => {
+        if (data.toString().trim() === 'y') {
+            updateVersions(version);
+            await tag(version);
+            console.log('Released ' + version)
+        } else {
+            console.log('Aborting...')
+        }
+        process.exit(1)
+    })
 }
 
 await main()
