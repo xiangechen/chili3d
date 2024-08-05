@@ -1,6 +1,6 @@
 {
     "name": "chili-web",
-    "version": "0.1.0",
+    "version": "0.3.0-beta",
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
