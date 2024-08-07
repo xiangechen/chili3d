@@ -12,6 +12,7 @@ const MIDDLE = 4;
 export class ThreeViewHandler implements IEventHandler {
     private _lastDown: MouseDownData | undefined;
     private _clearDownId: number | undefined;
+    private _offsetPoint: { x: number; y: number } | undefined;
 
     canRotate: boolean = true;
 
@@ -28,12 +29,18 @@ export class ThreeViewHandler implements IEventHandler {
         if (event.buttons !== MIDDLE) {
             return;
         }
-        if (event.shiftKey && this.canRotate) {
-            view.cameraController.rotate(event.movementX, event.movementY);
-        } else if (!event.shiftKey) {
-            view.cameraController.pan(event.movementX, event.movementY);
+        let [dx, dy] = [0, 0];
+        if (this._offsetPoint) {
+            dx = event.offsetX - this._offsetPoint.x;
+            dy = event.offsetY - this._offsetPoint.y;
+            this._offsetPoint = { x: event.offsetX, y: event.offsetY };
         }
-        if (event.movementX !== 0 && event.movementY !== 0) this._lastDown = undefined;
+        if (event.shiftKey && this.canRotate) {
+            view.cameraController.rotate(dx, dy);
+        } else if (!event.shiftKey) {
+            view.cameraController.pan(dx, dy);
+        }
+        if (dx !== 0 && dy !== 0) this._lastDown = undefined;
         view.update();
     }
 
@@ -49,6 +56,7 @@ export class ThreeViewHandler implements IEventHandler {
                 time: Date.now(),
                 key: event.buttons,
             };
+            this._offsetPoint = { x: event.offsetX, y: event.offsetY };
         }
     }
 
@@ -70,6 +78,7 @@ export class ThreeViewHandler implements IEventHandler {
                 this._clearDownId = undefined;
             }, 500);
         }
+        this._offsetPoint = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {}

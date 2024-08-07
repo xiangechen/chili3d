@@ -54,7 +54,7 @@ export class CameraController implements ICameraController {
     }
 
     pan(dx: number, dy: number): void {
-        let ratio = 0.002 * this._target.distanceTo(this._position);
+        let ratio = 0.0015 * this._target.distanceTo(this._position);
         let direction = this._target.clone().sub(this._position).normalize();
         let hor = direction.clone().cross(this._up).normalize();
         let ver = hor.clone().cross(direction).normalize();
