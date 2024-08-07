@@ -49,8 +49,8 @@ export class CameraController implements ICameraController {
 
     private newCamera() {
         return this._cameraType === "perspective"
-            ? new PerspectiveCamera(this._fov, 1, 0.0001, 1e6)
-            : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.0001, 1e6);
+            ? new PerspectiveCamera(this._fov, 1, 100, 1e6)
+            : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 100, 1e6);
     }
 
     pan(dx: number, dy: number): void {
@@ -128,6 +128,7 @@ export class CameraController implements ICameraController {
 
         this._target.copy(sphere.center);
         this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(distance)));
+        this.updateCameraNearFar();
         this.update();
     }
 
@@ -161,8 +162,26 @@ export class CameraController implements ICameraController {
         let vector = this._target.clone().sub(mouse).multiplyScalar(scale);
         this._target.add(vector);
         this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
+        this.updateCameraNearFar();
 
         this.update();
+    }
+
+    private updateCameraNearFar() {
+        let distance = this._position.distanceTo(this._target);
+        if (distance < 1000.0) {
+            this.camera.near = 0.1;
+            this.camera.far = 10000.0;
+        } else if (distance < 100000.0) {
+            this.camera.near = 10;
+            this.camera.far = 1000000.0;
+        } else if (distance < 1000000.0) {
+            this.camera.near = 1000.0;
+            this.camera.far = 10000000.0;
+        } else {
+            this.camera.near = 10000.0;
+            this.camera.far = 100000000.0;
+        }
     }
 
     private caculePerspectiveCameraMouse(direction: Vector3, mouse: Vector3) {
