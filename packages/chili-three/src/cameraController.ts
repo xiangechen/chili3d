@@ -76,7 +76,7 @@ export class CameraController implements ICameraController {
         this._camera.updateProjectionMatrix();
     }
 
-    private updateOrthographicCamera(camera: OrthographicCamera) {
+    updateOrthographicCamera(camera: OrthographicCamera) {
         let aspect = this.view.width! / this.view.height!;
         let length = this._position.distanceTo(this._target);
         let frustumHalfHeight = length * Math.tan((this._fov * DegRad) / 2);
