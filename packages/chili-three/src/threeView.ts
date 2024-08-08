@@ -178,14 +178,15 @@ export class ThreeView extends Observable implements IView {
         this._needsUpdate = false;
     }
 
-    resize(width: number, heigth: number) {
+    resize(width: number, height: number) {
         if (this.camera instanceof PerspectiveCamera) {
-            this.camera.aspect = width / heigth;
+            this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
         } else if (this.camera instanceof OrthographicCamera) {
             this.camera.updateProjectionMatrix();
         }
-        this._renderer.setSize(width, heigth);
+        this._renderer.setSize(width, height);
+        this.cameraController.update();
         this.update();
     }
 
