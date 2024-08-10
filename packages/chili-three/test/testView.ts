@@ -64,7 +64,7 @@ export class TestView extends ThreeView {
         super(document, "test", Plane.XY, new ThreeHighlighter(content), content);
         this.setDom(container);
         this.cameraController.lookAt(
-            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, 100),
             new THREE.Vector3(),
             new THREE.Vector3(0, 1, 0),
         );
