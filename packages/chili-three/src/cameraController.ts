@@ -49,8 +49,8 @@ export class CameraController implements ICameraController {
 
     private newCamera() {
         return this._cameraType === "perspective"
-            ? new PerspectiveCamera(this._fov, 1, 100, 1e6)
-            : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 100, 1e6);
+            ? new PerspectiveCamera(this._fov, 1, 0.1, 1e4)
+            : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.1, 1e4);
     }
 
     pan(dx: number, dy: number): void {
