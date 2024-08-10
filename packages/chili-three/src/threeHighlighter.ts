@@ -16,6 +16,7 @@ import { hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeHelper } from "./threeHelper";
 
 export class GeometryState {
     private readonly _states: Map<string, [VisualState, LineSegments2]> = new Map();
@@ -139,6 +140,7 @@ export class GeometryState {
             console.warn(`Invalid type ${type} for ${key}`);
             return undefined;
         }
+        points = ThreeHelper.toMatrix(this.geometry.matrixWorld).ofPoints(points);
 
         let lineGeometry = new LineSegmentsGeometry();
         lineGeometry.setPositions(points);
