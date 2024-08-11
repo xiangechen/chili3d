@@ -24,3 +24,5 @@ declare module "*.jpg" {
     const path: string;
     export default path;
 }
+
+declare var __APP_VERSION__: string;

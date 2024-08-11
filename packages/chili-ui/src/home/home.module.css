@@ -67,6 +67,13 @@
                 font-weight: bold;
                 font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             }
+
+            .version {
+                font-size: 14px;
+                margin-top: 4px;
+                letter-spacing: 0px;
+                opacity: 0.56;
+            }
         }
     }
 

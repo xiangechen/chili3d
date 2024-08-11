@@ -64,6 +64,9 @@ const config = defineConfig({
                 },
             ],
         }),
+        new rspack.DefinePlugin({
+            __APP_VERSION__: JSON.stringify(require("./package.json").version),
+        }),
         new rspack.HtmlRspackPlugin({
             template: "./public/index.html",
             inject: "body",

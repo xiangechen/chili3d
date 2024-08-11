@@ -75,6 +75,10 @@ export class Home extends HTMLElement {
                         span({
                             textContent: "CHILI3D",
                         }),
+                        span({
+                            className: style.version,
+                            textContent: __APP_VERSION__,
+                        }),
                     ),
                     collection({
                         className: style.buttons,
