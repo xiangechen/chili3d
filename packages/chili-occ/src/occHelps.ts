@@ -458,12 +458,12 @@ export class OccHelps {
         );
         const hashes = unique ? new Map() : undefined;
         while (explorer.More()) {
-            const item = explorer.Current();
+            const item = this.getActualShape(explorer.Current());
             if (unique) {
                 const hash = OccHelps.hashCode(item);
                 if (!hashes!.has(hash)) {
                     hashes!.set(hash, true);
-                    yield this.getActualShape(item);
+                    yield item;
                 }
             } else {
                 yield item;
