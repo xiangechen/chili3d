@@ -35,7 +35,7 @@ class ArrayValueConverter implements IConverter {
     private getValueString(obj: any): string {
         let value = obj[this.property.name];
         let cvalue = this.converter?.convert(value);
-        return cvalue?.isOk ? cvalue.value : String(value);
+        return cvalue?.isOk ? cvalue.ok() : String(value);
     }
 
     private getDefaultValue() {
@@ -116,7 +116,7 @@ export class InputProperty extends PropertyBase {
         }
         Transaction.excute(this.document, "modify property", () => {
             this.objects.forEach((x) => {
-                x[this.property.name] = newValue?.unwrap();
+                x[this.property.name] = newValue?.ok();
             });
             this.document.visual.update();
         });

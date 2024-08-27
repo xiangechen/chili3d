@@ -67,7 +67,7 @@ export class Arc extends CreateCommand {
                     result.push(
                         this.application.shapeFactory
                             .arc(plane.normal, center, p1, this._planeAngle!.angle)
-                            .unwrap().mesh.edges!,
+                            .ok().mesh.edges!,
                     );
                 }
                 return result;
@@ -102,7 +102,7 @@ export class Arc extends CreateCommand {
             this.previewLine(this.stepDatas[0].point!, point),
             this.application.shapeFactory
                 .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
-                .unwrap().mesh.edges!,
+                .ok().mesh.edges!,
         ];
     };
 

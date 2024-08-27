@@ -51,7 +51,7 @@ export class Import implements ICommand {
             PubSub.default.pub("showToast", "toast.read.error");
             return;
         }
-        let shapes = shape[1].value.map((x) => {
+        let shapes = shape[1].ok().map((x) => {
             let body = new ImportedBody(document, x);
             let geometry = new ParameterGeometryEntity(document, body);
             return new GeometryModel(document, `Imported ${count++}`, geometry);
@@ -64,15 +64,15 @@ export class Import implements ICommand {
 
     private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
         let data = await readFileAsync(".iges, .igs, .step, .stp", false);
-        if (!data.isOk || data.value.length === 0) {
+        if (!data.isOk || data.ok().length === 0) {
             return [undefined, Result.err("toast.read.error")];
         }
         let shape: Result<IShape[]>;
-        let name = data.value[0].fileName.toLowerCase();
+        let name = data.ok()[0].fileName.toLowerCase();
         if (name.endsWith(".igs") || name.endsWith(".iges")) {
-            shape = application.shapeFactory.converter.convertFromIGES(data.value[0].data);
+            shape = application.shapeFactory.converter.convertFromIGES(data.ok()[0].data);
         } else if (name.endsWith(".stp") || name.endsWith(".step")) {
-            shape = application.shapeFactory.converter.convertFromSTEP(data.value[0].data);
+            shape = application.shapeFactory.converter.convertFromSTEP(data.ok()[0].data);
         } else {
             throw new Error(`不支持的文件：${name}`);
         }
@@ -93,14 +93,14 @@ abstract class Export implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let shapes = models!.map((x) => x.geometry.shape.value!);
+                let shapes = models!.map((x) => x.geometry.shape.ok());
                 let shapeString = await this.convertAsync(application, type, ...shapes);
                 if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;
                 }
                 PubSub.default.pub("showToast", "toast.downloading");
-                download([shapeString.value], `${models![0].name}.${type}`);
+                download([shapeString.ok()], `${models![0].name}.${type}`);
             },
             "toast.excuting{0}",
             "",

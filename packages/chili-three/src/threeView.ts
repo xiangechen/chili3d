@@ -277,7 +277,7 @@ export class ThreeView extends Observable implements IView {
         shapeFilter?: IShapeFilter,
     ) {
         if (!(obj.parent instanceof ThreeGeometry) || !obj.parent.visible) return;
-        let shape = obj.parent.geometryEngity.shape.value!;
+        let shape = obj.parent.geometryEngity.shape.ok();
         if (cache.has(shape)) return;
 
         const addShape = (indexes: number[]) => {
@@ -312,13 +312,13 @@ export class ThreeView extends Observable implements IView {
             const parent = element.object.parent;
             if (!(parent instanceof ThreeGeometry)) continue;
 
-            if (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.value!)) {
+            if (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.ok())) {
                 continue;
             }
             return [
                 {
                     owner: parent,
-                    shape: parent.geometryEngity.shape.value!,
+                    shape: parent.geometryEngity.shape.ok(),
                     point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
@@ -386,7 +386,7 @@ export class ThreeView extends Observable implements IView {
         groups: ShapeMeshGroup[],
         parent: ThreeGeometry,
     ) {
-        let ancestor = directShape.findAncestor(type, parent.geometryEngity.shape.value!).at(0);
+        let ancestor = directShape.findAncestor(type, parent.geometryEngity.shape.ok()).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];
@@ -409,13 +409,13 @@ export class ThreeView extends Observable implements IView {
         let index: number | undefined = undefined;
         let groups: ShapeMeshGroup[] | undefined = undefined;
         if (element.pointOnLine !== undefined) {
-            groups = parent.geometryEngity.shape.value?.mesh.edges?.groups;
+            groups = parent.geometryEngity.shape.unchecked()?.mesh.edges?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 2)!;
                 shape = groups[index].shape;
             }
         } else {
-            groups = parent.geometryEngity.shape.value?.mesh.faces?.groups;
+            groups = parent.geometryEngity.shape.unchecked()?.mesh.faces?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
                 shape = groups[index].shape;

@@ -40,7 +40,7 @@ export class SweepBody extends ParameterBody {
         this._path =
             path.shapeType === ShapeType.Wire
                 ? (path as IWire)
-                : document.application.shapeFactory.wire(path as unknown as IEdge).value!;
+                : document.application.shapeFactory.wire(path as unknown as IEdge).ok();
     }
 
     override generateShape(): Result<IShape> {

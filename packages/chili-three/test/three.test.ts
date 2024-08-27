@@ -41,7 +41,7 @@ describe("three test", () => {
         expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
 
         let shape = context.getShape(model);
-        expect(shapes.at(0)?.shape).toEqual(shape?.geometryEngity.shape.value);
+        expect(shapes.at(0)?.shape).toEqual(shape?.geometryEngity.shape.ok());
         expect(context.getModel(shape!)).toEqual(model);
 
         context.removeModel([model]);

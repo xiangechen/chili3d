@@ -38,7 +38,7 @@ export class Box extends RectCommandBase {
             p2,
             this.application.shapeFactory
                 .box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
-                .unwrap().mesh.edges!,
+                .ok().mesh.edges!,
         ];
     };
 

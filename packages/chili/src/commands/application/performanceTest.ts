@@ -58,7 +58,7 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
             this.size * Math.random(),
             this.size * Math.random(),
         );
-        let entity = new EditableGeometryEntity(document, box.unwrap(), material.id);
+        let entity = new EditableGeometryEntity(document, box.ok(), material.id);
         let model = new GeometryModel(document, `box ${this.index++}`, entity);
         document.addNode(model);
     }

@@ -105,13 +105,13 @@ export class OccShape implements IShape {
 
     static serialize(target: OccShape): SerializedProperties<OccShape> {
         return {
-            shape: new OccShapeConverter().convertToBrep(target).unwrap(),
+            shape: new OccShapeConverter().convertToBrep(target).ok(),
             id: target.id,
         };
     }
 
     static deserialize(shape: string, id: string) {
-        let tshape = new OccShapeConverter().convertFromBrep(shape).unwrap() as OccShape;
+        let tshape = new OccShapeConverter().convertFromBrep(shape).ok() as OccShape;
         tshape._id = id;
         return tshape;
     }

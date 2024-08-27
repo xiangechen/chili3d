@@ -54,7 +54,7 @@ export class CircleBody extends FacebaseParameterBody {
     generateShape(): Result<IShape, string> {
         let circle = this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
         if (!circle.isOk || !this.isFace) return circle;
-        let wire = this.document.application.shapeFactory.wire(circle.value);
-        return wire.isOk ? wire.value.toFace() : circle;
+        let wire = this.document.application.shapeFactory.wire(circle.ok());
+        return wire.isOk ? wire.ok().toFace() : circle;
     }
 }

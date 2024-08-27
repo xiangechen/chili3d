@@ -129,10 +129,10 @@ export class GeometryState {
 
         let points: number[] | undefined = undefined;
         if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
-            points = MeshUtils.subFaceOutlines(this.geometry.geometryEngity.shape.value!.mesh.faces!, index);
+            points = MeshUtils.subFaceOutlines(this.geometry.geometryEngity.shape.ok().mesh.faces!, index);
         }
         if (points === undefined && (ShapeType.hasEdge(type) || ShapeType.hasWire(type))) {
-            points = MeshUtils.subEdge(this.geometry.geometryEngity.shape.value!.mesh.edges!, index);
+            points = MeshUtils.subEdge(this.geometry.geometryEngity.shape.ok().mesh.edges!, index);
         }
 
         if (!points) {

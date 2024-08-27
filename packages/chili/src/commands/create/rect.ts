@@ -65,11 +65,7 @@ export abstract class RectCommandBase extends CreateCommand {
         }
         let data = this.getRectData(end);
         let p2 = this.previewPoint(end);
-        return [
-            p1,
-            p2,
-            this.application.shapeFactory.rect(data.plane, data.dx, data.dy).unwrap().mesh.edges!,
-        ];
+        return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).ok().mesh.edges!];
     };
 
     protected getRectData(point: XYZ): RectData {

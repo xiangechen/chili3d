@@ -27,7 +27,7 @@ export abstract class CreateCommand extends MultistepCommand {
 
     private getModelName(geometry: GeometryEntity): string {
         if (geometry instanceof EditableGeometryEntity) {
-            return ShapeType[geometry.shape.unwrap().shapeType];
+            return ShapeType[geometry.shape.ok().shapeType];
         } else if (geometry instanceof ParameterGeometryEntity) {
             return I18n.translate(geometry.body.display);
         }

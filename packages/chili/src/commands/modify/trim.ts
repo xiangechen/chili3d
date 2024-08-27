@@ -149,8 +149,8 @@ function findEdges(detecteds: VisualShapeData[], view: IView) {
     let boundingBox = detecteds[0].owner.boundingBox();
     let otherEdges = view.document.visual.context
         .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
-        .filter((d) => d.geometryEngity.shape.value!.id !== detecteds[0].shape.id)
-        .map((x) => x.geometryEngity.shape.value as IEdge);
+        .filter((d) => d.geometryEngity.shape.ok().id !== detecteds[0].shape.id)
+        .map((x) => x.geometryEngity.shape.ok() as IEdge);
     return otherEdges;
 }
 

@@ -2,43 +2,45 @@
 
 import { IEqualityComparer } from "./equalityComparer";
 
-export type Result<T, E = string> = {
-    unwrap(): T;
-    expect(msg: string): T;
-} & (
-    | {
-          readonly isOk: true;
-          readonly value: T;
-      }
-    | {
-          readonly isOk: false;
-          readonly value: undefined;
-          readonly error: E;
-      }
-);
+export class Result<T, E = string> {
+    #isOk: boolean;
+    #value: T | undefined;
+    #error: E | undefined;
 
-export namespace Result {
-    export function ok<T>(value: T): Result<T, never> {
-        return {
-            value,
-            unwrap: () => value,
-            isOk: true,
-            expect: (_msg: string) => value,
-        };
+    constructor(isOk: boolean, value: T | undefined, error: E | undefined) {
+        this.#isOk = isOk;
+        this.#value = value;
+        this.#error = error;
     }
 
-    export function err<E>(error: E): Result<never, E> {
-        return {
-            error,
-            unwrap: () => {
-                throw error;
-            },
-            isOk: false,
-            value: undefined,
-            expect: (msg: string) => {
-                throw new Error(msg);
-            },
-        };
+    get isOk(): boolean {
+        return this.#isOk;
+    }
+
+    ok(): T {
+        if (!this.#isOk) {
+            throw this.#error;
+        }
+        return this.#value!;
+    }
+
+    unchecked(): T | undefined {
+        return this.#value;
+    }
+
+    error(): E {
+        if (this.#isOk) {
+            throw new Error(`Result is ok: ${this.#value}`);
+        }
+        return this.#error!;
+    }
+
+    static ok<T>(value: T): Result<T, never> {
+        return new Result(true, value, undefined) as any;
+    }
+
+    static err<E>(error: E): Result<any, E> {
+        return new Result(false, undefined, error) as any;
     }
 }
 
@@ -50,8 +52,8 @@ export class ResultEqualityComparer<T = any> implements IEqualityComparer<Result
             return false;
         }
         if (this.equal) {
-            return this.equal(left.value, right.value);
+            return this.equal(left.ok(), right.ok());
         }
-        return left.value === right.value;
+        return left.ok() === right.ok();
     }
 }

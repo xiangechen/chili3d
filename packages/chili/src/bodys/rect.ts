@@ -53,7 +53,7 @@ export class RectBody extends FacebaseParameterBody {
         let points = RectBody.points(this.plane, this._dx, this._dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;
-        return wire.value.toFace();
+        return wire.ok().toFace();
     }
 
     static points(plane: Plane, dx: number, dy: number): XYZ[] {

@@ -97,7 +97,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     };
 
     private generateShape() {
-        let mesh = this.geometryEngity.shape.value?.mesh;
+        let mesh = this.geometryEngity.shape.unchecked()?.mesh;
         if (mesh?.faces?.positions.length) this.initFaces(mesh.faces);
         if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
     }
@@ -160,7 +160,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     cloneSubEdge(index: number) {
-        let positions = MeshUtils.subEdge(this.geometryEngity.shape.value!.mesh.edges!, index);
+        let positions = MeshUtils.subEdge(this.geometryEngity.shape.ok().mesh.edges!, index);
         if (!positions) return undefined;
 
         let buff = new LineSegmentsGeometry();
@@ -171,7 +171,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     cloneSubFace(index: number) {
-        let mesh = MeshUtils.subFace(this.geometryEngity.shape.value!.mesh.faces!, index);
+        let mesh = MeshUtils.subFace(this.geometryEngity.shape.ok().mesh.faces!, index);
         if (!mesh) return undefined;
 
         let buff = new BufferGeometry();

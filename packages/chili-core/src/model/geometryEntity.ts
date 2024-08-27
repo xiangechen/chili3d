@@ -32,29 +32,29 @@ export abstract class GeometryEntity extends Entity {
     }
 
     override onMatrixChanged(newMatrix: Matrix4): void {
-        if (this._shape.isOk) this._shape.value.matrix = newMatrix;
+        if (this._shape.isOk) this._shape.ok().matrix = newMatrix;
     }
 
     protected updateShape(shape: Result<IShape>, notify: boolean): boolean {
-        if (shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
+        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
             return false;
         }
 
         if (!shape.isOk) {
-            PubSub.default.pub("displayError", shape.error);
+            PubSub.default.pub("displayError", shape.error());
             return false;
         }
 
         let oldShape = this._shape;
         this._shape = shape;
-        this._shape.value.matrix = this._matrix;
+        this._shape.ok().matrix = this._matrix;
         if (notify) this.emitPropertyChanged("shape", oldShape);
         return true;
     }
 
     override dispose(): void {
         super.dispose();
-        this._shape.value?.dispose();
+        this._shape.unchecked()?.dispose();
     }
 }
 
@@ -73,7 +73,7 @@ export class EditableGeometryEntity extends GeometryEntity {
 
     static serializer(target: EditableGeometryEntity) {
         let properties = Serializer.serializeProperties(target);
-        properties["shape"] = Serializer.serializeObject(target.shape.value!);
+        properties["shape"] = Serializer.serializeObject(target.shape.ok());
         return properties;
     }
 }

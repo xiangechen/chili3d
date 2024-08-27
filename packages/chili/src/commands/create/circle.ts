@@ -53,7 +53,7 @@ export class Circle extends CreateFaceableCommand {
             this.previewLine(this.stepDatas[0].point!, point),
             this.application.shapeFactory
                 .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
-                .unwrap().mesh.edges!,
+                .ok().mesh.edges!,
         ];
     };
 

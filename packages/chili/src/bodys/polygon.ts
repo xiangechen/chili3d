@@ -33,6 +33,6 @@ export class PolygonBody extends FacebaseParameterBody {
     generateShape(): Result<IShape, string> {
         let wire = this.document.application.shapeFactory.polygon(...this._points);
         if (!wire.isOk || !this.isFace) return wire;
-        return wire.value.toFace();
+        return wire.ok().toFace();
     }
 }

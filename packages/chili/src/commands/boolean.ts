@@ -7,8 +7,8 @@ import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
     protected override geometryEntity(): GeometryEntity {
-        let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.geometry.shape.value!;
-        let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.geometry.shape.value!;
+        let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.geometry.shape.ok();
+        let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.geometry.shape.ok();
         let booleanType = this.getBooleanOperateType();
         let booleanShape: Result<IShape>;
         if (booleanType === "common") {
@@ -19,7 +19,7 @@ export abstract class BooleanOperate extends CreateCommand {
             booleanShape = this.application.shapeFactory.booleanFuse(shape1, shape2);
         }
 
-        let body = new BooleanBody(this.document, booleanShape.expect("boolean operate error"));
+        let body = new BooleanBody(this.document, booleanShape.ok());
         this.stepDatas.forEach((x) => {
             x.models?.at(0)?.parent?.remove(x.models[0]);
         });
@@ -33,7 +33,7 @@ export abstract class BooleanOperate extends CreateCommand {
             new SelectModelStep("prompt.select.shape", false),
             new SelectModelStep("prompt.select.shape", false, {
                 allow: (shape) => {
-                    return !this.stepDatas[0].models?.map((x) => x.geometry.shape.value).includes(shape);
+                    return !this.stepDatas[0].models?.map((x) => x.geometry.shape.ok()).includes(shape);
                 },
             }),
         ];

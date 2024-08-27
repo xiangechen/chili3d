@@ -22,7 +22,7 @@ export class ThickSolidCommand extends CreateCommand {
     protected override geometryEntity(): GeometryEntity {
         let shape = this.stepDatas[0].shapes[0].shape;
         let thickSolid = this.application.shapeFactory.makeThickSolidBySimple(shape, this.thickness);
-        return new EditableGeometryEntity(this.document, thickSolid.unwrap());
+        return new EditableGeometryEntity(this.document, thickSolid.ok());
     }
 
     protected override getSteps(): IStep[] {

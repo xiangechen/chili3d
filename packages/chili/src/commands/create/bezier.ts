@@ -20,7 +20,7 @@ import { CreateCommand } from "../createCommand";
 export class BezierCommand extends CreateCommand {
     protected override geometryEntity(): GeometryEntity {
         let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
-        return new EditableGeometryEntity(this.document, bezier.unwrap());
+        return new EditableGeometryEntity(this.document, bezier.ok());
     }
 
     protected override async executeSteps(): Promise<boolean> {
@@ -62,7 +62,7 @@ export class BezierCommand extends CreateCommand {
         if (points.length > 1) {
             ps.push(...this.previewLines(points));
             let bezier = this.application.shapeFactory.bezier(points);
-            ps.push(bezier.unwrap().mesh.edges!);
+            ps.push(bezier.ok().mesh.edges!);
         }
 
         return ps;

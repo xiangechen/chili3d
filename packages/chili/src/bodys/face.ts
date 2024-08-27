@@ -24,7 +24,7 @@ export class FaceBody extends ParameterBody {
         if (Array.isArray(this._shapes)) {
             let wire = this.document.application.shapeFactory.wire(...this._shapes);
             if (!wire.isOk) return wire;
-            return wire.value.toFace();
+            return wire.ok().toFace();
         } else {
             return this._shapes.toFace();
         }

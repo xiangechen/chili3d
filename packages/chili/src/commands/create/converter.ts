@@ -36,8 +36,8 @@ abstract class ConvertCommand extends CancelableCommand {
             } else {
                 let model = new GeometryModel(
                     this.document,
-                    `${geometryModel.value.display}${count++}`,
-                    geometryModel.value,
+                    `${geometryModel.ok().display}${count++}`,
+                    geometryModel.ok(),
                 );
                 this.document.addNode(model);
                 this.document.visual.update();
@@ -70,7 +70,7 @@ abstract class ConvertCommand extends CancelableCommand {
             .map((x) => x as GeometryModel)
             .filter((x) => {
                 if (x === undefined) return false;
-                let shape = x.geometry.shape.value;
+                let shape = x.geometry.shape.ok();
                 if (shape === undefined) return false;
                 if (filter !== undefined && !filter.allow(shape)) return false;
                 return true;
@@ -85,11 +85,11 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryEntity> {
-        let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
+        let edges = models.map((x) => x.geometry.shape.ok()) as IEdge[];
         let wireBody = new WireBody(document, edges);
         let shape = wireBody.generateShape();
         if (!shape.isOk) {
-            return Result.err(shape.error);
+            return Result.err(shape.error());
         }
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(new ParameterGeometryEntity(document, wireBody));
@@ -103,12 +103,12 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: IModel[]): Result<GeometryEntity> {
-        let edges = models.map((x) => x.geometry.shape.value) as IEdge[];
+        let edges = models.map((x) => x.geometry.shape.ok()) as IEdge[];
         let wireBody = new FaceBody(document, edges);
         let shape = wireBody.generateShape();
 
         if (!shape.isOk) {
-            return Result.err(shape.error);
+            return Result.err(shape.error());
         }
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(new ParameterGeometryEntity(document, wireBody));

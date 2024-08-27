@@ -71,7 +71,7 @@ export class Array extends MultistepCommand {
         }
         this.positions = [];
         this.models?.forEach((model) => {
-            let ps = model.geometry.shape.value?.mesh.edges?.positions;
+            let ps = model.geometry.shape.unchecked()?.mesh.edges?.positions;
             if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
         });
         return true;

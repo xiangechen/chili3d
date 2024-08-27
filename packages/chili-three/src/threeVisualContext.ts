@@ -201,7 +201,7 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.shapes().filter((x) => {
-            if (filter && x.geometryEngity.shape.isOk && !filter.allow(x.geometryEngity.shape.value)) {
+            if (filter && x.geometryEngity.shape.isOk && !filter.allow(x.geometryEngity.shape.ok())) {
                 return false;
             }
             let testBox = (x as ThreeGeometry).box();
@@ -270,7 +270,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private displayModel(model: IModel) {
-        let modelShape = model.geometry.shape.value;
+        let modelShape = model.geometry.shape.ok();
         if (modelShape === undefined) return;
         let threeShape = new ThreeGeometry(model.geometry, this);
         this.visualShapes.add(threeShape);
