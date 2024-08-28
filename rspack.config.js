@@ -7,6 +7,9 @@ const config = defineConfig({
     entry: {
         main: "./packages/chili-web/src/index.ts",
     },
+    experiments: {
+        css: true,
+    },
     module: {
         parser: {
             "css/auto": {
@@ -72,16 +75,17 @@ const config = defineConfig({
             inject: "body",
         }),
     ],
-    output: {
-        filename: "[contenthash].bundle.js",
-        path: path.resolve(__dirname, "build"),
-    },
     optimization: {
         minimizer: [
             new rspack.SwcJsMinimizerRspackPlugin({
-                mangle: false,
+                minimizerOptions: {
+                    mangle: {
+                        keep_classnames: true,
+                        keep_fnames: true,
+                    },
+                },
             }),
-            new rspack.SwcCssMinimizerRspackPlugin(),
+            new rspack.LightningCssMinimizerRspackPlugin(),
         ],
     },
 });
