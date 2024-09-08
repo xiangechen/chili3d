@@ -1,0 +1,11 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Emscripten",
+            "binaryDir": "build/chili",
+            "toolchainFile": "build/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+        }
+    ]
+}

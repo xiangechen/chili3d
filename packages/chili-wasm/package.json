@@ -1,0 +1,10 @@
+{
+    "name": "chili-wasm",
+    "version": "0.3.0",
+    "description": "",
+    "type": "module",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-core": "*"
+    }
+}

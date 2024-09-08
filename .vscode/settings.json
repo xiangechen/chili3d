@@ -3,5 +3,6 @@
     "editor.codeActionsOnSave": {
         "source.organizeImports": "explicit"
     },
-    "editor.inlineSuggest.showToolbar": "onHover"
+    "editor.inlineSuggest.showToolbar": "onHover",
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp"
 }

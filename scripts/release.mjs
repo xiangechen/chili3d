@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
+import { execAsync } from './common.mjs';
 
 /**
  * @typedef {{
@@ -58,31 +58,14 @@ function updatePackage(pkgRoot, version) {
 
 /**
  * 
- * @param {string} cmd 
- */
-async function run(cmd) {
-    console.log(`> ${cmd}`)
-    return new Promise((resolve, reject) => {
-        exec(cmd, (err, stdout) => {
-            if (err) {
-                reject(err)
-                process.exit(1)
-            }
-            resolve(stdout)
-        })
-    })
-}
-
-/**
- * 
  * @param {string} version 
  */
 async function tag(version) {
-    await run(`git add -A`)
-    await run(`git commit -m '🐎 ci: release ${version}'`)
-    await run(`git tag ${version}`)
-    await run(`git push origin refs/tags/${version}`)
-    await run(`git push`)
+    await execAsync(`git add -A`)
+    await execAsync(`git commit -m '🐎 ci: release ${version}'`)
+    await execAsync(`git tag ${version}`)
+    await execAsync(`git push origin refs/tags/${version}`)
+    await execAsync(`git push`)
 }
 
 async function main() {

@@ -4,12 +4,14 @@
     "description": "",
     "author": "仙阁",
     "scripts": {
-        "build": "npx rspack build",
         "dev": "npx rspack dev",
+        "build": "npm run build:wasm && npx rspack build",
+        "build:wasm": "cd cpp && cmake --preset default -B build/chili && cmake --build build/chili --target install",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "prettier": "npx prettier --write .",
-        "release": "node scripts/release.mjs"
+        "release": "node scripts/release.mjs",
+        "setup:wasm": "node scripts/setup_wasm_deps.mjs"
     },
     "simple-git-hooks": {
         "pre-commit": "npx lint-staged"
