@@ -5,6 +5,7 @@
             "name": "default",
             "displayName": "Emscripten",
             "binaryDir": "build/chili",
+            "generator": "Ninja",
             "toolchainFile": "build/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
         }
     ]

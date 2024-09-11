@@ -6,8 +6,8 @@
     "devDependencies": {
         "chili-core": "*",
         "chili-vis": "*",
-        "@types/three": "0.167.2",
-        "three": "0.167.1",
+        "@types/three": "0.168.0",
+        "three": "0.168.0",
         "three-mesh-bvh": "^0.7.5"
     }
 }

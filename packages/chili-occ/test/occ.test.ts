@@ -1,12 +1,13 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, test } from "@jest/globals";
-import { CurveType, Matrix4, Ray, ShapeType, XYZ } from "chili-core";
+import { CurveType, Matrix4, Plane, Ray, ShapeType, XYZ } from "chili-core";
 import initOpenCascade, { OpenCascadeInstance } from "opencascade.js/dist/node.js";
 import { TopAbs_ShapeEnum, TopoDS_Edge } from "../occ-wasm/chili_occ";
 import { OccCurve } from "../src/occCurve";
 import { OccHelps } from "../src/occHelps";
-import { OccEdge, OccSolid } from "../src/occShape";
+import { OccEdge, OccShape, OccSolid } from "../src/occShape";
+import { ShapeFactory } from "../src";
 
 let occ: OpenCascadeInstance;
 
@@ -209,5 +210,17 @@ describe("curve test", () => {
             expect(p2?.x).toBeCloseTo(20);
             expect(edge.curve().value(0).x).toBeCloseTo(20);
         });
+    });
+
+    test("test 5000", () => {
+        let start = performance.now();
+        let count = 0;
+        for (let i = 0; i < 5000; i++) {
+            let make2 = new occ.BRepPrimAPI_MakeBox_3(new occ.gp_Pnt_1(), 10, 10, 10);
+            let box = new OccSolid(make2.Solid());
+            count += box.mesh.faces!.positions.length;
+        }
+        let end = performance.now();
+        console.log(`time: ${end - start}ms, count: ${count}`);
     });
 });

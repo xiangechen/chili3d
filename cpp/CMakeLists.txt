@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.30)
 
 project(chili-wasm VERSION 0.4.0)
 
-add_definitions(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 set(TARGET chili-wasm)
 
@@ -32,7 +31,7 @@ set(OCCT_LIBS
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     message(STATUS "EMSCRIPTEN: ${EMSCRIPTEN}")
 
-    add_executable(${TARGET} src/interface.cpp src/occ.cpp)
+    add_executable(${TARGET} src/faceMesh.cpp src/occ.cpp src/shapeFactory.cpp)
 
     target_compile_options (${TARGET} PUBLIC -O3)
     target_compile_options (${TARGET} PUBLIC -flto)
@@ -48,7 +47,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options (${TARGET} PUBLIC --bind)
     target_link_options (${TARGET} PUBLIC --emit-tsd "${TARGET}.d.ts")
 
-
+    target_include_directories(${TARGET} PUBLIC src)
+    target_include_directories(${TARGET} PUBLIC ${CMAKE_SOURCE_DIR}/build/emsdk/upstream/emscripten/system/include)
     target_include_directories(${TARGET} PUBLIC ${OCCT_INCLUDE_DIR})
     target_link_directories(${TARGET} PUBLIC ${OCCT_LIB_DIR})
     target_link_libraries(${TARGET} PUBLIC ${OCCT_LIBS})

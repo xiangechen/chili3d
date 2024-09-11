@@ -277,10 +277,10 @@ var ChiliWasm = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["O"];
+                wasmMemory = wasmExports["_c"];
                 updateMemoryViews();
-                wasmTable = wasmExports["T"];
-                addOnInit(wasmExports["P"]);
+                wasmTable = wasmExports["dd"];
+                addOnInit(wasmExports["$c"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -317,7 +317,37 @@ var ChiliWasm = (() => {
         var noExitRuntime = Module["noExitRuntime"] || true;
         var stackRestore = (val) => __emscripten_stack_restore(val);
         var stackSave = () => _emscripten_stack_get_current();
+        var wasmTableMirror = [];
+        var wasmTable;
+        var getWasmTableEntry = (funcPtr) => {
+            var func = wasmTableMirror[funcPtr];
+            if (!func) {
+                if (funcPtr >= wasmTableMirror.length) wasmTableMirror.length = funcPtr + 1;
+                wasmTableMirror[funcPtr] = func = wasmTable.get(funcPtr);
+            }
+            return func;
+        };
+        var ___call_sighandler = (fp, sig) => getWasmTableEntry(fp)(sig);
+        var exceptionCaught = [];
+        var uncaughtExceptionCount = 0;
+        var ___cxa_begin_catch = (ptr) => {
+            var info = new ExceptionInfo(ptr);
+            if (!info.get_caught()) {
+                info.set_caught(true);
+                uncaughtExceptionCount--;
+            }
+            info.set_rethrown(false);
+            exceptionCaught.push(info);
+            ___cxa_increment_exception_refcount(ptr);
+            return ___cxa_get_exception_ptr(ptr);
+        };
         var exceptionLast = 0;
+        var ___cxa_end_catch = () => {
+            _setThrew(0, 0);
+            var info = exceptionCaught.pop();
+            ___cxa_decrement_exception_refcount(info.excPtr);
+            exceptionLast = 0;
+        };
         class ExceptionInfo {
             constructor(excPtr) {
                 this.excPtr = excPtr;
@@ -396,7 +426,23 @@ var ChiliWasm = (() => {
         };
         var ___cxa_find_matching_catch_2 = () => findMatchingCatch([]);
         var ___cxa_find_matching_catch_3 = (arg0) => findMatchingCatch([arg0]);
-        var uncaughtExceptionCount = 0;
+        var ___cxa_find_matching_catch_4 = (arg0, arg1) => findMatchingCatch([arg0, arg1]);
+        var ___cxa_find_matching_catch_5 = (arg0, arg1, arg2) => findMatchingCatch([arg0, arg1, arg2]);
+        var ___cxa_rethrow = () => {
+            var info = exceptionCaught.pop();
+            if (!info) {
+                abort("no exception to throw");
+            }
+            var ptr = info.excPtr;
+            if (!info.get_rethrown()) {
+                exceptionCaught.push(info);
+                info.set_rethrown(true);
+                info.set_caught(false);
+                uncaughtExceptionCount++;
+            }
+            exceptionLast = ptr;
+            throw exceptionLast;
+        };
         var ___cxa_throw = (ptr, type, destructor) => {
             var info = new ExceptionInfo(ptr);
             info.init(type, destructor);
@@ -1033,16 +1079,6 @@ var ChiliWasm = (() => {
             sig = sig.replace(/p/g, "i");
             var f = Module["dynCall_" + sig];
             return f(ptr, ...args);
-        };
-        var wasmTableMirror = [];
-        var wasmTable;
-        var getWasmTableEntry = (funcPtr) => {
-            var func = wasmTableMirror[funcPtr];
-            if (!func) {
-                if (funcPtr >= wasmTableMirror.length) wasmTableMirror.length = funcPtr + 1;
-                wasmTableMirror[funcPtr] = func = wasmTable.get(funcPtr);
-            }
-            return func;
         };
         var dynCall = (sig, ptr, args = []) => {
             if (sig.includes("j")) {
@@ -1682,36 +1718,6 @@ var ChiliWasm = (() => {
                 destructorFunction: null,
             });
         };
-        var __embind_register_function = (
-            name,
-            argCount,
-            rawArgTypesAddr,
-            signature,
-            rawInvoker,
-            fn,
-            isAsync,
-        ) => {
-            var argTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
-            name = readLatin1String(name);
-            name = getFunctionName(name);
-            rawInvoker = embind__requireFunction(signature, rawInvoker);
-            exposePublicSymbol(
-                name,
-                function () {
-                    throwUnboundTypeError(`Cannot call ${name} due to unbound types`, argTypes);
-                },
-                argCount - 1,
-            );
-            whenDependentTypesAreResolved([], argTypes, (argTypes) => {
-                var invokerArgsArray = [argTypes[0], null].concat(argTypes.slice(1));
-                replacePublicSymbol(
-                    name,
-                    craftInvokerFunction(name, invokerArgsArray, null, rawInvoker, fn, isAsync),
-                    argCount - 1,
-                );
-                return [];
-            });
-        };
         var integerReadValueFromPointer = (name, width, signed) => {
             switch (width) {
                 case 1:
@@ -2112,6 +2118,21 @@ var ChiliWasm = (() => {
             noExitRuntime = false;
             runtimeKeepaliveCounter = 0;
         };
+        var __emscripten_throw_longjmp = () => {
+            throw Infinity;
+        };
+        var requireRegisteredType = (rawType, humanName) => {
+            var impl = registeredTypes[rawType];
+            if (undefined === impl) {
+                throwBindingError(`${humanName} has unknown type ${getTypeName(rawType)}`);
+            }
+            return impl;
+        };
+        var __emval_take_value = (type, arg) => {
+            type = requireRegisteredType(type, "_emval_take_value");
+            var v = type["readValueFromPointer"](arg);
+            return Emval.toHandle(v);
+        };
         var timers = {};
         var handleException = (e) => {
             if (e instanceof ExitStatus || e == "unwind") {
@@ -2283,6 +2304,7 @@ var ChiliWasm = (() => {
             return bytesWrittenExcludingNull + 1;
         }
         var getHeapMax = () => 2147483648;
+        var _emscripten_get_heap_max = () => getHeapMax();
         var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
         var growMemory = (size) => {
             var b = wasmMemory.buffer;
@@ -4646,6 +4668,7 @@ var ChiliWasm = (() => {
                 return e.errno;
             }
         }
+        var _llvm_eh_typeid_for = (type) => type;
         embind_init_charCodes();
         BindingError = Module["BindingError"] = class BindingError extends Error {
             constructor(message) {
@@ -4667,66 +4690,245 @@ var ChiliWasm = (() => {
         FS.createPreloadedFile = FS_createPreloadedFile;
         FS.staticInit();
         var wasmImports = {
-            e: ___cxa_find_matching_catch_2,
-            c: ___cxa_find_matching_catch_3,
+            kc: ___call_sighandler,
+            O: ___cxa_begin_catch,
+            T: ___cxa_end_catch,
+            b: ___cxa_find_matching_catch_2,
+            e: ___cxa_find_matching_catch_3,
+            Oa: ___cxa_find_matching_catch_4,
+            Pa: ___cxa_find_matching_catch_5,
+            ac: ___cxa_rethrow,
             j: ___cxa_throw,
-            h: ___resumeException,
-            F: __abort_js,
-            v: __embind_register_bigint,
-            q: __embind_register_bool,
-            l: __embind_register_class,
-            s: __embind_register_class_class_function,
-            k: __embind_register_class_constructor,
-            t: __embind_register_class_function,
-            d: __embind_register_class_property,
-            N: __embind_register_emval,
-            p: __embind_register_float,
-            n: __embind_register_function,
-            f: __embind_register_integer,
-            a: __embind_register_memory_view,
-            o: __embind_register_std_string,
-            m: __embind_register_std_wstring,
-            r: __embind_register_void,
-            H: __emscripten_memcpy_js,
-            x: __emscripten_runtime_keepalive_clear,
-            y: __setitimer_js,
-            z: __tzset_js,
-            K: _emscripten_get_callstack,
-            G: _emscripten_resize_heap,
-            A: _environ_get,
-            B: _environ_sizes_get,
-            C: _fd_close,
-            E: _fd_read,
-            u: _fd_seek,
-            D: _fd_write,
-            g: invoke_ii,
-            i: invoke_iii,
-            L: invoke_iiiii,
-            J: invoke_iiiiii,
-            b: invoke_vi,
-            M: invoke_vii,
-            I: invoke_viiiii,
-            w: _proc_exit,
+            g: ___resumeException,
+            nc: __abort_js,
+            ec: __embind_register_bigint,
+            Yb: __embind_register_bool,
+            V: __embind_register_class,
+            bb: __embind_register_class_class_function,
+            ua: __embind_register_class_constructor,
+            xa: __embind_register_class_function,
+            Y: __embind_register_class_property,
+            Zc: __embind_register_emval,
+            Pb: __embind_register_float,
+            la: __embind_register_integer,
+            P: __embind_register_memory_view,
+            pb: __embind_register_std_string,
+            Za: __embind_register_std_wstring,
+            _b: __embind_register_void,
+            tc: __emscripten_memcpy_js,
+            mc: __emscripten_runtime_keepalive_clear,
+            hc: __emscripten_throw_longjmp,
+            Ia: __emval_take_value,
+            fc: __setitimer_js,
+            gc: __tzset_js,
+            bc: _emscripten_get_callstack,
+            jc: _emscripten_get_heap_max,
+            ic: _emscripten_resize_heap,
+            oc: _environ_get,
+            pc: _environ_sizes_get,
+            cc: _exit,
+            qc: _fd_close,
+            sc: _fd_read,
+            dc: _fd_seek,
+            rc: _fd_write,
+            t: invoke_dd,
+            y: invoke_ddd,
+            ia: invoke_dddd,
+            k: invoke_di,
+            B: invoke_did,
+            Qc: invoke_didd,
+            ib: invoke_diddd,
+            Va: invoke_didi,
+            m: invoke_dii,
+            xb: invoke_diiddi,
+            pa: invoke_diii,
+            Qb: invoke_diiii,
+            uc: invoke_diiiiiii,
+            l: invoke_i,
+            cb: invoke_iddid,
+            ja: invoke_iddiiiiii,
+            c: invoke_ii,
+            w: invoke_iid,
+            Da: invoke_iiddd,
+            Mc: invoke_iiddddd,
+            Bb: invoke_iiddddii,
+            Ob: invoke_iiddi,
+            Kc: invoke_iiddid,
+            ca: invoke_iiddii,
+            Tb: invoke_iiddiid,
+            Uc: invoke_iiddiiiii,
+            D: invoke_iidi,
+            Ua: invoke_iidid,
+            _: invoke_iidii,
+            Cc: invoke_iidiiddiid,
+            xc: invoke_iidiii,
+            va: invoke_iidiiii,
+            d: invoke_iii,
+            I: invoke_iiid,
+            F: invoke_iiidd,
+            vc: invoke_iiiddd,
+            Ec: invoke_iiidddd,
+            Sb: invoke_iiidddddd,
+            ra: invoke_iiiddddii,
+            Lc: invoke_iiidddi,
+            Yc: invoke_iiidddid,
+            Ra: invoke_iiidddiid,
+            W: invoke_iiiddi,
+            Vc: invoke_iiiddid,
+            Ic: invoke_iiiddidd,
+            lb: invoke_iiiddidddd,
+            E: invoke_iiiddii,
+            Jb: invoke_iiiddiiii,
+            J: invoke_iiidi,
+            fb: invoke_iiidid,
+            wb: invoke_iiidii,
+            ya: invoke_iiidiii,
+            h: invoke_iiii,
+            X: invoke_iiiid,
+            Dc: invoke_iiiidd,
+            yb: invoke_iiiiddd,
+            Eb: invoke_iiiidddddd,
+            ga: invoke_iiiiddii,
+            jb: invoke_iiiiddiii,
+            wa: invoke_iiiidi,
+            Zb: invoke_iiiidiii,
+            Ib: invoke_iiiidiiii,
+            n: invoke_iiiii,
+            zc: invoke_iiiiiddd,
+            Rb: invoke_iiiiiddi,
+            vb: invoke_iiiiidi,
+            s: invoke_iiiiii,
+            Ma: invoke_iiiiiid,
+            z: invoke_iiiiiii,
+            H: invoke_iiiiiiii,
+            Nb: invoke_iiiiiiiiddiiii,
+            db: invoke_iiiiiiiiddiiiii,
+            Q: invoke_iiiiiiiii,
+            $b: invoke_iiiiiiiiidi,
+            Sc: invoke_iiiiiiiiii,
+            Ya: invoke_iiiiiiiiiii,
+            Wb: invoke_iiiiiiiiiiii,
+            sb: invoke_iiiiiiiiiiiid,
+            qb: invoke_iiiiiiiiiiiiid,
+            Ub: invoke_iiiiiiiiiiiiii,
+            wc: invoke_iiiiiiiiiiiiiii,
+            U: invoke_v,
+            Vb: invoke_vddddiiiiiiiiiiii,
+            gb: invoke_vdddii,
+            na: invoke_vdddiii,
+            Ab: invoke_vdddiiii,
+            Fa: invoke_vddi,
+            ea: invoke_vddii,
+            ub: invoke_vddiii,
+            Ca: invoke_vddiiiiiii,
+            Qa: invoke_vdiddddi,
+            kb: invoke_vdiii,
+            _a: invoke_vdiiii,
+            R: invoke_vdiiiii,
+            Ga: invoke_vdiiiiiiii,
+            da: invoke_vdiiiiiiiii,
+            tb: invoke_vdiiiiiiiiii,
+            ob: invoke_vdiiiiiiiiiii,
+            a: invoke_vi,
+            M: invoke_vid,
+            Z: invoke_vidd,
+            Sa: invoke_viddd,
+            Ta: invoke_vidddd,
+            Ac: invoke_vidddddd,
+            Nc: invoke_viddddddd,
+            Ba: invoke_vidddddddii,
+            Gc: invoke_vidddddi,
+            oa: invoke_viddddii,
+            Mb: invoke_viddddiiii,
+            yc: invoke_vidddi,
+            sa: invoke_vidddiiidi,
+            ba: invoke_viddi,
+            eb: invoke_viddid,
+            Ha: invoke_viddii,
+            A: invoke_viddiii,
+            Xa: invoke_viddiiiiii,
+            Wa: invoke_viddiiiiiiiiii,
+            v: invoke_vidi,
+            Hc: invoke_vidid,
+            Fb: invoke_vididd,
+            K: invoke_vidii,
+            Rc: invoke_vidiiddddii,
+            G: invoke_vidiii,
+            ab: invoke_vidiiiiidd,
+            f: invoke_vii,
+            p: invoke_viid,
+            r: invoke_viidd,
+            C: invoke_viiddd,
+            Oc: invoke_viidddd,
+            L: invoke_viidddddd,
+            Aa: invoke_viidddddddiiii,
+            Jc: invoke_viiddddidd,
+            Kb: invoke_viidddii,
+            fa: invoke_viiddi,
+            x: invoke_viiddii,
+            Wc: invoke_viiddiiii,
+            za: invoke_viiddiiiiii,
+            $: invoke_viiddiiiiiiii,
+            ta: invoke_viidi,
+            Ka: invoke_viidid,
+            Xc: invoke_viidii,
+            zb: invoke_viidiii,
+            Lb: invoke_viidiiid,
+            i: invoke_viii,
+            ha: invoke_viiid,
+            Pc: invoke_viiidd,
+            hb: invoke_viiiddd,
+            Ja: invoke_viiiddi,
+            Db: invoke_viiiddiiii,
+            Tc: invoke_viiiddiiiiiiiiiiiiii,
+            Ea: invoke_viiidi,
+            nb: invoke_viiidiii,
+            aa: invoke_viiidiiiii,
+            o: invoke_viiii,
+            Cb: invoke_viiiid,
+            Fc: invoke_viiiiddddd,
+            Gb: invoke_viiiidddddd,
+            q: invoke_viiiii,
+            Hb: invoke_viiiiid,
+            ma: invoke_viiiiidi,
+            u: invoke_viiiiii,
+            Xb: invoke_viiiiiiddiii,
+            Bc: invoke_viiiiiiddiiii,
+            N: invoke_viiiiiii,
+            ka: invoke_viiiiiiii,
+            La: invoke_viiiiiiiii,
+            $a: invoke_viiiiiiiiii,
+            qa: invoke_viiiiiiiiiii,
+            Na: invoke_viiiiiiiiiiidi,
+            rb: invoke_viiiiiiiiiiiidi,
+            mb: invoke_viiiiiiiiiiiidii,
+            S: _llvm_eh_typeid_for,
+            lc: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["P"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["Q"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["R"])(a0);
-        var _free = (a0) => (_free = wasmExports["S"])(a0);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["U"])(a0, a1);
-        var _setThrew = (a0, a1) => (_setThrew = wasmExports["V"])(a0, a1);
-        var __emscripten_tempret_set = (a0) => (__emscripten_tempret_set = wasmExports["W"])(a0);
-        var __emscripten_stack_restore = (a0) => (__emscripten_stack_restore = wasmExports["X"])(a0);
-        var _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Y"])();
-        var ___cxa_can_catch = (a0, a1, a2) => (___cxa_can_catch = wasmExports["Z"])(a0, a1, a2);
-        var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["_"])(a0, a1, a2, a3, a4, a5, a6));
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["$c"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ad"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["bd"])(a0);
+        var _free = (a0) => (_free = wasmExports["cd"])(a0);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ed"])(a0, a1);
+        var _setThrew = (a0, a1) => (_setThrew = wasmExports["fd"])(a0, a1);
+        var __emscripten_tempret_set = (a0) => (__emscripten_tempret_set = wasmExports["gd"])(a0);
+        var __emscripten_stack_restore = (a0) => (__emscripten_stack_restore = wasmExports["hd"])(a0);
+        var _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["id"])();
+        var ___cxa_decrement_exception_refcount = (a0) =>
+            (___cxa_decrement_exception_refcount = wasmExports["jd"])(a0);
+        var ___cxa_increment_exception_refcount = (a0) =>
+            (___cxa_increment_exception_refcount = wasmExports["kd"])(a0);
+        var ___cxa_can_catch = (a0, a1, a2) => (___cxa_can_catch = wasmExports["ld"])(a0, a1, a2);
+        var ___cxa_get_exception_ptr = (a0) => (___cxa_get_exception_ptr = wasmExports["md"])(a0);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["$"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["nd"])(a0, a1, a2, a3, a4));
+        var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["od"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["aa"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["pd"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ba"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["qd"])(
                 a0,
                 a1,
                 a2,
@@ -4738,7 +4940,7 @@ var ChiliWasm = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["ca"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["rd"])(
                 a0,
                 a1,
                 a2,
@@ -4790,6 +4992,36 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
+        function invoke_iiiiiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_v(index) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)();
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiii(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
         function invoke_iiiii(index, a1, a2, a3, a4) {
             var sp = stackSave();
             try {
@@ -4814,6 +5046,1709 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viii(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iid(index, a1, a2) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_di(index, a1) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_i(index) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)();
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_dii(index, a1, a2) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viid(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddddii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidi(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiid(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiiiiidi(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_ddd(index, a1, a2) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiidi(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidiiiiidd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vid(index, a1, a2) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiidi(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiidi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiid(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vddiii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vddii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_dd(index, a1) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiidiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vddi(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiiiid(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiiiiiidi(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiddiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidi(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiidi(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiidi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiiiiid(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiidiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vddiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiidiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiiii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddi(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vddddiiiiiiiiiiii(
+            index,
+            a1,
+            a2,
+            a3,
+            a4,
+            a5,
+            a6,
+            a7,
+            a8,
+            a9,
+            a10,
+            a11,
+            a12,
+            a13,
+            a14,
+            a15,
+            a16,
+        ) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(
+                    a1,
+                    a2,
+                    a3,
+                    a4,
+                    a5,
+                    a6,
+                    a7,
+                    a8,
+                    a9,
+                    a10,
+                    a11,
+                    a12,
+                    a13,
+                    a14,
+                    a15,
+                    a16,
+                );
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiiiiiiidii(
+            index,
+            a1,
+            a2,
+            a3,
+            a4,
+            a5,
+            a6,
+            a7,
+            a8,
+            a9,
+            a10,
+            a11,
+            a12,
+            a13,
+            a14,
+            a15,
+        ) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidiiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iddiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidi(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddddddii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidid(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidddid(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddidddd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidddddddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddiid(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidddddd(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidddddd(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiddi(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_did(index, a1, a2) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddid(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_diiii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiddi(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddi(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiddiiiiiiiiiiiiii(
+            index,
+            a1,
+            a2,
+            a3,
+            a4,
+            a5,
+            a6,
+            a7,
+            a8,
+            a9,
+            a10,
+            a11,
+            a12,
+            a13,
+            a14,
+            a15,
+            a16,
+            a17,
+            a18,
+            a19,
+        ) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(
+                    a1,
+                    a2,
+                    a3,
+                    a4,
+                    a5,
+                    a6,
+                    a7,
+                    a8,
+                    a9,
+                    a10,
+                    a11,
+                    a12,
+                    a13,
+                    a14,
+                    a15,
+                    a16,
+                    a17,
+                    a18,
+                    a19,
+                );
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_didi(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidiiid(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiii(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidddii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiddiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiid(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidiii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_dddd(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidiiddddii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidd(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiidiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidid(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiid(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_didd(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_diddd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiid(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidi(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiidd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidddd(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiddd(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiidddddd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddddddd(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddddd(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidddi(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vididd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdddii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiidddddd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_diii(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiddii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddid(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidid(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddddii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddddidd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddidd(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddid(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidid(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddddi(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidddiid(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiddddd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidddd(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiid(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiidd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddiiidi(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidiiddiid(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdddiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddddii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdddiiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiddiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiiddiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiidiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viidiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiddd(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vdiddddi(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddddd(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiddd(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidddi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iidiii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iddid(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiiiiiiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_diiiiiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_diiddi(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;

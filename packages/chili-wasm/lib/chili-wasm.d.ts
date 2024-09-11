@@ -14,43 +14,108 @@ declare namespace RuntimeExports {
 }
 interface WasmModule {}
 
-type EmbindString = ArrayBuffer | Uint8Array | Uint8ClampedArray | Int8Array | string;
-export interface MyClass {
-    x: number;
-    readonly x_readonly: number;
-    incrementX(): void;
+export interface FaceMesh {
+    getPosition(): any;
+    getNormal(): any;
+    getUV(): any;
+    getIndex(): any;
+    getGroups(): any;
     delete(): void;
 }
 
-export interface Point3 {
+export interface gp_Pnt {
     readonly x: number;
     readonly y: number;
     readonly z: number;
     delete(): void;
 }
 
-export interface Vector3 {
+export interface gp_Vec {
     readonly x: number;
     readonly y: number;
     readonly z: number;
     delete(): void;
 }
 
-export interface UnitVector3 {
+export interface gp_Dir {
     readonly x: number;
     readonly y: number;
     readonly z: number;
+    delete(): void;
+}
+
+export interface gp_Ax1 {
+    readonly location: gp_Pnt;
+    readonly direction: gp_Dir;
+    delete(): void;
+}
+
+export interface gp_Ax2 {
+    readonly location: gp_Pnt;
+    readonly direction: gp_Dir;
+    readonly xDirection: gp_Dir;
+    readonly yDirection: gp_Dir;
+    delete(): void;
+}
+
+export interface TopoDS_Shape {
+    isNull(): boolean;
+    delete(): void;
+}
+
+export interface TopoDS_Vertex extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Edge extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Wire extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Face extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Shell extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Solid extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_Compound extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface TopoDS_CompSolid extends TopoDS_Shape {
+    delete(): void;
+}
+
+export interface ShapeFactory {
     delete(): void;
 }
 
 interface EmbindModule {
-    MyClass: { new (_0: number, _1: EmbindString): MyClass; getStringFromInstance(_0: MyClass): string };
-    addTest(_0: number, _1: number): number;
-    Point3: { new (_0: number, _1: number, _2: number): Point3 };
-    makePnt(_0: number, _1: number, _2: number): Point3;
-    Vector3: { new (_0: number, _1: number, _2: number): Vector3 };
-    UnitVector3: { new (_0: number, _1: number, _2: number): UnitVector3 };
-    makeDir(_0: Point3, _1: Point3): UnitVector3;
+    FaceMesh: { new (_0: TopoDS_Shape): FaceMesh; test_5000(): number };
+    gp_Pnt: { new (_0: number, _1: number, _2: number): gp_Pnt };
+    gp_Vec: { new (_0: number, _1: number, _2: number): gp_Vec };
+    gp_Dir: { new (_0: number, _1: number, _2: number): gp_Dir };
+    gp_Ax1: { new (_0: gp_Pnt, _1: gp_Dir): gp_Ax1 };
+    gp_Ax2: { new (_0: gp_Pnt, _1: gp_Dir): gp_Ax2; new (_0: gp_Pnt, _1: gp_Dir, _2: gp_Dir): gp_Ax2 };
+    TopoDS_Shape: {};
+    TopoDS_Vertex: {};
+    TopoDS_Edge: {};
+    TopoDS_Wire: {};
+    TopoDS_Face: {};
+    TopoDS_Shell: {};
+    TopoDS_Solid: {};
+    TopoDS_Compound: {};
+    TopoDS_CompSolid: {};
+    ShapeFactory: { makeBox(_0: gp_Ax2, _1: number, _2: number, _3: number): TopoDS_Shape };
 }
 
 export type MainModule = WasmModule & typeof RuntimeExports & EmbindModule;
