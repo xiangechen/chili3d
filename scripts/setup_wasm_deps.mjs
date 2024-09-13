@@ -15,19 +15,36 @@ const OCCT_DIR_NAME = 'occt';
 const OCCT_DIR = path.resolve(BUILD_DIR, OCCT_DIR_NAME);
 const OCCT_BUILD_DIR = path.resolve(OCCT_DIR, "build");
 
+/**
+ * Due to a WebXR error, we need to use --skipLibCheck
+ */
+async function fixEmscripten() {
+    let file = path.resolve(EMSDK_DIR, 'upstream/emscripten/tools/emscripten.py');
+    let contents = fs.readFileSync(file, 'utf8');
+    contents = contents.replace(
+        `cmd = tsc + ['--outFile', tsc_output_file, '--declaration', '--emitDeclarationOnly', '--allowJs', js_doc_file]`,
+        `cmd = tsc + ['--outFile', tsc_output_file, '--declaration', '--skipLibCheck', '--emitDeclarationOnly', '--allowJs', js_doc_file]`
+    );
+    fs.writeFileSync(file, contents, 'utf8');
+
+    console.log(`Fixed emscripten.py`);
+}
+
 const libs = [
     {
         name: 'emscripten',
         url: 'https://github.com/emscripten-core/emsdk.git',
         tag: '3.1.65',
         dir: EMSDK_DIR,
-        command: `${EMSDK_DIR}/emsdk install latest && ${EMSDK_DIR}/emsdk activate --embedded latest`
+        action: [fixEmscripten],
+        command: `${EMSDK_DIR}/emsdk install latest && ${EMSDK_DIR}/emsdk activate --embedded latest && cd ${EMSDK_DIR}/upstream/emscripten && npm i`
     },
     {
         name: 'occt',
         url: 'https://github.com/Open-Cascade-SAS/OCCT.git',
         tag: 'V7_8_1',
         dir: OCCT_DIR,
+        action: [],
         command: [
             "cmake",
             "-B", OCCT_BUILD_DIR,
@@ -71,6 +88,10 @@ async function setupLibs() {
 
         console.log(`Building ${lib.name}...`);
         await execAsync(lib.command);
+
+        for (const action of lib.action) {
+            await action();
+        }
     }
 }
 

@@ -14,5 +14,5 @@
         "plugins": [{ "name": "typescript-plugin-css-modules" }]
     },
     "include": ["packages"],
-    "exclude": ["packages/chili-occ/occ-wasm"]
+    "exclude": ["packages/chili-occ/occ-wasm", "packages/chili-wasm/lib"]
 }

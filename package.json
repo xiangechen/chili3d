@@ -5,7 +5,7 @@
     "author": "仙阁",
     "scripts": {
         "dev": "npx rspack dev",
-        "build": "npm run build:wasm && npx rspack build",
+        "build": "npx rspack build",
         "build:wasm": "cd cpp && cmake --preset default -B build/chili && cmake --build build/chili --target install",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
@@ -25,17 +25,17 @@
         "packages/*"
     ],
     "devDependencies": {
-        "@rspack/cli": "1.0.0",
-        "@rspack/core": "1.0.0",
-        "@types/jest": "^29.5.12",
+        "@rspack/cli": "1.0.5",
+        "@rspack/core": "1.0.5",
+        "@types/jest": "29.5.13",
         "fork-ts-checker-webpack-plugin": "^9.0.2",
         "jest": "^29.7.0",
         "jest-environment-jsdom": "^29.7.0",
-        "lint-staged": "15.2.9",
+        "lint-staged": "15.2.10",
         "prettier": "3.3.3",
         "simple-git-hooks": "^2.11.1",
         "ts-jest": "29.2.5",
-        "typescript": "5.5.4",
+        "typescript": "5.6.2",
         "typescript-plugin-css-modules": "^5.1.0"
     }
 }

@@ -1,7 +1,7 @@
 var ChiliWasm = (() => {
     var _scriptName = import.meta.url;
 
-    return async function (moduleArg = {}) {
+    return function (moduleArg = {}) {
         var moduleRtn;
 
         var Module = moduleArg;
@@ -10,16 +10,8 @@ var ChiliWasm = (() => {
             readyPromiseResolve = resolve;
             readyPromiseReject = reject;
         });
-        var ENVIRONMENT_IS_WEB = typeof window == "object";
-        var ENVIRONMENT_IS_WORKER = typeof importScripts == "function";
-        var ENVIRONMENT_IS_NODE =
-            typeof process == "object" &&
-            typeof process.versions == "object" &&
-            typeof process.versions.node == "string";
-        if (ENVIRONMENT_IS_NODE) {
-            const { createRequire: createRequire } = await import("module");
-            var require = createRequire(import.meta.url);
-        }
+        var ENVIRONMENT_IS_WEB = true;
+        var ENVIRONMENT_IS_WORKER = false;
         var moduleOverrides = Object.assign({}, Module);
         var arguments_ = [];
         var thisProgram = "./this.program";
@@ -34,33 +26,7 @@ var ChiliWasm = (() => {
             return scriptDirectory + path;
         }
         var readAsync, readBinary;
-        if (ENVIRONMENT_IS_NODE) {
-            var fs = require("fs");
-            var nodePath = require("path");
-            scriptDirectory = require("url").fileURLToPath(new URL("./", import.meta.url));
-            readBinary = (filename) => {
-                filename = isFileURI(filename) ? new URL(filename) : nodePath.normalize(filename);
-                var ret = fs.readFileSync(filename);
-                return ret;
-            };
-            readAsync = (filename, binary = true) => {
-                filename = isFileURI(filename) ? new URL(filename) : nodePath.normalize(filename);
-                return new Promise((resolve, reject) => {
-                    fs.readFile(filename, binary ? undefined : "utf8", (err, data) => {
-                        if (err) reject(err);
-                        else resolve(binary ? data.buffer : data);
-                    });
-                });
-            };
-            if (!Module["thisProgram"] && process.argv.length > 1) {
-                thisProgram = process.argv[1].replace(/\\/g, "/");
-            }
-            arguments_ = process.argv.slice(2);
-            quit_ = (status, toThrow) => {
-                process.exitCode = status;
-                throw toThrow;
-            };
-        } else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+        if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
             if (ENVIRONMENT_IS_WORKER) {
                 scriptDirectory = self.location.href;
             } else if (typeof document != "undefined" && document.currentScript) {
@@ -78,39 +44,13 @@ var ChiliWasm = (() => {
                 );
             }
             {
-                if (ENVIRONMENT_IS_WORKER) {
-                    readBinary = (url) => {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open("GET", url, false);
-                        xhr.responseType = "arraybuffer";
-                        xhr.send(null);
-                        return new Uint8Array(xhr.response);
-                    };
-                }
-                readAsync = (url) => {
-                    if (isFileURI(url)) {
-                        return new Promise((resolve, reject) => {
-                            var xhr = new XMLHttpRequest();
-                            xhr.open("GET", url, true);
-                            xhr.responseType = "arraybuffer";
-                            xhr.onload = () => {
-                                if (xhr.status == 200 || (xhr.status == 0 && xhr.response)) {
-                                    resolve(xhr.response);
-                                    return;
-                                }
-                                reject(xhr.status);
-                            };
-                            xhr.onerror = reject;
-                            xhr.send(null);
-                        });
-                    }
-                    return fetch(url, { credentials: "same-origin" }).then((response) => {
+                readAsync = (url) =>
+                    fetch(url, { credentials: "same-origin" }).then((response) => {
                         if (response.ok) {
                             return response.arrayBuffer();
                         }
                         return Promise.reject(new Error(response.status + " : " + response.url));
                     });
-                };
             }
         } else {
         }
@@ -212,7 +152,6 @@ var ChiliWasm = (() => {
         }
         var dataURIPrefix = "data:application/octet-stream;base64,";
         var isDataURI = (filename) => filename.startsWith(dataURIPrefix);
-        var isFileURI = (filename) => filename.startsWith("file://");
         function findWasmBinary() {
             if (Module["locateFile"]) {
                 var f = "chili-wasm.wasm";
@@ -255,8 +194,6 @@ var ChiliWasm = (() => {
                 !binary &&
                 typeof WebAssembly.instantiateStreaming == "function" &&
                 !isDataURI(binaryFile) &&
-                !isFileURI(binaryFile) &&
-                !ENVIRONMENT_IS_NODE &&
                 typeof fetch == "function"
             ) {
                 return fetch(binaryFile, { credentials: "same-origin" }).then((response) => {
@@ -277,10 +214,10 @@ var ChiliWasm = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["_c"];
+                wasmMemory = wasmExports["dd"];
                 updateMemoryViews();
-                wasmTable = wasmExports["dd"];
-                addOnInit(wasmExports["$c"]);
+                wasmTable = wasmExports["id"];
+                addOnInit(wasmExports["ed"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -1792,6 +1729,9 @@ var ChiliWasm = (() => {
                 { ignoreDuplicateRegistrations: true },
             );
         };
+        var __embind_register_optional = (rawOptionalType, rawType) => {
+            __embind_register_emval(rawOptionalType);
+        };
         var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
             if (!(maxBytesToWrite > 0)) return 0;
             var startIdx = outIdx;
@@ -2121,12 +2061,86 @@ var ChiliWasm = (() => {
         var __emscripten_throw_longjmp = () => {
             throw Infinity;
         };
+        var emval_symbols = {};
+        var getStringOrSymbol = (address) => {
+            var symbol = emval_symbols[address];
+            if (symbol === undefined) {
+                return readLatin1String(address);
+            }
+            return symbol;
+        };
+        var emval_methodCallers = [];
+        var __emval_call_method = (caller, objHandle, methodName, destructorsRef, args) => {
+            caller = emval_methodCallers[caller];
+            objHandle = Emval.toValue(objHandle);
+            methodName = getStringOrSymbol(methodName);
+            return caller(objHandle, objHandle[methodName], destructorsRef, args);
+        };
+        var emval_addMethodCaller = (caller) => {
+            var id = emval_methodCallers.length;
+            emval_methodCallers.push(caller);
+            return id;
+        };
         var requireRegisteredType = (rawType, humanName) => {
             var impl = registeredTypes[rawType];
             if (undefined === impl) {
                 throwBindingError(`${humanName} has unknown type ${getTypeName(rawType)}`);
             }
             return impl;
+        };
+        var emval_lookupTypes = (argCount, argTypes) => {
+            var a = new Array(argCount);
+            for (var i = 0; i < argCount; ++i) {
+                a[i] = requireRegisteredType(HEAPU32[(argTypes + i * 4) >> 2], "parameter " + i);
+            }
+            return a;
+        };
+        var reflectConstruct = Reflect.construct;
+        var emval_returnValue = (returnType, destructorsRef, handle) => {
+            var destructors = [];
+            var result = returnType["toWireType"](destructors, handle);
+            if (destructors.length) {
+                HEAPU32[destructorsRef >> 2] = Emval.toHandle(destructors);
+            }
+            return result;
+        };
+        var __emval_get_method_caller = (argCount, argTypes, kind) => {
+            var types = emval_lookupTypes(argCount, argTypes);
+            var retType = types.shift();
+            argCount--;
+            var functionBody = `return function (obj, func, destructorsRef, args) {\n`;
+            var offset = 0;
+            var argsList = [];
+            if (kind === 0) {
+                argsList.push("obj");
+            }
+            var params = ["retType"];
+            var args = [retType];
+            for (var i = 0; i < argCount; ++i) {
+                argsList.push("arg" + i);
+                params.push("argType" + i);
+                args.push(types[i]);
+                functionBody += `  var arg${i} = argType${i}.readValueFromPointer(args${offset ? "+" + offset : ""});\n`;
+                offset += types[i].argPackAdvance;
+            }
+            var invoker = kind === 1 ? "new func" : "func.call";
+            functionBody += `  var rv = ${invoker}(${argsList.join(", ")});\n`;
+            if (!retType.isVoid) {
+                params.push("emval_returnValue");
+                args.push(emval_returnValue);
+                functionBody += "  return emval_returnValue(retType, destructorsRef, rv);\n";
+            }
+            functionBody += "};\n";
+            params.push(functionBody);
+            var invokerFunction = newFunc(Function, params)(...args);
+            var functionName = `methodCaller<(${types.map((t) => t.name).join(", ")}) => ${retType.name}>`;
+            return emval_addMethodCaller(createNamedFunction(functionName, invokerFunction));
+        };
+        var __emval_new_array = () => Emval.toHandle([]);
+        var __emval_run_destructors = (handle) => {
+            var destructors = Emval.toValue(handle);
+            runDestructors(destructors);
+            __emval_decref(handle);
         };
         var __emval_take_value = (type, arg) => {
             type = requireRegisteredType(type, "_emval_take_value");
@@ -2223,7 +2237,6 @@ var ChiliWasm = (() => {
             warnOnce.shown ||= {};
             if (!warnOnce.shown[text]) {
                 warnOnce.shown[text] = 1;
-                if (ENVIRONMENT_IS_NODE) text = "warning: " + text;
                 err(text);
             }
         };
@@ -2458,18 +2471,7 @@ var ChiliWasm = (() => {
         var initRandomFill = () => {
             if (typeof crypto == "object" && typeof crypto["getRandomValues"] == "function") {
                 return (view) => crypto.getRandomValues(view);
-            } else if (ENVIRONMENT_IS_NODE) {
-                try {
-                    var crypto_module = require("crypto");
-                    var randomFillSync = crypto_module["randomFillSync"];
-                    if (randomFillSync) {
-                        return (view) => crypto_module["randomFillSync"](view);
-                    }
-                    var randomBytes = crypto_module["randomBytes"];
-                    return (view) => (view.set(randomBytes(view.byteLength)), view);
-                } catch (e) {}
-            }
-            abort("initRandomDevice");
+            } else abort("initRandomDevice");
         };
         var randomFill = (view) => (randomFill = initRandomFill())(view);
         var PATH_FS = {
@@ -2536,21 +2538,7 @@ var ChiliWasm = (() => {
         var FS_stdin_getChar = () => {
             if (!FS_stdin_getChar_buffer.length) {
                 var result = null;
-                if (ENVIRONMENT_IS_NODE) {
-                    var BUFSIZE = 256;
-                    var buf = Buffer.alloc(BUFSIZE);
-                    var bytesRead = 0;
-                    var fd = process.stdin.fd;
-                    try {
-                        bytesRead = fs.readSync(fd, buf, 0, BUFSIZE);
-                    } catch (e) {
-                        if (e.toString().includes("EOF")) bytesRead = 0;
-                        else throw e;
-                    }
-                    if (bytesRead > 0) {
-                        result = buf.slice(0, bytesRead).toString("utf-8");
-                    }
-                } else if (typeof window != "undefined" && typeof window.prompt == "function") {
+                if (typeof window != "undefined" && typeof window.prompt == "function") {
                     result = window.prompt("Input: ");
                     if (result !== null) {
                         result += "\n";
@@ -4690,245 +4678,250 @@ var ChiliWasm = (() => {
         FS.createPreloadedFile = FS_createPreloadedFile;
         FS.staticInit();
         var wasmImports = {
-            kc: ___call_sighandler,
-            O: ___cxa_begin_catch,
-            T: ___cxa_end_catch,
+            mc: ___call_sighandler,
+            Q: ___cxa_begin_catch,
+            V: ___cxa_end_catch,
             b: ___cxa_find_matching_catch_2,
             e: ___cxa_find_matching_catch_3,
             Oa: ___cxa_find_matching_catch_4,
             Pa: ___cxa_find_matching_catch_5,
-            ac: ___cxa_rethrow,
+            cc: ___cxa_rethrow,
             j: ___cxa_throw,
             g: ___resumeException,
-            nc: __abort_js,
-            ec: __embind_register_bigint,
-            Yb: __embind_register_bool,
-            V: __embind_register_class,
-            bb: __embind_register_class_class_function,
-            ua: __embind_register_class_constructor,
-            xa: __embind_register_class_function,
-            Y: __embind_register_class_property,
-            Zc: __embind_register_emval,
-            Pb: __embind_register_float,
-            la: __embind_register_integer,
-            P: __embind_register_memory_view,
-            pb: __embind_register_std_string,
-            Za: __embind_register_std_wstring,
-            _b: __embind_register_void,
-            tc: __emscripten_memcpy_js,
-            mc: __emscripten_runtime_keepalive_clear,
-            hc: __emscripten_throw_longjmp,
-            Ia: __emval_take_value,
-            fc: __setitimer_js,
-            gc: __tzset_js,
-            bc: _emscripten_get_callstack,
-            jc: _emscripten_get_heap_max,
-            ic: _emscripten_resize_heap,
-            oc: _environ_get,
-            pc: _environ_sizes_get,
-            cc: _exit,
-            qc: _fd_close,
-            sc: _fd_read,
-            dc: _fd_seek,
-            rc: _fd_write,
-            t: invoke_dd,
+            pc: __abort_js,
+            gc: __embind_register_bigint,
+            $c: __embind_register_bool,
+            P: __embind_register_class,
+            Ab: __embind_register_class_class_function,
+            ka: __embind_register_class_constructor,
+            O: __embind_register_class_function,
+            Z: __embind_register_class_property,
+            Tc: __embind_register_emval,
+            Ib: __embind_register_float,
+            ma: __embind_register_integer,
+            R: __embind_register_memory_view,
+            mb: __embind_register_optional,
+            Wb: __embind_register_std_string,
+            jb: __embind_register_std_wstring,
+            cd: __embind_register_void,
+            vc: __emscripten_memcpy_js,
+            oc: __emscripten_runtime_keepalive_clear,
+            jc: __emscripten_throw_longjmp,
+            ub: __emval_call_method,
+            rb: __emval_get_method_caller,
+            xb: __emval_new_array,
+            pb: __emval_run_destructors,
+            pa: __emval_take_value,
+            hc: __setitimer_js,
+            ic: __tzset_js,
+            dc: _emscripten_get_callstack,
+            lc: _emscripten_get_heap_max,
+            kc: _emscripten_resize_heap,
+            qc: _environ_get,
+            rc: _environ_sizes_get,
+            ec: _exit,
+            sc: _fd_close,
+            uc: _fd_read,
+            fc: _fd_seek,
+            tc: _fd_write,
+            u: invoke_dd,
             y: invoke_ddd,
             ia: invoke_dddd,
             k: invoke_di,
             B: invoke_did,
-            Qc: invoke_didd,
-            ib: invoke_diddd,
+            Rc: invoke_didd,
+            gb: invoke_diddd,
             Va: invoke_didi,
             m: invoke_dii,
-            xb: invoke_diiddi,
-            pa: invoke_diii,
-            Qb: invoke_diiii,
-            uc: invoke_diiiiiii,
+            zb: invoke_diiddi,
+            sa: invoke_diii,
+            Tb: invoke_diiii,
+            wc: invoke_diiiiiii,
             l: invoke_i,
-            cb: invoke_iddid,
-            ja: invoke_iddiiiiii,
+            ab: invoke_iddid,
+            na: invoke_iddiiiiii,
             c: invoke_ii,
             w: invoke_iid,
             Da: invoke_iiddd,
-            Mc: invoke_iiddddd,
-            Bb: invoke_iiddddii,
-            Ob: invoke_iiddi,
-            Kc: invoke_iiddid,
-            ca: invoke_iiddii,
-            Tb: invoke_iiddiid,
-            Uc: invoke_iiddiiiii,
+            Nc: invoke_iiddddd,
+            Eb: invoke_iiddddii,
+            Sb: invoke_iiddi,
+            Lc: invoke_iiddid,
+            ja: invoke_iiddii,
+            Xb: invoke_iiddiid,
+            Wc: invoke_iiddiiiii,
             D: invoke_iidi,
             Ua: invoke_iidid,
-            _: invoke_iidii,
-            Cc: invoke_iidiiddiid,
-            xc: invoke_iidiii,
-            va: invoke_iidiiii,
+            $: invoke_iidii,
+            Ec: invoke_iidiiddiid,
+            zc: invoke_iidiii,
+            Ca: invoke_iidiiii,
             d: invoke_iii,
-            I: invoke_iiid,
-            F: invoke_iiidd,
-            vc: invoke_iiiddd,
-            Ec: invoke_iiidddd,
-            Sb: invoke_iiidddddd,
-            ra: invoke_iiiddddii,
-            Lc: invoke_iiidddi,
-            Yc: invoke_iiidddid,
+            H: invoke_iiid,
+            G: invoke_iiidd,
+            xc: invoke_iiiddd,
+            Gc: invoke_iiidddd,
+            Vb: invoke_iiidddddd,
+            ta: invoke_iiiddddii,
+            Mc: invoke_iiidddi,
+            _c: invoke_iiidddid,
             Ra: invoke_iiidddiid,
-            W: invoke_iiiddi,
-            Vc: invoke_iiiddid,
-            Ic: invoke_iiiddidd,
-            lb: invoke_iiiddidddd,
+            X: invoke_iiiddi,
+            Xc: invoke_iiiddid,
+            Kc: invoke_iiiddidd,
+            kb: invoke_iiiddidddd,
             E: invoke_iiiddii,
-            Jb: invoke_iiiddiiii,
+            Nb: invoke_iiiddiiii,
             J: invoke_iiidi,
-            fb: invoke_iiidid,
-            wb: invoke_iiidii,
+            db: invoke_iiidid,
+            nb: invoke_iiidii,
             ya: invoke_iiidiii,
             h: invoke_iiii,
-            X: invoke_iiiid,
-            Dc: invoke_iiiidd,
-            yb: invoke_iiiiddd,
-            Eb: invoke_iiiidddddd,
+            Y: invoke_iiiid,
+            Fc: invoke_iiiidd,
+            Bb: invoke_iiiiddd,
+            Hb: invoke_iiiidddddd,
             ga: invoke_iiiiddii,
-            jb: invoke_iiiiddiii,
-            wa: invoke_iiiidi,
-            Zb: invoke_iiiidiii,
-            Ib: invoke_iiiidiiii,
+            hb: invoke_iiiiddiii,
+            xa: invoke_iiiidi,
+            ac: invoke_iiiidiii,
+            Mb: invoke_iiiidiiii,
             n: invoke_iiiii,
-            zc: invoke_iiiiiddd,
-            Rb: invoke_iiiiiddi,
-            vb: invoke_iiiiidi,
+            Bc: invoke_iiiiiddd,
+            Ub: invoke_iiiiiddi,
+            yb: invoke_iiiiidi,
             s: invoke_iiiiii,
             Ma: invoke_iiiiiid,
             z: invoke_iiiiiii,
-            H: invoke_iiiiiiii,
-            Nb: invoke_iiiiiiiiddiiii,
-            db: invoke_iiiiiiiiddiiiii,
-            Q: invoke_iiiiiiiii,
-            $b: invoke_iiiiiiiiidi,
-            Sc: invoke_iiiiiiiiii,
+            I: invoke_iiiiiiii,
+            Rb: invoke_iiiiiiiiddiiii,
+            bb: invoke_iiiiiiiiddiiiii,
+            S: invoke_iiiiiiiii,
+            bc: invoke_iiiiiiiiidi,
+            Uc: invoke_iiiiiiiiii,
             Ya: invoke_iiiiiiiiiii,
-            Wb: invoke_iiiiiiiiiiii,
-            sb: invoke_iiiiiiiiiiiid,
+            Zb: invoke_iiiiiiiiiiii,
+            tb: invoke_iiiiiiiiiiiid,
             qb: invoke_iiiiiiiiiiiiid,
-            Ub: invoke_iiiiiiiiiiiiii,
-            wc: invoke_iiiiiiiiiiiiiii,
-            U: invoke_v,
-            Vb: invoke_vddddiiiiiiiiiiii,
-            gb: invoke_vdddii,
-            na: invoke_vdddiii,
-            Ab: invoke_vdddiiii,
-            Fa: invoke_vddi,
+            ad: invoke_iiiiiiiiiiiiii,
+            yc: invoke_iiiiiiiiiiiiiii,
+            W: invoke_v,
+            bd: invoke_vddddiiiiiiiiiiii,
+            eb: invoke_vdddii,
+            qa: invoke_vdddiii,
+            Db: invoke_vdddiiii,
+            Ha: invoke_vddi,
             ea: invoke_vddii,
-            ub: invoke_vddiii,
-            Ca: invoke_vddiiiiiii,
+            wb: invoke_vddiii,
+            Ea: invoke_vddiiiiiii,
             Qa: invoke_vdiddddi,
-            kb: invoke_vdiii,
-            _a: invoke_vdiiii,
-            R: invoke_vdiiiii,
-            Ga: invoke_vdiiiiiiii,
+            ib: invoke_vdiii,
+            Za: invoke_vdiiii,
+            T: invoke_vdiiiii,
+            Ia: invoke_vdiiiiiiii,
             da: invoke_vdiiiiiiiii,
-            tb: invoke_vdiiiiiiiiii,
+            vb: invoke_vdiiiiiiiiii,
             ob: invoke_vdiiiiiiiiiii,
             a: invoke_vi,
             M: invoke_vid,
-            Z: invoke_vidd,
+            _: invoke_vidd,
             Sa: invoke_viddd,
             Ta: invoke_vidddd,
-            Ac: invoke_vidddddd,
-            Nc: invoke_viddddddd,
+            Cc: invoke_vidddddd,
+            Oc: invoke_viddddddd,
             Ba: invoke_vidddddddii,
-            Gc: invoke_vidddddi,
-            oa: invoke_viddddii,
-            Mb: invoke_viddddiiii,
-            yc: invoke_vidddi,
-            sa: invoke_vidddiiidi,
-            ba: invoke_viddi,
-            eb: invoke_viddid,
-            Ha: invoke_viddii,
+            Ic: invoke_vidddddi,
+            ra: invoke_viddddii,
+            Qb: invoke_viddddiiii,
+            Ac: invoke_vidddi,
+            va: invoke_vidddiiidi,
+            ca: invoke_viddi,
+            cb: invoke_viddid,
+            Fa: invoke_viddii,
             A: invoke_viddiii,
             Xa: invoke_viddiiiiii,
             Wa: invoke_viddiiiiiiiiii,
             v: invoke_vidi,
-            Hc: invoke_vidid,
-            Fb: invoke_vididd,
+            Jc: invoke_vidid,
+            Jb: invoke_vididd,
             K: invoke_vidii,
-            Rc: invoke_vidiiddddii,
-            G: invoke_vidiii,
-            ab: invoke_vidiiiiidd,
+            Sc: invoke_vidiiddddii,
+            F: invoke_vidiii,
+            $a: invoke_vidiiiiidd,
             f: invoke_vii,
             p: invoke_viid,
             r: invoke_viidd,
             C: invoke_viiddd,
-            Oc: invoke_viidddd,
+            Pc: invoke_viidddd,
             L: invoke_viidddddd,
             Aa: invoke_viidddddddiiii,
-            Jc: invoke_viiddddidd,
-            Kb: invoke_viidddii,
+            _b: invoke_viiddddidd,
+            Ob: invoke_viidddii,
             fa: invoke_viiddi,
             x: invoke_viiddii,
-            Wc: invoke_viiddiiii,
+            Yc: invoke_viiddiiii,
             za: invoke_viiddiiiiii,
-            $: invoke_viiddiiiiiiii,
-            ta: invoke_viidi,
+            ba: invoke_viiddiiiiiiii,
+            wa: invoke_viidi,
             Ka: invoke_viidid,
-            Xc: invoke_viidii,
-            zb: invoke_viidiii,
-            Lb: invoke_viidiiid,
+            Zc: invoke_viidii,
+            Cb: invoke_viidiii,
+            Pb: invoke_viidiiid,
             i: invoke_viii,
             ha: invoke_viiid,
-            Pc: invoke_viiidd,
-            hb: invoke_viiiddd,
+            Qc: invoke_viiidd,
+            fb: invoke_viiiddd,
             Ja: invoke_viiiddi,
-            Db: invoke_viiiddiiii,
-            Tc: invoke_viiiddiiiiiiiiiiiiii,
-            Ea: invoke_viiidi,
-            nb: invoke_viiidiii,
+            Gb: invoke_viiiddiiii,
+            Vc: invoke_viiiddiiiiiiiiiiiiii,
+            Ga: invoke_viiidi,
+            lb: invoke_viiidiii,
             aa: invoke_viiidiiiii,
             o: invoke_viiii,
-            Cb: invoke_viiiid,
-            Fc: invoke_viiiiddddd,
-            Gb: invoke_viiiidddddd,
+            Fb: invoke_viiiid,
+            Hc: invoke_viiiiddddd,
+            Kb: invoke_viiiidddddd,
             q: invoke_viiiii,
-            Hb: invoke_viiiiid,
-            ma: invoke_viiiiidi,
-            u: invoke_viiiiii,
-            Xb: invoke_viiiiiiddiii,
-            Bc: invoke_viiiiiiddiiii,
+            Lb: invoke_viiiiid,
+            oa: invoke_viiiiidi,
+            t: invoke_viiiiii,
+            $b: invoke_viiiiiiddiii,
+            Dc: invoke_viiiiiiddiiii,
             N: invoke_viiiiiii,
-            ka: invoke_viiiiiiii,
+            la: invoke_viiiiiiii,
             La: invoke_viiiiiiiii,
-            $a: invoke_viiiiiiiiii,
-            qa: invoke_viiiiiiiiiii,
+            _a: invoke_viiiiiiiiii,
+            ua: invoke_viiiiiiiiiii,
             Na: invoke_viiiiiiiiiiidi,
-            rb: invoke_viiiiiiiiiiiidi,
-            mb: invoke_viiiiiiiiiiiidii,
-            S: _llvm_eh_typeid_for,
-            lc: _proc_exit,
+            sb: invoke_viiiiiiiiiiiidi,
+            Yb: invoke_viiiiiiiiiiiidii,
+            U: _llvm_eh_typeid_for,
+            nc: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["$c"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ad"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["bd"])(a0);
-        var _free = (a0) => (_free = wasmExports["cd"])(a0);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ed"])(a0, a1);
-        var _setThrew = (a0, a1) => (_setThrew = wasmExports["fd"])(a0, a1);
-        var __emscripten_tempret_set = (a0) => (__emscripten_tempret_set = wasmExports["gd"])(a0);
-        var __emscripten_stack_restore = (a0) => (__emscripten_stack_restore = wasmExports["hd"])(a0);
-        var _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["id"])();
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["ed"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["fd"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["gd"])(a0);
+        var _free = (a0) => (_free = wasmExports["hd"])(a0);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["jd"])(a0, a1);
+        var _setThrew = (a0, a1) => (_setThrew = wasmExports["kd"])(a0, a1);
+        var __emscripten_tempret_set = (a0) => (__emscripten_tempret_set = wasmExports["ld"])(a0);
+        var __emscripten_stack_restore = (a0) => (__emscripten_stack_restore = wasmExports["md"])(a0);
+        var _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["nd"])();
         var ___cxa_decrement_exception_refcount = (a0) =>
-            (___cxa_decrement_exception_refcount = wasmExports["jd"])(a0);
+            (___cxa_decrement_exception_refcount = wasmExports["od"])(a0);
         var ___cxa_increment_exception_refcount = (a0) =>
-            (___cxa_increment_exception_refcount = wasmExports["kd"])(a0);
-        var ___cxa_can_catch = (a0, a1, a2) => (___cxa_can_catch = wasmExports["ld"])(a0, a1, a2);
-        var ___cxa_get_exception_ptr = (a0) => (___cxa_get_exception_ptr = wasmExports["md"])(a0);
+            (___cxa_increment_exception_refcount = wasmExports["pd"])(a0);
+        var ___cxa_can_catch = (a0, a1, a2) => (___cxa_can_catch = wasmExports["qd"])(a0, a1, a2);
+        var ___cxa_get_exception_ptr = (a0) => (___cxa_get_exception_ptr = wasmExports["rd"])(a0);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["nd"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["sd"])(a0, a1, a2, a3, a4));
         var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["od"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["td"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["pd"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ud"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["qd"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["vd"])(
                 a0,
                 a1,
                 a2,
@@ -4940,7 +4933,7 @@ var ChiliWasm = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["rd"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["wd"])(
                 a0,
                 a1,
                 a2,
@@ -5112,96 +5105,6 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
-        function invoke_viid(index, a1, a2, a3) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viiiiiii(index, a1, a2, a3, a4, a5, a6, a7) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viiiiii(index, a1, a2, a3, a4, a5, a6) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_iiiddddii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
-            var sp = stackSave();
-            try {
-                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_iiiddii(index, a1, a2, a3, a4, a5, a6) {
-            var sp = stackSave();
-            try {
-                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_iiidi(index, a1, a2, a3, a4) {
-            var sp = stackSave();
-            try {
-                return getWasmTableEntry(index)(a1, a2, a3, a4);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_iiid(index, a1, a2, a3) {
-            var sp = stackSave();
-            try {
-                return getWasmTableEntry(index)(a1, a2, a3);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viddii(index, a1, a2, a3, a4, a5) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_iiidii(index, a1, a2, a3, a4, a5) {
-            var sp = stackSave();
-            try {
-                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
         function invoke_viiiiiiiiiiidi(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) {
             var sp = stackSave();
             try {
@@ -5272,6 +5175,16 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
+        function invoke_iiidi(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
         function invoke_iiiiiid(index, a1, a2, a3, a4, a5, a6) {
             var sp = stackSave();
             try {
@@ -5336,6 +5249,16 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiiii(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -5422,26 +5345,6 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
-        function invoke_vidi(index, a1, a2, a3) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viiiiidi(index, a1, a2, a3, a4, a5, a6, a7) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
         function invoke_iiiiiiiii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
             var sp = stackSave();
             try {
@@ -5502,6 +5405,16 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
+        function invoke_vidi(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
         function invoke_vidii(index, a1, a2, a3, a4) {
             var sp = stackSave();
             try {
@@ -5512,10 +5425,40 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
-        function invoke_iiddd(index, a1, a2, a3, a4) {
+        function invoke_viid(index, a1, a2, a3) {
             var sp = stackSave();
             try {
-                return getWasmTableEntry(index)(a1, a2, a3, a4);
+                getWasmTableEntry(index)(a1, a2, a3);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiidi(index, a1, a2, a3, a4, a5, a6, a7) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viddii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -5526,6 +5469,16 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiid(index, a1, a2, a3) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -5572,6 +5525,86 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
+        function invoke_iiidii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiddd(index, a1, a2, a3, a4) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddddidd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_vidiii(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiddd(index, a1, a2, a3, a4, a5) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_viiiiii(index, a1, a2, a3, a4, a5, a6) {
+            var sp = stackSave();
+            try {
+                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
+        function invoke_iiiddddii(index, a1, a2, a3, a4, a5, a6, a7, a8) {
+            var sp = stackSave();
+            try {
+                return getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8);
+            } catch (e) {
+                stackRestore(sp);
+                if (e !== e + 0) throw e;
+                _setThrew(1, 0);
+            }
+        }
         function invoke_viiidiii(index, a1, a2, a3, a4, a5, a6, a7) {
             var sp = stackSave();
             try {
@@ -5586,16 +5619,6 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 getWasmTableEntry(index)(a1, a2, a3, a4, a5);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viiddii(index, a1, a2, a3, a4, a5, a6) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -5894,16 +5917,6 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
-        function invoke_viiddd(index, a1, a2, a3, a4, a5) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
         function invoke_iiidddddd(index, a1, a2, a3, a4, a5, a6, a7, a8) {
             var sp = stackSave();
             try {
@@ -6129,16 +6142,6 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 return getWasmTableEntry(index)(a1, a2, a3, a4);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_vidiii(index, a1, a2, a3, a4, a5) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -6409,16 +6412,6 @@ var ChiliWasm = (() => {
             var sp = stackSave();
             try {
                 getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7);
-            } catch (e) {
-                stackRestore(sp);
-                if (e !== e + 0) throw e;
-                _setThrew(1, 0);
-            }
-        }
-        function invoke_viiddddidd(index, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
-            var sp = stackSave();
-            try {
-                getWasmTableEntry(index)(a1, a2, a3, a4, a5, a6, a7, a8, a9);
             } catch (e) {
                 stackRestore(sp);
                 if (e !== e + 0) throw e;
@@ -6755,6 +6748,7 @@ var ChiliWasm = (() => {
                 _setThrew(1, 0);
             }
         }
+        Module["FS"] = FS;
         var calledRun;
         dependenciesFulfilled = function runCaller() {
             if (!calledRun) run();

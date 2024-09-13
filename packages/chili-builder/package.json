@@ -7,6 +7,7 @@
         "chili": "*",
         "chili-three": "*",
         "chili-occ": "*",
-        "chili-ui": "*"
+        "chili-ui": "*",
+        "chili-wasm": "*"
     }
 }

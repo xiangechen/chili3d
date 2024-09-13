@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chili wasm test</title>
+    <style type="text/css">
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #output {
+            margin: 20px;
+        }
+
+        h2 {
+            margin-top: 20px;
+        }
+
+        p {
+            margin: 0;
+            margin-left: 20px;
+        }
+
+        .failed {
+            color: red;
+        }
+
+        .result {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+    </style>
+    
+</head>
+
+<body>
+    <div id="output"></div>
+    <script type="text/javascript">
+        function resultMessage(passed, failed, time) {
+            let p = document.createElement('p');
+            p.className = 'result';
+            p.innerHTML = `Passed: ${passed}, Failed: ${failed}, Time: ${time}`;
+            if (failed > 0) {
+                p.className += ' failed';
+            }
+            return p;
+        }
+
+        function failedMessage(actual, expected) {
+            let p = document.createElement('p');
+            p.innerHTML = `Expected ${expected}, but got ${actual}`;
+            p.className = 'failed';
+            return p;
+        }
+
+        async function test(name, fn) {
+            var passed = 0, failed = 0;
+            const expect = (actual) => {
+                return {
+                    toBe(expected) {
+                        if (actual !== expected) {
+                            div.append(failedMessage(actual, expected));
+                            failed++;
+                        } else {
+                            passed++;
+                        }
+                    }
+                };
+            };
+
+            let div = document.createElement('div');
+            div.className = 'test';
+            output.append(div);
+            let title = document.createElement('h2');
+            div.innerHTML = name
+            output.append(title);
+            let start = performance.now();
+            fn(expect);
+            let end = performance.now();
+            div.append(resultMessage(passed, failed, end - start));
+        }
+
+    </script>
+    <script type="module">
+        window.onload = async () => {
+            let output = document.getElementById('output');
+            let initWasm = await import('../build/chili/chili-wasm.js');
+            console.log(initWasm);
+            
+            let wasm = await initWasm.default();
+
+            test("test face mesh", (expect) => {
+                let point1 = new wasm.gp_Pnt(0, 0, 0);
+                let direction = new wasm.gp_Dir(0, 0, 1);
+                let ax2 = new wasm.gp_Ax2(point1, direction);
+                let box = wasm.ShapeFactory.makeBox(ax2, 1, 1, 1);
+                let mesh = new wasm.FaceMesher(box, 0.1);
+
+                expect(mesh.getPosition().length).toBe(72);
+                expect(mesh.getIndex().length).toBe(36);
+                expect(mesh.getGroups().length).toBe(18);
+                expect(mesh.getNormal().length).toBe(72);
+                expect(mesh.getUV().length).toBe(48);
+                expect(mesh.getFaces().length).toBe(6);
+            })
+
+            test("test edge mesh", (expect) => {
+                let point1 = new wasm.gp_Pnt(0, 0, 0);
+                let direction = new wasm.gp_Dir(0, 0, 1);
+                let ax2 = new wasm.gp_Ax2(point1, direction);
+                let box = wasm.ShapeFactory.makeBox(ax2, 1, 1, 1);
+                let mesh = new wasm.EdgeMesher(box, 0.1);
+
+                expect(mesh.getEdges().length).toBe(12);
+                expect(mesh.getPosition().length).toBe(72);
+                expect(mesh.getGroups().length).toBe(36);
+            })
+
+            test("test mesh 8000", (expect) => {
+                let count = 0;
+                for (let i = 0; i < 8000; i++) {
+                    let point1 = new wasm.gp_Pnt(0, 0, 0);
+                    let direction = new wasm.gp_Dir(0, 0, 1);
+                    let ax2 = new wasm.gp_Ax2(point1, direction);
+                    let box = wasm.ShapeFactory.makeBox(ax2, 10, 10, 10);
+                    let fm = new wasm.FaceMesher(box, 0.1);
+                    let em = new wasm.EdgeMesher(box, 0.1);
+                    // count += fm.getPosition().length;
+                    point1.delete();
+                    direction.delete();
+                    ax2.delete();
+                    box.delete();
+                    fm.delete();
+                    em.delete();
+                }
+                
+            })
+
+        }
+    </script>
+
+</body>
+
+</html>

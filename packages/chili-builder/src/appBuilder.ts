@@ -43,6 +43,17 @@ export class AppBuilder {
         return this;
     }
 
+    useNewOcc() {
+        // this._inits.push(async () => {
+        //     Logger.info("initializing new occ");
+
+        //     let wasmModule = await import("chili-wasm");
+        //     let wasm = await wasmModule.initWasm();
+        //     (this._shapeFactory as any).wasm = wasm; // temporary test
+        // });
+        return this;
+    }
+
     useThree(): this {
         this._inits.push(async () => {
             Logger.info("initializing three");

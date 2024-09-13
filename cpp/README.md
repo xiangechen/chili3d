@@ -15,11 +15,7 @@ Running this command will clone emscripten and install all dependencies, while a
 To build the current project, please execute
 
 ```bash
-# The reason for executing mv node_modules is to resolve a conflict with WebXR when generating .d.ts files. Are there any other solutions?
-
-mv node_modules node_modules_backup
 npm run build:wasm
-mv node_modules_backup node_modules
 ```
 
 After the compilation is completed, the target will be copied to the **packages/chili-wasm/lib** directory.

@@ -45,7 +45,7 @@ const config = defineConfig({
         ],
     },
     resolve: {
-        extensions: [".tsx", ".ts", ".js"],
+        extensions: [".ts", ".js"],
         fallback: {
             fs: false,
             perf_hooks: false,

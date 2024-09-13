@@ -1,24 +1,96 @@
+#include <BRep_Tool.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepLib_ToolTriangulatedShape.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepTools.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
-#include <BRep_Tool.hxx>
-#include <gp_Pnt.hxx>
+#include <GCPnts_TangentialDeflection.hxx>
 #include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
 #include <gp_Vec.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopoDS_Face.hxx>
-#include <Standard_Handle.hxx>
-#include <TopoDS.hxx>
-#include <TopLoc_Location.hxx>
-#include <TopExp_Explorer.hxx>
 #include <Poly_Triangulation.hxx>
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRepLib_ToolTriangulatedShape.hxx>
-#include <BRepTools.hxx>
+#include <Standard_Handle.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopLoc_Location.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS.hxx>
+#include <TopExp.hxx>
 
 using namespace emscripten;
 using namespace std;
 
-class FaceMesh
+const double ANGLE_DEFLECTION = 0.5;
+
+class EdgeMesher
+{
+private:
+    TopoDS_Shape shape;
+    double lineDeflection;
+    std::vector<float> position;
+    /// @brief start1,count1,material1,start2,count2,material2...
+    std::vector<int> group;
+    std::vector<TopoDS_Edge> edges;
+
+    void generateEdgeMeshs()
+    {
+        auto transform = shape.Location().Transformation().Inverted();
+
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(this->shape, TopAbs_EDGE, edgeMap);
+        for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
+        {
+            auto start = this->position.size() / 3;
+
+            TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
+            edges.push_back(edge);
+            generateEdgeMesh(edge, transform);
+
+            this->group.push_back(start);
+            this->group.push_back(this->position.size() / 3 - start);
+            this->group.push_back(0);
+        }
+    }
+
+    void generateEdgeMesh(const TopoDS_Edge& edge, const gp_Trsf &transform)
+    {
+        BRepAdaptor_Curve curve(edge);
+        GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, this->lineDeflection);
+        for (int i = 0; i < pnts.NbPoints(); i++)
+        {
+            auto pnt = pnts.Value(i + 1).Transformed(transform);
+            position.push_back(pnt.X());
+            position.push_back(pnt.Y());
+            position.push_back(pnt.Z());
+        }
+    }
+
+public:
+    EdgeMesher(const TopoDS_Shape& shape, double lineDeflection) : shape(shape), lineDeflection(lineDeflection)
+    {
+        generateEdgeMeshs();
+    }
+
+    val getPosition()
+    {
+        return val(typed_memory_view(position.size(), position.data()));
+    }
+
+    val getGroups()
+    {
+        return val(typed_memory_view(group.size(), group.data()));
+    }
+
+    val getEdges()
+    {
+        return val::array(edges.begin(), edges.end());
+    }
+
+};
+
+class FaceMesher
 {
 private:
     TopoDS_Shape shape;
@@ -28,16 +100,19 @@ private:
     std::vector<int> index;
     /// @brief start1,count1,material1,start2,count2,material2...
     std::vector<int> group;
+    std::vector<TopoDS_Face> faces;
 
-    void generateMeshs()
+    void generateFaceMeshs()
     {
         auto transform = shape.Location().Transformation().Inverted();
-        TopExp_Explorer explorer(this->shape, TopAbs_FACE);
-        for (; explorer.More(); explorer.Next())
+        TopTools_IndexedMapOfShape faceMap;
+        TopExp::MapShapes(this->shape, TopAbs_FACE, faceMap);
+        for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
         {
             auto start = this->position.size() / 3;
-
-            generateFaceMesh(TopoDS::Face(explorer.Current()), transform);
+            auto face = TopoDS::Face(anIt.Value());
+            faces.push_back(face);
+            generateFaceMesh(face, transform);
 
             this->group.push_back(start);
             this->group.push_back(this->position.size() / 3 - start);
@@ -127,12 +202,11 @@ private:
         }
     }
 
-
 public:
-    FaceMesh(const TopoDS_Shape &shape) : shape(shape)
+    FaceMesher(const TopoDS_Shape &shape, double lineDeflection) : shape(shape)
     {
-        BRepMesh_IncrementalMesh mesh(shape, 0.1, 0.5);
-        generateMeshs();
+        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, false, 0.1);
+        generateFaceMeshs();
     }
 
     val getPosition()
@@ -159,16 +233,33 @@ public:
     {
         return val(typed_memory_view(group.size(), group.data()));
     }
+
+    val getFaces()
+    {
+        return val::array(faces.begin(), faces.end());
+    }
 };
 
-EMSCRIPTEN_BINDINGS(FaceMesh)
+EMSCRIPTEN_BINDINGS(Mesher)
 {
+    class_<FaceMesher>("FaceMesher")
+        .constructor<const TopoDS_Shape &, double>()
+        .function("getPosition", &FaceMesher::getPosition)
+        .function("getNormal", &FaceMesher::getNormal)
+        .function("getUV", &FaceMesher::getUV)
+        .function("getIndex", &FaceMesher::getIndex)
+        .function("getGroups", &FaceMesher::getGroups)
+        .function("getFaces", &FaceMesher::getFaces)
+    ;
 
-    class_<FaceMesh>("FaceMesh")
-        .constructor<TopoDS_Shape>()
-        .function("getPosition", &FaceMesh::getPosition)
-        .function("getNormal", &FaceMesh::getNormal)
-        .function("getUV", &FaceMesh::getUV)
-        .function("getIndex", &FaceMesh::getIndex)
-        .function("getGroups", &FaceMesh::getGroups);
+    class_<EdgeMesher>("EdgeMesher")
+        .constructor<const TopoDS_Shape &, double>()
+        .function("getPosition", &EdgeMesher::getPosition)
+        .function("getGroups", &EdgeMesher::getGroups)
+        .function("getEdges", &EdgeMesher::getEdges)
+    ;
+
+    register_vector<TopoDS_Face>("FaceVector");
+    register_vector<TopoDS_Edge>("EdgeVector");
+
 }

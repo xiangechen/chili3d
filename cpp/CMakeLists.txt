@@ -31,19 +31,24 @@ set(OCCT_LIBS
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     message(STATUS "EMSCRIPTEN: ${EMSCRIPTEN}")
 
-    add_executable(${TARGET} src/faceMesh.cpp src/occ.cpp src/shapeFactory.cpp)
+    add_executable(${TARGET} src/mesher.cpp src/opencascade.cpp src/shapeFactory.cpp)
 
     target_compile_options (${TARGET} PUBLIC -O3)
     target_compile_options (${TARGET} PUBLIC -flto)
+    target_compile_options (${TARGET} PUBLIC -fexceptions)
+    target_compile_options (${TARGET} PUBLIC -sDISABLE_EXCEPTION_CATCHING=1)
+    target_compile_options (${TARGET} PUBLIC -DIGNORE_NO_ATOMICS=1)
+    target_compile_options (${TARGET} PUBLIC -frtti)
 
     target_link_options (${TARGET} PUBLIC -O3)
     target_link_options (${TARGET} PUBLIC -flto)
     target_link_options (${TARGET} PUBLIC -sEXPORT_ES6=1)
     target_link_options (${TARGET} PUBLIC -sMODULARIZE=1)
+    target_link_options (${TARGET} PUBLIC -sENVIRONMENT="web")
     target_link_options (${TARGET} PUBLIC -sEXPORT_NAME='ChiliWasm')
-    target_link_options (${TARGET} PUBLIC -sSTACK_SIZE=100MB)
     target_link_options (${TARGET} PUBLIC -sALLOW_MEMORY_GROWTH=1)
     target_link_options (${TARGET} PUBLIC -sDISABLE_EXCEPTION_CATCHING=1)
+    target_link_options (${TARGET} PUBLIC -sEXPORTED_RUNTIME_METHODS=["FS"])
     target_link_options (${TARGET} PUBLIC --bind)
     target_link_options (${TARGET} PUBLIC --emit-tsd "${TARGET}.d.ts")
 

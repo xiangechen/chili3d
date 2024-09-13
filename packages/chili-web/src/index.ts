@@ -11,6 +11,7 @@ document.body.appendChild(loading);
 new AppBuilder()
     .useIndexedDB()
     .useOcc()
+    .useNewOcc()
     .useThree()
     .useUI()
     .build()
