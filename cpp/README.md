@@ -2,13 +2,13 @@
 
 ## Clone and install all dependencies
 
-When compiling for the first time, deleting the build directory, or needing to update dependencies, execute
+When compiling for the first time, or if the build directory has been deleted or dependencies have been updated, please execute this command
 
 ```bash
 npm run setup:wasm
 ```
 
-Running this command will clone emscripten and install all dependencies, while also compiling libraries such as opencascade into static libraries. Note: This command will take a significant amount of time. If you see **Setup complete**, it means it was successful. Otherwise, please check the logs and try running again.
+If you see **Setup complete**, it means it was successful. Otherwise, please check the logs and try running again.
 
 ## Compile
 

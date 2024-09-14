@@ -44,13 +44,13 @@ export class AppBuilder {
     }
 
     useNewOcc() {
-        // this._inits.push(async () => {
-        //     Logger.info("initializing new occ");
+        this._inits.push(async () => {
+            Logger.info("initializing new occ");
 
-        //     let wasmModule = await import("chili-wasm");
-        //     let wasm = await wasmModule.initWasm();
-        //     (this._shapeFactory as any).wasm = wasm; // temporary test
-        // });
+            let wasmModule = await import("chili-wasm");
+            let wasm = await wasmModule.initWasm();
+            (this._shapeFactory as any).wasm = wasm; // temporary test
+        });
         return this;
     }
 

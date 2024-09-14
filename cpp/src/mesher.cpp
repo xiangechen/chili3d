@@ -24,6 +24,9 @@ using namespace std;
 
 const double ANGLE_DEFLECTION = 0.5;
 
+EMSCRIPTEN_DECLARE_VAL_TYPE(Float32Array)
+EMSCRIPTEN_DECLARE_VAL_TYPE(Int32Array)
+
 class EdgeMesher
 {
 private:
@@ -75,12 +78,12 @@ public:
 
     val getPosition()
     {
-        return val(typed_memory_view(position.size(), position.data()));
+        return val::array(position.begin(), position.end());
     }
 
-    val getGroups()
+    Int32Array getGroups()
     {
-        return val(typed_memory_view(group.size(), group.data()));
+        return Int32Array(val(typed_memory_view(group.size(), group.data())));
     }
 
     val getEdges()
@@ -261,5 +264,8 @@ EMSCRIPTEN_BINDINGS(Mesher)
 
     register_vector<TopoDS_Face>("FaceVector");
     register_vector<TopoDS_Edge>("EdgeVector");
+
+    register_type<Float32Array>("Float32Array");
+    register_type<Int32Array>("Int32Array");
 
 }

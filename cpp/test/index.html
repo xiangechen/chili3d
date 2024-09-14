@@ -88,10 +88,7 @@
         window.onload = async () => {
             let output = document.getElementById('output');
             let initWasm = await import('../build/chili/chili-wasm.js');
-            console.log(initWasm);
-            
             let wasm = await initWasm.default();
-
             test("test face mesh", (expect) => {
                 let point1 = new wasm.gp_Pnt(0, 0, 0);
                 let direction = new wasm.gp_Dir(0, 0, 1);
@@ -128,7 +125,7 @@
                     let box = wasm.ShapeFactory.makeBox(ax2, 10, 10, 10);
                     let fm = new wasm.FaceMesher(box, 0.1);
                     let em = new wasm.EdgeMesher(box, 0.1);
-                    // count += fm.getPosition().length;
+                    count += fm.getPosition().length;
                     point1.delete();
                     direction.delete();
                     ax2.delete();
@@ -136,6 +133,7 @@
                     fm.delete();
                     em.delete();
                 }
+                console.log(count);
                 
             })
 
