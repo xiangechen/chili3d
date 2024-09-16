@@ -15,37 +15,21 @@ declare namespace RuntimeExports {
 interface WasmModule {}
 
 export interface FaceMesher {
-    getPosition(): any;
-    getNormal(): any;
-    getUV(): any;
-    getIndex(): any;
-    getGroups(): any;
-    getFaces(): any;
+    getPosition(): Array<number>;
+    getNormal(): Array<number>;
+    getUV(): Array<number>;
+    getIndex(): Array<number>;
+    getGroups(): Array<number>;
+    getFaceSize(): number;
+    getFace(_0: number): TopoDS_Face;
     delete(): void;
 }
 
 export interface EdgeMesher {
-    getGroups(): Int32Array;
-    getPosition(): any;
-    getEdges(): any;
-    delete(): void;
-}
-
-export interface FaceVector {
-    size(): number;
-    get(_0: number): TopoDS_Face | undefined;
-    push_back(_0: TopoDS_Face): void;
-    resize(_0: number, _1: TopoDS_Face): void;
-    set(_0: number, _1: TopoDS_Face): boolean;
-    delete(): void;
-}
-
-export interface EdgeVector {
-    size(): number;
-    get(_0: number): TopoDS_Edge | undefined;
-    push_back(_0: TopoDS_Edge): void;
-    resize(_0: number, _1: TopoDS_Edge): void;
-    set(_0: number, _1: TopoDS_Edge): boolean;
+    getPosition(): Array<number>;
+    getGroups(): Array<number>;
+    getEdgeSize(): number;
+    getEdge(_0: number): TopoDS_Edge;
     delete(): void;
 }
 
@@ -128,8 +112,6 @@ export interface ShapeFactory {
 interface EmbindModule {
     FaceMesher: { new (_0: TopoDS_Shape, _1: number): FaceMesher };
     EdgeMesher: { new (_0: TopoDS_Shape, _1: number): EdgeMesher };
-    FaceVector: { new (): FaceVector };
-    EdgeVector: { new (): EdgeVector };
     gp_Pnt: { new (_0: number, _1: number, _2: number): gp_Pnt };
     gp_Vec: { new (_0: number, _1: number, _2: number): gp_Vec };
     gp_Dir: { new (_0: number, _1: number, _2: number): gp_Dir };

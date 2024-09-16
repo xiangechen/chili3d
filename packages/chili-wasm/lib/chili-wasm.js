@@ -219,10 +219,10 @@ var ChiliWasm = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["$"];
+                wasmMemory = wasmExports["Z"];
                 updateMemoryViews();
-                wasmTable = wasmExports["ea"];
-                addOnInit(wasmExports["aa"]);
+                wasmTable = wasmExports["ca"];
+                addOnInit(wasmExports["_"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -4158,9 +4158,6 @@ var ChiliWasm = (() => {
                 { ignoreDuplicateRegistrations: true },
             );
         };
-        var __embind_register_optional = (rawOptionalType, rawType) => {
-            __embind_register_emval(rawOptionalType);
-        };
         var stringToUTF8 = (str, outPtr, maxBytesToWrite) =>
             stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
         var __embind_register_std_string = (rawType, name) => {
@@ -4586,11 +4583,6 @@ var ChiliWasm = (() => {
             runDestructors(destructors);
             __emval_decref(handle);
         };
-        var __emval_take_value = (type, arg) => {
-            type = requireRegisteredType(type, "_emval_take_value");
-            var v = type["readValueFromPointer"](arg);
-            return Emval.toHandle(v);
-        };
         var isLeapYear = (year) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
         var MONTH_DAYS_LEAP_CUMULATIVE = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
         var MONTH_DAYS_REGULAR_CUMULATIVE = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -4904,73 +4896,71 @@ var ChiliWasm = (() => {
         UnboundTypeError = Module["UnboundTypeError"] = extendError(Error, "UnboundTypeError");
         init_emval();
         var wasmImports = {
-            i: ___assert_fail,
+            h: ___assert_fail,
             a: ___cxa_throw,
             Q: ___syscall_chmod,
-            R: ___syscall_faccessat,
-            o: ___syscall_fcntl64,
+            S: ___syscall_faccessat,
+            q: ___syscall_fcntl64,
             M: ___syscall_fstat64,
-            V: ___syscall_ioctl,
+            W: ___syscall_ioctl,
             K: ___syscall_lstat64,
-            I: ___syscall_newfstatat,
-            q: ___syscall_openat,
+            J: ___syscall_newfstatat,
+            t: ___syscall_openat,
             L: ___syscall_stat64,
-            F: __abort_js,
-            y: __embind_register_bigint,
-            Y: __embind_register_bool,
+            G: __abort_js,
+            z: __embind_register_bigint,
+            R: __embind_register_bool,
             c: __embind_register_class,
-            r: __embind_register_class_class_function,
-            f: __embind_register_class_constructor,
-            b: __embind_register_class_function,
-            e: __embind_register_class_property,
-            X: __embind_register_emval,
-            s: __embind_register_float,
-            g: __embind_register_integer,
-            d: __embind_register_memory_view,
-            v: __embind_register_optional,
-            t: __embind_register_std_string,
-            p: __embind_register_std_wstring,
-            u: __embind_register_user_type,
-            Z: __embind_register_void,
+            u: __embind_register_class_class_function,
+            g: __embind_register_class_constructor,
+            e: __embind_register_class_function,
+            d: __embind_register_class_property,
+            w: __embind_register_emval,
+            r: __embind_register_float,
+            f: __embind_register_integer,
+            b: __embind_register_memory_view,
+            s: __embind_register_std_string,
+            o: __embind_register_std_wstring,
+            v: __embind_register_user_type,
+            Y: __embind_register_void,
             O: __emscripten_get_now_is_monotonic,
-            A: __emscripten_lookup_name,
+            B: __emscripten_lookup_name,
             N: __emscripten_memcpy_js,
-            E: __emscripten_runtime_keepalive_clear,
+            F: __emscripten_runtime_keepalive_clear,
             l: __emval_call_method,
-            J: __emval_decref,
+            n: __emval_decref,
             k: __emval_get_method_caller,
-            _: __emval_incref,
+            i: __emval_incref,
             m: __emval_new_array,
             j: __emval_run_destructors,
-            h: __emval_take_value,
-            w: __localtime_js,
-            z: __setitimer_js,
-            S: __tzset_js,
+            x: __localtime_js,
+            A: __setitimer_js,
+            T: __tzset_js,
             P: _emscripten_date_now,
-            C: _emscripten_get_heap_max,
-            B: _emscripten_resize_heap,
-            G: _environ_get,
-            H: _environ_sizes_get,
-            W: _exit,
-            n: _fd_close,
-            U: _fd_read,
-            x: _fd_seek,
-            T: _fd_write,
-            D: _proc_exit,
+            D: _emscripten_get_heap_max,
+            C: _emscripten_resize_heap,
+            H: _environ_get,
+            I: _environ_sizes_get,
+            X: _exit,
+            p: _fd_close,
+            V: _fd_read,
+            y: _fd_seek,
+            U: _fd_write,
+            E: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["aa"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ba"])(a0);
-        var _free = (a0) => (_free = wasmExports["ca"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["da"])(a0);
-        var _htons = (a0) => (_htons = wasmExports["fa"])(a0);
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["_"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["$"])(a0);
+        var _free = (a0) => (_free = wasmExports["aa"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["ba"])(a0);
+        var _htons = (a0) => (_htons = wasmExports["da"])(a0);
         var _emscripten_builtin_memalign = (a0, a1) =>
-            (_emscripten_builtin_memalign = wasmExports["ga"])(a0, a1);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ha"])(a0, a1);
+            (_emscripten_builtin_memalign = wasmExports["ea"])(a0, a1);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["fa"])(a0, a1);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ia"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ga"])(a0, a1, a2, a3, a4));
         var dynCall_viiiiji = (Module["dynCall_viiiiji"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["ja"])(
+            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["ha"])(
                 a0,
                 a1,
                 a2,
@@ -4981,11 +4971,11 @@ var ChiliWasm = (() => {
                 a7,
             ));
         var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["ka"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["ia"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["la"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ja"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ma"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ka"])(
                 a0,
                 a1,
                 a2,
@@ -4997,7 +4987,7 @@ var ChiliWasm = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["na"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["la"])(
                 a0,
                 a1,
                 a2,

@@ -1,3 +1,4 @@
+#include "base.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
@@ -12,20 +13,17 @@
 #include <Poly_Triangulation.hxx>
 #include <Standard_Handle.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
 #include <TopLoc_Location.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS.hxx>
-#include <TopExp.hxx>
 
 using namespace emscripten;
 using namespace std;
 
 const double ANGLE_DEFLECTION = 0.5;
-
-EMSCRIPTEN_DECLARE_VAL_TYPE(Float32Array)
-EMSCRIPTEN_DECLARE_VAL_TYPE(Int32Array)
 
 class EdgeMesher
 {
@@ -33,8 +31,8 @@ private:
     TopoDS_Shape shape;
     double lineDeflection;
     std::vector<float> position;
-    /// @brief start1,count1,material1,start2,count2,material2...
-    std::vector<int> group;
+    /// @brief start1,count1,start2,count2...
+    std::vector<uint32_t> group;
     std::vector<TopoDS_Edge> edges;
 
     void generateEdgeMeshs()
@@ -53,7 +51,6 @@ private:
 
             this->group.push_back(start);
             this->group.push_back(this->position.size() / 3 - start);
-            this->group.push_back(0);
         }
     }
 
@@ -76,19 +73,24 @@ public:
         generateEdgeMeshs();
     }
 
-    val getPosition()
+    NumberArray getPosition()
     {
-        return val::array(position.begin(), position.end());
+        return NumberArray(val::array(position.begin(), position.end()));
     }
 
-    Int32Array getGroups()
+    NumberArray getGroups()
     {
-        return Int32Array(val(typed_memory_view(group.size(), group.data())));
+        return NumberArray(val::array(group.begin(), group.end()));
     }
 
-    val getEdges()
+    size_t getEdgeSize()
     {
-        return val::array(edges.begin(), edges.end());
+        return edges.size();
+    }
+
+    TopoDS_Edge& getEdge(size_t index)
+    {
+        return edges[index];
     }
 
 };
@@ -100,9 +102,9 @@ private:
     std::vector<float> position;
     std::vector<float> normal;
     std::vector<float> uv;
-    std::vector<int> index;
-    /// @brief start1,count1,material1,start2,count2,material2...
-    std::vector<int> group;
+    std::vector<uint32_t> index;
+    /// @brief start1,count1,start2,count2...
+    std::vector<uint32_t> group;
     std::vector<TopoDS_Face> faces;
 
     void generateFaceMeshs()
@@ -119,7 +121,6 @@ private:
 
             this->group.push_back(start);
             this->group.push_back(this->position.size() / 3 - start);
-            this->group.push_back(0);
         }
     }
 
@@ -136,9 +137,10 @@ private:
         bool isMirrod = trsf.VectorialPart().Determinant() < 0;
         trsf = trsf.Multiplied(transform);
         auto orientation = face.Orientation();
+        auto startIndex = this->position.size() / 3;
 
+        this->fillIndex(startIndex, handlePoly, orientation);
         this->fillPosition(transform, handlePoly);
-        this->fillIndex(handlePoly, orientation);
         this->fillNormal(transform, face, handlePoly, (orientation == TopAbs_REVERSED) ^ isMirrod);
         this->fillUv(face, handlePoly);
     }
@@ -170,9 +172,8 @@ private:
         }
     }
 
-    void fillIndex(const Handle(Poly_Triangulation) & handlePoly, const TopAbs_Orientation &orientation)
+    void fillIndex(size_t startIndex, const Handle(Poly_Triangulation) & handlePoly, const TopAbs_Orientation &orientation)
     {
-        auto startIndex = this->position.size() / 3;
         for (int index = 0; index < handlePoly->NbTriangles(); index++)
         {
             auto triangle = handlePoly->Triangle(index + 1);
@@ -212,34 +213,38 @@ public:
         generateFaceMeshs();
     }
 
-    val getPosition()
+    NumberArray getPosition()
     {
-        return val(typed_memory_view(position.size(), position.data()));
+        return NumberArray(val::array(position.begin(), position.end()));
     }
 
-    val getNormal()
+    NumberArray getNormal()
     {
-        return val(typed_memory_view(normal.size(), normal.data()));
+        return NumberArray(val::array(normal.begin(), normal.end()));
     }
 
-    val getUV()
+    NumberArray getUV()
     {
-        return val(typed_memory_view(uv.size(), uv.data()));
+        return NumberArray(val::array(uv.begin(), uv.end()));
     }
 
-    val getIndex()
+    NumberArray getIndex()
     {
-        return val(typed_memory_view(index.size(), index.data()));
+        return NumberArray(val::array(index.begin(), index.end()));
     }
 
-    val getGroups()
+    NumberArray getGroups()
     {
-        return val(typed_memory_view(group.size(), group.data()));
+        return NumberArray(val::array(group.begin(), group.end()));
     }
 
-    val getFaces()
+    size_t getFaceSize()
     {
-        return val::array(faces.begin(), faces.end());
+        return faces.size();
+    }
+
+    TopoDS_Face& getFace(size_t index) {
+        return faces[index];
     }
 };
 
@@ -252,20 +257,18 @@ EMSCRIPTEN_BINDINGS(Mesher)
         .function("getUV", &FaceMesher::getUV)
         .function("getIndex", &FaceMesher::getIndex)
         .function("getGroups", &FaceMesher::getGroups)
-        .function("getFaces", &FaceMesher::getFaces)
+        .function("getFaceSize", &FaceMesher::getFaceSize)
+        .function("getFace", &FaceMesher::getFace)
     ;
 
     class_<EdgeMesher>("EdgeMesher")
         .constructor<const TopoDS_Shape &, double>()
         .function("getPosition", &EdgeMesher::getPosition)
         .function("getGroups", &EdgeMesher::getGroups)
-        .function("getEdges", &EdgeMesher::getEdges)
+        .function("getEdgeSize", &EdgeMesher::getEdgeSize)
+        .function("getEdge", &EdgeMesher::getEdge)
     ;
 
-    register_vector<TopoDS_Face>("FaceVector");
-    register_vector<TopoDS_Edge>("EdgeVector");
-
-    register_type<Float32Array>("Float32Array");
-    register_type<Int32Array>("Int32Array");
+    
 
 }
