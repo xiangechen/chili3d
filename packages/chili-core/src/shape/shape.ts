@@ -20,7 +20,7 @@ export interface IShape extends IDisposable {
     get mesh(): IShapeMeshData;
     matrix: Matrix4;
     isClosed(): boolean;
-    isEmpty(): boolean;
+    isNull(): boolean;
     /**
      * they share the same TShape with the same Locations and Orientations.
      */
@@ -39,8 +39,6 @@ export interface IShape extends IDisposable {
     iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape>;
     section(shape: IShape | Plane): IShape;
     split(edges: (IEdge | IWire)[]): IShape;
-    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape;
-    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape;
 }
 
 export interface IVertex extends IShape {}

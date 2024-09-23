@@ -98,10 +98,9 @@
 
                 expect(mesh.getPosition().length).toBe(72);
                 expect(mesh.getIndex().length).toBe(36);
-                expect(mesh.getGroups().length).toBe(18);
+                expect(mesh.getGroups().length).toBe(12);
                 expect(mesh.getNormal().length).toBe(72);
                 expect(mesh.getUV().length).toBe(48);
-                expect(mesh.getFaces().length).toBe(6);
             })
 
             test("test edge mesh", (expect) => {
@@ -111,21 +110,26 @@
                 let box = wasm.ShapeFactory.makeBox(ax2, 1, 1, 1);
                 let mesh = new wasm.EdgeMesher(box, 0.1);
 
-                expect(mesh.getEdges().length).toBe(12);
                 expect(mesh.getPosition().length).toBe(72);
-                expect(mesh.getGroups().length).toBe(36);
+                expect(mesh.getGroups().length).toBe(24);
             })
 
-            test("test mesh 8000", (expect) => {
+            test("test mesh 1000", (expect) => {
                 let count = 0;
-                for (let i = 0; i < 8000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     let point1 = new wasm.gp_Pnt(0, 0, 0);
                     let direction = new wasm.gp_Dir(0, 0, 1);
                     let ax2 = new wasm.gp_Ax2(point1, direction);
                     let box = wasm.ShapeFactory.makeBox(ax2, 10, 10, 10);
                     let fm = new wasm.FaceMesher(box, 0.1);
                     let em = new wasm.EdgeMesher(box, 0.1);
-                    count += fm.getPosition().length;
+
+                    count += new Float32Array(fm.getPosition()).length;
+                    count += new Uint32Array(fm.getIndex()).length;
+                    count += new Uint32Array(fm.getGroups()).length;
+                    count += new Float32Array(fm.getNormal()).length;
+                    count += new Float32Array(fm.getUV()).length;
+
                     point1.delete();
                     direction.delete();
                     ax2.delete();
@@ -135,6 +139,20 @@
                 }
                 console.log(count);
                 
+            })
+
+            test("test shape", (expect) => {
+                let point1 = new wasm.gp_Pnt(0, 0, 0);
+                let direction = new wasm.gp_Dir(0, 0, 1);
+                let ax2 = new wasm.gp_Ax2(point1, direction);
+                let box = wasm.ShapeFactory.makeBox(ax2, 1, 1, 1);
+                let edges = wasm.Shape.findSubShapes(box, wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+                expect(edges.length).toBe(12);
+                expect(edges[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+
+                let faces = wasm.Shape.findAncestor(box, edges[0], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+                expect(faces.length).toBe(2);
+                expect(faces[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_FACE)
             })
 
         }

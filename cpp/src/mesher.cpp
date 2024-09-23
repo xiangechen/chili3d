@@ -1,4 +1,4 @@
-#include "base.hpp"
+#include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
@@ -32,7 +32,7 @@ private:
     double lineDeflection;
     std::vector<float> position;
     /// @brief start1,count1,start2,count2...
-    std::vector<uint32_t> group;
+    std::vector<size_t> group;
     std::vector<TopoDS_Edge> edges;
 
     void generateEdgeMeshs()
@@ -73,14 +73,14 @@ public:
         generateEdgeMeshs();
     }
 
-    NumberArray getPosition()
+    Float32Array getPosition()
     {
-        return NumberArray(val::array(position.begin(), position.end()));
+        return Float32Array(val(typed_memory_view(position.size(), position.data())));
     }
 
-    NumberArray getGroups()
+    Uint32Array getGroups()
     {
-        return NumberArray(val::array(group.begin(), group.end()));
+        return Uint32Array(val(typed_memory_view(group.size(), group.data())));
     }
 
     size_t getEdgeSize()
@@ -93,6 +93,10 @@ public:
         return edges[index];
     }
 
+    EdgeArray getEdges() {
+        return EdgeArray(val::array(edges.begin(), edges.end()));
+    }
+
 };
 
 class FaceMesher
@@ -102,9 +106,9 @@ private:
     std::vector<float> position;
     std::vector<float> normal;
     std::vector<float> uv;
-    std::vector<uint32_t> index;
+    std::vector<size_t> index;
     /// @brief start1,count1,start2,count2...
-    std::vector<uint32_t> group;
+    std::vector<size_t> group;
     std::vector<TopoDS_Face> faces;
 
     void generateFaceMeshs()
@@ -176,19 +180,17 @@ private:
     {
         for (int index = 0; index < handlePoly->NbTriangles(); index++)
         {
-            auto triangle = handlePoly->Triangle(index + 1);
+            auto v1(1), v2(2), v3(3);
             if (orientation == TopAbs_REVERSED)
             {
-                this->index.push_back(triangle.Value(1) - 1 + startIndex);
-                this->index.push_back(triangle.Value(3) - 1 + startIndex);
-                this->index.push_back(triangle.Value(2) - 1 + startIndex);
+                v2 = 3;
+                v3 = 2;
             }
-            else
-            {
-                this->index.push_back(triangle.Value(1) - 1 + startIndex);
-                this->index.push_back(triangle.Value(2) - 1 + startIndex);
-                this->index.push_back(triangle.Value(3) - 1 + startIndex);
-            }
+            
+            auto triangle = handlePoly->Triangle(index + 1);
+            this->index.push_back(triangle.Value(v1) - 1 + startIndex);
+            this->index.push_back(triangle.Value(v2) - 1 + startIndex);
+            this->index.push_back(triangle.Value(v3) - 1 + startIndex);
         }
     }
 
@@ -213,29 +215,29 @@ public:
         generateFaceMeshs();
     }
 
-    NumberArray getPosition()
+    Float32Array getPosition()
     {
-        return NumberArray(val::array(position.begin(), position.end()));
+        return Float32Array(val(typed_memory_view(position.size(), position.data())));
     }
 
-    NumberArray getNormal()
+    Float32Array getNormal()
     {
-        return NumberArray(val::array(normal.begin(), normal.end()));
+        return Float32Array(val(typed_memory_view(normal.size(), normal.data())));
     }
 
-    NumberArray getUV()
+    Float32Array getUV()
     {
-        return NumberArray(val::array(uv.begin(), uv.end()));
+        return Float32Array(val(typed_memory_view(uv.size(), uv.data())));
     }
 
-    NumberArray getIndex()
+    Uint32Array getIndex()
     {
-        return NumberArray(val::array(index.begin(), index.end()));
+        return Uint32Array(val(typed_memory_view(index.size(), index.data())));
     }
 
-    NumberArray getGroups()
+    Uint32Array getGroups()
     {
-        return NumberArray(val::array(group.begin(), group.end()));
+        return Uint32Array(val(typed_memory_view(group.size(), group.data())));
     }
 
     size_t getFaceSize()
@@ -246,6 +248,11 @@ public:
     TopoDS_Face& getFace(size_t index) {
         return faces[index];
     }
+
+    FaceArray getFaces() {
+        return FaceArray(val::array(faces.begin(), faces.end()));
+    }
+
 };
 
 EMSCRIPTEN_BINDINGS(Mesher)
@@ -259,6 +266,7 @@ EMSCRIPTEN_BINDINGS(Mesher)
         .function("getGroups", &FaceMesher::getGroups)
         .function("getFaceSize", &FaceMesher::getFaceSize)
         .function("getFace", &FaceMesher::getFace)
+        .function("getFaces", &FaceMesher::getFaces)
     ;
 
     class_<EdgeMesher>("EdgeMesher")
@@ -267,6 +275,7 @@ EMSCRIPTEN_BINDINGS(Mesher)
         .function("getGroups", &EdgeMesher::getGroups)
         .function("getEdgeSize", &EdgeMesher::getEdgeSize)
         .function("getEdge", &EdgeMesher::getEdge)
+        .function("getEdges", &EdgeMesher::getEdges)
     ;
 
     

@@ -3,6 +3,7 @@
 import { EdgeMeshData, FaceMeshData, LineType, VertexMeshData } from "chili-core";
 import {
     AlwaysDepth,
+    BufferAttribute,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
@@ -31,10 +32,10 @@ export class ThreeGeometryFactory {
 
     static createFaceGeometry(data: FaceMeshData) {
         let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
-        buff.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
-        buff.setIndex(data.indices);
+        buff.setAttribute("position", new BufferAttribute(new Float32Array(data.positions), 3));
+        buff.setAttribute("normal", new BufferAttribute(new Float32Array(data.normals), 3));
+        buff.setAttribute("uv", new BufferAttribute(new Float32Array(data.uvs), 2));
+        buff.setIndex(new BufferAttribute(new Uint32Array(data.indices), 1));
         buff.computeBoundingBox();
         let material = new MeshLambertMaterial({ side: DoubleSide });
         if (typeof data.color === "number") {
@@ -49,7 +50,7 @@ export class ThreeGeometryFactory {
 
     static createEdgeGeometry(data: EdgeMeshData) {
         let buff = new LineSegmentsGeometry();
-        buff.setPositions(data.positions);
+        buff.setPositions(new Float32Array(data.positions));
 
         let color = data.color as number;
         let linewidth = data.lineWidth ?? 1;

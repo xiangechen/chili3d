@@ -66,7 +66,8 @@ export class OccShape implements IShape {
         this._shape.delete();
         this._shape = null as any;
     }
-    isEmpty(): boolean {
+
+    isNull(): boolean {
         return occ.BOPTools_AlgoTools3D.IsEmptyShape(this.shape);
     }
 
@@ -176,27 +177,6 @@ export class OccShape implements IShape {
             if (!spliter.IsDone()) {
                 throw new Error("Failed to split shape");
             }
-            return OccHelps.wrapShape(spliter.Shape());
-        });
-    }
-
-    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
-        return gc((c) => {
-            let face = onFace as OccFace;
-            let spliter = c(new occ.BRepFeat_SplitShape_2(this.shape));
-            if (edges instanceof OccEdge) {
-                spliter.Add_3(edges.shape, face.shape);
-            } else if (edges instanceof OccWire) {
-                spliter.Add_2(edges.shape, face.shape);
-            }
-            return OccHelps.wrapShape(spliter.Shape());
-        });
-    }
-
-    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
-        return gc((c) => {
-            let spliter = c(new occ.BRepFeat_SplitShape_2(this.shape));
-            spliter.Add_5((onEdge as OccEdge).shape, (edge as OccEdge).shape);
             return OccHelps.wrapShape(spliter.Shape());
         });
     }

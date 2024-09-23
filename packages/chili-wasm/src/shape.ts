@@ -1,71 +1,93 @@
-import {
-    IEdge,
-    IFace,
-    IShape,
-    IShapeMeshData,
-    IWire,
-    Matrix4,
-    Orientation,
-    Plane,
-    ShapeType,
-} from "chili-core";
-import { TopoDS_Shape } from "../lib/chili-wasm";
+import { IEdge, IShape, IShapeMeshData, IWire, Matrix4, Orientation, Plane, ShapeType } from "chili-core";
+import { TopoDS_Shape, Shape } from "../lib/chili-wasm";
+import { OcctHelper } from "./helper";
+import { Mesher } from "./mesher";
 
 export class OccShape implements IShape {
-    shapeType: ShapeType;
-    get id(): string {
-        throw new Error("Method not implemented.");
+    readonly shapeType: ShapeType;
+    readonly mesh: IShapeMeshData;
+
+    protected _shape: TopoDS_Shape;
+    get shape(): TopoDS_Shape {
+        return this._shape;
     }
-    get mesh(): IShapeMeshData {
+
+    get id(): string {
         throw new Error("Method not implemented.");
     }
     matrix: Matrix4;
 
-    constructor(readonly shape: TopoDS_Shape) {
-        this.shapeType = ShapeType.Shape;
+    constructor(shape: TopoDS_Shape) {
+        this._shape = shape;
+        this.shapeType = OcctHelper.getShapeType(shape);
+        this.mesh = new Mesher(this);
         this.matrix = new Matrix4();
     }
 
     isClosed(): boolean {
-        throw new Error("Method not implemented.");
+        return wasm.Shape.isClosed(this.shape);
     }
-    isEmpty(): boolean {
-        throw new Error("Method not implemented.");
+
+    isNull(): boolean {
+        return this.shape.isNull();
     }
+
     isEqual(other: IShape): boolean {
-        throw new Error("Method not implemented.");
+        if (other instanceof OccShape) {
+            return this.shape.isEqual(other.shape);
+        }
+        return false;
     }
+
     isSame(other: IShape): boolean {
-        throw new Error("Method not implemented.");
+        if (other instanceof OccShape) {
+            return this.shape.isSame(other.shape);
+        }
+        return false;
     }
+
     isPartner(other: IShape): boolean {
-        throw new Error("Method not implemented.");
+        if (other instanceof OccShape) {
+            return this.shape.isPartner(other.shape);
+        }
+        return false;
     }
+
     orientation(): Orientation {
-        throw new Error("Method not implemented.");
+        return OcctHelper.getOrientation(this.shape);
     }
+
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
-        throw new Error("Method not implemented.");
+        if (fromShape instanceof OccShape) {
+            return wasm.Shape.findAncestor(
+                fromShape.shape,
+                this.shape,
+                OcctHelper.getShapeEnum(ancestorType),
+            ).map((x) => OcctHelper.wrapShape(x));
+        }
+        return [];
     }
+
     findSubShapes(subshapeType: ShapeType): IShape[] {
-        throw new Error("Method not implemented.");
+        return wasm.Shape.findSubShapes(this.shape, OcctHelper.getShapeEnum(subshapeType)).map((x) =>
+            OcctHelper.wrapShape(x),
+        );
     }
+
     iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape> {
         throw new Error("Method not implemented.");
     }
+
     section(shape: IShape | Plane): IShape {
         throw new Error("Method not implemented.");
     }
+
     split(edges: (IEdge | IWire)[]): IShape {
         throw new Error("Method not implemented.");
     }
-    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
-        throw new Error("Method not implemented.");
-    }
-    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
-        throw new Error("Method not implemented.");
-    }
+
     dispose(): void {
-        throw new Error("Method not implemented.");
+        this._shape.delete();
+        this._shape = null as any;
     }
 }

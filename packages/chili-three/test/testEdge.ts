@@ -3,7 +3,6 @@ import {
     ICurve,
     IDocument,
     IEdge,
-    IFace,
     IShape,
     IShapeMeshData,
     ITrimmedCurve,
@@ -37,19 +36,13 @@ export class TestEdge implements IEdge {
     isClosed(): boolean {
         throw new Error("Method not implemented.");
     }
-    isEmpty(): boolean {
+    isNull(): boolean {
         throw new Error("Method not implemented.");
     }
     section(shape: IShape | Plane): IShape {
         throw new Error("Method not implemented.");
     }
     split(edges: (IEdge | IWire)[]): IShape {
-        throw new Error("Method not implemented.");
-    }
-    splitWithFace(onFace: IFace, edges: IEdge | IWire): IShape {
-        throw new Error("Method not implemented.");
-    }
-    splitWithEdge(onEdge: IEdge, edge: IEdge): IShape {
         throw new Error("Method not implemented.");
     }
 
