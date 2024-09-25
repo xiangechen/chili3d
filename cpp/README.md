@@ -8,7 +8,7 @@ When compiling for the first time, or if the build directory has been deleted or
 npm run setup:wasm
 ```
 
-If you see **Setup complete**, it means it was successful. Otherwise, please check the logs and try running again.
+If you see **Setup complete**, it means it was successful. Otherwise, please check the logs and try again.
 
 ## Compile
 

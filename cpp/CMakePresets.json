@@ -3,10 +3,41 @@
     "configurePresets": [
         {
             "name": "default",
-            "displayName": "Emscripten",
-            "binaryDir": "build/chili",
             "generator": "Ninja",
+            "hidden": true,
             "toolchainFile": "build/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+        },
+        {
+            "name": "debug",
+            "inherits": "default",
+            "displayName": "Emscripten Debug",
+            "binaryDir": "build/target/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release",
+            "inherits": "default",
+            "displayName": "Emscripten Release",
+            "binaryDir": "build/target/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "configuration": "Debug",
+            "targets": ["install"]
+        },
+        {
+            "name": "release",
+            "configurePreset": "release",
+            "configuration": "Release",
+            "targets": ["install"]
         }
     ]
 }

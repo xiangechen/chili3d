@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "npx rspack dev",
         "build": "npx rspack build",
-        "build:wasm": "cd cpp && cmake --preset default -B build/chili && cmake --build build/chili --target install",
+        "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "testc": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "prettier": "npx prettier --write .",

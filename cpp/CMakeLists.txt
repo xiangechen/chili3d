@@ -1,24 +1,25 @@
 cmake_minimum_required (VERSION 3.30)
 
-project (chili-wasm VERSION 0.4.0)
+project (chili-wasm)
 set (CMAKE_CXX_STANDARD 17)
 set (TARGET chili-wasm)
+set (CMAKE_CONFIGURATION_TYPES Debug;Release)
 
 get_filename_component(SOURCE_ROOT_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 set(CMAKE_INSTALL_PREFIX "${SOURCE_ROOT_DIR}/packages/chili-wasm/lib")
 
 set (OcctModules
-    #FoundationClasses
+    # FoundationClasses
     TKernel TKMath
     # ModelingData 
     TKG2d TKG3d TKGeomBase TKBRep
-    #ModelingAlgorithms
+    # ModelingAlgorithms
     TKGeomAlgo TKTopAlgo TKPrim TKBO TKBool TKHLR TKFillet TKOffset TKFeat TKMesh TKShHealing
-    #Visualization
+    # Visualization
     TKService TKV3d
-    #ApplicationFramework
+    # ApplicationFramework
     TKCDF TKLCAF TKCAF TKStdL TKStd TKVCAF TKBin TKBinL TKBinXCAF
-    #DataExchange
+    # DataExchange
     TKDE TKXSBase TKDESTEP TKDEIGES TKDESTL TKDEVRML TKDEOBJ TKDEGLTF TKDEPLY TKXCAF TKRWMesh
 )
 
@@ -28,10 +29,10 @@ set (OcctIncludeDirs)
 foreach(module ${OcctModules})
     file (STRINGS build/occt/src/${module}/PACKAGES OcctPackage)
     foreach(package ${OcctPackage})
-    if (NOT package STREQUAL "")
-        list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
-        list (APPEND OcctIncludeDirs build/occt/src/${package})
-    endif()
+        if (NOT package STREQUAL "")
+            list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
+            list (APPEND OcctIncludeDirs build/occt/src/${package})
+        endif()
     endforeach()
 endforeach()
 
@@ -49,21 +50,24 @@ source_group ("OCCT" FILES ${OcctSourceFiles})
 if (${EMSCRIPTEN})
     add_executable (${TARGET} ${ChiliWasmSourceFiles} ${OcctSourceFiles})
 
-    target_compile_options (${TARGET} PUBLIC -O3)
-    target_compile_options (${TARGET} PUBLIC -flto)
-    target_compile_options (${TARGET} PUBLIC -DOCCT_NO_PLUGINS)
-    target_compile_options (${TARGET} PUBLIC -sDISABLE_EXCEPTION_CATCHING=1)
+    target_compile_options (${TARGET} PUBLIC
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-flto>
+        -sDISABLE_EXCEPTION_CATCHING=1
+        -DOCCT_NO_PLUGINS
+    )
 
-    target_link_options (${TARGET} PUBLIC -flto)
-    target_link_options (${TARGET} PUBLIC -O3)
-    target_link_options (${TARGET} PUBLIC -sDISABLE_EXCEPTION_CATCHING=1)
-    target_link_options (${TARGET} PUBLIC -sMODULARIZE=1)
-    target_link_options (${TARGET} PUBLIC -sEXPORT_ES6=1)
-    target_link_options (${TARGET} PUBLIC -sEXPORT_NAME='ChiliWasm')
-    target_link_options (${TARGET} PUBLIC -sALLOW_MEMORY_GROWTH=1)
-    target_link_options (${TARGET} PUBLIC -sENVIRONMENT="web")
-    target_link_options (${TARGET} PUBLIC --bind)
-    target_link_options (${TARGET} PUBLIC --emit-tsd "${TARGET}.d.ts")
+    target_link_options (${TARGET} PUBLIC
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-flto>
+        -sDISABLE_EXCEPTION_CATCHING=1
+        -sMODULARIZE=1
+        -sEXPORT_ES6=1
+        -sALLOW_MEMORY_GROWTH=1
+        -sENVIRONMENT="web"
+        --bind
+        --emit-tsd "${TARGET}.d.ts"
+    )
 
     target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
 
