@@ -53,14 +53,14 @@ if (${EMSCRIPTEN})
     target_compile_options (${TARGET} PUBLIC
         $<$<CONFIG:Release>:-O3>
         $<$<CONFIG:Release>:-flto>
-        -sDISABLE_EXCEPTION_CATCHING=1
+        $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -DOCCT_NO_PLUGINS
     )
 
     target_link_options (${TARGET} PUBLIC
-        $<$<CONFIG:Release>:-O3>
+        $<IF:$<CONFIG:Release>,-O3,-O0>
         $<$<CONFIG:Release>:-flto>
-        -sDISABLE_EXCEPTION_CATCHING=1
+        $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
         -sEXPORT_ES6=1
         -sALLOW_MEMORY_GROWTH=1

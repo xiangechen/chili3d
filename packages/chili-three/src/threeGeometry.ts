@@ -24,6 +24,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeGeometryFactory } from "./threeGeometryFactory";
 
 export class ThreeGeometry extends Object3D implements IVisualGeometry {
     private _faceMaterial: Material;
@@ -122,22 +123,13 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     private initEdges(data: EdgeMeshData) {
-        let buff = new LineSegmentsGeometry();
-        buff.setPositions(data.positions);
-        buff.computeBoundingBox();
-
+        let buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
         this._edges = new LineSegments2(buff, this._edgeMaterial);
         this.add(this._edges);
     }
 
     private initFaces(data: FaceMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
-        buff.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
-        buff.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
-        buff.setIndex(data.indices);
-        buff.computeBoundingBox();
-
+        let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         this._faces = new Mesh(buff, this._faceMaterial);
         this.add(this._faces);
     }
@@ -174,10 +166,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         let mesh = MeshUtils.subFace(this.geometryEngity.shape.ok().mesh.faces!, index);
         if (!mesh) return undefined;
 
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
-        buff.setAttribute("normal", new Float32BufferAttribute(mesh.normals, 3));
-        buff.setIndex(mesh.indices);
+        let buff = ThreeGeometryFactory.createFaceBufferGeometry(mesh);
         buff.applyMatrix4(this.matrixWorld);
 
         return new Mesh(buff, this._faceMaterial);

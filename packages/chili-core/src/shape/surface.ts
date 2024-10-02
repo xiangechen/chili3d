@@ -81,7 +81,6 @@ export interface ISurface extends IGeometry {
     };
     dn(u: number, v: number, nu: number, nv: number): XYZ;
     value(u: number, v: number): XYZ;
-    makeFace(): IFace;
 }
 
 export interface IPlateSurface extends ISurface {

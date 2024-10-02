@@ -50,10 +50,6 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    iterSubShapes(shapeType: ShapeType, unique: boolean): IterableIterator<IShape> {
-        throw new Error("Method not implemented.");
-    }
-
     findSubShapes(subshapeType: ShapeType): IShape[] {
         throw new Error("Method not implemented.");
     }

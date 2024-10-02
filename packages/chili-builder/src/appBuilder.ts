@@ -47,9 +47,9 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing new occ");
 
-            let wasmModule = await import("chili-wasm");
-            let wasm = await wasmModule.initWasm();
-            (this._shapeFactory as any).wasm = wasm; // temporary test
+            let wasm = await import("chili-wasm");
+            await wasm.initWasm();
+            this._shapeFactory = new wasm.ShapeFactory();
         });
         return this;
     }

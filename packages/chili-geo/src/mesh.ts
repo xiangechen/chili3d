@@ -12,6 +12,7 @@ export class MeshUtils {
         let [indiceStart, indiceEnd] = [minMax.min, minMax.max + 1];
 
         let positions = mesh.positions.slice(indiceStart * 3, indiceEnd * 3);
+        let uvs = mesh.uvs.slice(indiceStart * 2, indiceEnd * 2);
         let normals = mesh.normals.slice(indiceStart * 3, indiceEnd * 3);
         indices = indices.map((i) => i - indiceStart);
 
@@ -19,6 +20,9 @@ export class MeshUtils {
             positions,
             normals,
             indices,
+            uvs,
+            groups: [],
+            color: mesh.color,
         };
     }
 

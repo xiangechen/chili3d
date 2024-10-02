@@ -19,7 +19,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData) {
         let buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(data.positions, 3));
+        buff.setAttribute("position", new BufferAttribute(new Float32Array(data.positions), 3));
         let color = data.color as number;
         let material = new PointsMaterial({
             size: data.size,
@@ -31,12 +31,7 @@ export class ThreeGeometryFactory {
     }
 
     static createFaceGeometry(data: FaceMeshData) {
-        let buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(new Float32Array(data.positions), 3));
-        buff.setAttribute("normal", new BufferAttribute(new Float32Array(data.normals), 3));
-        buff.setAttribute("uv", new BufferAttribute(new Float32Array(data.uvs), 2));
-        buff.setIndex(new BufferAttribute(new Uint32Array(data.indices), 1));
-        buff.computeBoundingBox();
+        let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         let material = new MeshLambertMaterial({ side: DoubleSide });
         if (typeof data.color === "number") {
             material.color.set(data.color);
@@ -48,10 +43,18 @@ export class ThreeGeometryFactory {
         return new Mesh(buff, material);
     }
 
-    static createEdgeGeometry(data: EdgeMeshData) {
-        let buff = new LineSegmentsGeometry();
-        buff.setPositions(new Float32Array(data.positions));
+    static createFaceBufferGeometry(data: FaceMeshData) {
+        let buff = new BufferGeometry();
+        buff.setAttribute("position", new BufferAttribute(new Float32Array(data.positions), 3));
+        buff.setAttribute("normal", new BufferAttribute(new Float32Array(data.normals), 3));
+        buff.setAttribute("uv", new BufferAttribute(new Float32Array(data.uvs), 2));
+        buff.setIndex(data.indices);
+        buff.computeBoundingBox();
+        return buff;
+    }
 
+    static createEdgeGeometry(data: EdgeMeshData) {
+        let buff = this.createEdgeBufferGeometry(data);
         let color = data.color as number;
         let linewidth = data.lineWidth ?? 1;
         let material =
@@ -75,5 +78,12 @@ export class ThreeGeometryFactory {
                       polygonOffsetUnits: -4,
                   });
         return new LineSegments2(buff, material).computeLineDistances();
+    }
+
+    static createEdgeBufferGeometry(data: EdgeMeshData) {
+        let buff = new LineSegmentsGeometry();
+        buff.setPositions(data.positions);
+        buff.computeBoundingBox();
+        return buff;
     }
 }

@@ -85,7 +85,6 @@ export interface ICircle extends IConic {
 }
 
 export interface IEllipse extends IConic {
-    area(): number;
     center: XYZ;
     get focus1(): XYZ;
     get focus2(): XYZ;

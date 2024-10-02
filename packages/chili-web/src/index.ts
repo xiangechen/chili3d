@@ -10,7 +10,7 @@ document.body.appendChild(loading);
 // prettier-ignore
 new AppBuilder()
     .useIndexedDB()
-    .useOcc()
+    // .useOcc()
     .useNewOcc()
     .useThree()
     .useUI()

@@ -55,56 +55,13 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
     private index = 1;
     shapes: any[] = [];
 
-    protected override createShape(document: IDocument, material: Material, p: XYZ): void {
-        // let plane = Plane.XY.translateTo(position);
-        // let box = document.application.shapeFactory
-        //     .box(plane, this.size * Math.random(), this.size * Math.random(), this.size * Math.random())
-        //     .ok();
-        // let f = box.mesh.faces;
-        // let e = box.mesh.edges;
-        // let entity = new EditableGeometryEntity(document, box.ok(), material.id);
-        // let model = new GeometryModel(document, `box ${this.index++}`, entity);
-        // document.addNode(model);
-
-        let wasm = (document.application.shapeFactory as any).wasm;
-        let point1 = new wasm.gp_Pnt(p.x, p.y, p.z);
-        let direction = new wasm.gp_Dir(0, 0, 1);
-        let ax2 = new wasm.gp_Ax2(point1, direction);
-        let box = wasm.ShapeFactory.makeBox(ax2, this.size, this.size, this.size);
-        let faces = new wasm.FaceMesher(box, 0.1);
-        let edges = new wasm.EdgeMesher(box, 0.1);
-        point1.delete();
-        direction.delete();
-        ax2.delete();
-        this.shapes.push({
-            faces,
-            edges,
-            box,
-        });
-
-        let positions = faces.getPosition();
-        let indices = faces.getIndex();
-        let normals = faces.getNormal();
-
-        document.visual.context.displayMesh(
-            {
-                positions: edges.getPosition(),
-                groups: [],
-                color: 0xfff,
-                lineType: LineType.Solid,
-            } as EdgeMeshData,
-            {
-                positions: positions as any,
-                groups: [],
-                color: 0xfff,
-                uvs: faces.getUV(),
-                indices,
-                normals,
-            } as FaceMeshData,
-        );
+    protected override createShape(document: IDocument, material: Material, position: XYZ): void {
+        let plane = Plane.XY.translateTo(position);
+        let box = document.application.shapeFactory
+            .box(plane, this.size * Math.random(), this.size * Math.random(), this.size * Math.random())
+            .ok();
+        let entity = new EditableGeometryEntity(document, box, material.id);
+        let model = new GeometryModel(document, `box ${this.index++}`, entity);
+        document.addNode(model);
     }
 }
-
-// export class ThreePerformanceTestCommand extends PerformanceTestCommand {
-
-// }

@@ -32,7 +32,7 @@ export class GeoUtils {
         }
 
         let firstEdge: IEdge | undefined = undefined;
-        for (const edge of wire.iterSubShapes(ShapeType.Edge, true)) {
+        for (const edge of wire.findSubShapes(ShapeType.Edge)) {
             firstEdge = edge as IEdge;
             break;
         }
@@ -42,7 +42,7 @@ export class GeoUtils {
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
         let curve = edge.curve();
         let point = curve.value(curve.lastParameter());
-        for (const e of wire.iterSubShapes(ShapeType.Edge, true)) {
+        for (const e of wire.findSubShapes(ShapeType.Edge)) {
             if (e.isEqual(edge)) continue;
             let testCurve = (e as IEdge).curve();
             if (

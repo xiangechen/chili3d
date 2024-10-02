@@ -1,4 +1,4 @@
-var ChiliWasm = (() => {
+var Module = (() => {
     var _scriptName = import.meta.url;
 
     return function (moduleArg = {}) {
@@ -219,10 +219,10 @@ var ChiliWasm = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["fa"];
+                wasmMemory = wasmExports["ka"];
                 updateMemoryViews();
-                wasmTable = wasmExports["ka"];
-                addOnInit(wasmExports["ga"]);
+                wasmTable = wasmExports["pa"];
+                addOnInit(wasmExports["la"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -260,53 +260,6 @@ var ChiliWasm = (() => {
             }
         };
         var noExitRuntime = Module["noExitRuntime"] || true;
-        var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder() : undefined;
-        var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
-            var endIdx = idx + maxBytesToRead;
-            var endPtr = idx;
-            while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
-            if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-                return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
-            }
-            var str = "";
-            while (idx < endPtr) {
-                var u0 = heapOrArray[idx++];
-                if (!(u0 & 128)) {
-                    str += String.fromCharCode(u0);
-                    continue;
-                }
-                var u1 = heapOrArray[idx++] & 63;
-                if ((u0 & 224) == 192) {
-                    str += String.fromCharCode(((u0 & 31) << 6) | u1);
-                    continue;
-                }
-                var u2 = heapOrArray[idx++] & 63;
-                if ((u0 & 240) == 224) {
-                    u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
-                } else {
-                    u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
-                }
-                if (u0 < 65536) {
-                    str += String.fromCharCode(u0);
-                } else {
-                    var ch = u0 - 65536;
-                    str += String.fromCharCode(55296 | (ch >> 10), 56320 | (ch & 1023));
-                }
-            }
-            return str;
-        };
-        var UTF8ToString = (ptr, maxBytesToRead) =>
-            ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
-        var ___assert_fail = (condition, filename, line, func) => {
-            abort(
-                `Assertion failed: ${UTF8ToString(condition)}, at: ` +
-                    [
-                        filename ? UTF8ToString(filename) : "unknown filename",
-                        line,
-                        func ? UTF8ToString(func) : "unknown function",
-                    ],
-            );
-        };
         class ExceptionInfo {
             constructor(excPtr) {
                 this.excPtr = excPtr;
@@ -482,6 +435,41 @@ var ChiliWasm = (() => {
                 outputParts = outputParts.concat(toParts.slice(samePartsLength));
                 return outputParts.join("/");
             },
+        };
+        var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder() : undefined;
+        var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
+            var endIdx = idx + maxBytesToRead;
+            var endPtr = idx;
+            while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
+            if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
+                return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
+            }
+            var str = "";
+            while (idx < endPtr) {
+                var u0 = heapOrArray[idx++];
+                if (!(u0 & 128)) {
+                    str += String.fromCharCode(u0);
+                    continue;
+                }
+                var u1 = heapOrArray[idx++] & 63;
+                if ((u0 & 224) == 192) {
+                    str += String.fromCharCode(((u0 & 31) << 6) | u1);
+                    continue;
+                }
+                var u2 = heapOrArray[idx++] & 63;
+                if ((u0 & 240) == 224) {
+                    u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
+                } else {
+                    u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
+                }
+                if (u0 < 65536) {
+                    str += String.fromCharCode(u0);
+                } else {
+                    var ch = u0 - 65536;
+                    str += String.fromCharCode(55296 | (ch >> 10), 56320 | (ch & 1023));
+                }
+            }
+            return str;
         };
         var FS_stdin_getChar_buffer = [];
         var lengthBytesUTF8 = (str) => {
@@ -2464,6 +2452,8 @@ var ChiliWasm = (() => {
                 return node;
             },
         };
+        var UTF8ToString = (ptr, maxBytesToRead) =>
+            ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
         var SYSCALLS = {
             DEFAULT_POLLMASK: 5,
             calculateAt(dirfd, path, allowEmpty) {
@@ -4301,6 +4291,9 @@ var ChiliWasm = (() => {
                 { ignoreDuplicateRegistrations: true },
             );
         };
+        var __embind_register_optional = (rawOptionalType, rawType) => {
+            __embind_register_emval(rawOptionalType);
+        };
         var stringToUTF8 = (str, outPtr, maxBytesToWrite) =>
             stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
         var __embind_register_std_string = (rawType, name) => {
@@ -4543,6 +4536,28 @@ var ChiliWasm = (() => {
                 fields: [],
             };
         };
+        var __embind_register_value_object_field = (
+            structType,
+            fieldName,
+            getterReturnType,
+            getterSignature,
+            getter,
+            getterContext,
+            setterArgumentType,
+            setterSignature,
+            setter,
+            setterContext,
+        ) => {
+            structRegistrations[structType].fields.push({
+                fieldName: readLatin1String(fieldName),
+                getterReturnType: getterReturnType,
+                getter: embind__requireFunction(getterSignature, getter),
+                getterContext: getterContext,
+                setterArgumentType: setterArgumentType,
+                setter: embind__requireFunction(setterSignature, setter),
+                setterContext: setterContext,
+            });
+        };
         var __embind_register_void = (rawType, name) => {
             name = readLatin1String(name);
             registerType(rawType, {
@@ -4655,6 +4670,19 @@ var ChiliWasm = (() => {
             noExitRuntime = false;
             runtimeKeepaliveCounter = 0;
         };
+        var emval_returnValue = (returnType, destructorsRef, handle) => {
+            var destructors = [];
+            var result = returnType["toWireType"](destructors, handle);
+            if (destructors.length) {
+                HEAPU32[destructorsRef >> 2] = Emval.toHandle(destructors);
+            }
+            return result;
+        };
+        var __emval_as = (handle, returnType, destructorsRef) => {
+            handle = Emval.toValue(handle);
+            returnType = requireRegisteredType(returnType, "emval::as");
+            return emval_returnValue(returnType, destructorsRef, handle);
+        };
         var emval_symbols = {};
         var getStringOrSymbol = (address) => {
             var symbol = emval_symbols[address];
@@ -4683,14 +4711,6 @@ var ChiliWasm = (() => {
             return a;
         };
         var reflectConstruct = Reflect.construct;
-        var emval_returnValue = (returnType, destructorsRef, handle) => {
-            var destructors = [];
-            var result = returnType["toWireType"](destructors, handle);
-            if (destructors.length) {
-                HEAPU32[destructorsRef >> 2] = Emval.toHandle(destructors);
-            }
-            return result;
-        };
         var __emval_get_method_caller = (argCount, argTypes, kind) => {
             var types = emval_lookupTypes(argCount, argTypes);
             var retType = types.shift();
@@ -4723,12 +4743,24 @@ var ChiliWasm = (() => {
             var functionName = `methodCaller<(${types.map((t) => t.name).join(", ")}) => ${retType.name}>`;
             return emval_addMethodCaller(createNamedFunction(functionName, invokerFunction));
         };
+        var __emval_get_property = (handle, key) => {
+            handle = Emval.toValue(handle);
+            key = Emval.toValue(key);
+            return Emval.toHandle(handle[key]);
+        };
         var __emval_incref = (handle) => {
             if (handle > 9) {
                 emval_handles[handle + 1] += 1;
             }
         };
         var __emval_new_array = () => Emval.toHandle([]);
+        var __emval_new_array_from_memory_view = (view) => {
+            view = Emval.toValue(view);
+            var a = new Array(view.length);
+            for (var i = 0; i < view.length; i++) a[i] = view[i];
+            return Emval.toHandle(a);
+        };
+        var __emval_new_cstring = (v) => Emval.toHandle(getStringOrSymbol(v));
         var __emval_run_destructors = (handle) => {
             var destructors = Emval.toValue(handle);
             runDestructors(destructors);
@@ -5716,81 +5748,86 @@ var ChiliWasm = (() => {
         var preloadedImages = {};
         var preloadedAudios = {};
         var wasmImports = {
-            _: OSD_MemInfo_getModuleHeapLength,
-            n: ___assert_fail,
+            ha: OSD_MemInfo_getModuleHeapLength,
             a: ___cxa_throw,
-            V: ___syscall_chmod,
-            W: ___syscall_faccessat,
-            t: ___syscall_fcntl64,
-            R: ___syscall_fstat64,
-            Y: ___syscall_ioctl,
-            P: ___syscall_lstat64,
-            L: ___syscall_mkdirat,
-            O: ___syscall_newfstatat,
-            w: ___syscall_openat,
-            Q: ___syscall_stat64,
-            K: __abort_js,
-            aa: __embind_finalize_value_object,
-            D: __embind_register_bigint,
-            da: __embind_register_bool,
+            ba: ___syscall_chmod,
+            ca: ___syscall_faccessat,
+            C: ___syscall_fcntl64,
+            Z: ___syscall_fstat64,
+            fa: ___syscall_ioctl,
+            X: ___syscall_lstat64,
+            T: ___syscall_mkdirat,
+            W: ___syscall_newfstatat,
+            F: ___syscall_openat,
+            Y: ___syscall_stat64,
+            S: __abort_js,
+            o: __embind_finalize_value_object,
+            L: __embind_register_bigint,
+            ea: __embind_register_bool,
             c: __embind_register_class,
-            j: __embind_register_class_class_function,
-            k: __embind_register_class_constructor,
+            d: __embind_register_class_class_function,
+            i: __embind_register_class_constructor,
             b: __embind_register_class_function,
-            d: __embind_register_class_property,
-            ca: __embind_register_emval,
-            u: __embind_register_enum,
-            i: __embind_register_enum_value,
-            z: __embind_register_float,
-            l: __embind_register_integer,
-            e: __embind_register_memory_view,
-            A: __embind_register_std_string,
-            v: __embind_register_std_wstring,
-            h: __embind_register_user_type,
-            ba: __embind_register_value_object,
-            ea: __embind_register_void,
-            T: __emscripten_get_now_is_monotonic,
-            F: __emscripten_lookup_name,
-            S: __emscripten_memcpy_js,
-            J: __emscripten_runtime_keepalive_clear,
-            q: __emval_call_method,
-            f: __emval_decref,
-            p: __emval_get_method_caller,
-            g: __emval_incref,
-            m: __emval_new_array,
-            r: __emval_run_destructors,
-            o: __emval_take_value,
-            B: __localtime_js,
-            E: __setitimer_js,
-            X: __tzset_js,
-            U: _emscripten_date_now,
-            H: _emscripten_get_heap_max,
-            $: _emscripten_get_preloaded_image_data,
-            G: _emscripten_resize_heap,
-            M: _environ_get,
-            N: _environ_sizes_get,
-            Z: _exit,
-            s: _fd_close,
-            y: _fd_read,
-            C: _fd_seek,
-            x: _fd_write,
-            I: _proc_exit,
+            g: __embind_register_class_property,
+            I: __embind_register_emval,
+            y: __embind_register_enum,
+            h: __embind_register_enum_value,
+            D: __embind_register_float,
+            s: __embind_register_integer,
+            k: __embind_register_memory_view,
+            z: __embind_register_optional,
+            E: __embind_register_std_string,
+            A: __embind_register_std_wstring,
+            l: __embind_register_user_type,
+            p: __embind_register_value_object,
+            f: __embind_register_value_object_field,
+            ja: __embind_register_void,
+            $: __emscripten_get_now_is_monotonic,
+            N: __emscripten_lookup_name,
+            _: __emscripten_memcpy_js,
+            R: __emscripten_runtime_keepalive_clear,
+            q: __emval_as,
+            u: __emval_call_method,
+            e: __emval_decref,
+            t: __emval_get_method_caller,
+            r: __emval_get_property,
+            j: __emval_incref,
+            v: __emval_new_array,
+            w: __emval_new_array_from_memory_view,
+            x: __emval_new_cstring,
+            m: __emval_run_destructors,
+            n: __emval_take_value,
+            J: __localtime_js,
+            M: __setitimer_js,
+            da: __tzset_js,
+            aa: _emscripten_date_now,
+            P: _emscripten_get_heap_max,
+            ia: _emscripten_get_preloaded_image_data,
+            O: _emscripten_resize_heap,
+            U: _environ_get,
+            V: _environ_sizes_get,
+            ga: _exit,
+            B: _fd_close,
+            H: _fd_read,
+            K: _fd_seek,
+            G: _fd_write,
+            Q: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["ga"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ha"])(a0);
-        var _free = (a0) => (_free = wasmExports["ia"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["ja"])(a0);
-        var _htons = (a0) => (_htons = wasmExports["la"])(a0);
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["la"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ma"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["na"])(a0);
+        var _free = (a0) => (_free = wasmExports["oa"])(a0);
+        var _htons = (a0) => (_htons = wasmExports["qa"])(a0);
         var _emscripten_builtin_memalign = (a0, a1) =>
-            (_emscripten_builtin_memalign = wasmExports["ma"])(a0, a1);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["na"])(a0, a1);
+            (_emscripten_builtin_memalign = wasmExports["ra"])(a0, a1);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["sa"])(a0, a1);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["oa"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ta"])(a0, a1, a2, a3, a4));
         var dynCall_viiijj = (Module["dynCall_viiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiijj = Module["dynCall_viiijj"] = wasmExports["pa"])(a0, a1, a2, a3, a4, a5, a6, a7));
+            (dynCall_viiijj = Module["dynCall_viiijj"] = wasmExports["ua"])(a0, a1, a2, a3, a4, a5, a6, a7));
         var dynCall_viiiiji = (Module["dynCall_viiiiji"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["qa"])(
+            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["va"])(
                 a0,
                 a1,
                 a2,
@@ -5801,11 +5838,11 @@ var ChiliWasm = (() => {
                 a7,
             ));
         var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["ra"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["wa"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["sa"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["xa"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ta"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ya"])(
                 a0,
                 a1,
                 a2,
@@ -5817,7 +5854,7 @@ var ChiliWasm = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["ua"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["za"])(
                 a0,
                 a1,
                 a2,
@@ -5876,4 +5913,4 @@ var ChiliWasm = (() => {
         return moduleRtn;
     };
 })();
-export default ChiliWasm;
+export default Module;

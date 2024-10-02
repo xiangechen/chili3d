@@ -1,29 +1,39 @@
 #include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepExtrema_ExtCC.hxx>
+#include <BRepFeat_SplitShape.hxx>
+#include <BRepGProp_Face.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <Geom_OffsetCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
-#include <TopExp.hxx>
-#include <TopoDS_Edge.hxx>
-#include <TopoDS_Wire.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <GeomAbs_JoinType.hxx>
-#include <BRepGProp_Face.hxx>
 #include <ShapeAnalysis.hxx>
+#include <TopExp.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_CompSolid.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS_Shell.hxx>
+#include <TopoDS_Solid.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+
 
 using namespace emscripten;
 
 class Shape {
 public:
+
     static bool isClosed(const TopoDS_Shape& shape) {
         return BRep_Tool::IsClosed(shape);
     }
@@ -41,12 +51,7 @@ public:
         TopTools_IndexedMapOfShape indexShape;
         TopExp::MapShapes(shape, shapeType, indexShape);
 
-        std::vector<TopoDS_Shape> shapes;
-        for (int i = 1; i <= indexShape.Extent(); i++) {
-            shapes.push_back(indexShape.FindKey(i));
-        }
-
-        return ShapeArray(val::array(shapes.begin(), shapes.end()));
+        return ShapeArray(val::array(indexShape.cbegin(), indexShape.cend()));
     }
 
     static TopoDS_Shape sectionSS(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape) {
@@ -59,16 +64,37 @@ public:
         return section.Shape();
     }
 
+    static TopoDS_Shape splitByEdgeOrWires(const TopoDS_Shape& shape, const ShapeArray& splitters) {
+        std::vector<TopoDS_Shape> shapeVector = vecFromJSArray<TopoDS_Shape>(splitters);
+        TopTools_SequenceOfShape shapes;
+        for (auto& s : shapeVector) {
+            shapes.Append(s);
+        }
+
+        BRepFeat_SplitShape splitter(shape);
+        splitter.Add(shapes);
+        splitter.Build();
+        return splitter.Shape();
+    }
+
 };
 
-struct EdgeIntersectResult {
-    NumberArray parameters;
-    PntArray points;
+class Vertex {
+public:
+    static Vector3 point(const TopoDS_Vertex& vertex) {
+        return Vector3::fromPnt(BRep_Tool::Pnt(vertex));
+    }
 };
 
 class Edge {
 public:
-    static double length(const TopoDS_Edge& edge) {
+    static TopoDS_Edge fromCurve (const Geom_Curve* curve) {
+        Handle_Geom_Curve handleCurve(curve);
+        BRepBuilderAPI_MakeEdge builder(handleCurve);
+        return builder.Edge();
+    }
+
+    static double curveLength(const TopoDS_Edge& edge) {
         BRepAdaptor_Curve curve(edge);
         return GCPnts_AbscissaPoint::Length(curve);
     }
@@ -88,7 +114,7 @@ public:
     }
 
     static TopoDS_Edge offset(const TopoDS_Edge& edge, const gp_Dir& dir, double offset) {
-         double start(0.0), end(0.0);
+        double start(0.0), end(0.0);
         auto curve = BRep_Tool::Curve(edge, start, end);
         Handle_Geom_TrimmedCurve trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         Handle_Geom_OffsetCurve offsetCurve = new Geom_OffsetCurve(trimmedCurve, offset, dir);
@@ -96,22 +122,20 @@ public:
         return builder.Edge();
     }
 
-    static EdgeIntersectResult intersect(const TopoDS_Edge& edge, const TopoDS_Edge& otherEdge) {
-        std::vector<gp_Pnt> points;
-        std::vector<double> parameters;
+    static PointAndParameterArray intersect(const TopoDS_Edge& edge, const TopoDS_Edge& otherEdge) {
+        std::vector<PointAndParameter> points;
         BRepExtrema_ExtCC cc(edge, otherEdge);
         if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel()) {
             for (int i = 1; i <= cc.NbExt(); i++) {
-                points.push_back(cc.PointOnE1(i));
-                parameters.push_back(cc.ParameterOnE1(i));
+                PointAndParameter pointAndParameter = {
+                    Vector3::fromPnt(cc.PointOnE1(i)),
+                    cc.ParameterOnE1(i),
+                };
+                points.push_back(pointAndParameter);
             }
         }
 
-        EdgeIntersectResult result = {
-            NumberArray(val::array(parameters.begin(), parameters.end())),
-            PntArray(val::array(points.begin(), points.end()))
-        };
-        return result;
+        return PointAndParameterArray(val::array(points));
     }
 
 
@@ -177,16 +201,17 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
+        .class_function("splitByEdgeOrWires", &Shape::splitByEdgeOrWires)
     ;
 
-    class_<EdgeIntersectResult>("EdgeIntersectResult")
-        .property("parameters", &EdgeIntersectResult::parameters)
-        .property("points", &EdgeIntersectResult::points)
+    class_<Vertex>("Vertex")
+        .class_function("point", &Vertex::point)
     ;
 
     class_<Edge>("Edge")
+        .class_function("fromCurve", &Edge::fromCurve, allow_raw_pointers())
         .class_function("curve", &Edge::curve)
-        .function("length", &Edge::length)
+        .class_function("curveLength", &Edge::curveLength)
         .class_function("trim", &Edge::trim)
         .class_function("intersect", &Edge::intersect)
         .class_function("offset", &Edge::offset)
@@ -194,10 +219,15 @@ EMSCRIPTEN_BINDINGS(Shape) {
 
     class_<Wire>("Wire")
         .class_function("offset", &Wire::offset)
+        .class_function("makeFace", &Wire::makeFace)
     ;
 
     class_<Face>("Face")
         .class_function("offset", &Face::offset)
+        .class_function("outerWire", &Face::outerWire)
+        .class_function("surface", &Face::surface)
+        .class_function("normal", &Face::normal)
+        .class_function("curveOnSurface", &Face::curveOnSurface)
     ;
 
 }

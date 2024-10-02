@@ -43,28 +43,37 @@ private:
         TopExp::MapShapes(this->shape, TopAbs_EDGE, edgeMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
         {
-            auto start = this->position.size() / 3;
-
             TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
             edges.push_back(edge);
             generateEdgeMesh(edge, transform);
-
-            this->group.push_back(start);
-            this->group.push_back(this->position.size() / 3 - start);
         }
     }
 
     void generateEdgeMesh(const TopoDS_Edge& edge, const gp_Trsf &transform)
     {
+        auto start = this->position.size() / 3;
+
         BRepAdaptor_Curve curve(edge);
         GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, this->lineDeflection);
+        std::optional<gp_Pnt> prePnt = std::nullopt;
         for (int i = 0; i < pnts.NbPoints(); i++)
         {
             auto pnt = pnts.Value(i + 1).Transformed(transform);
-            position.push_back(pnt.X());
-            position.push_back(pnt.Y());
-            position.push_back(pnt.Z());
+            if (prePnt.has_value()) {
+                auto pre = prePnt.value();
+                this->position.push_back(pre.X());
+                this->position.push_back(pre.Y());
+                this->position.push_back(pre.Z());
+
+                this->position.push_back(pnt.X());
+                this->position.push_back(pnt.Y());
+                this->position.push_back(pnt.Z());
+            }
+            prePnt = pnt;
         }
+
+        this->group.push_back(start);
+        this->group.push_back(this->position.size() / 3 - start);
     }
 
 public:
@@ -73,14 +82,14 @@ public:
         generateEdgeMeshs();
     }
 
-    Float32Array getPosition()
+    NumberArray getPosition()
     {
-        return Float32Array(val(typed_memory_view(position.size(), position.data())));
+        return NumberArray(val::array(position));
     }
 
-    Uint32Array getGroups()
+    NumberArray getGroups()
     {
-        return Uint32Array(val(typed_memory_view(group.size(), group.data())));
+        return NumberArray(val::array(group));
     }
 
     size_t getEdgeSize()
@@ -94,7 +103,7 @@ public:
     }
 
     EdgeArray getEdges() {
-        return EdgeArray(val::array(edges.begin(), edges.end()));
+        return EdgeArray(val::array(edges));
     }
 
 };
@@ -113,22 +122,18 @@ private:
 
     void generateFaceMeshs()
     {
-        auto transform = shape.Location().Transformation().Inverted();
+        auto totleTransform = shape.Location().Transformation().Inverted();
         TopTools_IndexedMapOfShape faceMap;
         TopExp::MapShapes(this->shape, TopAbs_FACE, faceMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
         {
-            auto start = this->position.size() / 3;
             auto face = TopoDS::Face(anIt.Value());
             faces.push_back(face);
-            generateFaceMesh(face, transform);
-
-            this->group.push_back(start);
-            this->group.push_back(this->position.size() / 3 - start);
+            generateFaceMesh(face, totleTransform);
         }
     }
 
-    void generateFaceMesh(const TopoDS_Face &face, const gp_Trsf &transform)
+    void generateFaceMesh(const TopoDS_Face &face, const gp_Trsf &totleTransform)
     {
         TopLoc_Location location;
         auto handlePoly = BRep_Tool::Triangulation(face, location);
@@ -138,15 +143,19 @@ private:
         }
 
         auto trsf = location.Transformation();
+        trsf = trsf.Multiplied(totleTransform);
         bool isMirrod = trsf.VectorialPart().Determinant() < 0;
-        trsf = trsf.Multiplied(transform);
         auto orientation = face.Orientation();
-        auto startIndex = this->position.size() / 3;
+        auto groupStart = this->index.size();
+        auto indexStart = this->position.size() / 3;
 
-        this->fillIndex(startIndex, handlePoly, orientation);
-        this->fillPosition(transform, handlePoly);
-        this->fillNormal(transform, face, handlePoly, (orientation == TopAbs_REVERSED) ^ isMirrod);
+        this->fillIndex(indexStart, handlePoly, orientation);
+        this->fillPosition(trsf, handlePoly);
+        this->fillNormal(trsf, face, handlePoly, (orientation == TopAbs_REVERSED) ^ isMirrod);
         this->fillUv(face, handlePoly);
+
+        this->group.push_back(groupStart);
+        this->group.push_back(this->index.size() - groupStart);
     }
 
     void fillPosition(const gp_Trsf &transform, const Handle(Poly_Triangulation) & handlePoly)
@@ -176,7 +185,7 @@ private:
         }
     }
 
-    void fillIndex(size_t startIndex, const Handle(Poly_Triangulation) & handlePoly, const TopAbs_Orientation &orientation)
+    void fillIndex(size_t indexStart, const Handle(Poly_Triangulation) & handlePoly, const TopAbs_Orientation &orientation)
     {
         for (int index = 0; index < handlePoly->NbTriangles(); index++)
         {
@@ -188,15 +197,15 @@ private:
             }
             
             auto triangle = handlePoly->Triangle(index + 1);
-            this->index.push_back(triangle.Value(v1) - 1 + startIndex);
-            this->index.push_back(triangle.Value(v2) - 1 + startIndex);
-            this->index.push_back(triangle.Value(v3) - 1 + startIndex);
+            this->index.push_back(triangle.Value(v1) - 1 + indexStart);
+            this->index.push_back(triangle.Value(v2) - 1 + indexStart);
+            this->index.push_back(triangle.Value(v3) - 1 + indexStart);
         }
     }
 
     void fillUv(const TopoDS_Face &face, const Handle(Poly_Triangulation) & handlePoly) 
     {
-        double aUmin (0.0), aUmax (0.0), aVmin (0.0), aVmax (0.0), dUmax (0.0), dVmax (0.0);
+        double aUmin, aUmax, aVmin, aVmax, dUmax, dVmax;
         BRepTools::UVBounds (face, aUmin, aUmax, aVmin, aVmax);
         dUmax = (aUmax - aUmin);
         dVmax = (aVmax - aVmin);
@@ -215,29 +224,29 @@ public:
         generateFaceMeshs();
     }
 
-    Float32Array getPosition()
+    NumberArray getPosition()
     {
-        return Float32Array(val(typed_memory_view(position.size(), position.data())));
+        return NumberArray(val::array(position));
     }
 
-    Float32Array getNormal()
+    NumberArray getNormal()
     {
-        return Float32Array(val(typed_memory_view(normal.size(), normal.data())));
+        return NumberArray(val::array(normal));
     }
 
-    Float32Array getUV()
+    NumberArray getUV()
     {
-        return Float32Array(val(typed_memory_view(uv.size(), uv.data())));
+        return NumberArray(val::array(uv));
     }
 
-    Uint32Array getIndex()
+    NumberArray getIndex()
     {
-        return Uint32Array(val(typed_memory_view(index.size(), index.data())));
+        return NumberArray(val::array(index));
     }
 
-    Uint32Array getGroups()
+    NumberArray getGroups()
     {
-        return Uint32Array(val(typed_memory_view(group.size(), group.data())));
+        return NumberArray(val::array(group));
     }
 
     size_t getFaceSize()
@@ -250,7 +259,7 @@ public:
     }
 
     FaceArray getFaces() {
-        return FaceArray(val::array(faces.begin(), faces.end()));
+        return FaceArray(val::array(faces));
     }
 
 };

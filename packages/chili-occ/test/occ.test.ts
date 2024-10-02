@@ -58,20 +58,6 @@ describe("shape test", () => {
         expect(box.findSubShapes(ShapeType.Shell).length).toBe(1);
         expect(box.findSubShapes(ShapeType.Shell)[0].shapeType).toBe(ShapeType.Shell);
         expect(box.findSubShapes(ShapeType.Shape).length).toBe(0);
-
-        let v1s: any[] = [];
-        let iter = box.iterSubShapes(ShapeType.Vertex);
-        for (const i of iter) {
-            v1s.push(i);
-        }
-        expect(v1s.length).toBe(48);
-
-        let v2s: any[] = [];
-        let iter2 = box.iterSubShapes(ShapeType.Vertex, true);
-        for (const i of iter2) {
-            v2s.push(i);
-        }
-        expect(v2s.length).toBe(8);
     });
 
     test("test ancestors", () => {

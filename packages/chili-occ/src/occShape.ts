@@ -137,13 +137,6 @@ export class OccShape implements IShape {
         return result;
     }
 
-    *iterSubShapes(shapeType: ShapeType, unique: boolean = false): IterableIterator<IShape> {
-        let iter = OccHelps.iterShapes(this.shape, OccHelps.getShapeEnum(shapeType), unique);
-        for (const it of iter) {
-            yield OccHelps.wrapShape(it);
-        }
-    }
-
     orientation(): Orientation {
         return OccHelps.getOrientation(this._shape);
     }
