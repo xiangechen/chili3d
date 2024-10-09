@@ -13,6 +13,12 @@
             "windows": {
                 "program": "${workspaceFolder}/node_modules/jest/bin/jest"
             }
+        },
+        {
+            "name": "debug",
+            "type": "msedge",
+            "request": "launch",
+            "url": "http://localhost:8080/"
         }
     ]
 }

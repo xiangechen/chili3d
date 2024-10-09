@@ -5,9 +5,9 @@ import { IShape } from "./shape";
 
 export interface IShapeConverter {
     convertToIGES(...shapes: IShape[]): Result<string>;
-    convertFromIGES(iges: string): Result<IShape[]>;
+    convertFromIGES(iges: Uint8Array): Result<IShape[]>;
     convertToSTEP(...shapes: IShape[]): Result<string>;
-    convertFromSTEP(step: string): Result<IShape[]>;
+    convertFromSTEP(step: Uint8Array): Result<IShape[]>;
     convertToBrep(shape: IShape): Result<string>;
     convertFromBrep(brep: string): Result<IShape>;
 }

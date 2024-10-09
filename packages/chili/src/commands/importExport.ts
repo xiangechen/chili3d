@@ -17,7 +17,7 @@ import {
     Transaction,
     command,
     download,
-    readFileAsync,
+    readFilesAsync,
 } from "chili-core";
 import { ImportedBody } from "../bodys/importer";
 import { SelectModelStep } from "../step";
@@ -46,7 +46,10 @@ export class Import implements ICommand {
         );
     }
 
-    private addImportedShape = (document: IDocument, shape: [string | undefined, Result<IShape[]>]) => {
+    private readonly addImportedShape = (
+        document: IDocument,
+        shape: [string | undefined, Result<IShape[]>],
+    ) => {
         if (!shape[1].isOk) {
             PubSub.default.pub("showToast", "toast.read.error");
             return;
@@ -63,16 +66,19 @@ export class Import implements ICommand {
     };
 
     private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
-        let data = await readFileAsync(".iges, .igs, .step, .stp", false);
+        let data = await readFilesAsync(".iges, .igs, .step, .stp", false);
         if (!data.isOk || data.ok().length === 0) {
-            return [undefined, Result.err("toast.read.error")];
+            return [undefined, data.parse()];
         }
+
         let shape: Result<IShape[]>;
-        let name = data.ok()[0].fileName.toLowerCase();
+        let name = data.ok()[0].name.toLowerCase();
+        let content = new Uint8Array(await data.ok()[0].arrayBuffer());
+
         if (name.endsWith(".igs") || name.endsWith(".iges")) {
-            shape = application.shapeFactory.converter.convertFromIGES(data.ok()[0].data);
+            shape = application.shapeFactory.converter.convertFromIGES(content);
         } else if (name.endsWith(".stp") || name.endsWith(".step")) {
-            shape = application.shapeFactory.converter.convertFromSTEP(data.ok()[0].data);
+            shape = application.shapeFactory.converter.convertFromSTEP(content);
         } else {
             throw new Error(`不支持的文件：${name}`);
         }
@@ -93,14 +99,14 @@ abstract class Export implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let shapes = models!.map((x) => x.geometry.shape.ok());
+                let shapes = models.map((x) => x.geometry.shape.ok());
                 let shapeString = await this.convertAsync(application, type, ...shapes);
                 if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;
                 }
                 PubSub.default.pub("showToast", "toast.downloading");
-                download([shapeString.ok()], `${models![0].name}.${type}`);
+                download([shapeString.ok()], `${models[0].name}.${type}`);
             },
             "toast.excuting{0}",
             "",

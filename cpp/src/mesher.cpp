@@ -1,6 +1,7 @@
 #include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepTools.hxx>
@@ -19,11 +20,32 @@
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS.hxx>
+#include <UnitsMethods.hxx>
 
 using namespace emscripten;
 using namespace std;
 
 const double ANGLE_DEFLECTION = 0.5;
+
+double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
+{
+    Bnd_Box boundingBox;
+    BRepBndLib::Add(shape, boundingBox, false);
+    if (boundingBox.IsVoid())
+    {
+        return linearDeflection;
+    }
+    Standard_Real xMin, yMin, zMin, xMax, yMax, zMax;
+    boundingBox.Get(xMin, yMin, zMin, xMax, yMax, zMax);
+
+    Standard_Real avgSize = ((xMax - xMin) + (yMax - yMin) + (zMax - zMin)) / 3.0;
+    double linDeflection = avgSize * linearDeflection;
+    if (linDeflection < Precision::Confusion())
+    {
+        linDeflection = 1.0;
+    }
+    return linDeflection;
+}
 
 class EdgeMesher
 {
@@ -49,7 +71,7 @@ private:
         }
     }
 
-    void generateEdgeMesh(const TopoDS_Edge& edge, const gp_Trsf &transform)
+    void generateEdgeMesh(const TopoDS_Edge &edge, const gp_Trsf &transform)
     {
         auto start = this->position.size() / 3;
 
@@ -59,7 +81,8 @@ private:
         for (int i = 0; i < pnts.NbPoints(); i++)
         {
             auto pnt = pnts.Value(i + 1).Transformed(transform);
-            if (prePnt.has_value()) {
+            if (prePnt.has_value())
+            {
                 auto pre = prePnt.value();
                 this->position.push_back(pre.X());
                 this->position.push_back(pre.Y());
@@ -77,7 +100,7 @@ private:
     }
 
 public:
-    EdgeMesher(const TopoDS_Shape& shape, double lineDeflection) : shape(shape), lineDeflection(lineDeflection)
+    EdgeMesher(const TopoDS_Shape &shape, double lineDeflection) : shape(shape), lineDeflection(lineDeflection)
     {
         generateEdgeMeshs();
     }
@@ -97,15 +120,15 @@ public:
         return edges.size();
     }
 
-    TopoDS_Edge& getEdge(size_t index)
+    TopoDS_Edge &getEdge(size_t index)
     {
         return edges[index];
     }
 
-    EdgeArray getEdges() {
+    EdgeArray getEdges()
+    {
         return EdgeArray(val::array(edges));
     }
-
 };
 
 class FaceMesher
@@ -175,7 +198,8 @@ private:
         for (int index = 0; index < handlePoly->NbNodes(); index++)
         {
             auto normal = handlePoly->Normal(index + 1);
-            if (shouldReverse) {
+            if (shouldReverse)
+            {
                 normal.Reverse();
             }
             normal = normal.Transformed(transform);
@@ -195,7 +219,7 @@ private:
                 v2 = 3;
                 v3 = 2;
             }
-            
+
             auto triangle = handlePoly->Triangle(index + 1);
             this->index.push_back(triangle.Value(v1) - 1 + indexStart);
             this->index.push_back(triangle.Value(v2) - 1 + indexStart);
@@ -203,10 +227,10 @@ private:
         }
     }
 
-    void fillUv(const TopoDS_Face &face, const Handle(Poly_Triangulation) & handlePoly) 
+    void fillUv(const TopoDS_Face &face, const Handle(Poly_Triangulation) & handlePoly)
     {
         double aUmin, aUmax, aVmin, aVmax, dUmax, dVmax;
-        BRepTools::UVBounds (face, aUmin, aUmax, aVmin, aVmax);
+        BRepTools::UVBounds(face, aUmin, aUmax, aVmin, aVmax);
         dUmax = (aUmax - aUmin);
         dVmax = (aVmax - aVmin);
         for (int index = 0; index < handlePoly->NbNodes(); index++)
@@ -254,18 +278,21 @@ public:
         return faces.size();
     }
 
-    TopoDS_Face& getFace(size_t index) {
+    TopoDS_Face &getFace(size_t index)
+    {
         return faces[index];
     }
 
-    FaceArray getFaces() {
+    FaceArray getFaces()
+    {
         return FaceArray(val::array(faces));
     }
-
 };
 
 EMSCRIPTEN_BINDINGS(Mesher)
 {
+    emscripten::function("boundingBoxRatio", &boundingBoxRatio);
+
     class_<FaceMesher>("FaceMesher")
         .constructor<const TopoDS_Shape &, double>()
         .function("getPosition", &FaceMesher::getPosition)
@@ -275,8 +302,7 @@ EMSCRIPTEN_BINDINGS(Mesher)
         .function("getGroups", &FaceMesher::getGroups)
         .function("getFaceSize", &FaceMesher::getFaceSize)
         .function("getFace", &FaceMesher::getFace)
-        .function("getFaces", &FaceMesher::getFaces)
-    ;
+        .function("getFaces", &FaceMesher::getFaces);
 
     class_<EdgeMesher>("EdgeMesher")
         .constructor<const TopoDS_Shape &, double>()
@@ -284,9 +310,5 @@ EMSCRIPTEN_BINDINGS(Mesher)
         .function("getGroups", &EdgeMesher::getGroups)
         .function("getEdgeSize", &EdgeMesher::getEdgeSize)
         .function("getEdge", &EdgeMesher::getEdge)
-        .function("getEdges", &EdgeMesher::getEdges)
-    ;
-
-    
-
+        .function("getEdges", &EdgeMesher::getEdges);
 }

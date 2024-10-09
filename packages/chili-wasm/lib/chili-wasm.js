@@ -219,10 +219,10 @@ var Module = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["ka"];
+                wasmMemory = wasmExports["la"];
                 updateMemoryViews();
-                wasmTable = wasmExports["pa"];
-                addOnInit(wasmExports["la"]);
+                wasmTable = wasmExports["qa"];
+                addOnInit(wasmExports["ma"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -4217,6 +4217,36 @@ var Module = (() => {
                 destructorFunction: null,
             });
         };
+        var __embind_register_function = (
+            name,
+            argCount,
+            rawArgTypesAddr,
+            signature,
+            rawInvoker,
+            fn,
+            isAsync,
+        ) => {
+            var argTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
+            name = readLatin1String(name);
+            name = getFunctionName(name);
+            rawInvoker = embind__requireFunction(signature, rawInvoker);
+            exposePublicSymbol(
+                name,
+                function () {
+                    throwUnboundTypeError(`Cannot call ${name} due to unbound types`, argTypes);
+                },
+                argCount - 1,
+            );
+            whenDependentTypesAreResolved([], argTypes, (argTypes) => {
+                var invokerArgsArray = [argTypes[0], null].concat(argTypes.slice(1));
+                replacePublicSymbol(
+                    name,
+                    craftInvokerFunction(name, invokerArgsArray, null, rawInvoker, fn, isAsync),
+                    argCount - 1,
+                );
+                return [];
+            });
+        };
         var integerReadValueFromPointer = (name, width, signed) => {
             switch (width) {
                 case 1:
@@ -5748,86 +5778,89 @@ var Module = (() => {
         var preloadedImages = {};
         var preloadedAudios = {};
         var wasmImports = {
-            ha: OSD_MemInfo_getModuleHeapLength,
+            fa: OSD_MemInfo_getModuleHeapLength,
             a: ___cxa_throw,
-            ba: ___syscall_chmod,
-            ca: ___syscall_faccessat,
-            C: ___syscall_fcntl64,
-            Z: ___syscall_fstat64,
-            fa: ___syscall_ioctl,
-            X: ___syscall_lstat64,
-            T: ___syscall_mkdirat,
-            W: ___syscall_newfstatat,
-            F: ___syscall_openat,
-            Y: ___syscall_stat64,
-            S: __abort_js,
-            o: __embind_finalize_value_object,
-            L: __embind_register_bigint,
-            ea: __embind_register_bool,
+            aa: ___syscall_chmod,
+            ba: ___syscall_faccessat,
+            B: ___syscall_fcntl64,
+            Y: ___syscall_fstat64,
+            da: ___syscall_ioctl,
+            W: ___syscall_lstat64,
+            S: ___syscall_mkdirat,
+            V: ___syscall_newfstatat,
+            D: ___syscall_openat,
+            X: ___syscall_stat64,
+            R: __abort_js,
+            p: __embind_finalize_value_object,
+            K: __embind_register_bigint,
+            ja: __embind_register_bool,
             c: __embind_register_class,
             d: __embind_register_class_class_function,
-            i: __embind_register_class_constructor,
+            j: __embind_register_class_constructor,
             b: __embind_register_class_function,
             g: __embind_register_class_property,
-            I: __embind_register_emval,
-            y: __embind_register_enum,
+            ia: __embind_register_emval,
+            z: __embind_register_enum,
             h: __embind_register_enum_value,
-            D: __embind_register_float,
+            G: __embind_register_float,
+            ha: __embind_register_function,
             s: __embind_register_integer,
-            k: __embind_register_memory_view,
-            z: __embind_register_optional,
-            E: __embind_register_std_string,
-            A: __embind_register_std_wstring,
-            l: __embind_register_user_type,
-            p: __embind_register_value_object,
+            m: __embind_register_memory_view,
+            y: __embind_register_optional,
+            H: __embind_register_std_string,
+            C: __embind_register_std_wstring,
+            n: __embind_register_user_type,
+            q: __embind_register_value_object,
             f: __embind_register_value_object_field,
-            ja: __embind_register_void,
-            $: __emscripten_get_now_is_monotonic,
-            N: __emscripten_lookup_name,
-            _: __emscripten_memcpy_js,
-            R: __emscripten_runtime_keepalive_clear,
-            q: __emval_as,
+            ka: __embind_register_void,
+            _: __emscripten_get_now_is_monotonic,
+            M: __emscripten_lookup_name,
+            Z: __emscripten_memcpy_js,
+            Q: __emscripten_runtime_keepalive_clear,
+            o: __emval_as,
             u: __emval_call_method,
             e: __emval_decref,
             t: __emval_get_method_caller,
             r: __emval_get_property,
-            j: __emval_incref,
+            i: __emval_incref,
             v: __emval_new_array,
             w: __emval_new_array_from_memory_view,
             x: __emval_new_cstring,
-            m: __emval_run_destructors,
-            n: __emval_take_value,
-            J: __localtime_js,
-            M: __setitimer_js,
-            da: __tzset_js,
-            aa: _emscripten_date_now,
-            P: _emscripten_get_heap_max,
-            ia: _emscripten_get_preloaded_image_data,
-            O: _emscripten_resize_heap,
-            U: _environ_get,
-            V: _environ_sizes_get,
-            ga: _exit,
-            B: _fd_close,
-            H: _fd_read,
-            K: _fd_seek,
-            G: _fd_write,
-            Q: _proc_exit,
+            k: __emval_run_destructors,
+            l: __emval_take_value,
+            I: __localtime_js,
+            L: __setitimer_js,
+            ca: __tzset_js,
+            $: _emscripten_date_now,
+            O: _emscripten_get_heap_max,
+            ga: _emscripten_get_preloaded_image_data,
+            N: _emscripten_resize_heap,
+            T: _environ_get,
+            U: _environ_sizes_get,
+            ea: _exit,
+            A: _fd_close,
+            F: _fd_read,
+            J: _fd_seek,
+            E: _fd_write,
+            P: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["la"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["ma"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["na"])(a0);
-        var _free = (a0) => (_free = wasmExports["oa"])(a0);
-        var _htons = (a0) => (_htons = wasmExports["qa"])(a0);
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["ma"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["na"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["oa"])(a0);
+        var _free = (a0) => (_free = wasmExports["pa"])(a0);
+        var _htons = (a0) => (_htons = wasmExports["ra"])(a0);
         var _emscripten_builtin_memalign = (a0, a1) =>
-            (_emscripten_builtin_memalign = wasmExports["ra"])(a0, a1);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["sa"])(a0, a1);
+            (_emscripten_builtin_memalign = wasmExports["sa"])(a0, a1);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ta"])(a0, a1);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ta"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ua"])(a0, a1, a2, a3, a4));
+        var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["va"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_viiijj = (Module["dynCall_viiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiijj = Module["dynCall_viiijj"] = wasmExports["ua"])(a0, a1, a2, a3, a4, a5, a6, a7));
+            (dynCall_viiijj = Module["dynCall_viiijj"] = wasmExports["wa"])(a0, a1, a2, a3, a4, a5, a6, a7));
         var dynCall_viiiiji = (Module["dynCall_viiiiji"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["va"])(
+            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["xa"])(
                 a0,
                 a1,
                 a2,
@@ -5837,12 +5870,10 @@ var Module = (() => {
                 a6,
                 a7,
             ));
-        var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["wa"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["xa"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ya"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["ya"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["za"])(
                 a0,
                 a1,
                 a2,
@@ -5854,7 +5885,7 @@ var Module = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["za"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["Aa"])(
                 a0,
                 a1,
                 a2,

@@ -50,7 +50,7 @@ export class OccShapeConverter implements IShapeConverter {
         });
     }
 
-    convertFromIGES(data: string) {
+    convertFromIGES(data: Uint8Array) {
         return this.convertFrom("iges", data);
     }
 
@@ -80,7 +80,7 @@ export class OccShapeConverter implements IShapeConverter {
         });
     }
 
-    convertFromSTEP(data: string) {
+    convertFromSTEP(data: Uint8Array) {
         return this.convertFrom("step", data);
     }
 
@@ -90,7 +90,7 @@ export class OccShapeConverter implements IShapeConverter {
      * @param data
      * @returns
      */
-    private convertFrom(format: "step" | "iges", data: string): Result<IShape[]> {
+    private convertFrom(format: "step" | "iges", data: Uint8Array): Result<IShape[]> {
         return gc((c) => {
             const fileName = `blob.${format}`;
             let reader = c(

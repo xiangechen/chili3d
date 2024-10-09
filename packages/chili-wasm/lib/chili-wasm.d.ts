@@ -15,9 +15,24 @@ declare namespace RuntimeExports {
 interface WasmModule {}
 
 type EmbindString = ArrayBuffer | Uint8Array | Uint8ClampedArray | Int8Array | string;
+export interface ShapeNode {
+    color: Color;
+    name: EmbindString;
+    shape: TopoDS_Shape | undefined;
+    getChildren(): Array<ShapeNode>;
+    delete(): void;
+}
+
 export interface Converter {
     delete(): void;
 }
+
+export type Color = {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+};
 
 export interface ShapeResult {
     isOk: boolean;
@@ -643,7 +658,15 @@ export interface Transient {
 }
 
 interface EmbindModule {
-    Converter: { convertToBrep(_0: TopoDS_Shape): string; convertFromBrep(_0: EmbindString): TopoDS_Shape };
+    ShapeNode: {};
+    Converter: {
+        convertToBrep(_0: TopoDS_Shape): string;
+        convertFromBrep(_0: EmbindString): TopoDS_Shape;
+        convertFromStep(_0: Uint8Array): ShapeNode | undefined;
+        convertFromIges(_0: Uint8Array): ShapeNode | undefined;
+        convertToStep(_0: Array<TopoDS_Shape>): string;
+        convertToIges(_0: Array<TopoDS_Shape>): string;
+    };
     ShapeResult: {};
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
@@ -775,6 +798,7 @@ interface EmbindModule {
         compsolid(_0: TopoDS_Shape): TopoDS_CompSolid;
     };
     TopoDS_Shape: {};
+    boundingBoxRatio(_0: TopoDS_Shape, _1: number): number;
     TColgp_Array1OfPnt: { new (_0: number, _1: number): TColgp_Array1OfPnt };
     TopoDS_Vertex: {};
     TopoDS_Edge: {};

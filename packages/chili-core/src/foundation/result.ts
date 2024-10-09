@@ -3,14 +3,18 @@
 import { IEqualityComparer } from "./equalityComparer";
 
 export class Result<T, E = string> {
-    #isOk: boolean;
-    #value: T | undefined;
-    #error: E | undefined;
+    readonly #isOk: boolean;
+    readonly #value: T | undefined;
+    readonly #error: E | undefined;
 
     constructor(isOk: boolean, value: T | undefined, error: E | undefined) {
         this.#isOk = isOk;
         this.#value = value;
         this.#error = error;
+    }
+
+    parse<U>(): Result<U, E> {
+        return Result.err(this.#error as E) as any;
     }
 
     get isOk(): boolean {
