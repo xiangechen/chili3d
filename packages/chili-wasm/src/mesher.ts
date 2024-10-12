@@ -11,12 +11,13 @@ import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
 
 export class Mesher implements IShapeMeshData {
+    private readonly _lineDeflection: number;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
 
     get edges(): EdgeMeshData | undefined {
         if (this._lines === undefined) {
-            let edgeMesher = new wasm.EdgeMesher(this.shape.shape, 0.1);
+            let edgeMesher = new wasm.EdgeMesher(this.shape.shape, this._lineDeflection);
             this._lines = {
                 lineType: LineType.Solid,
                 positions: edgeMesher.getPosition(),
@@ -29,7 +30,7 @@ export class Mesher implements IShapeMeshData {
     }
     get faces(): FaceMeshData | undefined {
         if (this._faces === undefined) {
-            let faceMesher = new wasm.FaceMesher(this.shape.shape, 0.1);
+            let faceMesher = new wasm.FaceMesher(this.shape.shape, this._lineDeflection);
             this._faces = {
                 positions: faceMesher.getPosition(),
                 normals: faceMesher.getNormal(),
@@ -43,7 +44,9 @@ export class Mesher implements IShapeMeshData {
         return this._faces;
     }
 
-    constructor(readonly shape: OccShape) {}
+    constructor(readonly shape: OccShape) {
+        this._lineDeflection = wasm.boundingBoxRatio(this.shape.shape, 0.001);
+    }
 
     updateMeshShape(): void {
         if (this._lines !== undefined) {
