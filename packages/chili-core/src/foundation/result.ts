@@ -7,6 +7,10 @@ export class Result<T, E = string> {
     readonly #value: T | undefined;
     readonly #error: E | undefined;
 
+    get isOk(): boolean {
+        return this.#isOk;
+    }
+
     constructor(isOk: boolean, value: T | undefined, error: E | undefined) {
         this.#isOk = isOk;
         this.#value = value;
@@ -17,8 +21,12 @@ export class Result<T, E = string> {
         return Result.err(this.#error as E) as any;
     }
 
-    get isOk(): boolean {
-        return this.#isOk;
+    isOkAnd(predict: (value: T | undefined) => boolean): boolean {
+        return this.#isOk && predict(this.#value!);
+    }
+
+    isErrorOr(predict: (value: T | undefined) => boolean): boolean {
+        return !this.#isOk || predict(this.#value!);
     }
 
     ok(): T {

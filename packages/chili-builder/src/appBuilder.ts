@@ -32,20 +32,9 @@ export class AppBuilder {
         return this;
     }
 
-    useOcc(): this {
+    useWasmOcc() {
         this._inits.push(async () => {
-            Logger.info("initializing occ");
-
-            let occ = await import("chili-occ");
-            await occ.initMyOcc();
-            this._shapeFactory = new occ.ShapeFactory();
-        });
-        return this;
-    }
-
-    useNewOcc() {
-        this._inits.push(async () => {
-            Logger.info("initializing new occ");
+            Logger.info("initializing wasm occ");
 
             let wasm = await import("chili-wasm");
             await wasm.initWasm();
