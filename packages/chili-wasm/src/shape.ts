@@ -164,6 +164,10 @@ export class OccShape implements IShape {
         return OcctHelper.wrapShape(wasm.Shape.splitByEdgeOrWires(this.shape, shapes));
     }
 
+    reserve(): void {
+        this.shape.reverse();
+    }
+
     dispose(): void {
         this._shape.delete();
         this._shape = null as any;

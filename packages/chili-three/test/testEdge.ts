@@ -39,6 +39,9 @@ export class TestEdge implements IEdge {
     isNull(): boolean {
         throw new Error("Method not implemented.");
     }
+    reserve(): void {
+        throw new Error("Method not implemented.");
+    }
     section(shape: IShape | Plane): IShape {
         throw new Error("Method not implemented.");
     }
