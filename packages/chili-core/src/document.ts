@@ -18,11 +18,11 @@ import { IVisual } from "./visual";
 export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     name: string;
     currentNode?: INodeLinkedList;
+    rootNode: INodeLinkedList;
     readonly selection: ISelection;
     readonly id: string;
     readonly history: History;
     readonly visual: IVisual;
-    readonly rootNode: INodeLinkedList;
     readonly application: IApplication;
     materials: ObservableCollection<Material>;
     addNode(...nodes: INode[]): void;

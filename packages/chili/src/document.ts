@@ -52,9 +52,12 @@ export class Document extends Observable implements IDocument {
     @Serializer.serialze()
     get rootNode(): INodeLinkedList {
         if (this._rootNode === undefined) {
-            this.setRootNode(new NodeLinkedList(this, this._name));
+            this.setRootNode(this.initRootNode());
         }
         return this._rootNode!;
+    }
+    set rootNode(value: INodeLinkedList) {
+        this.setRootNode(value);
     }
 
     private setRootNode(value?: INodeLinkedList) {
@@ -93,6 +96,10 @@ export class Document extends Observable implements IDocument {
             this.name = this.rootNode.name;
         }
     };
+
+    initRootNode() {
+        return new NodeLinkedList(this, this._name)
+    }
 
     serialize(): Serialized {
         let serialized = {

@@ -81,17 +81,22 @@ export class AppBuilder {
         }
         this.ensureNecessary();
 
-        Application.build(
-            this._visualFactory!,
-            this._shapeFactory!,
-            this.getServices(),
-            this._storage!,
-            this._window,
-        );
+        let app = this.createApp();
+        this._window?.init(app);
 
         this.loadAdditionalCommands();
 
         Logger.info("Application build completed");
+    }
+
+    createApp() {
+        return new Application(
+            this._visualFactory!,
+            this._shapeFactory!,
+            this.getServices(),
+            this._storage!,
+            this._window
+        );
     }
 
     private ensureNecessary() {
