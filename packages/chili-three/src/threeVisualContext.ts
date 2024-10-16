@@ -63,6 +63,7 @@ export class ThreeVisualContext implements IVisualContext {
                     side: DoubleSide,
                     transparent: true,
                     name: item.name,
+                    opacity: item.opacity,
                 });
                 material.map = this.loadTexture(item);
                 item.onPropertyChanged(this.onMaterialPropertyChanged);
