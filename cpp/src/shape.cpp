@@ -59,7 +59,8 @@ public:
         return section.Shape();
     }
 
-    static TopoDS_Shape sectionSP(const TopoDS_Shape& shape, const gp_Pln& pln) {
+    static TopoDS_Shape sectionSP(const TopoDS_Shape& shape, const Ax3& ax3) {
+        gp_Pln pln = Ax3::toPln(ax3);
         BRepAlgoAPI_Section section(shape, pln);
         return section.Shape();
     }

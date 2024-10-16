@@ -810,11 +810,11 @@ interface EmbindModule {
     TopoDS_CompSolid: {};
     Shape: {
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
-        sectionSP(_0: TopoDS_Shape, _1: gp_Pln): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+        sectionSP(_0: TopoDS_Shape, _1: Ax3): TopoDS_Shape;
     };
     Vertex: { point(_0: TopoDS_Vertex): Vector3 };
     Edge: {

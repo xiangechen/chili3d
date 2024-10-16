@@ -147,7 +147,11 @@ export class OccShape implements IShape {
             return OcctHelper.wrapShape(section);
         }
         if (shape instanceof Plane) {
-            let section = wasm.Shape.sectionSP(this.shape, OcctHelper.toPln(shape));
+            let section = wasm.Shape.sectionSP(this.shape, {
+                location: shape.origin,
+                direction: shape.normal,
+                xDirection: shape.xvec,
+            });
             return OcctHelper.wrapShape(section);
         }
 
