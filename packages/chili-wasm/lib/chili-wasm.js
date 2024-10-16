@@ -664,16 +664,9 @@ var Module = (() => {
                 },
             },
         };
-        var zeroMemory = (address, size) => {
-            HEAPU8.fill(0, address, address + size);
-            return address;
-        };
         var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
         var mmapAlloc = (size) => {
-            size = alignMemory(size, 65536);
-            var ptr = _emscripten_builtin_memalign(65536, size);
-            if (!ptr) return 0;
-            return zeroMemory(ptr, size);
+            abort();
         };
         var MEMFS = {
             ops_table: null,
@@ -5171,15 +5164,13 @@ var Module = (() => {
         var _malloc = (a0) => (_malloc = wasmExports["ma"])(a0);
         var _free = (a0) => (_free = wasmExports["na"])(a0);
         var _htons = (a0) => (_htons = wasmExports["pa"])(a0);
-        var _emscripten_builtin_memalign = (a0, a1) =>
-            (_emscripten_builtin_memalign = wasmExports["qa"])(a0, a1);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ra"])(a0, a1);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["qa"])(a0, a1);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["sa"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ra"])(a0, a1, a2, a3, a4));
         var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["ta"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["sa"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_viiiiji = (Module["dynCall_viiiiji"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["ua"])(
+            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["ta"])(
                 a0,
                 a1,
                 a2,
@@ -5190,9 +5181,9 @@ var Module = (() => {
                 a7,
             ));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["va"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ua"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["wa"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["va"])(
                 a0,
                 a1,
                 a2,
@@ -5204,7 +5195,7 @@ var Module = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["xa"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["wa"])(
                 a0,
                 a1,
                 a2,
