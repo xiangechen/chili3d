@@ -58,7 +58,7 @@ export class AppBuilder {
             Logger.info("initializing MainWindow");
 
             let ui = await import("chili-ui");
-            this._window = new ui.MainWindow();
+            this._window = new ui.MainWindow(await this.getRibbonTabs());
         });
         return this;
     }
@@ -66,6 +66,11 @@ export class AppBuilder {
     addAdditionalModules(...modules: IAdditionalModule[]): this {
         this._additionalModules.push(...modules);
         return this;
+    }
+
+    async getRibbonTabs() {
+        let defaultRibbon = await import("./ribbon");
+        return defaultRibbon.DefaultRibbon;
     }
 
     async build(): Promise<void> {

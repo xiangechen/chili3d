@@ -1,16 +1,6 @@
-import { CommandKeys, I18nKeys } from "chili-core";
+import { RibbonTab } from "chili-core";
 
-export type RibbonGroupProfile = {
-    groupName: I18nKeys;
-    items: (CommandKeys | CommandKeys[])[];
-};
-
-export type RibbonTabProfile = {
-    tabName: I18nKeys;
-    groups: RibbonGroupProfile[];
-};
-
-export const DefaultRibbon: RibbonTabProfile[] = [
+export const DefaultRibbon: RibbonTab[] = [
     {
         tabName: "ribbon.tab.startup",
         groups: [

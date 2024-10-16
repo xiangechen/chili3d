@@ -1,5 +1,12 @@
-import { Button, CommandKeys, I18nKeys, Observable, ObservableCollection } from "chili-core";
-import { RibbonGroupProfile, RibbonTabProfile } from "../profile/ribbon";
+import {
+    Button,
+    CommandKeys,
+    I18nKeys,
+    Observable,
+    ObservableCollection,
+    RibbonGroup,
+    RibbonTab,
+} from "chili-core";
 
 export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> | Button;
 
@@ -20,7 +27,7 @@ export class RibbonGroupData extends Observable {
         this.items = new ObservableCollection<RibbonCommandData>(...items);
     }
 
-    static fromProfile(profile: RibbonGroupProfile) {
+    static fromProfile(profile: RibbonGroup) {
         return new RibbonGroupData(
             profile.groupName,
             ...profile.items.map((item) => {
@@ -47,7 +54,7 @@ export class RibbonTabData extends Observable {
         this.groups.push(...groups);
     }
 
-    static fromProfile(profile: RibbonTabProfile) {
+    static fromProfile(profile: RibbonTab) {
         return new RibbonTabData(
             profile.tabName,
             ...profile.groups.map((group) => RibbonGroupData.fromProfile(group)),

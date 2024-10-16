@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Button, CommandKeys, I18nKeys, IApplication, IWindow, PubSub, debounce } from "chili-core";
+import {
+    Button,
+    CommandKeys,
+    I18nKeys,
+    IApplication,
+    IWindow,
+    PubSub,
+    RibbonTab,
+    debounce,
+} from "chili-core";
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
@@ -14,7 +23,7 @@ export class MainWindow implements IWindow {
     private _home?: Home;
     private _editor?: Editor;
 
-    constructor() {
+    constructor(readonly tabs: RibbonTab[]) {
         this.setTheme("light");
     }
 
@@ -54,7 +63,7 @@ export class MainWindow implements IWindow {
     }
 
     private async _initEditor(app: IApplication) {
-        this._editor = new Editor(app);
+        this._editor = new Editor(app, this.tabs);
     }
 
     registerHomeCommand(groupName: I18nKeys, command: CommandKeys | Button): void {
