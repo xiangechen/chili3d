@@ -57,6 +57,8 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing MainWindow");
 
+            this.loadAdditionalI18n();
+
             let ui = await import("chili-ui");
             this._window = new ui.MainWindow(await this.getRibbonTabs());
         });
@@ -87,7 +89,7 @@ export class AppBuilder {
             this._window,
         );
 
-        this.loadAdditionalModule();
+        this.loadAdditionalCommands();
 
         Logger.info("Application build completed");
     }
@@ -104,11 +106,16 @@ export class AppBuilder {
         }
     }
 
-    private loadAdditionalModule() {
+    private loadAdditionalI18n() {
         for (const module of this._additionalModules) {
             module.i18n().forEach((local) => {
-                I18n.combineTranslation(local.code as any, local.translation);
+                I18n.combineTranslation(local.code, local.translation);
             });
+        }
+    }
+
+    private loadAdditionalCommands() {
+        for (const module of this._additionalModules) {
             if (this._window) {
                 module.ribbonCommands().forEach((command) => {
                     this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);

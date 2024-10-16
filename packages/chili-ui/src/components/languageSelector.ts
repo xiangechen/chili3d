@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18n, Language } from "chili-core";
+import { I18n } from "chili-core";
 import { HTMLProps, option, select } from ".";
 
 export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
@@ -16,7 +16,7 @@ export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
     return select(
         {
             onchange: (e) => {
-                let language = (e.target as HTMLSelectElement).selectedIndex as unknown as Language;
+                let language = (e.target as HTMLSelectElement).selectedIndex;
                 I18n.changeLanguage(language);
             },
             ...props,
