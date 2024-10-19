@@ -57,13 +57,12 @@ export class PropertyView extends HTMLElement {
 
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
-        let properties = div();
-        let header = new InputProperty(document, nodes, Property.getProperty(nodes[0], "name")!);
-        if (INode.isModelNode(nodes[0])) {
-            appendProperty(properties, document, nodes);
-        }
+        let properties = div({className: style.rootProperties});
+        Property.getProperties(Object.getPrototypeOf(nodes[0])).forEach((x) => {
+            appendProperty(properties, document, nodes, x);
+        });
 
-        this.panel.append(header, properties);
+        this.panel.append(properties);
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
@@ -77,7 +76,6 @@ export class PropertyView extends HTMLElement {
     private addGeneral(document: IDocument, geometries: GeometryEntity[]) {
         let common = new Expander("common.general");
         this.panel.append(common);
-        common.classList.add(style.expander);
         Property.getOwnProperties(GeometryEntity.prototype).forEach((x) => {
             appendProperty(common.contenxtPanel, document, geometries, x);
         });
@@ -86,7 +84,6 @@ export class PropertyView extends HTMLElement {
     private addTransform(document: IDocument, geometries: GeometryEntity[]) {
         let matrix = new Expander("common.matrix");
         this.panel.append(matrix);
-        matrix.classList.add(style.expander);
 
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
             appendProperty(matrix, document, geometries, {
@@ -109,7 +106,6 @@ export class PropertyView extends HTMLElement {
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display);
         this.panel.append(parameters);
-        parameters.classList.add(style.expander);
         Property.getProperties(Object.getPrototypeOf(entities[0])).forEach((x) => {
             appendProperty(parameters.contenxtPanel, document, entities, x);
         });

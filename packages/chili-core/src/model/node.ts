@@ -1,9 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
+import { HistoryObservable, IDisposable, IPropertyChanged, Id, PubSub, Result } from "../foundation";
+import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
+import { IShape, IShapeMeshData } from "../shape";
 import { GeometryEntity } from "./geometryEntity";
 
 export interface INode extends IPropertyChanged, IDisposable {
@@ -66,7 +68,7 @@ export abstract class Node extends HistoryObservable implements INode {
     constructor(
         document: IDocument,
         private _name: string,
-        id: string = Id.generate(),
+        id: string,
     ) {
         super(document);
         this.id = id;
@@ -235,6 +237,115 @@ export namespace INode {
         }
         return path;
     }
+}
+
+export interface IMeshGeometry extends IPropertyChanged {
+    materialId: string;
+    matrix: Matrix4;
+    get mesh(): IShapeMeshData
+}
+
+export abstract class GeometryNode extends Node implements IMeshGeometry {
+    private _materialId: string;
+    @Serializer.serialze()
+    @Property.define("common.material", { type: "materialId" })
+    get materialId(): string {
+        return this._materialId;
+    }
+    set materialId(value: string) {
+        this.setProperty("materialId", value);
+    }
+
+    protected _matrix: Matrix4 = Matrix4.identity();
+    @Serializer.serialze()
+    get matrix(): Matrix4 {
+        return this._matrix;
+    }
+    set matrix(value: Matrix4) {
+        this.setProperty(
+            "matrix",
+            value,
+            (_p, oldMatrix) => {
+                this.onMatrixChanged(value, oldMatrix);
+            },
+            {
+                equals: (left, right) => left.equals(right),
+            },
+        );
+    }
+
+    constructor(
+        document: IDocument,
+        name: string,
+        materialId: string,
+        id: string
+    ) {
+        super(document, name, id);
+        this._materialId = materialId;
+    }
+
+    protected onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
+
+    protected onVisibleChanged(): void {
+        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
+    }
+
+    protected onParentVisibleChanged(): void {
+        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
+    }
+
+    protected _mesh: IShapeMeshData | undefined;
+    get mesh(): IShapeMeshData {
+        if (this._mesh === undefined) {
+            this._mesh = this.createMesh();
+        }
+        return this._mesh;
+    }
+
+    protected abstract createMesh(): IShapeMeshData;
+
+}
+
+export abstract class ShapeNode extends GeometryNode {
+    protected _shape: Result<IShape> = Result.err("shape not created");
+    get shape(): Result<IShape> {
+        if (!this._shape.isOk) {
+            this._shape = this.createShape();
+        }
+        return this._shape;
+    }
+
+    protected abstract createShape(): Result<IShape>;
+
+    protected override onMatrixChanged(newMatrix: Matrix4): void {
+        if (this.shape.isOk) this.shape.ok().matrix = newMatrix;
+    }
+
+    protected override createMesh(): IShapeMeshData {
+        if (!this.shape.isOk) {
+            throw new Error(this.shape.error());
+        }
+        return this.shape.ok().mesh;
+    }
+
+    protected updateShape(shape: Result<IShape>, notify: boolean): boolean {
+        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
+            return false;
+        }
+
+        if (!shape.isOk) {
+            PubSub.default.pub("displayError", shape.error());
+            return false;
+        }
+
+        let oldShape = this._shape;
+        this._shape = shape;
+        this._mesh = undefined;
+        this._shape.ok().matrix = this._matrix;
+        if (notify) this.emitPropertyChanged("shape", oldShape);
+        return true;
+    }
+
 }
 
 export namespace NodeSerializer {

@@ -4,6 +4,7 @@ import {
     EditableGeometryEntity,
     GeometryEntity,
     GeometryModel,
+    GeometryNode,
     I18n,
     ParameterGeometryEntity,
     Property,
@@ -35,6 +36,17 @@ export abstract class CreateCommand extends MultistepCommand {
     }
 
     protected abstract geometryEntity(): GeometryEntity;
+}
+
+export abstract class CreateNodeCommand extends MultistepCommand {
+    protected override executeMainTask() {
+        Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+            this.document.addNode(this.getNode());
+            this.document.visual.update();
+        });
+    }
+
+    protected abstract getNode(): GeometryNode;
 }
 
 export abstract class CreateFaceableCommand extends CreateCommand {

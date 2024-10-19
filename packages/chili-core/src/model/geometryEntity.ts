@@ -6,7 +6,7 @@ import { I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
-import { IShape } from "../shape";
+import { IShape, IShapeMeshData } from "../shape";
 import { Entity } from "./entity";
 import { IParameterBody } from "./parameterBody";
 
@@ -24,6 +24,13 @@ export abstract class GeometryEntity extends Entity {
     protected _shape: Result<IShape> = Result.err("undefined");
     get shape(): Result<IShape> {
         return this._shape;
+    }
+
+    get mesh(): IShapeMeshData {
+        if (!this.shape.isOk) {
+            throw new Error(this.shape.error());
+        }
+        return this.shape.ok().mesh;
     }
 
     constructor(document: IDocument, materialId?: string) {

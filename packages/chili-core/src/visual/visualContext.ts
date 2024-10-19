@@ -2,7 +2,7 @@
 
 import { IDisposable, INodeChangedObserver } from "../foundation";
 import { XYZ } from "../math";
-import { IModel } from "../model";
+import { IModel, INode } from "../model";
 import { IShapeFilter } from "../selectionFilter";
 import { ShapeMeshData } from "../shape";
 import { IVisualObject } from "./visualObject";
@@ -19,12 +19,12 @@ export interface IVisualContext extends IDisposable, INodeChangedObserver {
         filter?: IShapeFilter,
     ): IVisualGeometry[];
     removeVisualObject(object: IVisualObject): void;
-    addModel(models: IModel[]): void;
-    removeModel(models: IModel[]): void;
-    getShape(model: IModel): IVisualGeometry | undefined;
-    getModel(shape: IVisualGeometry): IModel | undefined;
-    redrawModel(models: IModel[]): void;
-    setVisible(model: IModel, visible: boolean): void;
+    addModel(models: INode[]): void;
+    removeModel(models: INode[]): void;
+    getShape(model: INode): IVisualGeometry | undefined;
+    getModel(shape: IVisualGeometry): INode | undefined;
+    redrawModel(models: INode[]): void;
+    setVisible(model: INode, visible: boolean): void;
     shapes(): IVisualGeometry[];
     displayMesh(...datas: ShapeMeshData[]): number;
     removeMesh(id: number): void;

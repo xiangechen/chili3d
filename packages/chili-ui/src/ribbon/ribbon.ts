@@ -135,7 +135,7 @@ export class Ribbon extends HTMLElement {
                             className: style.icon,
                             icon: "icon-chili",
                         }),
-                        span({ textContent: `Chili3D - v${__APP_VERSION__}` }),
+                        span({ id: "appName", textContent: `Chili3D - v${__APP_VERSION__}` }),
                     ),
                 ),
                 div(

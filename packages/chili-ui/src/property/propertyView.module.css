@@ -13,14 +13,19 @@
 .panel {
     flex: 1;
     padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     overflow-y: auto;
     border-top: 2px solid transparent;
     border-bottom: 2px solid transparent;
     background-color: var(--panel-background-color);
 }
 
-.expander {
-    margin-top: 6px;
+.rootProperties {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .name {

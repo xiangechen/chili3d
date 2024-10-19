@@ -32,7 +32,7 @@ export class Split extends MultistepCommand {
             let old = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
             if (old instanceof EditableGeometryEntity) {
                 old.replaceShape(geometry.shape.ok());
-            } else {
+            } else if (old instanceof GeometryModel) {
                 let model = new GeometryModel(this.document, old.name, geometry);
                 model.geometry.matrix = old.geometry.matrix;
                 this.removeModels(
