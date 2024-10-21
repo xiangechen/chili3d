@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, IFace, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
-import { PrismBody } from "../../bodys";
+import { GeometryNode, IFace, Precision, ShapeType, command } from "chili-core";
+import { PrismNode } from "../../bodys";
 import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
@@ -13,12 +13,11 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-circle",
 })
 export class Fuse extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let shape = this.stepDatas[0].shapes[0].shape as IFace; // todo assert
         let [point, normal] = shape.normal(0, 0);
         let dist = this.stepDatas[1].point!.sub(point).dot(normal);
-        let body = new PrismBody(this.document, shape, dist);
-        return new ParameterGeometryEntity(this.document, body);
+        return new PrismNode(this.document, shape, dist);
     }
 
     protected override getSteps(): IStep[] {

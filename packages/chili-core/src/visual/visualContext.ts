@@ -2,7 +2,7 @@
 
 import { IDisposable, INodeChangedObserver } from "../foundation";
 import { XYZ } from "../math";
-import { IModel, INode } from "../model";
+import { INode } from "../model";
 import { IShapeFilter } from "../selectionFilter";
 import { ShapeMeshData } from "../shape";
 import { IVisualObject } from "./visualObject";

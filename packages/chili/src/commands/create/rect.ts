@@ -1,15 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    GeometryEntity,
-    MathUtils,
-    ParameterGeometryEntity,
-    Plane,
-    Property,
-    XYZ,
-    command,
-} from "chili-core";
-import { RectBody } from "../../bodys";
+import { GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import { RectNode } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -89,10 +81,10 @@ export class Rect extends RectCommandBase {
         this.setProperty("isFace", value);
     }
 
-    protected geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let rect = this.getRectData(this.stepDatas[1].point!);
-        let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
-        body.isFace = this._isFace;
-        return new ParameterGeometryEntity(this.document, body);
+        let node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
+        node.isFace = this._isFace;
+        return node;
     }
 }

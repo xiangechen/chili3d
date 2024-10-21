@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, ParameterGeometryEntity, Precision, Property, XYZ, command } from "chili-core";
-import { LineBody } from "../../bodys";
+import { GeometryNode, Precision, Property, XYZ, command } from "chili-core";
+import { LineNode } from "../../bodys";
 import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -23,9 +23,8 @@ export class Line extends CreateCommand {
         this.setProperty("isContinue", value);
     }
 
-    geometryEntity(): GeometryEntity {
-        let body = new LineBody(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
-        return new ParameterGeometryEntity(this.document, body);
+    protected override geometryNode(): GeometryNode {
+        return new LineNode(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
     }
 
     getSteps(): IStep[] {

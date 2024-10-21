@@ -122,7 +122,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
         if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
-        else if (INode.isModelNode(node) || node instanceof GeometryNode) result = new TreeModel(document, node);
+        else if (node instanceof GeometryNode) result = new TreeModel(document, node);
         else throw new Error("unknown node");
         return result;
     }

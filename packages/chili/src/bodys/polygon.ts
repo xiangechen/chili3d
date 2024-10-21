@@ -1,19 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    FacebaseParameterBody,
-    I18nKeys,
-    IDocument,
-    IShape,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
-} from "chili-core";
+import { FacebaseNode, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
 @Serializer.register(["document", "points"])
-export class PolygonBody extends FacebaseParameterBody {
-    readonly display: I18nKeys = "body.polygon";
+export class PolygonNode extends FacebaseNode {
+    override display(): I18nKeys {
+        return "body.polygon";
+    }
 
     private _points: XYZ[];
     @Serializer.serialze()

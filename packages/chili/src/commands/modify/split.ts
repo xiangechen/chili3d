@@ -1,10 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    EditableGeometryEntity,
-    GeometryModel,
+    EditableShapeNode,
+    GeometryNode,
     IEdge,
     IVisualGeometry,
+    Result,
     ShapeType,
     Transaction,
     command,
@@ -19,22 +20,21 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-split",
 })
 export class Split extends MultistepCommand {
-    private geometryEntity(): EditableGeometryEntity {
+    private splitedShape() {
         let shape1 = this.stepDatas[0].shapes[0].shape;
         let edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
-        let shapes = shape1.split(edges);
-        return new EditableGeometryEntity(this.document, shapes);
+        return shape1.split(edges);
     }
 
     protected override executeMainTask() {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let geometry = this.geometryEntity();
             let old = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
-            if (old instanceof EditableGeometryEntity) {
-                old.replaceShape(geometry.shape.ok());
-            } else if (old instanceof GeometryModel) {
-                let model = new GeometryModel(this.document, old.name, geometry);
-                model.geometry.matrix = old.geometry.matrix;
+            let shape = this.splitedShape();
+            if (old instanceof EditableShapeNode) {
+                old.shape = Result.ok(shape);
+            } else if (old instanceof GeometryNode) {
+                let model = new EditableShapeNode(this.document, old.name, shape);
+                model.matrix = old.matrix;
                 this.removeModels(
                     this.stepDatas[0].shapes[0].owner,
                     ...this.stepDatas[1].shapes.map((x) => x.owner),

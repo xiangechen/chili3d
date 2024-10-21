@@ -1,10 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IShape, ParameterBody, Ray, Result, Serializer } from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterShapeNode, Ray, Result, Serializer } from "chili-core";
 
 @Serializer.register(["document", "profile", "axis", "angle"])
-export class RevolveBody extends ParameterBody {
-    override display: I18nKeys = "body.revol";
+export class RevolvedNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.revol";
+    }
 
     private _profile: IShape;
     @Serializer.serialze()

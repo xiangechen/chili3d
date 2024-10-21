@@ -1,6 +1,7 @@
 import {
-    EditableGeometryEntity,
-    GeometryEntity,
+    EditableShapeNode,
+    GeometryNode,
+    I18n,
     IEdge,
     IFace,
     IShape,
@@ -21,10 +22,10 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-offset",
 })
 export class OffsetCommand extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let normal = this.getAxis().normal;
         let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        return new EditableGeometryEntity(this.document, shape.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.offset"), shape.ok());
     }
 
     protected override getSteps(): IStep[] {

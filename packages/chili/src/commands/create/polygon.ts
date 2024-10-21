@@ -3,15 +3,14 @@
 import {
     AsyncController,
     EdgeMeshDataBuilder,
-    GeometryEntity,
+    GeometryNode,
     I18n,
-    ParameterGeometryEntity,
     Precision,
     ShapeMeshData,
     XYZ,
     command,
 } from "chili-core";
-import { PolygonBody } from "../../bodys";
+import { PolygonNode } from "../../bodys";
 import { Dimension, PointSnapData, SnapedData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
@@ -22,13 +21,13 @@ import { CreateFaceableCommand } from "../createCommand";
     icon: "icon-polygon",
 })
 export class Polygon extends CreateFaceableCommand {
-    protected override geometryEntity(): GeometryEntity {
-        let body = new PolygonBody(
+    protected override geometryNode(): GeometryNode {
+        let node = new PolygonNode(
             this.document,
             this.stepDatas.map((step) => step.point!),
         );
-        body.isFace = this.isFace;
-        return new ParameterGeometryEntity(this.document, body);
+        node.isFace = this.isFace;
+        return node;
     }
 
     protected override async executeSteps(): Promise<boolean> {

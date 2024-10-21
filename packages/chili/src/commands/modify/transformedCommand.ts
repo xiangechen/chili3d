@@ -3,8 +3,7 @@
 import {
     AsyncController,
     EdgeMeshData,
-    IModel,
-    INode,
+    GeometryNode,
     LineType,
     Matrix4,
     Property,
@@ -16,7 +15,7 @@ import {
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class TransformedCommand extends MultistepCommand {
-    protected models?: IModel[];
+    protected models?: GeometryNode[];
     protected positions?: number[];
 
     private _isClone: boolean = false;
@@ -43,9 +42,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     };
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection
-            .getSelectedNodes()
-            .filter((x) => INode.isModelNode(x)) as IModel[];
+        this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof GeometryNode);
         if (this.models.length > 0) return true;
         this.controller = new AsyncController();
         this.models = await this.document.selection.pickModel("prompt.select.models", this.controller, true);
@@ -61,8 +58,8 @@ export abstract class TransformedCommand extends MultistepCommand {
 
         this.positions = [];
         this.models!.forEach((model) => {
-            let ps = model.geometry.shape.unchecked()?.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
+            let ps = model.mesh.edges?.positions;
+            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
         });
         return true;
     }
@@ -79,7 +76,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             }
             let transform = this.transfrom(this.stepDatas.at(-1)!.point!);
             models?.forEach((x) => {
-                x.geometry.matrix = x.geometry.matrix.multiply(transform);
+                x.matrix = x.matrix.multiply(transform);
             });
             this.document.visual.update();
         });

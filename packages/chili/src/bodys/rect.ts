@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    FacebaseParameterBody,
+    FacebaseNode,
     I18nKeys,
     IDocument,
     IShape,
@@ -13,8 +13,10 @@ import {
 } from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy"])
-export class RectBody extends FacebaseParameterBody {
-    readonly display: I18nKeys = "body.rect";
+export class RectNode extends FacebaseNode {
+    override display(): I18nKeys {
+        return "body.rect";
+    }
 
     private _dx: number;
     @Serializer.serialze()
@@ -50,7 +52,7 @@ export class RectBody extends FacebaseParameterBody {
     }
 
     generateShape(): Result<IShape, string> {
-        let points = RectBody.points(this.plane, this._dx, this._dy);
+        let points = RectNode.points(this.plane, this._dx, this._dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.ok().toFace();

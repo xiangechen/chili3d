@@ -3,20 +3,14 @@
 import {
     EdgeMeshData,
     FaceMeshData,
-    GeometryEntity,
-    IMeshGeometry,
+    GeometryNode,
+    IMeshObject,
     IVisualGeometry,
     Matrix4,
     ShapeNode,
-    VisualConfig
+    VisualConfig,
 } from "chili-core";
-import {
-    DoubleSide,
-    Material,
-    Mesh,
-    MeshLambertMaterial,
-    Object3D
-} from "three";
+import { DoubleSide, Material, Mesh, MeshLambertMaterial, Object3D } from "three";
 
 import { MeshUtils } from "chili-geo";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
@@ -60,15 +54,15 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     constructor(
-        readonly geometryEngity: GeometryEntity,
+        readonly geometryNode: GeometryNode,
         readonly context: ThreeVisualContext,
     ) {
         super();
-        this.transform = geometryEngity.matrix;
-        this._faceMaterial = context.getMaterial(geometryEngity.materialId);
+        this.transform = geometryNode.matrix;
+        this._faceMaterial = context.getMaterial(geometryNode.materialId);
         this.matrixAutoUpdate = false;
         this.generateShape();
-        geometryEngity.onPropertyChanged(this.handleGeometryPropertyChanged);
+        geometryNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
     box() {
@@ -85,11 +79,11 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         };
     }
 
-    private handleGeometryPropertyChanged = (property: keyof IMeshGeometry) => {
+    private handleGeometryPropertyChanged = (property: keyof IMeshObject) => {
         if (property === "matrix") {
-            this.transform = this.geometryEngity.matrix;
+            this.transform = this.geometryNode.matrix;
         } else if (property === "materialId") {
-            let material = this.context.getMaterial(this.geometryEngity.materialId);
+            let material = this.context.getMaterial(this.geometryNode.materialId);
             this.changeFaceMaterial(material);
         } else if ((property as keyof ShapeNode) === "shape") {
             this.removeSubShapes();
@@ -98,14 +92,14 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     };
 
     private generateShape() {
-        let mesh = this.geometryEngity.mesh;
+        let mesh = this.geometryNode.mesh;
         if (mesh?.faces?.positions.length) this.initFaces(mesh.faces);
         if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
     }
 
     dispose() {
         this.removeSubShapes();
-        this.geometryEngity.removePropertyChanged(this.handleGeometryPropertyChanged);
+        this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this._edgeMaterial.dispose();
     }
 
@@ -152,7 +146,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     cloneSubEdge(index: number) {
-        let positions = MeshUtils.subEdge(this.geometryEngity.mesh.edges!, index);
+        let positions = MeshUtils.subEdge(this.geometryNode.mesh.edges!, index);
         if (!positions) return undefined;
 
         let buff = new LineSegmentsGeometry();
@@ -163,7 +157,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
     }
 
     cloneSubFace(index: number) {
-        let mesh = MeshUtils.subFace(this.geometryEngity.mesh.faces!, index);
+        let mesh = MeshUtils.subFace(this.geometryNode.mesh.faces!, index);
         if (!mesh) return undefined;
 
         let buff = ThreeGeometryFactory.createFaceBufferGeometry(mesh);

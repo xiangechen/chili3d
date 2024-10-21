@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { EditableGeometryEntity, GeometryEntity, Property, ShapeType, command } from "chili-core";
+import { EditableShapeNode, I18n, Property, ShapeType, command } from "chili-core";
 import { IStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
@@ -19,10 +19,10 @@ export class ThickSolidCommand extends CreateCommand {
         this.setProperty("thickness", value);
     }
 
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode() {
         let shape = this.stepDatas[0].shapes[0].shape;
         let thickSolid = this.application.shapeFactory.makeThickSolidBySimple(shape, this.thickness);
-        return new EditableGeometryEntity(this.document, thickSolid.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.thickSolid"), thickSolid.ok());
     }
 
     protected override getSteps(): IStep[] {

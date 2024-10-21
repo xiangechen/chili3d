@@ -2,14 +2,14 @@
 
 import { AsyncController, IDisposable } from "./foundation";
 import { I18nKeys } from "./i18n";
-import { IModel, INode } from "./model";
+import { GeometryNode, INode } from "./model";
 import { IShapeFilter } from "./selectionFilter";
 import { ShapeType } from "./shape";
 import { CursorType, IEventHandler, VisualShapeData } from "./visual";
 
 export interface ISelection extends IDisposable {
     pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<VisualShapeData[]>;
-    pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<IModel[]>;
+    pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<GeometryNode[]>;
     pickAsync(
         handler: IEventHandler,
         prompt: I18nKeys,

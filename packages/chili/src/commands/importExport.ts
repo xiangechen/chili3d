@@ -2,24 +2,22 @@
 
 import {
     AsyncController,
-    GeometryModel,
+    EditableShapeNode,
+    GeometryNode,
     I18n,
     IApplication,
     ICommand,
     IDocument,
-    IModel,
-    INode,
     IShape,
     NodeLinkedList,
-    ParameterGeometryEntity,
     PubSub,
     Result,
+    ShapeNode,
     Transaction,
     command,
     download,
     readFilesAsync,
 } from "chili-core";
-import { ImportedBody } from "../bodys/importer";
 import { SelectModelStep } from "../step";
 
 let count = 1;
@@ -55,9 +53,7 @@ export class Import implements ICommand {
             return;
         }
         let shapes = shape[1].ok().map((x) => {
-            let body = new ImportedBody(document, x);
-            let geometry = new ParameterGeometryEntity(document, body);
-            return new GeometryModel(document, `Imported ${count++}`, geometry);
+            return new EditableShapeNode(document, `Imported ${count++}`, x);
         });
         let nodeList = new NodeLinkedList(document, shape[0]!);
         document.addNode(nodeList);
@@ -99,7 +95,7 @@ abstract class Export implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let shapes = models.map((x) => x.geometry.shape.ok());
+                let shapes = models.map((x) => (x as ShapeNode).shape.ok());
                 let shapeString = await this.convertAsync(application, type, ...shapes);
                 if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
@@ -131,7 +127,7 @@ abstract class Export implements ICommand {
     private async selectModelsAsync(application: IApplication) {
         let models = application.activeView?.document.selection
             .getSelectedNodes()
-            .filter((x) => INode.isModelNode(x)) as IModel[];
+            .filter((x) => x instanceof GeometryNode);
         if (models?.length === 0) {
             let controller = new AsyncController();
             let step = new SelectModelStep("prompt.select.models", true);

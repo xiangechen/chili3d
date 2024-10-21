@@ -1,12 +1,8 @@
 import {
-    EdgeMeshData,
-    EditableGeometryEntity,
-    FaceMeshData,
-    GeometryModel,
+    EditableShapeNode,
     IApplication,
     ICommand,
     IDocument,
-    LineType,
     Material,
     Plane,
     XYZ,
@@ -60,8 +56,7 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
         let box = document.application.shapeFactory
             .box(plane, this.size * Math.random(), this.size * Math.random(), this.size * Math.random())
             .ok();
-        let entity = new EditableGeometryEntity(document, box, material.id);
-        let model = new GeometryModel(document, `box ${this.index++}`, entity);
-        document.addNode(model);
+        let node = new EditableShapeNode(document, `box ${this.index++}`, box, material.id);
+        document.addNode(node);
     }
 }

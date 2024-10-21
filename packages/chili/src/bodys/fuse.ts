@@ -1,10 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IShape, ParameterBody, Result, Serializer } from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterShapeNode, Result, Serializer } from "chili-core";
 
 @Serializer.register(["document", "bottom", "top"])
-export class FuseBody extends ParameterBody {
-    override display: I18nKeys = "body.fuse";
+export class FuseNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.fuse";
+    }
 
     private _bottom: IShape;
     @Serializer.serialze()

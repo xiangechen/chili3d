@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity } from "../model";
+import { GeometryNode } from "../model";
 import { IVisualObject } from "./visualObject";
 
 export enum VisualState {
@@ -30,5 +30,5 @@ export interface VisualGroup {
 }
 
 export interface IVisualGeometry extends IVisualObject {
-    get geometryEngity(): GeometryEntity;
+    get geometryNode(): GeometryNode;
 }

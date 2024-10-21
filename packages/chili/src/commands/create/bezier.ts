@@ -2,8 +2,9 @@
 
 import {
     AsyncController,
-    EditableGeometryEntity,
-    GeometryEntity,
+    EditableShapeNode,
+    GeometryNode,
+    I18n,
     ShapeMeshData,
     XYZ,
     command,
@@ -18,9 +19,9 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-bezier",
 })
 export class BezierCommand extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
-        return new EditableGeometryEntity(this.document, bezier.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.ok());
     }
 
     protected override async executeSteps(): Promise<boolean> {

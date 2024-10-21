@@ -1,19 +1,18 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryEntity,
+    GeometryNode,
     ICurve,
     IEdge,
     ILine,
     IShape,
     IShapeFilter,
-    ParameterGeometryEntity,
     Property,
     Ray,
     ShapeType,
     command,
 } from "chili-core";
-import { RevolveBody } from "../../bodys";
+import { RevolvedNode } from "../../bodys";
 import { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
@@ -33,12 +32,11 @@ export class Revolve extends CreateCommand {
         this.setProperty("angle", value);
     }
 
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
         let edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve().basisCurve() as ILine;
         let axis = new Ray(edge.value(0), edge.direction);
-        let body = new RevolveBody(this.document, shape, axis, this._angle);
-        return new ParameterGeometryEntity(this.document, body);
+        return new RevolvedNode(this.document, shape, axis, this._angle);
     }
 
     protected override getSteps(): IStep[] {

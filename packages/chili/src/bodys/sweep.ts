@@ -6,15 +6,17 @@ import {
     IEdge,
     IShape,
     IWire,
-    ParameterBody,
+    ParameterShapeNode,
     Result,
     Serializer,
     ShapeType,
 } from "chili-core";
 
 @Serializer.register(["document", "profile", "path"])
-export class SweepBody extends ParameterBody {
-    override display: I18nKeys = "body.sweep";
+export class SweepedNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.sweep";
+    }
 
     private _profile: IShape;
     @Serializer.serialze()

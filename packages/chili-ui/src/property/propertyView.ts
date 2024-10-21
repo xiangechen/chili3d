@@ -1,19 +1,17 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryEntity,
-    GeometryModel,
+    GeometryNode,
     I18nKeys,
     IConverter,
     IDocument,
     INode,
     IView,
-    ParameterGeometryEntity,
+    ParameterShapeNode,
     Property,
     PubSub,
 } from "chili-core";
 import { Expander, div, label, localize } from "../components";
-import { InputProperty } from "./input";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 import { appendProperty } from "./utils";
@@ -57,7 +55,7 @@ export class PropertyView extends HTMLElement {
 
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
-        let properties = div({className: style.rootProperties});
+        let properties = div({ className: style.rootProperties });
         Property.getProperties(Object.getPrototypeOf(nodes[0])).forEach((x) => {
             appendProperty(properties, document, nodes, x);
         });
@@ -66,22 +64,22 @@ export class PropertyView extends HTMLElement {
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
-        let geometries = nodes.filter((x) => INode.isModelNode(x)).map((x) => (x as GeometryModel).geometry);
+        let geometries = nodes.filter((x) => x instanceof GeometryNode);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
         this.addGeneral(document, geometries);
         this.addTransform(document, geometries);
         this.addParameters(geometries, document);
     }
 
-    private addGeneral(document: IDocument, geometries: GeometryEntity[]) {
+    private addGeneral(document: IDocument, geometries: GeometryNode[]) {
         let common = new Expander("common.general");
         this.panel.append(common);
-        Property.getOwnProperties(GeometryEntity.prototype).forEach((x) => {
+        Property.getOwnProperties(GeometryNode.prototype).forEach((x) => {
             appendProperty(common.contenxtPanel, document, geometries, x);
         });
     }
 
-    private addTransform(document: IDocument, geometries: GeometryEntity[]) {
+    private addTransform(document: IDocument, geometries: GeometryNode[]) {
         let matrix = new Expander("common.matrix");
         this.panel.append(matrix);
 
@@ -99,12 +97,10 @@ export class PropertyView extends HTMLElement {
         addMatrix("transform.rotation", converters.rotate);
     }
 
-    private addParameters(geometries: GeometryEntity[], document: IDocument) {
-        let entities = geometries
-            .map((x) => (x as ParameterGeometryEntity).body)
-            .filter((x) => x !== undefined);
+    private addParameters(geometries: GeometryNode[], document: IDocument) {
+        let entities = geometries.filter((x) => x instanceof ParameterShapeNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
-        let parameters = new Expander(entities[0].display);
+        let parameters = new Expander(entities[0].display());
         this.panel.append(parameters);
         Property.getProperties(Object.getPrototypeOf(entities[0])).forEach((x) => {
             appendProperty(parameters.contenxtPanel, document, entities, x);

@@ -1,12 +1,20 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { HistoryObservable, IDisposable, IPropertyChanged, Id, PubSub, Result } from "../foundation";
+import {
+    HistoryObservable,
+    IDisposable,
+    IEqualityComparer,
+    IPropertyChanged,
+    Id,
+    PubSub,
+    Result,
+} from "../foundation";
+import { I18n, I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
 import { IShape, IShapeMeshData } from "../shape";
-import { GeometryEntity } from "./geometryEntity";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -30,27 +38,9 @@ export interface INodeLinkedList extends INode {
     move(child: INode, newParent: this, newPreviousSibling?: INode): void;
 }
 
-export interface IModel extends INode {
-    readonly document: IDocument;
-    readonly geometry: GeometryEntity;
-}
-
-export interface IModelGroup extends IModel {
-    children: ReadonlyArray<IModel>;
-}
-
 export namespace INode {
     export function isLinkedListNode(node: INode): node is INodeLinkedList {
         return (node as INodeLinkedList).add !== undefined;
-    }
-
-    export function isModelNode(node: INode): node is IModel {
-        return (node as IModel).geometry !== undefined;
-    }
-
-    export function isModelGroup(node: INode): node is IModelGroup {
-        let group = node as IModelGroup;
-        return group.geometry !== undefined && group.children !== undefined;
     }
 }
 
@@ -239,13 +229,13 @@ export namespace INode {
     }
 }
 
-export interface IMeshGeometry extends IPropertyChanged {
+export interface IMeshObject extends IPropertyChanged {
     materialId: string;
     matrix: Matrix4;
-    get mesh(): IShapeMeshData
+    get mesh(): IShapeMeshData;
 }
 
-export abstract class GeometryNode extends Node implements IMeshGeometry {
+export abstract class GeometryNode extends Node implements IMeshObject {
     private _materialId: string;
     @Serializer.serialze()
     @Property.define("common.material", { type: "materialId" })
@@ -274,14 +264,9 @@ export abstract class GeometryNode extends Node implements IMeshGeometry {
         );
     }
 
-    constructor(
-        document: IDocument,
-        name: string,
-        materialId: string,
-        id: string
-    ) {
+    constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
         super(document, name, id);
-        this._materialId = materialId;
+        this._materialId = materialId ?? document.materials.at(0)?.id ?? "";
     }
 
     protected onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
@@ -303,19 +288,10 @@ export abstract class GeometryNode extends Node implements IMeshGeometry {
     }
 
     protected abstract createMesh(): IShapeMeshData;
-
 }
 
 export abstract class ShapeNode extends GeometryNode {
-    protected _shape: Result<IShape> = Result.err("shape not created");
-    get shape(): Result<IShape> {
-        if (!this._shape.isOk) {
-            this._shape = this.createShape();
-        }
-        return this._shape;
-    }
-
-    protected abstract createShape(): Result<IShape>;
+    abstract get shape(): Result<IShape>;
 
     protected override onMatrixChanged(newMatrix: Matrix4): void {
         if (this.shape.isOk) this.shape.ok().matrix = newMatrix;
@@ -328,24 +304,84 @@ export abstract class ShapeNode extends GeometryNode {
         return this.shape.ok().mesh;
     }
 
-    protected updateShape(shape: Result<IShape>, notify: boolean): boolean {
-        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
-            return false;
-        }
+    override dispose(): void {
+        super.dispose();
+        this.shape.unchecked()?.dispose();
+    }
+}
 
-        if (!shape.isOk) {
-            PubSub.default.pub("displayError", shape.error());
-            return false;
+const SHAPE_UNDEFINED = "Shape not initialized";
+export abstract class ParameterShapeNode extends ShapeNode {
+    protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
+    override get shape(): Result<IShape> {
+        if (!this._shape.isOk && this._shape.error() === SHAPE_UNDEFINED) {
+            this._shape = this.generateShape();
+        }
+        return this._shape;
+    }
+    override set shape(shape: Result<IShape>) {
+        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
+            return;
         }
 
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
         this._shape.ok().matrix = this._matrix;
-        if (notify) this.emitPropertyChanged("shape", oldShape);
-        return true;
+        this.emitPropertyChanged("shape", oldShape);
     }
 
+    protected setPropertyEmitShapeChanged<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
+        equals?: IEqualityComparer<this[K]> | undefined,
+    ): boolean {
+        if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
+            this.shape = this.generateShape();
+            return true;
+        }
+
+        return false;
+    }
+
+    constructor(document: IDocument, materialId?: string, id?: string) {
+        super(document, undefined as any, materialId, id);
+        this.name = I18n.translate(this.display());
+    }
+
+    protected abstract generateShape(): Result<IShape>;
+    abstract display(): I18nKeys;
+}
+
+@Serializer.register(["document", "name", "shape", "materialId", "id"])
+export class EditableShapeNode extends ShapeNode {
+    protected _shape: Result<IShape>;
+    @Serializer.serialze()
+    override get shape(): Result<IShape> {
+        return this._shape;
+    }
+    override set shape(shape: Result<IShape>) {
+        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
+            return;
+        }
+
+        if (!shape.isOk) {
+            PubSub.default.pub("displayError", shape.error());
+            return;
+        }
+
+        let oldShape = this._shape;
+        this._shape = shape;
+        this._mesh = undefined;
+        this._shape.ok().matrix = this._matrix;
+        this.emitPropertyChanged("shape", oldShape);
+    }
+
+    constructor(document: IDocument, name: string, shape: IShape, materialId?: string, id?: string) {
+        super(document, name, materialId, id);
+        this._shape = Result.ok(shape);
+    }
 }
 
 export namespace NodeSerializer {

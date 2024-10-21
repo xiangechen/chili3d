@@ -6,15 +6,17 @@ import {
     IEdge,
     IShape,
     IWire,
-    ParameterBody,
+    ParameterShapeNode,
     Result,
     Serializer,
     ShapeType,
 } from "chili-core";
 
 @Serializer.register(["document", "shapes"])
-export class FaceBody extends ParameterBody {
-    override display: I18nKeys = "body.face";
+export class FaceNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.face";
+    }
 
     private _shapes: IEdge[] | IWire[];
     @Serializer.serialze()

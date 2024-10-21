@@ -2,9 +2,8 @@
 
 import {
     AsyncController,
+    GeometryNode,
     IDocument,
-    IModel,
-    INode,
     IShapeFilter,
     IView,
     ShapeType,
@@ -13,8 +12,8 @@ import {
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class ModelSelectionHandler extends SelectionHandler {
-    models(): IModel[] {
-        return this.document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x)) as IModel[];
+    models(): GeometryNode[] {
+        return this.document.selection.getSelectedNodes().filter((x) => x instanceof GeometryNode);
     }
 
     constructor(
@@ -33,7 +32,7 @@ export class ModelSelectionHandler extends SelectionHandler {
         }
         let models = shapes
             .map((x) => view.document.visual.context.getModel(x.owner))
-            .filter((x) => x !== undefined) as IModel[];
+            .filter((x) => x !== undefined);
         this.document.selection.setSelection(models, event.shiftKey);
         return models.length;
     }

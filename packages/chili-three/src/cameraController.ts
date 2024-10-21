@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICameraController, IModel, INode, Point, ShapeType } from "chili-core";
+import { GeometryNode, ICameraController, Point, ShapeType } from "chili-core";
 import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -134,7 +134,9 @@ export class CameraController implements ICameraController {
 
     private getBoundingSphere(context: ThreeVisualContext) {
         let sphere = new Sphere();
-        let shapes = this.view.document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x));
+        let shapes = this.view.document.selection
+            .getSelectedNodes()
+            .filter((x) => x instanceof GeometryNode);
         if (shapes.length === 0) {
             new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
             return sphere;

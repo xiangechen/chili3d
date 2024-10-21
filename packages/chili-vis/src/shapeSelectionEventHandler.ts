@@ -43,12 +43,12 @@ export class ShapeSelectionHandler extends SelectionHandler {
 
     private removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape);
-        let highlighter = shape.owner.geometryEngity.document.visual.highlighter;
+        let highlighter = shape.owner.geometryNode.document.visual.highlighter;
         highlighter.removeState(shape.owner, VisualState.selected, shape.shape.shapeType, ...shape.indexes);
     }
 
     private addSelected(shape: VisualShapeData) {
-        let highlighter = shape.owner.geometryEngity.document.visual.highlighter;
+        let highlighter = shape.owner.geometryNode.document.visual.highlighter;
         highlighter.addState(shape.owner, VisualState.selected, this.shapeType, ...shape.indexes);
         this._shapes.add(shape);
     }

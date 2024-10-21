@@ -177,7 +177,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     protected cleanHighlights() {
         this._highlights?.forEach((x) => {
-            x.owner.geometryEngity.document.visual.highlighter.removeState(
+            x.owner.geometryNode.document.visual.highlighter.removeState(
                 x.owner,
                 VisualState.highlighter,
                 this.shapeType,

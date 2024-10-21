@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, ParameterGeometryEntity, Plane, Precision, XYZ, command } from "chili-core";
-import { CircleBody } from "../../bodys";
+import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
+import { CircleNode } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
@@ -33,12 +33,12 @@ export class Circle extends CreateFaceableCommand {
         };
     };
 
-    geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
-        let body = new CircleBody(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        let body = new CircleNode(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
         body.isFace = this.isFace;
-        return new ParameterGeometryEntity(this.document, body);
+        return body;
     }
 
     private circlePreview = (point: XYZ | undefined) => {

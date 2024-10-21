@@ -1,16 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    GeometryEntity,
-    ParameterGeometryEntity,
-    Plane,
-    PlaneAngle,
-    Precision,
-    ShapeMeshData,
-    XYZ,
-    command,
-} from "chili-core";
-import { ArcBody } from "../../bodys/arcBody";
+import { GeometryNode, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import { ArcNode } from "../../bodys/arc";
 import { Dimension, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -82,12 +73,11 @@ export class Arc extends CreateCommand {
         };
     };
 
-    geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
-        let body = new ArcBody(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
-        return new ParameterGeometryEntity(this.document, body);
+        return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
     }
 
     private circlePreview = (point: XYZ | undefined) => {

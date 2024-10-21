@@ -3,7 +3,6 @@
 import {
     CollectionAction,
     CollectionChangedArgs,
-    GeometryModel,
     IDisposable,
     INode,
     IShapeFilter,
@@ -18,7 +17,7 @@ import {
     ShapeMeshData,
     ShapeNode,
     ShapeType,
-    XYZ
+    XYZ,
 } from "chili-core";
 import {
     Box3,
@@ -203,10 +202,6 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.shapes().filter((x) => {
-            if (filter && x instanceof GeometryModel && x.geometryEngity.shape.isOk && !filter.allow(x.geometryEngity.shape.ok())) {
-                return false;
-            }
-
             if (filter && x instanceof ShapeNode && x.shape.isOk && !filter.allow(x.shape.ok())) {
                 return false;
             }
@@ -266,31 +261,17 @@ export class ThreeVisualContext implements IVisualContext {
     addModel(models: INode[]) {
         models.forEach((model) => {
             if (this._modelShapeMap.has(model)) return;
-            if (INode.isModelGroup(model)) {
-                let childGroup = new Group();
-                childGroup.name = model.id;
-                this.visualShapes.add(childGroup);
-                return;
-            }
             this.displayModel(model);
         });
     }
 
     private displayModel(model: INode) {
-        if (INode.isModelNode(model)) {
-            let modelShape = model.geometry.shape.ok();
-            if (modelShape === undefined) return;
-            let threeShape = new ThreeGeometry(model.geometry, this);
-            this.visualShapes.add(threeShape);
-            this._shapeModelMap.set(threeShape, model);
-            this._modelShapeMap.set(model, threeShape);
-        } else if (model instanceof ShapeNode) {
+        if (model instanceof ShapeNode) {
             let threeShape = new ThreeGeometry(model as any, this);
             this.visualShapes.add(threeShape);
             this._shapeModelMap.set(threeShape, model);
             this._modelShapeMap.set(model, threeShape);
         }
-
     }
 
     removeModel(models: INode[]) {

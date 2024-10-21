@@ -1,10 +1,21 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IShape, ParameterBody, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    I18nKeys,
+    IDocument,
+    IShape,
+    ParameterShapeNode,
+    Property,
+    Result,
+    Serializer,
+    XYZ,
+} from "chili-core";
 
 @Serializer.register(["document", "start", "end"])
-export class LineBody extends ParameterBody {
-    readonly display: I18nKeys = "body.line";
+export class LineNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.line";
+    }
 
     private _start: XYZ;
 

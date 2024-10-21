@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, IModel, INode } from "chili-core";
+import { IDocument, INode } from "chili-core";
 import { TreeItem } from "./treeItem";
 import style from "./treeModel.module.css";
 

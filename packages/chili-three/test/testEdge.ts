@@ -10,7 +10,7 @@ import {
     LineType,
     Matrix4,
     Orientation,
-    ParameterBody,
+    ParameterShapeNode,
     Plane,
     Ray,
     Result,
@@ -110,8 +110,10 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends ParameterBody {
-    display: I18nKeys = "body.line";
+export class TestNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.line";
+    }
     constructor(
         document: IDocument,
         readonly start: XYZ,
