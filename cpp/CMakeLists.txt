@@ -9,7 +9,7 @@ set (CMAKE_NINJA_FORCE_RESPONSE_FILE 1 CACHE INTERNAL "")
 get_filename_component(SOURCE_ROOT_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 set(CMAKE_INSTALL_PREFIX "${SOURCE_ROOT_DIR}/packages/chili-wasm/lib")
 
-set (OcctModules
+set (OcctToolkits
     # FoundationClasses
     TKernel TKMath
     # ModelingData 
@@ -24,17 +24,20 @@ set (OcctModules
     TKDE TKXSBase TKXCAF TKDESTEP TKDEIGES
 )
 
+set (OcctUsedPackages)
+foreach(toolkit ${OcctToolkits})
+    file (STRINGS build/occt/src/${toolkit}/PACKAGES OcctPackages)
+    list (APPEND OcctUsedPackages ${OcctPackages})
+endforeach()
+list (REMOVE_DUPLICATES OcctUsedPackages)
+
 set (OcctSourceFolders)
 set (OcctIncludeDirs)
-
-foreach(module ${OcctModules})
-    file (STRINGS build/occt/src/${module}/PACKAGES OcctPackage)
-    foreach(package ${OcctPackage})
-        if (NOT package STREQUAL "")
-            list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
-            list (APPEND OcctIncludeDirs build/occt/src/${package})
-        endif()
-    endforeach()
+foreach(package ${OcctUsedPackages})
+    if (NOT package STREQUAL "")
+        list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
+        list (APPEND OcctIncludeDirs build/occt/src/${package})
+    endif()
 endforeach()
 
 file (GLOB OcctSourceFiles ${OcctSourceFolders})
