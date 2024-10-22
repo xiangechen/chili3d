@@ -7,8 +7,8 @@ import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let shape1 = (this.stepDatas[0].models?.at(0) as ShapeNode)?.shape.ok();
-        let shape2 = (this.stepDatas[1].models?.at(0) as ShapeNode)?.shape.ok();
+        let shape1 = (this.stepDatas[0].models?.at(0) as ShapeNode)?.shape.value;
+        let shape2 = (this.stepDatas[1].models?.at(0) as ShapeNode)?.shape.value;
         let booleanType = this.getBooleanOperateType();
         let booleanShape: Result<IShape>;
         if (booleanType === "common") {
@@ -19,7 +19,7 @@ export abstract class BooleanOperate extends CreateCommand {
             booleanShape = this.application.shapeFactory.booleanFuse(shape1, shape2);
         }
 
-        let node = new BooleanNode(this.document, booleanShape.ok());
+        let node = new BooleanNode(this.document, booleanShape.value);
         this.stepDatas.forEach((x) => {
             x.models?.at(0)?.parent?.remove(x.models[0]);
         });
@@ -34,7 +34,7 @@ export abstract class BooleanOperate extends CreateCommand {
             new SelectModelStep("prompt.select.shape", false, {
                 allow: (shape) => {
                     return !this.stepDatas[0].models
-                        ?.map((x) => (x as ShapeNode).shape.ok())
+                        ?.map((x) => (x as ShapeNode).shape.value)
                         .includes(shape);
                 },
             }),

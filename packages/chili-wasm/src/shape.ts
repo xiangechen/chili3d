@@ -1,55 +1,48 @@
 import {
+    gc,
+    ICompound,
+    ICompoundSolid,
     ICurve,
     Id,
     IEdge,
+    IFace,
     IShape,
     IShapeMeshData,
+    IShell,
+    ISolid,
+    ISurface,
     ITrimmedCurve,
+    IVertex,
     IWire,
+    JoinType,
+    MathUtils,
     Matrix4,
     Orientation,
     Plane,
     Ray,
     Result,
-    ShapeType,
-    XYZ,
-    gc,
-    IFace,
-    ISurface,
-    JoinType,
-    MathUtils,
-    IShell,
-    ISolid,
-    ICompoundSolid,
-    ICompound,
     SerializedProperties,
     Serializer,
-    IVertex,
+    ShapeType,
+    XYZ,
 } from "chili-core";
-import {
-    TopoDS_Edge,
-    TopoDS_Face,
-    TopoDS_Shape,
-    TopoDS_Shell,
-    TopoDS_Vertex,
-    TopoDS_Wire,
-} from "../lib/chili-wasm";
+import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../lib/chili-wasm";
+import { OccShapeConverter } from "./converter";
+import { OccCurve, OccTrimmedCurve } from "./curve";
 import { OcctHelper } from "./helper";
 import { Mesher } from "./mesher";
-import { OccCurve, OccTrimmedCurve } from "./curve";
-import { OccShapeConverter } from "./converter";
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShape implements IShape {
     static serialize(target: OccShape): SerializedProperties<OccShape> {
         return {
-            shape: new OccShapeConverter().convertToBrep(target).ok(),
+            shape: new OccShapeConverter().convertToBrep(target).value,
             id: target.id,
         };
     }
 
     static deserialize(shape: string, id: string) {
-        let tshape = new OccShapeConverter().convertFromBrep(shape).ok() as OccShape;
+        let tshape = new OccShapeConverter().convertFromBrep(shape).value as OccShape;
         tshape._id = id;
         return tshape;
     }

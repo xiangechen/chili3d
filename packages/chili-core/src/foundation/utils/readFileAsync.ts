@@ -42,7 +42,7 @@ export async function readFileAsync(
         return files.parse();
     }
 
-    return readInputedFiles(files.ok(), method);
+    return readInputedFiles(files.value, method);
 }
 
 async function readInputedFiles(files: FileList, method: "readAsText" | "readAsDataURL") {

@@ -283,14 +283,14 @@ export abstract class ShapeNode extends GeometryNode {
     abstract get shape(): Result<IShape>;
 
     protected override onMatrixChanged(newMatrix: Matrix4): void {
-        if (this.shape.isOk) this.shape.ok().matrix = newMatrix;
+        if (this.shape.isOk) this.shape.value.matrix = newMatrix;
     }
 
     protected override createMesh(): IShapeMeshData {
         if (!this.shape.isOk) {
-            throw new Error(this.shape.error());
+            throw new Error(this.shape.error);
         }
-        return this.shape.ok().mesh;
+        return this.shape.value.mesh;
     }
 
     override dispose(): void {
@@ -303,20 +303,20 @@ const SHAPE_UNDEFINED = "Shape not initialized";
 export abstract class ParameterShapeNode extends ShapeNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
     override get shape(): Result<IShape> {
-        if (!this._shape.isOk && this._shape.error() === SHAPE_UNDEFINED) {
+        if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {
             this._shape = this.generateShape();
         }
         return this._shape;
     }
     override set shape(shape: Result<IShape>) {
-        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
+        if (shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
             return;
         }
 
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._shape.ok().matrix = this.matrix;
+        this._shape.value.matrix = this.matrix;
         this.emitPropertyChanged("shape", oldShape);
     }
 
@@ -356,14 +356,14 @@ export class EditableShapeNode extends ShapeNode {
         }
 
         if (!shape.isOk) {
-            PubSub.default.pub("displayError", shape.error());
+            PubSub.default.pub("displayError", shape.error);
             return;
         }
 
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._shape.ok().matrix = this.matrix;
+        this._shape.value.matrix = this.matrix;
         this.emitPropertyChanged("shape", oldShape);
     }
 

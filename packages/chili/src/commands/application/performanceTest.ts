@@ -53,9 +53,12 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
 
     protected override createShape(document: IDocument, material: Material, position: XYZ): void {
         let plane = Plane.XY.translateTo(position);
-        let box = document.application.shapeFactory
-            .box(plane, this.size * Math.random(), this.size * Math.random(), this.size * Math.random())
-            .ok();
+        let box = document.application.shapeFactory.box(
+            plane,
+            this.size * Math.random(),
+            this.size * Math.random(),
+            this.size * Math.random(),
+        ).value;
         let node = new EditableShapeNode(document, `box ${this.index++}`, box, material.id);
         document.addNode(node);
     }

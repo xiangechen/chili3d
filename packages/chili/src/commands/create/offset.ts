@@ -25,7 +25,7 @@ export class OffsetCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
         let normal = this.getAxis().normal;
         let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        return new EditableShapeNode(this.document, I18n.translate("command.offset"), shape.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.offset"), shape.value);
     }
 
     protected override getSteps(): IStep[] {
@@ -48,7 +48,7 @@ export class OffsetCommand extends CreateCommand {
                         let distance = point.sub(ax.point).dot(ax.direction);
                         let shape = this.createOffsetShape(ax.normal, distance);
                         if (shape.isOk) {
-                            res.push(shape.ok().mesh.edges!);
+                            res.push(shape.value.mesh.edges!);
                         }
                         return res;
                     },
@@ -70,7 +70,7 @@ export class OffsetCommand extends CreateCommand {
     private getFaceOrWireAxis(shape: IShape, start: XYZ) {
         let face = shape as IFace;
         if (shape.shapeType === ShapeType.Wire) {
-            face = (shape as IWire).toFace().ok();
+            face = (shape as IWire).toFace().value;
         }
         let normal = face.normal(0, 0)[1];
         let { nearest, direction } = this.getNearstPointAndDirection(shape, start, normal);
@@ -98,7 +98,7 @@ export class OffsetCommand extends CreateCommand {
             wire = (shape as IFace).outerWire();
         }
         let nearest = GeoUtils.nearestPoint(wire, start);
-        let nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).ok();
+        let nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).value;
         let direction = nearest.edge.curve().dn(0, 1);
         let scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
         let nextDirection = nextEdge.curve().dn(0, 1).multiply(scale);

@@ -59,6 +59,6 @@ export class Line extends CreateCommand {
         if (!point) {
             return [p1];
         }
-        return [p1, this.application.shapeFactory.line(this.stepDatas[0].point!, point).ok().mesh.edges!];
+        return [p1, this.application.shapeFactory.line(this.stepDatas[0].point!, point).value.mesh.edges!];
     };
 }

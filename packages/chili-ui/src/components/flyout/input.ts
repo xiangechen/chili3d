@@ -72,7 +72,7 @@ export class Input extends HTMLElement implements IDisposable {
                 this._completedCallbacks.forEach((x) => x());
             } else {
                 this.textbox.readOnly = false;
-                this.showTip(error.error());
+                this.showTip(error.error);
             }
         } else if (e.key === "Escape") {
             this._cancelledCallbacks.forEach((x) => x());

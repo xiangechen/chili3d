@@ -43,13 +43,13 @@ export class FaceNode extends ParameterShapeNode {
                     wires.push(shape as IWire);
                 } else {
                     let wire = this.document.application.shapeFactory.wire(shape as IEdge);
-                    wires.push(wire.ok());
+                    wires.push(wire.value);
                 }
             }
         } else {
             let wire = this.document.application.shapeFactory.wire(...(this.shapes as IEdge[]));
             if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
-            wires.push(wire.ok());
+            wires.push(wire.value);
         }
 
         for (let i = 1; i < wires.length; i++) {

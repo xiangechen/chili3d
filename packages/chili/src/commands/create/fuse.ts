@@ -38,7 +38,7 @@ export class Fuse extends CreateCommand {
                 let dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
                 let vec = normal.multiply(dist);
-                return [this.application.shapeFactory.prism(shape, vec).ok().mesh.edges!];
+                return [this.application.shapeFactory.prism(shape, vec).value.mesh.edges!];
             },
         };
     };

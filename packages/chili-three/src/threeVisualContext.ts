@@ -202,7 +202,7 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.shapes().filter((x) => {
-            if (filter && x instanceof ShapeNode && x.shape.isOk && !filter.allow(x.shape.ok())) {
+            if (filter && x instanceof ShapeNode && x.shape.isOk && !filter.allow(x.shape.value)) {
                 return false;
             }
 

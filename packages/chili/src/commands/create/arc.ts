@@ -56,9 +56,8 @@ export class Arc extends CreateCommand {
                 let result = [...points];
                 if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
                     result.push(
-                        this.application.shapeFactory
-                            .arc(plane.normal, center, p1, this._planeAngle!.angle)
-                            .ok().mesh.edges!,
+                        this.application.shapeFactory.arc(plane.normal, center, p1, this._planeAngle!.angle)
+                            .value.mesh.edges!,
                     );
                 }
                 return result;
@@ -90,9 +89,11 @@ export class Arc extends CreateCommand {
         return [
             p1,
             this.previewLine(this.stepDatas[0].point!, point),
-            this.application.shapeFactory
-                .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
-                .ok().mesh.edges!,
+            this.application.shapeFactory.circle(
+                plane.normal,
+                start,
+                this.getDistanceAtPlane(plane, start, point),
+            ).value.mesh.edges!,
         ];
     };
 

@@ -28,7 +28,7 @@ export class GeoUtils {
     private static wireNormal = (wire: IWire) => {
         let face = wire.toFace();
         if (face.isOk) {
-            return face.ok().normal(0, 0)[1];
+            return face.value.normal(0, 0)[1];
         }
 
         let firstEdge: IEdge | undefined = undefined;

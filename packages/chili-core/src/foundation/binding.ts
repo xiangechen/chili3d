@@ -66,6 +66,6 @@ export class Binding<T extends IPropertyChanged = any> {
         if (!result.isOk) {
             throw new Error(`Cannot convert value ${value}`);
         }
-        return result.ok();
+        return result.value;
     }
 }

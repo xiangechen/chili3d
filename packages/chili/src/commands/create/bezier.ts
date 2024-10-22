@@ -21,7 +21,7 @@ import { CreateCommand } from "../createCommand";
 export class BezierCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
         let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
-        return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.value);
     }
 
     protected override async executeSteps(): Promise<boolean> {
@@ -63,7 +63,7 @@ export class BezierCommand extends CreateCommand {
         if (points.length > 1) {
             ps.push(...this.previewLines(points));
             let bezier = this.application.shapeFactory.bezier(points);
-            ps.push(bezier.ok().mesh.edges!);
+            ps.push(bezier.value.mesh.edges!);
         }
 
         return ps;

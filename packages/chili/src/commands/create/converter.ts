@@ -31,7 +31,7 @@ abstract class ConvertCommand extends CancelableCommand {
             if (!node.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
-                this.document.addNode(node.ok());
+                this.document.addNode(node.value);
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
@@ -62,7 +62,7 @@ abstract class ConvertCommand extends CancelableCommand {
             .map((x) => x as ShapeNode)
             .filter((x) => {
                 if (x === undefined) return false;
-                let shape = x.shape.ok();
+                let shape = x.shape.value;
                 if (shape === undefined) return false;
                 if (filter !== undefined && !filter.allow(shape)) return false;
                 return true;
@@ -77,11 +77,11 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        let edges = models.map((x) => x.shape.ok()) as IEdge[];
+        let edges = models.map((x) => x.shape.value) as IEdge[];
         let wireBody = new WireNode(document, edges);
         let shape = wireBody.generateShape();
         if (!shape.isOk) {
-            return Result.err(shape.error());
+            return Result.err(shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);
@@ -95,12 +95,12 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        let edges = models.map((x) => x.shape.ok()) as IEdge[];
+        let edges = models.map((x) => x.shape.value) as IEdge[];
         let wireBody = new FaceNode(document, edges);
         let shape = wireBody.generateShape();
 
         if (!shape.isOk) {
-            return Result.err(shape.error());
+            return Result.err(shape.error);
         }
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);

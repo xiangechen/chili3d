@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryNode,
     IDocument,
     IShape,
     IShapeFilter,
@@ -40,7 +39,6 @@ import { ThreeHelper } from "./threeHelper";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ViewGizmo } from "./viewGizmo";
-import { Line } from "chili";
 
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
@@ -320,13 +318,13 @@ export class ThreeView extends Observable implements IView {
             const parent = element.object.parent;
             if (!(parent instanceof ThreeGeometry) || !(parent.geometryNode instanceof ShapeNode)) continue;
 
-            if (shapeFilter && !shapeFilter.allow(parent.geometryNode.shape.ok())) {
+            if (shapeFilter && !shapeFilter.allow(parent.geometryNode.shape.value)) {
                 continue;
             }
             return [
                 {
                     owner: parent,
-                    shape: parent.geometryNode.shape.ok(),
+                    shape: parent.geometryNode.shape.value,
                     point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
@@ -394,7 +392,7 @@ export class ThreeView extends Observable implements IView {
         groups: ShapeMeshGroup[],
         parent: ThreeGeometry,
     ) {
-        let ancestor = directShape.findAncestor(type, (parent.geometryNode as ShapeNode).shape.ok()).at(0);
+        let ancestor = directShape.findAncestor(type, (parent.geometryNode as ShapeNode).shape.value).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];

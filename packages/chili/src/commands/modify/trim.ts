@@ -153,9 +153,9 @@ function findEdges(detecteds: VisualShapeData[], view: IView) {
         .filter(
             (d) =>
                 d.geometryNode instanceof ShapeNode &&
-                d.geometryNode.shape.ok().id !== detecteds[0].shape.id,
+                d.geometryNode.shape.value.id !== detecteds[0].shape.id,
         )
-        .map((x) => (x.geometryNode as ShapeNode).shape.ok() as IEdge);
+        .map((x) => (x.geometryNode as ShapeNode).shape.value as IEdge);
     return otherEdges;
 }
 

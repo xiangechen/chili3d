@@ -8,7 +8,7 @@ export abstract class FacebaseNode extends ParameterShapeNode {
     @Serializer.serialze()
     @Property.define("command.faceable.isFace")
     get isFace() {
-        return this.getPrivateValue("isFace");
+        return this.getPrivateValue("isFace", false);
     }
     set isFace(value: boolean) {
         this.setProperty("isFace", value);

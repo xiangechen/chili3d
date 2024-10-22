@@ -25,6 +25,6 @@ export class PolygonNode extends FacebaseNode {
     generateShape(): Result<IShape, string> {
         let wire = this.document.application.shapeFactory.polygon(...this.points);
         if (!wire.isOk || !this.isFace) return wire;
-        return wire.ok().toFace();
+        return wire.value.toFace();
     }
 }

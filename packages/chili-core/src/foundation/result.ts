@@ -1,14 +1,33 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { Serializer } from "../serialize";
 import { IEqualityComparer } from "./equalityComparer";
+import { Logger } from "./logger";
 
+@Serializer.register(["isOk", "value", "error"])
 export class Result<T, E = string> {
     readonly #isOk: boolean;
-    readonly #value: T | undefined;
-    readonly #error: E | undefined;
-
+    @Serializer.serialze()
     get isOk(): boolean {
         return this.#isOk;
+    }
+
+    readonly #value: T | undefined;
+    @Serializer.serialze()
+    get value(): T {
+        if (!this.#isOk) {
+            Logger.warn("Result is error");
+        }
+        return this.#value!;
+    }
+
+    readonly #error: E | undefined;
+    @Serializer.serialze()
+    get error(): E {
+        if (this.#isOk) {
+            Logger.warn("Result is ok");
+        }
+        return this.#error!;
     }
 
     constructor(isOk: boolean, value: T | undefined, error: E | undefined) {
@@ -29,22 +48,8 @@ export class Result<T, E = string> {
         return !this.#isOk || predict(this.#value);
     }
 
-    ok(): T {
-        if (!this.#isOk) {
-            throw this.#error;
-        }
-        return this.#value!;
-    }
-
     unchecked(): T | undefined {
         return this.#value;
-    }
-
-    error(): E {
-        if (this.#isOk) {
-            throw new Error(`Result is ok: ${this.#value}`);
-        }
-        return this.#error!;
     }
 
     static ok<T>(value: T): Result<T, never> {
@@ -64,8 +69,8 @@ export class ResultEqualityComparer<T = any> implements IEqualityComparer<Result
             return false;
         }
         if (this.equal) {
-            return this.equal(left.ok(), right.ok());
+            return this.equal(left.value, right.value);
         }
-        return left.ok() === right.ok();
+        return left.value === right.value;
     }
 }

@@ -52,7 +52,7 @@ export class RectNode extends FacebaseNode {
         let points = RectNode.points(this.plane, this.dx, this.dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;
-        return wire.ok().toFace();
+        return wire.value.toFace();
     }
 
     static points(plane: Plane, dx: number, dy: number): XYZ[] {
