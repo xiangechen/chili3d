@@ -52,7 +52,7 @@ export class Application implements IApplication {
         window.onbeforeunload = this.handleWindowUnload;
     }
 
-    private handleWindowUnload = (event: BeforeUnloadEvent) => {
+    private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
         if (this.activeView) {
             // Cancel the event as stated by the standard.
             event.preventDefault();

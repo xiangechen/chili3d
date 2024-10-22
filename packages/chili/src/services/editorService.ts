@@ -21,7 +21,7 @@ export class EditorService implements IService {
         Logger.info(`${EditorService.name} stoped`);
     }
 
-    private handleSelectionChanged = (document: IDocument, selected: INode[]) => {
+    private readonly handleSelectionChanged = (document: IDocument, selected: INode[]) => {
         if (this.editHandler !== undefined) {
             this.editHandler.dispose();
             this.editHandler = undefined;

@@ -31,7 +31,7 @@ export abstract class RectCommandBase extends CreateCommand {
         return [first, second];
     }
 
-    private nextSnapData = (): SnapLengthAtPlaneData => {
+    private readonly nextSnapData = (): SnapLengthAtPlaneData => {
         return {
             point: () => this.stepDatas[0].point!,
             preview: this.previewRect,
@@ -44,7 +44,7 @@ export abstract class RectCommandBase extends CreateCommand {
         };
     };
 
-    private handleValid = (end: XYZ) => {
+    private readonly handleValid = (end: XYZ) => {
         let data = this.getRectData(end);
         if (data === undefined) return false;
         return !MathUtils.anyEqualZero(data.dx, data.dy);
@@ -72,10 +72,9 @@ export abstract class RectCommandBase extends CreateCommand {
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
-    protected _isFace: boolean = false;
     @Property.define("command.faceable.isFace")
     public get isFace() {
-        return this._isFace;
+        return this.getPrivateValue("isFace", false);
     }
     public set isFace(value: boolean) {
         this.setProperty("isFace", value);
@@ -84,7 +83,7 @@ export class Rect extends RectCommandBase {
     protected override geometryNode(): GeometryNode {
         let rect = this.getRectData(this.stepDatas[1].point!);
         let node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
-        node.isFace = this._isFace;
+        node.isFace = this.isFace;
         return node;
     }
 }

@@ -8,28 +8,25 @@ export class RevolvedNode extends ParameterShapeNode {
         return "body.revol";
     }
 
-    private _profile: IShape;
     @Serializer.serialze()
     get profile() {
-        return this._profile;
+        return this.getPrivateValue("profile");
     }
     set profile(value: IShape) {
         this.setProperty("profile", value);
     }
 
-    private _axis: Ray;
     @Serializer.serialze()
     get axis() {
-        return this._axis;
+        return this.getPrivateValue("axis");
     }
     set axis(value: Ray) {
         this.setProperty("axis", value);
     }
 
-    private _angle: number;
     @Serializer.serialze()
     get angle() {
-        return this._angle;
+        return this.getPrivateValue("angle");
     }
     set angle(value: number) {
         this.setProperty("angle", value);
@@ -37,9 +34,9 @@ export class RevolvedNode extends ParameterShapeNode {
 
     constructor(document: IDocument, profile: IShape, axis: Ray, angle: number) {
         super(document);
-        this._profile = profile;
-        this._axis = axis;
-        this._angle = angle;
+        this.setPrivateValue("profile", profile);
+        this.setPrivateValue("axis", axis);
+        this.setPrivateValue("angle", angle);
     }
 
     override generateShape(): Result<IShape> {

@@ -18,18 +18,17 @@ export class FaceNode extends ParameterShapeNode {
         return "body.face";
     }
 
-    private _shapes: IEdge[] | IWire[];
     @Serializer.serialze()
     get shapes(): IEdge[] | IWire[] {
-        return this._shapes;
+        return this.getPrivateValue("shapes");
     }
-    set shapes(values: IEdge[] | IWire) {
+    set shapes(values: IEdge[] | IWire[]) {
         this.setProperty("shapes", values);
     }
 
     constructor(document: IDocument, shapes: IEdge[] | IWire[]) {
         super(document);
-        this._shapes = shapes;
+        this.setPrivateValue("shapes", shapes);
     }
 
     private isAllClosed(): boolean {
@@ -48,7 +47,7 @@ export class FaceNode extends ParameterShapeNode {
                 }
             }
         } else {
-            let wire = this.document.application.shapeFactory.wire(...(this._shapes as IEdge[]));
+            let wire = this.document.application.shapeFactory.wire(...(this.shapes as IEdge[]));
             if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
             wires.push(wire.ok());
         }

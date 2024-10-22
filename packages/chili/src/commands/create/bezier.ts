@@ -45,7 +45,7 @@ export class BezierCommand extends CreateCommand {
         return [firstStep, secondStep];
     }
 
-    private getNextData = (): PointSnapData => {
+    private readonly getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
@@ -54,7 +54,7 @@ export class BezierCommand extends CreateCommand {
         };
     };
 
-    private preview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
         let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.previewPoint(data.point!));
         let points = this.stepDatas.map((data) => data.point) as XYZ[];
         if (point) {
@@ -69,7 +69,7 @@ export class BezierCommand extends CreateCommand {
         return ps;
     };
 
-    private previewLines = (points: XYZ[]): ShapeMeshData[] => {
+    private readonly previewLines = (points: XYZ[]): ShapeMeshData[] => {
         if (points.length < 2) {
             return [];
         }
@@ -80,7 +80,7 @@ export class BezierCommand extends CreateCommand {
         return res;
     };
 
-    private validator = (point: XYZ): boolean => {
+    private readonly validator = (point: XYZ): boolean => {
         for (const data of this.stepDatas) {
             if (point.distanceTo(data.point!) < 0.001) {
                 return false;

@@ -18,12 +18,10 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected models?: GeometryNode[];
     protected positions?: number[];
 
-    private _isClone: boolean = false;
     @Property.define("common.clone")
     get isClone() {
-        return this._isClone;
+        return this.getPrivateValue("isClone", false);
     }
-
     set isClone(value: boolean) {
         this.setProperty("isClone", value);
     }

@@ -8,10 +8,9 @@ export class WireNode extends ParameterShapeNode {
         return "body.wire";
     }
 
-    private _edges: IEdge[];
     @Serializer.serialze()
     get edges(): IEdge[] {
-        return this._edges;
+        return this.getPrivateValue("edges");
     }
     set edges(values: IEdge[]) {
         this.setProperty("edges", values);
@@ -19,7 +18,7 @@ export class WireNode extends ParameterShapeNode {
 
     constructor(document: IDocument, edges: IEdge[]) {
         super(document);
-        this._edges = [...edges];
+        this.setPrivateValue("edges", edges);
     }
 
     override generateShape(): Result<IShape> {

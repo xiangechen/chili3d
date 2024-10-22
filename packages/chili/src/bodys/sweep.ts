@@ -18,19 +18,17 @@ export class SweepedNode extends ParameterShapeNode {
         return "body.sweep";
     }
 
-    private _profile: IShape;
     @Serializer.serialze()
     get profile() {
-        return this._profile;
+        return this.getPrivateValue("profile");
     }
     set profile(value: IShape) {
         this.setProperty("profile", value);
     }
 
-    private _path: IWire;
     @Serializer.serialze()
     get path() {
-        return this._path;
+        return this.getPrivateValue("path");
     }
     set path(value: IWire) {
         this.setProperty("path", value);
@@ -38,11 +36,13 @@ export class SweepedNode extends ParameterShapeNode {
 
     constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
         super(document);
-        this._profile = profile;
-        this._path =
-            path.shapeType === ShapeType.Wire
-                ? (path as IWire)
-                : document.application.shapeFactory.wire(path as unknown as IEdge).ok();
+        this.setPrivateValue("profile", profile);
+
+        let wire = path as IWire;
+        if (path.shapeType !== ShapeType.Wire) {
+            wire = document.application.shapeFactory.wire(path as unknown as IEdge).ok();
+        }
+        this.setPrivateValue("path", wire);
     }
 
     override generateShape(): Result<IShape> {

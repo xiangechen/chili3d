@@ -12,12 +12,11 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    private _isContinue: boolean = false;
     @Property.define("command.line.isConnected", {
         dependencies: [{ property: "repeatOperation", value: true }],
     })
     get isContinue() {
-        return this._isContinue;
+        return this.getPrivateValue("isContinue", false);
     }
     set isContinue(value: boolean) {
         this.setProperty("isContinue", value);
@@ -34,7 +33,7 @@ export class Line extends CreateCommand {
     }
 
     protected override resetSteps() {
-        if (this._isContinue) {
+        if (this.isContinue) {
             this.stepDatas[0] = this.stepDatas[1];
             this.stepDatas.length = 1;
         } else {
@@ -42,7 +41,7 @@ export class Line extends CreateCommand {
         }
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -55,7 +54,7 @@ export class Line extends CreateCommand {
         };
     };
 
-    private linePreview = (point: XYZ | undefined) => {
+    private readonly linePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];

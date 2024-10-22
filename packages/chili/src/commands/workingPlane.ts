@@ -34,7 +34,7 @@ export class SetWorkplane implements ICommand {
         let vm = new WorkingPlaneViewModel();
         PubSub.default.pub("showDialog", "workingPlane.set", vm, () => {
             let planes = [Plane.XY, Plane.YZ, Plane.ZX];
-            view!.workplane = planes[vm.planes.selectedIndexes[0]];
+            view.workplane = planes[vm.planes.selectedIndexes[0]];
         });
     }
 }

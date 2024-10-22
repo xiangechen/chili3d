@@ -23,10 +23,9 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {
-    private _angle: number = 360;
     @Property.define("common.angle")
     public get angle() {
-        return this._angle;
+        return this.getPrivateValue("angle", 360);
     }
     public set angle(value: number) {
         this.setProperty("angle", value);
@@ -36,7 +35,7 @@ export class Revolve extends CreateCommand {
         let shape = this.stepDatas[0].shapes[0].shape; // todo assert
         let edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve().basisCurve() as ILine;
         let axis = new Ray(edge.value(0), edge.direction);
-        return new RevolvedNode(this.document, shape, axis, this._angle);
+        return new RevolvedNode(this.document, shape, axis, this.angle);
     }
 
     protected override getSteps(): IStep[] {

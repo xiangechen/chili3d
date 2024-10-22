@@ -17,36 +17,30 @@ export class ArcNode extends ParameterShapeNode {
         return "body.arc";
     }
 
-    private _center: XYZ;
-
     @Serializer.serialze()
     @Property.define("circle.center")
     get center() {
-        return this._center;
+        return this.getPrivateValue("center");
     }
     set center(center: XYZ) {
         this.setProperty("center", center);
     }
 
-    private _start: XYZ;
     @Serializer.serialze()
     @Property.define("arc.start")
-    get start() {
-        return this._start;
+    get start(): XYZ {
+        return this.getPrivateValue("start");
     }
-
-    private _normal: XYZ;
 
     @Serializer.serialze()
-    get normal() {
-        return this._normal;
+    get normal(): XYZ {
+        return this.getPrivateValue("normal");
     }
 
-    private _angle: number;
     @Serializer.serialze()
     @Property.define("arc.angle")
     get angle() {
-        return this._angle;
+        return this.getPrivateValue("angle");
     }
     set angle(value: number) {
         this.setProperty("angle", value);
@@ -54,18 +48,13 @@ export class ArcNode extends ParameterShapeNode {
 
     constructor(document: IDocument, normal: XYZ, center: XYZ, start: XYZ, angle: number) {
         super(document);
-        this._normal = normal;
-        this._center = center;
-        this._start = start;
-        this._angle = angle;
+        this.setPrivateValue("normal", normal);
+        this.setPrivateValue("center", center);
+        this.setPrivateValue("start", start);
+        this.setPrivateValue("angle", angle);
     }
 
     generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.arc(
-            this.normal,
-            this._center,
-            this._start,
-            this.angle,
-        );
+        return this.document.application.shapeFactory.arc(this.normal, this.center, this.start, this.angle);
     }
 }

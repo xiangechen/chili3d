@@ -45,7 +45,7 @@ export interface PubSubEventMap {
 export class PubSub implements IDisposable {
     static readonly default: PubSub = new PubSub();
 
-    private _events: Map<any, Set<(...args: any[]) => void>>;
+    private readonly _events: Map<any, Set<(...args: any[]) => void>>;
 
     constructor() {
         this._events = new Map();

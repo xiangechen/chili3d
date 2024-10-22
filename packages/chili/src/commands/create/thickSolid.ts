@@ -10,10 +10,9 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-thickSolid",
 })
 export class ThickSolidCommand extends CreateCommand {
-    private _thickness: number = 50;
     @Property.define("command.thickSolid")
     get thickness() {
-        return this._thickness;
+        return this.getPrivateValue("thickness", 10);
     }
     set thickness(value: number) {
         this.setProperty("thickness", value);

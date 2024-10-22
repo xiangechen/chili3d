@@ -29,7 +29,7 @@ export class Array extends MultistepCommand {
         return [firstStep, secondStep];
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -37,7 +37,7 @@ export class Array extends MultistepCommand {
         };
     };
 
-    private movePreview = (point: XYZ | undefined) => {
+    private readonly movePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
         let start = this.stepDatas[0].point!;

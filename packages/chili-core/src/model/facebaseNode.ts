@@ -5,11 +5,10 @@ import { Serializer } from "../serialize";
 import { ParameterShapeNode } from "./node";
 
 export abstract class FacebaseNode extends ParameterShapeNode {
-    protected _isFace: boolean = false;
     @Serializer.serialze()
     @Property.define("command.faceable.isFace")
     get isFace() {
-        return this._isFace;
+        return this.getPrivateValue("isFace");
     }
     set isFace(value: boolean) {
         this.setProperty("isFace", value);

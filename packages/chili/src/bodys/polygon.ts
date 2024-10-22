@@ -8,11 +8,10 @@ export class PolygonNode extends FacebaseNode {
         return "body.polygon";
     }
 
-    private _points: XYZ[];
     @Serializer.serialze()
     @Property.define("polygon.points")
     get points() {
-        return this._points;
+        return this.getPrivateValue("points");
     }
     set points(value: XYZ[]) {
         this.setProperty("points", value);
@@ -20,11 +19,11 @@ export class PolygonNode extends FacebaseNode {
 
     constructor(document: IDocument, points: XYZ[]) {
         super(document);
-        this._points = points;
+        this.setPrivateValue("points", points);
     }
 
     generateShape(): Result<IShape, string> {
-        let wire = this.document.application.shapeFactory.polygon(...this._points);
+        let wire = this.document.application.shapeFactory.polygon(...this.points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.ok().toFace();
     }

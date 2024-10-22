@@ -41,7 +41,7 @@ export class Circle extends CreateFaceableCommand {
         return body;
     }
 
-    private circlePreview = (point: XYZ | undefined) => {
+    private readonly circlePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];

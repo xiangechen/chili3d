@@ -61,7 +61,7 @@ export class Polygon extends CreateFaceableCommand {
         return [firstStep, secondStep];
     }
 
-    private getNextData = (): PointSnapData => {
+    private readonly getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
@@ -87,7 +87,7 @@ export class Polygon extends CreateFaceableCommand {
         return [...ps, edges.build()];
     };
 
-    private validator = (point: XYZ): boolean => {
+    private readonly validator = (point: XYZ): boolean => {
         for (const data of this.stepDatas) {
             if (point.distanceTo(data.point!) < 0.001) {
                 return false;

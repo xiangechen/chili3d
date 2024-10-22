@@ -26,7 +26,7 @@ export class Mirror extends TransformedCommand {
         return [firstStep, secondStep];
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2,
@@ -40,7 +40,7 @@ export class Mirror extends TransformedCommand {
         };
     };
 
-    private mirrorPreview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly mirrorPreview = (point: XYZ | undefined): ShapeMeshData[] => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
         let shape = this.transformPreview(point);

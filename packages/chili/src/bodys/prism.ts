@@ -18,20 +18,18 @@ export class PrismNode extends ParameterShapeNode {
         return "body.prism";
     }
 
-    private _section: IShape;
     @Serializer.serialze()
     get section(): IShape {
-        return this._section;
+        return this.getPrivateValue("section");
     }
-    set section(value: IFace) {
+    set section(value: IShape) {
         this.setProperty("section", value);
     }
 
-    private _length: number;
     @Serializer.serialze()
     @Property.define("common.length")
     get length(): number {
-        return this._length;
+        return this.getPrivateValue("length");
     }
     set length(value: number) {
         this.setProperty("length", value);
@@ -39,8 +37,8 @@ export class PrismNode extends ParameterShapeNode {
 
     constructor(document: IDocument, face: IShape, length: number) {
         super(document);
-        this._section = face;
-        this._length = length;
+        this.setPrivateValue("section", face);
+        this.setPrivateValue("length", length);
     }
 
     override generateShape(): Result<IShape> {

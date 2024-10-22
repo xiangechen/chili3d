@@ -8,18 +8,17 @@ export class BooleanNode extends ParameterShapeNode {
         return "body.bolean";
     }
 
-    private _booleanShape: IShape;
     @Serializer.serialze()
-    get booleanShape() {
-        return this._booleanShape;
+    get booleanShape(): IShape {
+        return this.getPrivateValue("booleanShape");
     }
 
     constructor(document: IDocument, shape: IShape) {
         super(document);
-        this._booleanShape = shape;
+        this.setPrivateValue("booleanShape", shape);
     }
 
     override generateShape(): Result<IShape> {
-        return Result.ok(this._booleanShape);
+        return Result.ok(this.booleanShape);
     }
 }

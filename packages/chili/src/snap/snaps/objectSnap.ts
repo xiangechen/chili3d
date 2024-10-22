@@ -27,10 +27,10 @@ interface InvisibleSnapInfo {
 }
 
 export class ObjectSnap implements ISnap {
-    private _featureInfos: Map<VisualShapeData, SnapedData[]>;
-    private _intersectionInfos: Map<string, SnapedData[]>;
-    private _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
-    private _hilightedShapes: VisualShapeData[] = [];
+    private readonly _featureInfos: Map<VisualShapeData, SnapedData[]>;
+    private readonly _intersectionInfos: Map<string, SnapedData[]>;
+    private readonly _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
+    private readonly _hilightedShapes: VisualShapeData[] = [];
     private _lastDetected?: [IView, SnapedData];
     private _hintVertex?: [IVisualContext, number];
 

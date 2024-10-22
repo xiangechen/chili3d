@@ -32,7 +32,7 @@ export class Prism extends CreateCommand {
         ];
     }
 
-    private getLengthStepData = (): LengthAtAxisSnapData => {
+    private readonly getLengthStepData = (): LengthAtAxisSnapData => {
         const { point, normal } = this.getAxis();
         return {
             point,

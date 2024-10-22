@@ -18,41 +18,38 @@ export class RectNode extends FacebaseNode {
         return "body.rect";
     }
 
-    private _dx: number;
     @Serializer.serialze()
     @Property.define("rect.dx")
     get dx() {
-        return this._dx;
+        return this.getPrivateValue("dx");
     }
     set dx(dx: number) {
         this.setProperty("dx", dx);
     }
 
-    private _dy: number;
     @Serializer.serialze()
     @Property.define("rect.dy")
     get dy() {
-        return this._dy;
+        return this.getPrivateValue("dy");
     }
     set dy(dy: number) {
         this.setProperty("dy", dy);
     }
 
-    private _plane: Plane;
     @Serializer.serialze()
-    get plane() {
-        return this._plane;
+    get plane(): Plane {
+        return this.getPrivateValue("plane");
     }
 
     constructor(document: IDocument, plane: Plane, dx: number, dy: number) {
         super(document);
-        this._plane = plane;
-        this._dx = dx;
-        this._dy = dy;
+        this.setPrivateValue("plane", plane);
+        this.setPrivateValue("dx", dx);
+        this.setPrivateValue("dy", dy);
     }
 
     generateShape(): Result<IShape, string> {
-        let points = RectNode.points(this.plane, this._dx, this._dy);
+        let points = RectNode.points(this.plane, this.dx, this.dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.ok().toFace();

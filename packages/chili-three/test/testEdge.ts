@@ -3,6 +3,7 @@ import {
     ICurve,
     IDocument,
     IEdge,
+    IEqualityComparer,
     IShape,
     IShapeMeshData,
     ITrimmedCurve,
@@ -120,6 +121,16 @@ export class TestNode extends ParameterShapeNode {
         readonly end: XYZ,
     ) {
         super(document);
+    }
+
+    protected override setProperty<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: ((property: K, oldValue: this[K]) => void) | undefined,
+        equals?: IEqualityComparer<this[K]> | undefined,
+    ): boolean {
+        this.setPrivateValue(property, newValue);
+        return true;
     }
 
     generateShape(): Result<IShape> {

@@ -22,7 +22,6 @@ export type Locale = {
 export type Translation = Record<I18nKeys, string>;
 
 export namespace I18n {
-
     export const languages = new Map<LanguageCode, Locale>([
         ["en", en],
         ["zh-CN", zh],
@@ -46,7 +45,7 @@ export namespace I18n {
 
     export function translate(key: I18nKeys, ...args: any[]) {
         let language = languages.get(_currentLanguage)!;
-        let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key]!;
+        let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }
@@ -63,7 +62,7 @@ export namespace I18n {
 
     export function changeLanguage(index: number) {
         if (index < 0 || index >= languages.size) return;
-       
+
         let newLanguage = Array.from(languages.keys())[index];
         if (newLanguage === _currentLanguage) return;
         _currentLanguage = newLanguage;

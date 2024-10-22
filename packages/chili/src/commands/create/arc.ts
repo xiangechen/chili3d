@@ -26,7 +26,7 @@ export class Arc extends CreateCommand {
         return [centerStep, startStep, angleStep];
     }
 
-    private getRadiusData = (): SnapLengthAtPlaneData => {
+    private readonly getRadiusData = (): SnapLengthAtPlaneData => {
         let point = this.stepDatas[0].point!;
         return {
             point: () => point,
@@ -41,7 +41,7 @@ export class Arc extends CreateCommand {
         };
     };
 
-    private getAngleData = () => {
+    private readonly getAngleData = () => {
         let [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
         let points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
@@ -80,7 +80,7 @@ export class Arc extends CreateCommand {
         return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
     }
 
-    private circlePreview = (point: XYZ | undefined) => {
+    private readonly circlePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];

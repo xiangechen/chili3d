@@ -19,8 +19,6 @@ import { FaceNode } from "../../bodys/face";
 import { WireNode } from "../../bodys/wire";
 import { SelectModelStep } from "../../step";
 
-let count = 1;
-
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {
         let models = await this.getOrPickModels(this.document);

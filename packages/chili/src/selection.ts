@@ -98,7 +98,7 @@ export class Selection implements ISelection, IDisposable {
         return this._selectedNodes.length;
     }
 
-    private nodeFilter = (x: INode) => {
+    private readonly nodeFilter = (x: INode) => {
         if (x instanceof ShapeNode) {
             let shape = x.shape.ok();
             if (!shape || !this.filter) return true;

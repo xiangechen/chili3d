@@ -18,7 +18,7 @@ export class Box extends RectCommandBase {
         return [...steps, third];
     }
 
-    private getHeightStepData = (): LengthAtAxisSnapData => {
+    private readonly getHeightStepData = (): LengthAtAxisSnapData => {
         return {
             point: this.stepDatas[1].point!,
             direction: this.stepDatas[0].view.workplane.normal,
@@ -26,7 +26,7 @@ export class Box extends RectCommandBase {
         };
     };
 
-    private previewBox = (end: XYZ | undefined) => {
+    private readonly previewBox = (end: XYZ | undefined) => {
         if (!end) {
             return this.previewRect(this.stepDatas[1].point);
         }

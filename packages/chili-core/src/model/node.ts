@@ -45,9 +45,6 @@ export namespace INode {
 }
 
 export abstract class Node extends HistoryObservable implements INode {
-    private _visible: boolean = true;
-    private _parentVisible: boolean = true;
-
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
@@ -55,30 +52,25 @@ export abstract class Node extends HistoryObservable implements INode {
     @Serializer.serialze()
     readonly id: string;
 
-    constructor(
-        document: IDocument,
-        private _name: string,
-        id: string,
-    ) {
+    constructor(document: IDocument, name: string, id: string) {
         super(document);
         this.id = id;
+        this.setPrivateValue("name", name);
     }
 
     @Serializer.serialze()
     @Property.define("common.name")
     get name() {
-        return this._name;
+        return this.getPrivateValue("name");
     }
-
     set name(value: string) {
         this.setProperty("name", value);
     }
 
     @Serializer.serialze()
     get visible(): boolean {
-        return this._visible;
+        return this.getPrivateValue("visible", true);
     }
-
     set visible(value: boolean) {
         this.setProperty("visible", value, () => this.onVisibleChanged());
     }
@@ -86,9 +78,8 @@ export abstract class Node extends HistoryObservable implements INode {
     protected abstract onVisibleChanged(): void;
 
     get parentVisible() {
-        return this._parentVisible;
+        return this.getPrivateValue("parentVisible", true);
     }
-
     set parentVisible(value: boolean) {
         this.setProperty("parentVisible", value, () => this.onParentVisibleChanged());
     }
@@ -96,7 +87,7 @@ export abstract class Node extends HistoryObservable implements INode {
     clone(): this {
         let serialized = Serializer.serializeObject(this);
         serialized.properties["id"] = Id.generate();
-        serialized.properties["name"] = `${this._name}_copy`;
+        serialized.properties["name"] = `${this.name}_copy`;
         let cloned: this = Serializer.deserializeObject(this.document, serialized);
         this.parent?.add(cloned);
         return cloned;
@@ -236,20 +227,18 @@ export interface IMeshObject extends IPropertyChanged {
 }
 
 export abstract class GeometryNode extends Node implements IMeshObject {
-    private _materialId: string;
     @Serializer.serialze()
     @Property.define("common.material", { type: "materialId" })
     get materialId(): string {
-        return this._materialId;
+        return this.getPrivateValue("materialId");
     }
     set materialId(value: string) {
         this.setProperty("materialId", value);
     }
 
-    protected _matrix: Matrix4 = Matrix4.identity();
     @Serializer.serialze()
     get matrix(): Matrix4 {
-        return this._matrix;
+        return this.getPrivateValue("matrix", Matrix4.identity());
     }
     set matrix(value: Matrix4) {
         this.setProperty(
@@ -266,7 +255,7 @@ export abstract class GeometryNode extends Node implements IMeshObject {
 
     constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
         super(document, name, id);
-        this._materialId = materialId ?? document.materials.at(0)?.id ?? "";
+        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
     }
 
     protected onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
@@ -327,7 +316,7 @@ export abstract class ParameterShapeNode extends ShapeNode {
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._shape.ok().matrix = this._matrix;
+        this._shape.ok().matrix = this.matrix;
         this.emitPropertyChanged("shape", oldShape);
     }
 
@@ -362,7 +351,7 @@ export class EditableShapeNode extends ShapeNode {
         return this._shape;
     }
     override set shape(shape: Result<IShape>) {
-        if (shape.isOk && this._shape.isOk && this._shape.ok().isEqual(shape.ok())) {
+        if (this._shape.isOk && this._shape.unchecked() === shape.unchecked()) {
             return;
         }
 
@@ -374,7 +363,7 @@ export class EditableShapeNode extends ShapeNode {
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._shape.ok().matrix = this._matrix;
+        this._shape.ok().matrix = this.matrix;
         this.emitPropertyChanged("shape", oldShape);
     }
 

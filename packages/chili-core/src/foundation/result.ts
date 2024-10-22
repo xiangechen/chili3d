@@ -22,11 +22,11 @@ export class Result<T, E = string> {
     }
 
     isOkAnd(predict: (value: T | undefined) => boolean): boolean {
-        return this.#isOk && predict(this.#value!);
+        return this.#isOk && predict(this.#value);
     }
 
     isErrorOr(predict: (value: T | undefined) => boolean): boolean {
-        return !this.#isOk || predict(this.#value!);
+        return !this.#isOk || predict(this.#value);
     }
 
     ok(): T {

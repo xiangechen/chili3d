@@ -8,44 +8,38 @@ export class CircleNode extends FacebaseNode {
         return "body.circle";
     }
 
-    private _center: XYZ;
-
     @Serializer.serialze()
     @Property.define("circle.center")
     get center() {
-        return this._center;
+        return this.getPrivateValue("center");
     }
     set center(center: XYZ) {
         this.setProperty("center", center);
     }
 
-    private _radius: number;
-
     @Serializer.serialze()
     @Property.define("circle.radius")
     get radius() {
-        return this._radius;
+        return this.getPrivateValue("radius");
     }
     set radius(radius: number) {
         this.setProperty("radius", radius);
     }
 
-    private _normal: XYZ;
-
     @Serializer.serialze()
-    get normal() {
-        return this._normal;
+    get normal(): XYZ {
+        return this.getPrivateValue("normal");
     }
 
     constructor(document: IDocument, normal: XYZ, center: XYZ, radius: number) {
         super(document);
-        this._normal = normal;
-        this._center = center;
-        this._radius = radius;
+        this.setPrivateValue("normal", normal);
+        this.setPrivateValue("center", center);
+        this.setPrivateValue("radius", radius);
     }
 
     generateShape(): Result<IShape, string> {
-        let circle = this.document.application.shapeFactory.circle(this.normal, this._center, this._radius);
+        let circle = this.document.application.shapeFactory.circle(this.normal, this.center, this.radius);
         if (!circle.isOk || !this.isFace) return circle;
         let wire = this.document.application.shapeFactory.wire(circle.ok());
         return wire.isOk ? wire.ok().toFace() : circle;

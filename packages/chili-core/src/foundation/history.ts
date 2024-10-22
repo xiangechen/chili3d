@@ -10,8 +10,8 @@ export interface IHistoryRecord extends IDisposable {
 }
 
 export class History implements IDisposable {
-    private _undos: IHistoryRecord[] = [];
-    private _redos: IHistoryRecord[] = [];
+    private readonly _undos: IHistoryRecord[] = [];
+    private readonly _redos: IHistoryRecord[] = [];
 
     disabled: boolean = false;
     undoLimits: number = 50;
