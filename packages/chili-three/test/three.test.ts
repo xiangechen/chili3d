@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, jest, test } from "@jest/globals";
-import { GeometryModel, Material, ParameterGeometryEntity, ShapeType, XY, XYZ } from "chili-core";
+import { Material, ShapeNode, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
-import { TestBody } from "./testEdge";
+import { TestNode } from "./testEdge";
 import { TestView } from "./testView";
 
 jest.mock("../src/threeRenderBuilder", () => ({
@@ -30,9 +30,7 @@ describe("three test", () => {
 
     test("test context", () => {
         let context = doc.visual.context;
-        let body = new TestBody(doc, XYZ.zero, new XYZ(100, 0, 0));
-        let entity = new ParameterGeometryEntity(doc, body);
-        let model = new GeometryModel(doc, "test model", entity);
+        let model = new TestNode(doc, XYZ.zero, new XYZ(100, 0, 0));
         context.addModel([model]);
         expect(context.getShape(model)).not.toBeNull();
         let mouse = view.worldToScreen(new XYZ(50, 0, 0));
@@ -41,7 +39,7 @@ describe("three test", () => {
         expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
 
         let shape = context.getShape(model);
-        expect(shapes.at(0)?.shape).toEqual(shape?.geometryEngity.shape.ok());
+        expect(shapes.at(0)?.shape).toEqual((shape?.geometryNode as ShapeNode).shape.value);
         expect(context.getModel(shape!)).toEqual(model);
 
         context.removeModel([model]);

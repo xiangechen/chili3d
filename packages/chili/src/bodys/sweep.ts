@@ -6,29 +6,29 @@ import {
     IEdge,
     IShape,
     IWire,
-    ParameterBody,
+    ParameterShapeNode,
     Result,
     Serializer,
     ShapeType,
 } from "chili-core";
 
 @Serializer.register(["document", "profile", "path"])
-export class SweepBody extends ParameterBody {
-    override display: I18nKeys = "body.sweep";
+export class SweepedNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.sweep";
+    }
 
-    private _profile: IShape;
     @Serializer.serialze()
     get profile() {
-        return this._profile;
+        return this.getPrivateValue("profile");
     }
     set profile(value: IShape) {
         this.setProperty("profile", value);
     }
 
-    private _path: IWire;
     @Serializer.serialze()
     get path() {
-        return this._path;
+        return this.getPrivateValue("path");
     }
     set path(value: IWire) {
         this.setProperty("path", value);
@@ -36,11 +36,13 @@ export class SweepBody extends ParameterBody {
 
     constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
         super(document);
-        this._profile = profile;
-        this._path =
-            path.shapeType === ShapeType.Wire
-                ? (path as IWire)
-                : document.application.shapeFactory.wire(path as unknown as IEdge).ok();
+        this.setPrivateValue("profile", profile);
+
+        let wire = path as IWire;
+        if (path.shapeType !== ShapeType.Wire) {
+            wire = document.application.shapeFactory.wire(path as unknown as IEdge).value;
+        }
+        this.setPrivateValue("path", wire);
     }
 
     override generateShape(): Result<IShape> {

@@ -30,7 +30,7 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
         if (snapPointData.prompt === undefined) snapPointData.prompt = this.snapedInfo;
     }
 
-    private snapedInfo = (snaped?: SnapedData) => {
+    private readonly snapedInfo = (snaped?: SnapedData) => {
         this.planeAngle.movePoint(snaped?.point!);
         return `${this.planeAngle.angle.toFixed(2)} °`;
     };

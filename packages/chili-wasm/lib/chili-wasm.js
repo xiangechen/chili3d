@@ -219,10 +219,10 @@ var Module = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
-                wasmMemory = wasmExports["la"];
+                wasmMemory = wasmExports["ja"];
                 updateMemoryViews();
-                wasmTable = wasmExports["qa"];
-                addOnInit(wasmExports["ma"]);
+                wasmTable = wasmExports["oa"];
+                addOnInit(wasmExports["ka"]);
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -664,16 +664,9 @@ var Module = (() => {
                 },
             },
         };
-        var zeroMemory = (address, size) => {
-            HEAPU8.fill(0, address, address + size);
-            return address;
-        };
         var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
         var mmapAlloc = (size) => {
-            size = alignMemory(size, 65536);
-            var ptr = _emscripten_builtin_memalign(65536, size);
-            if (!ptr) return 0;
-            return zeroMemory(ptr, size);
+            abort();
         };
         var MEMFS = {
             ops_table: null,
@@ -2760,19 +2753,6 @@ var Module = (() => {
             try {
                 path = SYSCALLS.getStr(path);
                 return SYSCALLS.doStat(FS.lstat, path, buf);
-            } catch (e) {
-                if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
-                return -e.errno;
-            }
-        }
-        function ___syscall_mkdirat(dirfd, path, mode) {
-            try {
-                path = SYSCALLS.getStr(path);
-                path = SYSCALLS.calculateAt(dirfd, path);
-                path = PATH.normalize(path);
-                if (path[path.length - 1] === "/") path = path.substr(0, path.length - 1);
-                FS.mkdir(path, mode, 0);
-                return 0;
             } catch (e) {
                 if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
                 return -e.errno;
@@ -4919,661 +4899,6 @@ var Module = (() => {
         var _emscripten_date_now = () => Date.now();
         var getHeapMax = () => 2147483648;
         var _emscripten_get_heap_max = () => getHeapMax();
-        var _emscripten_set_main_loop_timing = (mode, value) => {
-            Browser.mainLoop.timingMode = mode;
-            Browser.mainLoop.timingValue = value;
-            if (!Browser.mainLoop.func) {
-                return 1;
-            }
-            if (!Browser.mainLoop.running) {
-                Browser.mainLoop.running = true;
-            }
-            if (mode == 0) {
-                Browser.mainLoop.scheduler = function Browser_mainLoop_scheduler_setTimeout() {
-                    var timeUntilNextTick =
-                        Math.max(0, Browser.mainLoop.tickStartTime + value - _emscripten_get_now()) | 0;
-                    setTimeout(Browser.mainLoop.runner, timeUntilNextTick);
-                };
-                Browser.mainLoop.method = "timeout";
-            } else if (mode == 1) {
-                Browser.mainLoop.scheduler = function Browser_mainLoop_scheduler_rAF() {
-                    Browser.requestAnimationFrame(Browser.mainLoop.runner);
-                };
-                Browser.mainLoop.method = "rAF";
-            } else if (mode == 2) {
-                if (typeof Browser.setImmediate == "undefined") {
-                    if (typeof setImmediate == "undefined") {
-                        var setImmediates = [];
-                        var emscriptenMainLoopMessageId = "setimmediate";
-                        var Browser_setImmediate_messageHandler = (event) => {
-                            if (
-                                event.data === emscriptenMainLoopMessageId ||
-                                event.data.target === emscriptenMainLoopMessageId
-                            ) {
-                                event.stopPropagation();
-                                setImmediates.shift()();
-                            }
-                        };
-                        addEventListener("message", Browser_setImmediate_messageHandler, true);
-                        Browser.setImmediate = function Browser_emulated_setImmediate(func) {
-                            setImmediates.push(func);
-                            if (ENVIRONMENT_IS_WORKER) {
-                                Module["setImmediates"] ??= [];
-                                Module["setImmediates"].push(func);
-                                postMessage({ target: emscriptenMainLoopMessageId });
-                            } else postMessage(emscriptenMainLoopMessageId, "*");
-                        };
-                    } else {
-                        Browser.setImmediate = setImmediate;
-                    }
-                }
-                Browser.mainLoop.scheduler = function Browser_mainLoop_scheduler_setImmediate() {
-                    Browser.setImmediate(Browser.mainLoop.runner);
-                };
-                Browser.mainLoop.method = "immediate";
-            }
-            return 0;
-        };
-        var setMainLoop = (browserIterationFunc, fps, simulateInfiniteLoop, arg, noSetTiming) => {
-            Browser.mainLoop.func = browserIterationFunc;
-            Browser.mainLoop.arg = arg;
-            var thisMainLoopId = Browser.mainLoop.currentlyRunningMainloop;
-            function checkIsRunning() {
-                if (thisMainLoopId < Browser.mainLoop.currentlyRunningMainloop) {
-                    return false;
-                }
-                return true;
-            }
-            Browser.mainLoop.running = false;
-            Browser.mainLoop.runner = function Browser_mainLoop_runner() {
-                if (ABORT) return;
-                if (Browser.mainLoop.queue.length > 0) {
-                    var start = Date.now();
-                    var blocker = Browser.mainLoop.queue.shift();
-                    blocker.func(blocker.arg);
-                    if (Browser.mainLoop.remainingBlockers) {
-                        var remaining = Browser.mainLoop.remainingBlockers;
-                        var next = remaining % 1 == 0 ? remaining - 1 : Math.floor(remaining);
-                        if (blocker.counted) {
-                            Browser.mainLoop.remainingBlockers = next;
-                        } else {
-                            next = next + 0.5;
-                            Browser.mainLoop.remainingBlockers = (8 * remaining + next) / 9;
-                        }
-                    }
-                    Browser.mainLoop.updateStatus();
-                    if (!checkIsRunning()) return;
-                    setTimeout(Browser.mainLoop.runner, 0);
-                    return;
-                }
-                if (!checkIsRunning()) return;
-                Browser.mainLoop.currentFrameNumber = (Browser.mainLoop.currentFrameNumber + 1) | 0;
-                if (
-                    Browser.mainLoop.timingMode == 1 &&
-                    Browser.mainLoop.timingValue > 1 &&
-                    Browser.mainLoop.currentFrameNumber % Browser.mainLoop.timingValue != 0
-                ) {
-                    Browser.mainLoop.scheduler();
-                    return;
-                } else if (Browser.mainLoop.timingMode == 0) {
-                    Browser.mainLoop.tickStartTime = _emscripten_get_now();
-                }
-                Browser.mainLoop.runIter(browserIterationFunc);
-                if (!checkIsRunning()) return;
-                if (typeof SDL == "object") SDL.audio?.queueNewAudioData?.();
-                Browser.mainLoop.scheduler();
-            };
-            if (!noSetTiming) {
-                if (fps && fps > 0) {
-                    _emscripten_set_main_loop_timing(0, 1e3 / fps);
-                } else {
-                    _emscripten_set_main_loop_timing(1, 1);
-                }
-                Browser.mainLoop.scheduler();
-            }
-            if (simulateInfiniteLoop) {
-                throw "unwind";
-            }
-        };
-        var safeSetTimeout = (func, timeout) =>
-            setTimeout(() => {
-                callUserCallback(func);
-            }, timeout);
-        var warnOnce = (text) => {
-            warnOnce.shown ||= {};
-            if (!warnOnce.shown[text]) {
-                warnOnce.shown[text] = 1;
-                err(text);
-            }
-        };
-        var Browser = {
-            mainLoop: {
-                running: false,
-                scheduler: null,
-                method: "",
-                currentlyRunningMainloop: 0,
-                func: null,
-                arg: 0,
-                timingMode: 0,
-                timingValue: 0,
-                currentFrameNumber: 0,
-                queue: [],
-                pause() {
-                    Browser.mainLoop.scheduler = null;
-                    Browser.mainLoop.currentlyRunningMainloop++;
-                },
-                resume() {
-                    Browser.mainLoop.currentlyRunningMainloop++;
-                    var timingMode = Browser.mainLoop.timingMode;
-                    var timingValue = Browser.mainLoop.timingValue;
-                    var func = Browser.mainLoop.func;
-                    Browser.mainLoop.func = null;
-                    setMainLoop(func, 0, false, Browser.mainLoop.arg, true);
-                    _emscripten_set_main_loop_timing(timingMode, timingValue);
-                    Browser.mainLoop.scheduler();
-                },
-                updateStatus() {
-                    if (Module["setStatus"]) {
-                        var message = Module["statusMessage"] || "Please wait...";
-                        var remaining = Browser.mainLoop.remainingBlockers;
-                        var expected = Browser.mainLoop.expectedBlockers;
-                        if (remaining) {
-                            if (remaining < expected) {
-                                Module["setStatus"](`{message} ({expected - remaining}/{expected})`);
-                            } else {
-                                Module["setStatus"](message);
-                            }
-                        } else {
-                            Module["setStatus"]("");
-                        }
-                    }
-                },
-                runIter(func) {
-                    if (ABORT) return;
-                    if (Module["preMainLoop"]) {
-                        var preRet = Module["preMainLoop"]();
-                        if (preRet === false) {
-                            return;
-                        }
-                    }
-                    callUserCallback(func);
-                    Module["postMainLoop"]?.();
-                },
-            },
-            useWebGL: false,
-            isFullscreen: false,
-            pointerLock: false,
-            moduleContextCreatedCallbacks: [],
-            workers: [],
-            init() {
-                if (Browser.initted) return;
-                Browser.initted = true;
-                var imagePlugin = {};
-                imagePlugin["canHandle"] = function imagePlugin_canHandle(name) {
-                    return !Module["noImageDecoding"] && /\.(jpg|jpeg|png|bmp|webp)$/i.test(name);
-                };
-                imagePlugin["handle"] = function imagePlugin_handle(byteArray, name, onload, onerror) {
-                    var b = new Blob([byteArray], { type: Browser.getMimetype(name) });
-                    if (b.size !== byteArray.length) {
-                        b = new Blob([new Uint8Array(byteArray).buffer], {
-                            type: Browser.getMimetype(name),
-                        });
-                    }
-                    var url = URL.createObjectURL(b);
-                    var img = new Image();
-                    img.onload = () => {
-                        var canvas = document.createElement("canvas");
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        var ctx = canvas.getContext("2d");
-                        ctx.drawImage(img, 0, 0);
-                        preloadedImages[name] = canvas;
-                        URL.revokeObjectURL(url);
-                        onload?.(byteArray);
-                    };
-                    img.onerror = (event) => {
-                        err(`Image ${url} could not be decoded`);
-                        onerror?.();
-                    };
-                    img.src = url;
-                };
-                preloadPlugins.push(imagePlugin);
-                var audioPlugin = {};
-                audioPlugin["canHandle"] = function audioPlugin_canHandle(name) {
-                    return (
-                        !Module["noAudioDecoding"] && name.substr(-4) in { ".ogg": 1, ".wav": 1, ".mp3": 1 }
-                    );
-                };
-                audioPlugin["handle"] = function audioPlugin_handle(byteArray, name, onload, onerror) {
-                    var done = false;
-                    function finish(audio) {
-                        if (done) return;
-                        done = true;
-                        preloadedAudios[name] = audio;
-                        onload?.(byteArray);
-                    }
-                    var b = new Blob([byteArray], { type: Browser.getMimetype(name) });
-                    var url = URL.createObjectURL(b);
-                    var audio = new Audio();
-                    audio.addEventListener("canplaythrough", () => finish(audio), false);
-                    audio.onerror = function audio_onerror(event) {
-                        if (done) return;
-                        err(
-                            `warning: browser could not fully decode audio ${name}, trying slower base64 approach`,
-                        );
-                        function encode64(data) {
-                            var BASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-                            var PAD = "=";
-                            var ret = "";
-                            var leftchar = 0;
-                            var leftbits = 0;
-                            for (var i = 0; i < data.length; i++) {
-                                leftchar = (leftchar << 8) | data[i];
-                                leftbits += 8;
-                                while (leftbits >= 6) {
-                                    var curr = (leftchar >> (leftbits - 6)) & 63;
-                                    leftbits -= 6;
-                                    ret += BASE[curr];
-                                }
-                            }
-                            if (leftbits == 2) {
-                                ret += BASE[(leftchar & 3) << 4];
-                                ret += PAD + PAD;
-                            } else if (leftbits == 4) {
-                                ret += BASE[(leftchar & 15) << 2];
-                                ret += PAD;
-                            }
-                            return ret;
-                        }
-                        audio.src = "data:audio/x-" + name.substr(-3) + ";base64," + encode64(byteArray);
-                        finish(audio);
-                    };
-                    audio.src = url;
-                    safeSetTimeout(() => {
-                        finish(audio);
-                    }, 1e4);
-                };
-                preloadPlugins.push(audioPlugin);
-                function pointerLockChange() {
-                    Browser.pointerLock =
-                        document["pointerLockElement"] === Module["canvas"] ||
-                        document["mozPointerLockElement"] === Module["canvas"] ||
-                        document["webkitPointerLockElement"] === Module["canvas"] ||
-                        document["msPointerLockElement"] === Module["canvas"];
-                }
-                var canvas = Module["canvas"];
-                if (canvas) {
-                    canvas.requestPointerLock =
-                        canvas["requestPointerLock"] ||
-                        canvas["mozRequestPointerLock"] ||
-                        canvas["webkitRequestPointerLock"] ||
-                        canvas["msRequestPointerLock"] ||
-                        (() => {});
-                    canvas.exitPointerLock =
-                        document["exitPointerLock"] ||
-                        document["mozExitPointerLock"] ||
-                        document["webkitExitPointerLock"] ||
-                        document["msExitPointerLock"] ||
-                        (() => {});
-                    canvas.exitPointerLock = canvas.exitPointerLock.bind(document);
-                    document.addEventListener("pointerlockchange", pointerLockChange, false);
-                    document.addEventListener("mozpointerlockchange", pointerLockChange, false);
-                    document.addEventListener("webkitpointerlockchange", pointerLockChange, false);
-                    document.addEventListener("mspointerlockchange", pointerLockChange, false);
-                    if (Module["elementPointerLock"]) {
-                        canvas.addEventListener(
-                            "click",
-                            (ev) => {
-                                if (!Browser.pointerLock && Module["canvas"].requestPointerLock) {
-                                    Module["canvas"].requestPointerLock();
-                                    ev.preventDefault();
-                                }
-                            },
-                            false,
-                        );
-                    }
-                }
-            },
-            createContext(canvas, useWebGL, setInModule, webGLContextAttributes) {
-                if (useWebGL && Module.ctx && canvas == Module.canvas) return Module.ctx;
-                var ctx;
-                var contextHandle;
-                if (useWebGL) {
-                    var contextAttributes = { antialias: false, alpha: false, majorVersion: 1 };
-                    if (webGLContextAttributes) {
-                        for (var attribute in webGLContextAttributes) {
-                            contextAttributes[attribute] = webGLContextAttributes[attribute];
-                        }
-                    }
-                    if (typeof GL != "undefined") {
-                        contextHandle = GL.createContext(canvas, contextAttributes);
-                        if (contextHandle) {
-                            ctx = GL.getContext(contextHandle).GLctx;
-                        }
-                    }
-                } else {
-                    ctx = canvas.getContext("2d");
-                }
-                if (!ctx) return null;
-                if (setInModule) {
-                    Module.ctx = ctx;
-                    if (useWebGL) GL.makeContextCurrent(contextHandle);
-                    Browser.useWebGL = useWebGL;
-                    Browser.moduleContextCreatedCallbacks.forEach((callback) => callback());
-                    Browser.init();
-                }
-                return ctx;
-            },
-            fullscreenHandlersInstalled: false,
-            lockPointer: undefined,
-            resizeCanvas: undefined,
-            requestFullscreen(lockPointer, resizeCanvas) {
-                Browser.lockPointer = lockPointer;
-                Browser.resizeCanvas = resizeCanvas;
-                if (typeof Browser.lockPointer == "undefined") Browser.lockPointer = true;
-                if (typeof Browser.resizeCanvas == "undefined") Browser.resizeCanvas = false;
-                var canvas = Module["canvas"];
-                function fullscreenChange() {
-                    Browser.isFullscreen = false;
-                    var canvasContainer = canvas.parentNode;
-                    if (
-                        (document["fullscreenElement"] ||
-                            document["mozFullScreenElement"] ||
-                            document["msFullscreenElement"] ||
-                            document["webkitFullscreenElement"] ||
-                            document["webkitCurrentFullScreenElement"]) === canvasContainer
-                    ) {
-                        canvas.exitFullscreen = Browser.exitFullscreen;
-                        if (Browser.lockPointer) canvas.requestPointerLock();
-                        Browser.isFullscreen = true;
-                        if (Browser.resizeCanvas) {
-                            Browser.setFullscreenCanvasSize();
-                        } else {
-                            Browser.updateCanvasDimensions(canvas);
-                        }
-                    } else {
-                        canvasContainer.parentNode.insertBefore(canvas, canvasContainer);
-                        canvasContainer.parentNode.removeChild(canvasContainer);
-                        if (Browser.resizeCanvas) {
-                            Browser.setWindowedCanvasSize();
-                        } else {
-                            Browser.updateCanvasDimensions(canvas);
-                        }
-                    }
-                    Module["onFullScreen"]?.(Browser.isFullscreen);
-                    Module["onFullscreen"]?.(Browser.isFullscreen);
-                }
-                if (!Browser.fullscreenHandlersInstalled) {
-                    Browser.fullscreenHandlersInstalled = true;
-                    document.addEventListener("fullscreenchange", fullscreenChange, false);
-                    document.addEventListener("mozfullscreenchange", fullscreenChange, false);
-                    document.addEventListener("webkitfullscreenchange", fullscreenChange, false);
-                    document.addEventListener("MSFullscreenChange", fullscreenChange, false);
-                }
-                var canvasContainer = document.createElement("div");
-                canvas.parentNode.insertBefore(canvasContainer, canvas);
-                canvasContainer.appendChild(canvas);
-                canvasContainer.requestFullscreen =
-                    canvasContainer["requestFullscreen"] ||
-                    canvasContainer["mozRequestFullScreen"] ||
-                    canvasContainer["msRequestFullscreen"] ||
-                    (canvasContainer["webkitRequestFullscreen"]
-                        ? () => canvasContainer["webkitRequestFullscreen"](Element["ALLOW_KEYBOARD_INPUT"])
-                        : null) ||
-                    (canvasContainer["webkitRequestFullScreen"]
-                        ? () => canvasContainer["webkitRequestFullScreen"](Element["ALLOW_KEYBOARD_INPUT"])
-                        : null);
-                canvasContainer.requestFullscreen();
-            },
-            exitFullscreen() {
-                if (!Browser.isFullscreen) {
-                    return false;
-                }
-                var CFS =
-                    document["exitFullscreen"] ||
-                    document["cancelFullScreen"] ||
-                    document["mozCancelFullScreen"] ||
-                    document["msExitFullscreen"] ||
-                    document["webkitCancelFullScreen"] ||
-                    (() => {});
-                CFS.apply(document, []);
-                return true;
-            },
-            nextRAF: 0,
-            fakeRequestAnimationFrame(func) {
-                var now = Date.now();
-                if (Browser.nextRAF === 0) {
-                    Browser.nextRAF = now + 1e3 / 60;
-                } else {
-                    while (now + 2 >= Browser.nextRAF) {
-                        Browser.nextRAF += 1e3 / 60;
-                    }
-                }
-                var delay = Math.max(Browser.nextRAF - now, 0);
-                setTimeout(func, delay);
-            },
-            requestAnimationFrame(func) {
-                if (typeof requestAnimationFrame == "function") {
-                    requestAnimationFrame(func);
-                    return;
-                }
-                var RAF = Browser.fakeRequestAnimationFrame;
-                RAF(func);
-            },
-            safeSetTimeout(func, timeout) {
-                return safeSetTimeout(func, timeout);
-            },
-            safeRequestAnimationFrame(func) {
-                return Browser.requestAnimationFrame(() => {
-                    callUserCallback(func);
-                });
-            },
-            getMimetype(name) {
-                return {
-                    jpg: "image/jpeg",
-                    jpeg: "image/jpeg",
-                    png: "image/png",
-                    bmp: "image/bmp",
-                    ogg: "audio/ogg",
-                    wav: "audio/wav",
-                    mp3: "audio/mpeg",
-                }[name.substr(name.lastIndexOf(".") + 1)];
-            },
-            getUserMedia(func) {
-                window.getUserMedia ||= navigator["getUserMedia"] || navigator["mozGetUserMedia"];
-                window.getUserMedia(func);
-            },
-            getMovementX(event) {
-                return event["movementX"] || event["mozMovementX"] || event["webkitMovementX"] || 0;
-            },
-            getMovementY(event) {
-                return event["movementY"] || event["mozMovementY"] || event["webkitMovementY"] || 0;
-            },
-            getMouseWheelDelta(event) {
-                var delta = 0;
-                switch (event.type) {
-                    case "DOMMouseScroll":
-                        delta = event.detail / 3;
-                        break;
-                    case "mousewheel":
-                        delta = event.wheelDelta / 120;
-                        break;
-                    case "wheel":
-                        delta = event.deltaY;
-                        switch (event.deltaMode) {
-                            case 0:
-                                delta /= 100;
-                                break;
-                            case 1:
-                                delta /= 3;
-                                break;
-                            case 2:
-                                delta *= 80;
-                                break;
-                            default:
-                                throw "unrecognized mouse wheel delta mode: " + event.deltaMode;
-                        }
-                        break;
-                    default:
-                        throw "unrecognized mouse wheel event: " + event.type;
-                }
-                return delta;
-            },
-            mouseX: 0,
-            mouseY: 0,
-            mouseMovementX: 0,
-            mouseMovementY: 0,
-            touches: {},
-            lastTouches: {},
-            calculateMouseCoords(pageX, pageY) {
-                var rect = Module["canvas"].getBoundingClientRect();
-                var cw = Module["canvas"].width;
-                var ch = Module["canvas"].height;
-                var scrollX = typeof window.scrollX != "undefined" ? window.scrollX : window.pageXOffset;
-                var scrollY = typeof window.scrollY != "undefined" ? window.scrollY : window.pageYOffset;
-                var adjustedX = pageX - (scrollX + rect.left);
-                var adjustedY = pageY - (scrollY + rect.top);
-                adjustedX = adjustedX * (cw / rect.width);
-                adjustedY = adjustedY * (ch / rect.height);
-                return { x: adjustedX, y: adjustedY };
-            },
-            setMouseCoords(pageX, pageY) {
-                const { x: x, y: y } = Browser.calculateMouseCoords(pageX, pageY);
-                Browser.mouseMovementX = x - Browser.mouseX;
-                Browser.mouseMovementY = y - Browser.mouseY;
-                Browser.mouseX = x;
-                Browser.mouseY = y;
-            },
-            calculateMouseEvent(event) {
-                if (Browser.pointerLock) {
-                    if (event.type != "mousemove" && "mozMovementX" in event) {
-                        Browser.mouseMovementX = Browser.mouseMovementY = 0;
-                    } else {
-                        Browser.mouseMovementX = Browser.getMovementX(event);
-                        Browser.mouseMovementY = Browser.getMovementY(event);
-                    }
-                    Browser.mouseX += Browser.mouseMovementX;
-                    Browser.mouseY += Browser.mouseMovementY;
-                } else {
-                    if (
-                        event.type === "touchstart" ||
-                        event.type === "touchend" ||
-                        event.type === "touchmove"
-                    ) {
-                        var touch = event.touch;
-                        if (touch === undefined) {
-                            return;
-                        }
-                        var coords = Browser.calculateMouseCoords(touch.pageX, touch.pageY);
-                        if (event.type === "touchstart") {
-                            Browser.lastTouches[touch.identifier] = coords;
-                            Browser.touches[touch.identifier] = coords;
-                        } else if (event.type === "touchend" || event.type === "touchmove") {
-                            var last = Browser.touches[touch.identifier];
-                            last ||= coords;
-                            Browser.lastTouches[touch.identifier] = last;
-                            Browser.touches[touch.identifier] = coords;
-                        }
-                        return;
-                    }
-                    Browser.setMouseCoords(event.pageX, event.pageY);
-                }
-            },
-            resizeListeners: [],
-            updateResizeListeners() {
-                var canvas = Module["canvas"];
-                Browser.resizeListeners.forEach((listener) => listener(canvas.width, canvas.height));
-            },
-            setCanvasSize(width, height, noUpdates) {
-                var canvas = Module["canvas"];
-                Browser.updateCanvasDimensions(canvas, width, height);
-                if (!noUpdates) Browser.updateResizeListeners();
-            },
-            windowedWidth: 0,
-            windowedHeight: 0,
-            setFullscreenCanvasSize() {
-                if (typeof SDL != "undefined") {
-                    var flags = HEAPU32[SDL.screen >> 2];
-                    flags = flags | 8388608;
-                    HEAP32[SDL.screen >> 2] = flags;
-                }
-                Browser.updateCanvasDimensions(Module["canvas"]);
-                Browser.updateResizeListeners();
-            },
-            setWindowedCanvasSize() {
-                if (typeof SDL != "undefined") {
-                    var flags = HEAPU32[SDL.screen >> 2];
-                    flags = flags & ~8388608;
-                    HEAP32[SDL.screen >> 2] = flags;
-                }
-                Browser.updateCanvasDimensions(Module["canvas"]);
-                Browser.updateResizeListeners();
-            },
-            updateCanvasDimensions(canvas, wNative, hNative) {
-                if (wNative && hNative) {
-                    canvas.widthNative = wNative;
-                    canvas.heightNative = hNative;
-                } else {
-                    wNative = canvas.widthNative;
-                    hNative = canvas.heightNative;
-                }
-                var w = wNative;
-                var h = hNative;
-                if (Module["forcedAspectRatio"] && Module["forcedAspectRatio"] > 0) {
-                    if (w / h < Module["forcedAspectRatio"]) {
-                        w = Math.round(h * Module["forcedAspectRatio"]);
-                    } else {
-                        h = Math.round(w / Module["forcedAspectRatio"]);
-                    }
-                }
-                if (
-                    (document["fullscreenElement"] ||
-                        document["mozFullScreenElement"] ||
-                        document["msFullscreenElement"] ||
-                        document["webkitFullscreenElement"] ||
-                        document["webkitCurrentFullScreenElement"]) === canvas.parentNode &&
-                    typeof screen != "undefined"
-                ) {
-                    var factor = Math.min(screen.width / w, screen.height / h);
-                    w = Math.round(w * factor);
-                    h = Math.round(h * factor);
-                }
-                if (Browser.resizeCanvas) {
-                    if (canvas.width != w) canvas.width = w;
-                    if (canvas.height != h) canvas.height = h;
-                    if (typeof canvas.style != "undefined") {
-                        canvas.style.removeProperty("width");
-                        canvas.style.removeProperty("height");
-                    }
-                } else {
-                    if (canvas.width != wNative) canvas.width = wNative;
-                    if (canvas.height != hNative) canvas.height = hNative;
-                    if (typeof canvas.style != "undefined") {
-                        if (w != wNative || h != hNative) {
-                            canvas.style.setProperty("width", w + "px", "important");
-                            canvas.style.setProperty("height", h + "px", "important");
-                        } else {
-                            canvas.style.removeProperty("width");
-                            canvas.style.removeProperty("height");
-                        }
-                    }
-                }
-            },
-        };
-        var getPreloadedImageData = (path, w, h) => {
-            path = PATH_FS.resolve(path);
-            var canvas = preloadedImages[path];
-            if (!canvas) return 0;
-            var ctx = canvas.getContext("2d");
-            var image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            var buf = _malloc(canvas.width * canvas.height * 4);
-            HEAPU8.set(image.data, buf);
-            HEAP32[w >> 2] = canvas.width;
-            HEAP32[h >> 2] = canvas.height;
-            return buf;
-        };
-        var _emscripten_get_preloaded_image_data = (path, w, h) =>
-            getPreloadedImageData(UTF8ToString(path), w, h);
         var growMemory = (size) => {
             var b = wasmMemory.buffer;
             var pages = (size - b.byteLength + 65535) / 65536;
@@ -5768,55 +5093,45 @@ var Module = (() => {
         init_RegisteredPointer();
         UnboundTypeError = Module["UnboundTypeError"] = extendError(Error, "UnboundTypeError");
         init_emval();
-        Module["requestFullscreen"] = Browser.requestFullscreen;
-        Module["requestAnimationFrame"] = Browser.requestAnimationFrame;
-        Module["setCanvasSize"] = Browser.setCanvasSize;
-        Module["pauseMainLoop"] = Browser.mainLoop.pause;
-        Module["resumeMainLoop"] = Browser.mainLoop.resume;
-        Module["getUserMedia"] = Browser.getUserMedia;
-        Module["createContext"] = Browser.createContext;
-        var preloadedImages = {};
-        var preloadedAudios = {};
         var wasmImports = {
-            fa: OSD_MemInfo_getModuleHeapLength,
+            ea: OSD_MemInfo_getModuleHeapLength,
             a: ___cxa_throw,
-            aa: ___syscall_chmod,
-            ba: ___syscall_faccessat,
+            Z: ___syscall_chmod,
+            _: ___syscall_faccessat,
             B: ___syscall_fcntl64,
-            Y: ___syscall_fstat64,
-            da: ___syscall_ioctl,
-            W: ___syscall_lstat64,
-            S: ___syscall_mkdirat,
-            V: ___syscall_newfstatat,
+            V: ___syscall_fstat64,
+            ca: ___syscall_ioctl,
+            T: ___syscall_lstat64,
+            S: ___syscall_newfstatat,
             D: ___syscall_openat,
-            X: ___syscall_stat64,
-            R: __abort_js,
+            U: ___syscall_stat64,
+            P: __abort_js,
             p: __embind_finalize_value_object,
-            K: __embind_register_bigint,
-            ja: __embind_register_bool,
+            I: __embind_register_bigint,
+            ha: __embind_register_bool,
             c: __embind_register_class,
             d: __embind_register_class_class_function,
             j: __embind_register_class_constructor,
             b: __embind_register_class_function,
             g: __embind_register_class_property,
-            ia: __embind_register_emval,
+            ga: __embind_register_emval,
             z: __embind_register_enum,
             h: __embind_register_enum_value,
-            G: __embind_register_float,
-            ha: __embind_register_function,
+            E: __embind_register_float,
+            fa: __embind_register_function,
             s: __embind_register_integer,
             m: __embind_register_memory_view,
             y: __embind_register_optional,
-            H: __embind_register_std_string,
+            F: __embind_register_std_string,
             C: __embind_register_std_wstring,
             n: __embind_register_user_type,
             q: __embind_register_value_object,
             f: __embind_register_value_object_field,
-            ka: __embind_register_void,
-            _: __emscripten_get_now_is_monotonic,
-            M: __emscripten_lookup_name,
-            Z: __emscripten_memcpy_js,
-            Q: __emscripten_runtime_keepalive_clear,
+            ia: __embind_register_void,
+            X: __emscripten_get_now_is_monotonic,
+            K: __emscripten_lookup_name,
+            W: __emscripten_memcpy_js,
+            O: __emscripten_runtime_keepalive_clear,
             o: __emval_as,
             u: __emval_call_method,
             e: __emval_decref,
@@ -5828,39 +5143,34 @@ var Module = (() => {
             x: __emval_new_cstring,
             k: __emval_run_destructors,
             l: __emval_take_value,
-            I: __localtime_js,
-            L: __setitimer_js,
-            ca: __tzset_js,
-            $: _emscripten_date_now,
-            O: _emscripten_get_heap_max,
-            ga: _emscripten_get_preloaded_image_data,
-            N: _emscripten_resize_heap,
-            T: _environ_get,
-            U: _environ_sizes_get,
-            ea: _exit,
+            G: __localtime_js,
+            J: __setitimer_js,
+            $: __tzset_js,
+            Y: _emscripten_date_now,
+            M: _emscripten_get_heap_max,
+            L: _emscripten_resize_heap,
+            Q: _environ_get,
+            R: _environ_sizes_get,
+            da: _exit,
             A: _fd_close,
-            F: _fd_read,
-            J: _fd_seek,
-            E: _fd_write,
-            P: _proc_exit,
+            ba: _fd_read,
+            H: _fd_seek,
+            aa: _fd_write,
+            N: _proc_exit,
         };
         var wasmExports = createWasm();
-        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["ma"])();
-        var ___getTypeName = (a0) => (___getTypeName = wasmExports["na"])(a0);
-        var _malloc = (a0) => (_malloc = wasmExports["oa"])(a0);
-        var _free = (a0) => (_free = wasmExports["pa"])(a0);
-        var _htons = (a0) => (_htons = wasmExports["ra"])(a0);
-        var _emscripten_builtin_memalign = (a0, a1) =>
-            (_emscripten_builtin_memalign = wasmExports["sa"])(a0, a1);
-        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["ta"])(a0, a1);
+        var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["ka"])();
+        var ___getTypeName = (a0) => (___getTypeName = wasmExports["la"])(a0);
+        var _malloc = (a0) => (_malloc = wasmExports["ma"])(a0);
+        var _free = (a0) => (_free = wasmExports["na"])(a0);
+        var _htons = (a0) => (_htons = wasmExports["pa"])(a0);
+        var __emscripten_timeout = (a0, a1) => (__emscripten_timeout = wasmExports["qa"])(a0, a1);
         var dynCall_jiji = (Module["dynCall_jiji"] = (a0, a1, a2, a3, a4) =>
-            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ua"])(a0, a1, a2, a3, a4));
+            (dynCall_jiji = Module["dynCall_jiji"] = wasmExports["ra"])(a0, a1, a2, a3, a4));
         var dynCall_viijii = (Module["dynCall_viijii"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["va"])(a0, a1, a2, a3, a4, a5, a6));
-        var dynCall_viiijj = (Module["dynCall_viiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiijj = Module["dynCall_viiijj"] = wasmExports["wa"])(a0, a1, a2, a3, a4, a5, a6, a7));
+            (dynCall_viijii = Module["dynCall_viijii"] = wasmExports["sa"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_viiiiji = (Module["dynCall_viiiiji"] = (a0, a1, a2, a3, a4, a5, a6, a7) =>
-            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["xa"])(
+            (dynCall_viiiiji = Module["dynCall_viiiiji"] = wasmExports["ta"])(
                 a0,
                 a1,
                 a2,
@@ -5871,9 +5181,9 @@ var Module = (() => {
                 a7,
             ));
         var dynCall_iiiiij = (Module["dynCall_iiiiij"] = (a0, a1, a2, a3, a4, a5, a6) =>
-            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ya"])(a0, a1, a2, a3, a4, a5, a6));
+            (dynCall_iiiiij = Module["dynCall_iiiiij"] = wasmExports["ua"])(a0, a1, a2, a3, a4, a5, a6));
         var dynCall_iiiiijj = (Module["dynCall_iiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) =>
-            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["za"])(
+            (dynCall_iiiiijj = Module["dynCall_iiiiijj"] = wasmExports["va"])(
                 a0,
                 a1,
                 a2,
@@ -5885,7 +5195,7 @@ var Module = (() => {
                 a8,
             ));
         var dynCall_iiiiiijj = (Module["dynCall_iiiiiijj"] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) =>
-            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["Aa"])(
+            (dynCall_iiiiiijj = Module["dynCall_iiiiiijj"] = wasmExports["wa"])(
                 a0,
                 a1,
                 a2,

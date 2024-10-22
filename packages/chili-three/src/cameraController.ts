@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ICameraController, IModel, INode, Point, ShapeType } from "chili-core";
+import { GeometryNode, ICameraController, Point, ShapeType } from "chili-core";
 import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -134,7 +134,9 @@ export class CameraController implements ICameraController {
 
     private getBoundingSphere(context: ThreeVisualContext) {
         let sphere = new Sphere();
-        let shapes = this.view.document.selection.getSelectedNodes().filter((x) => INode.isModelNode(x));
+        let shapes = this.view.document.selection
+            .getSelectedNodes()
+            .filter((x) => x instanceof GeometryNode);
         if (shapes.length === 0) {
             new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
             return sphere;
@@ -142,7 +144,7 @@ export class CameraController implements ICameraController {
 
         let box = new Box3();
         for (let shape of shapes) {
-            let threeGeometry = context.getShape(shape as IModel) as ThreeGeometry;
+            let threeGeometry = context.getShape(shape) as ThreeGeometry;
             let boundingBox = new Box3().setFromObject(threeGeometry);
             if (boundingBox) {
                 box.union(boundingBox);
@@ -162,9 +164,18 @@ export class CameraController implements ICameraController {
         let vector = this._target.clone().sub(mouse).multiplyScalar(scale);
         this._target.add(vector);
         this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
+
+        this.updateTarget(direction);
         this.updateCameraNearFar();
 
         this.update();
+    }
+
+    private updateTarget(vector: Vector3) {
+        let direction = vector.clone().normalize();
+        let sphere = this.getBoundingSphere(this.view.document.visual.context as ThreeVisualContext);
+        let length = sphere.center.sub(this._position).dot(direction);
+        this._target.copy(this._position.clone().add(direction.multiplyScalar(length)));
     }
 
     private updateCameraNearFar() {

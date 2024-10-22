@@ -4,7 +4,6 @@ import {
     CollectionAction,
     CollectionChangedArgs,
     IDisposable,
-    IModel,
     INode,
     IShapeFilter,
     IVisual,
@@ -16,6 +15,7 @@ import {
     NodeAction,
     NodeRecord,
     ShapeMeshData,
+    ShapeNode,
     ShapeType,
     XYZ,
 } from "chili-core";
@@ -37,8 +37,8 @@ import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _shapeModelMap = new WeakMap<IVisualGeometry, IModel>();
-    private readonly _modelShapeMap = new WeakMap<IModel, IVisualGeometry>();
+    private readonly _shapeModelMap = new WeakMap<IVisualGeometry, INode>();
+    private readonly _modelShapeMap = new WeakMap<INode, IVisualGeometry>();
     private readonly materialMap = new Map<string, ThreeMaterial>();
 
     readonly visualShapes: Group;
@@ -63,6 +63,7 @@ export class ThreeVisualContext implements IVisualContext {
                     side: DoubleSide,
                     transparent: true,
                     name: item.name,
+                    opacity: item.opacity,
                 });
                 material.map = this.loadTexture(item);
                 item.onPropertyChanged(this.onMaterialPropertyChanged);
@@ -95,7 +96,7 @@ export class ThreeVisualContext implements IVisualContext {
     getMaterial(id: string): ThreeMaterial {
         let material = this.materialMap.get(id);
         if (!material) {
-            throw new Error("Material not found");
+            throw new Error(`Material not found: ${id}`);
         }
         return material;
     }
@@ -132,8 +133,8 @@ export class ThreeVisualContext implements IVisualContext {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
             }
         });
-        this.addModel(adds.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
-        this.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)) as IModel[]);
+        this.addModel(adds.filter((x) => !INode.isLinkedListNode(x)));
+        this.removeModel(rms.filter((x) => !INode.isLinkedListNode(x)));
     };
 
     addVisualObject(object: IVisualObject): void {
@@ -164,11 +165,11 @@ export class ThreeVisualContext implements IVisualContext {
         this.scene.remove(this.visualShapes, this.tempShapes);
     }
 
-    getModel(shape: IVisualGeometry): IModel | undefined {
+    getModel(shape: IVisualGeometry): INode | undefined {
         return this._shapeModelMap.get(shape);
     }
 
-    redrawModel(models: IModel[]) {
+    redrawModel(models: INode[]) {
         this.removeModel(models);
         this.addModel(models);
 
@@ -179,7 +180,7 @@ export class ThreeVisualContext implements IVisualContext {
         return this.visualShapes.children.length;
     }
 
-    getShape(model: IModel): IVisualGeometry | undefined {
+    getShape(model: INode): IVisualGeometry | undefined {
         return this._modelShapeMap.get(model);
     }
 
@@ -201,9 +202,10 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.shapes().filter((x) => {
-            if (filter && x.geometryEngity.shape.isOk && !filter.allow(x.geometryEngity.shape.ok())) {
+            if (filter && x instanceof ShapeNode && x.shape.isOk && !filter.allow(x.shape.value)) {
                 return false;
             }
+
             let testBox = (x as ThreeGeometry).box();
             if (testBox === undefined) {
                 return false;
@@ -250,35 +252,29 @@ export class ThreeVisualContext implements IVisualContext {
         this.tempShapes.remove(shape);
     }
 
-    setVisible(model: IModel, visible: boolean): void {
+    setVisible(model: INode, visible: boolean): void {
         let shape = this.getShape(model);
         if (shape === undefined || shape.visible === visible) return;
         shape.visible = visible;
     }
 
-    addModel(models: IModel[]) {
+    addModel(models: INode[]) {
         models.forEach((model) => {
             if (this._modelShapeMap.has(model)) return;
-            if (INode.isModelGroup(model)) {
-                let childGroup = new Group();
-                childGroup.name = model.id;
-                this.visualShapes.add(childGroup);
-                return;
-            }
             this.displayModel(model);
         });
     }
 
-    private displayModel(model: IModel) {
-        let modelShape = model.geometry.shape.ok();
-        if (modelShape === undefined) return;
-        let threeShape = new ThreeGeometry(model.geometry, this);
-        this.visualShapes.add(threeShape);
-        this._shapeModelMap.set(threeShape, model);
-        this._modelShapeMap.set(model, threeShape);
+    private displayModel(model: INode) {
+        if (model instanceof ShapeNode) {
+            let threeShape = new ThreeGeometry(model as any, this);
+            this.visualShapes.add(threeShape);
+            this._shapeModelMap.set(threeShape, model);
+            this._modelShapeMap.set(model, threeShape);
+        }
     }
 
-    removeModel(models: IModel[]) {
+    removeModel(models: INode[]) {
         models.forEach((m) => {
             let shape = this._modelShapeMap.get(m);
             this._modelShapeMap.delete(m);

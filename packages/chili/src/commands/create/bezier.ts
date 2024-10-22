@@ -2,8 +2,9 @@
 
 import {
     AsyncController,
-    EditableGeometryEntity,
-    GeometryEntity,
+    EditableShapeNode,
+    GeometryNode,
+    I18n,
     ShapeMeshData,
     XYZ,
     command,
@@ -18,9 +19,9 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-bezier",
 })
 export class BezierCommand extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
-        return new EditableGeometryEntity(this.document, bezier.ok());
+        return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.value);
     }
 
     protected override async executeSteps(): Promise<boolean> {
@@ -44,7 +45,7 @@ export class BezierCommand extends CreateCommand {
         return [firstStep, secondStep];
     }
 
-    private getNextData = (): PointSnapData => {
+    private readonly getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
@@ -53,7 +54,7 @@ export class BezierCommand extends CreateCommand {
         };
     };
 
-    private preview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
         let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.previewPoint(data.point!));
         let points = this.stepDatas.map((data) => data.point) as XYZ[];
         if (point) {
@@ -62,13 +63,13 @@ export class BezierCommand extends CreateCommand {
         if (points.length > 1) {
             ps.push(...this.previewLines(points));
             let bezier = this.application.shapeFactory.bezier(points);
-            ps.push(bezier.ok().mesh.edges!);
+            ps.push(bezier.value.mesh.edges!);
         }
 
         return ps;
     };
 
-    private previewLines = (points: XYZ[]): ShapeMeshData[] => {
+    private readonly previewLines = (points: XYZ[]): ShapeMeshData[] => {
         if (points.length < 2) {
             return [];
         }
@@ -79,7 +80,7 @@ export class BezierCommand extends CreateCommand {
         return res;
     };
 
-    private validator = (point: XYZ): boolean => {
+    private readonly validator = (point: XYZ): boolean => {
         for (const data of this.stepDatas) {
             if (point.distanceTo(data.point!) < 0.001) {
                 return false;

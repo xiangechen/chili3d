@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    FacebaseParameterBody,
+    FacebaseNode,
     I18nKeys,
     IDocument,
     IShape,
@@ -13,47 +13,46 @@ import {
 } from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy"])
-export class RectBody extends FacebaseParameterBody {
-    readonly display: I18nKeys = "body.rect";
+export class RectNode extends FacebaseNode {
+    override display(): I18nKeys {
+        return "body.rect";
+    }
 
-    private _dx: number;
     @Serializer.serialze()
     @Property.define("rect.dx")
     get dx() {
-        return this._dx;
+        return this.getPrivateValue("dx");
     }
     set dx(dx: number) {
         this.setProperty("dx", dx);
     }
 
-    private _dy: number;
     @Serializer.serialze()
     @Property.define("rect.dy")
     get dy() {
-        return this._dy;
+        return this.getPrivateValue("dy");
     }
     set dy(dy: number) {
         this.setProperty("dy", dy);
     }
 
-    private _plane: Plane;
     @Serializer.serialze()
-    get plane() {
-        return this._plane;
+    get plane(): Plane {
+        return this.getPrivateValue("plane");
     }
 
     constructor(document: IDocument, plane: Plane, dx: number, dy: number) {
         super(document);
-        this._plane = plane;
-        this._dx = dx;
-        this._dy = dy;
+        this.setPrivateValue("plane", plane);
+        this.setPrivateValue("dx", dx);
+        this.setPrivateValue("dy", dy);
     }
 
     generateShape(): Result<IShape, string> {
-        let points = RectBody.points(this.plane, this._dx, this._dy);
+        let points = RectNode.points(this.plane, this.dx, this.dy);
         let wire = this.document.application.shapeFactory.polygon(...points);
         if (!wire.isOk || !this.isFace) return wire;
-        return wire.ok().toFace();
+        return wire.value.toFace();
     }
 
     static points(plane: Plane, dx: number, dy: number): XYZ[] {

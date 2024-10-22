@@ -13,12 +13,11 @@ import {
     Ray,
     Result,
     XYZ,
-    gc,
 } from "chili-core";
-import { OccShapeConverter } from "./converter";
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
-import { OccShape } from "./shape";
+import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
+import { OccShape } from "./shape";
 
 function ensureOccShape(...shapes: IShape[]): TopoDS_Shape[] {
     return shapes.map((x) => {
@@ -30,13 +29,10 @@ function ensureOccShape(...shapes: IShape[]): TopoDS_Shape[] {
 }
 
 function convertShapeResult(result: ShapeResult): Result<IShape, string> {
-    return gc((c) => {
-        // c(result);
-        if (!result.isOk) {
-            return Result.err(String(result.error));
-        }
-        return Result.ok(OcctHelper.wrapShape(result.shape));
-    });
+    if (!result.isOk) {
+        return Result.err(String(result.error));
+    }
+    return Result.ok(OcctHelper.wrapShape(result.shape));
 }
 
 export class ShapeFactory implements IShapeFactory {

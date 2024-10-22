@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { EditableGeometryEntity, GeometryEntity, ShapeType, command } from "chili-core";
+import { EditableShapeNode, GeometryNode, I18n, ShapeType, command } from "chili-core";
 import { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
@@ -11,11 +11,11 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-section",
 })
 export class Section extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let shape = this.stepDatas[0].shapes[0].shape;
         let path = this.stepDatas[1].shapes[0].shape;
         let section = shape.section(path);
-        return new EditableGeometryEntity(this.document, section);
+        return new EditableShapeNode(this.document, I18n.translate("command.section"), section);
     }
 
     protected override getSteps(): IStep[] {

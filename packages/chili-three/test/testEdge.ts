@@ -3,6 +3,7 @@ import {
     ICurve,
     IDocument,
     IEdge,
+    IEqualityComparer,
     IShape,
     IShapeMeshData,
     ITrimmedCurve,
@@ -10,7 +11,7 @@ import {
     LineType,
     Matrix4,
     Orientation,
-    ParameterBody,
+    ParameterShapeNode,
     Plane,
     Ray,
     Result,
@@ -37,6 +38,9 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
     isNull(): boolean {
+        throw new Error("Method not implemented.");
+    }
+    reserve(): void {
         throw new Error("Method not implemented.");
     }
     section(shape: IShape | Plane): IShape {
@@ -107,14 +111,26 @@ export class TestEdge implements IEdge {
     }
 }
 
-export class TestBody extends ParameterBody {
-    display: I18nKeys = "body.line";
+export class TestNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.line";
+    }
     constructor(
         document: IDocument,
         readonly start: XYZ,
         readonly end: XYZ,
     ) {
         super(document);
+    }
+
+    protected override setProperty<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: ((property: K, oldValue: this[K]) => void) | undefined,
+        equals?: IEqualityComparer<this[K]> | undefined,
+    ): boolean {
+        this.setPrivateValue(property, newValue);
+        return true;
     }
 
     generateShape(): Result<IShape> {

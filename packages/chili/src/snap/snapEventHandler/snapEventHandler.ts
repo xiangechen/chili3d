@@ -21,7 +21,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private _tempPoint?: number;
     private _tempShapes?: number[];
     protected _snaped?: SnapedData;
-    private validators: SnapValidator[] = [];
+    private readonly validators: SnapValidator[] = [];
 
     constructor(
         readonly document: IDocument,
@@ -228,7 +228,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         }
     }
 
-    private handleText = (view: IView, text: string) => {
+    private readonly handleText = (view: IView, text: string) => {
         this._snaped = this.getPointFromInput(view, text);
         this.finish();
     };

@@ -3,8 +3,8 @@
 import {
     AsyncController,
     CancelableCommand,
-    EditableGeometryEntity,
-    GeometryModel,
+    EditableShapeNode,
+    GeometryNode,
     I18n,
     ICurve,
     IDocument,
@@ -13,6 +13,7 @@ import {
     IShapeFilter,
     ITrimmedCurve,
     IView,
+    ShapeNode,
     ShapeType,
     Transaction,
     VisualConfig,
@@ -66,10 +67,10 @@ export class Trim extends CancelableCommand {
 
     private trimEdge(selected: TrimEdge) {
         let model = this.document.visual.context.getModel(selected.edge.owner);
+        let materialId = (model as GeometryNode)?.materialId;
         selected.segments.retainSegments.forEach((segment) => {
             let newEdge = selected.curve.trim(segment.start, segment.end).makeEdge();
-            let newEntity = new EditableGeometryEntity(this.document, newEdge);
-            model?.parent?.add(new GeometryModel(this.document, model.name, newEntity));
+            model?.parent?.add(new EditableShapeNode(this.document, model.name, newEdge, materialId));
         });
 
         model?.parent?.remove(model);
@@ -149,8 +150,12 @@ function findEdges(detecteds: VisualShapeData[], view: IView) {
     let boundingBox = detecteds[0].owner.boundingBox();
     let otherEdges = view.document.visual.context
         .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
-        .filter((d) => d.geometryEngity.shape.ok().id !== detecteds[0].shape.id)
-        .map((x) => x.geometryEngity.shape.ok() as IEdge);
+        .filter(
+            (d) =>
+                d.geometryNode instanceof ShapeNode &&
+                d.geometryNode.shape.value.id !== detecteds[0].shape.id,
+        )
+        .map((x) => (x.geometryNode as ShapeNode).shape.value as IEdge);
     return otherEdges;
 }
 

@@ -42,7 +42,7 @@ export class Binding<T extends IPropertyChanged = any> {
         this.source.removePropertyChanged(this._onPropertyChanged);
     }
 
-    private _onPropertyChanged = (property: keyof T) => {
+    private readonly _onPropertyChanged = (property: keyof T) => {
         if (property === this.path && this._target) {
             let element = this._target.element.deref();
             if (element) {
@@ -66,6 +66,6 @@ export class Binding<T extends IPropertyChanged = any> {
         if (!result.isOk) {
             throw new Error(`Cannot convert value ${value}`);
         }
-        return result.ok();
+        return result.value;
     }
 }

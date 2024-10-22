@@ -33,7 +33,7 @@ export class Rotate extends TransformedCommand {
         return [firstStep, secondStep, thirdStep];
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -43,7 +43,7 @@ export class Rotate extends TransformedCommand {
         };
     };
 
-    private getThirdPointData = (): PointSnapData => {
+    private readonly getThirdPointData = (): PointSnapData => {
         return {
             dimension: Dimension.D1D2,
             preview: this.rotatePreview,
@@ -59,7 +59,7 @@ export class Rotate extends TransformedCommand {
         };
     };
 
-    private rotatePreview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly rotatePreview = (point: XYZ | undefined): ShapeMeshData[] => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         let l1 = this.getRayData(this.stepDatas[1].point!);
         let result = [p1, l1, this.previewPoint(this.stepDatas[1].point!)];
@@ -77,7 +77,7 @@ export class Rotate extends TransformedCommand {
         return this.getTempLineData(start, e);
     }
 
-    private linePreview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly linePreview = (point: XYZ | undefined): ShapeMeshData[] => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];

@@ -10,6 +10,7 @@ import {
     PubSub,
     Ray,
     ShapeMeshGroup,
+    ShapeNode,
     ShapeType,
     VisualShapeData,
     XY,
@@ -276,9 +277,8 @@ export class ThreeView extends Observable implements IView {
         obj: Mesh | LineSegments2,
         shapeFilter?: IShapeFilter,
     ) {
-        if (!(obj.parent instanceof ThreeGeometry) || !obj.parent.visible) return;
-        let shape = obj.parent.geometryEngity.shape.ok();
-        if (cache.has(shape)) return;
+        let shape = this.getParentShape(obj);
+        if (shape === undefined || cache.has(shape)) return;
 
         const addShape = (indexes: number[]) => {
             detecteds.push({
@@ -300,6 +300,12 @@ export class ThreeView extends Observable implements IView {
         addShape([...Array(groups?.length).keys()]);
     }
 
+    private getParentShape(obj: Object3D): IShape | undefined {
+        if (!obj.parent?.visible || !(obj.parent instanceof ThreeGeometry)) return undefined;
+
+        return (obj.parent.geometryNode as ShapeNode).shape.unchecked();
+    }
+
     detected(shapeType: ShapeType, mx: number, my: number, shapeFilter?: IShapeFilter): VisualShapeData[] {
         let intersections = this.findIntersections(shapeType, mx, my);
         return ShapeType.isWhole(shapeType)
@@ -310,15 +316,15 @@ export class ThreeView extends Observable implements IView {
     private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
-            if (!(parent instanceof ThreeGeometry)) continue;
+            if (!(parent instanceof ThreeGeometry) || !(parent.geometryNode instanceof ShapeNode)) continue;
 
-            if (shapeFilter && !shapeFilter.allow(parent.geometryEngity.shape.ok())) {
+            if (shapeFilter && !shapeFilter.allow(parent.geometryNode.shape.value)) {
                 continue;
             }
             return [
                 {
                     owner: parent,
-                    shape: parent.geometryEngity.shape.ok(),
+                    shape: parent.geometryNode.shape.value,
                     point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
@@ -386,7 +392,7 @@ export class ThreeView extends Observable implements IView {
         groups: ShapeMeshGroup[],
         parent: ThreeGeometry,
     ) {
-        let ancestor = directShape.findAncestor(type, parent.geometryEngity.shape.ok()).at(0);
+        let ancestor = directShape.findAncestor(type, (parent.geometryNode as ShapeNode).shape.value).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];
@@ -409,13 +415,13 @@ export class ThreeView extends Observable implements IView {
         let index: number | undefined = undefined;
         let groups: ShapeMeshGroup[] | undefined = undefined;
         if (element.pointOnLine !== undefined) {
-            groups = parent.geometryEngity.shape.unchecked()?.mesh.edges?.groups;
+            groups = parent.geometryNode.mesh.edges?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 2)!;
                 shape = groups[index].shape;
             }
         } else {
-            groups = parent.geometryEngity.shape.unchecked()?.mesh.faces?.groups;
+            groups = parent.geometryNode.mesh.faces?.groups;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
                 shape = groups[index].shape;

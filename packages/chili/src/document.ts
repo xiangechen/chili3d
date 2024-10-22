@@ -28,7 +28,7 @@ import {
 } from "chili-core";
 import { Selection } from "./selection";
 
-const FILE_VERSIOM = "0.3.1";
+const FILE_VERSIOM = "0.4.0";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
@@ -36,11 +36,10 @@ export class Document extends Observable implements IDocument {
     readonly selection: ISelection;
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
-    private _nodeChangedObservers = new Set<INodeChangedObserver>();
+    private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
 
-    private _name: string;
     get name(): string {
-        return this._name;
+        return this.getPrivateValue("name");
     }
     set name(name: string) {
         if (this.name === name) return;
@@ -52,15 +51,18 @@ export class Document extends Observable implements IDocument {
     @Serializer.serialze()
     get rootNode(): INodeLinkedList {
         if (this._rootNode === undefined) {
-            this.setRootNode(new NodeLinkedList(this, this._name));
+            this.setRootNode(this.initRootNode());
         }
         return this._rootNode!;
+    }
+    set rootNode(value: INodeLinkedList) {
+        this.setRootNode(value);
     }
 
     private setRootNode(value?: INodeLinkedList) {
         if (this._rootNode === value) return;
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode = value ?? new NodeLinkedList(this, this._name);
+        this._rootNode = value ?? new NodeLinkedList(this, this.name);
         this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
@@ -78,7 +80,7 @@ export class Document extends Observable implements IDocument {
         readonly id: string = Id.generate(),
     ) {
         super();
-        this._name = name;
+        this.setPrivateValue("name", name);
         this.history = new History();
         this.visual = application.visualFactory.create(this);
         this.selection = new Selection(this);
@@ -88,11 +90,15 @@ export class Document extends Observable implements IDocument {
         Logger.info(`new document: ${name}`);
     }
 
-    private handleRootNodeNameChanged = (prop: string) => {
+    private readonly handleRootNodeNameChanged = (prop: string) => {
         if (prop === "name") {
             this.name = this.rootNode.name;
         }
     };
+
+    initRootNode() {
+        return new NodeLinkedList(this, this.name);
+    }
 
     serialize(): Serialized {
         let serialized = {
@@ -144,7 +150,7 @@ export class Document extends Observable implements IDocument {
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
         this.materials.removeCollectionChanged(this.handleMaterialChanged);
-        Logger.info(`document: ${this._name} closed`);
+        Logger.info(`document: ${this.name} closed`);
         this.dispose();
     }
 
@@ -184,7 +190,7 @@ export class Document extends Observable implements IDocument {
         return document;
     }
 
-    private handleMaterialChanged = (args: CollectionChangedArgs) => {
+    private readonly handleMaterialChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
             Transaction.add(this, this.history, {
                 name: "MaterialChanged",

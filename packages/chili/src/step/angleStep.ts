@@ -14,8 +14,8 @@ function defaultSnapedData(): PointSnapData {
 export class AngleStep extends Step<PointSnapData> {
     constructor(
         tip: I18nKeys,
-        private handleCenter: () => XYZ,
-        private handleP1: () => XYZ,
+        private readonly handleCenter: () => XYZ,
+        private readonly handleP1: () => XYZ,
         handleP2Data: () => PointSnapData = defaultSnapedData,
     ) {
         super(tip, handleP2Data);

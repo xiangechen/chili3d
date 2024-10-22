@@ -41,7 +41,7 @@ export class ColorProperty extends PropertyBase {
 
     private setColor = (e: Event) => {
         let value = (e.target as any).value;
-        let color = this.converter.convertBack(value).ok();
+        let color = this.converter.convertBack(value).value;
         if (color === undefined) {
             PubSub.default.pub("showToast", "toast.converter.invalidColor");
             return;

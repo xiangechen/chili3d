@@ -1,16 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    GeometryEntity,
-    ParameterGeometryEntity,
-    Plane,
-    PlaneAngle,
-    Precision,
-    ShapeMeshData,
-    XYZ,
-    command,
-} from "chili-core";
-import { ArcBody } from "../../bodys/arcBody";
+import { GeometryNode, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import { ArcNode } from "../../bodys/arc";
 import { Dimension, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -35,7 +26,7 @@ export class Arc extends CreateCommand {
         return [centerStep, startStep, angleStep];
     }
 
-    private getRadiusData = (): SnapLengthAtPlaneData => {
+    private readonly getRadiusData = (): SnapLengthAtPlaneData => {
         let point = this.stepDatas[0].point!;
         return {
             point: () => point,
@@ -50,7 +41,7 @@ export class Arc extends CreateCommand {
         };
     };
 
-    private getAngleData = () => {
+    private readonly getAngleData = () => {
         let [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
         let points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
@@ -65,9 +56,8 @@ export class Arc extends CreateCommand {
                 let result = [...points];
                 if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
                     result.push(
-                        this.application.shapeFactory
-                            .arc(plane.normal, center, p1, this._planeAngle!.angle)
-                            .ok().mesh.edges!,
+                        this.application.shapeFactory.arc(plane.normal, center, p1, this._planeAngle!.angle)
+                            .value.mesh.edges!,
                     );
                 }
                 return result;
@@ -82,15 +72,14 @@ export class Arc extends CreateCommand {
         };
     };
 
-    geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         let plane = this.stepDatas[0].view.workplane;
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
-        let body = new ArcBody(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
-        return new ParameterGeometryEntity(this.document, body);
+        return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
     }
 
-    private circlePreview = (point: XYZ | undefined) => {
+    private readonly circlePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];
@@ -100,9 +89,11 @@ export class Arc extends CreateCommand {
         return [
             p1,
             this.previewLine(this.stepDatas[0].point!, point),
-            this.application.shapeFactory
-                .circle(plane.normal, start, this.getDistanceAtPlane(plane, start, point))
-                .ok().mesh.edges!,
+            this.application.shapeFactory.circle(
+                plane.normal,
+                start,
+                this.getDistanceAtPlane(plane, start, point),
+            ).value.mesh.edges!,
         ];
     };
 

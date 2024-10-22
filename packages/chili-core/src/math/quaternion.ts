@@ -32,7 +32,12 @@ export class Quaternion {
     }
     normalize(): Quaternion {
         const magnitude = this.magnitude();
-        return new Quaternion(this.w / magnitude, this.x / magnitude, this.y / magnitude, this.z / magnitude);
+        return new Quaternion(
+            this.w / magnitude,
+            this.x / magnitude,
+            this.y / magnitude,
+            this.z / magnitude,
+        );
     }
     toEuler(): { x: number; y: number; z: number } {
         const sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
@@ -50,10 +55,7 @@ export class Quaternion {
         };
     }
     toMatrix4(): Matrix4 {
-        const x = this.x,
-            y = this.y,
-            z = this.z,
-            w = this.w;
+        const { x, y, z, w } = this;
         const xx = x * x,
             xy = x * y,
             xz = x * z,

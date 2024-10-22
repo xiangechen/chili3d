@@ -32,20 +32,9 @@ export class AppBuilder {
         return this;
     }
 
-    useOcc(): this {
+    useWasmOcc() {
         this._inits.push(async () => {
-            Logger.info("initializing occ");
-
-            let occ = await import("chili-occ");
-            await occ.initMyOcc();
-            this._shapeFactory = new occ.ShapeFactory();
-        });
-        return this;
-    }
-
-    useNewOcc() {
-        this._inits.push(async () => {
-            Logger.info("initializing new occ");
+            Logger.info("initializing wasm occ");
 
             let wasm = await import("chili-wasm");
             await wasm.initWasm();
@@ -68,8 +57,10 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing MainWindow");
 
+            this.loadAdditionalI18n();
+
             let ui = await import("chili-ui");
-            this._window = new ui.MainWindow();
+            this._window = new ui.MainWindow(await this.getRibbonTabs());
         });
         return this;
     }
@@ -79,23 +70,33 @@ export class AppBuilder {
         return this;
     }
 
+    async getRibbonTabs() {
+        let defaultRibbon = await import("./ribbon");
+        return defaultRibbon.DefaultRibbon;
+    }
+
     async build(): Promise<void> {
         for (const init of this._inits) {
             await init();
         }
         this.ensureNecessary();
 
-        Application.build(
+        let app = this.createApp();
+        this._window?.init(app);
+
+        this.loadAdditionalCommands();
+
+        Logger.info("Application build completed");
+    }
+
+    createApp() {
+        return new Application(
             this._visualFactory!,
             this._shapeFactory!,
             this.getServices(),
             this._storage!,
-            this._window,
+            this._window
         );
-
-        this.loadAdditionalModule();
-
-        Logger.info("Application build completed");
     }
 
     private ensureNecessary() {
@@ -110,11 +111,16 @@ export class AppBuilder {
         }
     }
 
-    private loadAdditionalModule() {
+    private loadAdditionalI18n() {
         for (const module of this._additionalModules) {
             module.i18n().forEach((local) => {
-                I18n.combineTranslation(local.code as any, local.translation);
+                I18n.combineTranslation(local.code, local.translation);
             });
+        }
+    }
+
+    private loadAdditionalCommands() {
+        for (const module of this._additionalModules) {
             if (this._window) {
                 module.ribbonCommands().forEach((command) => {
                     this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);

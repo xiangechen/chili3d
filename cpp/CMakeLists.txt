@@ -4,11 +4,12 @@ project (chili-wasm)
 set (CMAKE_CXX_STANDARD 17)
 set (TARGET chili-wasm)
 set (CMAKE_CONFIGURATION_TYPES Debug;Release)
+set (CMAKE_NINJA_FORCE_RESPONSE_FILE 1 CACHE INTERNAL "")
 
 get_filename_component(SOURCE_ROOT_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 set(CMAKE_INSTALL_PREFIX "${SOURCE_ROOT_DIR}/packages/chili-wasm/lib")
 
-set (OcctModules
+set (OcctToolkits
     # FoundationClasses
     TKernel TKMath
     # ModelingData 
@@ -20,20 +21,23 @@ set (OcctModules
     # ApplicationFramework
     TKCDF TKLCAF TKCAF TKStdL TKStd TKVCAF TKBin TKBinL TKBinXCAF
     # DataExchange
-    TKDE TKXSBase TKDESTEP TKDEIGES TKDESTL TKDEVRML TKDEOBJ TKDEGLTF TKDEPLY TKXCAF TKRWMesh
+    TKDE TKXSBase TKXCAF TKDESTEP TKDEIGES
 )
+
+set (OcctUsedPackages)
+foreach(toolkit ${OcctToolkits})
+    file (STRINGS build/occt/src/${toolkit}/PACKAGES OcctPackages)
+    list (APPEND OcctUsedPackages ${OcctPackages})
+endforeach()
+list (REMOVE_DUPLICATES OcctUsedPackages)
 
 set (OcctSourceFolders)
 set (OcctIncludeDirs)
-
-foreach(module ${OcctModules})
-    file (STRINGS build/occt/src/${module}/PACKAGES OcctPackage)
-    foreach(package ${OcctPackage})
-        if (NOT package STREQUAL "")
-            list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
-            list (APPEND OcctIncludeDirs build/occt/src/${package})
-        endif()
-    endforeach()
+foreach(package ${OcctUsedPackages})
+    if (NOT package STREQUAL "")
+        list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
+        list (APPEND OcctIncludeDirs build/occt/src/${package})
+    endif()
 endforeach()
 
 file (GLOB OcctSourceFiles ${OcctSourceFolders})
@@ -48,18 +52,27 @@ source_group ("Sources" FILES ${ChiliWasmSourceFiles})
 source_group ("OCCT" FILES ${OcctSourceFiles})
 
 if (${EMSCRIPTEN})
-    add_executable (${TARGET} ${ChiliWasmSourceFiles} ${OcctSourceFiles})
 
-    target_compile_options (${TARGET} PUBLIC
+    add_library(occt STATIC ${OcctSourceFiles})
+    target_include_directories (occt PUBLIC ${OcctIncludeDirs})
+    target_compile_options (occt PUBLIC
         $<$<CONFIG:Release>:-O3>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -DOCCT_NO_PLUGINS
     )
 
+    add_executable (${TARGET} ${ChiliWasmSourceFiles})
+    target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
+    target_compile_options (${TARGET} PUBLIC
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-flto>
+        $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
+    )
+    target_link_libraries(${TARGET} PUBLIC occt)
     target_link_options (${TARGET} PUBLIC
         $<IF:$<CONFIG:Release>,-O3,-O0>
-        $<$<CONFIG:Release>:-flto>
+        $<IF:$<CONFIG:Release>,-flto,-fno-lto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
         -sEXPORT_ES6=1
@@ -69,9 +82,8 @@ if (${EMSCRIPTEN})
         --emit-tsd "${TARGET}.d.ts"
     )
 
-    target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
-
     install(TARGETS ${TARGET} DESTINATION ${CMAKE_INSTALL_PREFIX})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.wasm DESTINATION ${CMAKE_INSTALL_PREFIX})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.d.ts DESTINATION ${CMAKE_INSTALL_PREFIX})
+
 endif ()

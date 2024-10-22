@@ -1,14 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, GeometryModel, IShape, ParameterGeometryEntity, Result, command } from "chili-core";
-import { BooleanBody } from "../bodys/boolean";
+import { GeometryNode, IShape, Result, ShapeNode, command } from "chili-core";
+import { BooleanNode } from "../bodys/boolean";
 import { IStep, SelectModelStep } from "../step";
 import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
-        let shape1 = (this.stepDatas[0].models?.at(0) as GeometryModel)?.geometry.shape.ok();
-        let shape2 = (this.stepDatas[1].models?.at(0) as GeometryModel)?.geometry.shape.ok();
+    protected override geometryNode(): GeometryNode {
+        let shape1 = (this.stepDatas[0].models?.at(0) as ShapeNode)?.shape.value;
+        let shape2 = (this.stepDatas[1].models?.at(0) as ShapeNode)?.shape.value;
         let booleanType = this.getBooleanOperateType();
         let booleanShape: Result<IShape>;
         if (booleanType === "common") {
@@ -19,11 +19,11 @@ export abstract class BooleanOperate extends CreateCommand {
             booleanShape = this.application.shapeFactory.booleanFuse(shape1, shape2);
         }
 
-        let body = new BooleanBody(this.document, booleanShape.ok());
+        let node = new BooleanNode(this.document, booleanShape.value);
         this.stepDatas.forEach((x) => {
             x.models?.at(0)?.parent?.remove(x.models[0]);
         });
-        return new ParameterGeometryEntity(this.document, body);
+        return node;
     }
 
     protected abstract getBooleanOperateType(): "common" | "cut" | "fuse";
@@ -33,7 +33,9 @@ export abstract class BooleanOperate extends CreateCommand {
             new SelectModelStep("prompt.select.shape", false),
             new SelectModelStep("prompt.select.shape", false, {
                 allow: (shape) => {
-                    return !this.stepDatas[0].models?.map((x) => x.geometry.shape.ok()).includes(shape);
+                    return !this.stepDatas[0].models
+                        ?.map((x) => (x as ShapeNode).shape.value)
+                        .includes(shape);
                 },
             }),
         ];

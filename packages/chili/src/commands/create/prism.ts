@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, ParameterGeometryEntity, Precision, ShapeType, command } from "chili-core";
+import { GeometryNode, Precision, ShapeType, command } from "chili-core";
 import { GeoUtils } from "chili-geo";
-import { PrismBody } from "../../bodys";
+import { PrismNode } from "../../bodys";
 import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
@@ -14,12 +14,11 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-prism",
 })
 export class Prism extends CreateCommand {
-    protected override geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let shape = this.stepDatas[0].shapes[0].shape;
         const { point, normal } = this.getAxis();
         let dist = this.stepDatas[1].point!.sub(point).dot(normal);
-        let body = new PrismBody(this.document, shape, dist);
-        return new ParameterGeometryEntity(this.document, body);
+        return new PrismNode(this.document, shape, dist);
     }
 
     protected override getSteps(): IStep[] {
@@ -33,7 +32,7 @@ export class Prism extends CreateCommand {
         ];
     }
 
-    private getLengthStepData = (): LengthAtAxisSnapData => {
+    private readonly getLengthStepData = (): LengthAtAxisSnapData => {
         const { point, normal } = this.getAxis();
         return {
             point,
@@ -44,7 +43,7 @@ export class Prism extends CreateCommand {
                 if (Math.abs(dist) < Precision.Float) return [];
                 let vec = normal.multiply(dist);
                 let shape = this.stepDatas[0].shapes[0].shape;
-                return [this.application.shapeFactory.prism(shape, vec).ok().mesh.edges!];
+                return [this.application.shapeFactory.prism(shape, vec).value.mesh.edges!];
             },
         };
     };

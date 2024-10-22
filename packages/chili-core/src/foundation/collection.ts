@@ -35,7 +35,7 @@ export interface ICollectionChanged {
 }
 
 export class ObservableCollection<T> implements ICollectionChanged, IDisposable {
-    private _callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
+    private readonly _callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
     private _items: T[];
 
     constructor(...items: T[]) {

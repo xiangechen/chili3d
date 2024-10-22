@@ -1,15 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    EditableGeometryEntity,
-    GeometryModel,
-    IEdge,
-    IVisualGeometry,
-    ShapeType,
-    Transaction,
-    XYZ,
-    command,
-} from "chili-core";
+import { EditableShapeNode, IEdge, ShapeType, Transaction, XYZ, command } from "chili-core";
 import { Dimension } from "../../snap";
 import { IStep, PointOnCurveStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
@@ -34,11 +25,14 @@ export class Break extends MultistepCommand {
             let model = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
             model.parent?.remove(model);
             (this.stepDatas[0].shapes[0].shape as IEdge).update(curve);
-            let model1 = new EditableGeometryEntity(this.document, this.stepDatas[0].shapes[0].shape);
-            let model2 = new EditableGeometryEntity(this.document, curve2.makeEdge());
 
-            this.document.addNode(new GeometryModel(this.document, `${model.name}_1`, model1));
-            this.document.addNode(new GeometryModel(this.document, `${model.name}_2`, model2));
+            let model1 = new EditableShapeNode(
+                this.document,
+                `${model.name}_1`,
+                this.stepDatas[0].shapes[0].shape,
+            );
+            let model2 = new EditableShapeNode(this.document, `${model.name}_2`, curve2.makeEdge());
+            this.document.addNode(model1, model2);
 
             this.document.visual.update();
         });

@@ -33,7 +33,7 @@ export abstract class TreeItem extends HTMLElement {
         this.node.removePropertyChanged(this.onPropertyChanged);
     }
 
-    private onPropertyChanged = (property: keyof INode, model: INode) => {
+    private readonly onPropertyChanged = (property: keyof INode, model: INode) => {
         if (property === "visible") {
             setSVGIcon(this.visibleIcon, this.getVisibleIcon());
         } else if (property === "parentVisible") {

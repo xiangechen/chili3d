@@ -27,10 +27,10 @@ interface InvisibleSnapInfo {
 }
 
 export class ObjectSnap implements ISnap {
-    private _featureInfos: Map<VisualShapeData, SnapedData[]>;
-    private _intersectionInfos: Map<string, SnapedData[]>;
-    private _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
-    private _hilightedShapes: VisualShapeData[] = [];
+    private readonly _featureInfos: Map<VisualShapeData, SnapedData[]>;
+    private readonly _intersectionInfos: Map<string, SnapedData[]>;
+    private readonly _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
+    private readonly _hilightedShapes: VisualShapeData[] = [];
     private _lastDetected?: [IView, SnapedData];
     private _hintVertex?: [IVisualContext, number];
 
@@ -183,7 +183,7 @@ export class ObjectSnap implements ISnap {
 
     private hilighted(view: IView, shapes: VisualShapeData[]) {
         shapes.forEach((x) => {
-            let highlighter = x.owner.geometryEngity.document.visual.highlighter;
+            let highlighter = x.owner.geometryNode.document.visual.highlighter;
             highlighter.addState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.push(...shapes);
@@ -191,7 +191,7 @@ export class ObjectSnap implements ISnap {
 
     private unHilighted() {
         this._hilightedShapes.forEach((x) => {
-            let highlighter = x.owner.geometryEngity.document.visual.highlighter;
+            let highlighter = x.owner.geometryNode.document.visual.highlighter;
             highlighter.removeState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
         });
         this._hilightedShapes.length = 0;

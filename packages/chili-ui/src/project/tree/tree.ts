@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    GeometryNode,
     IDocument,
     INode,
     INodeChangedObserver,
@@ -121,7 +122,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
         if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
-        else if (INode.isModelNode(node)) result = new TreeModel(node);
+        else if (node instanceof GeometryNode) result = new TreeModel(document, node);
         else throw new Error("unknown node");
         return result;
     }

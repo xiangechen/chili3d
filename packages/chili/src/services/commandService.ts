@@ -33,12 +33,12 @@ export class CommandService implements IService {
         Logger.info(`${CommandService.name} registed`);
     }
 
-    private onActiveViewChanged = async (view: IView | undefined) => {
+    private readonly onActiveViewChanged = async (view: IView | undefined) => {
         if (this.app.executingCommand && ICommand.isCanclableCommand(this.app.executingCommand))
             await this.app.executingCommand.cancel();
     };
 
-    private executeCommand = async (commandName: CommandKeys) => {
+    private readonly executeCommand = async (commandName: CommandKeys) => {
         let command = commandName === "special.last" ? this._lastCommand : commandName;
         if (command === undefined) return;
         if (!(await this.canExecute(command))) return;

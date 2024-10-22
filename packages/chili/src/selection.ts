@@ -3,6 +3,7 @@
 import {
     AsyncController,
     CursorType,
+    GeometryNode,
     I18nKeys,
     IDisposable,
     IDocument,
@@ -12,6 +13,7 @@ import {
     IShapeFilter,
     Logger,
     PubSub,
+    ShapeNode,
     ShapeType,
     VisualState,
 } from "chili-core";
@@ -96,12 +98,13 @@ export class Selection implements ISelection, IDisposable {
         return this._selectedNodes.length;
     }
 
-    private nodeFilter = (x: INode) => {
-        if (INode.isModelNode(x)) {
-            let shape = x.geometry.shape.ok();
+    private readonly nodeFilter = (x: INode) => {
+        if (x instanceof ShapeNode) {
+            let shape = x.shape.value;
             if (!shape || !this.filter) return true;
             return this.filter.allow(shape);
         }
+
         return false;
     };
 
@@ -127,7 +130,7 @@ export class Selection implements ISelection, IDisposable {
 
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
-            if (INode.isModelNode(m)) {
+            if (m instanceof GeometryNode) {
                 let visual = this.document.visual.context.getShape(m);
                 if (visual)
                     this.document.visual.highlighter.addState(visual, VisualState.selected, ShapeType.Shape);
@@ -139,7 +142,7 @@ export class Selection implements ISelection, IDisposable {
 
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
-            if (INode.isModelNode(node)) {
+            if (node instanceof GeometryNode) {
                 let visual = this.document.visual.context.getShape(node);
                 if (visual)
                     this.document.visual.highlighter.removeState(

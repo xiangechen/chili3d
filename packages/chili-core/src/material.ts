@@ -10,71 +10,64 @@ export class Material extends HistoryObservable {
     @Serializer.serialze()
     readonly id: string;
 
-    private _name: string;
     @Serializer.serialze()
     @Property.define("common.name")
     get name(): string {
-        return this._name;
+        return this.getPrivateValue("name");
     }
     set name(value: string) {
         this.setProperty("name", value);
     }
 
-    private _color: number;
     @Serializer.serialze()
     @Property.define("common.color", { type: "color" })
     get color(): number {
-        return this._color;
+        return this.getPrivateValue("color");
     }
     set color(value: number) {
         this.setProperty("color", value);
     }
 
-    private _opacity: number = 1;
     @Serializer.serialze()
     @Property.define("common.opacity")
     get opacity(): number {
-        return this._opacity;
+        return this.getPrivateValue("opacity", 1);
     }
     set opacity(value: number) {
         this.setProperty("opacity", value);
     }
 
-    private _texture: string = "";
     @Serializer.serialze()
     @Property.define("material.texture")
     get texture() {
-        return this._texture;
+        return this.getPrivateValue("texture", "");
     }
     set texture(value: string) {
         this.setProperty("texture", value);
     }
 
-    private _angle: number = 0;
     @Serializer.serialze()
     @Property.define("common.angle")
     get angle(): number {
-        return this._angle;
+        return this.getPrivateValue("angle", 0);
     }
     set angle(value: number) {
         this.setProperty("angle", value);
     }
 
-    private _repeatU: number = 1;
     @Serializer.serialze()
     @Property.define("material.repeatU")
     get repeatU(): number {
-        return this._repeatU;
+        return this.getPrivateValue("repeatU", 1);
     }
     set repeatU(value: number) {
         this.setProperty("repeatU", value);
     }
 
-    private _repeatV: number = 1;
     @Serializer.serialze()
     @Property.define("material.repeatV")
     get repeatV(): number {
-        return this._repeatV;
+        return this.getPrivateValue("repeatV", 1);
     }
     set repeatV(value: number) {
         this.setProperty("repeatV", value);
@@ -83,16 +76,16 @@ export class Material extends HistoryObservable {
     constructor(document: IDocument, name: string, color: number, id: string = Id.generate()) {
         super(document);
         this.id = id;
-        this._name = name;
-        this._color = color;
+        this.setPrivateValue("name", name);
+        this.setPrivateValue("color", color);
     }
 
     clone(): Material {
         let material = new Material(this.document, `${this.name} clone`, this.color);
-        material._texture = this._texture;
-        material._angle = this._angle;
-        material._repeatU = this._repeatU;
-        material._repeatV = this._repeatV;
+        material.setPrivateValue("texture", this.texture);
+        material.setPrivateValue("angle", this.angle);
+        material.setPrivateValue("repeatU", this.repeatU);
+        material.setPrivateValue("repeatV", this.repeatV);
 
         return material;
     }

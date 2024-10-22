@@ -14,15 +14,57 @@ export interface IPropertyChanged extends IDisposable {
     clearPropertyChanged(): void;
 }
 
+const DEFAULT_VALUE = Symbol.for("DEFAULT_VALUE");
+
 export class Observable implements IPropertyChanged {
     protected readonly propertyChangedHandlers: Set<PropertyChangedHandler<any, any>> = new Set();
 
-    protected setPrivatePropertyValue<K extends keyof this>(pubKey: K, newValue: this[K]) {
-        let privateKey = `_${String(pubKey)}`;
+    private getPrivateKey<K extends keyof this>(pubKey: K) {
+        return `_${String(pubKey)}`;
+    }
+
+    protected getPrivateValue<K extends keyof this>(
+        pubKey: K,
+        defaultValue: this[K] = DEFAULT_VALUE as any,
+    ): this[K] {
+        let privateKey = this.getPrivateKey(pubKey);
         if (privateKey in this) {
-            (this as any)[privateKey] = newValue;
+            return (this as any)[privateKey];
+        } else if (defaultValue !== DEFAULT_VALUE) {
+            this.defineProtoProperty(pubKey, privateKey, defaultValue);
+            return defaultValue;
         } else {
             throw new Error(`property ${privateKey} dose not exist in ${this.constructor.name}`);
+        }
+    }
+
+    protected setPrivateValue<K extends keyof this>(pubKey: K, newValue: this[K]): void {
+        let privateKey = this.getPrivateKey(pubKey);
+        if (privateKey in this) {
+            (this as any)[privateKey] = newValue;
+            return;
+        }
+
+        this.defineProtoProperty(pubKey, privateKey, newValue);
+    }
+
+    private defineProtoProperty<K extends keyof this>(
+        pubKey: K,
+        privateKey: string,
+        newValue: this[K],
+    ): void {
+        let proto = Object.getPrototypeOf(this);
+        while (proto !== null) {
+            if (proto.hasOwnProperty(pubKey)) {
+                Object.defineProperty(proto, privateKey, {
+                    value: newValue,
+                    writable: true,
+                    enumerable: false,
+                    configurable: true,
+                });
+                break;
+            }
+            proto = Object.getPrototypeOf(proto);
         }
     }
 
@@ -39,7 +81,7 @@ export class Observable implements IPropertyChanged {
     ): boolean {
         let oldValue = this[property];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
-        this.setPrivatePropertyValue(property, newValue);
+        this.setPrivateValue(property, newValue);
         onPropertyChanged?.(property, oldValue);
         this.emitPropertyChanged(property, oldValue);
         return true;

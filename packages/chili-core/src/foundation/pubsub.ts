@@ -4,7 +4,7 @@ import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { Material } from "../material";
-import { IModel, INode } from "../model";
+import { INode } from "../model";
 import { ObjectSnapType } from "../snapType";
 import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
@@ -17,9 +17,9 @@ export interface PubSubEventMap {
     executeCommand: (commandName: CommandKeys) => void;
     activeViewChanged: (view: IView | undefined) => void;
     viewClosed: (view: IView) => void;
-    modelUpdate: (model: IModel) => void;
-    visibleChanged: (model: IModel) => void;
-    parentVisibleChanged: (model: IModel) => void;
+    modelUpdate: (model: INode) => void;
+    visibleChanged: (model: INode) => void;
+    parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
     snapTypeChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: I18nKeys) => void;
@@ -45,7 +45,7 @@ export interface PubSubEventMap {
 export class PubSub implements IDisposable {
     static readonly default: PubSub = new PubSub();
 
-    private _events: Map<any, Set<(...args: any[]) => void>>;
+    private readonly _events: Map<any, Set<(...args: any[]) => void>>;
 
     constructor() {
         this._events = new Map();

@@ -2,8 +2,7 @@
 
 import {
     AsyncController,
-    IModel,
-    INode,
+    GeometryNode,
     LineType,
     Matrix4,
     Transaction,
@@ -21,7 +20,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-array",
 })
 export class Array extends MultistepCommand {
-    private models?: IModel[];
+    private models?: GeometryNode[];
     private positions?: number[];
 
     getSteps(): IStep[] {
@@ -30,7 +29,7 @@ export class Array extends MultistepCommand {
         return [firstStep, secondStep];
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -38,7 +37,7 @@ export class Array extends MultistepCommand {
         };
     };
 
-    private movePreview = (point: XYZ | undefined) => {
+    private readonly movePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
         let start = this.stepDatas[0].point!;
@@ -61,9 +60,7 @@ export class Array extends MultistepCommand {
     };
 
     protected override async beforeExecute(): Promise<boolean> {
-        this.models = this.document.selection
-            .getSelectedNodes()
-            .filter((x) => INode.isModelNode(x)) as IModel[];
+        this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof GeometryNode);
         if (this.models.length === 0) {
             this.controller = new AsyncController();
             this.models = await this.document.selection.pickModel("axis.x", this.controller, true);
@@ -71,8 +68,8 @@ export class Array extends MultistepCommand {
         }
         this.positions = [];
         this.models?.forEach((model) => {
-            let ps = model.geometry.shape.unchecked()?.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.geometry.matrix.ofPoints(ps));
+            let ps = model.mesh.edges?.positions;
+            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
         });
         return true;
     }
@@ -82,7 +79,7 @@ export class Array extends MultistepCommand {
             let vec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
             let transform = Matrix4.createTranslation(vec.x, vec.y, vec.z);
             this.models?.forEach((x) => {
-                x.geometry.matrix = x.geometry.matrix.multiply(transform);
+                x.matrix = x.matrix.multiply(transform);
             });
             this.document.visual.update();
         });

@@ -7,9 +7,11 @@ import zh from "./zh-cn";
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
 
+export type LanguageCode = "zh-CN" | "en";
+
 export type Locale = {
     display: string;
-    code: string;
+    code: LanguageCode;
     translation: {
         [key in I18nKeys]: string;
     } & {
@@ -19,24 +21,19 @@ export type Locale = {
 
 export type Translation = Record<I18nKeys, string>;
 
-export enum Language {
-    English,
-    Chinese,
-}
-
 export namespace I18n {
-    export const languages = new Map<Language, Locale>([
-        [Language.English, en],
-        [Language.Chinese, zh],
+    export const languages = new Map<LanguageCode, Locale>([
+        ["en", en],
+        ["zh-CN", zh],
     ]);
 
-    let _currentLanguage =
-        navigator.language.toLowerCase() === "zh-cn" ? Language.Chinese : Language.English;
+    let _currentLanguage: LanguageCode = "zh-CN";
+
     export function currentLanguage() {
         return _currentLanguage;
     }
 
-    export function combineTranslation(language: Language, translations: Record<string, string>) {
+    export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
         let local = languages.get(language);
         if (local) {
             local.translation = {
@@ -47,7 +44,8 @@ export namespace I18n {
     }
 
     export function translate(key: I18nKeys, ...args: any[]) {
-        let text = languages.get(_currentLanguage)!.translation[key];
+        let language = languages.get(_currentLanguage)!;
+        let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }
@@ -62,9 +60,13 @@ export namespace I18n {
         }
     }
 
-    export function changeLanguage(language: Language): boolean {
-        if (!languages.has(language)) return false;
-        _currentLanguage = language;
+    export function changeLanguage(index: number) {
+        if (index < 0 || index >= languages.size) return;
+
+        let newLanguage = Array.from(languages.keys())[index];
+        if (newLanguage === _currentLanguage) return;
+        _currentLanguage = newLanguage;
+
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
             let html = e as HTMLElement;
             let id = html?.dataset[I18nId] as I18nKeys;
@@ -72,7 +74,5 @@ export namespace I18n {
             let args = I18nArgs.get(html) ?? [];
             html.textContent = translate(id, ...args);
         });
-
-        return true;
     }
 }

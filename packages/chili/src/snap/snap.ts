@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, IModel, IShapeFilter, IView, ShapeMeshData, VisualShapeData, XYZ } from "chili-core";
+import {
+    GeometryNode,
+    IDocument,
+    IShapeFilter,
+    IView,
+    ShapeMeshData,
+    VisualShapeData,
+    XYZ,
+} from "chili-core";
 
 export type SnapValidator = (point: XYZ) => boolean;
 export type SnapPreviewer = (point: XYZ | undefined) => ShapeMeshData[];
@@ -24,7 +32,7 @@ export interface SnapedData {
     distance?: number;
     refPoint?: XYZ;
     shapes: VisualShapeData[];
-    models?: IModel[];
+    models?: GeometryNode[];
 }
 
 export interface MouseAndDetected {

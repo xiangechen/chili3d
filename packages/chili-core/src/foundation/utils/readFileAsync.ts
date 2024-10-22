@@ -29,38 +29,23 @@ export async function readFilesAsync(accept: string, multiple: boolean): Promise
 
 export interface FileData {
     fileName: string;
-    data: string | ArrayBuffer;
+    data: string;
 }
 
 export async function readFileAsync(
     accept: string,
     multiple: boolean,
-    method: "readAsText" | "readAsDataURL" | "readAsArrayBuffer" = "readAsText",
+    method: "readAsText" | "readAsDataURL" = "readAsText",
 ): Promise<Result<FileData[]>> {
-    return new Promise((resolve, _reject) => {
-        let input = document.createElement("input");
-        input.type = "file";
-        input.multiple = multiple;
-        input.accept = accept;
-        input.style.visibility = "hidden";
-        input.onchange = async () => {
-            document.body.removeChild(input);
-            resolve(await readInputedFiles(input, method));
-        };
-        input.oncancel = () => {
-            document.body.removeChild(input);
-            resolve(Result.err(`cancel`));
-        };
-        document.body.appendChild(input);
-        input.click();
-    });
+    let files = await readFilesAsync(accept, multiple);
+    if (!files.isOk) {
+        return files.parse();
+    }
+
+    return readInputedFiles(files.value, method);
 }
 
-async function readInputedFiles(
-    input: HTMLInputElement,
-    method: "readAsText" | "readAsDataURL" | "readAsArrayBuffer",
-) {
-    let files = input.files ?? [];
+async function readInputedFiles(files: FileList, method: "readAsText" | "readAsDataURL") {
     let result: FileData[] = [];
     for (const file of files) {
         let data = await readFileDataAsync(file, method);
@@ -76,12 +61,12 @@ async function readInputedFiles(
     return Result.ok(result);
 }
 
-function readFileDataAsync(file: File, method: any): Promise<string | ArrayBuffer | null> {
+function readFileDataAsync(file: File, method: any): Promise<string | null> {
     return new Promise((resolve) => {
         let reader = new FileReader();
         reader.onload = (e) => {
             if (e.target?.readyState === FileReader.DONE) {
-                resolve(e.target.result);
+                resolve(e.target.result as string);
             }
         };
         reader.onerror = () => {

@@ -18,31 +18,9 @@ import {
 } from "chili-core";
 import { Document } from "./document";
 
+let app: Application | undefined;
+
 export class Application implements IApplication {
-    private static _instance: Application | undefined;
-    static get instance() {
-        if (Application._instance === undefined) {
-            throw new Error("Application is not build");
-        }
-        return Application._instance;
-    }
-
-    static build(
-        visualFactory: IVisualFactory,
-        shapeFactory: IShapeFactory,
-        services: IService[],
-        storage: IStorage,
-        window?: IWindow,
-    ): Application {
-        if (this._instance) {
-            Logger.warn("Application has been built");
-        } else {
-            this._instance = new Application(visualFactory, shapeFactory, services, storage, window);
-            window?.init(this._instance);
-        }
-        return this._instance;
-    }
-
     private _activeView: IView | undefined;
     get activeView(): IView | undefined {
         return this._activeView;
@@ -58,19 +36,23 @@ export class Application implements IApplication {
 
     executingCommand: ICommand | undefined;
 
-    private constructor(
+    constructor(
         readonly visualFactory: IVisualFactory,
         readonly shapeFactory: IShapeFactory,
         readonly services: IService[],
         readonly storage: IStorage,
         readonly mainWindow?: IWindow,
     ) {
+        if (app !== undefined) {
+            throw new Error("Only one application can be created");
+        }
+        app = this;
         services.forEach((x) => x.register(this));
         services.forEach((x) => x.start());
         window.onbeforeunload = this.handleWindowUnload;
     }
 
-    private handleWindowUnload = (event: BeforeUnloadEvent) => {
+    private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
         if (this.activeView) {
             // Cancel the event as stated by the standard.
             event.preventDefault();
@@ -97,7 +79,7 @@ export class Application implements IApplication {
         return document;
     }
 
-    private async createActiveView(document: IDocument | undefined) {
+    protected async createActiveView(document: IDocument | undefined) {
         if (document === undefined) return undefined;
         let view = document.visual.createView("3d", Plane.XY);
         this.activeView = view;

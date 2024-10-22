@@ -1,60 +1,63 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18nKeys, IDocument, IShape, ParameterBody, Plane, Property, Result, Serializer } from "chili-core";
+import {
+    I18nKeys,
+    IDocument,
+    IShape,
+    ParameterShapeNode,
+    Plane,
+    Property,
+    Result,
+    Serializer,
+} from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy", "dz"])
-export class BoxBody extends ParameterBody {
-    readonly display: I18nKeys = "body.box";
-
-    private _dx: number;
+export class BoxNode extends ParameterShapeNode {
+    override display(): I18nKeys {
+        return "body.box";
+    }
 
     @Serializer.serialze()
     @Property.define("box.dx")
     get dx() {
-        return this._dx;
+        return this.getPrivateValue("dx");
     }
     set dx(dx: number) {
         this.setProperty("dx", dx);
     }
 
-    private _dy: number;
-
     @Serializer.serialze()
     @Property.define("box.dy")
     get dy() {
-        return this._dy;
+        return this.getPrivateValue("dy");
     }
     set dy(dy: number) {
         this.setProperty("dy", dy);
     }
 
-    private _dz: number;
-
     @Serializer.serialze()
     @Property.define("box.dz")
     get dz() {
-        return this._dz;
+        return this.getPrivateValue("dz");
     }
     set dz(dz: number) {
         this.setProperty("dz", dz);
     }
 
-    private _plane: Plane;
-
     @Serializer.serialze()
-    get plane() {
-        return this._plane;
+    get plane(): Plane {
+        return this.getPrivateValue("plane");
     }
 
     constructor(document: IDocument, plane: Plane, dx: number, dy: number, dz: number) {
         super(document);
-        this._plane = plane;
-        this._dx = dx;
-        this._dy = dy;
-        this._dz = dz;
+        this.setPrivateValue("plane", plane);
+        this.setPrivateValue("dx", dx);
+        this.setPrivateValue("dy", dy);
+        this.setPrivateValue("dz", dz);
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.box(this.plane, this._dx, this._dy, this._dz);
+        return this.document.application.shapeFactory.box(this.plane, this.dx, this.dy, this.dz);
     }
 }

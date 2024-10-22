@@ -1,15 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    GeometryEntity,
-    MathUtils,
-    ParameterGeometryEntity,
-    Plane,
-    Property,
-    XYZ,
-    command,
-} from "chili-core";
-import { RectBody } from "../../bodys";
+import { GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import { RectNode } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -39,7 +31,7 @@ export abstract class RectCommandBase extends CreateCommand {
         return [first, second];
     }
 
-    private nextSnapData = (): SnapLengthAtPlaneData => {
+    private readonly nextSnapData = (): SnapLengthAtPlaneData => {
         return {
             point: () => this.stepDatas[0].point!,
             preview: this.previewRect,
@@ -52,7 +44,7 @@ export abstract class RectCommandBase extends CreateCommand {
         };
     };
 
-    private handleValid = (end: XYZ) => {
+    private readonly handleValid = (end: XYZ) => {
         let data = this.getRectData(end);
         if (data === undefined) return false;
         return !MathUtils.anyEqualZero(data.dx, data.dy);
@@ -65,7 +57,7 @@ export abstract class RectCommandBase extends CreateCommand {
         }
         let data = this.getRectData(end);
         let p2 = this.previewPoint(end);
-        return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).ok().mesh.edges!];
+        return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).value.mesh.edges!];
     };
 
     protected getRectData(point: XYZ): RectData {
@@ -80,19 +72,18 @@ export abstract class RectCommandBase extends CreateCommand {
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
-    protected _isFace: boolean = false;
     @Property.define("command.faceable.isFace")
     public get isFace() {
-        return this._isFace;
+        return this.getPrivateValue("isFace", false);
     }
     public set isFace(value: boolean) {
         this.setProperty("isFace", value);
     }
 
-    protected geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let rect = this.getRectData(this.stepDatas[1].point!);
-        let body = new RectBody(this.document, rect.plane, rect.dx, rect.dy);
-        body.isFace = this._isFace;
-        return new ParameterGeometryEntity(this.document, body);
+        let node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
+        node.isFace = this.isFace;
+        return node;
     }
 }

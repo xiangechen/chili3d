@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, ParameterGeometryEntity, Precision, Property, XYZ, command } from "chili-core";
-import { LineBody } from "../../bodys";
+import { GeometryNode, Precision, Property, XYZ, command } from "chili-core";
+import { LineNode } from "../../bodys";
 import { Dimension, PointSnapData } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
@@ -12,20 +12,18 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    private _isContinue: boolean = false;
     @Property.define("command.line.isConnected", {
         dependencies: [{ property: "repeatOperation", value: true }],
     })
     get isContinue() {
-        return this._isContinue;
+        return this.getPrivateValue("isContinue", false);
     }
     set isContinue(value: boolean) {
         this.setProperty("isContinue", value);
     }
 
-    geometryEntity(): GeometryEntity {
-        let body = new LineBody(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
-        return new ParameterGeometryEntity(this.document, body);
+    protected override geometryNode(): GeometryNode {
+        return new LineNode(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
     }
 
     getSteps(): IStep[] {
@@ -35,7 +33,7 @@ export class Line extends CreateCommand {
     }
 
     protected override resetSteps() {
-        if (this._isContinue) {
+        if (this.isContinue) {
             this.stepDatas[0] = this.stepDatas[1];
             this.stepDatas.length = 1;
         } else {
@@ -43,7 +41,7 @@ export class Line extends CreateCommand {
         }
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -56,11 +54,11 @@ export class Line extends CreateCommand {
         };
     };
 
-    private linePreview = (point: XYZ | undefined) => {
+    private readonly linePreview = (point: XYZ | undefined) => {
         let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];
         }
-        return [p1, this.application.shapeFactory.line(this.stepDatas[0].point!, point).ok().mesh.edges!];
+        return [p1, this.application.shapeFactory.line(this.stepDatas[0].point!, point).value.mesh.edges!];
     };
 }

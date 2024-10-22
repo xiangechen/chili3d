@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryEntity, ParameterGeometryEntity, Plane, XYZ, command } from "chili-core";
-import { BoxBody } from "../../bodys";
+import { GeometryNode, Plane, XYZ, command } from "chili-core";
+import { BoxNode } from "../../bodys";
 import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
@@ -18,7 +18,7 @@ export class Box extends RectCommandBase {
         return [...steps, third];
     }
 
-    private getHeightStepData = (): LengthAtAxisSnapData => {
+    private readonly getHeightStepData = (): LengthAtAxisSnapData => {
         return {
             point: this.stepDatas[1].point!,
             direction: this.stepDatas[0].view.workplane.normal,
@@ -26,7 +26,7 @@ export class Box extends RectCommandBase {
         };
     };
 
-    private previewBox = (end: XYZ | undefined) => {
+    private readonly previewBox = (end: XYZ | undefined) => {
         if (!end) {
             return this.previewRect(this.stepDatas[1].point);
         }
@@ -36,17 +36,15 @@ export class Box extends RectCommandBase {
         return [
             p1,
             p2,
-            this.application.shapeFactory
-                .box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
-                .ok().mesh.edges!,
+            this.application.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
+                .value.mesh.edges!,
         ];
     };
 
-    protected geometryEntity(): GeometryEntity {
+    protected override geometryNode(): GeometryNode {
         let rect = this.getRectData(this.stepDatas[1].point!);
         let dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
-        let body = new BoxBody(this.document, rect.plane, rect.dx, rect.dy, dz);
-        return new ParameterGeometryEntity(this.document, body);
+        return new BoxNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

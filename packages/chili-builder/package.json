@@ -1,12 +1,11 @@
 {
     "name": "chili-builder",
-    "version": "0.3.0",
+    "version": "0.4-beta",
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
         "chili": "*",
         "chili-three": "*",
-        "chili-occ": "*",
         "chili-ui": "*",
         "chili-wasm": "*"
     }

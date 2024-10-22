@@ -26,7 +26,6 @@ import {
     Geom_Parabola,
     Geom_Surface,
     Geom_TrimmedCurve,
-    GeomAbs_JoinType,
     GeomAbs_Shape,
     gp_Ax2,
     gp_Ax3,
@@ -40,6 +39,17 @@ import {
     Vector3,
 } from "../lib/chili-wasm";
 import {
+    OccBezierCurve,
+    OccBSplineCurve,
+    OccCircle,
+    OccEllipse,
+    OccHyperbola,
+    OccLine,
+    OccOffsetCurve,
+    OccParabola,
+    OccTrimmedCurve,
+} from "./curve";
+import {
     OccCompound,
     OccCompSolid,
     OccEdge,
@@ -50,18 +60,6 @@ import {
     OccVertex,
     OccWire,
 } from "./shape";
-import {
-    OccBezierCurve,
-    OccBSplineCurve,
-    OccCircle,
-    OccCurve,
-    OccEllipse,
-    OccHyperbola,
-    OccLine,
-    OccOffsetCurve,
-    OccParabola,
-    OccTrimmedCurve,
-} from "./curve";
 import {
     OccBezierSurface,
     OccBSplineSurface,

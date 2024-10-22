@@ -2,24 +2,22 @@
 
 import {
     AsyncController,
-    GeometryModel,
+    EditableShapeNode,
+    GeometryNode,
     I18n,
     IApplication,
     ICommand,
     IDocument,
-    IModel,
-    INode,
     IShape,
     NodeLinkedList,
-    ParameterGeometryEntity,
     PubSub,
     Result,
+    ShapeNode,
     Transaction,
     command,
     download,
     readFilesAsync,
 } from "chili-core";
-import { ImportedBody } from "../bodys/importer";
 import { SelectModelStep } from "../step";
 
 let count = 1;
@@ -54,10 +52,8 @@ export class Import implements ICommand {
             PubSub.default.pub("showToast", "toast.read.error");
             return;
         }
-        let shapes = shape[1].ok().map((x) => {
-            let body = new ImportedBody(document, x);
-            let geometry = new ParameterGeometryEntity(document, body);
-            return new GeometryModel(document, `Imported ${count++}`, geometry);
+        let shapes = shape[1].value.map((x) => {
+            return new EditableShapeNode(document, `Imported ${count++}`, x);
         });
         let nodeList = new NodeLinkedList(document, shape[0]!);
         document.addNode(nodeList);
@@ -67,13 +63,13 @@ export class Import implements ICommand {
 
     private async readShape(application: IApplication): Promise<[string | undefined, Result<IShape[]>]> {
         let data = await readFilesAsync(".iges, .igs, .step, .stp", false);
-        if (!data.isOk || data.ok().length === 0) {
+        if (!data.isOk || data.value.length === 0) {
             return [undefined, data.parse()];
         }
 
         let shape: Result<IShape[]>;
-        let name = data.ok()[0].name.toLowerCase();
-        let content = new Uint8Array(await data.ok()[0].arrayBuffer());
+        let name = data.value[0].name.toLowerCase();
+        let content = new Uint8Array(await data.value[0].arrayBuffer());
 
         if (name.endsWith(".igs") || name.endsWith(".iges")) {
             shape = application.shapeFactory.converter.convertFromIGES(content);
@@ -99,14 +95,14 @@ abstract class Export implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let shapes = models.map((x) => x.geometry.shape.ok());
+                let shapes = models.map((x) => (x as ShapeNode).shape.value);
                 let shapeString = await this.convertAsync(application, type, ...shapes);
                 if (!shapeString.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;
                 }
                 PubSub.default.pub("showToast", "toast.downloading");
-                download([shapeString.ok()], `${models[0].name}.${type}`);
+                download([shapeString.value], `${models[0].name}.${type}`);
             },
             "toast.excuting{0}",
             "",
@@ -131,7 +127,7 @@ abstract class Export implements ICommand {
     private async selectModelsAsync(application: IApplication) {
         let models = application.activeView?.document.selection
             .getSelectedNodes()
-            .filter((x) => INode.isModelNode(x)) as IModel[];
+            .filter((x) => x instanceof GeometryNode);
         if (models?.length === 0) {
             let controller = new AsyncController();
             let step = new SelectModelStep("prompt.select.models", true);

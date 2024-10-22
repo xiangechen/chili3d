@@ -38,6 +38,7 @@ export interface IShape extends IDisposable {
     findSubShapes(subshapeType: ShapeType): IShape[];
     section(shape: IShape | Plane): IShape;
     split(edges: (IEdge | IWire)[]): IShape;
+    reserve(): void;
 }
 
 export interface IVertex extends IShape {}
