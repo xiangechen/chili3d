@@ -8,6 +8,7 @@ import {
     INode,
     IView,
     Node,
+    NodeLinkedList,
     ParameterShapeNode,
     Property,
     PubSub,
@@ -56,10 +57,17 @@ export class PropertyView extends HTMLElement {
 
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
+
         let properties = div({ className: style.rootProperties });
-        Property.getOwnProperties(Node.prototype).forEach((x) => {
-            appendProperty(properties, document, nodes, x);
-        });
+        if (nodes[0] instanceof NodeLinkedList) {
+            Property.getProperties(Object.getPrototypeOf(nodes[0])).forEach((x) => {
+                appendProperty(properties, document, nodes, x);
+            });
+        } else if (nodes[0] instanceof Node) {
+            Property.getOwnProperties(Node.prototype).forEach((x) => {
+                appendProperty(properties, document, nodes, x);
+            });
+        }
 
         this.panel.append(properties);
     }

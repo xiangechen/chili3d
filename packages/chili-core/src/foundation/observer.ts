@@ -57,11 +57,11 @@ export class Observable implements IPropertyChanged {
         while (proto !== null) {
             if (proto.hasOwnProperty(pubKey)) {
                 Object.defineProperty(proto, privateKey, {
-                    value: newValue,
                     writable: true,
                     enumerable: false,
                     configurable: true,
                 });
+                proto[privateKey] = newValue;
                 break;
             }
             proto = Object.getPrototypeOf(proto);
