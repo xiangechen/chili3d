@@ -7,6 +7,7 @@ import {
     IDocument,
     INode,
     IView,
+    Node,
     ParameterShapeNode,
     Property,
     PubSub,
@@ -17,7 +18,7 @@ import style from "./propertyView.module.css";
 import { appendProperty } from "./utils";
 
 export class PropertyView extends HTMLElement {
-    private panel = div({ className: style.panel });
+    private readonly panel = div({ className: style.panel });
 
     constructor(props: { className: string }) {
         super();
@@ -33,14 +34,14 @@ export class PropertyView extends HTMLElement {
         PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
     }
 
-    private handleActiveViewChanged = (view: IView | undefined) => {
+    private readonly handleActiveViewChanged = (view: IView | undefined) => {
         if (view) {
             let nodes = view.document.selection.getSelectedNodes();
             this.handleShowProperties(view.document, nodes);
         }
     };
 
-    private handleShowProperties = (document: IDocument, nodes: INode[]) => {
+    private readonly handleShowProperties = (document: IDocument, nodes: INode[]) => {
         this.removeProperties();
         if (nodes.length === 0) return;
         this.addModel(document, nodes);
@@ -56,7 +57,7 @@ export class PropertyView extends HTMLElement {
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
         let properties = div({ className: style.rootProperties });
-        Property.getProperties(Object.getPrototypeOf(nodes[0])).forEach((x) => {
+        Property.getOwnProperties(Node.prototype).forEach((x) => {
             appendProperty(properties, document, nodes, x);
         });
 
@@ -66,17 +67,8 @@ export class PropertyView extends HTMLElement {
     private addGeometry(nodes: INode[], document: IDocument) {
         let geometries = nodes.filter((x) => x instanceof GeometryNode);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
-        this.addGeneral(document, geometries);
         this.addTransform(document, geometries);
         this.addParameters(geometries, document);
-    }
-
-    private addGeneral(document: IDocument, geometries: GeometryNode[]) {
-        let common = new Expander("common.general");
-        this.panel.append(common);
-        Property.getOwnProperties(GeometryNode.prototype).forEach((x) => {
-            appendProperty(common.contenxtPanel, document, geometries, x);
-        });
     }
 
     private addTransform(document: IDocument, geometries: GeometryNode[]) {
@@ -102,7 +94,7 @@ export class PropertyView extends HTMLElement {
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display());
         this.panel.append(parameters);
-        Property.getProperties(Object.getPrototypeOf(entities[0])).forEach((x) => {
+        Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).forEach((x) => {
             appendProperty(parameters.contenxtPanel, document, entities, x);
         });
     }
