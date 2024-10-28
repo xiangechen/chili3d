@@ -23,7 +23,7 @@ export class LineNode extends ParameterShapeNode {
         return this.getPrivateValue("start");
     }
     set start(pnt: XYZ) {
-        this.setProperty("start", pnt);
+        this.setPropertyEmitShapeChanged("start", pnt);
     }
 
     @Serializer.serialze()
@@ -32,7 +32,7 @@ export class LineNode extends ParameterShapeNode {
         return this.getPrivateValue("end");
     }
     set end(pnt: XYZ) {
-        this.setProperty("end", pnt);
+        this.setPropertyEmitShapeChanged("end", pnt);
     }
 
     constructor(document: IDocument, start: XYZ, end: XYZ) {

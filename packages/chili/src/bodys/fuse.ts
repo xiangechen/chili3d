@@ -13,7 +13,7 @@ export class FuseNode extends ParameterShapeNode {
         return this.getPrivateValue("bottom");
     }
     set bottom(value: IShape) {
-        this.setProperty("bottom", value);
+        this.setPropertyEmitShapeChanged("bottom", value);
     }
 
     @Serializer.serialze()
@@ -21,7 +21,7 @@ export class FuseNode extends ParameterShapeNode {
         return this.getPrivateValue("top");
     }
     set top(value: IShape) {
-        this.setProperty("top", value);
+        this.setPropertyEmitShapeChanged("top", value);
     }
 
     constructor(document: IDocument, bottom: IShape, top: IShape) {

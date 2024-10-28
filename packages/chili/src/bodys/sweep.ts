@@ -23,7 +23,7 @@ export class SweepedNode extends ParameterShapeNode {
         return this.getPrivateValue("profile");
     }
     set profile(value: IShape) {
-        this.setProperty("profile", value);
+        this.setPropertyEmitShapeChanged("profile", value);
     }
 
     @Serializer.serialze()
@@ -31,7 +31,7 @@ export class SweepedNode extends ParameterShapeNode {
         return this.getPrivateValue("path");
     }
     set path(value: IWire) {
-        this.setProperty("path", value);
+        this.setPropertyEmitShapeChanged("path", value);
     }
 
     constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {

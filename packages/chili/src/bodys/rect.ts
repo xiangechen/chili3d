@@ -24,7 +24,7 @@ export class RectNode extends FacebaseNode {
         return this.getPrivateValue("dx");
     }
     set dx(dx: number) {
-        this.setProperty("dx", dx);
+        this.setPropertyEmitShapeChanged("dx", dx);
     }
 
     @Serializer.serialze()
@@ -33,7 +33,7 @@ export class RectNode extends FacebaseNode {
         return this.getPrivateValue("dy");
     }
     set dy(dy: number) {
-        this.setProperty("dy", dy);
+        this.setPropertyEmitShapeChanged("dy", dy);
     }
 
     @Serializer.serialze()
