@@ -2,7 +2,6 @@
 
 import {
     AsyncController,
-    GeometryNode,
     IDocument,
     INodeFilter,
     IView,

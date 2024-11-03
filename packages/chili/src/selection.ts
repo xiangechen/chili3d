@@ -43,12 +43,9 @@ export class Selection implements ISelection, IDisposable {
     }
 
     async pickNode(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
-        try {
-            let handler = new NodeSelectionHandler(this.document, multiMode, controller, this.nodeFilter);
-            await this.pickAsync(handler, prompt, controller, multiMode);
-            return handler.nodes();
-        } finally {
-        }
+        let handler = new NodeSelectionHandler(this.document, multiMode, controller, this.nodeFilter);
+        await this.pickAsync(handler, prompt, controller, multiMode);
+        return handler.nodes();
     }
 
     async pickAsync(

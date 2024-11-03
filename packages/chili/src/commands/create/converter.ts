@@ -17,7 +17,7 @@ import {
 } from "chili-core";
 import { FaceNode } from "../../bodys/face";
 import { WireNode } from "../../bodys/wire";
-import { SelectNodeStep } from "../../step";
+import { SelectShapeNodeStep } from "../../step";
 
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {
@@ -49,7 +49,7 @@ abstract class ConvertCommand extends CancelableCommand {
         let models = this._getSelectedModels(document, filter);
         document.selection.clearSelection();
         if (models.length > 0) return models;
-        let step = new SelectNodeStep("prompt.select.models", true, filter);
+        let step = new SelectShapeNodeStep("prompt.select.models", true, filter);
         this.controller = new AsyncController();
         let data = await step.execute(document, this.controller);
         document.selection.clearSelection();

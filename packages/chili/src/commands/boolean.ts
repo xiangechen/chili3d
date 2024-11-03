@@ -2,7 +2,7 @@
 
 import { GeometryNode, IShape, Result, ShapeNode, command } from "chili-core";
 import { BooleanNode } from "../bodys/boolean";
-import { IStep, SelectNodeStep } from "../step";
+import { IStep, SelectShapeNodeStep } from "../step";
 import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
@@ -30,8 +30,8 @@ export abstract class BooleanOperate extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectNodeStep("prompt.select.shape", false),
-            new SelectNodeStep("prompt.select.shape", false, {
+            new SelectShapeNodeStep("prompt.select.shape", false),
+            new SelectShapeNodeStep("prompt.select.shape", false, {
                 allow: (shape) => {
                     return !this.stepDatas[0].nodes
                         ?.map((x) => (x as ShapeNode).shape.value)
