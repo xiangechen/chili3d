@@ -31,18 +31,13 @@ interface SelectionRect {
 }
 
 export abstract class SelectionHandler implements IEventHandler {
-    private rect?: SelectionRect;
-    private mouse = { isDown: false, x: 0, y: 0 };
-    protected _highlights: VisualShapeData[] | undefined;
-    private _detectAtMouse: VisualShapeData[] | undefined;
-    private _lockDetected: IShape | undefined; // 用于切换捕获的对象
+    protected rect?: SelectionRect;
+    protected mouse = { isDown: false, x: 0, y: 0 };
 
     constructor(
         readonly document: IDocument,
-        readonly shapeType: ShapeType,
         readonly multiMode: boolean,
         readonly controller?: AsyncController,
-        readonly filter?: IShapeFilter,
     ) {
         controller?.onCancelled((s) => {
             this.clearSelected(document);
@@ -52,64 +47,15 @@ export abstract class SelectionHandler implements IEventHandler {
 
     dispose() {}
 
-    pointerMove(view: IView, event: PointerEvent): void {
-        if (event.buttons === 4) {
-            return;
-        }
-        this._detectAtMouse = undefined;
-        if (this.rect) {
-            this.updateRect(this.rect, event);
-        }
-        let detecteds = this.getDetecteds(view, event);
-        this.setHighlight(view, detecteds);
-    }
+    abstract pointerMove(view: IView, event: PointerEvent): void;
 
-    private getDetecteds(view: IView, event: PointerEvent) {
-        let detecteds: VisualShapeData[] = [];
-        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
-            detecteds = detecteds.concat(
-                view.rectDetected(
-                    this.shapeType,
-                    this.mouse.x,
-                    this.mouse.y,
-                    event.offsetX,
-                    event.offsetY,
-                    this.filter,
-                ),
-            );
-        } else {
-            this._detectAtMouse = view.detected(this.shapeType, event.offsetX, event.offsetY, this.filter);
-            let detected = this.getDetecting();
-            if (detected) detecteds.push(detected);
-        }
-        return detecteds;
-    }
+    protected abstract cleanHighlights(): void;
 
-    private getDetecting() {
-        if (this._detectAtMouse) {
-            let index = 0;
-            if (this._lockDetected) {
-                let loked = this.getDetcedtingIndex();
-                if (loked >= 0) index = loked;
-            }
-            return this._detectAtMouse[index];
-        }
-        return undefined;
-    }
+    protected abstract clearSelected(document: IDocument): void;
 
-    protected setHighlight(view: IView, detecteds: VisualShapeData[]) {
-        this.cleanHighlights();
-        detecteds.forEach((x) => {
-            view.document.visual.highlighter.addState(
-                x.owner,
-                VisualState.highlighter,
-                this.shapeType,
-                ...x.indexes,
-            );
-        });
-        this._highlights = detecteds;
-        view.update();
-    }
+    protected abstract select(view: IView, event: PointerEvent): number;
+
+    protected abstract highlightNext(view: IView): void;
 
     pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
@@ -134,7 +80,7 @@ export abstract class SelectionHandler implements IEventHandler {
         };
     }
 
-    private updateRect(rect: SelectionRect, event: PointerEvent) {
+    protected updateRect(rect: SelectionRect, event: PointerEvent) {
         rect.element.style.display = "block";
         const x1 = Math.min(rect.clientX, event.clientX);
         const y1 = Math.min(rect.clientY, event.clientY);
@@ -157,34 +103,18 @@ export abstract class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            let count = this.select(view, this._highlights ?? [], event);
+            let count = this.select(view, event);
             this.cleanHighlights();
             view.update();
             if (count > 0 && !this.multiMode) this.controller?.success();
         }
     }
 
-    protected abstract clearSelected(document: IDocument): void;
-
-    protected abstract select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number;
-
     private removeRect(view: IView) {
         if (this.rect) {
             this.rect.element.remove();
             this.rect = undefined;
         }
-    }
-
-    protected cleanHighlights() {
-        this._highlights?.forEach((x) => {
-            x.owner.geometryNode.document.visual.highlighter.removeState(
-                x.owner,
-                VisualState.highlighter,
-                this.shapeType,
-                ...x.indexes,
-            );
-        });
-        this._highlights = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
@@ -203,8 +133,86 @@ export abstract class SelectionHandler implements IEventHandler {
             this.highlightNext(view);
         }
     }
+}
 
-    private highlightNext(view: IView) {
+export abstract class ShapeSelectionHandler extends SelectionHandler {
+    protected _highlights: VisualShapeData[] | undefined;
+    private _detectAtMouse: VisualShapeData[] | undefined;
+    private _lockDetected: IShape | undefined; // 用于切换捕获的对象
+
+    constructor(
+        document: IDocument,
+        readonly shapeType: ShapeType,
+        multiMode: boolean,
+        controller?: AsyncController,
+        readonly filter?: IShapeFilter,
+    ) {
+        super(document, multiMode, controller);
+    }
+
+    pointerMove(view: IView, event: PointerEvent): void {
+        if (event.buttons === 4) {
+            return;
+        }
+        this._detectAtMouse = undefined;
+        if (this.rect) {
+            this.updateRect(this.rect, event);
+        }
+        let detecteds = this.getDetecteds(view, event);
+        this.setHighlight(view, detecteds);
+    }
+
+    private getDetecteds(view: IView, event: PointerEvent) {
+        let detecteds: VisualShapeData[] = [];
+        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
+            detecteds = view.detectShapesRect(
+                this.shapeType,
+                this.mouse.x,
+                this.mouse.y,
+                event.offsetX,
+                event.offsetY,
+                this.filter,
+            );
+        } else {
+            this._detectAtMouse = view.detectShapes(
+                this.shapeType,
+                event.offsetX,
+                event.offsetY,
+                this.filter,
+            );
+            let detected = this.getDetecting();
+            if (detected) detecteds.push(detected);
+        }
+        return detecteds;
+    }
+
+    protected setHighlight(view: IView, detecteds: VisualShapeData[]) {
+        this.cleanHighlights();
+        detecteds.forEach((x) => {
+            view.document.visual.highlighter.addState(
+                x.owner,
+                VisualState.highlighter,
+                this.shapeType,
+                ...x.indexes,
+            );
+        });
+        this._highlights = detecteds;
+        view.update();
+    }
+
+    protected cleanHighlights() {
+        this._highlights?.forEach((x) => {
+            x.owner.geometryNode.document.visual.highlighter.removeState(
+                x.owner,
+                VisualState.highlighter,
+                this.shapeType,
+                ...x.indexes,
+            );
+        });
+        this._highlights = undefined;
+    }
+
+    protected highlightNext(view: IView) {
         if (this._detectAtMouse && this._detectAtMouse.length > 1) {
             let index = 1;
             if (this._lockDetected) {
@@ -216,6 +224,18 @@ export abstract class SelectionHandler implements IEventHandler {
             let detected = this.getDetecting();
             if (detected) this.setHighlight(view, [detected]);
         }
+    }
+
+    private getDetecting() {
+        if (this._detectAtMouse) {
+            let index = 0;
+            if (this._lockDetected) {
+                let loked = this.getDetcedtingIndex();
+                if (loked >= 0) index = loked;
+            }
+            return this._detectAtMouse[index];
+        }
+        return undefined;
     }
 
     private getDetcedtingIndex() {

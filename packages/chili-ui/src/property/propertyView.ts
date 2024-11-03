@@ -12,6 +12,7 @@ import {
     ParameterShapeNode,
     Property,
     PubSub,
+    VisualNode,
 } from "chili-core";
 import { Expander, div, label, localize } from "../components";
 import { MatrixConverter } from "./matrixConverter";
@@ -73,19 +74,19 @@ export class PropertyView extends HTMLElement {
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
-        let geometries = nodes.filter((x) => x instanceof GeometryNode);
+        let geometries = nodes.filter((x) => x instanceof VisualNode);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
         this.addTransform(document, geometries);
         this.addParameters(geometries, document);
     }
 
-    private addTransform(document: IDocument, geometries: GeometryNode[]) {
+    private addTransform(document: IDocument, geometries: VisualNode[]) {
         let matrix = new Expander("common.matrix");
         this.panel.append(matrix);
 
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
             appendProperty(matrix, document, geometries, {
-                name: "matrix",
+                name: "transform",
                 display: display,
                 converter,
             });
@@ -97,7 +98,7 @@ export class PropertyView extends HTMLElement {
         addMatrix("transform.rotation", converters.rotate);
     }
 
-    private addParameters(geometries: GeometryNode[], document: IDocument) {
+    private addParameters(geometries: VisualNode[], document: IDocument) {
         let entities = geometries.filter((x) => x instanceof ParameterShapeNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display());

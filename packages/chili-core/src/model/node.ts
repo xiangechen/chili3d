@@ -9,14 +9,12 @@ import {
     Id,
     PubSub,
     Result,
-    debounce,
 } from "../foundation";
 import { I18n, I18nKeys } from "../i18n";
-import { Matrix4 } from "../math";
-import { BoundingBox } from "../math/boundingBox";
+import { BoundingBox, Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
-import { IShape, IShapeMeshData } from "../shape";
+import { IShape, IShapeMeshData, Mesh } from "../shape";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -222,57 +220,23 @@ export namespace INode {
     }
 }
 
-export interface IMeshObject extends IPropertyChanged {
-    materialId: string;
-    matrix: Matrix4;
-    boundingBox(): BoundingBox;
-    get mesh(): IShapeMeshData;
-}
-
-export abstract class GeometryNode extends Node implements IMeshObject {
+export abstract class VisualNode extends Node {
     @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
-    get materialId(): string {
-        return this.getPrivateValue("materialId");
+    get transform(): Matrix4 {
+        return this.getPrivateValue("transform", Matrix4.identity());
     }
-    set materialId(value: string) {
-        this.setProperty("materialId", value);
-    }
-
-    @Serializer.serialze()
-    get matrix(): Matrix4 {
-        return this.getPrivateValue("matrix", Matrix4.identity());
-    }
-    set matrix(value: Matrix4) {
+    set transform(value: Matrix4) {
         this.setProperty(
-            "matrix",
+            "transform",
             value,
             (_p, oldMatrix) => {
-                this.onMatrixChanged(value, oldMatrix);
-                this._boundingBox = undefined;
+                this.onTransformChanged(value, oldMatrix);
             },
             {
                 equals: (left, right) => left.equals(right),
             },
         );
     }
-
-    constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
-        super(document, name, id);
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
-    }
-
-    protected _boundingBox: BoundingBox | undefined;
-    boundingBox(): BoundingBox {
-        if (this._boundingBox === undefined) {
-            let points = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
-            points = this.matrix.ofPoints(points);
-            this._boundingBox = BoundingBox.fromNumbers(points);
-        }
-        return this._boundingBox;
-    }
-
-    protected onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
 
     protected onVisibleChanged(): void {
         this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
@@ -282,12 +246,64 @@ export abstract class GeometryNode extends Node implements IMeshObject {
         this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }
 
+    abstract boundingBox(): BoundingBox;
+
+    protected onTransformChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
+}
+
+@Serializer.register(["document", "mesh", "name", "id"])
+export class MeshNode extends VisualNode {
+    protected _mesh: Mesh;
+    @Serializer.serialze()
+    get mesh(): Mesh {
+        return this._mesh;
+    }
+    set mesh(value: Mesh) {
+        this.setProperty("mesh", value);
+    }
+
+    constructor(document: IDocument, mesh: Mesh, name: string, id: string = Id.generate()) {
+        super(document, name, id);
+        this._mesh = mesh;
+    }
+
+    override boundingBox(): BoundingBox {
+        let points = this.transform.ofPoints(this.mesh.position);
+        return BoundingBox.fromNumbers(points);
+    }
+}
+
+export abstract class GeometryNode extends VisualNode {
+    @Serializer.serialze()
+    @Property.define("common.material", { type: "materialId" })
+    get materialId(): string {
+        return this.getPrivateValue("materialId");
+    }
+    set materialId(value: string) {
+        this.setProperty("materialId", value);
+    }
+
+    constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
+        super(document, name, id);
+        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+    }
+
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
         if (this._mesh === undefined) {
             this._mesh = this.createMesh();
         }
         return this._mesh;
+    }
+
+    protected _boundingBox: BoundingBox | undefined;
+    override boundingBox(): BoundingBox {
+        if (this._boundingBox === undefined) {
+            let points = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
+            points = this.transform.ofPoints(points);
+            return BoundingBox.fromNumbers(points);
+        }
+        return this._boundingBox;
     }
 
     protected abstract createMesh(): IShapeMeshData;
@@ -300,7 +316,7 @@ export abstract class ShapeNode extends GeometryNode {
     }
 
     protected setShape(shape: Result<IShape>) {
-        if (this._shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
+        if (this._shape.isOk && this._shape.value.isEqual(shape.value)) {
             return;
         }
 
@@ -313,11 +329,11 @@ export abstract class ShapeNode extends GeometryNode {
         this._shape = shape;
         this._mesh = undefined;
         this._boundingBox = undefined;
-        this._shape.value.matrix = this.matrix;
+        this._shape.value.matrix = this.transform;
         this.emitPropertyChanged("shape", oldShape);
     }
 
-    protected override onMatrixChanged(newMatrix: Matrix4): void {
+    protected override onTransformChanged(newMatrix: Matrix4): void {
         if (this.shape.isOk) this.shape.value.matrix = newMatrix;
     }
 

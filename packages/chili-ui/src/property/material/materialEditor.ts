@@ -22,7 +22,7 @@ class UrlStringConverter implements IConverter<string> {
 }
 
 export class MaterialEditor extends HTMLElement {
-    private editingControl: HTMLElement;
+    private readonly editingControl: HTMLElement;
     private readonly colorConverter = new ColorConverter();
 
     constructor(readonly dataContent: MaterialDataContent) {
@@ -116,11 +116,11 @@ export class MaterialEditor extends HTMLElement {
         PubSub.default.remove("showProperties", this._handleShowProperty);
     }
 
-    private _handleShowProperty = () => {
+    private readonly _handleShowProperty = () => {
         this.remove();
     };
 
-    private _onEditingMaterialChanged = (property: keyof MaterialDataContent) => {
+    private readonly _onEditingMaterialChanged = (property: keyof MaterialDataContent) => {
         if (property !== "editingMaterial") return;
         this.editingControl.firstChild?.remove();
         this.initEditingControl(this.dataContent.editingMaterial);
@@ -129,7 +129,7 @@ export class MaterialEditor extends HTMLElement {
     private initEditingControl(material: Material) {
         const selectTexture = async () => {
             let file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
-            material.texture = file.value[0].data as string;
+            material.texture = file.value[0].data;
         };
         let container = div({
             className: style.properties,

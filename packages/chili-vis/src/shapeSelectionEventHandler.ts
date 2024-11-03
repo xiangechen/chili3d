@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, IView, VisualShapeData, VisualState } from "chili-core";
-import { SelectionHandler } from "./selectionEventHandler";
+import { ShapeSelectionHandler } from "./selectionEventHandler";
 
-export class ShapeSelectionHandler extends SelectionHandler {
+export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     private _shapes: Set<VisualShapeData> = new Set();
 
     shapes(): VisualShapeData[] {
@@ -23,9 +23,9 @@ export class ShapeSelectionHandler extends SelectionHandler {
         this._shapes.clear();
     }
 
-    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
+    protected override select(view: IView, event: PointerEvent): number {
         if (event.shiftKey) {
-            shapes.forEach((x) => {
+            this._highlights?.forEach((x) => {
                 if (this._shapes.has(x)) {
                     this.removeSelected(x);
                 } else {
@@ -34,7 +34,7 @@ export class ShapeSelectionHandler extends SelectionHandler {
             });
         } else {
             this.clearSelected(view.document.visual.document);
-            shapes.forEach((x) => {
+            this._highlights?.forEach((x) => {
                 this.addSelected(x);
             });
         }

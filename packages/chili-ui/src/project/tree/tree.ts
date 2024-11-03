@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryNode,
     IDocument,
     INode,
     INodeChangedObserver,
@@ -10,8 +9,9 @@ import {
     PubSub,
     ShapeType,
     Transaction,
+    VisualNode,
 } from "chili-core";
-import { SelectionHandler } from "chili-vis";
+import { NodeSelectionHandler, ShapeSelectionHandler } from "chili-vis";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
@@ -122,7 +122,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
         if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
-        else if (node instanceof GeometryNode) result = new TreeModel(document, node);
+        else if (node instanceof VisualNode) result = new TreeModel(document, node);
         else throw new Error("unknown node");
         return result;
     }
@@ -183,10 +183,15 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     };
 
     private canSelect() {
-        return (
-            this.document.visual.eventHandler instanceof SelectionHandler &&
-            this.document.visual.eventHandler.shapeType === ShapeType.Shape
-        );
+        if (this.document.visual.eventHandler instanceof NodeSelectionHandler) {
+            return true;
+        }
+
+        if (this.document.visual.eventHandler instanceof ShapeSelectionHandler) {
+            return this.document.visual.eventHandler.shapeType === ShapeType.Shape;
+        }
+
+        return false;
     }
 
     private setLastClickItem(item: INode | undefined) {

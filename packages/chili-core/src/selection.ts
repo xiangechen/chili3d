@@ -2,14 +2,14 @@
 
 import { AsyncController, IDisposable } from "./foundation";
 import { I18nKeys } from "./i18n";
-import { GeometryNode, INode } from "./model";
-import { IShapeFilter } from "./selectionFilter";
+import { INode, VisualNode } from "./model";
+import { INodeFilter, IShapeFilter } from "./selectionFilter";
 import { ShapeType } from "./shape";
 import { CursorType, IEventHandler, VisualShapeData } from "./visual";
 
 export interface ISelection extends IDisposable {
     pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<VisualShapeData[]>;
-    pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<GeometryNode[]>;
+    pickNode(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<VisualNode[]>;
     pickAsync(
         handler: IEventHandler,
         prompt: I18nKeys,
@@ -18,8 +18,8 @@ export interface ISelection extends IDisposable {
         cursor: CursorType,
     ): Promise<void>;
     shapeType: ShapeType;
-    nodeType: "model" | "node";
-    filter?: IShapeFilter;
+    shapeFilter?: IShapeFilter;
+    nodeFilter?: INodeFilter;
     setSelection(nodes: INode[], toggle: boolean): number;
     clearSelection(): void;
     getSelectedNodes(): INode[];

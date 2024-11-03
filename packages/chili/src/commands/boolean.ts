@@ -2,13 +2,13 @@
 
 import { GeometryNode, IShape, Result, ShapeNode, command } from "chili-core";
 import { BooleanNode } from "../bodys/boolean";
-import { IStep, SelectModelStep } from "../step";
+import { IStep, SelectNodeStep } from "../step";
 import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let shape1 = (this.stepDatas[0].models?.at(0) as ShapeNode)?.shape.value;
-        let shape2 = (this.stepDatas[1].models?.at(0) as ShapeNode)?.shape.value;
+        let shape1 = (this.stepDatas[0].nodes?.at(0) as ShapeNode)?.shape.value;
+        let shape2 = (this.stepDatas[1].nodes?.at(0) as ShapeNode)?.shape.value;
         let booleanType = this.getBooleanOperateType();
         let booleanShape: Result<IShape>;
         if (booleanType === "common") {
@@ -21,7 +21,7 @@ export abstract class BooleanOperate extends CreateCommand {
 
         let node = new BooleanNode(this.document, booleanShape.value);
         this.stepDatas.forEach((x) => {
-            x.models?.at(0)?.parent?.remove(x.models[0]);
+            x.nodes?.at(0)?.parent?.remove(x.nodes[0]);
         });
         return node;
     }
@@ -30,10 +30,10 @@ export abstract class BooleanOperate extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectModelStep("prompt.select.shape", false),
-            new SelectModelStep("prompt.select.shape", false, {
+            new SelectNodeStep("prompt.select.shape", false),
+            new SelectNodeStep("prompt.select.shape", false, {
                 allow: (shape) => {
-                    return !this.stepDatas[0].models
+                    return !this.stepDatas[0].nodes
                         ?.map((x) => (x as ShapeNode).shape.value)
                         .includes(shape);
                 },

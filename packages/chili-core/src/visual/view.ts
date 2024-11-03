@@ -3,10 +3,11 @@
 import { IDocument } from "../document";
 import { IDisposable, IPropertyChanged } from "../foundation";
 import { Plane, Ray, XY, XYZ } from "../math";
-import { IShapeFilter } from "../selectionFilter";
+import { INodeFilter, IShapeFilter } from "../selectionFilter";
 import { ShapeType } from "../shape";
 import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
+import { IVisualObject } from "./visualObject";
 
 export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
@@ -24,8 +25,16 @@ export interface IView extends IPropertyChanged, IDisposable {
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
     close(): void;
-    detected(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
-    rectDetected(
+    detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[];
+    detectVisualRect(
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        nodeFilter?: INodeFilter,
+    ): IVisualObject[];
+    detectShapes(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
+    detectShapesRect(
         shapeType: ShapeType,
         x1: number,
         y1: number,

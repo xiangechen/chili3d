@@ -3,53 +3,51 @@
 import {
     AsyncController,
     CursorType,
-    GeometryNode,
     I18nKeys,
     IDisposable,
     IDocument,
     IEventHandler,
     INode,
+    INodeFilter,
     ISelection,
     IShapeFilter,
     Logger,
     PubSub,
     ShapeNode,
     ShapeType,
+    VisualNode,
     VisualState,
 } from "chili-core";
-import { ModelSelectionHandler, ShapeSelectionHandler } from "chili-vis";
+import { NodeSelectionHandler, SubshapeSelectionHandler } from "chili-vis";
 
 export class Selection implements ISelection, IDisposable {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
 
     shapeType: ShapeType = ShapeType.Shape;
-    nodeType: "model" | "node" = "node";
-    filter?: IShapeFilter;
+    shapeFilter?: IShapeFilter;
+    nodeFilter?: INodeFilter;
 
     constructor(readonly document: IDocument) {}
 
     async pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
-        let handler = new ShapeSelectionHandler(
+        let handler = new SubshapeSelectionHandler(
             this.document,
             this.shapeType,
             multiMode,
             controller,
-            this.filter,
+            this.shapeFilter,
         );
         await this.pickAsync(handler, prompt, controller, multiMode);
         return handler.shapes();
     }
 
-    async pickModel(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
-        let oldNodeType = this.nodeType;
+    async pickNode(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
         try {
-            this.nodeType = "model";
-            let handler = new ModelSelectionHandler(this.document, multiMode, controller, this.filter);
+            let handler = new NodeSelectionHandler(this.document, multiMode, controller, this.nodeFilter);
             await this.pickAsync(handler, prompt, controller, multiMode);
-            return handler.models();
+            return handler.nodes();
         } finally {
-            this.nodeType = oldNodeType;
         }
     }
 
@@ -88,7 +86,7 @@ export class Selection implements ISelection, IDisposable {
     }
 
     setSelection(nodes: INode[], toggle: boolean) {
-        nodes = this.nodeType === "node" ? nodes : nodes.filter(this.nodeFilter);
+        nodes = nodes.filter(this.shapeNodeFilter);
         if (toggle) {
             this.toggleSelectPublish(nodes, true);
         } else {
@@ -98,14 +96,18 @@ export class Selection implements ISelection, IDisposable {
         return this._selectedNodes.length;
     }
 
-    private readonly nodeFilter = (x: INode) => {
+    private readonly shapeNodeFilter = (x: INode) => {
         if (x instanceof ShapeNode) {
             let shape = x.shape.value;
-            if (!shape || !this.filter) return true;
-            return this.filter.allow(shape);
+            if (!shape || !this.shapeFilter) return true;
+            return this.shapeFilter.allow(shape);
         }
 
-        return false;
+        if (this.nodeFilter) {
+            return this.nodeFilter.allow(x);
+        }
+
+        return true;
     };
 
     deselect(nodes: INode[]) {
@@ -130,8 +132,8 @@ export class Selection implements ISelection, IDisposable {
 
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
-            if (m instanceof GeometryNode) {
-                let visual = this.document.visual.context.getShape(m);
+            if (m instanceof VisualNode) {
+                let visual = this.document.visual.context.getVisual(m);
                 if (visual)
                     this.document.visual.highlighter.addState(visual, VisualState.selected, ShapeType.Shape);
             }
@@ -142,8 +144,8 @@ export class Selection implements ISelection, IDisposable {
 
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
-            if (node instanceof GeometryNode) {
-                let visual = this.document.visual.context.getShape(node);
+            if (node instanceof VisualNode) {
+                let visual = this.document.visual.context.getVisual(node);
                 if (visual)
                     this.document.visual.highlighter.removeState(
                         visual,

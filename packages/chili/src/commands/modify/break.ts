@@ -22,7 +22,7 @@ export class Break extends MultistepCommand {
             }
             let curve2 = curve.trim(parameter, curve.lastParameter());
             curve.setTrim(curve.firstParameter(), parameter);
-            let model = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
+            let model = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
             model.parent?.remove(model);
             (this.stepDatas[0].shapes[0].shape as IEdge).update(curve);
 

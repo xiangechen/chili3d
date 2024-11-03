@@ -1,10 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDisposable, IDocument, IEventHandler, ITextGenerator, IVisual, Logger, Plane } from "chili-core";
-import { ModelSelectionHandler } from "chili-vis";
+import { NodeSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
-import { ThreeTextGenerator } from "./threeTextGenerator";
 import { ThreeView } from "./threeView";
 import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisualContext } from "./threeVisualContext";
@@ -17,7 +16,7 @@ export class ThreeVisual implements IVisual {
     readonly scene: Scene;
     readonly viewHandler: IEventHandler;
     readonly highlighter: ThreeHighlighter;
-    readonly textGenerator: ITextGenerator;
+    // readonly textGenerator: ITextGenerator;
 
     private _eventHandler: IEventHandler;
 
@@ -33,11 +32,11 @@ export class ThreeVisual implements IVisual {
 
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
-        this.defaultEventHandler = new ModelSelectionHandler(document, true);
+        this.defaultEventHandler = new NodeSelectionHandler(document, true);
         this.context = new ThreeVisualContext(this, this.scene);
         this.viewHandler = new ThreeViewHandler();
         this.highlighter = new ThreeHighlighter(this.context);
-        this.textGenerator = new ThreeTextGenerator();
+        // this.textGenerator = new ThreeTextGenerator();
         this._eventHandler = this.defaultEventHandler;
     }
 

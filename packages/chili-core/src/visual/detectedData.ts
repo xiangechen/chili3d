@@ -2,7 +2,7 @@
 
 import { XYZ } from "../math";
 import { IShape } from "../shape";
-import { IVisualGeometry } from "./visualShape";
+import { IVisualGeometry } from "./visualObject";
 
 export interface VisualShapeData {
     shape: IShape;

@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { expect, jest, test } from "@jest/globals";
-import { Material, ShapeNode, ShapeType, XY, XYZ } from "chili-core";
+import { IVisualGeometry, Material, ShapeNode, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestNode } from "./testEdge";
 import { TestView } from "./testView";
@@ -31,18 +31,18 @@ describe("three test", () => {
     test("test context", () => {
         let context = doc.visual.context;
         let model = new TestNode(doc, XYZ.zero, new XYZ(100, 0, 0));
-        context.addModel([model]);
-        expect(context.getShape(model)).not.toBeNull();
+        context.addNode([model]);
+        expect(context.getVisual(model)).not.toBeNull();
         let mouse = view.worldToScreen(new XYZ(50, 0, 0));
-        let shapes = view.detected(ShapeType.Shape, mouse.x, mouse.y);
+        let shapes = view.detectShapes(ShapeType.Shape, mouse.x, mouse.y);
         expect(shapes.length).toEqual(1);
         expect(shapes[0].shape.shapeType).toBe(ShapeType.Edge);
 
-        let shape = context.getShape(model);
+        let shape = context.getVisual(model) as IVisualGeometry;
         expect(shapes.at(0)?.shape).toEqual((shape?.geometryNode as ShapeNode).shape.value);
-        expect(context.getModel(shape!)).toEqual(model);
+        expect(context.getNode(shape)).toEqual(model);
 
-        context.removeModel([model]);
-        expect(view.detected(ShapeType.Shape, mouse.x, mouse.y).length).toEqual(0);
+        context.removeNode([model]);
+        expect(view.detectShapes(ShapeType.Shape, mouse.x, mouse.y).length).toEqual(0);
     });
 });

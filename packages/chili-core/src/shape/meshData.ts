@@ -2,8 +2,33 @@
 
 import { VisualConfig } from "../config";
 import { XYZ } from "../math";
+import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";
+
+@Serializer.register([])
+export class Mesh {
+    @Serializer.serialze()
+    meshType: "line" | "surface" = "line";
+
+    @Serializer.serialze()
+    position: number[] = [];
+
+    @Serializer.serialze()
+    normal: number[] | undefined = undefined;
+
+    @Serializer.serialze()
+    index: number[] | undefined = undefined;
+
+    @Serializer.serialze()
+    color: number | number[] = 0xfff;
+
+    @Serializer.serialze()
+    uv: number[] | undefined = undefined;
+
+    @Serializer.serialze()
+    groups: { start: number; count: number; materialId: number }[] = [];
+}
 
 export interface IShapeMeshData {
     get shape(): IShape;

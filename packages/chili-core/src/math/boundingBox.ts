@@ -11,6 +11,10 @@ export class BoundingBox {
         this.max = max;
     }
 
+    static isValid(box: BoundingBox) {
+        return box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z;
+    }
+
     static expandByPoint(box: BoundingBox, point: PointLike) {
         box.min.x = Math.min(box.min.x, point.x);
         box.min.y = Math.min(box.min.y, point.y);

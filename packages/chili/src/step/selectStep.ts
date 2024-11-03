@@ -14,14 +14,14 @@ export abstract class SelectStep implements IStep {
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         let oldShapeType = document.selection.shapeType;
-        let oldFilter = document.selection.filter;
+        let oldFilter = document.selection.shapeFilter;
         try {
             document.selection.shapeType = this.snapeType;
-            document.selection.filter = this.filter;
+            document.selection.shapeFilter = this.filter;
             return await this.select(document, controller);
         } finally {
             document.selection.shapeType = oldShapeType;
-            document.selection.filter = oldFilter;
+            document.selection.shapeFilter = oldFilter;
         }
     }
 
@@ -42,7 +42,7 @@ export class SelectShapeStep extends SelectStep {
     }
 }
 
-export class SelectModelStep extends SelectStep {
+export class SelectNodeStep extends SelectStep {
     constructor(prompt: I18nKeys, multiple: boolean, filter?: IShapeFilter) {
         super(ShapeType.Shape, prompt, multiple, filter);
     }
@@ -51,12 +51,12 @@ export class SelectModelStep extends SelectStep {
         document: IDocument,
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
-        let models = await document.selection.pickModel(this.prompt, controller, this.multiple);
-        if (models.length === 0) return undefined;
+        let nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
+        if (nodes.length === 0) return undefined;
         return {
             view: document.application.activeView!,
             shapes: [],
-            models,
+            nodes: nodes,
         };
     }
 }

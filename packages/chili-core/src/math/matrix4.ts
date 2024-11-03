@@ -387,7 +387,7 @@ export class Matrix4 {
         return result;
     }
 
-    ofPoints(points: number[]): number[] {
+    ofPoints(points: ArrayLike<number>): number[] {
         let result: number[] = [];
         for (let i = 0; i < points.length / 3; i++) {
             let x =

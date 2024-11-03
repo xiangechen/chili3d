@@ -13,6 +13,7 @@ import {
     IShapeFilter,
     ITrimmedCurve,
     IView,
+    IVisualGeometry,
     ShapeNode,
     ShapeType,
     Transaction,
@@ -21,7 +22,7 @@ import {
     command,
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
-import { SelectionHandler } from "chili-vis";
+import { ShapeSelectionHandler } from "chili-vis";
 
 @command({
     name: "modify.trim",
@@ -66,7 +67,7 @@ export class Trim extends CancelableCommand {
     }
 
     private trimEdge(selected: TrimEdge) {
-        let model = this.document.visual.context.getModel(selected.edge.owner);
+        let model = this.document.visual.context.getNode(selected.edge.owner);
         let materialId = (model as GeometryNode)?.materialId;
         selected.segments.retainSegments.forEach((segment) => {
             let newEdge = selected.curve.trim(segment.start, segment.end).makeEdge();
@@ -98,7 +99,7 @@ interface TrimEdge {
     };
 }
 
-export class PickTrimEdgeEventHandler extends SelectionHandler {
+export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     selected: TrimEdge | undefined;
     private highlightedEdge: number | undefined;
     private highlight: undefined | TrimEdge;
@@ -140,7 +141,7 @@ export class PickTrimEdgeEventHandler extends SelectionHandler {
         this.selected = undefined;
     }
 
-    protected override select(view: IView, shapes: VisualShapeData[], event: PointerEvent): number {
+    protected override select(view: IView, event: PointerEvent): number {
         this.selected = this.highlight;
         return this.selected ? 1 : 0;
     }
@@ -150,12 +151,8 @@ function findEdges(detecteds: VisualShapeData[], view: IView) {
     let boundingBox = detecteds[0].owner.boundingBox();
     let otherEdges = view.document.visual.context
         .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
-        .filter(
-            (d) =>
-                d.geometryNode instanceof ShapeNode &&
-                d.geometryNode.shape.value.id !== detecteds[0].shape.id,
-        )
-        .map((x) => (x.geometryNode as ShapeNode).shape.value as IEdge);
+        .map((x) => ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value as IEdge)
+        .filter((x) => x !== undefined && x.id !== detecteds[0].shape.id);
     return otherEdges;
 }
 

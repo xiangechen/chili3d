@@ -26,7 +26,7 @@ export class MaterialProperty extends PropertyBase {
                         PubSub.default.pub(
                             "editMaterial",
                             document,
-                            this.findMaterial(objects[0].materialId)!,
+                            this.findMaterial(objects[0].materialId),
                             (material) => {
                                 this.setMaterial(e, material);
                             },

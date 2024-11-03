@@ -1,13 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    IDisposable,
-    IHighlighter,
-    IVisualGeometry,
-    ShapeMeshData,
-    ShapeType,
-    VisualState,
-} from "chili-core";
+import { IDisposable, IHighlighter, ShapeMeshData, ShapeType, VisualState } from "chili-core";
 import { MeshUtils } from "chili-geo";
 import { Group, Mesh, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
@@ -16,13 +9,14 @@ import { hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 
 export class GeometryState {
-    private readonly _states: Map<string, [VisualState, LineSegments2]> = new Map();
+    private readonly _states: Map<string, [VisualState, LineSegments2 | undefined]> = new Map();
 
     constructor(
         readonly highlighter: ThreeHighlighter,
-        readonly geometry: ThreeGeometry,
+        readonly visual: ThreeVisualObject,
     ) {}
 
     getState(type: ShapeType, index?: number) {
@@ -42,6 +36,32 @@ export class GeometryState {
         this.updateState("remove", state, type, index);
     }
 
+    private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
+        if (ShapeType.isWhole(type)) {
+            this.setWholeState(method, state, type);
+        } else if (index.length > 0) {
+            this.setSubGeometryState(method, state, type, index);
+        }
+    }
+
+    private setWholeState(method: "add" | "remove", state: VisualState, type: ShapeType) {
+        const key = this.state_key(type);
+        let [oldState, newState] = this.updateStates(key, method, state);
+        if (this.visual instanceof ThreeGeometry) {
+            if (newState === VisualState.normal) {
+                this.visual.removeTemperaryMaterial();
+            } else if (VisualState.hasState(newState, VisualState.highlighter)) {
+                this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
+            } else if (VisualState.hasState(newState, VisualState.selected)) {
+                this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
+            }
+        } else if (this.visual instanceof ThreeMeshObject) {
+            this.visual.setHighlighted(newState !== VisualState.normal);
+        }
+
+        this._states.set(key, [newState, undefined]);
+    }
+
     private updateStates(
         key: string,
         method: "add" | "remove",
@@ -57,28 +77,6 @@ export class GeometryState {
             newState = func(newState, state);
         }
         return [oldState, newState];
-    }
-
-    private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
-        if (ShapeType.isWhole(type)) {
-            this.setWholeState(method, state, type);
-        } else if (index.length > 0) {
-            this.setSubGeometryState(method, state, type, index);
-        }
-    }
-
-    private setWholeState(method: "add" | "remove", state: VisualState, type: ShapeType) {
-        const key = this.state_key(type);
-        let [oldState, newState] = this.updateStates(key, method, state);
-        if (newState === VisualState.normal) {
-            this.geometry.removeTemperaryMaterial();
-        } else if (VisualState.hasState(newState, VisualState.highlighter)) {
-            this.geometry.setEdgesMateiralTemperary(hilightEdgeMaterial);
-        } else if (VisualState.hasState(newState, VisualState.selected)) {
-            this.geometry.setEdgesMateiralTemperary(selectedEdgeMaterial);
-        }
-
-        this._states.set(key, [newState, this.geometry as any]);
     }
 
     resetState() {
@@ -102,14 +100,7 @@ export class GeometryState {
             if (oldState !== undefined && newState === VisualState.normal) {
                 shouldRemoved.push(key);
             } else {
-                let geometry = this.getOrCloneGeometry(type, key, i);
-                if (geometry) {
-                    let material = VisualState.hasState(newState, VisualState.highlighter)
-                        ? hilightEdgeMaterial
-                        : selectedEdgeMaterial;
-                    geometry.material = material;
-                    this._states.set(key, [newState, geometry]);
-                }
+                this.addSubEdgeState(type, key, i, newState);
             }
         });
 
@@ -123,16 +114,29 @@ export class GeometryState {
         });
     }
 
+    private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
+        let geometry = this.getOrCloneGeometry(type, key, i);
+        if (geometry && "material" in geometry) {
+            let material = VisualState.hasState(newState, VisualState.highlighter)
+                ? hilightEdgeMaterial
+                : selectedEdgeMaterial;
+            geometry.material = material;
+            this._states.set(key, [newState, geometry]);
+        }
+    }
+
     private getOrCloneGeometry(type: ShapeType, key: string, index: number) {
+        if (!(this.visual instanceof ThreeGeometry)) return undefined;
+
         let geometry = this._states.get(key)?.[1];
         if (geometry !== undefined) return geometry;
 
         let points: number[] | undefined = undefined;
         if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
-            points = MeshUtils.subFaceOutlines(this.geometry.geometryNode.mesh.faces!, index);
+            points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }
         if (points === undefined && (ShapeType.hasEdge(type) || ShapeType.hasWire(type))) {
-            points = MeshUtils.subEdge(this.geometry.geometryNode.mesh.edges!, index);
+            points = MeshUtils.subEdge(this.visual.geometryNode.mesh.edges!, index);
         }
 
         if (!points) {
@@ -144,13 +148,13 @@ export class GeometryState {
         lineGeometry.setPositions(points);
         let segment = new LineSegments2(lineGeometry);
         this.highlighter.container.add(segment);
-        segment.applyMatrix4(this.geometry.matrixWorld);
+        segment.applyMatrix4(this.visual.matrixWorld);
         return segment;
     }
 }
 
 export class ThreeHighlighter implements IHighlighter {
-    private readonly _stateMap = new Map<IVisualGeometry, GeometryState>();
+    private readonly _stateMap = new Map<ThreeVisualObject, GeometryState>();
     readonly container: Group;
 
     constructor(readonly content: ThreeVisualContext) {
@@ -166,34 +170,34 @@ export class ThreeHighlighter implements IHighlighter {
         this._stateMap.clear();
     }
 
-    resetState(geometry: IVisualGeometry): void {
+    resetState(geometry: ThreeVisualObject): void {
         if (!this._stateMap.has(geometry)) return;
         let geometryState = this._stateMap.get(geometry);
         geometryState!.resetState();
         this._stateMap.delete(geometry);
     }
 
-    getState(shape: IVisualGeometry, type: ShapeType, index?: number): VisualState | undefined {
+    getState(shape: ThreeVisualObject, type: ShapeType, index?: number): VisualState | undefined {
         if (this._stateMap.has(shape)) {
             return this._stateMap.get(shape)!.getState(type, index);
         }
         return undefined;
     }
 
-    addState(geometry: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]) {
+    addState(geometry: ThreeVisualObject, state: VisualState, type: ShapeType, ...index: number[]) {
         let geometryState = this.getOrInitState(geometry);
         geometryState.addState(state, type, index);
     }
 
-    removeState(geometry: IVisualGeometry, state: VisualState, type: ShapeType, ...index: number[]) {
+    removeState(geometry: ThreeVisualObject, state: VisualState, type: ShapeType, ...index: number[]) {
         let geometryState = this.getOrInitState(geometry);
         geometryState.removeState(state, type, index);
     }
 
-    private getOrInitState(geometry: IVisualGeometry) {
+    private getOrInitState(geometry: ThreeVisualObject) {
         let geometryState = this._stateMap.get(geometry);
         if (!geometryState) {
-            geometryState = new GeometryState(this, geometry as ThreeGeometry);
+            geometryState = new GeometryState(this, geometry);
             this._stateMap.set(geometry, geometryState);
         }
         return geometryState;

@@ -6,16 +6,18 @@ import {
     GeometryNode,
     LineType,
     Matrix4,
+    MeshNode,
     Property,
     PubSub,
     Transaction,
     VisualConfig,
+    VisualNode,
     XYZ,
 } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class TransformedCommand extends MultistepCommand {
-    protected models?: GeometryNode[];
+    protected models?: VisualNode[];
     protected positions?: number[];
 
     @Property.define("common.clone")
@@ -40,10 +42,10 @@ export abstract class TransformedCommand extends MultistepCommand {
     };
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof GeometryNode);
+        this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
         if (this.models.length > 0) return true;
         this.controller = new AsyncController();
-        this.models = await this.document.selection.pickModel("prompt.select.models", this.controller, true);
+        this.models = await this.document.selection.pickNode("prompt.select.models", this.controller, true);
         if (this.models.length > 0) return true;
         if (this.controller.result?.status === "success") {
             PubSub.default.pub("showToast", "toast.select.noSelected");
@@ -56,8 +58,13 @@ export abstract class TransformedCommand extends MultistepCommand {
 
         this.positions = [];
         this.models!.forEach((model) => {
-            let ps = model.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
+            if (model instanceof MeshNode) {
+                let ps = model.mesh.position;
+                if (ps) this.positions = this.positions!.concat(model.transform.ofPoints(ps));
+            } else if (model instanceof GeometryNode) {
+                let ps = model.mesh.edges?.positions;
+                if (ps) this.positions = this.positions!.concat(model.transform.ofPoints(ps));
+            }
         });
         return true;
     }
@@ -74,7 +81,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             }
             let transform = this.transfrom(this.stepDatas.at(-1)!.point!);
             models?.forEach((x) => {
-                x.matrix = x.matrix.multiply(transform);
+                x.transform = x.transform.multiply(transform);
             });
             this.document.visual.update();
         });

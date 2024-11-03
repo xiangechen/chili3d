@@ -4,13 +4,11 @@ import {
     EdgeMeshData,
     FaceMeshData,
     GeometryNode,
-    IMeshObject,
     IVisualGeometry,
-    Matrix4,
     ShapeNode,
     VisualConfig,
 } from "chili-core";
-import { DoubleSide, Material, Mesh, MeshLambertMaterial, Object3D } from "three";
+import { DoubleSide, Material, Mesh, MeshLambertMaterial } from "three";
 
 import { MeshUtils } from "chili-geo";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
@@ -19,10 +17,11 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeVisualObject } from "./threeVisualObject";
 
-export class ThreeGeometry extends Object3D implements IVisualGeometry {
+export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material;
-    private _edgeMaterial = new LineMaterial({
+    private readonly _edgeMaterial = new LineMaterial({
         linewidth: 1,
         color: VisualConfig.defaultEdgeColor,
         side: DoubleSide,
@@ -45,22 +44,12 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         }
     }
 
-    get transform() {
-        return ThreeHelper.toMatrix(this.matrix);
-    }
-
-    set transform(value: Matrix4) {
-        this.matrix.fromArray(value.toArray());
-    }
-
     constructor(
         readonly geometryNode: GeometryNode,
         readonly context: ThreeVisualContext,
     ) {
-        super();
-        this.transform = geometryNode.matrix;
+        super(geometryNode);
         this._faceMaterial = context.getMaterial(geometryNode.materialId);
-        this.matrixAutoUpdate = false;
         this.generateShape();
         geometryNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
@@ -69,7 +58,7 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox ?? undefined;
     }
 
-    boundingBox() {
+    override boundingBox() {
         let box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
         let min = ThreeHelper.toXYZ(box!.min);
         let max = ThreeHelper.toXYZ(box!.max);
@@ -79,14 +68,12 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         };
     }
 
-    private handleGeometryPropertyChanged = (property: keyof IMeshObject) => {
-        if (property === "matrix") {
-            this.transform = this.geometryNode.matrix;
-        } else if (property === "materialId") {
+    private readonly handleGeometryPropertyChanged = (property: keyof GeometryNode) => {
+        if (property === "materialId") {
             let material = this.context.getMaterial(this.geometryNode.materialId);
             this.changeFaceMaterial(material);
         } else if ((property as keyof ShapeNode) === "shape") {
-            this.removeSubShapes();
+            this.removeMeshes();
             this.generateShape();
         }
     };
@@ -97,13 +84,14 @@ export class ThreeGeometry extends Object3D implements IVisualGeometry {
         if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
     }
 
-    dispose() {
-        this.removeSubShapes();
+    override dispose() {
+        super.dispose();
+        this.removeMeshes();
         this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this._edgeMaterial.dispose();
     }
 
-    private removeSubShapes() {
+    private removeMeshes() {
         if (this._edges) {
             this.remove(this._edges);
             this._edges.geometry.dispose();

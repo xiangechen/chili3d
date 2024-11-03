@@ -148,7 +148,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view.detected(shapeType, event.offsetX, event.offsetY, this.data.filter);
+        let shapes = view.detectShapes(shapeType, event.offsetX, event.offsetY, this.data.filter);
         return {
             shapes,
             view,

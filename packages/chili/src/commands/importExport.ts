@@ -9,16 +9,20 @@ import {
     ICommand,
     IDocument,
     IShape,
+    Mesh,
+    MeshNode,
     NodeLinkedList,
     PubSub,
     Result,
     ShapeNode,
     Transaction,
+    VisualNode,
     command,
     download,
     readFilesAsync,
 } from "chili-core";
-import { SelectModelStep } from "../step";
+import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
+import { SelectNodeStep } from "../step";
 
 let count = 1;
 
@@ -127,16 +131,16 @@ abstract class Export implements ICommand {
     private async selectModelsAsync(application: IApplication) {
         let models = application.activeView?.document.selection
             .getSelectedNodes()
-            .filter((x) => x instanceof GeometryNode);
+            .filter((x) => x instanceof VisualNode);
         if (models?.length === 0) {
             let controller = new AsyncController();
-            let step = new SelectModelStep("prompt.select.models", true);
+            let step = new SelectNodeStep("prompt.select.models", true);
             let data = await step.execute(application.activeView?.document!, controller);
-            if (!data?.models) {
+            if (!data?.nodes) {
                 PubSub.default.pub("showToast", "prompt.select.noModelSelected");
                 return;
             }
-            models = data.models;
+            models = data.nodes;
         }
         return models;
     }

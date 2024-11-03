@@ -28,7 +28,3 @@ export interface VisualGroup {
     count: number;
     materialIndex?: number;
 }
-
-export interface IVisualGeometry extends IVisualObject {
-    get geometryNode(): GeometryNode;
-}

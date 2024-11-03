@@ -28,7 +28,7 @@ import {
 } from "chili-core";
 import { Selection } from "./selection";
 
-const FILE_VERSIOM = "0.4.0";
+const FILE_VERSIOM = "0.4.1";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
@@ -37,6 +37,8 @@ export class Document extends Observable implements IDocument {
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
     private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
+
+    static readonly version = FILE_VERSIOM;
 
     get name(): string {
         return this.getPrivateValue("name");

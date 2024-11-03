@@ -28,13 +28,13 @@ export class Split extends MultistepCommand {
 
     protected override executeMainTask() {
         Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let old = this.document.visual.context.getModel(this.stepDatas[0].shapes[0].owner)!;
+            let old = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
             let shape = this.splitedShape();
             if (old instanceof EditableShapeNode) {
                 old.shape = Result.ok(shape);
             } else if (old instanceof GeometryNode) {
                 let model = new EditableShapeNode(this.document, old.name, shape);
-                model.matrix = old.matrix;
+                model.transform = old.transform;
                 this.removeModels(
                     this.stepDatas[0].shapes[0].owner,
                     ...this.stepDatas[1].shapes.map((x) => x.owner),
@@ -47,7 +47,7 @@ export class Split extends MultistepCommand {
 
     private removeModels(...shapes: IVisualGeometry[]) {
         shapes.forEach((x) => {
-            let model = this.document.visual.context.getModel(x);
+            let model = this.document.visual.context.getNode(x);
             model?.parent?.remove(model);
         });
     }

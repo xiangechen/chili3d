@@ -87,7 +87,7 @@ export class CameraController implements ICameraController {
     }
 
     startRotate(x: number, y: number): void {
-        let shape = this.view.detected(ShapeType.Shape, x, y).at(0)?.owner;
+        let shape = this.view.detectShapes(ShapeType.Shape, x, y).at(0)?.owner;
         if (!(shape instanceof ThreeGeometry)) {
             this._rotateCenter = undefined;
             return;
@@ -144,7 +144,7 @@ export class CameraController implements ICameraController {
 
         let box = new Box3();
         for (let shape of shapes) {
-            let threeGeometry = context.getShape(shape) as ThreeGeometry;
+            let threeGeometry = context.getVisual(shape) as ThreeGeometry;
             let boundingBox = new Box3().setFromObject(threeGeometry);
             if (boundingBox) {
                 box.union(boundingBox);

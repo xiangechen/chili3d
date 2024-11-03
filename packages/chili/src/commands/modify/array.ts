@@ -7,6 +7,7 @@ import {
     Matrix4,
     Transaction,
     VisualConfig,
+    VisualNode,
     XYZ,
     command,
 } from "chili-core";
@@ -20,7 +21,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-array",
 })
 export class Array extends MultistepCommand {
-    private models?: GeometryNode[];
+    private models?: VisualNode[];
     private positions?: number[];
 
     getSteps(): IStep[] {
@@ -63,14 +64,11 @@ export class Array extends MultistepCommand {
         this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof GeometryNode);
         if (this.models.length === 0) {
             this.controller = new AsyncController();
-            this.models = await this.document.selection.pickModel("axis.x", this.controller, true);
+            this.models = await this.document.selection.pickNode("axis.x", this.controller, true);
             if (this.models.length === 0) return false;
         }
         this.positions = [];
-        this.models?.forEach((model) => {
-            let ps = model.mesh.edges?.positions;
-            if (ps) this.positions = this.positions!.concat(model.matrix.ofPoints(ps));
-        });
+        this.models?.forEach((model) => {});
         return true;
     }
 
@@ -79,7 +77,7 @@ export class Array extends MultistepCommand {
             let vec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
             let transform = Matrix4.createTranslation(vec.x, vec.y, vec.z);
             this.models?.forEach((x) => {
-                x.matrix = x.matrix.multiply(transform);
+                x.transform = x.transform.multiply(transform);
             });
             this.document.visual.update();
         });

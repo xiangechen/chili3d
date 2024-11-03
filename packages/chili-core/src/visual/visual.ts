@@ -14,7 +14,7 @@ export interface IVisual extends IDisposable {
     readonly context: IVisualContext;
     readonly viewHandler: IEventHandler;
     readonly highlighter: IHighlighter;
-    readonly textGenerator: ITextGenerator;
+    // readonly textGenerator: ITextGenerator;
     update(): void;
     eventHandler: IEventHandler;
     resetEventHandler(): void;
