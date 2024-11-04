@@ -18,6 +18,7 @@ const COMMAND_KEYS = [
     "create.group",
     "create.line",
     "create.offset",
+    "create.pipe",
     "create.polygon",
     "create.rect",
     "create.section",

@@ -8,6 +8,7 @@ export * from "./converter";
 export * from "./fuse";
 export * from "./line";
 export * from "./offset";
+export * from "./pipe";
 export * from "./polygon";
 export * from "./prism";
 export * from "./rect";

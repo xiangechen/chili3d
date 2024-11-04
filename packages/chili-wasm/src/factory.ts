@@ -68,6 +68,16 @@ export class ShapeFactory implements IShapeFactory {
     polygon(...points: XYZ[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.polygon(points)) as Result<IWire>;
     }
+    pipe(
+        outside_diameter: number,
+        wall_thickness: number,
+        bending_radius: number,
+        ...points: XYZ[]
+    ): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.pipe(outside_diameter, wall_thickness, bending_radius, points),
+        ) as Result<IShape>;
+    }
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid> {
         return convertShapeResult(
             wasm.ShapeFactory.box(OcctHelper.toAx3(plane), dx, dy, dz),

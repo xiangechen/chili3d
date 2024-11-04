@@ -671,6 +671,7 @@ interface EmbindModule {
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
         sweep(_0: TopoDS_Shape, _1: TopoDS_Wire): ShapeResult;
+        pipe(_0: number, _1: number, _2: number, _3: Array<Vector3>): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
         makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number): ShapeResult;

@@ -15,6 +15,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "create.polygon",
                     "create.box",
                     "create.thickSolid",
+                    "create.pipe",
                 ],
             },
             {

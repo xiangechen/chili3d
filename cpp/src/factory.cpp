@@ -8,12 +8,14 @@
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
+#include <ChFi2d_AnaFilletAlgo.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <Geom_BezierCurve.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
@@ -34,6 +36,133 @@ struct ShapeResult
 class ShapeFactory
 {
 public:
+
+    static TopoDS_Edge filletEdges(TopoDS_Edge& edge1, TopoDS_Edge& edge2, gp_Pnt& point1, gp_Pnt& point2, gp_Pnt& point3, double radius)
+    {
+        ChFi2d_AnaFilletAlgo f = ChFi2d_AnaFilletAlgo();
+        double a = ((point2.Y() - point1.Y()) * (point3.Z() - point1.Z()) - (point2.Z() - point1.Z()) * (point3.Y() - point1.Y()));
+        double b = ((point2.Z() - point1.Z()) * (point3.X() - point1.X()) - (point2.X() - point1.X()) * (point3.Z() - point1.Z()));
+        double c = ((point2.X() - point1.X()) * (point3.Y() - point1.Y()) - (point2.Y() - point1.Y()) * (point3.X() - point1.X()));
+        double d = (0 - (a * point1.X() + b * point1.Y() + c * point1.Z()));
+        f.Init(edge1, edge2, gp_Pln(a, b, c, d));
+        f.Perform(radius);
+        return f.Result(edge1, edge2);
+    }
+
+
+    static ShapeResult pipe(double outside_diameter, double wall_thickness, double bending_radius, const Vector3Array &points)
+    {
+        std::vector<Vector3> pts = vecFromJSArray<Vector3>(points);
+
+        BRepBuilderAPI_MakeWire makeWire;
+
+        std::vector<gp_Pnt> pointVec;
+        std::vector<TopoDS_Edge> edgeVec;
+        std::vector<TopoDS_Edge> filletVec;
+
+        if (pts.size() == 1)
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Please select more than one points to create a pipe"};
+        }
+        else if (pts.size() == 2)
+        {
+            gp_Pnt p1 = Vector3::toPnt(pts[0]);
+            gp_Pnt p2 = Vector3::toPnt(pts[1]);
+            TopoDS_Edge ed1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge();
+            makeWire.Add(ed1);
+        }
+        else
+        {
+            for (int index = 0; index < pts.size()-2; index = index + 1)
+            {
+                if (index == 0) 
+                {
+                    gp_Pnt p1 = Vector3::toPnt(pts[index]);
+                    gp_Pnt p2 = Vector3::toPnt(pts[index+1]);
+                    gp_Pnt p3 = Vector3::toPnt(pts[index+2]);
+                    pointVec.push_back(p1);
+                    pointVec.push_back(p2);
+                    pointVec.push_back(p3);
+                    TopoDS_Edge ed1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge();
+                    TopoDS_Edge ed2 = BRepBuilderAPI_MakeEdge(p2, p3).Edge();
+                    ChFi2d_AnaFilletAlgo f = ChFi2d_AnaFilletAlgo();
+                    double a = ((p2.Y() - p1.Y()) * (p3.Z() - p1.Z()) - (p2.Z() - p1.Z()) * (p3.Y() - p1.Y()));
+                    double b = ((p2.Z() - p1.Z()) * (p3.X() - p1.X()) - (p2.X() - p1.X()) * (p3.Z() - p1.Z()));
+                    double c = ((p2.X() - p1.X()) * (p3.Y() - p1.Y()) - (p2.Y() - p1.Y()) * (p3.X() - p1.X()));
+                    double d = (0 - (a * p1.X() + b * p1.Y() + c * p1.Z()));
+                    gp_Pln plane1 = gp_Pln(a, b, c, d);
+                    f.Init(ed1, ed2, plane1);
+                    f.Perform(bending_radius);
+                    TopoDS_Edge fillet = f.Result(ed1, ed2);
+                    filletVec.push_back(fillet);
+                    edgeVec.push_back(ed1);
+                    edgeVec.push_back(ed2);
+                }
+                else
+                {
+                    // gp_Pnt p1 = pointVec[index];
+                    // gp_Pnt p2 = pointVec[index+1];
+                    gp_Pnt p3 = Vector3::toPnt(pts[index+2]);
+                    pointVec.push_back(p3);
+                    // TopoDS_Edge ed1 = edgeVec[index];
+                    TopoDS_Edge ed2 = BRepBuilderAPI_MakeEdge(pointVec[index+1], p3).Edge();
+                    ChFi2d_AnaFilletAlgo f = ChFi2d_AnaFilletAlgo();
+                    double a = ((pointVec[index+1].Y() - pointVec[index].Y()) * (p3.Z() - pointVec[index].Z()) - (pointVec[index+1].Z() - pointVec[index].Z()) * (p3.Y() - pointVec[index].Y()));
+                    double b = ((pointVec[index+1].Z() - pointVec[index].Z()) * (p3.X() - pointVec[index].X()) - (pointVec[index+1].X() - pointVec[index].X()) * (p3.Z() - pointVec[index].Z()));
+                    double c = ((pointVec[index+1].X() - pointVec[index].X()) * (p3.Y() - pointVec[index].Y()) - (pointVec[index+1].Y() - pointVec[index].Y()) * (p3.X() - pointVec[index].X()));
+                    double d = (0 - (a * pointVec[index].X() + b * pointVec[index].Y() + c * pointVec[index].Z()));
+                    gp_Pln plane1 = gp_Pln(a, b, c, d);
+                    f.Init(edgeVec[index], ed2, plane1);
+                    f.Perform(bending_radius);
+                    TopoDS_Edge fillet = f.Result(edgeVec[index], ed2);
+                    filletVec.push_back(fillet);
+                    edgeVec.push_back(ed2);
+                }
+
+                
+            }
+
+            for (int index = 0; index < edgeVec.size(); index = index + 1)
+            {
+                if (index == edgeVec.size()-1)
+                {
+                    makeWire.Add(edgeVec[index]);
+                }
+                else
+                {
+                    makeWire.Add(edgeVec[index]);
+                    makeWire.Add(filletVec[index]);
+                }
+            }
+        }
+
+        TopoDS_Wire wire = makeWire.Wire();
+        // the pipe (outer part)
+        gp_Pnt p1 = Vector3::toPnt(pts[0]);
+        gp_Pnt p2 = Vector3::toPnt(pts[1]);
+        gp_Dir direction = gp_Dir(p2.X() - p1.X(), p2.Y() - p1.Y(), p2.Z() - p1.Z());
+        gp_Circ circle_out = gp_Circ(gp_Ax2(p1, direction), outside_diameter/2);
+        TopoDS_Edge profile_edge_out = BRepBuilderAPI_MakeEdge(circle_out).Edge();
+        TopoDS_Wire profile_wire_out = BRepBuilderAPI_MakeWire(profile_edge_out).Wire();
+        TopoDS_Face profile_face_out = BRepBuilderAPI_MakeFace(profile_wire_out).Face();
+        TopoDS_Shape pipe_out = BRepOffsetAPI_MakePipe(wire, profile_face_out).Shape();
+        // the pipe (inner part)
+        gp_Circ circle_inner = gp_Circ(gp_Ax2(p1, direction), outside_diameter/2-wall_thickness);
+        TopoDS_Edge profile_edge_inner = BRepBuilderAPI_MakeEdge(circle_inner).Edge();
+        TopoDS_Wire profile_wire_inner = BRepBuilderAPI_MakeWire(profile_edge_inner).Wire();
+        TopoDS_Face profile_face_inner = BRepBuilderAPI_MakeFace(profile_wire_inner).Face();
+        TopoDS_Shape pipe_inner = BRepOffsetAPI_MakePipe(wire, profile_face_inner).Shape();
+        // cut the inner part from the outer part
+        TopoDS_Shape pipe_cut = BRepAlgoAPI_Cut(pipe_out, pipe_inner).Shape();
+
+        if (!makeWire.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create pipe"};
+        }
+
+        return ShapeResult{pipe_cut, true, ""};
+    }
+
     static ShapeResult box(const Ax3 &ax3, double x, double y, double z)
     {
         gp_Pln pln = Ax3::toPln(ax3);
@@ -336,6 +465,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)
+        .class_function("pipe", &ShapeFactory::pipe)
         .class_function("sweep", &ShapeFactory::sweep)
         .class_function("revolve", &ShapeFactory::revolve)
         .class_function("prism", &ShapeFactory::prism)
