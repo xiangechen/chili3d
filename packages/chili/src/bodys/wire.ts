@@ -13,7 +13,7 @@ export class WireNode extends ParameterShapeNode {
         return this.getPrivateValue("edges");
     }
     set edges(values: IEdge[]) {
-        this.setProperty("edges", values);
+        this.setPropertyEmitShapeChanged("edges", values);
     }
 
     constructor(document: IDocument, edges: IEdge[]) {

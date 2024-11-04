@@ -14,7 +14,7 @@ export class PolygonNode extends FacebaseNode {
         return this.getPrivateValue("points");
     }
     set points(value: XYZ[]) {
-        this.setProperty("points", value);
+        this.setPropertyEmitShapeChanged("points", value);
     }
 
     constructor(document: IDocument, points: XYZ[]) {

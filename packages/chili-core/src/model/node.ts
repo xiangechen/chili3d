@@ -9,9 +9,11 @@ import {
     Id,
     PubSub,
     Result,
+    debounce,
 } from "../foundation";
 import { I18n, I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
+import { BoundingBox } from "../math/boundingBox";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
 import { IShape, IShapeMeshData } from "../shape";
@@ -223,6 +225,7 @@ export namespace INode {
 export interface IMeshObject extends IPropertyChanged {
     materialId: string;
     matrix: Matrix4;
+    boundingBox(): BoundingBox;
     get mesh(): IShapeMeshData;
 }
 
@@ -246,6 +249,7 @@ export abstract class GeometryNode extends Node implements IMeshObject {
             value,
             (_p, oldMatrix) => {
                 this.onMatrixChanged(value, oldMatrix);
+                this._boundingBox = undefined;
             },
             {
                 equals: (left, right) => left.equals(right),
@@ -256,6 +260,16 @@ export abstract class GeometryNode extends Node implements IMeshObject {
     constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
         super(document, name, id);
         this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+    }
+
+    protected _boundingBox: BoundingBox | undefined;
+    boundingBox(): BoundingBox {
+        if (this._boundingBox === undefined) {
+            let points = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
+            points = this.matrix.ofPoints(points);
+            this._boundingBox = BoundingBox.fromNumbers(points);
+        }
+        return this._boundingBox;
     }
 
     protected onMatrixChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
@@ -280,7 +294,28 @@ export abstract class GeometryNode extends Node implements IMeshObject {
 }
 
 export abstract class ShapeNode extends GeometryNode {
-    abstract get shape(): Result<IShape>;
+    protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
+    get shape(): Result<IShape> {
+        return this._shape;
+    }
+
+    protected setShape(shape: Result<IShape>) {
+        if (this._shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
+            return;
+        }
+
+        if (!shape.isOk) {
+            PubSub.default.pub("displayError", shape.error);
+            return;
+        }
+
+        let oldShape = this._shape;
+        this._shape = shape;
+        this._mesh = undefined;
+        this._boundingBox = undefined;
+        this._shape.value.matrix = this.matrix;
+        this.emitPropertyChanged("shape", oldShape);
+    }
 
     protected override onMatrixChanged(newMatrix: Matrix4): void {
         if (this.shape.isOk) this.shape.value.matrix = newMatrix;
@@ -301,23 +336,11 @@ export abstract class ShapeNode extends GeometryNode {
 
 const SHAPE_UNDEFINED = "Shape not initialized";
 export abstract class ParameterShapeNode extends ShapeNode {
-    protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
     override get shape(): Result<IShape> {
         if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {
             this._shape = this.generateShape();
         }
         return this._shape;
-    }
-    override set shape(shape: Result<IShape>) {
-        if (shape.isOk && this._shape.isOk && this._shape.value.isEqual(shape.value)) {
-            return;
-        }
-
-        let oldShape = this._shape;
-        this._shape = shape;
-        this._mesh = undefined;
-        this._shape.value.matrix = this.matrix;
-        this.emitPropertyChanged("shape", oldShape);
     }
 
     protected setPropertyEmitShapeChanged<K extends keyof this>(
@@ -327,7 +350,7 @@ export abstract class ParameterShapeNode extends ShapeNode {
         equals?: IEqualityComparer<this[K]> | undefined,
     ): boolean {
         if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
-            this.shape = this.generateShape();
+            this.setShape(this.generateShape());
             return true;
         }
 
@@ -345,26 +368,12 @@ export abstract class ParameterShapeNode extends ShapeNode {
 
 @Serializer.register(["document", "name", "shape", "materialId", "id"])
 export class EditableShapeNode extends ShapeNode {
-    protected _shape: Result<IShape>;
     @Serializer.serialze()
     override get shape(): Result<IShape> {
         return this._shape;
     }
     override set shape(shape: Result<IShape>) {
-        if (this._shape.isOk && this._shape.unchecked() === shape.unchecked()) {
-            return;
-        }
-
-        if (!shape.isOk) {
-            PubSub.default.pub("displayError", shape.error);
-            return;
-        }
-
-        let oldShape = this._shape;
-        this._shape = shape;
-        this._mesh = undefined;
-        this._shape.value.matrix = this.matrix;
-        this.emitPropertyChanged("shape", oldShape);
+        this.setShape(shape);
     }
 
     constructor(document: IDocument, name: string, shape: IShape, materialId?: string, id?: string) {

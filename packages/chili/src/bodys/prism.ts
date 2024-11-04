@@ -23,7 +23,7 @@ export class PrismNode extends ParameterShapeNode {
         return this.getPrivateValue("section");
     }
     set section(value: IShape) {
-        this.setProperty("section", value);
+        this.setPropertyEmitShapeChanged("section", value);
     }
 
     @Serializer.serialze()
@@ -32,7 +32,7 @@ export class PrismNode extends ParameterShapeNode {
         return this.getPrivateValue("length");
     }
     set length(value: number) {
-        this.setProperty("length", value);
+        this.setPropertyEmitShapeChanged("length", value);
     }
 
     constructor(document: IDocument, face: IShape, length: number) {

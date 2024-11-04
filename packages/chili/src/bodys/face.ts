@@ -23,7 +23,7 @@ export class FaceNode extends ParameterShapeNode {
         return this.getPrivateValue("shapes");
     }
     set shapes(values: IEdge[] | IWire[]) {
-        this.setProperty("shapes", values);
+        this.setPropertyEmitShapeChanged("shapes", values);
     }
 
     constructor(document: IDocument, shapes: IEdge[] | IWire[]) {

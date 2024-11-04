@@ -23,7 +23,7 @@ export class ArcNode extends ParameterShapeNode {
         return this.getPrivateValue("center");
     }
     set center(center: XYZ) {
-        this.setProperty("center", center);
+        this.setPropertyEmitShapeChanged("center", center);
     }
 
     @Serializer.serialze()
@@ -43,7 +43,7 @@ export class ArcNode extends ParameterShapeNode {
         return this.getPrivateValue("angle");
     }
     set angle(value: number) {
-        this.setProperty("angle", value);
+        this.setPropertyEmitShapeChanged("angle", value);
     }
 
     constructor(document: IDocument, normal: XYZ, center: XYZ, start: XYZ, angle: number) {

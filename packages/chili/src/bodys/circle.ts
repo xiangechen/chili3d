@@ -14,7 +14,7 @@ export class CircleNode extends FacebaseNode {
         return this.getPrivateValue("center");
     }
     set center(center: XYZ) {
-        this.setProperty("center", center);
+        this.setPropertyEmitShapeChanged("center", center);
     }
 
     @Serializer.serialze()
@@ -23,7 +23,7 @@ export class CircleNode extends FacebaseNode {
         return this.getPrivateValue("radius");
     }
     set radius(radius: number) {
-        this.setProperty("radius", radius);
+        this.setPropertyEmitShapeChanged("radius", radius);
     }
 
     @Serializer.serialze()

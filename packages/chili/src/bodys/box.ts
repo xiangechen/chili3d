@@ -23,7 +23,7 @@ export class BoxNode extends ParameterShapeNode {
         return this.getPrivateValue("dx");
     }
     set dx(dx: number) {
-        this.setProperty("dx", dx);
+        this.setPropertyEmitShapeChanged("dx", dx);
     }
 
     @Serializer.serialze()
@@ -32,7 +32,7 @@ export class BoxNode extends ParameterShapeNode {
         return this.getPrivateValue("dy");
     }
     set dy(dy: number) {
-        this.setProperty("dy", dy);
+        this.setPropertyEmitShapeChanged("dy", dy);
     }
 
     @Serializer.serialze()
@@ -41,7 +41,7 @@ export class BoxNode extends ParameterShapeNode {
         return this.getPrivateValue("dz");
     }
     set dz(dz: number) {
-        this.setProperty("dz", dz);
+        this.setPropertyEmitShapeChanged("dz", dz);
     }
 
     @Serializer.serialze()
