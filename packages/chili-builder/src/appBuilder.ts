@@ -2,6 +2,7 @@
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
+    DefaultDataExchange,
     I18n,
     IDataExchange,
     IDocument,
@@ -12,7 +13,6 @@ import {
     IVisualFactory,
     IWindow,
     Logger,
-    VisualNode,
 } from "chili-core";
 import { IAdditionalModule } from "./additionalModule";
 
@@ -103,20 +103,7 @@ export class AppBuilder {
     }
 
     initDataExchange(): IDataExchange {
-        return {
-            importFormats(): string[] {
-                return ["chili3d"];
-            },
-            exportFormats(): string[] {
-                return ["chili3d"];
-            },
-            import(document: IDocument, files: FileList | File[]): Promise<void> {
-                return Promise.reject("not implemented");
-            },
-            export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
-                return Promise.reject("not implemented");
-            },
-        };
+        return new DefaultDataExchange();
     }
 
     private ensureNecessary() {
