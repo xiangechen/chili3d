@@ -1,12 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { BoundingBox, IVisualObject, Matrix4, MeshNode, VisualNode } from "chili-core";
-import { Box3, BufferGeometry, DoubleSide, Float32BufferAttribute, Material, Mesh, Object3D } from "three";
+import { BoundingBox, IVisualObject, Matrix4, MeshNode, VisualConfig, VisualNode } from "chili-core";
+import {
+    Box3,
+    BufferGeometry,
+    DoubleSide,
+    EdgesGeometry,
+    Float32BufferAttribute,
+    Material,
+    Mesh,
+    Object3D,
+} from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { hilightEdgeMaterial } from "./common";
 
 export class ThreeVisualObject extends Object3D implements IVisualObject {
     get transform() {
@@ -16,7 +26,7 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
-    constructor(private visualNode: VisualNode) {
+    constructor(private readonly visualNode: VisualNode) {
         super();
         this.matrixAutoUpdate = false;
         this.transform = visualNode.transform;
@@ -46,6 +56,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
         return this._mesh;
     }
     private readonly material: Material;
+    private highited: LineSegments2 | undefined;
 
     constructor(
         readonly context: ThreeVisualContext,
@@ -59,8 +70,28 @@ export class ThreeMeshObject extends ThreeVisualObject {
     }
 
     setHighlighted(highlighted: boolean) {
-        this.material.transparent = highlighted;
-        this.material.opacity = highlighted ? 0.5 : 1;
+        if ((this.highited && highlighted) || (!this.highited && !highlighted)) {
+            return;
+        }
+
+        if (this._mesh instanceof Mesh) {
+            if (this.highited && !highlighted) {
+                this.remove(this.highited);
+                this.highited.geometry.dispose();
+                this.highited = undefined;
+            } else {
+                this.highited = this.newMeshEdge(this._mesh);
+                this.add(this.highited);
+            }
+        }
+
+        if (this._mesh instanceof LineSegments2) {
+            if (this.highited && !highlighted) {
+                this._mesh.material = this.material as any;
+            } else {
+                this._mesh.material = hilightEdgeMaterial;
+            }
+        }
     }
 
     private createMesh() {
@@ -78,6 +109,11 @@ export class ThreeMeshObject extends ThreeVisualObject {
             this.disposeMesh();
             this._mesh = this.createMesh();
             this.add(this._mesh);
+        } else if (property === "materialId") {
+            if (this._mesh instanceof Mesh) {
+                let material = this.context.getMaterial(this.meshNode.materialId);
+                this._mesh.material = material;
+            }
         }
     };
 
@@ -109,6 +145,12 @@ export class ThreeMeshObject extends ThreeVisualObject {
         return new LineSegments2(buff, material);
     }
 
+    private newMeshEdge(mesh: Mesh) {
+        let edges = new EdgesGeometry(mesh.geometry);
+        let wideEdges = new LineSegmentsGeometry().fromEdgesGeometry(edges);
+        return new LineSegments2(wideEdges, hilightEdgeMaterial);
+    }
+
     private disposeMesh() {
         if (this._mesh instanceof LineSegments2) {
             this._mesh.material.dispose();
@@ -118,6 +160,10 @@ export class ThreeMeshObject extends ThreeVisualObject {
 
     override dispose(): void {
         super.dispose();
+        if (this.highited) {
+            this.remove(this.highited);
+            this.highited.geometry.dispose();
+        }
         this.meshNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this.disposeMesh();
     }

@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { ICommand } from "./command";
+import { IDataExchange } from "./dataExchange";
 import { IDocument } from "./document";
 import { IStorage, ObservableCollection } from "./foundation";
 import { Serialized } from "./serialize";
@@ -11,6 +12,7 @@ import { IView, IVisualFactory } from "./visual";
 
 export interface IApplication {
     readonly mainWindow?: IWindow;
+    readonly dataExchange: IDataExchange;
     readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
     readonly services: IService[];

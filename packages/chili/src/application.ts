@@ -3,6 +3,7 @@
 import {
     IApplication,
     ICommand,
+    IDataExchange,
     IDocument,
     IService,
     IShapeFactory,
@@ -10,7 +11,6 @@ import {
     IView,
     IVisualFactory,
     IWindow,
-    Logger,
     ObservableCollection,
     Plane,
     PubSub,
@@ -20,7 +20,28 @@ import { Document } from "./document";
 
 let app: Application | undefined;
 
+export interface ApplicationOptions {
+    visualFactory: IVisualFactory;
+    shapeFactory: IShapeFactory;
+    services: IService[];
+    storage: IStorage;
+    dataExchange: IDataExchange;
+    mainWindow?: IWindow;
+}
+
 export class Application implements IApplication {
+    readonly dataExchange: IDataExchange;
+    readonly visualFactory: IVisualFactory;
+    readonly shapeFactory: IShapeFactory;
+    readonly services: IService[];
+    readonly storage: IStorage;
+    readonly mainWindow?: IWindow;
+
+    readonly views = new ObservableCollection<IView>();
+    readonly documents: Set<IDocument> = new Set<IDocument>();
+
+    executingCommand: ICommand | undefined;
+
     private _activeView: IView | undefined;
     get activeView(): IView | undefined {
         return this._activeView;
@@ -31,24 +52,21 @@ export class Application implements IApplication {
         PubSub.default.pub("activeViewChanged", value);
     }
 
-    readonly views = new ObservableCollection<IView>();
-    readonly documents: Set<IDocument> = new Set<IDocument>();
-
-    executingCommand: ICommand | undefined;
-
-    constructor(
-        readonly visualFactory: IVisualFactory,
-        readonly shapeFactory: IShapeFactory,
-        readonly services: IService[],
-        readonly storage: IStorage,
-        readonly mainWindow?: IWindow,
-    ) {
+    constructor(option: ApplicationOptions) {
         if (app !== undefined) {
             throw new Error("Only one application can be created");
         }
         app = this;
-        services.forEach((x) => x.register(this));
-        services.forEach((x) => x.start());
+        this.visualFactory = option.visualFactory;
+        this.shapeFactory = option.shapeFactory;
+        this.services = option.services;
+        this.storage = option.storage;
+        this.dataExchange = option.dataExchange;
+        this.mainWindow = option.mainWindow;
+
+        this.services.forEach((x) => x.register(this));
+        this.services.forEach((x) => x.start());
+
         window.onbeforeunload = this.handleWindowUnload;
     }
 

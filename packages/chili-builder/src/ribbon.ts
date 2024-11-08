@@ -53,7 +53,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.importExport",
-                items: ["file.import", "file.export.iges", "file.export.stp"],
+                items: ["file.import", "file.export"],
             },
         ],
     },

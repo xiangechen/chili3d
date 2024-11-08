@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, IDocument, Material, Property, PubSub, Transaction } from "chili-core";
+import { IDocument, Material, Property, PubSub, Transaction, VisualNode } from "chili-core";
 import { button, div, localize, span } from "../components";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -8,7 +8,7 @@ import { PropertyBase } from "./propertyBase";
 export class MaterialProperty extends PropertyBase {
     constructor(
         readonly document: IDocument,
-        objects: GeometryNode[],
+        objects: { materialId: string }[],
         readonly property: Property,
     ) {
         super(objects);

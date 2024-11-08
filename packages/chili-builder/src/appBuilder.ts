@@ -3,6 +3,7 @@
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
     I18n,
+    IDataExchange,
     IDocument,
     INode,
     IService,
@@ -11,6 +12,7 @@ import {
     IVisualFactory,
     IWindow,
     Logger,
+    VisualNode,
 } from "chili-core";
 import { IAdditionalModule } from "./additionalModule";
 
@@ -90,13 +92,31 @@ export class AppBuilder {
     }
 
     createApp() {
-        return new Application(
-            this._visualFactory!,
-            this._shapeFactory!,
-            this.getServices(),
-            this._storage!,
-            this._window
-        );
+        return new Application({
+            storage: this._storage!,
+            shapeFactory: this._shapeFactory!,
+            visualFactory: this._visualFactory!,
+            services: this.getServices(),
+            mainWindow: this._window,
+            dataExchange: this.initDataExchange(),
+        });
+    }
+
+    initDataExchange(): IDataExchange {
+        return {
+            importFormats(): string[] {
+                return ["chili3d"];
+            },
+            exportFormats(): string[] {
+                return ["chili3d"];
+            },
+            import(document: IDocument, files: FileList | File[]): Promise<void> {
+                return Promise.reject("not implemented");
+            },
+            export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
+                return Promise.reject("not implemented");
+            },
+        };
     }
 
     private ensureNecessary() {

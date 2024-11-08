@@ -4,6 +4,7 @@ export * from "./application";
 export * from "./command";
 export * from "./config";
 export * from "./constants";
+export * from "./dataExchange";
 export * from "./document";
 export * from "./editor";
 export * from "./foundation";

@@ -5,7 +5,7 @@ import { div, span } from "./components";
 import style from "./permanent.module.css";
 
 export class Permanent {
-    static show(action: () => Promise<void>, message: I18nKeys, ...args: any[]) {
+    static async show(action: () => Promise<void>, message: I18nKeys, ...args: any[]) {
         let dialog = document.createElement("dialog");
         dialog.appendChild(
             div(
@@ -18,8 +18,11 @@ export class Permanent {
             ),
         );
         document.body.appendChild(dialog);
-        action().finally(() => dialog.remove());
-
         dialog.showModal();
+
+        await new Promise((r) => setTimeout(r, 10));
+        requestAnimationFrame(() => {
+            action().finally(() => dialog.remove());
+        });
     }
 }

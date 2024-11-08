@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
-import { button, div, input, label, localize, svg } from "../components";
+import { Binding, Combobox, Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
+import { button, div, input, label, localize, option, select, svg } from "../components";
 import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement {
@@ -30,7 +30,7 @@ export class CommandContext extends HTMLElement {
         }
     }
 
-    private onPropertyChanged = (property: string | number | symbol) => {
+    private readonly onPropertyChanged = (property: string | number | symbol) => {
         if (this.propMap.has(property)) {
             const [prop, control] = this.propMap.get(property)!;
             this.setVisible(control, prop);
@@ -69,48 +69,6 @@ export class CommandContext extends HTMLElement {
         control.style.display = visible ? "" : "none";
     }
 
-    private createItem(command: ICommand, g: Property) {
-        let noType = command as any;
-        let type = typeof noType[g.name];
-        if (type === "function") {
-            return button({
-                className: style.button,
-                textContent: localize(g.display),
-                onclick: () => noType[g.name](),
-            });
-        } else if (type === "boolean") {
-            return div(
-                label({ textContent: localize(g.display) }),
-                input({
-                    type: "checkbox",
-                    checked: new Binding(noType, g.name),
-                    onclick: () => {
-                        noType[g.name] = !noType[g.name];
-                    },
-                }),
-            );
-        } else if (type === "number") {
-            return div(
-                label({ textContent: localize(g.display) }),
-                input({
-                    type: "text",
-                    className: style.input,
-                    value: new Binding(noType, g.name),
-                    onkeydown: (e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") {
-                            let input = e.target as HTMLInputElement;
-                            noType[g.name] = parseFloat(input.value);
-                            input.blur();
-                        }
-                    },
-                }),
-            );
-        } else {
-            throw new Error("暂不支持的类型");
-        }
-    }
-
     private findGroup(groupMap: Map<I18nKeys, HTMLDivElement>, prop: Property) {
         let group = groupMap.get(prop.group!);
         if (group === undefined) {
@@ -119,6 +77,99 @@ export class CommandContext extends HTMLElement {
             this.append(group);
         }
         return group;
+    }
+
+    private createItem(command: ICommand, g: Property) {
+        let noType = command as any;
+        let type = typeof noType[g.name];
+        if (type === "function") {
+            return this.newButton(g, noType);
+        }
+
+        if (type === "boolean") {
+            return this.newCheckbox(g, noType);
+        }
+
+        if (type === "number") {
+            return this.newInput(g, noType, parseFloat);
+        }
+
+        if (type === "string") {
+            return this.newInput(g, noType);
+        }
+
+        if (noType[g.name] instanceof Combobox) {
+            return this.newCombobox(noType, g);
+        }
+
+        throw new Error("暂不支持的类型");
+    }
+
+    private newCombobox(noType: any, g: Property) {
+        let combobox = noType[g.name] as Combobox<any>;
+        let options = combobox.items.map((item, index) =>
+            option({
+                selected: index === combobox.selectedIndex,
+                textContent: combobox.converter?.convert(item).unchecked() ?? String(item),
+            }),
+        );
+
+        return div(
+            label({ textContent: localize(g.display) }),
+            select(
+                {
+                    className: style.select,
+                    onchange: (e) => {
+                        combobox.selectedIndex = (e.target as HTMLSelectElement).selectedIndex;
+                    },
+                },
+                ...options,
+            ),
+        );
+    }
+
+    private newInput(g: Property, noType: any, converter?: (v: string) => any) {
+        return div(
+            label({ textContent: localize(g.display) }),
+            input({
+                type: "text",
+                className: style.input,
+                value: new Binding(noType, g.name),
+                onkeydown: (e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                        let input = e.target as HTMLInputElement;
+                        if (converter) {
+                            noType[g.name] = converter(input.value);
+                        } else {
+                            noType[g.name] = input.value;
+                        }
+                        input.blur();
+                    }
+                },
+            }),
+        );
+    }
+
+    private newCheckbox(g: Property, noType: any) {
+        return div(
+            label({ textContent: localize(g.display) }),
+            input({
+                type: "checkbox",
+                checked: new Binding(noType, g.name),
+                onclick: () => {
+                    noType[g.name] = !noType[g.name];
+                },
+            }),
+        );
+    }
+
+    private newButton(g: Property, noType: any) {
+        return button({
+            className: style.button,
+            textContent: localize(g.display),
+            onclick: () => noType[g.name](),
+        });
     }
 }
 

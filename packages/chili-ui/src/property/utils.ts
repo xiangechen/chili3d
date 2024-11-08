@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, IDocument, Property } from "chili-core";
+import { GeometryNode, IDocument, Property, VisualNode } from "chili-core";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
@@ -22,7 +22,7 @@ export function appendProperty(container: HTMLElement, document: IDocument, objs
         container.append(
             new MaterialProperty(
                 document,
-                objs.filter((x) => x instanceof GeometryNode),
+                objs.filter((x) => "materialId" in x),
                 prop,
             ),
         );

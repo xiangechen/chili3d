@@ -40,6 +40,18 @@ export class Transaction {
         }
     }
 
+    static async excuteAsync(document: IDocument, name: string, action: () => Promise<void>) {
+        let trans = new Transaction(document, document.history, name);
+        trans.start();
+        try {
+            await action();
+            trans.commit();
+        } catch (e) {
+            trans.rollback();
+            throw e;
+        }
+    }
+
     start(name?: string) {
         let transactionName = name ?? this.name;
         if (Transaction._transactionMap.get(this.token) !== undefined) {

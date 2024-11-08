@@ -99,7 +99,7 @@ export class PropertyView extends HTMLElement {
     }
 
     private addParameters(geometries: VisualNode[], document: IDocument) {
-        let entities = geometries.filter((x) => x instanceof ParameterShapeNode);
+        let entities = geometries.filter((x) => x instanceof VisualNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display());
         this.panel.append(parameters);

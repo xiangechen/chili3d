@@ -221,6 +221,8 @@ export namespace INode {
 }
 
 export abstract class VisualNode extends Node {
+    abstract display(): I18nKeys;
+
     @Serializer.serialze()
     get transform(): Matrix4 {
         return this.getPrivateValue("transform", Matrix4.identity());
@@ -253,6 +255,19 @@ export abstract class VisualNode extends Node {
 
 @Serializer.register(["document", "mesh", "name", "id"])
 export class MeshNode extends VisualNode {
+    override display(): I18nKeys {
+        return "body.meshNode";
+    }
+
+    @Serializer.serialze()
+    @Property.define("common.material", { type: "materialId" })
+    get materialId(): string {
+        return this.getPrivateValue("materialId");
+    }
+    set materialId(value: string) {
+        this.setProperty("materialId", value);
+    }
+
     protected _mesh: Mesh;
     @Serializer.serialze()
     get mesh(): Mesh {
@@ -262,9 +277,16 @@ export class MeshNode extends VisualNode {
         this.setProperty("mesh", value);
     }
 
-    constructor(document: IDocument, mesh: Mesh, name: string, id: string = Id.generate()) {
+    constructor(
+        document: IDocument,
+        mesh: Mesh,
+        name: string,
+        materialId?: string,
+        id: string = Id.generate(),
+    ) {
         super(document, name, id);
         this._mesh = mesh;
+        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
     }
 
     override boundingBox(): BoundingBox {
@@ -379,11 +401,14 @@ export abstract class ParameterShapeNode extends ShapeNode {
     }
 
     protected abstract generateShape(): Result<IShape>;
-    abstract display(): I18nKeys;
 }
 
 @Serializer.register(["document", "name", "shape", "materialId", "id"])
 export class EditableShapeNode extends ShapeNode {
+    override display(): I18nKeys {
+        return "body.editableShape";
+    }
+
     @Serializer.serialze()
     override get shape(): Result<IShape> {
         return this._shape;
@@ -392,9 +417,20 @@ export class EditableShapeNode extends ShapeNode {
         this.setShape(shape);
     }
 
-    constructor(document: IDocument, name: string, shape: IShape, materialId?: string, id?: string) {
+    constructor(
+        document: IDocument,
+        name: string,
+        shape: IShape | Result<IShape>,
+        materialId?: string,
+        id?: string,
+    ) {
         super(document, name, materialId, id);
-        this._shape = Result.ok(shape);
+
+        if (shape instanceof Result) {
+            this._shape = shape;
+        } else {
+            this._shape = Result.ok(shape);
+        }
     }
 }
 
