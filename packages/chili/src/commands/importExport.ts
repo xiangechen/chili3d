@@ -9,11 +9,9 @@ import {
     I18n,
     IApplication,
     ICommand,
-    Material,
     Property,
     PubSub,
     readFilesAsync,
-    Transaction,
 } from "chili-core";
 import { SelectNodeStep } from "../step";
 
@@ -24,7 +22,7 @@ import { SelectNodeStep } from "../step";
 })
 export class Import implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let document = application.activeView?.document ?? (await this.newDocument(application));
+        let document = application.activeView?.document ?? (await application.newDocument("Undefined"));
         let extenstions = application.dataExchange.importFormats().join(",");
         let files = await readFilesAsync(extenstions, true);
         if (!files.isOk || files.value.length === 0) {
@@ -32,25 +30,7 @@ export class Import implements ICommand {
             return;
         }
 
-        PubSub.default.pub(
-            "showPermanent",
-            async () => {
-                await Transaction.excuteAsync(document, "import model", async () => {
-                    await application.dataExchange.import(document, files.value);
-                });
-                application.activeView?.cameraController.fitContent();
-            },
-            "toast.excuting{0}",
-            I18n.translate("command.import"),
-        );
-    }
-
-    private async newDocument(application: IApplication) {
-        let document = await application.newDocument(`undefined`);
-        let lightGray = new Material(document, "LightGray", 0xdedede);
-        let deepGray = new Material(document, "DeepGray", 0x898989);
-        document.materials.push(lightGray, deepGray);
-        return document;
+        return document.importFiles(files.value);
     }
 }
 

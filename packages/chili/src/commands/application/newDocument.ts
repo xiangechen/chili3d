@@ -11,9 +11,6 @@ let count = 1;
 })
 export class NewDocument implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let document = await app.newDocument(`undefined ${count++}`);
-        let lightGray = new Material(document, "LightGray", 0xdedede);
-        let deepGray = new Material(document, "DeepGray", 0x898989);
-        document.materials.push(lightGray, deepGray);
+        await app.newDocument(`undefined ${count++}`);
     }
 }

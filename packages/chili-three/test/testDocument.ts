@@ -39,6 +39,10 @@ export class TestDocument implements IDocument, ISerialize {
         throw new Error("Method not implemented.");
     }
 
+    importFiles(files: File[] | FileList): Promise<void> {
+        return Promise.resolve();
+    }
+
     close(): Promise<void> {
         return Promise.resolve();
     }

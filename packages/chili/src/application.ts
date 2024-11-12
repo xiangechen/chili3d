@@ -11,6 +11,7 @@ import {
     IView,
     IVisualFactory,
     IWindow,
+    Material,
     ObservableCollection,
     Plane,
     PubSub,
@@ -67,6 +68,8 @@ export class Application implements IApplication {
         this.services.forEach((x) => x.register(this));
         this.services.forEach((x) => x.start());
 
+        this.initDragAndDrop();
+
         window.onbeforeunload = this.handleWindowUnload;
     }
 
@@ -79,6 +82,45 @@ export class Application implements IApplication {
         }
     };
 
+    private initDragAndDrop() {
+        window.addEventListener(
+            "dragstart",
+            (ev) => {
+                ev.preventDefault();
+            },
+            false,
+        );
+
+        window.addEventListener(
+            "dragover",
+            (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                ev.dataTransfer!.dropEffect = "copy";
+            },
+            false,
+        );
+
+        window.addEventListener(
+            "drop",
+            (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                this.importFiles(ev.dataTransfer?.files);
+            },
+            false,
+        );
+    }
+
+    async importFiles(files: FileList | undefined) {
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        let document = this.activeView?.document ?? (await this.newDocument("Untitled"));
+        document.importFiles(files);
+    }
+
     async openDocument(id: string): Promise<IDocument | undefined> {
         let document = await Document.open(this, id);
         await this.createActiveView(document);
@@ -87,6 +129,9 @@ export class Application implements IApplication {
 
     async newDocument(name: string): Promise<IDocument> {
         let document = new Document(this, name);
+        let lightGray = new Material(document, "LightGray", 0xdedede);
+        let deepGray = new Material(document, "DeepGray", 0x898989);
+        document.materials.push(lightGray, deepGray);
         await this.createActiveView(document);
         return document;
     }

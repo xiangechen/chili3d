@@ -16,9 +16,6 @@ export abstract class PerformanceTestCommand implements ICommand {
 
     async execute(app: IApplication): Promise<void> {
         let document = await app.newDocument("OCC Performace Test");
-        let lightGray = new Material(document, "LightGray", 0xdedede);
-        let deepGray = new Material(document, "DeepGray", 0x898989);
-        document.materials.push(lightGray, deepGray);
 
         const start = performance.now();
         const distance = this.gap + this.size;
@@ -29,7 +26,7 @@ export abstract class PerformanceTestCommand implements ICommand {
                         .add(XYZ.unitX.multiply(x * distance))
                         .add(XYZ.unitY.multiply(y * distance))
                         .add(XYZ.unitZ.multiply(z * distance));
-                    this.createShape(document, lightGray, position);
+                    this.createShape(document, document.materials.at(0)!, position);
                 }
             }
         }
