@@ -5,18 +5,24 @@ import {
     Box3,
     BufferGeometry,
     DoubleSide,
-    EdgesGeometry,
     Float32BufferAttribute,
-    Material,
     Mesh,
-    Object3D,
+    MeshLambertMaterial,
+    Object3D
 } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import { hilightEdgeMaterial } from "./common";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
-import { hilightEdgeMaterial } from "./common";
+
+const HighlightFaceMaterial = new MeshLambertMaterial({
+    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
+    side: DoubleSide,
+    transparent: true,
+    opacity: 0.56,
+});
 
 export class ThreeVisualObject extends Object3D implements IVisualObject {
     get transform() {
@@ -55,8 +61,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
     get mesh() {
         return this._mesh;
     }
-    private readonly material: Material;
-    private highited: LineSegments2 | undefined;
+    private readonly material: LineMaterial | MeshLambertMaterial;
 
     constructor(
         readonly context: ThreeVisualContext,
@@ -64,32 +69,25 @@ export class ThreeMeshObject extends ThreeVisualObject {
     ) {
         super(meshNode);
         this._mesh = this.createMesh();
-        this.material = this._mesh.material as Material;
+        this.material = this._mesh.material as MeshLambertMaterial;
         this.add(this._mesh);
         meshNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
     setHighlighted(highlighted: boolean) {
-        if ((this.highited && highlighted) || (!this.highited && !highlighted)) {
-            return;
-        }
-
         if (this._mesh instanceof Mesh) {
-            if (this.highited && !highlighted) {
-                this.remove(this.highited);
-                this.highited.geometry.dispose();
-                this.highited = undefined;
+            if (highlighted) {
+                this._mesh.material = HighlightFaceMaterial;
             } else {
-                this.highited = this.newMeshEdge(this._mesh);
-                this.add(this.highited);
+                this._mesh.material = this.material;
             }
         }
 
         if (this._mesh instanceof LineSegments2) {
-            if (this.highited && !highlighted) {
-                this._mesh.material = this.material as any;
-            } else {
+            if (highlighted) {
                 this._mesh.material = hilightEdgeMaterial;
+            } else {
+                this._mesh.material = this.material as LineMaterial;
             }
         }
     }
@@ -145,12 +143,6 @@ export class ThreeMeshObject extends ThreeVisualObject {
         return new LineSegments2(buff, material);
     }
 
-    private newMeshEdge(mesh: Mesh) {
-        let edges = new EdgesGeometry(mesh.geometry);
-        let wideEdges = new LineSegmentsGeometry().fromEdgesGeometry(edges);
-        return new LineSegments2(wideEdges, hilightEdgeMaterial);
-    }
-
     private disposeMesh() {
         if (this._mesh instanceof LineSegments2) {
             this._mesh.material.dispose();
@@ -160,10 +152,6 @@ export class ThreeMeshObject extends ThreeVisualObject {
 
     override dispose(): void {
         super.dispose();
-        if (this.highited) {
-            this.remove(this.highited);
-            this.highited.geometry.dispose();
-        }
         this.meshNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this.disposeMesh();
     }
