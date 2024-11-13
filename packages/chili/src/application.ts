@@ -1,6 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    DOCUMENT_FILE_EXTENSION,
+    I18n,
     IApplication,
     ICommand,
     IDataExchange,
@@ -68,21 +70,11 @@ export class Application implements IApplication {
         this.services.forEach((x) => x.register(this));
         this.services.forEach((x) => x.start());
 
-        this.initDragAndDrop();
-
-        window.onbeforeunload = this.handleWindowUnload;
+        this.initWindowEvents();
     }
 
-    private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
-        if (this.activeView) {
-            // Cancel the event as stated by the standard.
-            event.preventDefault();
-            // Chrome requires returnValue to be set.
-            event.returnValue = "";
-        }
-    };
-
-    private initDragAndDrop() {
+    private initWindowEvents() {
+        window.onbeforeunload = this.handleWindowUnload;
         window.addEventListener(
             "dragstart",
             (ev) => {
@@ -90,7 +82,6 @@ export class Application implements IApplication {
             },
             false,
         );
-
         window.addEventListener(
             "dragover",
             (ev) => {
@@ -100,7 +91,6 @@ export class Application implements IApplication {
             },
             false,
         );
-
         window.addEventListener(
             "drop",
             (ev) => {
@@ -112,13 +102,53 @@ export class Application implements IApplication {
         );
     }
 
+    private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
+        if (this.activeView) {
+            // Cancel the event as stated by the standard.
+            event.preventDefault();
+            // Chrome requires returnValue to be set.
+            event.returnValue = "";
+        }
+    };
+
     async importFiles(files: FileList | undefined) {
         if (!files || files.length === 0) {
             return;
         }
+        let { opens, imports } = this.groupFiles(files);
+
+        this.loadDocumentsWithLoading(opens);
 
         let document = this.activeView?.document ?? (await this.newDocument("Untitled"));
-        document.importFiles(files);
+        document.importFiles(imports);
+    }
+
+    private loadDocumentsWithLoading(opens: File[]) {
+        PubSub.default.pub(
+            "showPermanent",
+            async () => {
+                for (const file of opens) {
+                    let json: Serialized = JSON.parse(await file.text());
+                    await this.loadDocument(json);
+                    this.activeView?.cameraController.fitContent();
+                }
+            },
+            "toast.excuting{0}",
+            I18n.translate("command.document.open"),
+        );
+    }
+
+    private groupFiles(files: FileList) {
+        let opens: File[] = [];
+        let imports: File[] = [];
+        for (const element of files) {
+            if (element.name.endsWith(DOCUMENT_FILE_EXTENSION)) {
+                opens.push(element);
+            } else {
+                imports.push(element);
+            }
+        }
+        return { opens, imports };
     }
 
     async openDocument(id: string): Promise<IDocument | undefined> {

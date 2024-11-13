@@ -15,6 +15,8 @@ import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";
 import { IVisual } from "./visual";
 
+export const DOCUMENT_FILE_EXTENSION = ".cd";
+
 export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     name: string;
     currentNode?: INodeLinkedList;

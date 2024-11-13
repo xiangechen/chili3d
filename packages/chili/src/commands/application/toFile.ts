@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { command, download, I18n, IApplication, ICommand, PubSub } from "chili-core";
+import {
+    command,
+    DOCUMENT_FILE_EXTENSION,
+    download,
+    I18n,
+    IApplication,
+    ICommand,
+    PubSub,
+} from "chili-core";
 
 @command({
     name: "doc.saveToFile",
@@ -18,7 +26,7 @@ export class SaveDocumentToFile implements ICommand {
                 });
                 let s = app.activeView?.document!.serialize();
                 PubSub.default.pub("showToast", "toast.downloading");
-                download([JSON.stringify(s)], `${app.activeView?.document!.name}.cd`);
+                download([JSON.stringify(s)], `${app.activeView?.document!.name}${DOCUMENT_FILE_EXTENSION}`);
             },
             "toast.excuting{0}",
             I18n.translate("command.document.saveToFile"),
