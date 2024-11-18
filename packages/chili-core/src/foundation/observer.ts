@@ -138,7 +138,6 @@ export abstract class HistoryObservable extends Observable {
                 onPropertyChanged?.(property, oldValue);
                 Transaction.add(
                     this.document,
-                    this.document.history,
                     new PropertyHistoryRecord(this, property, oldValue, newValue),
                 );
             },

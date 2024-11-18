@@ -210,14 +210,14 @@ export class Document extends Observable implements IDocument {
 
     private readonly handleMaterialChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
-            Transaction.add(this, this.history, {
+            Transaction.add(this, {
                 name: "MaterialChanged",
                 dispose() {},
                 undo: () => this.materials.remove(...args.items),
                 redo: () => this.materials.push(...args.items),
             });
         } else if (args.action === CollectionAction.remove) {
-            Transaction.add(this, this.history, {
+            Transaction.add(this, {
                 name: "MaterialChanged",
                 dispose() {},
                 undo: () => this.materials.push(...args.items),
@@ -235,7 +235,7 @@ export class Document extends Observable implements IDocument {
     }
 
     notifyNodeChanged(records: NodeRecord[]) {
-        Transaction.add(this, this.history, new NodeLinkedListHistoryRecord(records));
+        Transaction.add(this, new NodeLinkedListHistoryRecord(records));
         this._nodeChangedObservers.forEach((x) => x.handleNodeChanged(records));
     }
 

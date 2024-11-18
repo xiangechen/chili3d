@@ -1,35 +1,34 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import { ArrayRecord, History, IHistoryRecord } from "./history";
+import { ArrayRecord, IHistoryRecord } from "./history";
 import { Logger } from "./logger";
 
 export class Transaction {
-    private static readonly _transactionMap: WeakMap<object | symbol, ArrayRecord> = new WeakMap();
+    private static readonly _transactionMap: WeakMap<IDocument, ArrayRecord> = new WeakMap();
 
     constructor(
-        readonly token: object | symbol,
-        readonly history: History,
+        readonly document: IDocument,
         readonly name: string,
     ) {}
 
-    static add(token: object | symbol, history: History, record: IHistoryRecord) {
-        if (history.disabled) return;
-        let arrayRecord = Transaction._transactionMap.get(token);
+    static add(document: IDocument, record: IHistoryRecord) {
+        if (document.history.disabled) return;
+        let arrayRecord = Transaction._transactionMap.get(document);
         if (arrayRecord !== undefined) {
             arrayRecord.records.push(record);
         } else {
-            Transaction.addToHistory(history, record);
+            Transaction.addToHistory(document, record);
         }
     }
 
-    static addToHistory(history: History, record: IHistoryRecord) {
-        history.add(record);
+    static addToHistory(document: IDocument, record: IHistoryRecord) {
+        document.history.add(record);
         Logger.info(`history added ${record.name}`);
     }
 
     static excute(document: IDocument, name: string, action: () => void) {
-        let trans = new Transaction(document, document.history, name);
+        let trans = new Transaction(document, name);
         trans.start();
         try {
             action();
@@ -41,7 +40,7 @@ export class Transaction {
     }
 
     static async excuteAsync(document: IDocument, name: string, action: () => Promise<void>) {
-        let trans = new Transaction(document, document.history, name);
+        let trans = new Transaction(document, name);
         trans.start();
         try {
             await action();
@@ -54,23 +53,23 @@ export class Transaction {
 
     start(name?: string) {
         let transactionName = name ?? this.name;
-        if (Transaction._transactionMap.get(this.token) !== undefined) {
+        if (Transaction._transactionMap.get(this.document) !== undefined) {
             throw new Error(`The document has started a transaction ${this.name}`);
         }
-        Transaction._transactionMap.set(this.token, new ArrayRecord(transactionName));
+        Transaction._transactionMap.set(this.document, new ArrayRecord(transactionName));
     }
 
     commit() {
-        let arrayRecord = Transaction._transactionMap.get(this.token);
+        let arrayRecord = Transaction._transactionMap.get(this.document);
         if (arrayRecord === undefined) {
             throw new Error("Transaction has not started");
         }
-        if (arrayRecord.records.length > 0) Transaction.addToHistory(this.history, arrayRecord);
-        Transaction._transactionMap.delete(this.token);
+        if (arrayRecord.records.length > 0) Transaction.addToHistory(this.document, arrayRecord);
+        Transaction._transactionMap.delete(this.document);
     }
 
     rollback() {
-        Transaction._transactionMap.get(this.token)?.undo();
-        Transaction._transactionMap.delete(this.token);
+        Transaction._transactionMap.get(this.document)?.undo();
+        Transaction._transactionMap.delete(this.document);
     }
 }

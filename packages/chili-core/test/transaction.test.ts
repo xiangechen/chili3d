@@ -6,11 +6,11 @@ describe("test Transaction", () => {
     test("test static methods", () => {
         let doc: IDocument = { history: new History() } as any;
         let history: PropertyHistoryRecord = {} as any;
-        Transaction.add(doc, doc.history, history);
+        Transaction.add(doc, history);
         expect(doc.history.undoCount()).toBe(1);
         Transaction.excute(doc, "Test", () => {
-            Transaction.add(doc, doc.history, history);
-            Transaction.add(doc, doc.history, history);
+            Transaction.add(doc, history);
+            Transaction.add(doc, history);
         });
         expect(doc.history.undoCount()).toBe(2);
 
@@ -24,7 +24,7 @@ describe("test Transaction", () => {
 
     test("test methods", () => {
         let doc: IDocument = { history: new History() } as any;
-        let trans = new Transaction(doc, doc.history, "test");
+        let trans = new Transaction(doc, "test");
         expect(() => trans.commit()).toThrow("Transaction has not started");
         trans.start();
         expect(() => trans.start()).toThrow("The document has started a transaction");
@@ -34,7 +34,7 @@ describe("test Transaction", () => {
         trans.start();
         expect(doc.history.undoCount()).toBe(0);
         let history: PropertyHistoryRecord = {} as any;
-        Transaction.add(doc, doc.history, history);
+        Transaction.add(doc, history);
         trans.commit();
         expect(doc.history.undoCount()).toBe(1);
     });

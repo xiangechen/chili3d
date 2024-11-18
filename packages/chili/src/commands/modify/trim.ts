@@ -31,11 +31,7 @@ import { ShapeSelectionHandler } from "chili-vis";
 })
 export class Trim extends CancelableCommand {
     protected override async executeAsync() {
-        let transaction = new Transaction(
-            this.document,
-            this.document.history,
-            I18n.translate("command.trim"),
-        );
+        let transaction = new Transaction(this.document, I18n.translate("command.trim"));
         transaction.start();
         try {
             await this.trimAsync();
