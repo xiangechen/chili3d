@@ -36,6 +36,7 @@ function convertShapeResult(result: ShapeResult): Result<IShape, string> {
 }
 
 export class ShapeFactory implements IShapeFactory {
+    readonly kernelName = "opencascade";
     readonly converter: IShapeConverter;
     constructor() {
         this.converter = new OccShapeConverter();

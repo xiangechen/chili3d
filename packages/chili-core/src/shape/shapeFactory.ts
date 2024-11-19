@@ -6,6 +6,7 @@ import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape
 import { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
+    readonly kernelName: string;
     readonly converter: IShapeConverter;
     face(...wire: IWire[]): Result<IFace>;
     bezier(points: XYZ[], weights?: number[]): Result<IEdge>;

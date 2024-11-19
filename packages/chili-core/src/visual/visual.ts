@@ -5,7 +5,6 @@ import { IDisposable } from "../foundation";
 import { Plane } from "../math";
 import { IEventHandler } from "./eventHandler";
 import { IHighlighter } from "./highlighter";
-import { ITextGenerator } from "./textGenerator";
 import { IView } from "./view";
 import { IVisualContext } from "./visualContext";
 
@@ -14,7 +13,6 @@ export interface IVisual extends IDisposable {
     readonly context: IVisualContext;
     readonly viewHandler: IEventHandler;
     readonly highlighter: IHighlighter;
-    // readonly textGenerator: ITextGenerator;
     update(): void;
     eventHandler: IEventHandler;
     resetEventHandler(): void;
