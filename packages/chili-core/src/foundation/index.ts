@@ -4,6 +4,7 @@ export * from "./asyncController";
 export * from "./binding";
 export * from "./collection";
 export * from "./converter";
+export * from "./deepObserver";
 export * from "./disposable";
 export * from "./dto";
 export * from "./equalityComparer";
