@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding } from "chili-core";
+import { PathBinding } from "chili-core";
 import { HTMLProps } from "./htmlProps";
 import { Collection, CollectionProps } from "./collection";
 import { Localize } from "./localize";
@@ -29,7 +29,7 @@ export function setProperties<T extends { [K: string]: any }>(left: T, prop: HTM
         let value = prop[key];
         if (value instanceof Localize && left instanceof HTMLElement && key === "textContent") {
             value.set(left);
-        } else if (value instanceof Binding) {
+        } else if (value instanceof PathBinding) {
             value.setBinding(left, key);
         } else if (typeof value === "object" && typeof left[key] === "object") {
             setProperties(left[key], value);
@@ -89,7 +89,7 @@ function addTitle(props: HTMLProps<HTMLElement> & { icon: string }, svg: SVGSVGE
     let value = "";
     if (typeof props.title === "string") {
         value = props.title;
-    } else if (props.title instanceof Binding) {
+    } else if (props.title instanceof PathBinding) {
         value = props.title.getPropertyValue();
     }
     let text = document.createTextNode(value);

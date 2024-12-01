@@ -4,6 +4,7 @@ import { IDocument } from "../document";
 import { IDisposable } from "./disposable";
 import { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
+import { Logger } from "./logger";
 import { Transaction } from "./transaction";
 
 export type PropertyChangedHandler<T, K extends keyof T> = (property: K, source: T, oldValue: T[K]) => void;
@@ -14,7 +15,26 @@ export interface IPropertyChanged extends IDisposable {
     clearPropertyChanged(): void;
 }
 
-const DEFAULT_VALUE = Symbol.for("DEFAULT_VALUE");
+export function isPropertyChanged(obj: object): obj is IPropertyChanged {
+    return (
+        obj &&
+        typeof (obj as IPropertyChanged).onPropertyChanged === "function" &&
+        typeof (obj as IPropertyChanged).removePropertyChanged === "function"
+    );
+}
+
+export function getPathValue(instance: IPropertyChanged, path: string) {
+    let parts = path.split(".");
+    let value = instance;
+    for (const part of parts) {
+        value = (value as any)[part];
+        if (!isPropertyChanged(value)) {
+            return undefined;
+        }
+    }
+
+    return value;
+}
 
 export class Observable implements IPropertyChanged {
     protected readonly propertyChangedHandlers: Set<PropertyChangedHandler<any, any>> = new Set();
@@ -23,49 +43,27 @@ export class Observable implements IPropertyChanged {
         return `_${String(pubKey)}`;
     }
 
-    protected getPrivateValue<K extends keyof this>(
-        pubKey: K,
-        defaultValue: this[K] = DEFAULT_VALUE as any,
-    ): this[K] {
+    protected getPrivateValue<K extends keyof this>(pubKey: K, defaultValue?: this[K]): this[K] {
         let privateKey = this.getPrivateKey(pubKey);
         if (privateKey in this) {
             return (this as any)[privateKey];
-        } else if (defaultValue !== DEFAULT_VALUE) {
-            this.defineProtoProperty(pubKey, privateKey, defaultValue);
-            return defaultValue;
-        } else {
-            throw new Error(`property ${privateKey} dose not exist in ${this.constructor.name}`);
         }
+
+        if (defaultValue !== undefined) {
+            (this as any)[privateKey] = defaultValue;
+            return defaultValue;
+        }
+
+        Logger.warn(
+            `${this.constructor.name}: The property “${String(pubKey)}” is not initialized, and no default value is provided`,
+        );
+        return undefined as this[K];
     }
 
     protected setPrivateValue<K extends keyof this>(pubKey: K, newValue: this[K]): void {
         let privateKey = this.getPrivateKey(pubKey);
-        if (privateKey in this) {
-            (this as any)[privateKey] = newValue;
-            return;
-        }
 
-        this.defineProtoProperty(pubKey, privateKey, newValue);
-    }
-
-    private defineProtoProperty<K extends keyof this>(
-        pubKey: K,
-        privateKey: string,
-        newValue: this[K],
-    ): void {
-        let proto = Object.getPrototypeOf(this);
-        while (proto !== null) {
-            if (proto.hasOwnProperty(pubKey)) {
-                Object.defineProperty(proto, privateKey, {
-                    writable: true,
-                    enumerable: false,
-                    configurable: true,
-                });
-                proto[privateKey] = newValue;
-                break;
-            }
-            proto = Object.getPrototypeOf(proto);
-        }
+        (this as any)[privateKey] = newValue;
     }
 
     /**
@@ -100,7 +98,7 @@ export class Observable implements IPropertyChanged {
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
-        this.propertyChangedHandlers.forEach((callback) => callback(property, this, oldValue));
+        Array.from(this.propertyChangedHandlers).forEach((cb) => cb(property, this, oldValue));
     }
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {
