@@ -1,7 +1,7 @@
 const rspack = require("@rspack/core");
 const { defineConfig } = require("@rspack/cli");
-const path = require("path");
 const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
+const settings = require("./settings.json");
 
 const config = defineConfig({
     entry: {
@@ -68,7 +68,8 @@ const config = defineConfig({
             ],
         }),
         new rspack.DefinePlugin({
-            __APP_VERSION__: JSON.stringify(require("./package.json").version),
+            __APP_VERSION__: JSON.stringify(settings.applicationVersion),
+            __DOCUMENT_VERSION__: JSON.stringify(settings.documentVersion),
         }),
         new rspack.HtmlRspackPlugin({
             template: "./public/index.html",

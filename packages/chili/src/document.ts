@@ -29,8 +29,6 @@ import {
 } from "chili-core";
 import { Selection } from "./selection";
 
-const FILE_VERSIOM = "0.4.1";
-
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: History;
@@ -39,7 +37,7 @@ export class Document extends Observable implements IDocument {
 
     private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
 
-    static readonly version = FILE_VERSIOM;
+    static readonly version = __DOCUMENT_VERSION__;
 
     get name(): string {
         return this.getPrivateValue("name");
@@ -121,7 +119,7 @@ export class Document extends Observable implements IDocument {
     serialize(): Serialized {
         let serialized = {
             classKey: "Document",
-            version: FILE_VERSIOM,
+            version: __DOCUMENT_VERSION__,
             properties: {
                 id: this.id,
                 name: this.name,
@@ -190,7 +188,7 @@ export class Document extends Observable implements IDocument {
     }
 
     static load(app: IApplication, data: Serialized): IDocument | undefined {
-        if ((data as any).version !== FILE_VERSIOM) {
+        if ((data as any).version !== __DOCUMENT_VERSION__) {
             alert(
                 "The file version has been upgraded, no compatibility treatment was done in the development phase",
             );
