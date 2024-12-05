@@ -23,19 +23,6 @@ export function isPropertyChanged(obj: object): obj is IPropertyChanged {
     );
 }
 
-export function getPathValue(instance: IPropertyChanged, path: string) {
-    let parts = path.split(".");
-    let value = instance;
-    for (const part of parts) {
-        value = (value as any)[part];
-        if (!isPropertyChanged(value)) {
-            return undefined;
-        }
-    }
-
-    return value;
-}
-
 export class Observable implements IPropertyChanged {
     protected readonly propertyChangedHandlers: Set<PropertyChangedHandler<any, any>> = new Set();
 

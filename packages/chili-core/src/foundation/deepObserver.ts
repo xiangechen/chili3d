@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IPropertyChanged, isPropertyChanged } from "./observer";
+import { Result } from "./result";
 
 export type DeepPropertyChangedHandler = (path: string, source: IPropertyChanged, oldValue: any) => void;
 
@@ -17,6 +18,20 @@ export class DeepObserver {
         IPropertyChanged,
         Map<DeepPropertyChangedHandler, SourceHandler>
     >();
+
+    static getPathValue(instance: IPropertyChanged, path: string): Result<any> {
+        let parts = path.split(".");
+
+        let value = instance;
+        for (let i = 0; i < parts.length; i++) {
+            value = (value as any)[parts[i]];
+            if (i < parts.length - 1 && !isPropertyChanged(value)) {
+                return Result.err(`Path ${path} is not valid`);
+            }
+        }
+
+        return Result.ok(value);
+    }
 
     static addDeepPropertyChangedHandler(instance: IPropertyChanged, handler: DeepPropertyChangedHandler) {
         let sourceHandler = DeepObserver.getOrInitHandler(instance, handler);
