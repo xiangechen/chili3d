@@ -1,0 +1,46 @@
+.root {
+    margin-top: 8px;
+}
+
+.expander {
+    display: flex;
+    flex-direction: row;
+}
+
+.properties {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+.image {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 4px;
+    border-radius: 8px;
+    position: relative;
+    margin-left: 16px;
+
+    &:hover {
+        --delete-visiblity: visible;
+    }
+
+    img {
+        width: 96px;
+        height: 96px;
+        border-radius: 4px;
+    }
+
+    svg {
+        position: absolute;
+        background-color: rgba(255, 0, 0, 0.45);
+        border-radius: 50%;
+        padding: 4px;
+        top: 2px;
+        right: 2px;
+        width: 16px;
+        height: 16px;
+        visibility: var(--delete-visiblity);
+    }
+}

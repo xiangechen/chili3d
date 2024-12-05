@@ -4,15 +4,23 @@ import {
     Binding,
     IConverter,
     IDocument,
+    isPropertyChanged,
     Property,
     PubSub,
     Quaternion,
     Result,
     Transaction,
+    XY,
     XYZ,
 } from "chili-core";
 import { div, input, localize, span } from "../components";
-import { NumberConverter, QuaternionConverter, StringConverter, XYZConverter } from "../converters";
+import {
+    NumberConverter,
+    QuaternionConverter,
+    StringConverter,
+    XYConverter,
+    XYZConverter,
+} from "../converters";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -84,7 +92,7 @@ export class InputProperty extends PropertyBase {
         let des = Object.getOwnPropertyDescriptor(this.objects[0], this.property.name);
         if (des === undefined) {
             let proto = Object.getPrototypeOf(this.objects[0]);
-            while (proto.name !== "Object") {
+            while (isPropertyChanged(proto)) {
                 des = Object.getOwnPropertyDescriptor(proto, this.property.name);
                 if (des !== undefined) break;
                 proto = Object.getPrototypeOf(proto);
@@ -126,6 +134,8 @@ export class InputProperty extends PropertyBase {
         let name = this.objects[0][this.property.name].constructor.name;
         if (name === XYZ.name) {
             return new XYZConverter();
+        } else if (name === XY.name) {
+            return new XYConverter();
         } else if (name === Quaternion.name) {
             return new QuaternionConverter();
         } else if (name === String.name) {

@@ -3,6 +3,7 @@
 import {
     CollectionAction,
     CollectionChangedArgs,
+    DeepObserver,
     IDisposable,
     INode,
     IShapeFilter,
@@ -10,27 +11,25 @@ import {
     IVisualContext,
     IVisualObject,
     Material,
-    MathUtils,
     MeshNode,
     NodeAction,
     NodeRecord,
     ShapeMeshData,
     ShapeNode,
     ShapeType,
+    Texture,
+    XY,
     XYZ,
 } from "chili-core";
 import {
     Box3,
-    DoubleSide,
     Group,
     LineSegments,
     Mesh,
     Object3D,
     Points,
-    RepeatWrapping,
     Scene,
-    TextureLoader,
-    MeshLambertMaterial as ThreeMaterial,
+    Material as ThreeMaterial,
     Vector3,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
@@ -54,45 +53,28 @@ export class ThreeVisualContext implements IVisualContext {
         this.tempShapes = new Group();
         scene.add(this.visualShapes, this.tempShapes);
         visual.document.addNodeObserver(this);
-        visual.document.materials.onCollectionChanged(this.onMaterialsChanged);
+        visual.document.materials.onCollectionChanged(this.onMaterialCollectionChanged);
     }
 
-    private readonly onMaterialsChanged = (args: CollectionChangedArgs) => {
+    private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
             args.items.forEach((item: Material) => {
-                let material = new ThreeMaterial({
-                    color: item.color,
-                    side: DoubleSide,
-                    transparent: true,
-                    name: item.name,
-                    opacity: item.opacity,
-                });
-                material.map = this.loadTexture(item);
-                item.onPropertyChanged(this.onMaterialPropertyChanged);
-                this.materialMap.set(item.id, material);
+                this.createThreeMaterial(item);
             });
         } else if (args.action === CollectionAction.remove) {
             args.items.forEach((item: Material) => {
                 let material = this.materialMap.get(item.id);
                 this.materialMap.delete(item.id);
-                item.removePropertyChanged(this.onMaterialPropertyChanged);
+                DeepObserver.removeDeepPropertyChangedHandler(item, this.onMaterialPropertyChanged);
                 material?.dispose();
             });
         }
     };
 
-    private loadTexture(item: Material) {
-        if (!item.texture) {
-            return null;
-        }
-
-        let map = new TextureLoader().load(item.texture);
-        map.wrapS = RepeatWrapping;
-        map.wrapT = RepeatWrapping;
-        map.center.set(0.5, 0.5);
-        map.repeat.set(item.repeatU, item.repeatV);
-        map.rotation = MathUtils.degToRad(item.angle);
-        return map;
+    private createThreeMaterial(material: Material) {
+        let result = ThreeHelper.mapMaterial(material);
+        DeepObserver.addDeepPropertyChangedHandler(material, this.onMaterialPropertyChanged);
+        this.materialMap.set(material.id, result);
     }
 
     getMaterial(id: string): ThreeMaterial {
@@ -103,27 +85,45 @@ export class ThreeVisualContext implements IVisualContext {
         return material;
     }
 
-    private readonly onMaterialPropertyChanged = (prop: keyof Material, source: Material) => {
-        let material = this.materialMap.get(source.id);
+    private readonly onMaterialPropertyChanged = (path: string, source: any) => {
+        let material = this.materialMap.get(source?.id) as any;
         if (!material) return;
-        if (prop === "color") {
-            material.color.set(source.color);
-        } else if (prop === "texture") {
-            material.map = this.loadTexture(source);
-        } else if (prop === "opacity") {
-            material.opacity = source.opacity;
-        } else if (prop === "name") {
-            material.name = source.name;
-        } else if (prop === "angle" && material.map) {
-            material.map.rotation = MathUtils.degToRad(source.angle);
-        } else if (prop === "repeatU" && material.map) {
-            material.map.repeat.setX(source.repeatU);
-        } else if (prop === "repeatV" && material.map) {
-            material.map.repeat.setY(source.repeatV);
-        } else {
-            throw new Error("Unknown material property: " + prop);
+
+        let { isOk, value } = DeepObserver.getPathValue(source, path);
+        if (!isOk) return;
+
+        if (path === "color") {
+            material.color.set(value);
+            return;
         }
+
+        if (!path.includes(".")) {
+            material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value) : value;
+            return;
+        }
+
+        this.setTextureValue(source, material, path, value);
     };
+
+    private setTextureValue(material: any, threeMaterial: any, path: string, value: any) {
+        let paths = path.split(".");
+        if (path.endsWith(".image") && material[paths[0]] instanceof Texture && paths[0] in threeMaterial) {
+            threeMaterial[paths[0]] = ThreeHelper.loadTexture(material[paths[0]]);
+            return;
+        }
+
+        let obj = threeMaterial;
+        for (let i = 0; i < paths.length - 1; i++) {
+            obj = obj[paths[i]];
+        }
+        if (obj === undefined) return;
+
+        if (value instanceof XY) {
+            obj[paths.at(-1)!].set(value.x, value.y);
+        } else {
+            obj[paths.at(-1)!] = value;
+        }
+    }
 
     handleNodeChanged = (records: NodeRecord[]) => {
         let adds: INode[] = [],
@@ -135,6 +135,7 @@ export class ThreeVisualContext implements IVisualContext {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
             }
         });
+
         this.addNode(adds.filter((x) => !INode.isLinkedListNode(x)));
         this.removeNode(rms.filter((x) => !INode.isLinkedListNode(x)));
     };
@@ -158,7 +159,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.visual.document.materials.forEach((x) =>
             x.removePropertyChanged(this.onMaterialPropertyChanged),
         );
-        this.visual.document.materials.removeCollectionChanged(this.onMaterialsChanged);
+        this.visual.document.materials.removeCollectionChanged(this.onMaterialCollectionChanged);
         this.visual.document.removeNodeObserver(this);
         this.materialMap.forEach((x) => x.dispose());
         this.materialMap.clear();
@@ -174,8 +175,6 @@ export class ThreeVisualContext implements IVisualContext {
     redrawNode(models: INode[]) {
         this.removeNode(models);
         this.addNode(models);
-
-        // TODO: set state
     }
 
     get shapeCount() {

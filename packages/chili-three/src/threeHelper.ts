@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Matrix4, XYZ } from "chili-core";
+import { Material, MathUtils, Matrix4, PhongMaterial, PhysicalMaterial, Texture, XYZ } from "chili-core";
 import {
     Box3,
     Camera,
@@ -9,6 +9,12 @@ import {
     PerspectiveCamera,
     Color as ThreeColor,
     Vector3,
+    DoubleSide,
+    TextureLoader,
+    RepeatWrapping,
+    MeshPhongMaterial as ThreePhoneMaterial,
+    MeshPhysicalMaterial as ThreePhysicalMaterial,
+    MeshLambertMaterial as ThreeLambertMaterial,
 } from "three";
 
 export class ThreeHelper {
@@ -70,5 +76,52 @@ export class ThreeHelper {
             new Vector3(max.x, max.y, max.z),
             new Vector3(min.x, max.y, max.z),
         ];
+    }
+
+    static loadTexture(item: Texture | undefined) {
+        if (!item?.image) {
+            return null;
+        }
+
+        let map = new TextureLoader().load(item.image);
+        map.wrapS = RepeatWrapping;
+        map.wrapT = RepeatWrapping;
+        map.center.set(0.5, 0.5);
+        map.repeat.set(item.repeat.x, item.repeat.y);
+        map.rotation = MathUtils.degToRad(item.rotation);
+        return map;
+    }
+
+    static mapMaterial(material: Material) {
+        const params = {
+            color: material.color,
+            side: DoubleSide,
+            transparent: true,
+            name: material.name,
+            opacity: material.opacity,
+            map: this.loadTexture(material.map),
+        };
+
+        if (material instanceof PhysicalMaterial) {
+            return new ThreePhysicalMaterial({
+                ...params,
+                roughness: material.roughness,
+                metalness: material.metalness,
+                roughnessMap: this.loadTexture(material.roughnessMap),
+                metalnessMap: this.loadTexture(material.metalnessMap),
+            });
+        }
+
+        if (material instanceof PhongMaterial) {
+            return new ThreePhoneMaterial({
+                ...params,
+                specularMap: this.loadTexture(material.specularMap),
+                shininess: material.shininess,
+                emissive: material.emissive,
+                emissiveMap: this.loadTexture(material.emissiveMap),
+            });
+        }
+
+        return new ThreeLambertMaterial(params);
     }
 }

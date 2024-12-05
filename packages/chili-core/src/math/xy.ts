@@ -1,17 +1,24 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Precision } from "../foundation";
+import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
+@Serializer.register(["x", "y"])
 export class XY {
     static readonly zero = new XY(0, 0);
     static readonly unitX = new XY(1, 0);
     static readonly unitY = new XY(0, 1);
 
-    constructor(
-        readonly x: number,
-        readonly y: number,
-    ) {}
+    @Serializer.serialze()
+    readonly x: number;
+    @Serializer.serialze()
+    readonly y: number;
+
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
+    }
 
     cross(right: XY): number {
         return this.x * right.y - this.y * right.x;

@@ -397,7 +397,7 @@ export abstract class ParameterShapeNode extends ShapeNode {
 
     constructor(document: IDocument, materialId?: string, id?: string) {
         super(document, undefined as any, materialId, id);
-        this.name = I18n.translate(this.display());
+        this.setPrivateValue("name", I18n.translate(this.display()));
     }
 
     protected abstract generateShape(): Result<IShape>;

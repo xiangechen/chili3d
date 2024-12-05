@@ -1,23 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, IConverter, Material, Property, PubSub, Result, readFileAsync } from "chili-core";
-import { button, collection, div, img, localize, span, svg } from "../../components";
+import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
+import { button, collection, div, localize, span, svg } from "../../components";
 import { ColorConverter } from "../../converters";
 import { appendProperty } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
+import { UrlStringConverter } from "./urlConverter";
+import { TextureEditor } from "./textureEditor";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}
 
     convert(value: Material): Result<string> {
         return Result.ok(this.material === value ? `${style.material} ${style.active}` : style.material);
-    }
-}
-
-class UrlStringConverter implements IConverter<string> {
-    convert(value: string): Result<string> {
-        return Result.ok(`url('${value}')`);
     }
 }
 
@@ -71,7 +67,11 @@ export class MaterialEditor extends HTMLElement {
                             title: material.name,
                             style: {
                                 backgroundColor: new Binding(material, "color", this.colorConverter),
-                                backgroundImage: new Binding(material, "texture", new UrlStringConverter()),
+                                backgroundImage: new PathBinding(
+                                    material,
+                                    "map.image",
+                                    new UrlStringConverter(),
+                                ),
                                 backgroundBlendMode: "multiply",
                                 backgroundSize: "contain",
                             },
@@ -127,10 +127,6 @@ export class MaterialEditor extends HTMLElement {
     };
 
     private initEditingControl(material: Material) {
-        const selectTexture = async () => {
-            let file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
-            material.texture = file.value[0].data;
-        };
         let container = div({
             className: style.properties,
         });
@@ -140,35 +136,17 @@ export class MaterialEditor extends HTMLElement {
                     className: style.editing,
                 },
                 container,
-                div(
-                    {
-                        className: style.texture,
-                    },
-                    img({
-                        style: {
-                            backgroundSize: "contain",
-                            backgroundImage: new Binding(material, "texture", new UrlStringConverter()),
-                        },
-                        onclick: selectTexture,
-                    }),
-                    span({
-                        textContent: localize("material.texture"),
-                    }),
-                    svg({
-                        icon: "icon-times",
-                        onclick: () => {
-                            material.texture = "";
-                        },
-                    }),
-                ),
             ),
         );
 
         Property.getProperties(material).forEach((x) => {
-            appendProperty(container, this.dataContent.document, [material], x);
-            if (x.display === "material.texture") {
-                (container.lastChild as HTMLInputElement).onclick = selectTexture;
+            let value = (material as any)[x.name];
+            if (value instanceof Texture) {
+                container.append(new TextureEditor(this.dataContent.document, x.display, value));
+                return;
             }
+
+            appendProperty(container, this.dataContent.document, [material], x);
         });
     }
 }
