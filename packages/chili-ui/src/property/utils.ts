@@ -1,34 +1,41 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, IDocument, Property, VisualNode } from "chili-core";
+import { IConverter, IDocument, Logger, Property, Texture } from "chili-core";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
+import { TextureProperty } from "./material/textureEditor";
 import { MaterialProperty } from "./materialProperty";
 
-export function appendProperty(container: HTMLElement, document: IDocument, objs: any[], prop?: Property) {
-    if (prop === undefined || objs.length === 0) return;
-    if (!(prop.name in objs[0])) {
-        alert(`Property ${prop.name} not found in ${Object.getPrototypeOf(objs[0]).constructor.name}`);
-        return;
-    }
-
-    const propValue = (objs[0] as unknown as any)[prop.name];
-    const type = typeof propValue;
+export function findPropertyControl(
+    document: IDocument,
+    objs: any[],
+    prop: Property,
+    converter?: IConverter,
+) {
+    if (prop === undefined || objs.length === 0) return "";
 
     if (prop.type === "color") {
-        container.append(new ColorProperty(document, objs, prop));
-    } else if (prop.type === "materialId") {
-        container.append(
-            new MaterialProperty(
-                document,
-                objs.filter((x) => "materialId" in x),
-                prop,
-            ),
-        );
-    } else if (type === "object" || type === "string" || type === "number") {
-        container.append(new InputProperty(document, objs, prop));
-    } else if (type === "boolean") {
-        container.append(new CheckProperty(objs, prop));
+        return new ColorProperty(document, objs, prop);
     }
+
+    if (prop.type === "materialId") {
+        return new MaterialProperty(document, objs, prop);
+    }
+
+    const value = objs[0][prop.name];
+    if (value instanceof Texture) {
+        return new TextureProperty(document, prop.display, value);
+    }
+
+    if (["object", "string", "number"].includes(typeof value)) {
+        return new InputProperty(document, objs, prop, converter);
+    }
+
+    if (typeof value === "boolean") {
+        return new CheckProperty(objs, prop);
+    }
+
+    Logger.warn(`Property ${prop.name} not found in ${Object.getPrototypeOf(objs[0]).constructor.name}`);
+    return "";
 }

@@ -2,11 +2,11 @@
 
 import { I18nKeys, IDocument, PathBinding, Property, readFileAsync, Texture } from "chili-core";
 import { div, Expander, img, svg } from "../../components";
-import { appendProperty } from "../utils";
+import { findPropertyControl } from "../utils";
 import style from "./textureEditor.module.css";
 import { UrlStringConverter } from "./urlConverter";
 
-export class TextureEditor extends Expander {
+export class TextureProperty extends Expander {
     constructor(
         readonly document: IDocument,
         display: I18nKeys,
@@ -18,17 +18,17 @@ export class TextureEditor extends Expander {
     }
 
     private render() {
-        let properties = div({ className: style.properties });
-        Property.getProperties(this.texture).forEach((x) => {
-            if ((x.name as keyof Texture) === "image") return;
-            appendProperty(properties, this.document, [this.texture], x);
-        });
-
         return div(
             {
                 className: style.expander,
             },
-            properties,
+            div(
+                { className: style.properties },
+                ...Property.getProperties(this.texture).map((x) => {
+                    if ((x.name as keyof Texture) === "image") return "";
+                    return findPropertyControl(this.document, [this.texture], x);
+                }),
+            ),
             div(
                 {
                     className: style.image,
@@ -56,4 +56,4 @@ export class TextureEditor extends Expander {
     };
 }
 
-customElements.define("texture-editor", TextureEditor);
+customElements.define("texture-editor", TextureProperty);

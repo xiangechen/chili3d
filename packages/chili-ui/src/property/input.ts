@@ -66,9 +66,10 @@ export class InputProperty extends PropertyBase {
         readonly document: IDocument,
         objects: any[],
         readonly property: Property,
+        converter?: IConverter,
     ) {
         super(objects);
-        this.converter = property.converter ?? this.getConverter();
+        this.converter = converter ?? this.getConverter();
         let arrayConverter = new ArrayValueConverter(objects, property, this.converter);
         this.append(
             div(
@@ -104,11 +105,11 @@ export class InputProperty extends PropertyBase {
         );
     }
 
-    private handleBlur = (e: FocusEvent) => {
+    private readonly handleBlur = (e: FocusEvent) => {
         this.setValue(e.target as HTMLInputElement);
     };
 
-    private handleKeyDown = (e: KeyboardEvent) => {
+    private readonly handleKeyDown = (e: KeyboardEvent) => {
         e.stopPropagation();
         if (this.converter === undefined) return;
         if (e.key === "Enter") {
@@ -116,7 +117,7 @@ export class InputProperty extends PropertyBase {
         }
     };
 
-    private setValue = (input: HTMLInputElement) => {
+    private readonly setValue = (input: HTMLInputElement) => {
         let newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {
             PubSub.default.pub("showToast", "error.default");

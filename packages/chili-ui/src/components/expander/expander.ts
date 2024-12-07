@@ -7,7 +7,7 @@ import style from "./expander.module.css";
 
 export class Expander extends HTMLElement {
     private _isExpanded = true;
-    private expanderIcon: SVGSVGElement;
+    private readonly expanderIcon: SVGSVGElement;
     private readonly headerPanel = div({ className: style.headerPanel });
     readonly contenxtPanel = div({ className: style.contextPanel });
 

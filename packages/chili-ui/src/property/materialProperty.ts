@@ -42,7 +42,9 @@ export class MaterialProperty extends PropertyBase {
         button.textContent = material.name;
         Transaction.excute(this.document, "change material", () => {
             this.objects.forEach((x) => {
-                x[this.property.name] = material.id;
+                if (this.property.name in x) {
+                    x[this.property.name] = material.id;
+                }
             });
         });
         this.document.visual.update();

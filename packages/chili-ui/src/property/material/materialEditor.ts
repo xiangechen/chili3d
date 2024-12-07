@@ -1,13 +1,12 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
+import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result } from "chili-core";
 import { button, collection, div, localize, span, svg } from "../../components";
 import { ColorConverter } from "../../converters";
-import { appendProperty } from "../utils";
+import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
 import { UrlStringConverter } from "./urlConverter";
-import { TextureEditor } from "./textureEditor";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}
@@ -127,27 +126,21 @@ export class MaterialEditor extends HTMLElement {
     };
 
     private initEditingControl(material: Material) {
-        let container = div({
-            className: style.properties,
-        });
         this.editingControl.appendChild(
             div(
                 {
                     className: style.editing,
                 },
-                container,
+                div(
+                    {
+                        className: style.properties,
+                    },
+                    ...Property.getProperties(material).map((x) =>
+                        findPropertyControl(this.dataContent.document, [material], x),
+                    ),
+                ),
             ),
         );
-
-        Property.getProperties(material).forEach((x) => {
-            let value = (material as any)[x.name];
-            if (value instanceof Texture) {
-                container.append(new TextureEditor(this.dataContent.document, x.display, value));
-                return;
-            }
-
-            appendProperty(container, this.dataContent.document, [material], x);
-        });
     }
 }
 

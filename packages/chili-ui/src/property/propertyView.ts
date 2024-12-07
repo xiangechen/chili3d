@@ -1,7 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
-    GeometryNode,
     I18nKeys,
     IConverter,
     IDocument,
@@ -9,7 +8,6 @@ import {
     IView,
     Node,
     NodeLinkedList,
-    ParameterShapeNode,
     Property,
     PubSub,
     VisualNode,
@@ -17,7 +15,7 @@ import {
 import { Expander, div, label, localize } from "../components";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
-import { appendProperty } from "./utils";
+import { findPropertyControl } from "./utils";
 
 export class PropertyView extends HTMLElement {
     private readonly panel = div({ className: style.panel });
@@ -59,18 +57,18 @@ export class PropertyView extends HTMLElement {
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
 
-        let properties = div({ className: style.rootProperties });
+        let controls: any[] = [];
         if (nodes[0] instanceof NodeLinkedList) {
-            Property.getProperties(Object.getPrototypeOf(nodes[0])).forEach((x) => {
-                appendProperty(properties, document, nodes, x);
+            controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) => {
+                return findPropertyControl(document, nodes, x);
             });
         } else if (nodes[0] instanceof Node) {
-            Property.getOwnProperties(Node.prototype).forEach((x) => {
-                appendProperty(properties, document, nodes, x);
+            controls = Property.getOwnProperties(Node.prototype).map((x) => {
+                return findPropertyControl(document, nodes, x);
             });
         }
 
-        this.panel.append(properties);
+        this.panel.append(div({ className: style.rootProperties }, ...controls));
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
@@ -82,17 +80,24 @@ export class PropertyView extends HTMLElement {
 
     private addTransform(document: IDocument, geometries: VisualNode[]) {
         let matrix = new Expander("common.matrix");
+        // 这部分代码有问题，待完善
+        let converters = MatrixConverter.init();
         this.panel.append(matrix);
 
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
-            appendProperty(matrix, document, geometries, {
-                name: "transform",
-                display: display,
-                converter,
-            });
+            matrix.contenxtPanel.append(
+                findPropertyControl(
+                    document,
+                    geometries,
+                    {
+                        name: "transform",
+                        display: display,
+                    },
+                    converter,
+                ),
+            );
         };
-        // 这部分代码有问题，待完善
-        let converters = MatrixConverter.init();
+
         addMatrix("transform.translation", converters.translation);
         addMatrix("transform.scale", converters.scale);
         addMatrix("transform.rotation", converters.rotate);
@@ -102,10 +107,12 @@ export class PropertyView extends HTMLElement {
         let entities = geometries.filter((x) => x instanceof VisualNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display());
+        parameters.contenxtPanel.append(
+            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) => {
+                return findPropertyControl(document, entities, x);
+            }),
+        );
         this.panel.append(parameters);
-        Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).forEach((x) => {
-            appendProperty(parameters.contenxtPanel, document, entities, x);
-        });
     }
 
     private isAllElementsOfTypeFirstElement(arr: any[]): boolean {
