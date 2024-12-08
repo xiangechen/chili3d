@@ -8,11 +8,15 @@
     top: 16px;
     left: 16px;
     padding: 16px;
+    max-width: 480px;
+    max-height: 65%;
+    overflow: hidden;
 }
 
 .title {
     margin: 0px 6px;
     display: flex;
+    flex: 0;
     flex-direction: row;
     align-items: center;
 
@@ -42,7 +46,9 @@
     border: 1px solid var(--border-color);
     margin: 8px 0px;
     padding: 4px;
-    height: 120px;
+    height: 60px;
+    max-height: 120px;
+    flex: 0;
 }
 
 .material {
@@ -57,20 +63,17 @@
     border: 5px solid var(--primary-color);
 }
 
-.editing {
+.properties {
     display: flex;
-    flex-direction: row;
+    flex: 1;
+    flex-direction: column;
     border-radius: 8px;
     background-color: var(--panel-background-color);
     border: 1px solid var(--border-color);
     padding: 16px;
     --delete-visiblity: hidden;
-
-    .properties {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-    }
+    overflow: hidden;
+    overflow-y: auto;
 }
 
 .bottom {

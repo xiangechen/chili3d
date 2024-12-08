@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result } from "chili-core";
+import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
 import { button, collection, div, localize, span, svg } from "../../components";
 import { ColorConverter } from "../../converters";
 import { findPropertyControl } from "../utils";
@@ -22,7 +22,7 @@ export class MaterialEditor extends HTMLElement {
 
     constructor(readonly dataContent: MaterialDataContent) {
         super();
-        this.editingControl = div();
+        this.editingControl = div({className: style.properties});
         this.initEditingControl(dataContent.editingMaterial);
         this.append(
             div(
@@ -126,20 +126,20 @@ export class MaterialEditor extends HTMLElement {
     };
 
     private initEditingControl(material: Material) {
-        this.editingControl.appendChild(
-            div(
-                {
-                    className: style.editing,
-                },
-                div(
-                    {
-                        className: style.properties,
-                    },
-                    ...Property.getProperties(material).map((x) =>
-                        findPropertyControl(this.dataContent.document, [material], x),
-                    ),
-                ),
+        this.editingControl.innerHTML = "";
+
+        const isTexture = (p: Property) => {
+            return (material as any)[p.name] instanceof Texture;
+        }
+
+        let properties = Property.getProperties(material);
+        this.editingControl.append(
+            ...properties.filter(x => !isTexture(x)).map((x) =>
+                findPropertyControl(this.dataContent.document, [material], x),
             ),
+            ...properties.filter(isTexture).map((x) =>
+                findPropertyControl(this.dataContent.document, [material], x),
+            )
         );
     }
 }

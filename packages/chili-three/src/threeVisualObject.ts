@@ -61,7 +61,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
     get mesh() {
         return this._mesh;
     }
-    private readonly material: LineMaterial | MeshLambertMaterial;
+    private material: LineMaterial | MeshLambertMaterial;
 
     constructor(
         readonly context: ThreeVisualContext,
@@ -102,15 +102,15 @@ export class ThreeMeshObject extends ThreeVisualObject {
         throw new Error("Unknown mesh type");
     }
 
-    private readonly handleGeometryPropertyChanged = (property: keyof MeshNode) => {
+    private readonly handleGeometryPropertyChanged = (property: keyof MeshNode, s: any, o: any) => {
         if (property === "mesh") {
             this.disposeMesh();
             this._mesh = this.createMesh();
             this.add(this._mesh);
         } else if (property === "materialId") {
             if (this._mesh instanceof Mesh) {
-                let material = this.context.getMaterial(this.meshNode.materialId);
-                this._mesh.material = material;
+                this.material = this.context.getMaterial(this.meshNode.materialId) as MeshLambertMaterial;
+                this._mesh.material = this.material;
             }
         }
     };
@@ -128,7 +128,10 @@ export class ThreeMeshObject extends ThreeVisualObject {
             buff.setIndex(this.meshNode.mesh.index);
         }
         buff.computeBoundingBox();
-        return new Mesh(buff, this.context.materialMap.values().next().value);
+        let material =this.meshNode.materialId 
+            ? this.context.getMaterial(this.meshNode.materialId)
+            : this.context.materialMap.values().next().value;
+        return new Mesh(buff, material);
     }
 
     private newLine() {

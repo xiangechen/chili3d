@@ -59,6 +59,9 @@ export class Texture extends HistoryObservable {
     set repeat(value: XY) {
         this.setProperty("repeat", value);
     }
+
+    @Serializer.serialze()
+    center: XY = new XY(0.5, 0.5);
 }
 
 @Serializer.register(["document", "name", "color", "id"])
@@ -111,7 +114,7 @@ export class Material extends HistoryObservable {
     constructor(document: IDocument, name: string, color: number, id: string = Id.generate()) {
         super(document);
         this.id = id;
-        this.setPrivateValue("name", name);
+        this.setPrivateValue("name", name ? name : "unnamed");
         this.setPrivateValue("color", color);
     }
 
@@ -126,9 +129,9 @@ export class Material extends HistoryObservable {
 @Serializer.register(["document", "name", "color", "id"])
 export class PhongMaterial extends Material {
     @Serializer.serialze()
-    @Property.define("material.specular")
+    @Property.define("material.specular", {type: "color"})
     get specular(): number {
-        return this.getPrivateValue("specular", 0xffff);
+        return this.getPrivateValue("specular", 0x111111);
     }
     set specular(value: number) {
         this.setProperty("specular", value);
@@ -137,14 +140,14 @@ export class PhongMaterial extends Material {
     @Serializer.serialze()
     @Property.define("material.shininess")
     get shininess(): number {
-        return this.getPrivateValue("shininess", 100);
+        return this.getPrivateValue("shininess", 30);
     }
     set shininess(value: number) {
         this.setProperty("shininess", value);
     }
 
     @Serializer.serialze()
-    @Property.define("material.emissive")
+    @Property.define("material.emissive", {type: "color"})
     get emissive(): number {
         return this.getPrivateValue("emissive", 0x000000);
     }
@@ -155,7 +158,7 @@ export class PhongMaterial extends Material {
     @Serializer.serialze()
     @Property.define("material.specularMap")
     get specularMap(): Texture {
-        return this.getPrivateValue("specularMap");
+        return this.getPrivateValue("specularMap", new Texture(this.document));
     }
     set specularMap(value: Texture) {
         this.setProperty("specularMap", value);
@@ -228,21 +231,12 @@ export class PhysicalMaterial extends Material {
     }
 
     @Serializer.serialze()
-    @Property.define("material.emissive")
+    @Property.define("material.emissive", {type: "color"})
     get emissive(): number {
         return this.getPrivateValue("emissive", 0x000000);
     }
     set emissive(value: number) {
         this.setProperty("emissive", value);
-    }
-
-    @Serializer.serialze()
-    @Property.define("material.specularMap")
-    get specularMap(): Texture {
-        return this.getPrivateValue("specularMap", new Texture(this.document));
-    }
-    set specularMap(value: Texture) {
-        this.setProperty("specularMap", value);
     }
 
     @Serializer.serialze()

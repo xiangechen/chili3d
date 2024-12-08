@@ -117,7 +117,7 @@ export class ThreeHelper {
                 ...params,
                 specularMap: this.loadTexture(material.specularMap),
                 shininess: material.shininess,
-                emissive: material.emissive,
+                emissive: ThreeHelper.fromColor(material.emissive),
                 emissiveMap: this.loadTexture(material.emissiveMap),
             });
         }
