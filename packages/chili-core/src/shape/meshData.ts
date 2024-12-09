@@ -9,7 +9,7 @@ import { IShape } from "./shape";
 @Serializer.register([])
 export class Mesh {
     @Serializer.serialze()
-    meshType: "line" | "surface" = "line";
+    meshType: "line" | "surface" | "linesegments" = "line";
 
     @Serializer.serialze()
     position: number[] = [];

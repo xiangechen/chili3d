@@ -10,6 +10,8 @@ import {
     MeshLambertMaterial,
     Object3D
 } from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
@@ -57,7 +59,7 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
 }
 
 export class ThreeMeshObject extends ThreeVisualObject {
-    private _mesh: LineSegments2 | Mesh;
+    private _mesh: LineSegments2 | Mesh | Line2;
     get mesh() {
         return this._mesh;
     }
@@ -95,6 +97,8 @@ export class ThreeMeshObject extends ThreeVisualObject {
     private createMesh() {
         if (this.meshNode.mesh.meshType === "line") {
             return this.newLine();
+        } else if (this.meshNode.mesh.meshType === "linesegments") {
+            return this.newLineSegments();
         } else if (this.meshNode.mesh.meshType === "surface") {
             return this.newMesh();
         }
@@ -134,7 +138,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
         return new Mesh(buff, material);
     }
 
-    private newLine() {
+    private newLineSegments() {
         let material = new LineMaterial({
             linewidth: 1,
             color: this.meshNode.mesh.color as number,
@@ -146,8 +150,23 @@ export class ThreeMeshObject extends ThreeVisualObject {
         return new LineSegments2(buff, material);
     }
 
+    private newLine() {
+        let material = new LineMaterial({
+            linewidth: 1,
+            color: this.meshNode.mesh.color as number,
+            side: DoubleSide,
+        });
+        let geometry = new LineGeometry();
+        geometry.setPositions(this.meshNode.mesh.position);
+        geometry.computeBoundingBox();
+        return new Line2(geometry, material);
+    }
+
     private disposeMesh() {
         if (this._mesh instanceof LineSegments2) {
+            this._mesh.material.dispose();
+        }
+        if (this._mesh instanceof Line2) {
             this._mesh.material.dispose();
         }
         this._mesh.geometry?.dispose();
