@@ -4,17 +4,17 @@ import { Material, MathUtils, Matrix4, PhongMaterial, PhysicalMaterial, Texture,
 import {
     Box3,
     Camera,
-    Matrix4 as ThreeMatrix4,
+    DoubleSide,
     OrthographicCamera,
     PerspectiveCamera,
-    Color as ThreeColor,
-    Vector3,
-    DoubleSide,
-    TextureLoader,
     RepeatWrapping,
+    TextureLoader,
+    Color as ThreeColor,
+    MeshLambertMaterial as ThreeLambertMaterial,
+    Matrix4 as ThreeMatrix4,
     MeshPhongMaterial as ThreePhoneMaterial,
     MeshPhysicalMaterial as ThreePhysicalMaterial,
-    MeshLambertMaterial as ThreeLambertMaterial,
+    Vector3,
 } from "three";
 
 export class ThreeHelper {
@@ -92,36 +92,56 @@ export class ThreeHelper {
         return map;
     }
 
-    static mapMaterial(material: Material) {
-        const params = {
+    static parsePhysicalMaterial(material: PhysicalMaterial) {
+        return new ThreePhysicalMaterial({
             color: material.color,
             side: DoubleSide,
             transparent: true,
             name: material.name,
             opacity: material.opacity,
             map: this.loadTexture(material.map),
-        };
+            roughness: material.roughness,
+            metalness: material.metalness,
+            roughnessMap: this.loadTexture(material.roughnessMap),
+            metalnessMap: this.loadTexture(material.metalnessMap),
+        });
+    }
 
+    static parsePhongMaterial(material: PhongMaterial) {
+        return new ThreePhoneMaterial({
+            color: material.color,
+            side: DoubleSide,
+            transparent: true,
+            name: material.name,
+            opacity: material.opacity,
+            map: this.loadTexture(material.map),
+            specularMap: this.loadTexture(material.specularMap),
+            shininess: material.shininess,
+            emissive: ThreeHelper.fromColor(material.emissive),
+            emissiveMap: this.loadTexture(material.emissiveMap),
+        });
+    }
+
+    static parseBasicMaterial(material: Material) {
+        return new ThreeLambertMaterial({
+            color: material.color,
+            side: DoubleSide,
+            transparent: true,
+            name: material.name,
+            opacity: material.opacity,
+            map: this.loadTexture(material.map),
+        });
+    }
+
+    static parseToThreeMaterial(material: Material) {
         if (material instanceof PhysicalMaterial) {
-            return new ThreePhysicalMaterial({
-                ...params,
-                roughness: material.roughness,
-                metalness: material.metalness,
-                roughnessMap: this.loadTexture(material.roughnessMap),
-                metalnessMap: this.loadTexture(material.metalnessMap),
-            });
+            return this.parsePhysicalMaterial(material);
         }
 
         if (material instanceof PhongMaterial) {
-            return new ThreePhoneMaterial({
-                ...params,
-                specularMap: this.loadTexture(material.specularMap),
-                shininess: material.shininess,
-                emissive: ThreeHelper.fromColor(material.emissive),
-                emissiveMap: this.loadTexture(material.emissiveMap),
-            });
+            return this.parsePhongMaterial(material);
         }
 
-        return new ThreeLambertMaterial(params);
+        return this.parseBasicMaterial(material);
     }
 }

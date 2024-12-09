@@ -72,7 +72,7 @@ export class ThreeVisualContext implements IVisualContext {
     };
 
     private createThreeMaterial(material: Material) {
-        let result = ThreeHelper.mapMaterial(material);
+        let result = ThreeHelper.parseToThreeMaterial(material);
         DeepObserver.addDeepPropertyChangedHandler(material, this.onMaterialPropertyChanged);
         this.materialMap.set(material.id, result);
     }
