@@ -17,9 +17,10 @@ import {
     ObservableCollection,
     Plane,
     PubSub,
-    Serialized,
+    Serialized
 } from "chili-core";
 import { Document } from "./document";
+import { importFiles } from "./utils";
 
 let app: Application | undefined;
 
@@ -116,11 +117,8 @@ export class Application implements IApplication {
             return;
         }
         let { opens, imports } = this.groupFiles(files);
-
         this.loadDocumentsWithLoading(opens);
-
-        let document = this.activeView?.document ?? (await this.newDocument("Untitled"));
-        document.importFiles(imports);
+        importFiles(this, imports);
     }
 
     private loadDocumentsWithLoading(opens: File[]) {

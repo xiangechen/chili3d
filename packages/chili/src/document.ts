@@ -22,10 +22,9 @@ import {
     NodeSerializer,
     Observable,
     ObservableCollection,
-    PubSub,
     Serialized,
     Serializer,
-    Transaction,
+    Transaction
 } from "chili-core";
 import { Selection } from "./selection";
 
@@ -89,21 +88,6 @@ export class Document extends Observable implements IDocument {
         application.documents.add(this);
 
         Logger.info(`new document: ${name}`);
-    }
-
-    async importFiles(files: FileList | File[]) {
-        let document = this;
-        PubSub.default.pub(
-            "showPermanent",
-            async () => {
-                await Transaction.excuteAsync(document, "import model", async () => {
-                    await document.application.dataExchange.import(document, files);
-                });
-                document.application.activeView?.cameraController.fitContent();
-            },
-            "toast.excuting{0}",
-            I18n.translate("command.import"),
-        );
     }
 
     private readonly handleRootNodeNameChanged = (prop: string) => {

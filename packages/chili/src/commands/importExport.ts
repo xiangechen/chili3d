@@ -14,6 +14,7 @@ import {
     readFilesAsync,
 } from "chili-core";
 import { SelectNodeStep } from "../step";
+import { importFiles } from "../utils";
 
 @command({
     name: "file.import",
@@ -22,7 +23,6 @@ import { SelectNodeStep } from "../step";
 })
 export class Import implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let document = application.activeView?.document ?? (await application.newDocument("Undefined"));
         let extenstions = application.dataExchange.importFormats().join(",");
         let files = await readFilesAsync(extenstions, true);
         if (!files.isOk || files.value.length === 0) {
@@ -30,7 +30,7 @@ export class Import implements ICommand {
             return;
         }
 
-        return document.importFiles(files.value);
+        importFiles(application, files.value);
     }
 }
 
