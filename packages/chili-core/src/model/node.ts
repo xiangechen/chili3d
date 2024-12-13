@@ -431,6 +431,7 @@ export class EditableShapeNode extends ShapeNode {
         } else {
             this._shape = Result.ok(shape);
         }
+        this.setPrivateValue("transform", this._shape.value.matrix);
     }
 }
 

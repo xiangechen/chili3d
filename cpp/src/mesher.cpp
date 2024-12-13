@@ -145,18 +145,18 @@ private:
 
     void generateFaceMeshs()
     {
-        auto totleTransform = shape.Location().Transformation().Inverted();
+        auto inverted = shape.Location().Transformation().Inverted();
         TopTools_IndexedMapOfShape faceMap;
         TopExp::MapShapes(this->shape, TopAbs_FACE, faceMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
         {
             auto face = TopoDS::Face(anIt.Value());
             faces.push_back(face);
-            generateFaceMesh(face, totleTransform);
+            generateFaceMesh(face, inverted);
         }
     }
 
-    void generateFaceMesh(const TopoDS_Face &face, const gp_Trsf &totleTransform)
+    void generateFaceMesh(const TopoDS_Face &face, const gp_Trsf &inverted)
     {
         TopLoc_Location location;
         auto handlePoly = BRep_Tool::Triangulation(face, location);
@@ -164,9 +164,8 @@ private:
         {
             return;
         }
+        auto trsf = inverted.Multiplied(location.Transformation());
 
-        auto trsf = location.Transformation();
-        trsf = trsf.Multiplied(totleTransform);
         bool isMirrod = trsf.VectorialPart().Determinant() < 0;
         auto orientation = face.Orientation();
         auto groupStart = this->index.size();
