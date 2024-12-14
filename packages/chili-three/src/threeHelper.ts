@@ -102,6 +102,9 @@ export class ThreeHelper {
             map: this.loadTexture(material.map),
             roughness: material.roughness,
             metalness: material.metalness,
+            bumpMap: this.loadTexture(material.bumpMap),
+            normalMap: this.loadTexture(material.normalMap),
+            emissiveMap: this.loadTexture(material.emissiveMap),
             roughnessMap: this.loadTexture(material.roughnessMap),
             metalnessMap: this.loadTexture(material.metalnessMap),
         });

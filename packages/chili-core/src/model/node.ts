@@ -261,10 +261,10 @@ export class MeshNode extends VisualNode {
 
     @Serializer.serialze()
     @Property.define("common.material", { type: "materialId" })
-    get materialId(): string {
+    get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
     }
-    set materialId(value: string) {
+    set materialId(value: string | string[]) {
         this.setProperty("materialId", value);
     }
 
@@ -281,7 +281,7 @@ export class MeshNode extends VisualNode {
         document: IDocument,
         mesh: Mesh,
         name: string,
-        materialId?: string,
+        materialId?: string | string[],
         id: string = Id.generate(),
     ) {
         super(document, name, id);

@@ -6,6 +6,7 @@ import {
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
+    Material,
     Mesh,
     MeshLambertMaterial,
     Object3D
@@ -63,7 +64,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
     get mesh() {
         return this._mesh;
     }
-    private material: LineMaterial | MeshLambertMaterial;
+    private material: Material | Material[];
 
     constructor(
         readonly context: ThreeVisualContext,
@@ -71,7 +72,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
     ) {
         super(meshNode);
         this._mesh = this.createMesh();
-        this.material = this._mesh.material as MeshLambertMaterial;
+        this.material = this._mesh.material;
         this.add(this._mesh);
         meshNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
@@ -113,7 +114,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
             this.add(this._mesh);
         } else if (property === "materialId") {
             if (this._mesh instanceof Mesh) {
-                this.material = this.context.getMaterial(this.meshNode.materialId) as MeshLambertMaterial;
+                this.material = this.getMaterial();
                 this._mesh.material = this.material;
             }
         }
@@ -132,10 +133,19 @@ export class ThreeMeshObject extends ThreeVisualObject {
             buff.setIndex(this.meshNode.mesh.index);
         }
         buff.computeBoundingBox();
-        let material =this.meshNode.materialId 
-            ? this.context.getMaterial(this.meshNode.materialId)
-            : this.context.materialMap.values().next().value;
-        return new Mesh(buff, material);
+        return new Mesh(buff, this.getMaterial());
+    }
+
+    private getMaterial() {
+        let material: Material | Material[];
+        if (Array.isArray(this.meshNode.materialId)) {
+            material = this.meshNode.materialId.map(id => this.context.getMaterial(id));
+        } else if (typeof this.meshNode.materialId === "string") {
+            material = this.context.getMaterial(this.meshNode.materialId);
+        } else {
+            material = this.context.materialMap.values().next().value!;
+        }
+        return material;
     }
 
     private newLineSegments() {
