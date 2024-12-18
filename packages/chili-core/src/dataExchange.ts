@@ -2,7 +2,7 @@
 
 import { IDocument } from "./document";
 import { PubSub } from "./foundation";
-import { EditableShapeNode, NodeLinkedList, ShapeNode, VisualNode } from "./model";
+import { EditableShapeNode, FolderNode, ShapeNode, VisualNode } from "./model";
 
 export interface IDataExchange {
     importFormats(): string[];
@@ -35,7 +35,7 @@ export class DefaultDataExchange implements IDataExchange {
             let shapes = shape.value.map((x, i) => {
                 return new EditableShapeNode(document, `Imported ${i}`, x);
             });
-            let nodeList = new NodeLinkedList(document, file.name);
+            let nodeList = new FolderNode(document, file.name);
             document.addNode(nodeList);
             nodeList.add(...shapes);
             document.visual.update();

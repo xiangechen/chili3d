@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, NodeLinkedList, NodeSerializer, Serialized, Serializer } from "../src";
+import { FolderNode, IDocument, NodeSerializer, Serialized, Serializer } from "../src";
 import { TestDocument } from "./testDocument";
 
 @Serializer.register(["k1" as any])
@@ -41,10 +41,10 @@ test("test Serializer", () => {
 test("test Node Serializer", () => {
     let doc: IDocument = new TestDocument() as any;
 
-    let n1 = new NodeLinkedList(doc, "n1");
-    let n2 = new NodeLinkedList(doc, "n2");
-    let n3 = new NodeLinkedList(doc, "n3");
-    let n4 = new NodeLinkedList(doc, "n4");
+    let n1 = new FolderNode(doc, "n1");
+    let n2 = new FolderNode(doc, "n2");
+    let n3 = new FolderNode(doc, "n3");
+    let n4 = new FolderNode(doc, "n4");
     n1.add(n2, n3);
     n2.add(n4);
     let s = NodeSerializer.serialize(n1);

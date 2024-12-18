@@ -5,6 +5,7 @@ import {
     Box3,
     Camera,
     DoubleSide,
+    Object3D,
     OrthographicCamera,
     PerspectiveCamera,
     RepeatWrapping,
@@ -38,7 +39,7 @@ export class ThreeHelper {
         return (camera as OrthographicCamera).isOrthographicCamera;
     }
 
-    static fromColor(color: number): ThreeColor {
+    static fromColor(color: number | string): ThreeColor {
         return new ThreeColor(color);
     }
 
@@ -61,6 +62,12 @@ export class ThreeHelper {
         let y = vector.x * array[1] + vector.y * array[5] + vector.z * array[9];
         let z = vector.x * array[2] + vector.y * array[6] + vector.z * array[10];
         return new Vector3(x, y, z);
+    }
+
+    static getBoundingBox(object: Object3D) {
+        const box = new Box3();
+        box.setFromObject(object);
+        return { min: ThreeHelper.toXYZ(box.min), max: ThreeHelper.toXYZ(box.max) };
     }
 
     static boxCorners(box: Box3) {

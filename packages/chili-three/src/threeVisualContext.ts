@@ -4,6 +4,7 @@ import {
     CollectionAction,
     CollectionChangedArgs,
     DeepObserver,
+    GroupNode,
     IDisposable,
     INode,
     IShapeFilter,
@@ -35,7 +36,7 @@ import {
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeMeshObject } from "./threeVisualObject";
+import { GroupVisualObject, ThreeMeshObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new WeakMap<IVisualObject, INode>();
@@ -133,11 +134,13 @@ export class ThreeVisualContext implements IVisualContext {
                 INode.nodeOrChildrenAppendToNodes(adds, x.node);
             } else if (x.action === NodeAction.remove) {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
+            } else if (x.action === NodeAction.move) {
+                if (x.newParent) this.moveNode(x.node, x.oldParent!);
             }
         });
 
-        this.addNode(adds.filter((x) => !INode.isLinkedListNode(x)));
-        this.removeNode(rms.filter((x) => !INode.isLinkedListNode(x)));
+        this.addNode(adds);
+        this.removeNode(rms);
     };
 
     addVisualObject(object: IVisualObject): void {
@@ -266,6 +269,24 @@ export class ThreeVisualContext implements IVisualContext {
         shape.visible = visible;
     }
 
+    moveNode(node: INode, oldParent: INode): void {
+        if (oldParent === node.parent) return;
+
+        let parentNode = this._NodeVisualMap.get(oldParent) ?? this.visualShapes;
+        let newParentNode = (this._NodeVisualMap.get(node.parent!) as any) ?? this.visualShapes;
+        if (parentNode === newParentNode) {
+            return;
+        }
+
+        if (parentNode instanceof Group) {
+            let visual = this._NodeVisualMap.get(node);
+            if (visual instanceof Object3D) {
+                parentNode.remove(visual);
+                newParentNode.add(visual);
+            }
+        }
+    }
+
     addNode(nodes: INode[]) {
         nodes.forEach((node) => {
             if (this._NodeVisualMap.has(node)) return;
@@ -279,10 +300,13 @@ export class ThreeVisualContext implements IVisualContext {
             visualObject = new ThreeMeshObject(this, node);
         } else if (node instanceof ShapeNode) {
             visualObject = new ThreeGeometry(node as any, this);
+        } else if (node instanceof GroupNode) {
+            visualObject = new GroupVisualObject(node);
         }
 
         if (visualObject) {
-            this.visualShapes.add(visualObject);
+            let parent = this.getParentVisual(node);
+            parent.add(visualObject);
             this._visualNodeMap.set(visualObject, node);
             this._NodeVisualMap.set(node, visualObject);
         }
@@ -295,10 +319,21 @@ export class ThreeVisualContext implements IVisualContext {
             if (!visual) return;
             this._visualNodeMap.delete(visual);
             if (visual instanceof ThreeGeometry || visual instanceof ThreeMeshObject) {
-                this.visualShapes.remove(visual);
+                this.getParentVisual(m).remove(visual);
                 visual.dispose();
             }
         });
+    }
+
+    private getParentVisual(node: INode): Group {
+        let parent = this.visualShapes;
+        if (node.parent) {
+            let parentNode = this._NodeVisualMap.get(node.parent);
+            if (parentNode instanceof Group) {
+                parent = parentNode;
+            }
+        } 
+        return parent;
     }
 
     findShapes(shapeType: ShapeType): Object3D[] {

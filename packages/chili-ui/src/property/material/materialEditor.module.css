@@ -49,6 +49,8 @@
     height: 60px;
     max-height: 120px;
     flex: 0;
+    overflow: hidden;
+    overflow-y: auto;
 }
 
 .material {

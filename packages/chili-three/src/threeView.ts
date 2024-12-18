@@ -280,7 +280,7 @@ export class ThreeView extends Observable implements IView {
         let visual = new Set<IVisualObject>();
         for (const obj of selectionBox.select()) {
             let threeObject = obj.parent as ThreeVisualObject;
-            if (!threeObject || !threeObject.visible) continue;
+            if (!threeObject?.visible) continue;
 
             let node = this.getNodeFromObject(threeObject);
             if (node === undefined) continue;

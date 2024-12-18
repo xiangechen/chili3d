@@ -1,13 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import {
+    FolderNode,
+    GroupNode,
     I18nKeys,
     IConverter,
     IDocument,
     INode,
     IView,
     Node,
-    NodeLinkedList,
     Property,
     PubSub,
     VisualNode,
@@ -58,7 +59,7 @@ export class PropertyView extends HTMLElement {
         if (nodes.length === 0) return;
 
         let controls: any[] = [];
-        if (nodes[0] instanceof NodeLinkedList) {
+        if (nodes[0] instanceof FolderNode) {
             controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) => {
                 return findPropertyControl(document, nodes, x);
             });
@@ -72,13 +73,13 @@ export class PropertyView extends HTMLElement {
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
-        let geometries = nodes.filter((x) => x instanceof VisualNode);
+        let geometries = nodes.filter((x) => x instanceof VisualNode || x instanceof GroupNode);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
         this.addTransform(document, geometries);
         this.addParameters(geometries, document);
     }
 
-    private addTransform(document: IDocument, geometries: VisualNode[]) {
+    private addTransform(document: IDocument, geometries: (VisualNode | GroupNode)[]) {
         let matrix = new Expander("common.matrix");
         // 这部分代码有问题，待完善
         let converters = MatrixConverter.init();
@@ -91,7 +92,7 @@ export class PropertyView extends HTMLElement {
                     geometries,
                     {
                         name: "transform",
-                        display: display,
+                        display,
                     },
                     converter,
                 ),
@@ -103,7 +104,7 @@ export class PropertyView extends HTMLElement {
         addMatrix("transform.rotation", converters.rotate);
     }
 
-    private addParameters(geometries: VisualNode[], document: IDocument) {
+    private addParameters(geometries: (VisualNode | GroupNode)[], document: IDocument) {
         let entities = geometries.filter((x) => x instanceof VisualNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         let parameters = new Expander(entities[0].display());

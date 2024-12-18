@@ -86,10 +86,10 @@ export class Material extends HistoryObservable {
 
     @Serializer.serialze()
     @Property.define("common.color", { type: "color" })
-    get color(): number {
+    get color(): number | string {
         return this.getPrivateValue("color");
     }
-    set color(value: number) {
+    set color(value: number | string) {
         this.setProperty("color", value);
     }
 
@@ -111,10 +111,10 @@ export class Material extends HistoryObservable {
         this.setProperty("map", value);
     }
 
-    constructor(document: IDocument, name: string, color: number, id: string = Id.generate()) {
+    constructor(document: IDocument, name: string, color: number | string, id: string = Id.generate()) {
         super(document);
         this.id = id;
-        this.setPrivateValue("name", name ? name : "unnamed");
+        this.setPrivateValue("name", name?.length > 0 ? name : "unnamed");
         this.setPrivateValue("color", color);
     }
 
@@ -130,10 +130,10 @@ export class Material extends HistoryObservable {
 export class PhongMaterial extends Material {
     @Serializer.serialze()
     @Property.define("material.specular", {type: "color"})
-    get specular(): number {
+    get specular(): number | string {
         return this.getPrivateValue("specular", 0x111111);
     }
-    set specular(value: number) {
+    set specular(value: number | string) {
         this.setProperty("specular", value);
     }
 
@@ -148,10 +148,10 @@ export class PhongMaterial extends Material {
 
     @Serializer.serialze()
     @Property.define("material.emissive", {type: "color"})
-    get emissive(): number {
+    get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }
-    set emissive(value: number) {
+    set emissive(value: number | string) {
         this.setProperty("emissive", value);
     }
 
@@ -232,10 +232,10 @@ export class PhysicalMaterial extends Material {
 
     @Serializer.serialze()
     @Property.define("material.emissive", {type: "color"})
-    get emissive(): number {
+    get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }
-    set emissive(value: number) {
+    set emissive(value: number | string) {
         this.setProperty("emissive", value);
     }
 

@@ -21,12 +21,12 @@ export class MaterialProperty extends PropertyBase {
                     textContent: localize(property.display),
                 }),
                 button({
-                    textContent: this.findMaterial(objects[0].materialId).name,
+                    textContent: this.findMaterial(objects[0].materialId).map(x => x.name).join(", "),
                     onclick: (e) => {
                         PubSub.default.pub(
                             "editMaterial",
                             document,
-                            this.findMaterial(objects[0].materialId),
+                            this.findMaterial(objects[0].materialId)[0],
                             (material) => {
                                 this.setMaterial(e, material);
                             },
@@ -50,8 +50,11 @@ export class MaterialProperty extends PropertyBase {
         this.document.visual.update();
     }
 
-    private findMaterial(id: string) {
-        return this.document.materials.find((x) => x.id === id)!;
+    private findMaterial(id: string | string[]) {
+        if (Array.isArray(id)) {
+            return this.document.materials.filter((x) => id.includes(x.id))!;
+        }
+        return [this.document.materials.find((x) => x.id === id)!];
     }
 }
 

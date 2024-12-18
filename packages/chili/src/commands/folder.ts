@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { command, IApplication, ICommand, NodeLinkedList } from "chili-core";
+import { command, FolderNode, IApplication, ICommand } from "chili-core";
 
 let index: number = 1;
 
@@ -12,7 +12,7 @@ let index: number = 1;
 export class NewFolder implements ICommand {
     async execute(app: IApplication): Promise<void> {
         let document = app.activeView?.document!;
-        let folder = new NodeLinkedList(document, `Folder${index++}`);
+        let folder = new FolderNode(document, `Folder${index++}`);
         document.addNode(folder);
     }
 }

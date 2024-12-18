@@ -1,22 +1,22 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, INode, NodeLinkedList } from "../src";
+import { FolderNode, IDocument, INode } from "../src";
 import { TestDocument } from "./testDocument";
 
 describe("test node", () => {
     let doc: IDocument = new TestDocument() as any;
 
     test("test get all nodes between two nodes", () => {
-        let n1 = new NodeLinkedList(doc, "n1");
-        let n2 = new NodeLinkedList(doc, "n2");
-        let n3 = new NodeLinkedList(doc, "n3");
-        let n4 = new NodeLinkedList(doc, "n4");
-        let n5 = new NodeLinkedList(doc, "n5");
-        let n6 = new NodeLinkedList(doc, "n6");
-        let n7 = new NodeLinkedList(doc, "n7");
-        let n8 = new NodeLinkedList(doc, "n8");
-        let n9 = new NodeLinkedList(doc, "n9");
-        let n10 = new NodeLinkedList(doc, "n10");
+        let n1 = new FolderNode(doc, "n1");
+        let n2 = new FolderNode(doc, "n2");
+        let n3 = new FolderNode(doc, "n3");
+        let n4 = new FolderNode(doc, "n4");
+        let n5 = new FolderNode(doc, "n5");
+        let n6 = new FolderNode(doc, "n6");
+        let n7 = new FolderNode(doc, "n7");
+        let n8 = new FolderNode(doc, "n8");
+        let n9 = new FolderNode(doc, "n9");
+        let n10 = new FolderNode(doc, "n10");
         let n11: INode = {
             id: "n11",
             name: "n11",

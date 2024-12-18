@@ -6,7 +6,7 @@ import { Serializer } from "../serialize";
 import { INode, INodeLinkedList, Node } from "./node";
 
 @Serializer.register(["document", "name", "id"])
-export class NodeLinkedList extends Node implements INodeLinkedList {
+export class FolderNode extends Node implements INodeLinkedList {
     private _count: number = 0;
 
     private _firstChild: INode | undefined;
@@ -159,11 +159,11 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             newPrevious: target,
             node,
         };
-        NodeLinkedList.insertNodeAfter(this, target, node);
+        FolderNode.insertNodeAfter(this, target, node);
         this.document.notifyNodeChanged([record]);
     }
 
-    private static insertNodeAfter(parent: NodeLinkedList, target: INode | undefined, node: INode) {
+    private static insertNodeAfter(parent: FolderNode, target: INode | undefined, node: INode) {
         if (parent.initParentAndAssertNotFirst(node)) {
             if (target === undefined) {
                 parent._firstChild!.previousSibling = node;
@@ -181,7 +181,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
         parent._count++;
     }
 
-    move(child: INode, newParent: NodeLinkedList, previousSibling?: INode): void {
+    move(child: INode, newParent: FolderNode, previousSibling?: INode): void {
         if (previousSibling !== undefined && previousSibling.parent !== newParent) {
             Logger.warn(`${previousSibling.name} is not a child node of the ${newParent.name} node`);
             return;
@@ -195,7 +195,7 @@ export class NodeLinkedList extends Node implements INodeLinkedList {
             node: child,
         };
         this.removeNode(child, false);
-        NodeLinkedList.insertNodeAfter(newParent, previousSibling, child);
+        FolderNode.insertNodeAfter(newParent, previousSibling, child);
 
         this.document.notifyNodeChanged([record]);
     }

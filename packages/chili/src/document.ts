@@ -4,6 +4,7 @@ import {
     CollectionAction,
     CollectionChangedArgs,
     Constants,
+    FolderNode,
     History,
     I18n,
     IApplication,
@@ -16,7 +17,6 @@ import {
     Id,
     Logger,
     Material,
-    NodeLinkedList,
     NodeLinkedListHistoryRecord,
     NodeRecord,
     NodeSerializer,
@@ -62,7 +62,7 @@ export class Document extends Observable implements IDocument {
     private setRootNode(value?: INodeLinkedList) {
         if (this._rootNode === value) return;
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode = value ?? new NodeLinkedList(this, this.name);
+        this._rootNode = value ?? new FolderNode(this, this.name);
         this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
@@ -97,7 +97,7 @@ export class Document extends Observable implements IDocument {
     };
 
     initRootNode() {
-        return new NodeLinkedList(this, this.name);
+        return new FolderNode(this, this.name);
     }
 
     serialize(): Serialized {

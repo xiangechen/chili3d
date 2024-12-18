@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { BoundingBox, IVisualObject, Matrix4, MeshNode, VisualConfig, VisualNode } from "chili-core";
+import { BoundingBox, GroupNode, IVisualObject, Matrix4, MeshNode, VisualConfig, VisualNode } from "chili-core";
 import {
-    Box3,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
+    Group,
     Material,
     Mesh,
     MeshLambertMaterial,
@@ -42,16 +42,14 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         visualNode.onPropertyChanged(this.handlePropertyChanged);
     }
 
-    private readonly handlePropertyChanged = (property: keyof MeshNode) => {
+    private readonly handlePropertyChanged = (property: keyof VisualNode) => {
         if (property === "transform") {
             this.transform = this.visualNode.transform;
         }
     };
 
     boundingBox(): BoundingBox {
-        const box = new Box3();
-        box.setFromObject(this);
-        return { min: ThreeHelper.toXYZ(box.min), max: ThreeHelper.toXYZ(box.max) };
+        return ThreeHelper.getBoundingBox(this);
     }
 
     dispose() {
@@ -132,6 +130,13 @@ export class ThreeMeshObject extends ThreeVisualObject {
         if (this.meshNode.mesh.index) {
             buff.setIndex(this.meshNode.mesh.index);
         }
+        this.meshNode.mesh.groups.forEach(g => {
+            let index = 0;
+            if (Array.isArray(this.meshNode.materialId)) {
+                index = this.meshNode.materialId.indexOf(g.materialId);
+            }
+            buff.addGroup(g.start, g.count, index);
+        })
         buff.computeBoundingBox();
         return new Mesh(buff, this.getMaterial());
     }
@@ -186,5 +191,35 @@ export class ThreeMeshObject extends ThreeVisualObject {
         super.dispose();
         this.meshNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this.disposeMesh();
+    }
+}
+
+export class GroupVisualObject extends Group implements IVisualObject {
+    get transform() {
+        return ThreeHelper.toMatrix(this.matrix);
+    }
+    set transform(value: Matrix4) {
+        this.matrix.fromArray(value.toArray());
+    }
+
+    constructor(private readonly groupNode: GroupNode) {
+        super();
+        this.matrixAutoUpdate = false;
+        this.transform = groupNode.transform;
+        groupNode.onPropertyChanged(this.handlePropertyChanged);
+    }
+
+    private readonly handlePropertyChanged = (property: keyof GroupNode) => {
+        if (property === "transform") {
+            this.transform = this.groupNode.transform;
+        }
+    };
+
+    boundingBox(): BoundingBox {
+        return ThreeHelper.getBoundingBox(this);
+    }
+
+    dispose() {
+        this.groupNode.removePropertyChanged(this.handlePropertyChanged);
     }
 }

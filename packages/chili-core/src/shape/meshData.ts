@@ -8,6 +8,14 @@ import { IShape } from "./shape";
 
 @Serializer.register([])
 export class Mesh {
+    static createSurface() {
+        let mesh = new Mesh();
+        mesh.meshType = "surface";
+        mesh.normal = [];
+        mesh.uv = []
+        return mesh;
+    }
+
     @Serializer.serialze()
     meshType: "line" | "surface" | "linesegments" = "line";
 
@@ -27,7 +35,7 @@ export class Mesh {
     uv: number[] | undefined = undefined;
 
     @Serializer.serialze()
-    groups: { start: number; count: number; materialId: number }[] = [];
+    groups: { start: number; count: number; materialId: string }[] = [];
 }
 
 export interface IShapeMeshData {
