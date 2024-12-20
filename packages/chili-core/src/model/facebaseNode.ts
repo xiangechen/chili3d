@@ -2,7 +2,7 @@
 
 import { Property } from "../property";
 import { Serializer } from "../serialize";
-import { ParameterShapeNode } from "./node";
+import { ParameterShapeNode } from "./shapeNode";
 
 export abstract class FacebaseNode extends ParameterShapeNode {
     @Serializer.serialze()

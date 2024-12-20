@@ -30,6 +30,7 @@ export default {
         "box.dz": "Height",
         "body.editableShape": "Editable Shape",
         "body.meshNode": "Mesh Node",
+        "body.multiShape": "Multi Shape",
         "circle.center": "Center",
         "circle.radius": "Radius",
         "command.arc": "Arc",

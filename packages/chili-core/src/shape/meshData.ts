@@ -39,7 +39,6 @@ export class Mesh {
 }
 
 export interface IShapeMeshData {
-    get shape(): IShape;
     get edges(): EdgeMeshData | undefined;
     get faces(): FaceMeshData | undefined;
     updateMeshShape(): void;

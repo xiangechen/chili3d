@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { BoundingBox, GeometryNode, IDisposable, INode, Matrix4, VisualNode } from "chili-core";
+import { BoundingBox, GeometryNode, IDisposable, Matrix4 } from "chili-core";
 
 export interface IVisualObject extends IDisposable {
     visible: boolean;

@@ -4,17 +4,14 @@ import { IDocument } from "../document";
 import {
     HistoryObservable,
     IDisposable,
-    IEqualityComparer,
     IPropertyChanged,
-    Id,
-    PubSub,
-    Result,
+    Id
 } from "../foundation";
-import { I18n, I18nKeys } from "../i18n";
+import { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
-import { IShape, IShapeMeshData, Mesh } from "../shape";
+import { IShapeMeshData, Mesh } from "../shape";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -329,110 +326,6 @@ export abstract class GeometryNode extends VisualNode {
     }
 
     protected abstract createMesh(): IShapeMeshData;
-}
-
-export abstract class ShapeNode extends GeometryNode {
-    protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
-    get shape(): Result<IShape> {
-        return this._shape;
-    }
-
-    protected setShape(shape: Result<IShape>) {
-        if (this._shape.isOk && this._shape.value.isEqual(shape.value)) {
-            return;
-        }
-
-        if (!shape.isOk) {
-            PubSub.default.pub("displayError", shape.error);
-            return;
-        }
-
-        let oldShape = this._shape;
-        this._shape = shape;
-        this._mesh = undefined;
-        this._boundingBox = undefined;
-        this._shape.value.matrix = this.transform;
-        this.emitPropertyChanged("shape", oldShape);
-    }
-
-    protected override onTransformChanged(newMatrix: Matrix4): void {
-        if (this.shape.isOk) this.shape.value.matrix = newMatrix;
-    }
-
-    protected override createMesh(): IShapeMeshData {
-        if (!this.shape.isOk) {
-            throw new Error(this.shape.error);
-        }
-        return this.shape.value.mesh;
-    }
-
-    override dispose(): void {
-        super.dispose();
-        this.shape.unchecked()?.dispose();
-    }
-}
-
-const SHAPE_UNDEFINED = "Shape not initialized";
-export abstract class ParameterShapeNode extends ShapeNode {
-    override get shape(): Result<IShape> {
-        if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {
-            this._shape = this.generateShape();
-        }
-        return this._shape;
-    }
-
-    protected setPropertyEmitShapeChanged<K extends keyof this>(
-        property: K,
-        newValue: this[K],
-        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
-        equals?: IEqualityComparer<this[K]> | undefined,
-    ): boolean {
-        if (this.setProperty(property, newValue, onPropertyChanged, equals)) {
-            this.setShape(this.generateShape());
-            return true;
-        }
-
-        return false;
-    }
-
-    constructor(document: IDocument, materialId?: string, id?: string) {
-        super(document, undefined as any, materialId, id);
-        this.setPrivateValue("name", I18n.translate(this.display()));
-    }
-
-    protected abstract generateShape(): Result<IShape>;
-}
-
-@Serializer.register(["document", "name", "shape", "materialId", "id"])
-export class EditableShapeNode extends ShapeNode {
-    override display(): I18nKeys {
-        return "body.editableShape";
-    }
-
-    @Serializer.serialze()
-    override get shape(): Result<IShape> {
-        return this._shape;
-    }
-    override set shape(shape: Result<IShape>) {
-        this.setShape(shape);
-    }
-
-    constructor(
-        document: IDocument,
-        name: string,
-        shape: IShape | Result<IShape>,
-        materialId?: string,
-        id?: string,
-    ) {
-        super(document, name, materialId, id);
-
-        if (shape instanceof Result) {
-            this._shape = shape;
-        } else {
-            this._shape = Result.ok(shape);
-        }
-        this.setPrivateValue("transform", this._shape.value.matrix);
-    }
 }
 
 export namespace NodeSerializer {

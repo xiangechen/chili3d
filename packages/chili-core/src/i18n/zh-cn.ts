@@ -27,6 +27,7 @@ export default {
         "body.wire": "线框",
         "body.editableShape": "可编辑的形状",
         "body.meshNode": "网格节点",
+        "body.multiShape": "多形状",
         "box.dx": "长",
         "box.dy": "宽",
         "box.dz": "高",

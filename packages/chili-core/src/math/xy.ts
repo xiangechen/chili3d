@@ -4,6 +4,8 @@ import { Precision } from "../foundation";
 import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
+export type XYLike = { x: number; y: number };
+
 @Serializer.register(["x", "y"])
 export class XY {
     static readonly zero = new XY(0, 0);

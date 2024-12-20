@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Result } from "../foundation";
-import { Plane, Ray, XYZ } from "../math";
+import { Plane, Ray, XYZ, XYZLike } from "../math";
 import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
@@ -9,13 +9,13 @@ export interface IShapeFactory {
     readonly kernelName: string;
     readonly converter: IShapeConverter;
     face(...wire: IWire[]): Result<IFace>;
-    bezier(points: XYZ[], weights?: number[]): Result<IEdge>;
-    point(point: XYZ): Result<IVertex>;
-    line(start: XYZ, end: XYZ): Result<IEdge>;
-    arc(normal: XYZ, center: XYZ, start: XYZ, angle: number): Result<IEdge>;
-    circle(normal: XYZ, center: XYZ, radius: number): Result<IEdge>;
+    bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
+    point(point: XYZLike): Result<IVertex>;
+    line(start: XYZLike, end: XYZLike): Result<IEdge>;
+    arc(normal: XYZLike, center: XYZLike, start: XYZLike, angle: number): Result<IEdge>;
+    circle(normal: XYZLike, center: XYZLike, radius: number): Result<IEdge>;
     rect(plane: Plane, dx: number, dy: number): Result<IFace>;
-    polygon(...points: XYZ[]): Result<IWire>;
+    polygon(...points: XYZLike[]): Result<IWire>;
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid>;
     wire(...edges: IEdge[]): Result<IWire>;
     prism(shape: IShape, vec: XYZ): Result<IShape>;
@@ -25,7 +25,7 @@ export interface IShapeFactory {
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanCut(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanFuse(shape1: IShape, shape2: IShape): Result<IShape>;
-    combine(...shapes: IShape[]): Result<ICompound>;
+    combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
 }

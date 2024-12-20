@@ -7,6 +7,7 @@ import {
     IShapeFilter,
     IView,
     IVisualObject,
+    MultiShapeNode,
     Observable,
     Plane,
     PubSub,
@@ -380,15 +381,24 @@ export class ThreeView extends Observable implements IView {
     private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
-            if (!(parent instanceof ThreeGeometry) || !(parent.geometryNode instanceof ShapeNode)) continue;
+            if (!(parent instanceof ThreeGeometry)) continue;
 
-            if (shapeFilter && !shapeFilter.allow(parent.geometryNode.shape.value)) {
+            let shape: IShape | undefined;
+            if (parent.geometryNode instanceof ShapeNode) {
+                shape = parent.geometryNode.shape.unchecked();
+            } else if (parent.geometryNode instanceof MultiShapeNode) {
+                shape = this.findShapeAndIndex(parent, element).shape;
+            }
+            if (!shape) continue;
+
+            if (shapeFilter && !shapeFilter.allow(shape)) {
                 continue;
             }
+
             return [
                 {
                     owner: parent,
-                    shape: parent.geometryNode.shape.value,
+                    shape,
                     point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
@@ -431,6 +441,9 @@ export class ThreeView extends Observable implements IView {
         indexes: number[];
     } {
         let { shape, index, groups } = this.findShapeAndIndex(parent, element);
+        if (parent.geometryNode instanceof MultiShapeNode) {
+            return { shape, directShape: shape, indexes: [index!] };
+        }
         if (!shape) return { shape: undefined, directShape: undefined, indexes: [] };
         if (ShapeType.hasShell(shapeType) && shape.shapeType === ShapeType.Face) {
             let shell = this.getAncestor(ShapeType.Shell, shape, groups!, parent);

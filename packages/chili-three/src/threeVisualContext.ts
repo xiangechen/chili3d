@@ -4,6 +4,7 @@ import {
     CollectionAction,
     CollectionChangedArgs,
     DeepObserver,
+    GeometryNode,
     GroupNode,
     IDisposable,
     INode,
@@ -298,8 +299,8 @@ export class ThreeVisualContext implements IVisualContext {
         let visualObject: (IVisualObject & Object3D) | undefined = undefined;
         if (node instanceof MeshNode) {
             visualObject = new ThreeMeshObject(this, node);
-        } else if (node instanceof ShapeNode) {
-            visualObject = new ThreeGeometry(node as any, this);
+        } else if (node instanceof GeometryNode) {
+            visualObject = new ThreeGeometry(node, this);
         } else if (node instanceof GroupNode) {
             visualObject = new GroupVisualObject(node);
         }

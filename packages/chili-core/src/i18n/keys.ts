@@ -14,6 +14,7 @@ const I18N_KEYS = [
     "body.fuse",
     "body.imported",
     "body.line",
+    "body.multiShape",
     "body.polygon",
     "body.prism",
     "body.rect",

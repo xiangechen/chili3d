@@ -77,7 +77,6 @@ export class TestEdge implements IEdge {
     matrix: Matrix4 = Matrix4.identity();
     get mesh(): IShapeMeshData {
         return {
-            shape: this,
             edges: {
                 positions: [this.start.x, this.start.y, this.start.z, this.end.x, this.end.y, this.end.z],
                 color: 0xff0000,
