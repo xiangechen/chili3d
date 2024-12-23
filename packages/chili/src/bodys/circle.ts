@@ -41,7 +41,7 @@ export class CircleNode extends FacebaseNode {
     generateShape(): Result<IShape, string> {
         let circle = this.document.application.shapeFactory.circle(this.normal, this.center, this.radius);
         if (!circle.isOk || !this.isFace) return circle;
-        let wire = this.document.application.shapeFactory.wire(circle.value);
+        let wire = this.document.application.shapeFactory.wire([circle.value]);
         return wire.isOk ? wire.value.toFace() : circle;
     }
 }

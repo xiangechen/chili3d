@@ -51,7 +51,7 @@ export class ShapeFactory implements IShapeFactory {
         this.converter = new OccShapeConverter();
     }
 
-    face(...wire: IWire[]): Result<IFace> {
+    face(wire: IWire[]): Result<IFace> {
         let shapes = ensureOccShape(wire);
         return convertShapeResult(wasm.ShapeFactory.face(shapes)) as Result<IFace>;
     }
@@ -79,7 +79,7 @@ export class ShapeFactory implements IShapeFactory {
     rect(plane: Plane, dx: number, dy: number): Result<IFace> {
         return convertShapeResult(wasm.ShapeFactory.rect(OcctHelper.toAx3(plane), dx, dy)) as Result<IFace>;
     }
-    polygon(...points: XYZLike[]): Result<IWire> {
+    polygon(points: XYZLike[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.polygon(points)) as Result<IWire>;
     }
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid> {
@@ -87,7 +87,7 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.box(OcctHelper.toAx3(plane), dx, dy, dz),
         ) as Result<ISolid>;
     }
-    wire(...edges: IEdge[]): Result<IWire> {
+    wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
     }
     prism(shape: IShape, vec: XYZ): Result<IShape> {

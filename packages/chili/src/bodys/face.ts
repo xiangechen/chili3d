@@ -42,12 +42,12 @@ export class FaceNode extends ParameterShapeNode {
                 if (shape.shapeType === ShapeType.Wire) {
                     wires.push(shape as IWire);
                 } else {
-                    let wire = this.document.application.shapeFactory.wire(shape as IEdge);
+                    let wire = this.document.application.shapeFactory.wire([shape as IEdge]);
                     wires.push(wire.value);
                 }
             }
         } else {
-            let wire = this.document.application.shapeFactory.wire(...(this.shapes as IEdge[]));
+            let wire = this.document.application.shapeFactory.wire((this.shapes as IEdge[]));
             if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
             wires.push(wire.value);
         }
@@ -63,6 +63,6 @@ export class FaceNode extends ParameterShapeNode {
         if (this.shapes.length === 0) return Result.err("No shapes to create face");
 
         let wires = this.getWires();
-        return this.document.application.shapeFactory.face(...wires);
+        return this.document.application.shapeFactory.face(wires);
     }
 }

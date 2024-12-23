@@ -22,6 +22,6 @@ export class WireNode extends ParameterShapeNode {
     }
 
     override generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.wire(...this.edges);
+        return this.document.application.shapeFactory.wire(this.edges);
     }
 }

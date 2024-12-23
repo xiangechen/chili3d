@@ -40,7 +40,7 @@ export class SweepedNode extends ParameterShapeNode {
 
         let wire = path as IWire;
         if (path.shapeType !== ShapeType.Wire) {
-            wire = document.application.shapeFactory.wire(path as unknown as IEdge).value;
+            wire = document.application.shapeFactory.wire([path as unknown as IEdge]).value;
         }
         this.setPrivateValue("path", wire);
     }

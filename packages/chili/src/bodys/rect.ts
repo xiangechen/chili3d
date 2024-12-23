@@ -50,7 +50,7 @@ export class RectNode extends FacebaseNode {
 
     generateShape(): Result<IShape, string> {
         let points = RectNode.points(this.plane, this.dx, this.dy);
-        let wire = this.document.application.shapeFactory.polygon(...points);
+        let wire = this.document.application.shapeFactory.polygon(points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }
