@@ -47,6 +47,7 @@
     margin: 8px 0px;
     padding: 4px;
     height: 60px;
+    min-height: 40px;
     max-height: 120px;
     flex: 0;
     overflow: hidden;

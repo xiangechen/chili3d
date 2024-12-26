@@ -4,7 +4,7 @@
     align-items: center;
     margin-top: 4px;
 
-    span {
+    div {
         font-size: 14px;
         opacity: 0.75;
         color: var(--color);

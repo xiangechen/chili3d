@@ -6,6 +6,22 @@ import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";
 
+@Serializer.register(["start", "count", "materialId"])
+export class MeshGroup {
+    @Serializer.serialze()
+    start: number
+    @Serializer.serialze()
+    count: number
+    @Serializer.serialze()
+    materialId: string
+
+    constructor(start: number, count: number, materialId: string) {
+        this.start = start;
+        this.count = count;
+        this.materialId = materialId;
+    }
+}
+
 @Serializer.register([])
 export class Mesh {
     static createSurface() {
@@ -35,7 +51,7 @@ export class Mesh {
     uv: number[] | undefined = undefined;
 
     @Serializer.serialze()
-    groups: { start: number; count: number; materialId: string }[] = [];
+    groups: MeshGroup[] = [];
 }
 
 export interface IShapeMeshData {

@@ -19,7 +19,7 @@ export function findPropertyControl(
         return new ColorProperty(document, objs, prop);
     }
 
-    if (prop.type === "materialId") {
+    if (prop.type === "materialId" && canShowMaterialProperty(objs, prop)) {
         return new MaterialProperty(document, objs, prop);
     }
 
@@ -38,4 +38,10 @@ export function findPropertyControl(
 
     Logger.warn(`Property ${prop.name} not found in ${Object.getPrototypeOf(objs[0]).constructor.name}`);
     return "";
+}
+
+function canShowMaterialProperty(objs: any[], prop: Property) {
+    if (objs.length === 0) return false;
+    if (objs.length === 1) return true;
+    return objs.every((obj) => obj[prop.name] === objs[0][prop.name]);
 }

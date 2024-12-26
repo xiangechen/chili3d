@@ -146,8 +146,10 @@ export namespace Serializer {
     export function serializeObject(target: Object) {
         let classKey = target.constructor.name;
         if (!reflectMap.has(classKey)) {
+            console.log(target);
+            
             throw new Error(
-                `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
+                `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`
             );
         }
         let data = reflectMap.get(classKey)!;
