@@ -52,7 +52,7 @@ export abstract class Node extends HistoryObservable implements INode {
     constructor(document: IDocument, name: string, id: string) {
         super(document);
         this.id = id;
-        this.setPrivateValue("name", name);
+        this.setPrivateValue("name", name || "untitled");
     }
 
     @Serializer.serialze()
