@@ -4,7 +4,7 @@ import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
-import { XYZ } from "./xyz";
+import { XYZ, XYZLike } from "./xyz";
 
 /**
  * Matrix in column-major order
@@ -291,13 +291,13 @@ export class Matrix4 {
         return matrix;
     }
 
-    public static createRotationAt(center: XYZ, normal: XYZ, angle: number): Matrix4 {
+    public static createRotationAt(center: XYZLike, normal: XYZ, radians: number): Matrix4 {
         let unit = normal.normalize();
         if (unit === undefined) throw new TypeError("invalid vector");
 
         let { x, y, z } = unit;
-        let s = Math.sin(-angle);
-        let c = Math.cos(-angle);
+        let s = Math.sin(-radians);
+        let c = Math.cos(-radians);
         let t = 1 - c;
 
         const array = [

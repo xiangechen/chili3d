@@ -89,21 +89,21 @@ export class ManyMesh implements IShapeMeshData {
 
     private meshShapes() {
         for (const shape of this.shapes) {
-            this.combineEdge(shape.mesh.edges);
-            this.combineFace(shape.mesh.faces);
+            this.combineEdge(shape.mesh.edges, shape.matrix);
+            this.combineFace(shape.mesh.faces, shape.matrix);
         }
     }
 
-    private combineFace(faceMeshData: FaceMeshData | undefined) {
+    private combineFace(faceMeshData: FaceMeshData | undefined, matrix: Matrix4) {
         if (!faceMeshData) {
             return
         }
 
         let start = this._faces.positions.length / 3;
         this._faces.indices = this._faces.indices.concat(faceMeshData.indices);
-        this._faces.normals = this._faces.normals.concat(faceMeshData.normals);
+        this._faces.normals = this._faces.normals.concat(matrix.ofVectors(faceMeshData.normals));
         this._faces.uvs = this._faces.uvs.concat(faceMeshData.uvs);
-        this._faces.positions = this._faces.positions.concat(faceMeshData.positions);
+        this._faces.positions = this._faces.positions.concat(matrix.ofPoints(faceMeshData.positions));
         this._faces.groups = this._faces.groups.concat(faceMeshData.groups.map(g => {
             return {
                 start: g.start + start,
@@ -113,13 +113,13 @@ export class ManyMesh implements IShapeMeshData {
         }));
     }
 
-    private combineEdge(edgeMeshData: EdgeMeshData | undefined) {
+    private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {
         if (!edgeMeshData) {
             return
         }
 
         let start = this._edges.positions.length / 3;
-        this._edges.positions = this._edges.positions.concat(edgeMeshData.positions);
+        this._edges.positions = this._edges.positions.concat(matrix.ofPoints(edgeMeshData.positions));
         this._edges.groups = this._edges.groups.concat(edgeMeshData.groups.map(g => {
             return {
                 start: g.start + start,
