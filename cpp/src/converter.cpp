@@ -28,20 +28,12 @@ public:
     }
 };
 
-struct Color
-{
-    double r;
-    double g;
-    double b;
-    double a;
-};
-
 EMSCRIPTEN_DECLARE_VAL_TYPE(ShapeNodeArray)
 
 struct ShapeNode
 {
     std::optional<TopoDS_Shape> shape;
-    Color color;
+    std::string color;
     std::vector<ShapeNode> children;
     std::string name;
 
@@ -88,7 +80,7 @@ static std::string getShapeName(const TopoDS_Shape &shape, const Handle(XCAFDoc_
     return getLabelName(shapeLabel, shapeTool);
 }
 
-static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_ColorTool) & colorTool, Color &color)
+static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     static const std::vector<XCAFDoc_ColorType> colorTypes = {
         XCAFDoc_ColorSurf,
@@ -100,7 +92,7 @@ static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_Colo
     {
         if (colorTool->GetColor(label, colorType, qColor))
         {
-            color = {qColor.Red(), qColor.Green(), qColor.Blue(), 1.0};
+            color = std::string(Quantity_Color::ColorToHex(qColor).ToCString());
             return true;
         }
     }
@@ -108,7 +100,7 @@ static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_Colo
     return false;
 }
 
-static bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, Color &color)
+static bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     if (getLabelColorNoRef(label, colorTool, color))
     {
@@ -125,7 +117,7 @@ static bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool
     return false;
 }
 
-static bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, Color &color)
+static bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     TDF_Label shapeLabel;
     if (!shapeTool->Search(shape, shapeLabel))
@@ -137,7 +129,7 @@ static bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeT
 
 static ShapeNode initNode(const TDF_Label label, const Handle(XCAFDoc_ShapeTool) shapeTool, const Handle(XCAFDoc_ColorTool) colorTool)
 {
-    Color color;
+    std::string color;
     getLabelColor(label, shapeTool, colorTool, color);
 
     ShapeNode node = {
@@ -291,12 +283,6 @@ EMSCRIPTEN_BINDINGS(Converter)
     register_optional<ShapeNode>();
 
     register_type<ShapeNodeArray>("Array<ShapeNode>");
-
-    value_object<Color>("Color")
-        .field("r", &Color::r)
-        .field("g", &Color::g)
-        .field("b", &Color::b)
-        .field("a", &Color::a);
 
     class_<ShapeNode>("ShapeNode")
         .property("shape", &ShapeNode::shape)

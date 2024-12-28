@@ -16,7 +16,7 @@ interface WasmModule {}
 
 type EmbindString = ArrayBuffer | Uint8Array | Uint8ClampedArray | Int8Array | string;
 export interface ShapeNode {
-    color: Color;
+    color: EmbindString;
     name: EmbindString;
     shape: TopoDS_Shape | undefined;
     getChildren(): Array<ShapeNode>;
@@ -26,13 +26,6 @@ export interface ShapeNode {
 export interface Converter {
     delete(): void;
 }
-
-export type Color = {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
-};
 
 export interface ShapeResult {
     isOk: boolean;
