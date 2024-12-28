@@ -33,7 +33,7 @@ export class DefaultDataExchange implements IDataExchange {
                 return;
             }
             let shapes = shape.value.map((x, i) => {
-                return new EditableShapeNode(document, `Imported ${i}`, x);
+                return new EditableShapeNode(document, x.name, x.shape);
             });
             let nodeList = new FolderNode(document, file.name);
             document.addNode(nodeList);
