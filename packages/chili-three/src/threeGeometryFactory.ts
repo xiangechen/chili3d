@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { EdgeMeshData, FaceMeshData, LineType, VertexMeshData } from "chili-core";
+import { EdgeMeshData, FaceMeshData, LineType, ShapeMeshData, VertexMeshData } from "chili-core";
 import {
     AlwaysDepth,
     BufferAttribute,
@@ -20,12 +20,12 @@ export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData) {
         let buff = new BufferGeometry();
         buff.setAttribute("position", new BufferAttribute(new Float32Array(data.positions), 3));
-        let color = data.color as number;
         let material = new PointsMaterial({
             size: data.size,
             sizeAttenuation: false,
-            color,
         });
+        this.setColor(buff, data, material);
+
         material.depthFunc = AlwaysDepth;
         return new Points(buff, material);
     }
@@ -33,14 +33,22 @@ export class ThreeGeometryFactory {
     static createFaceGeometry(data: FaceMeshData) {
         let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         let material = new MeshLambertMaterial({ side: DoubleSide });
-        if (typeof data.color === "number") {
-            material.color.set(data.color);
-        } else {
-            material.vertexColors = true;
-            buff.setAttribute("color", new Float32BufferAttribute(data.color, 3));
-        }
+        this.setColor(buff, data, material);
 
         return new Mesh(buff, material);
+    }
+
+    private static setColor(
+        buffer: BufferGeometry,
+        data: ShapeMeshData,
+        material: MeshLambertMaterial | PointsMaterial | LineMaterial,
+    ) {
+        if (typeof data.color === "number") {
+            material.color.set(data.color);
+        } else if (Array.isArray(data.color)) {
+            material.vertexColors = true;
+            buffer.setAttribute("color", new Float32BufferAttribute(data.color, 3));
+        }
     }
 
     static createFaceBufferGeometry(data: FaceMeshData) {
@@ -55,28 +63,20 @@ export class ThreeGeometryFactory {
 
     static createEdgeGeometry(data: EdgeMeshData) {
         let buff = this.createEdgeBufferGeometry(data);
-        let color = data.color as number;
         let linewidth = data.lineWidth ?? 1;
-        let material =
-            data.lineType === LineType.Dash
-                ? new LineMaterial({
-                      color,
-                      dashed: true,
-                      dashScale: 100,
-                      dashSize: 100,
-                      gapSize: 100,
-                      linewidth,
-                      polygonOffset: true,
-                      polygonOffsetFactor: -4,
-                      polygonOffsetUnits: -4,
-                  })
-                : new LineMaterial({
-                      color,
-                      linewidth,
-                      polygonOffset: true,
-                      polygonOffsetFactor: -4,
-                      polygonOffsetUnits: -4,
-                  });
+        let material = new LineMaterial({
+            linewidth,
+            polygonOffset: true,
+            polygonOffsetFactor: -4,
+            polygonOffsetUnits: -4,
+        });
+        if (data.lineType === LineType.Dash) {
+            material.dashed = true;
+            material.dashScale = 100;
+            material.dashSize = 100;
+            material.gapSize = 100;
+        }
+        this.setColor(buff, data, material);
         return new LineSegments2(buff, material).computeLineDistances();
     }
 

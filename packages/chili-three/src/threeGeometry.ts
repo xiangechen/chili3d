@@ -9,7 +9,6 @@ import {
     VisualConfig,
 } from "chili-core";
 import { DoubleSide, Material, Mesh, MeshLambertMaterial } from "three";
-
 import { MeshUtils } from "chili-geo";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";

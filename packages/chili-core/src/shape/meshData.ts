@@ -9,11 +9,11 @@ import { IShape } from "./shape";
 @Serializer.register(["start", "count", "materialId"])
 export class MeshGroup {
     @Serializer.serialze()
-    start: number
+    start: number;
     @Serializer.serialze()
-    count: number
+    count: number;
     @Serializer.serialze()
-    materialId: string
+    materialId: string;
 
     constructor(start: number, count: number, materialId: string) {
         this.start = start;
@@ -28,7 +28,7 @@ export class Mesh {
         let mesh = new Mesh();
         mesh.meshType = "surface";
         mesh.normal = [];
-        mesh.uv = []
+        mesh.uv = [];
         return mesh;
     }
 
@@ -69,7 +69,7 @@ export interface ShapeMeshGroup {
 export interface ShapeMeshData {
     positions: number[];
     groups: ShapeMeshGroup[];
-    color: number | number[];
+    color?: number | number[];
 }
 
 export namespace ShapeMeshData {
