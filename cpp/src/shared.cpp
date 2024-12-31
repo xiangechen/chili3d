@@ -28,6 +28,7 @@ EMSCRIPTEN_BINDINGS(Shared) {
     register_optional<double>();
     register_optional<UV>();
     register_optional<PointAndParameter>();
+    register_optional<std::string>();
     
     value_object<Domain>("Domain")
         .field("start", &Domain::start)

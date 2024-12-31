@@ -2,7 +2,7 @@
 
 import { IDocument } from "./document";
 import { PubSub } from "./foundation";
-import { EditableShapeNode, FolderNode, ShapeNode, VisualNode } from "./model";
+import { ShapeNode, VisualNode } from "./model";
 
 export interface IDataExchange {
     importFormats(): string[];
@@ -23,21 +23,16 @@ export class DefaultDataExchange implements IDataExchange {
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
         for (const file of files) {
             let content = new Uint8Array(await file.arrayBuffer());
-            let factory = document.application.shapeFactory.converter.convertFromIGES;
+            let shape = document.application.shapeFactory.converter.convertFromIGES(document, content);
             if (file.name.endsWith(".step") || file.name.endsWith(".stp")) {
-                factory = document.application.shapeFactory.converter.convertFromSTEP;
+                shape = document.application.shapeFactory.converter.convertFromSTEP(document, content);
             }
-            let shape = factory(content);
             if (!shape.isOk) {
                 PubSub.default.pub("showToast", "toast.read.error");
                 return;
             }
-            let shapes = shape.value.map((x, i) => {
-                return new EditableShapeNode(document, x.name, x.shape);
-            });
-            let nodeList = new FolderNode(document, file.name);
-            document.addNode(nodeList);
-            nodeList.add(...shapes);
+            shape.value.name = file.name;
+            document.addNode(shape.value);
             document.visual.update();
         }
     }

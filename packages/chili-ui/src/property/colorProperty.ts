@@ -39,7 +39,7 @@ export class ColorProperty extends PropertyBase {
         this.input.removeEventListener("onchange", this.setColor);
     }
 
-    private setColor = (e: Event) => {
+    private readonly setColor = (e: Event) => {
         let value = (e.target as any).value;
         let color = this.converter.convertBack(value).value;
         if (color === undefined) {

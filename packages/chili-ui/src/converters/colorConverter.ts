@@ -4,6 +4,9 @@ import { IConverter, Result } from "chili-core";
 
 export class ColorConverter implements IConverter<number> {
     convert(value: number): Result<string> {
+        if (typeof value === "string") {
+            return Result.ok(value);
+        }
         return Result.ok("#" + value.toString(16).padStart(6, "0"));
     }
 

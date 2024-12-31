@@ -1,33 +1,43 @@
-import { IShape, IShapeConverter, Result, ShapeInfo } from "chili-core";
-import { OccShape } from "./shape";
-import { OcctHelper } from "./helper";
+import {
+    EditableShapeNode,
+    FolderNode,
+    GroupNode,
+    IDocument,
+    IShape,
+    IShapeConverter,
+    Material,
+    Matrix4,
+    Result,
+    gc,
+} from "chili-core";
 import { ShapeNode } from "../lib/chili-wasm";
-
-function shapeNodeToShapeInfo(node: ShapeNode): ShapeInfo {
-    return {
-        name: node.name as string,
-        shape: OcctHelper.wrapShape(node.shape!),
-        color: node.color as string
-    };
-}
-
-const parseShapeNodeToShapes = (shapes: ShapeInfo[], shapeNode: ShapeNode | undefined) => {
-    if (!shapeNode) {
-        return;
-    }
-
-    if (shapeNode.shape) {
-        shapes.push(shapeNodeToShapeInfo(shapeNode));
-    }
-
-    shapeNode.getChildren().forEach((child) => {
-        parseShapeNodeToShapes(shapes, child);
-    });
-
-    return shapes;
-};
+import { OcctHelper } from "./helper";
+import { OccShape } from "./shape";
 
 export class OccShapeConverter implements IShapeConverter {
+    private readonly addShapeNode = (
+        folder: FolderNode,
+        node: ShapeNode,
+        children: ShapeNode[],
+        getMaterialId: (document: IDocument, color: string) => string,
+    ) => {
+        if (node.shape) {
+            let shape = OcctHelper.wrapShape(node.shape);
+            let material = getMaterialId(folder.document, node.color as string);
+            folder.add(new EditableShapeNode(folder.document, node.name as string, shape, material));
+        }
+
+        children.forEach((child) => {
+            let childFolder = folder;
+            let subChildren = child.getChildren();
+            if (subChildren.length > 1) {
+                childFolder = new GroupNode(folder.document, child.name as string);
+                folder.add(childFolder);
+            }
+            this.addShapeNode(childFolder, child, subChildren, getMaterialId);
+        });
+    };
+
     convertToIGES(...shapes: IShape[]): Result<string> {
         let occShapes = shapes.map((shape) => {
             if (shape instanceof OccShape) {
@@ -38,14 +48,36 @@ export class OccShapeConverter implements IShapeConverter {
         return Result.ok(wasm.Converter.convertToIges(occShapes));
     }
 
-    convertFromIGES(iges: Uint8Array): Result<ShapeInfo[]> {
-        let shapes: ShapeInfo[] = [];
-        let node = wasm.Converter.convertFromIges(iges);
-
-        parseShapeNodeToShapes(shapes, node);
-
-        return Result.ok(shapes);
+    convertFromIGES(document: IDocument, iges: Uint8Array): Result<FolderNode> {
+        return this.converterFromData(document, iges, wasm.Converter.convertFromIges);
     }
+
+    private readonly converterFromData = (
+        document: IDocument,
+        data: Uint8Array,
+        converter: (data: Uint8Array) => ShapeNode | undefined,
+    ) => {
+        const materialMap: Map<string, string> = new Map();
+        const getMaterialId = (document: IDocument, color: string) => {
+            if (!materialMap.has(color)) {
+                let material = new Material(document, color, color);
+                document.materials.push(material);
+                materialMap.set(color, material.id);
+            }
+            return materialMap.get(color)!;
+        };
+
+        return gc((c) => {
+            let node = converter(data);
+            if (!node) {
+                return Result.err("can not convert");
+            }
+            let folder = new GroupNode(document, "undefined");
+            this.addShapeNode(folder, node, node.getChildren(), getMaterialId);
+            c(node);
+            return Result.ok(folder);
+        });
+    };
 
     convertToSTEP(...shapes: IShape[]): Result<string> {
         let occShapes = shapes.map((shape) => {
@@ -56,14 +88,9 @@ export class OccShapeConverter implements IShapeConverter {
         });
         return Result.ok(wasm.Converter.convertToStep(occShapes));
     }
-    
-    convertFromSTEP(step: Uint8Array): Result<ShapeInfo[]> {
-        let shapes: ShapeInfo[] = [];
-        let node = wasm.Converter.convertFromStep(step);
 
-        parseShapeNodeToShapes(shapes, node);
-
-        return Result.ok(shapes);
+    convertFromSTEP(document: IDocument, step: Uint8Array): Result<FolderNode> {
+        return this.converterFromData(document, step, wasm.Converter.convertFromStep);
     }
 
     convertToBrep(shape: IShape): Result<string> {

@@ -50,7 +50,7 @@ export class TreeGroup extends TreeItem {
         this.expanderIcon.removeEventListener("click", this.handleExpanderClick);
     }
 
-    private handleExpanderClick = (e: MouseEvent) => {
+    private readonly handleExpanderClick = (e: MouseEvent) => {
         e.stopPropagation();
         this.isExpanded = !this._isExpanded;
     };

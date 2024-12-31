@@ -64,7 +64,7 @@ export abstract class TreeItem extends HTMLElement {
         return this.node.visible === true ? "icon-eye" : "icon-eye-slash";
     }
 
-    private onVisibleIconClick = (e: MouseEvent) => {
+    private readonly onVisibleIconClick = (e: MouseEvent) => {
         e.stopPropagation();
         Transaction.excute(this.document, "change visible", () => {
             this.node.visible = !this.node.visible;

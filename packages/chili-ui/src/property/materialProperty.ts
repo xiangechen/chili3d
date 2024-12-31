@@ -1,9 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, Material, Property, PubSub, Transaction } from "chili-core";
+import { Binding, IDocument, Material, PathBinding, Property, PubSub, Transaction } from "chili-core";
 import { button, div, localize, span } from "../components";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
+import { UrlStringConverter } from "./material/urlConverter";
+import { ColorConverter } from "../converters";
 
 export class MaterialProperty extends PropertyBase {
     constructor(
@@ -43,15 +45,17 @@ export class MaterialProperty extends PropertyBase {
             ),
             button({
                 textContent: material.name,
+                style: {
+                    backgroundColor: new Binding(material, "color", new ColorConverter()),
+                    backgroundImage: new PathBinding(material, "map.image", new UrlStringConverter()),
+                    backgroundBlendMode: "multiply",
+                    backgroundSize: "contain",
+                    cursor: "pointer",
+                },
                 onclick: (e) => {
-                    PubSub.default.pub(
-                        "editMaterial",
-                        document,
-                        material,
-                        (material) => {
-                            this.setMaterial(e, material, index);
-                        },
-                    );
+                    PubSub.default.pub("editMaterial", document, material, (material) => {
+                        this.setMaterial(e, material, index);
+                    });
                 },
             }),
         );
@@ -77,7 +81,6 @@ export class MaterialProperty extends PropertyBase {
     private findMaterial(id: string) {
         return this.document.materials.find((x) => x.id === id);
     }
-
 }
 
 customElements.define("chili-material-property", MaterialProperty);

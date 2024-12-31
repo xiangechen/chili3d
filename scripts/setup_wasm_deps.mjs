@@ -33,38 +33,46 @@ const libs = [
         url: 'https://github.com/emscripten-core/emsdk.git',
         tag: '3.1.65',
         dir: EMSDK_DIR,
-        action: [fixEmscripten],
-        command: `${EMSDK_DIR}/emsdk install latest && ${EMSDK_DIR}/emsdk activate --embedded latest && cd ${EMSDK_DIR}/upstream/emscripten && npm i`
+        actions: [fixEmscripten],
+        commands: [
+            `${EMSDK_DIR}/emsdk install latest`,
+            `${EMSDK_DIR}/emsdk activate --embedded latest`,
+            `cd ${EMSDK_DIR}/upstream/emscripten && npm i`
+        ]
     },
     {
         name: 'occt',
         url: 'https://github.com/Open-Cascade-SAS/OCCT.git',
         tag: 'V7_8_1',
         dir: OCCT_DIR,
-        action: [],
-        command: undefined
+        actions: [],
+        commands: []
     }
 ]
 
 async function setupLibs() {
     for (const lib of libs) {
-        if (!fs.existsSync(lib.dir)) {
-            console.log(`Cloning ${lib.name}...`);
-            await execAsync(`git clone --depth=1 -b ${lib.tag} ${lib.url} ${lib.dir}`);
-
-            if (!fs.existsSync(lib.dir)) {
-                console.error(`Failed to clone ${lib.name}`);
-                process.exit(1);
-            }
-        }
+        await cloneLibIfNotExists(lib);
 
         console.log(`Seting up ${lib.name}...`);
-        if (lib.command) {
-            await execAsync(lib.command);
-        }
 
-        for (const action of lib.action) {
+        for (const command of lib.commands) {
+            await execAsync(command);
+        }
+        for (const action of lib.actions) {
             await action();
+        }
+    }
+}
+
+async function cloneLibIfNotExists(lib) {
+    if (!fs.existsSync(lib.dir)) {
+        console.log(`Cloning ${lib.name}...`);
+        await execAsync(`git clone --depth=1 -b ${lib.tag} ${lib.url} ${lib.dir}`);
+
+        if (!fs.existsSync(lib.dir)) {
+            console.error(`Failed to clone ${lib.name}`);
+            process.exit(1);
         }
     }
 }

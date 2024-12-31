@@ -11,6 +11,7 @@
 #include <TDF_Label.hxx>
 #include <TDocStd_Document.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Iterator.hxx>
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
@@ -33,7 +34,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(ShapeNodeArray)
 struct ShapeNode
 {
     std::optional<TopoDS_Shape> shape;
-    std::string color;
+    std::optional<std::string> color;
     std::vector<ShapeNode> children;
     std::string name;
 
@@ -43,7 +44,7 @@ struct ShapeNode
     }
 };
 
-static std::string getLabelNameNoRef(const TDF_Label &label)
+std::string getLabelNameNoRef(const TDF_Label &label)
 {
     Handle(TDataStd_Name) nameAttribute = new TDataStd_Name();
     if (!label.FindAttribute(nameAttribute->GetID(), nameAttribute))
@@ -59,7 +60,7 @@ static std::string getLabelNameNoRef(const TDF_Label &label)
     return name;
 }
 
-static std::string getLabelName(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
+std::string getLabelName(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     if (XCAFDoc_ShapeTool::IsReference(label))
     {
@@ -70,7 +71,7 @@ static std::string getLabelName(const TDF_Label &label, const Handle(XCAFDoc_Sha
     return getLabelNameNoRef(label);
 }
 
-static std::string getShapeName(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool)
+std::string getShapeName(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     TDF_Label shapeLabel;
     if (!shapeTool->Search(shape, shapeLabel))
@@ -80,7 +81,7 @@ static std::string getShapeName(const TopoDS_Shape &shape, const Handle(XCAFDoc_
     return getLabelName(shapeLabel, shapeTool);
 }
 
-static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
+bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     static const std::vector<XCAFDoc_ColorType> colorTypes = {
         XCAFDoc_ColorSurf,
@@ -100,7 +101,7 @@ static bool getLabelColorNoRef(const TDF_Label &label, const Handle(XCAFDoc_Colo
     return false;
 }
 
-static bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
+bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     if (getLabelColorNoRef(label, colorTool, color))
     {
@@ -117,7 +118,7 @@ static bool getLabelColor(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool
     return false;
 }
 
-static bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
+bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool, std::string &color)
 {
     TDF_Label shapeLabel;
     if (!shapeTool->Search(shape, shapeLabel))
@@ -127,7 +128,42 @@ static bool getShapeColor(const TopoDS_Shape &shape, const Handle(XCAFDoc_ShapeT
     return getLabelColor(shapeLabel, shapeTool, colorTool, color);
 }
 
-static ShapeNode initNode(const TDF_Label label, const Handle(XCAFDoc_ShapeTool) shapeTool, const Handle(XCAFDoc_ColorTool) colorTool)
+bool isFreeShape(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
+{
+    TopoDS_Shape tmpShape;
+    return shapeTool->GetShape(label, tmpShape) && shapeTool->IsFree(label);
+}
+
+bool isMeshNode(const TDF_Label &label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
+{
+    // if there are no children, it is a mesh node
+    if (!label.HasChild())
+    {
+        return true;
+    }
+
+    // if it has a subshape child, treat it as mesh node
+    for (TDF_ChildIterator it(label); it.More(); it.Next())
+    {
+        if (shapeTool->IsSubShape(it.Value()))
+        {
+            return true;
+        }
+    }
+
+    // if it doesn't have a freeshape child, treat it as a mesh node
+    for (TDF_ChildIterator it(label); it.More(); it.Next())
+    {
+        if (isFreeShape(it.Value(), shapeTool))
+        {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+ShapeNode initLabelNode(const TDF_Label label, const Handle(XCAFDoc_ShapeTool) shapeTool, const Handle(XCAFDoc_ColorTool) colorTool)
 {
     std::string color;
     getLabelColor(label, shapeTool, colorTool, color);
@@ -142,39 +178,100 @@ static ShapeNode initNode(const TDF_Label label, const Handle(XCAFDoc_ShapeTool)
     return node;
 }
 
-static void addChildNodes(ShapeNode &parent, const TDF_Label &parentLabel, const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool)
+ShapeNode initShapeNode(
+    const TopoDS_Shape &shape,
+    const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool)
 {
-    for (TDF_ChildIterator it(parentLabel); it.More(); it.Next())
-    {
-        TDF_Label childLabel = it.Value();
-        TopoDS_Shape tmpShape;
-        if (shapeTool->GetShape(childLabel, tmpShape) && shapeTool->IsFree(childLabel))
-        {
-            ShapeNode childNode = initNode(childLabel, shapeTool, colorTool);
-            childNode.shape = tmpShape;
-            parent.children.push_back(childNode);
-
-            addChildNodes(childNode, childLabel, shapeTool, colorTool);
-        }
-    }
+    std::string color;
+    getShapeColor(shape, shapeTool, colorTool, color);
+    ShapeNode childShapeNode = {
+        .shape = shape,
+        .color = color,
+        .children = {},
+        .name = getShapeName(shape, shapeTool)};
+    return childShapeNode;
 }
 
-static ShapeNode getNodesFromDocument(Handle(TDocStd_Document) document)
+ShapeNode initGroupNode(const TopoDS_Shape &shape, const Handle_XCAFDoc_ShapeTool &shapeTool)
+{
+    ShapeNode groupNode = {
+        .shape = std::nullopt,
+        .color = std::nullopt,
+        .children = {},
+        .name = getShapeName(shape, shapeTool)};
+
+    return groupNode;
+}
+
+ShapeNode parseShape(TopoDS_Shape &shape, const Handle_XCAFDoc_ShapeTool &shapeTool, const Handle_XCAFDoc_ColorTool &colorTool)
+{
+    if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID)
+    {
+        auto node = initGroupNode(shape, shapeTool);
+        TopoDS_Iterator iterator(shape);
+        while (iterator.More())
+        {
+            auto subShape = iterator.Value();
+            node.children.push_back(parseShape(subShape, shapeTool, colorTool));
+            iterator.Next();
+        }
+        return node;
+    }
+    return initShapeNode(shape, shapeTool, colorTool);
+}
+
+ShapeNode parseLabelToNode(
+    const TDF_Label &label,
+    const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool)
+{
+    if (isMeshNode(label, shapeTool))
+    {
+        auto shape = shapeTool->GetShape(label);
+        return parseShape(shape, shapeTool, colorTool);
+    }
+
+    auto node = initLabelNode(label, shapeTool, colorTool);
+    for (TDF_ChildIterator it(label); it.More(); it.Next())
+    {
+        auto childLabel = it.Value();
+        if (isFreeShape(childLabel, shapeTool))
+        {
+            auto childNode = parseLabelToNode(childLabel, shapeTool, colorTool);
+            node.children.push_back(childNode);
+        }
+    }
+    return node;
+}
+
+ShapeNode parseRootLabelToNode(
+    const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool)
+{
+    auto label = shapeTool->Label();
+
+    ShapeNode node = initLabelNode(label, shapeTool, colorTool);
+    for (TDF_ChildIterator it(label); it.More(); it.Next())
+    {
+        auto childLabel = it.Value();
+        if (isFreeShape(childLabel, shapeTool))
+        {
+            auto childNode = parseLabelToNode(childLabel, shapeTool, colorTool);
+            node.children.push_back(childNode);
+        }
+    }
+
+    return node;
+}
+
+static ShapeNode parseNodeFromDocument(Handle(TDocStd_Document) document)
 {
     TDF_Label mainLabel = document->Main();
     Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(mainLabel);
     Handle(XCAFDoc_ColorTool) colorTool = XCAFDoc_DocumentTool::ColorTool(mainLabel);
 
-    TDF_Label shapeLabel = shapeTool->Label();
-    ShapeNode rootNode = initNode(shapeLabel, shapeTool, colorTool);
-    TopoDS_Shape tmpShape;
-    if (shapeTool->GetShape(shapeLabel, tmpShape) && shapeTool->IsFree(shapeLabel))
-    {
-        rootNode.shape = tmpShape;
-    }
-    addChildNodes(rootNode, shapeLabel, shapeTool, colorTool);
-
-    return rootNode;
+    return parseRootLabelToNode(shapeTool, colorTool);
 }
 
 class Converter
@@ -218,7 +315,7 @@ public:
             return std::nullopt;
         }
 
-        return getNodesFromDocument(document);
+        return parseNodeFromDocument(document);
     }
 
     static std::optional<ShapeNode> convertFromIges(const Uint8Array &buffer)
@@ -246,7 +343,7 @@ public:
             return std::nullopt;
         }
 
-        return getNodesFromDocument(document);
+        return parseNodeFromDocument(document);
     }
 
     static std::string convertToStep(const ShapeArray &input)
@@ -275,7 +372,6 @@ public:
         igesWriter.Write(oss);
         return oss.str();
     }
-
 };
 
 EMSCRIPTEN_BINDINGS(Converter)
@@ -288,8 +384,7 @@ EMSCRIPTEN_BINDINGS(Converter)
         .property("shape", &ShapeNode::shape)
         .property("color", &ShapeNode::color)
         .property("name", &ShapeNode::name)
-        .function("getChildren", &ShapeNode::getChildren)
-    ;
+        .function("getChildren", &ShapeNode::getChildren);
 
     class_<Converter>("Converter")
         .class_function("convertToBrep", &Converter::convertToBrep)
@@ -297,7 +392,5 @@ EMSCRIPTEN_BINDINGS(Converter)
         .class_function("convertFromStep", &Converter::convertFromStep)
         .class_function("convertFromIges", &Converter::convertFromIges)
         .class_function("convertToStep", &Converter::convertToStep)
-        .class_function("convertToIges", &Converter::convertToIges)
-
-    ;
+        .class_function("convertToIges", &Converter::convertToIges);
 }

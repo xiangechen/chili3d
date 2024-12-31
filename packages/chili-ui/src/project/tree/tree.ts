@@ -59,7 +59,13 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
             let ele = this.nodeMap.get(record.node);
             ele?.remove();
             if (ele === undefined || record.newParent === undefined) continue;
+
             let parent = this.nodeMap.get(record.newParent);
+            if (parent === undefined) {
+                parent = this.createHTMLElement(this.document, record.newParent);
+                this.nodeMap.set(record.newParent, parent);
+            }
+
             if (parent instanceof TreeGroup) {
                 let pre = record.newPrevious === undefined ? null : this.nodeMap.get(record.newPrevious);
                 parent.insertAfter(ele, pre ?? null);
@@ -67,7 +73,11 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         }
     }
 
-    private handleSelectionChanged = (document: IDocument, selected: INode[], unselected: INode[]) => {
+    private readonly handleSelectionChanged = (
+        document: IDocument,
+        selected: INode[],
+        unselected: INode[],
+    ) => {
         unselected.forEach((x) => {
             this.nodeMap.get(x)?.removeSelectedStyle(style.selected);
             this.selectedNodes.delete(x);
@@ -149,7 +159,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         return this.getTreeItem(item.parentElement);
     }
 
-    private onClick = (event: MouseEvent) => {
+    private readonly onClick = (event: MouseEvent) => {
         if (!this.canSelect()) {
             return;
         }
@@ -170,11 +180,11 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         this.setLastClickItem(item);
     };
 
-    private onDragLeave = (event: DragEvent) => {
+    private readonly onDragLeave = (event: DragEvent) => {
         if (!this.canDrop(event)) return;
     };
 
-    private onDragOver = (event: DragEvent) => {
+    private readonly onDragOver = (event: DragEvent) => {
         if (!this.canDrop(event)) {
             return;
         }
@@ -224,8 +234,8 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         let node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
         Transaction.excute(this.document, "move node", () => {
-            let isLinkList = INode.isLinkedListNode(node!);
-            let newParent = isLinkList ? (node as INodeLinkedList) : node!.parent;
+            let isLinkList = INode.isLinkedListNode(node);
+            let newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
             let target = isLinkList ? undefined : node;
             this.dragging?.forEach((x) => {
                 x.parent?.move(x, newParent!, target);
@@ -234,7 +244,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         });
     };
 
-    private onDragStart = (event: DragEvent) => {
+    private readonly onDragStart = (event: DragEvent) => {
         event.stopPropagation();
 
         let item = this.getTreeItem(event.target as HTMLElement)?.node;
