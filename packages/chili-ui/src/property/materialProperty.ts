@@ -1,38 +1,29 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, IDocument, Material, PathBinding, Property, PubSub, Transaction } from "chili-core";
-import { button, div, localize, span } from "../components";
+import { Binding, IDocument, Material, ObservableCollection, PathBinding, Property, PubSub, Transaction } from "chili-core";
+import { button, collection, div, localize, span } from "../components";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
 import { UrlStringConverter } from "./material/urlConverter";
 import { ColorConverter } from "../converters";
 
 export class MaterialProperty extends PropertyBase {
+    private readonly materials: ObservableCollection<Material>
+
     constructor(
         readonly document: IDocument,
         objects: { materialId: string | string[] }[],
         readonly property: Property,
     ) {
         super(objects);
-        if (Array.isArray(objects[0].materialId)) {
-            if (objects[0].materialId.length === 1) {
-                this.append(this.materialControl(document, objects[0].materialId[0]));
-            } else {
-                for (let i = 0; i < objects[0].materialId.length; i++) {
-                    this.append(this.materialControl(document, objects[0].materialId[i], i + 1));
-                }
-            }
-        } else {
-            this.append(this.materialControl(document, objects[0].materialId));
-        }
+        this.materials = this.materialCollection(objects[0].materialId);
+        this.append(collection({
+            sources: this.materials,
+            template: (material, index) => this.materialControl(document, material, index),
+        }))
     }
 
-    private materialControl(document: IDocument, materialId: string, index?: number) {
-        let material = this.findMaterial(materialId);
-        if (!material) {
-            return "";
-        }
-
+    private materialControl(document: IDocument, material: Material, index: number) {
         return div(
             {
                 className: style.material,
@@ -41,7 +32,7 @@ export class MaterialProperty extends PropertyBase {
                 span({
                     textContent: localize("common.material"),
                 }),
-                index ? span({ textContent: " " + index.toString() }) : "",
+                this.materials.length > 1 ? span({ textContent: ` ${index + 1}`}) : "",
             ),
             button({
                 textContent: material.name,
@@ -61,15 +52,14 @@ export class MaterialProperty extends PropertyBase {
         );
     }
 
-    private setMaterial(e: MouseEvent, material: Material, index?: number) {
-        let button = e.target as HTMLButtonElement;
-        button.textContent = material.name;
+    private setMaterial(e: MouseEvent, material: Material, index: number) {
         Transaction.excute(this.document, "change material", () => {
+            this.materials.replace(index, material);
             this.objects.forEach((x) => {
                 if (this.property.name in x) {
-                    if (index) {
-                        x.materialId = x.materialId.toSpliced(index - 1, 1, material.id);
-                    } else {
+                    if (this.materials.length > 1) {
+                        x.materialId = x.materialId.toSpliced(index, 1, material.id);
+                    } else if (this.materials.length === 1) {
                         x.materialId = material.id;
                     }
                 }
@@ -78,8 +68,20 @@ export class MaterialProperty extends PropertyBase {
         this.document.visual.update();
     }
 
-    private findMaterial(id: string) {
-        return this.document.materials.find((x) => x.id === id);
+    private materialCollection(id: string | string[]) {
+        const findMaterial = (id: string) => this.document.materials.find(m => m.id === id);
+
+        let materials: Material[]
+        if (Array.isArray(id)) {
+            materials = id.map((x) => findMaterial(x)).filter((x) => x !== undefined);
+        } else {
+            materials = [];
+            let material = findMaterial(id);
+            if (material) {
+                materials.push(material);
+            }   
+        }
+        return new ObservableCollection(...materials);
     }
 }
 

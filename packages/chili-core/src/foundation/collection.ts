@@ -25,7 +25,8 @@ export type CollectionChangedArgs =
       }
     | {
           action: CollectionAction.replace;
-          item: any;
+          index: number;
+          item: any,
           items: any[];
       };
 
@@ -105,6 +106,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         this._callbacks.forEach((callback) =>
             callback({
                 action: CollectionAction.replace,
+                index,
                 item,
                 items,
             }),
@@ -143,7 +145,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         return this._items.find(predicate);
     }
 
-    indexOf(item: T, fromIndex: number | undefined) {
+    indexOf(item: T, fromIndex?: number) {
         return this._items.indexOf(item, fromIndex);
     }
 
