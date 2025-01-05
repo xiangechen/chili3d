@@ -9,7 +9,7 @@
     left: 16px;
     padding: 16px;
     max-width: 480px;
-    max-height: 65%;
+    max-height: 75%;
     overflow: hidden;
 }
 
@@ -46,8 +46,7 @@
     border: 1px solid var(--border-color);
     margin: 8px 0px;
     padding: 4px;
-    height: 60px;
-    min-height: 40px;
+    min-height: 60px;
     max-height: 120px;
     flex: 0;
     overflow: hidden;
