@@ -120,7 +120,7 @@ export class InputProperty extends PropertyBase {
     private readonly setValue = (input: HTMLInputElement) => {
         let newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {
-            PubSub.default.pub("showToast", "error.default");
+            PubSub.default.pub("showToast", "error.default:{0}", newValue?.error);
             return;
         }
         Transaction.excute(this.document, "modify property", () => {
