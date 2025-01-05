@@ -40,7 +40,7 @@ export class MaterialProperty extends PropertyBase {
                     backgroundColor: new Binding(material, "color", new ColorConverter()),
                     backgroundImage: new PathBinding(material, "map.image", new UrlStringConverter()),
                     backgroundBlendMode: "multiply",
-                    backgroundSize: "contain",
+                    backgroundSize: "cover",
                     cursor: "pointer",
                 },
                 onclick: (e) => {
