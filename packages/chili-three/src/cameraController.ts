@@ -1,11 +1,9 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
-
 import { GeometryNode, ICameraController, Point, ShapeType } from "chili-core";
 import { Box3, Matrix4, OrthographicCamera, PerspectiveCamera, Sphere, Vector3 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeView } from "./threeView";
-import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeVisualContext from "./threeVisualContext";
 
 const DegRad = Math.PI / 180.0;
 
@@ -18,6 +16,9 @@ export class CameraController implements ICameraController {
     private _fov: number = 50;
     private _rotateCenter: Vector3 | undefined;
     private _camera: PerspectiveCamera | OrthographicCamera;
+    private isPanning: boolean = false;
+    private isRotating: boolean = false;
+    private lastMousePosition: { x: number; y: number } = { x: 0, y: 0 };
 
     private _cameraType: "perspective" | "orthographic" = "orthographic";
     get cameraType(): "perspective" | "orthographic" {
@@ -45,12 +46,57 @@ export class CameraController implements ICameraController {
 
     constructor(readonly view: ThreeView) {
         this._camera = this.newCamera();
+        this.addEventListeners();
     }
 
     private newCamera() {
         return this._cameraType === "perspective"
             ? new PerspectiveCamera(this._fov, 1, 0.1, 1e4)
             : new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.1, 1e4);
+    }
+
+    private addEventListeners() {
+        this.view.element.addEventListener('mousedown', this.onMouseDown.bind(this));
+        this.view.element.addEventListener('mouseup', this.onMouseUp.bind(this));
+        this.view.element.addEventListener('mousemove', this.onMouseMove.bind(this));
+        this.view.element.addEventListener('wheel', this.onMouseWheel.bind(this));
+    }
+
+    private onMouseDown(event: MouseEvent) {
+        if (event.button === 1) { // Middle mouse button
+            if (event.shiftKey) {
+                this.isRotating = true;
+                this.startRotate(event.clientX, event.clientY);
+            } else {
+                this.isPanning = true;
+            }
+            this.lastMousePosition = { x: event.clientX, y: event.clientY };
+        }
+    }
+
+    private onMouseUp(event: MouseEvent) {
+        if (event.button === 1) { // Middle mouse button
+            this.isPanning = false;
+            this.isRotating = false;
+        }
+    }
+
+    private onMouseMove(event: MouseEvent) {
+        if (this.isPanning) {
+            let dx = event.clientX - this.lastMousePosition.x;
+            let dy = event.clientY - this.lastMousePosition.y;
+            this.pan(dx, dy);
+            this.lastMousePosition = { x: event.clientX, y: event.clientY };
+        } else if (this.isRotating) {
+            let dx = event.clientX - this.lastMousePosition.x;
+            let dy = event.clientY - this.lastMousePosition.y;
+            this.rotate(dx, dy);
+            this.lastMousePosition = { x: event.clientX, y: event.clientY };
+        }
+    }
+
+    private onMouseWheel(event: WheelEvent) {
+        this.zoom(event.clientX, event.clientY, event.deltaY);
     }
 
     pan(dx: number, dy: number): void {
