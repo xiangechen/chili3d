@@ -1,11 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDisposable, IDocument, IEventHandler, ITextGenerator, IVisual, Logger, Plane } from "chili-core";
+import { IDisposable, IDocument, IEventHandler, IVisual, Logger, Plane } from "chili-core";
 import { NodeSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeView } from "./threeView";
-import { ThreeViewHandler } from "./threeViewEventHandler";
 import { ThreeVisualContext } from "./threeVisualContext";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -14,9 +13,7 @@ export class ThreeVisual implements IVisual {
     readonly defaultEventHandler: IEventHandler;
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
-    readonly viewHandler: IEventHandler;
     readonly highlighter: ThreeHighlighter;
-    // readonly textGenerator: ITextGenerator;
 
     private _eventHandler: IEventHandler;
 
@@ -34,9 +31,7 @@ export class ThreeVisual implements IVisual {
         this.scene = this.initScene();
         this.defaultEventHandler = new NodeSelectionHandler(document, true);
         this.context = new ThreeVisualContext(this, this.scene);
-        this.viewHandler = new ThreeViewHandler();
         this.highlighter = new ThreeHighlighter(this.context);
-        // this.textGenerator = new ThreeTextGenerator();
         this._eventHandler = this.defaultEventHandler;
     }
 
@@ -69,7 +64,6 @@ export class ThreeVisual implements IVisual {
     dispose() {
         this.context.dispose();
         this.defaultEventHandler.dispose();
-        this.viewHandler.dispose();
         this._eventHandler.dispose();
         this.scene.traverse((x) => {
             if (IDisposable.isDisposable(x)) x.dispose();

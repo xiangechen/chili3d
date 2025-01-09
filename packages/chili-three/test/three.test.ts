@@ -6,10 +6,6 @@ import { TestDocument } from "./testDocument";
 import { TestNode } from "./testEdge";
 import { TestView } from "./testView";
 
-jest.mock("../src/threeRenderBuilder", () => ({
-    ThreeRenderBuilder: jest.fn(),
-}));
-
 (global as any).ResizeObserver = jest.fn().mockImplementation(() => ({
     observe: jest.fn(),
     unobserve: jest.fn(),

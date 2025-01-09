@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
-import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
 
 const options = {
@@ -38,14 +36,12 @@ export class ViewGizmo extends HTMLElement {
     private readonly _center: Vector3;
     private readonly _canvas: HTMLCanvasElement;
     private readonly _context: CanvasRenderingContext2D;
-    readonly cameraController: CameraController;
     private _canClick: boolean = true;
     private _selectedAxis?: Axis;
     private _mouse?: Vector3;
 
     constructor(readonly view: ThreeView) {
         super();
-        this.cameraController = view.cameraController;
         this._axes = this._initAxes();
         this._center = new Vector3(options.size * 0.5, options.size * 0.5, 0);
         this._canvas = this._initCanvas();
@@ -128,6 +124,7 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.addEventListener("pointermove", this._onPointerMove, false);
         this._canvas.addEventListener("pointerenter", this._onPointerEnter, false);
         this._canvas.addEventListener("pointerout", this._onPointerOut, false);
+        this._canvas.addEventListener("pointerdown", this._onPointDown, false);
         this._canvas.addEventListener("click", this._onClick, false);
     }
 
@@ -135,13 +132,14 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.removeEventListener("pointermove", this._onPointerMove, false);
         this._canvas.removeEventListener("pointerenter", this._onPointerEnter, false);
         this._canvas.removeEventListener("pointerout", this._onPointerOut, false);
+        this._canvas.removeEventListener("pointerdown", this._onPointDown, false);
         this._canvas.removeEventListener("click", this._onClick, false);
     }
 
-    private _onPointerMove = (e: PointerEvent) => {
+    private readonly _onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
         if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
-            this.cameraController.rotate(e.movementX * 4, e.movementY * 4);
+            this.view.rotate(-e.movementX * 0.08, -e.movementY * 0.08);
             this._canClick = false;
         }
         const rect = this._canvas.getBoundingClientRect();
@@ -149,35 +147,32 @@ export class ViewGizmo extends HTMLElement {
         this.view.update();
     };
 
-    private _onPointerOut = (e: PointerEvent) => {
+    private readonly _onPointDown = (e: PointerEvent) => {
+        e.stopPropagation();
+    };
+
+    private readonly _onPointerOut = (e: PointerEvent) => {
         this._mouse = undefined;
         this.style.backgroundColor = "transparent";
     };
 
-    private _onPointerEnter = (e: PointerEvent) => {
+    private readonly _onPointerEnter = (e: PointerEvent) => {
         this.style.backgroundColor = "rgba(255, 255, 255, .2)";
     };
 
-    private _onClick = (e: MouseEvent) => {
+    private readonly _onClick = (e: MouseEvent) => {
         if (!this._canClick) {
             this._canClick = true;
             return;
         }
+
         if (this._selectedAxis) {
-            let distance = this.cameraController.camera.position.distanceTo(this.cameraController.target);
+            let distance = this.view.cameraPosition.distanceTo(this.view.cameraTarget);
             let position = this._selectedAxis.direction
                 .clone()
                 .multiplyScalar(distance)
-                .add(this.cameraController.target);
-            this.cameraController.camera.position.copy(position);
-            let up = new XYZ(0, 0, 1);
-            if (this._selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
-            else if (this._selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
-            this.cameraController.lookAt(
-                this.cameraController.camera.position,
-                this.cameraController.target,
-                up,
-            );
+                .add(this.view.cameraTarget);
+            this.view.cameraPosition = position;
         }
     };
 
@@ -187,7 +182,7 @@ export class ViewGizmo extends HTMLElement {
 
     update() {
         this.clear();
-        let invRotMat = new Matrix4().makeRotationFromEuler(this.cameraController.camera.rotation).invert();
+        let invRotMat = new Matrix4().makeRotationFromEuler(this.view.camera.rotation).invert();
         this._axes.forEach(
             (axis) =>
                 (axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat))),

@@ -36,26 +36,37 @@ export class HotkeyService implements IService {
     }
 
     start(): void {
-        window.addEventListener("keydown", this.eventHandlerKeyDown);
+        window.addEventListener("keydown", this.interactiveKeyDown);
         window.addEventListener("keydown", this.commandKeyDown);
+        window.addEventListener("keyup", this.interactiveHandlerKeyUp);
         Logger.info(`${HotkeyService.name} started`);
     }
 
     stop(): void {
-        window.removeEventListener("keydown", this.eventHandlerKeyDown);
+        window.removeEventListener("keydown", this.interactiveKeyDown);
         window.removeEventListener("keydown", this.commandKeyDown);
+        window.removeEventListener("keyup", this.interactiveHandlerKeyUp);
         Logger.info(`${HotkeyService.name} stoped`);
     }
 
-    private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
+    private readonly interactiveKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-        let visual = this.app?.activeView?.document?.visual;
+
         let view = this.app?.activeView;
-        if (view && visual) {
-            visual.eventHandler.keyDown(view, e);
-            visual.viewHandler.keyDown(view, e);
-            if (this.app!.executingCommand) e.stopImmediatePropagation();
-        }
+        if (!view) return;
+
+        view.onKeyDown(e);
+        view.document?.visual.eventHandler.keyDown(view, e);
+
+        if (this.app?.executingCommand) e.stopImmediatePropagation();
+    };
+
+    private readonly interactiveHandlerKeyUp = (e: KeyboardEvent) => {
+        e.preventDefault();
+
+        this.app?.activeView?.onKeyUp(e);
+
+        if (this.app?.executingCommand) e.stopImmediatePropagation();
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {

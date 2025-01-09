@@ -11,7 +11,6 @@ import { IVisualContext } from "./visualContext";
 export interface IVisual extends IDisposable {
     readonly document: IDocument;
     readonly context: IVisualContext;
-    readonly viewHandler: IEventHandler;
     readonly highlighter: IHighlighter;
     update(): void;
     eventHandler: IEventHandler;

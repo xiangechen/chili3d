@@ -1,11 +1,11 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IView } from "chili-core";
-import { Flyout } from "../components";
+import { CameraType, IView } from "chili-core";
+import { button, div, Flyout, localize } from "../components";
 import style from "./viewport.module.css";
 
 export class Viewport extends HTMLElement {
-    private _flyout: Flyout;
+    private readonly _flyout: Flyout;
     private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
 
     constructor(readonly view: IView) {
@@ -66,30 +66,25 @@ export class Viewport extends HTMLElement {
         this._eventCaches.length = 0;
     }
 
-    private pointerMove = (view: IView, event: PointerEvent) => {
+    private readonly pointerMove = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerMove(view, event);
-        view.document.visual.viewHandler.pointerMove(view, event);
     };
 
-    private pointerDown = (view: IView, event: PointerEvent) => {
+    private readonly pointerDown = (view: IView, event: PointerEvent) => {
         view.document.application.activeView = view;
         view.document.visual.eventHandler.pointerDown(view, event);
-        view.document.visual.viewHandler.pointerDown(view, event);
     };
 
-    private pointerUp = (view: IView, event: PointerEvent) => {
+    private readonly pointerUp = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerUp(view, event);
-        view.document.visual.viewHandler.pointerUp(view, event);
     };
 
-    private pointerOut = (view: IView, event: PointerEvent) => {
+    private readonly pointerOut = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerOut?.(view, event);
-        view.document.visual.viewHandler.pointerOut?.(view, event);
     };
 
-    private mouseWheel = (view: IView, event: WheelEvent) => {
+    private readonly mouseWheel = (view: IView, event: WheelEvent) => {
         view.document.visual.eventHandler.mouseWheel?.(view, event);
-        view.document.visual.viewHandler.mouseWheel?.(view, event);
     };
 }
 

@@ -17,7 +17,7 @@ import {
     ObservableCollection,
     Plane,
     PubSub,
-    Serialized
+    Serialized,
 } from "chili-core";
 import { Document } from "./document";
 import { importFiles } from "./utils";
@@ -128,7 +128,7 @@ export class Application implements IApplication {
                 for (const file of opens) {
                     let json: Serialized = JSON.parse(await file.text());
                     await this.loadDocument(json);
-                    this.activeView?.cameraController.fitContent();
+                    this.activeView?.fitContent();
                 }
             },
             "toast.excuting{0}",

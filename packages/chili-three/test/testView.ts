@@ -1,11 +1,10 @@
 import { IDocument, Plane } from "chili-core";
 import * as THREE from "three";
-import { Renderer } from "three";
+import { ThreeHighlighter } from "../src/threeHighlighter";
 import { ThreeView } from "../src/threeView";
 import { ThreeVisualContext } from "../src/threeVisualContext";
-import { ThreeHighlighter } from "../src/threeHighlighter";
 
-class TestWebGLRenderer implements THREE.Renderer {
+class TestWebGLRenderer {
     constructor(readonly domElement = document.createElement("canvas")) {}
 
     render(scene: THREE.Object3D, camera: THREE.Camera): void {}
@@ -63,11 +62,8 @@ export class TestView extends ThreeView {
     constructor(document: IDocument, content: ThreeVisualContext) {
         super(document, "test", Plane.XY, new ThreeHighlighter(content), content);
         this.setDom(container);
-        this.cameraController.lookAt(
-            new THREE.Vector3(0, 0, 100),
-            new THREE.Vector3(),
-            new THREE.Vector3(0, 1, 0),
-        );
+        this.camera.position.set(0, 0, 100);
+        this.camera.lookAt(0, 0, 0);
     }
 
     protected override initRenderer() {
