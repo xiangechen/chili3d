@@ -166,7 +166,10 @@ export class ThreeView extends Observable implements IView {
 
     private createCamera() {
         let camera: PerspectiveCamera | OrthographicCamera;
-        let aspect = this.width! / (this.height ?? 1);
+        let aspect = this.width! / this.height!;
+        if (Number.isNaN(aspect)) {
+            aspect = 1;
+        }
         if (this.cameraType === CameraType.perspective) {
             camera = new PerspectiveCamera(45, aspect, 1, 1e6);
         } else {
@@ -243,6 +246,7 @@ export class ThreeView extends Observable implements IView {
         }
         this._controls = new CameraControls(this.camera, this.renderer.domElement);
         this._controls.draggingSmoothTime = 0.06;
+        this._controls.smoothTime = 0.1;
         this._controls.dollyToCursor = true;
         this._controls.polarRotateSpeed = 0.8;
         this._controls.azimuthRotateSpeed = 0.8;
@@ -312,6 +316,9 @@ export class ThreeView extends Observable implements IView {
     }
 
     resize(width: number, height: number) {
+        if (height < 0.00001) {
+            return;
+        }
         this._renderer.setSize(width, height);
         this._camera = this.createCamera();
         if (this._controls) {
@@ -326,7 +333,7 @@ export class ThreeView extends Observable implements IView {
         this.update();
     }
 
-    fitContent(): void {
+    async fitContent() {
         let box = new Box3();
         let shapes = this.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
         if (shapes.length === 0) {
@@ -339,7 +346,10 @@ export class ThreeView extends Observable implements IView {
         }
         let sphere = new Sphere();
         box.getBoundingSphere(sphere);
-        this._controls?.fitToSphere(sphere, true);
+        if (sphere.radius < 1) {
+            sphere.radius = 1;
+        }
+        await this._controls?.fitToSphere(sphere, true);
     }
 
     get width() {
@@ -350,23 +360,23 @@ export class ThreeView extends Observable implements IView {
         return this._dom?.clientHeight;
     }
 
-    rotate(dx: number, dy: number): void {
-        this._controls?.rotate(dx, dy);
+    async rotate(dx: number, dy: number) {
+        await this._controls?.rotate(dx, dy);
     }
 
-    zoomIn(): void {
+    async zoomIn() {
         if (this.cameraType === CameraType.orthographic) {
-            this._controls?.zoom(this.camera.zoom * 0.3);
+            await this._controls?.zoom(this.camera.zoom * 0.3);
         } else {
-            this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * 0.2);
+            await this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * 0.2);
         }
     }
 
-    zoomOut(): void {
+    async zoomOut() {
         if (this.cameraType === CameraType.orthographic) {
-            this._controls?.zoom(-this.camera.zoom * 0.3);
+            await this._controls?.zoom(-this.camera.zoom * 0.3);
         } else {
-            this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * -0.2);
+            await this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * -0.2);
         }
     }
 

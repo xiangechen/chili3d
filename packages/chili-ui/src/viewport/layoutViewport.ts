@@ -31,7 +31,7 @@ export class LayoutViewport extends HTMLElement {
         app.views.onCollectionChanged(this._handleViewCollectionChanged);
     }
 
-    private _handleViewCollectionChanged = (args: CollectionChangedArgs) => {
+    private readonly _handleViewCollectionChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
             args.items.forEach((view) => {
                 this.createViewport(view);
@@ -62,7 +62,7 @@ export class LayoutViewport extends HTMLElement {
         PubSub.default.remove("viewCursor", this._handleCursor);
     }
 
-    private _handleCursor = (type: CursorType) => {
+    private readonly _handleCursor = (type: CursorType) => {
         this.style.cursor = Cursor.get(type);
     };
 
@@ -75,7 +75,7 @@ export class LayoutViewport extends HTMLElement {
         return viewport;
     }
 
-    private _handleActiveViewChanged = (view: IView | undefined) => {
+    private readonly _handleActiveViewChanged = (view: IView | undefined) => {
         this._viewports.forEach((v) => {
             if (v.view === view) {
                 v.classList.remove(style.hidden);
@@ -85,18 +85,18 @@ export class LayoutViewport extends HTMLElement {
         });
     };
 
-    private showSelectionControl = (controller: AsyncController) => {
+    private readonly showSelectionControl = (controller: AsyncController) => {
         this._selectionController.setControl(controller);
         this._selectionController.style.visibility = "visible";
         this._selectionController.style.zIndex = "1000";
     };
 
-    private clearSelectionControl = () => {
+    private readonly clearSelectionControl = () => {
         this._selectionController.setControl(undefined);
         this._selectionController.style.visibility = "hidden";
     };
 
-    private _handleMaterialEdit = (
+    private readonly _handleMaterialEdit = (
         document: IDocument,
         editingMaterial: Material,
         callback: (material: Material) => void,

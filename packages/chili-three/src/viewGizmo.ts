@@ -27,7 +27,7 @@ export interface Axis {
     size: number;
     position: Vector3;
     color: string[];
-    line?: number;
+    lineWidth?: number;
     label?: string;
 }
 
@@ -55,6 +55,8 @@ export class ViewGizmo extends HTMLElement {
         this.style.right = "20px";
         this.style.borderRadius = "100%";
         this.style.cursor = "pointer";
+        this.style.userSelect = "none";
+        this.style.webkitUserSelect = "none";
     }
 
     private _initCanvas() {
@@ -67,7 +69,7 @@ export class ViewGizmo extends HTMLElement {
         return canvas;
     }
 
-    private _initAxes() {
+    private _initAxes(): Axis[] {
         return [
             {
                 axis: "x",
@@ -75,7 +77,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.x,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "X",
             },
             {
@@ -84,7 +86,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.y,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "Y",
             },
             {
@@ -93,7 +95,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.z,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "Z",
             },
             {
@@ -210,7 +212,7 @@ export class ViewGizmo extends HTMLElement {
         for (let axis of axes) {
             let color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
-            this.drawLine(this._center, axis.position, color, axis.line);
+            this.drawLine(this._center, axis.position, color, axis.lineWidth);
             this.drawLabel(axis);
         }
     }

@@ -1,8 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { CameraType, IView } from "chili-core";
-import { button, div, Flyout, localize } from "../components";
+import { Binding, CameraType, IConverter, IView, Result } from "chili-core";
+import { div, Flyout, svg } from "../components";
 import style from "./viewport.module.css";
+
+class CameraConverter implements IConverter<CameraType> {
+    constructor(readonly type: CameraType) {}
+
+    convert(value: CameraType): Result<string, string> {
+        if (value === this.type) {
+            return Result.ok(style.actived);
+        }
+        return Result.ok("");
+    }
+}
 
 export class Viewport extends HTMLElement {
     private readonly _flyout: Flyout;
@@ -13,6 +24,84 @@ export class Viewport extends HTMLElement {
         this.className = style.root;
         this.initEvent();
         this._flyout = new Flyout();
+        this.render();
+    }
+
+    private render() {
+        this.append(
+            div(
+                {
+                    className: style.viewControls,
+                    onpointerdown(ev) {
+                        ev.stopPropagation();
+                    },
+                    onclick: (e) => {
+                        e.stopPropagation();
+                    },
+                },
+                div(
+                    {
+                        className: style.border,
+                    },
+                    div(
+                        {
+                            className: new Binding(
+                                this.view,
+                                "cameraType",
+                                new CameraConverter(CameraType.orthographic),
+                            ),
+                        },
+                        svg({
+                            icon: "icon-orthographic",
+                            onclick: (e) => {
+                                e.stopPropagation();
+                                this.view.cameraType = CameraType.orthographic;
+                            },
+                        }),
+                    ),
+                    div(
+                        {
+                            className: new Binding(
+                                this.view,
+                                "cameraType",
+                                new CameraConverter(CameraType.perspective),
+                            ),
+                        },
+                        svg({
+                            icon: "icon-perspective",
+                            onclick: (e) => {
+                                e.stopPropagation();
+                                this.view.cameraType = CameraType.perspective;
+                            },
+                        }),
+                    ),
+                ),
+                div(
+                    {
+                        className: style.border,
+                    },
+                    svg({
+                        icon: "icon-fitcontent",
+                        onclick: async (e) => {
+                            e.stopPropagation();
+                            await this.view.fitContent();
+                        },
+                    }),
+                    svg({
+                        icon: "icon-zoomin",
+                        onclick: () => {
+                            this.view.zoomIn();
+                        },
+                    }),
+                    svg({
+                        icon: "icon-zoomout",
+                        onclick: () => {
+                            this.view.zoomOut();
+                        },
+                    }),
+                ),
+            ),
+        );
     }
 
     connectedCallback() {

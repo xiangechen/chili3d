@@ -1,3 +1,55 @@
 .root {
     position: relative;
 }
+
+.viewControls {
+    position: absolute;
+    height: 100%;
+    top: 0;
+    right: 16px;
+    z-index: 999;
+    pointer-events: none;
+    padding-top: 160px;
+
+    svg {
+        border: none;
+        background: transparent;
+        width: 22px;
+        height: 22px;
+        padding: 8px;
+        border-radius: 7.5px;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.74);
+        }
+
+        &:active {
+            background: rgba(255, 255, 255, 0.96);
+        }
+    }
+
+    .actived {
+        background: rgba(255, 255, 255, 0.56);
+    }
+
+    .border {
+        border: 1px solid #8f8f8f;
+        background: rgba(204, 204, 204, 0.75);
+        border-radius: 10px;
+        margin: 1px 0px;
+        padding: 2px;
+        pointer-events: all;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        div {
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 7.5px;
+        }
+    }
+}

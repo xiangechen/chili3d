@@ -10,7 +10,7 @@ export async function importFiles(application: IApplication, files: File[] | Fil
             await Transaction.excuteAsync(document, "import model", async () => {
                 await document.application.dataExchange.import(document, files);
             });
-            document.application.activeView?.fitContent();
+            await document.application.activeView?.fitContent();
         },
         "toast.excuting{0}",
         I18n.translate("command.import"),

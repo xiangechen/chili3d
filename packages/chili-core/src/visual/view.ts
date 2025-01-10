@@ -27,13 +27,13 @@ export interface IView extends IPropertyChanged, IDisposable {
     up(): XYZ;
     toImage(): string;
     direction(): XYZ;
-    rotate(dx: number, dy: number): void;
-    zoomIn(): void;
-    zoomOut(): void;
+    rotate(dx: number, dy: number): Promise<void>;
+    zoomIn(): Promise<void>;
+    zoomOut(): Promise<void>;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
-    fitContent(): void;
+    fitContent(): Promise<void>;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
     close(): void;

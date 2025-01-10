@@ -128,7 +128,7 @@ export class Application implements IApplication {
                 for (const file of opens) {
                     let json: Serialized = JSON.parse(await file.text());
                     await this.loadDocument(json);
-                    this.activeView?.fitContent();
+                    await this.activeView?.fitContent();
                 }
             },
             "toast.excuting{0}",

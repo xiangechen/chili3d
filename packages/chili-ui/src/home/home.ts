@@ -128,7 +128,7 @@ export class Home extends HTMLElement {
                                             "showPermanent",
                                             async () => {
                                                 let document = await this.app.openDocument(item.id);
-                                                document?.application.activeView?.fitContent();
+                                                await document?.application.activeView?.fitContent();
                                             },
                                             "toast.excuting{0}",
                                             I18n.translate("command.document.open"),
