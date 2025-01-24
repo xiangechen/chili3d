@@ -330,19 +330,19 @@ public:
         IGESCAFControl_Reader igesCafReader;
         igesCafReader.SetColorMode(true);
         igesCafReader.SetNameMode(true);
-        IFSelect_ReturnStatus readStatus = igesCafReader.ReadFile(dummyFileName.c_str());
-
-        if (readStatus != IFSelect_RetDone)
+        if (igesCafReader.ReadFile(dummyFileName.c_str()) != IFSelect_RetDone)
         {
+            std::remove(dummyFileName.c_str());
             return std::nullopt;
         }
 
         Handle(TDocStd_Document) document = new TDocStd_Document("bincaf");
         if (!igesCafReader.Transfer(document))
         {
+            std::remove(dummyFileName.c_str());
             return std::nullopt;
         }
-
+        std::remove(dummyFileName.c_str());
         return parseNodeFromDocument(document);
     }
 
@@ -381,7 +381,7 @@ EMSCRIPTEN_BINDINGS(Converter)
     register_type<ShapeNodeArray>("Array<ShapeNode>");
 
     class_<ShapeNode>("ShapeNode")
-        .property("shape", &ShapeNode::shape)
+        .property("shape", &ShapeNode::shape, return_value_policy::reference())
         .property("color", &ShapeNode::color)
         .property("name", &ShapeNode::name)
         .function("getChildren", &ShapeNode::getChildren);

@@ -6,7 +6,7 @@ export interface IDisposable {
 
 export namespace IDisposable {
     export function isDisposable(value: any): value is IDisposable {
-        if (typeof value.dispose !== "function") return false;
+        if (!value || typeof value.dispose !== "function") return false;
         return value.dispose.length === 0;
     }
 }

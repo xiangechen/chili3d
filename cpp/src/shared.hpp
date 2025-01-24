@@ -123,6 +123,29 @@ struct Ax3 {
 
 };
 
+struct Pln {
+    Vector3 location;
+    Vector3 direction;
+    Vector3 xDirection;
+
+    static gp_Pln toPln(const Pln& a) {
+        return gp_Pln(toAx3(a));
+    }
+
+    static gp_Ax3 toAx3(const Pln& a) {
+        return gp_Ax3(Vector3::toPnt(a.location), Vector3::toDir(a.direction), Vector3::toDir(a.xDirection));
+    }
+
+    static Pln fromAx3(const gp_Ax3& a) {
+        return Pln{Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()), Vector3::fromDir(a.XDirection())};
+    }
+
+    static Pln fromPln(const gp_Pln& a) {
+        return Pln{Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Axis().Direction()), Vector3::fromDir(a.XAxis().Direction())};
+    }
+
+};
+
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int8Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int16Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int32Array)

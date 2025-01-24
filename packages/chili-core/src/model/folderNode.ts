@@ -200,6 +200,30 @@ export class FolderNode extends Node implements INodeLinkedList {
         this.document.notifyNodeChanged([record]);
     }
 
+    override disposeInternal(): void {
+        this.disposeNodes(this._firstChild);
+        super.disposeInternal();
+    }
+
+    private readonly disposeNodes = (node: INode | undefined) => {
+        if (node instanceof FolderNode) {
+            this.disposeNodes(node.firstChild);
+        }
+
+        let next = node?.nextSibling;
+        if (node) {
+            node.nextSibling = null as any;
+        }
+        while (next) {
+            let cache = next.nextSibling;
+            next.previousSibling = null as any;
+            next.nextSibling = null as any;
+            next.dispose();
+            next = cache;
+        }
+        node?.dispose();
+    };
+
     protected onVisibleChanged() {
         this.setChildrenParentVisible();
     }

@@ -246,7 +246,7 @@ export class OccElementarySurface extends OccSurface implements IElementarySurfa
 
     get axis() {
         return gc((c) => {
-            return OcctHelper.toXYZ(c(c(this.elementarySurface.axis()).direction));
+            return OcctHelper.toXYZ(c(c(this.elementarySurface.axis()).direction()));
         });
     }
     set axis(value: XYZ) {

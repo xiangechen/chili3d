@@ -457,34 +457,34 @@ export interface gp_Dir {
 }
 
 export interface gp_Ax1 {
-    readonly location: gp_Pnt;
-    readonly direction: gp_Dir;
+    location(): gp_Pnt;
+    direction(): gp_Dir;
     delete(): void;
 }
 
 export interface gp_Ax2 {
-    readonly location: gp_Pnt;
-    readonly direction: gp_Dir;
-    readonly xDirection: gp_Dir;
-    readonly yDirection: gp_Dir;
+    location(): gp_Pnt;
+    direction(): gp_Dir;
+    xDirection(): gp_Dir;
+    yDirection(): gp_Dir;
     delete(): void;
 }
 
 export interface gp_Ax3 {
-    readonly location: gp_Pnt;
-    readonly direction: gp_Dir;
-    readonly xDirection: gp_Dir;
-    readonly yDirection: gp_Dir;
-    readonly direct: boolean;
+    location(): gp_Pnt;
+    direction(): gp_Dir;
+    xDirection(): gp_Dir;
+    yDirection(): gp_Dir;
+    direct(): boolean;
     delete(): void;
 }
 
 export interface gp_Pln {
-    readonly location: gp_Pnt;
-    readonly position: gp_Ax3;
-    readonly axis: gp_Ax1;
-    readonly xAxis: gp_Ax1;
-    readonly yAxis: gp_Ax1;
+    location(): gp_Pnt;
+    position(): gp_Ax3;
+    axis(): gp_Ax1;
+    xAxis(): gp_Ax1;
+    yAxis(): gp_Ax1;
     delete(): void;
 }
 
@@ -646,6 +646,12 @@ export type Ax3 = {
     xDirection: Vector3;
 };
 
+export type Pln = {
+    location: Vector3;
+    direction: Vector3;
+    xDirection: Vector3;
+};
+
 export interface Transient {
     delete(): void;
 }
@@ -679,8 +685,8 @@ interface EmbindModule {
         point(_0: Vector3): ShapeResult;
         line(_0: Vector3, _1: Vector3): ShapeResult;
         revolve(_0: TopoDS_Shape, _1: Ax1, _2: number): ShapeResult;
-        box(_0: Ax3, _1: number, _2: number, _3: number): ShapeResult;
-        rect(_0: Ax3, _1: number, _2: number): ShapeResult;
+        box(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
+        rect(_0: Pln, _1: number, _2: number): ShapeResult;
     };
     Curve: {
         curveLength(_0: Geom_Curve | null): number;
@@ -807,7 +813,7 @@ interface EmbindModule {
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
-        sectionSP(_0: TopoDS_Shape, _1: Ax3): TopoDS_Shape;
+        sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
     };
     Vertex: { point(_0: TopoDS_Vertex): Vector3 };
     Edge: {

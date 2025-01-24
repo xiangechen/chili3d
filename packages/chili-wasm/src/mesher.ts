@@ -1,6 +1,7 @@
 import {
     EdgeMeshData,
     FaceMeshData,
+    IDisposable,
     IShapeMeshData,
     LineType,
     ShapeMeshGroup,
@@ -10,7 +11,7 @@ import { EdgeMesher, FaceMesher } from "../lib/chili-wasm";
 import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
 
-export class Mesher implements IShapeMeshData {
+export class Mesher implements IShapeMeshData, IDisposable {
     private readonly _lineDeflection: number;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
@@ -23,7 +24,7 @@ export class Mesher implements IShapeMeshData {
                 positions: edgeMesher.getPosition(),
                 groups: this.getEdgeGroups(edgeMesher),
                 color: VisualConfig.defaultEdgeColor,
-            } as any;
+            };
             edgeMesher.delete();
         }
         return this._lines;
@@ -38,14 +39,23 @@ export class Mesher implements IShapeMeshData {
                 indices: faceMesher.getIndex(),
                 groups: this.getFaceGroups(faceMesher),
                 color: VisualConfig.defaultFaceColor,
-            } as any;
+            };
             faceMesher.delete();
         }
         return this._faces;
     }
 
-    constructor(readonly shape: OccShape) {
+    constructor(private shape: OccShape) {
         this._lineDeflection = wasm.boundingBoxRatio(this.shape.shape, 0.001);
+    }
+
+    dispose(): void {
+        this._faces?.groups.forEach((g) => g.shape.dispose());
+        this._lines?.groups.forEach((g) => g.shape.dispose());
+
+        this.shape = null as any;
+        this._faces = null as any;
+        this._lines = null as any;
     }
 
     updateMeshShape(): void {

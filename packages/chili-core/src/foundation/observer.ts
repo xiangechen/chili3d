@@ -100,14 +100,32 @@ export class Observable implements IPropertyChanged {
         this.propertyChangedHandlers.clear();
     }
 
+    protected _isDisposed = false;
     dispose() {
+        if (this._isDisposed) return;
+        this._isDisposed = true;
+
+        this.disposeInternal();
+    }
+
+    protected disposeInternal() {
         this.propertyChangedHandlers.clear();
     }
 }
 
 export abstract class HistoryObservable extends Observable {
-    constructor(readonly document: IDocument) {
+    private _document: IDocument;
+    get document(): IDocument {
+        return this._document;
+    }
+    constructor(document: IDocument) {
         super();
+        this._document = document;
+    }
+
+    override disposeInternal() {
+        super.disposeInternal();
+        this._document = null as any;
     }
 
     protected override setProperty<K extends keyof this>(

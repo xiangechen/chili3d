@@ -14,32 +14,33 @@ import { IPropertyChanged } from "./observer";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
-    executeCommand: (commandName: CommandKeys) => void;
     activeViewChanged: (view: IView | undefined) => void;
-    viewClosed: (view: IView) => void;
+    clearFloatTip: () => void;
+    clearInput: () => void;
+    clearSelectionControl: () => void;
+    clearStatusBarTip: () => void;
+    closeCommandContext: () => void;
+    displayError: (message: string) => void;
+    displayHome: (show: boolean) => void;
+    documentClosed: (document: IDocument) => void;
+    editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
+    executeCommand: (commandName: CommandKeys) => void;
     modelUpdate: (model: INode) => void;
-    visibleChanged: (model: INode) => void;
+    openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
+    showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
+    showFloatTip: (level: MessageType, msg: string) => void;
+    showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
+    showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
+    showProperties(document: IDocument, nodes: INode[]): void;
+    showSelectionControl: (controller: AsyncController) => void;
+    showToast: (message: I18nKeys, ...args: any[]) => void;
     snapTypeChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: I18nKeys) => void;
-    clearStatusBarTip: () => void;
-    showFloatTip: (level: MessageType, msg: string) => void;
-    clearFloatTip: () => void;
-    showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
-    clearInput: () => void;
-    showSelectionControl: (controller: AsyncController) => void;
-    clearSelectionControl: () => void;
-    openCommandContext: (command: ICommand) => void;
-    closeCommandContext: () => void;
-    displayHome: (show: boolean) => void;
-    showProperties(document: IDocument, nodes: INode[]): void;
-    showToast: (message: I18nKeys, ...args: any[]) => void;
-    displayError: (message: string) => void;
-    showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
-    showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
+    viewClosed: (view: IView) => void;
     viewCursor: (cursor: CursorType) => void;
-    editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
+    visibleChanged: (model: INode) => void;
 }
 
 export class PubSub implements IDisposable {

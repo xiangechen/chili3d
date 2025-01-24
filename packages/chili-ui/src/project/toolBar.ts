@@ -29,15 +29,15 @@ export class ToolBar extends HTMLElement {
         );
     }
 
-    private newGroup = () => {
+    private readonly newGroup = () => {
         PubSub.default.pub("executeCommand", "create.folder");
     };
 
-    private expandAll = () => {
+    private readonly expandAll = () => {
         this.setExpand(true);
     };
 
-    private unExpandAll = () => {
+    private readonly unExpandAll = () => {
         this.setExpand(false);
     };
 

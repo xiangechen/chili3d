@@ -1,6 +1,14 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { BoundingBox, GroupNode, IVisualObject, Matrix4, MeshNode, VisualConfig, VisualNode } from "chili-core";
+import {
+    BoundingBox,
+    GroupNode,
+    IVisualObject,
+    Matrix4,
+    MeshNode,
+    VisualConfig,
+    VisualNode,
+} from "chili-core";
 import {
     BufferGeometry,
     DoubleSide,
@@ -9,7 +17,7 @@ import {
     Material,
     Mesh,
     MeshLambertMaterial,
-    Object3D
+    Object3D,
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
@@ -35,7 +43,7 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
-    constructor(private readonly visualNode: VisualNode) {
+    constructor(private visualNode: VisualNode) {
         super();
         this.matrixAutoUpdate = false;
         this.transform = visualNode.transform;
@@ -54,6 +62,7 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
 
     dispose() {
         this.visualNode.removePropertyChanged(this.handlePropertyChanged);
+        this.visualNode = null as any;
     }
 }
 
@@ -130,13 +139,13 @@ export class ThreeMeshObject extends ThreeVisualObject {
         if (this.meshNode.mesh.index) {
             buff.setIndex(this.meshNode.mesh.index);
         }
-        this.meshNode.mesh.groups.forEach(g => {
+        this.meshNode.mesh.groups.forEach((g) => {
             let index = 0;
             if (Array.isArray(this.meshNode.materialId)) {
                 index = this.meshNode.materialId.indexOf(g.materialId);
             }
             buff.addGroup(g.start, g.count, index);
-        })
+        });
         buff.computeBoundingBox();
         return new Mesh(buff, this.getMaterial());
     }
@@ -144,7 +153,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
     private getMaterial() {
         let material: Material | Material[];
         if (Array.isArray(this.meshNode.materialId)) {
-            material = this.meshNode.materialId.map(id => this.context.getMaterial(id));
+            material = this.meshNode.materialId.map((id) => this.context.getMaterial(id));
         } else if (typeof this.meshNode.materialId === "string") {
             material = this.context.getMaterial(this.meshNode.materialId);
         } else {

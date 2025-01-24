@@ -47,6 +47,7 @@ export class TreeGroup extends TreeItem {
 
     override dispose() {
         super.dispose();
+        this.header.remove(); // resolve memory leaks
         this.expanderIcon.removeEventListener("click", this.handleExpanderClick);
     }
 

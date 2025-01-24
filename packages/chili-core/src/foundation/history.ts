@@ -17,6 +17,9 @@ export class History implements IDisposable {
     undoLimits: number = 50;
 
     dispose(): void {
+        this._redos.forEach((x) => x.dispose());
+        this._undos.forEach((x) => x.dispose());
+
         this._undos.length = 0;
         this._redos.length = 0;
     }
@@ -121,6 +124,7 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
                 record.node.dispose();
             }
         });
+        this.records.length = 0;
     }
 
     undo() {

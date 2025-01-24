@@ -1,4 +1,5 @@
 import {
+    gc,
     ICompound,
     IEdge,
     IFace,
@@ -13,7 +14,7 @@ import {
     Ray,
     Result,
     XYZ,
-    XYZLike
+    XYZLike,
 } from "chili-core";
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
@@ -31,17 +32,20 @@ function ensureOccShape(shapes: IShape | IShape[]): TopoDS_Shape[] {
     }
 
     if (shapes instanceof OccShape) {
-        return [shapes.shape]
+        return [shapes.shape];
     }
 
     throw new Error("The OCC kernel only supports OCC geometries.");
 }
 
 function convertShapeResult(result: ShapeResult): Result<IShape, string> {
+    let res: Result<IShape, string>;
     if (!result.isOk) {
-        return Result.err(String(result.error));
+        res = Result.err(String(result.error));
     }
-    return Result.ok(OcctHelper.wrapShape(result.shape));
+    res = Result.ok(OcctHelper.wrapShape(result.shape));
+    result.delete();
+    return res;
 }
 
 export class ShapeFactory implements IShapeFactory {
@@ -65,7 +69,7 @@ export class ShapeFactory implements IShapeFactory {
         if (MathUtils.allEqualZero(start.x - end.x, start.y - end.y, start.z - end.z)) {
             return Result.err("The start and end points are too close.");
         }
-        
+
         return convertShapeResult(wasm.ShapeFactory.line(start, end)) as Result<IEdge>;
     }
     arc(normal: XYZLike, center: XYZLike, start: XYZLike, angle: number): Result<IEdge> {
@@ -77,15 +81,38 @@ export class ShapeFactory implements IShapeFactory {
         return convertShapeResult(wasm.ShapeFactory.circle(normal, center, radius)) as Result<IEdge>;
     }
     rect(plane: Plane, dx: number, dy: number): Result<IFace> {
-        return convertShapeResult(wasm.ShapeFactory.rect(OcctHelper.toAx3(plane), dx, dy)) as Result<IFace>;
+        return gc((c) => {
+            return convertShapeResult(
+                wasm.ShapeFactory.rect(
+                    {
+                        location: plane.origin,
+                        direction: plane.normal,
+                        xDirection: plane.xvec,
+                    },
+                    dx,
+                    dy,
+                ),
+            ) as Result<IFace>;
+        });
     }
     polygon(points: XYZLike[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.polygon(points)) as Result<IWire>;
     }
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid> {
-        return convertShapeResult(
-            wasm.ShapeFactory.box(OcctHelper.toAx3(plane), dx, dy, dz),
-        ) as Result<ISolid>;
+        return gc((c) => {
+            return convertShapeResult(
+                wasm.ShapeFactory.box(
+                    {
+                        location: plane.origin,
+                        direction: plane.normal,
+                        xDirection: plane.xvec,
+                    },
+                    dx,
+                    dy,
+                    dz,
+                ),
+            ) as Result<ISolid>;
+        });
     }
     wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
@@ -107,9 +134,18 @@ export class ShapeFactory implements IShapeFactory {
         );
     }
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {
-        return convertShapeResult(
-            wasm.ShapeFactory.revolve(ensureOccShape(profile)[0], axis, MathUtils.degToRad(angle)),
-        );
+        return gc((c) => {
+            return convertShapeResult(
+                wasm.ShapeFactory.revolve(
+                    ensureOccShape(profile)[0],
+                    {
+                        location: axis.location,
+                        direction: axis.direction,
+                    },
+                    MathUtils.degToRad(angle),
+                ),
+            );
+        });
     }
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape> {
         return convertShapeResult(

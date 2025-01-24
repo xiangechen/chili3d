@@ -3,19 +3,18 @@
 import { IDocument, IView, PubSub } from "chili-core";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
-
 import { div, localize, span } from "../components";
 import style from "./projectView.module.css";
 
 export class ProjectView extends HTMLElement {
-    private readonly _documentTreeMap = new WeakMap<IDocument, Tree>();
+    private readonly _documentTreeMap = new Map<IDocument, Tree>();
 
     private _activeDocument: IDocument | undefined;
     get activeDocument() {
         return this._activeDocument;
     }
 
-    private panel: HTMLDivElement;
+    private readonly panel: HTMLDivElement;
 
     constructor(props: { className: string }) {
         super();
@@ -34,7 +33,8 @@ export class ProjectView extends HTMLElement {
             ),
             this.panel,
         );
-        PubSub.default.sub("activeViewChanged", this.handleactiveViewChanged);
+        PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
+        PubSub.default.sub("documentClosed", this.handleDocumentClosed);
     }
 
     activeTree() {
@@ -42,7 +42,16 @@ export class ProjectView extends HTMLElement {
         return this._documentTreeMap.get(this._activeDocument);
     }
 
-    private handleactiveViewChanged = (view: IView | undefined) => {
+    private readonly handleDocumentClosed = (document: IDocument) => {
+        let tree = this._documentTreeMap.get(document);
+        if (tree === undefined) return;
+
+        tree.remove();
+        tree.dispose();
+        this._documentTreeMap.delete(document);
+    };
+
+    private readonly handleActiveViewChanged = (view: IView | undefined) => {
         if (this._activeDocument === view?.document) return;
 
         if (this._activeDocument !== undefined) {

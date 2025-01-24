@@ -1,12 +1,13 @@
 import {
+    Deletable,
     EditableShapeNode,
     FolderNode,
     GroupNode,
+    IDisposable,
     IDocument,
     IShape,
     IShapeConverter,
     Material,
-    Matrix4,
     Result,
     gc,
 } from "chili-core";
@@ -16,6 +17,7 @@ import { OccShape } from "./shape";
 
 export class OccShapeConverter implements IShapeConverter {
     private readonly addShapeNode = (
+        collector: (d: Deletable | IDisposable) => any,
         folder: FolderNode,
         node: ShapeNode,
         children: ShapeNode[],
@@ -28,13 +30,15 @@ export class OccShapeConverter implements IShapeConverter {
         }
 
         children.forEach((child) => {
+            collector(child);
+
             let childFolder = folder;
             let subChildren = child.getChildren();
             if (subChildren.length > 1) {
                 childFolder = new GroupNode(folder.document, child.name as string);
                 folder.add(childFolder);
             }
-            this.addShapeNode(childFolder, child, subChildren, getMaterialId);
+            this.addShapeNode(collector, childFolder, child, subChildren, getMaterialId);
         });
     };
 
@@ -73,7 +77,7 @@ export class OccShapeConverter implements IShapeConverter {
                 return Result.err("can not convert");
             }
             let folder = new GroupNode(document, "undefined");
-            this.addShapeNode(folder, node, node.getChildren(), getMaterialId);
+            this.addShapeNode(c, folder, node, node.getChildren(), getMaterialId);
             c(node);
             return Result.ok(folder);
         });

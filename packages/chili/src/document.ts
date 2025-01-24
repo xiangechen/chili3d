@@ -22,9 +22,10 @@ import {
     NodeSerializer,
     Observable,
     ObservableCollection,
+    PubSub,
     Serialized,
     Serializer,
-    Transaction
+    Transaction,
 } from "chili-core";
 import { Selection } from "./selection";
 
@@ -116,14 +117,15 @@ export class Document extends Observable implements IDocument {
 
     override dispose(): void {
         super.dispose();
+        this._nodeChangedObservers.clear();
+        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
+        this._rootNode?.dispose();
         this.visual.dispose();
         this.history.dispose();
         this.selection.dispose();
         this.materials.forEach((x) => x.dispose());
         this.materials.clear();
-        this._nodeChangedObservers.clear();
-        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode?.dispose();
+
         this._rootNode = undefined;
         this._currentNode = undefined;
     }
@@ -150,6 +152,8 @@ export class Document extends Observable implements IDocument {
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
         this.materials.removeCollectionChanged(this.handleMaterialChanged);
+        PubSub.default.pub("documentClosed", this);
+
         Logger.info(`document: ${this.name} closed`);
         this.dispose();
     }

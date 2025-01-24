@@ -20,7 +20,7 @@ import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material;
-    private readonly _edgeMaterial = new LineMaterial({
+    private _edgeMaterial = new LineMaterial({
         linewidth: 1,
         color: VisualConfig.defaultEdgeColor,
         side: DoubleSide,
@@ -87,19 +87,20 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         super.dispose();
         this.removeMeshes();
         this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
-        this._edgeMaterial.dispose();
     }
 
     private removeMeshes() {
         if (this._edges) {
             this.remove(this._edges);
             this._edges.geometry.dispose();
-            this._edges = undefined;
+            this._edges.material.dispose();
+            this._edgeMaterial = null as any;
+            this._edges = null as any;
         }
         if (this._faces) {
             this.remove(this._faces);
             this._faces.geometry.dispose();
-            this._faces = undefined;
+            this._faces = null as any;
         }
     }
 

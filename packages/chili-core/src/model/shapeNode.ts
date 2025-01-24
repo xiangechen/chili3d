@@ -44,27 +44,28 @@ export abstract class ShapeNode extends GeometryNode {
         return this.shape.value.mesh;
     }
 
-    override dispose(): void {
-        super.dispose();
-        this.shape.unchecked()?.dispose();
+    override disposeInternal(): void {
+        super.disposeInternal();
+        this._shape.unchecked()?.dispose();
+        this._shape = null as any;
     }
 }
 
 export class ManyMesh implements IShapeMeshData {
-    private readonly _edges: EdgeMeshData
-    private readonly _faces: FaceMeshData
+    private readonly _edges: EdgeMeshData;
+    private readonly _faces: FaceMeshData;
     get edges(): EdgeMeshData | undefined {
-        return this._edges.positions.length > 0 ? this._edges : undefined
+        return this._edges.positions.length > 0 ? this._edges : undefined;
     }
     get faces(): FaceMeshData | undefined {
-        return this._faces.positions.length > 0 ? this._faces : undefined
+        return this._faces.positions.length > 0 ? this._faces : undefined;
     }
 
     constructor(readonly shapes: IShape[]) {
-        this._edges = this.initEdgeMeshData()
+        this._edges = this.initEdgeMeshData();
         this._faces = this.initFaceMeshData();
 
-        this.meshShapes()
+        this.meshShapes();
     }
 
     private initEdgeMeshData(): EdgeMeshData {
@@ -72,8 +73,8 @@ export class ManyMesh implements IShapeMeshData {
             lineType: LineType.Solid,
             positions: [],
             groups: [],
-            color: VisualConfig.defaultEdgeColor
-        }
+            color: VisualConfig.defaultEdgeColor,
+        };
     }
 
     private initFaceMeshData(): FaceMeshData {
@@ -83,8 +84,8 @@ export class ManyMesh implements IShapeMeshData {
             positions: [],
             uvs: [],
             groups: [],
-            color: VisualConfig.defaultFaceColor
-        }
+            color: VisualConfig.defaultFaceColor,
+        };
     }
 
     private meshShapes() {
@@ -96,7 +97,7 @@ export class ManyMesh implements IShapeMeshData {
 
     private combineFace(faceMeshData: FaceMeshData | undefined, matrix: Matrix4) {
         if (!faceMeshData) {
-            return
+            return;
         }
 
         let start = this._faces.positions.length / 3;
@@ -104,33 +105,36 @@ export class ManyMesh implements IShapeMeshData {
         this._faces.normals = this._faces.normals.concat(matrix.ofVectors(faceMeshData.normals));
         this._faces.uvs = this._faces.uvs.concat(faceMeshData.uvs);
         this._faces.positions = this._faces.positions.concat(matrix.ofPoints(faceMeshData.positions));
-        this._faces.groups = this._faces.groups.concat(faceMeshData.groups.map(g => {
-            return {
-                start: g.start + start,
-                shape: g.shape,
-                count: g.count
-            };
-        }));
+        this._faces.groups = this._faces.groups.concat(
+            faceMeshData.groups.map((g) => {
+                return {
+                    start: g.start + start,
+                    shape: g.shape,
+                    count: g.count,
+                };
+            }),
+        );
     }
 
     private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {
         if (!edgeMeshData) {
-            return
+            return;
         }
 
         let start = this._edges.positions.length / 3;
         this._edges.positions = this._edges.positions.concat(matrix.ofPoints(edgeMeshData.positions));
-        this._edges.groups = this._edges.groups.concat(edgeMeshData.groups.map(g => {
-            return {
-                start: g.start + start,
-                shape: g.shape,
-                count: g.count
-            };
-        }));
+        this._edges.groups = this._edges.groups.concat(
+            edgeMeshData.groups.map((g) => {
+                return {
+                    start: g.start + start,
+                    shape: g.shape,
+                    count: g.count,
+                };
+            }),
+        );
     }
 
     updateMeshShape() {}
-    
 }
 
 @Serializer.register(["document", "name", "shapes", "materialId", "id"])
@@ -141,19 +145,24 @@ export class MultiShapeNode extends GeometryNode {
         return this._shapes;
     }
 
-    constructor(document: IDocument, name: string, shapes: IShape[], materialId?: string, id: string = Id.generate()) {
+    constructor(
+        document: IDocument,
+        name: string,
+        shapes: IShape[],
+        materialId?: string,
+        id: string = Id.generate(),
+    ) {
         super(document, name, materialId, id);
         this._shapes = shapes;
     }
 
     protected override createMesh(): IShapeMeshData {
-        return new ManyMesh(this._shapes)
+        return new ManyMesh(this._shapes);
     }
 
     override display(): I18nKeys {
-        return "body.multiShape"
+        return "body.multiShape";
     }
-    
 }
 
 const SHAPE_UNDEFINED = "Shape not initialized";

@@ -68,4 +68,10 @@ EMSCRIPTEN_BINDINGS(Shared) {
         .field("xDirection", &Ax3::xDirection)
     ;
 
+    value_object<Pln>("Pln")
+        .field("location", &Pln::location)
+        .field("direction", &Pln::direction)
+        .field("xDirection", &Pln::xDirection)
+    ;
+
 }

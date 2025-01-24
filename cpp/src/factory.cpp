@@ -34,9 +34,9 @@ struct ShapeResult
 class ShapeFactory
 {
 public:
-    static ShapeResult box(const Ax3 &ax3, double x, double y, double z)
+    static ShapeResult box(const Pln &ax3, double x, double y, double z)
     {
-        gp_Pln pln = Ax3::toPln(ax3);
+        gp_Pln pln = Pln::toPln(ax3);
         BRepBuilderAPI_MakeFace makeFace(pln, 0, x, 0, y);
         if (!makeFace.IsDone())
         {
@@ -131,9 +131,9 @@ public:
         return ShapeResult{edge.Edge(), true, ""};
     }
 
-    static ShapeResult rect(const Ax3 &pln, double width, double height)
+    static ShapeResult rect(const Pln &pln, double width, double height)
     {
-        BRepBuilderAPI_MakeFace makeFace(Ax3::toPln(pln), 0, width, 0, height);
+        BRepBuilderAPI_MakeFace makeFace(Pln::toPln(pln), 0, width, 0, height);
         if (!makeFace.IsDone())
         {
             return ShapeResult{TopoDS_Shape(), false, "Failed to create rectangle"};
@@ -330,7 +330,7 @@ public:
 EMSCRIPTEN_BINDINGS(ShapeFactory)
 {
     class_<ShapeResult>("ShapeResult")
-        .property("shape", &ShapeResult::shape)
+        .property("shape", &ShapeResult::shape, return_value_policy::reference())
         .property("isOk", &ShapeResult::isOk)
         .property("error", &ShapeResult::error);
 

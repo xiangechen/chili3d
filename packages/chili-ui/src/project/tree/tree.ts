@@ -18,12 +18,12 @@ import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
 
 export class Tree extends HTMLElement implements INodeChangedObserver {
-    private readonly nodeMap = new WeakMap<INode, TreeItem>();
+    private readonly nodeMap = new Map<INode, TreeItem>();
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
     private dragging: INode[] | undefined;
 
-    constructor(readonly document: IDocument) {
+    constructor(private document: IDocument) {
         super();
         this.className = style.panel;
         this.addAllNodes(document, this, document.rootNode);
@@ -47,10 +47,13 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     dispose(): void {
         this.lastClicked = undefined;
         this.dragging = undefined;
+        this.nodeMap.forEach((x) => x.dispose());
+        this.nodeMap.clear();
         this.selectedNodes.clear();
         this.removeEvents(this);
         this.document.removeNodeObserver(this);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+        this.document = null as any;
     }
 
     handleNodeChanged(records: NodeRecord[]) {

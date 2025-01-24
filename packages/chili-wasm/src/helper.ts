@@ -10,6 +10,7 @@ import {
     Matrix4,
     Orientation,
     Plane,
+    Ray,
     ShapeType,
     SurfaceType,
     XYZ,
@@ -27,6 +28,7 @@ import {
     Geom_Surface,
     Geom_TrimmedCurve,
     GeomAbs_Shape,
+    gp_Ax1,
     gp_Ax2,
     gp_Ax3,
     gp_Dir,
@@ -93,6 +95,12 @@ export class OcctHelper {
         return new wasm.gp_Vec(value.x, value.y, value.z);
     }
 
+    static toAx1(ray: Ray): gp_Ax1 {
+        return gc((c) => {
+            return new wasm.gp_Ax1(c(OcctHelper.toPnt(ray.location)), c(OcctHelper.toDir(ray.direction)));
+        });
+    }
+
     static toAx2(plane: Plane): gp_Ax2 {
         return gc((c) => {
             return new wasm.gp_Ax2(
@@ -104,28 +112,26 @@ export class OcctHelper {
     }
 
     static toAx3(plane: Plane): gp_Ax3 {
-        return gc((c) => {
-            return new wasm.gp_Ax3(
-                c(OcctHelper.toPnt(plane.origin)),
-                c(OcctHelper.toDir(plane.normal)),
-                c(OcctHelper.toDir(plane.xvec)),
-            );
-        });
+        return new wasm.gp_Ax3(
+            OcctHelper.toPnt(plane.origin),
+            OcctHelper.toDir(plane.normal),
+            OcctHelper.toDir(plane.xvec),
+        );
     }
 
     static fromAx23(ax: gp_Ax2 | gp_Ax3): Plane {
         return gc((c) => {
             return new Plane(
-                OcctHelper.toXYZ(c(ax.location)),
-                OcctHelper.toXYZ(c(ax.direction)),
-                OcctHelper.toXYZ(c(ax.xDirection)),
+                OcctHelper.toXYZ(c(ax.location())),
+                OcctHelper.toXYZ(c(ax.direction())),
+                OcctHelper.toXYZ(c(ax.xDirection())),
             );
         });
     }
 
     static fromPln(pln: gp_Pln): Plane {
         return gc((c) => {
-            let ax3 = c(pln.position);
+            let ax3 = c(pln.position());
             return this.fromAx23(ax3);
         });
     }
@@ -312,7 +318,7 @@ export class OcctHelper {
         else if (isType("Geom_OffsetCurve")) return new OccOffsetCurve(curve as Geom_OffsetCurve);
         else if (isType("Geom_TrimmedCurve")) return new OccTrimmedCurve(curve as Geom_TrimmedCurve);
 
-        throw new Error("Unknown curve type: " + curve);
+        throw new Error("Unknown curve type: " + String(curve));
     }
 
     static getCurveType(curve: Geom_Curve): CurveType {
@@ -348,7 +354,7 @@ export class OcctHelper {
         else if (isType("Geom_ToroidalSurface")) return new OccToroidalSurface(actualSurface);
         else if (isType("ShapeExtent_CompositeSurface")) return new OccCompositeSurface(actualSurface);
 
-        throw new Error("Unknown surface type: " + surface);
+        throw new Error("Unknown surface type: " + String(surface));
     }
 
     static getSurfaceType(surface: Geom_Surface): SurfaceType {

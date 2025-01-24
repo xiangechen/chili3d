@@ -343,37 +343,37 @@ EMSCRIPTEN_BINDINGS(opencascade) {
 
     class_<gp_Ax1>("gp_Ax1")
         .constructor<const gp_Pnt&, const gp_Dir&>()
-        .property("location", &gp_Ax1::Location)
-        .property("direction", &gp_Ax1::Direction)
+        .function("location", &gp_Ax1::Location)
+        .function("direction", &gp_Ax1::Direction)
     ;
 
     class_<gp_Ax2>("gp_Ax2")
         .constructor<const gp_Pnt&, const gp_Dir&>()
         .constructor<const gp_Pnt&, const gp_Dir&, const gp_Dir&>()
-        .property("location", &gp_Ax2::Location)
-        .property("direction", &gp_Ax2::Direction)
-        .property("xDirection", &gp_Ax2::XDirection)
-        .property("yDirection", &gp_Ax2::YDirection)
+        .function("location", &gp_Ax2::Location)
+        .function("direction", &gp_Ax2::Direction)
+        .function("xDirection", &gp_Ax2::XDirection)
+        .function("yDirection", &gp_Ax2::YDirection)
     ;
 
     class_<gp_Ax3>("gp_Ax3")
         .constructor<const gp_Pnt&, const gp_Dir&, const gp_Dir&>()
         .constructor<const gp_Ax2&>()
-        .property("location", &gp_Ax3::Location)
-        .property("direction", &gp_Ax3::Direction)
-        .property("xDirection", &gp_Ax3::XDirection)
-        .property("yDirection", &gp_Ax3::YDirection)
-        .property("direct", &gp_Ax3::Direct)
+        .function("location", &gp_Ax3::Location)
+        .function("direction", &gp_Ax3::Direction)
+        .function("xDirection", &gp_Ax3::XDirection)
+        .function("yDirection", &gp_Ax3::YDirection)
+        .function("direct", &gp_Ax3::Direct)
     ;
 
     class_<gp_Pln>("gp_Pln")
         .constructor<const gp_Ax3&>()
         .constructor<const gp_Pnt&, const gp_Dir&>()
-        .property("location", &gp_Pln::Location)
-        .property("position", &gp_Pln::Position)
-        .property("axis", &gp_Pln::Axis)
-        .property("xAxis", &gp_Pln::XAxis)
-        .property("yAxis", &gp_Pln::YAxis)
+        .function("location", &gp_Pln::Location)
+        .function("position", &gp_Pln::Position)
+        .function("axis", &gp_Pln::Axis)
+        .function("xAxis", &gp_Pln::XAxis)
+        .function("yAxis", &gp_Pln::YAxis)
     ;
 
     class_<gp_Trsf>("gp_Trsf")
@@ -389,14 +389,14 @@ EMSCRIPTEN_BINDINGS(opencascade) {
     ;
 
     class_<TopoDS>("TopoDS")
-        .class_function("vertex", select_overload<const TopoDS_Vertex&(const TopoDS_Shape&)>(&TopoDS::Vertex))
-        .class_function("edge", select_overload<const TopoDS_Edge&(const TopoDS_Shape&)>(&TopoDS::Edge))
-        .class_function("wire", select_overload<const TopoDS_Wire&(const TopoDS_Shape&)>(&TopoDS::Wire))
-        .class_function("face", select_overload<const TopoDS_Face&(const TopoDS_Shape&)>(&TopoDS::Face))
-        .class_function("shell", select_overload<const TopoDS_Shell&(const TopoDS_Shape&)>(&TopoDS::Shell))
-        .class_function("solid", select_overload<const TopoDS_Solid&(const TopoDS_Shape&)>(&TopoDS::Solid))
-        .class_function("compound", select_overload<const TopoDS_Compound&(const TopoDS_Shape&)>(&TopoDS::Compound))
-        .class_function("compsolid", select_overload<const TopoDS_CompSolid&(const TopoDS_Shape&)>(&TopoDS::CompSolid))
+        .class_function("vertex", select_overload<TopoDS_Vertex&(TopoDS_Shape&)>(&TopoDS::Vertex), return_value_policy::take_ownership())
+        .class_function("edge", select_overload<TopoDS_Edge&(TopoDS_Shape&)>(&TopoDS::Edge), return_value_policy::take_ownership())
+        .class_function("wire", select_overload<TopoDS_Wire&(TopoDS_Shape&)>(&TopoDS::Wire), return_value_policy::take_ownership())
+        .class_function("face", select_overload<TopoDS_Face&(TopoDS_Shape&)>(&TopoDS::Face), return_value_policy::take_ownership())
+        .class_function("shell", select_overload<TopoDS_Shell&(TopoDS_Shape&)>(&TopoDS::Shell), return_value_policy::take_ownership())
+        .class_function("solid", select_overload<TopoDS_Solid&(TopoDS_Shape&)>(&TopoDS::Solid), return_value_policy::take_ownership())
+        .class_function("compound", select_overload<TopoDS_Compound&(TopoDS_Shape&)>(&TopoDS::Compound), return_value_policy::take_ownership())
+        .class_function("compsolid", select_overload<TopoDS_CompSolid&(TopoDS_Shape&)>(&TopoDS::CompSolid), return_value_policy::take_ownership())
     ;
 
     class_<TopoDS_Shape>("TopoDS_Shape")

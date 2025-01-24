@@ -69,6 +69,7 @@ CameraControls.install({
 });
 
 export class ThreeView extends Observable implements IView {
+    #requestAnimationFrameHandler = 0;
     private _dom?: HTMLElement;
     private _needsUpdate: boolean = false;
     private _controls?: CameraControls;
@@ -161,6 +162,7 @@ export class ThreeView extends Observable implements IView {
 
     override dispose(): void {
         super.dispose();
+        this.renderer.dispose();
         this._resizeObserver.disconnect();
     }
 
@@ -191,6 +193,7 @@ export class ThreeView extends Observable implements IView {
     close(): void {
         if (this._isClosed) return;
         this._isClosed = true;
+        cancelAnimationFrame(this.#requestAnimationFrameHandler);
         this.document.application.views.remove(this);
         let otherView = this.document.application.views.find((x) => x.document === this.document);
         if (!otherView) {
@@ -296,14 +299,16 @@ export class ThreeView extends Observable implements IView {
     }
 
     private animate() {
-        requestAnimationFrame(() => {
+        if (this._isClosed) {
+            return;
+        }
+        this.#requestAnimationFrameHandler = requestAnimationFrame(() => {
             this.animate();
         });
 
         if (!this._camera) {
             return;
         }
-
         let needsUpdate = this._controls?.update(this.clock.getDelta());
         if (!this._needsUpdate && !needsUpdate) return;
 

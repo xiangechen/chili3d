@@ -4,6 +4,7 @@ import {
     ICompoundSolid,
     ICurve,
     Id,
+    IDisposable,
     IEdge,
     IFace,
     IShape,
@@ -50,7 +51,7 @@ export class OccShape implements IShape {
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
-        if (!this._mesh) {
+        if (this._mesh === undefined) {
             this._mesh = new Mesher(this);
         }
         return this._mesh;
@@ -67,12 +68,14 @@ export class OccShape implements IShape {
     }
 
     get matrix(): Matrix4 {
-        return OcctHelper.convertToMatrix(this.shape.getLocation().transformation());
+        return gc((c) => {
+            return OcctHelper.convertToMatrix(c(c(this.shape.getLocation()).transformation()));
+        });
     }
 
     set matrix(matrix: Matrix4) {
         gc((c) => {
-            let location = new wasm.TopLoc_Location(OcctHelper.convertFromMatrix(matrix));
+            let location = c(new wasm.TopLoc_Location(OcctHelper.convertFromMatrix(matrix)));
             this._shape.setLocation(location, false);
             this._mesh?.updateMeshShape();
         });
@@ -168,6 +171,10 @@ export class OccShape implements IShape {
     dispose(): void {
         this._shape.delete();
         this._shape = null as any;
+        if (this._mesh && IDisposable.isDisposable(this._mesh)) {
+            this._mesh.dispose();
+            this._mesh = null as any;
+        }
     }
 }
 

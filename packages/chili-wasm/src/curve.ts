@@ -221,7 +221,7 @@ export class OccLine extends OccCurve implements ILine {
     get direction(): XYZ {
         return gc((c) => {
             let ax = c(this.line.position());
-            return OcctHelper.toXYZ(c(ax.direction));
+            return OcctHelper.toXYZ(c(ax.direction()));
         });
     }
 
@@ -234,7 +234,7 @@ export class OccLine extends OccCurve implements ILine {
     get location(): XYZ {
         return gc((c) => {
             let ax = c(this.line.position());
-            return OcctHelper.toXYZ(c(ax.location));
+            return OcctHelper.toXYZ(c(ax.location()));
         });
     }
 
@@ -251,17 +251,17 @@ export class OccConic extends OccCurve implements IConic {
     }
     get axis(): XYZ {
         return gc((c) => {
-            return OcctHelper.toXYZ(c(c(this.conioc.axis()).direction));
+            return OcctHelper.toXYZ(c(c(this.conioc.axis()).direction()));
         });
     }
     get xAxis(): XYZ {
         return gc((c) => {
-            return OcctHelper.toXYZ(c(c(this.conioc.xAxis()).direction));
+            return OcctHelper.toXYZ(c(c(this.conioc.xAxis()).direction()));
         });
     }
     get yAxis(): XYZ {
         return gc((c) => {
-            return OcctHelper.toXYZ(c(c(this.conioc.yAxis()).direction));
+            return OcctHelper.toXYZ(c(c(this.conioc.yAxis()).direction()));
         });
     }
     eccentricity(): number {
@@ -385,7 +385,7 @@ export class OccParabola extends OccConic implements IParabola {
     }
 
     get directrix() {
-        return gc((c) => OcctHelper.toXYZ(c(c(this.parabola.directrix().location))));
+        return gc((c) => OcctHelper.toXYZ(c(c(this.parabola.directrix().location()))));
     }
 }
 

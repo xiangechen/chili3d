@@ -1,12 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument } from "../document";
-import {
-    HistoryObservable,
-    IDisposable,
-    IPropertyChanged,
-    Id
-} from "../foundation";
+import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
 import { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4 } from "../math";
 import { Property } from "../property";
@@ -79,6 +74,11 @@ export abstract class Node extends HistoryObservable implements INode {
     }
     set parentVisible(value: boolean) {
         this.setProperty("parentVisible", value, () => this.onParentVisibleChanged());
+    }
+
+    override disposeInternal(): void {
+        this.document.visual.context.removeNode([this]);
+        super.disposeInternal();
     }
 
     clone(): this {
@@ -312,7 +312,7 @@ export abstract class GeometryNode extends VisualNode {
         if (this._mesh === undefined) {
             this._mesh = this.createMesh();
         }
-        return this._mesh;
+        return this._mesh as any;
     }
 
     protected _boundingBox: BoundingBox | undefined;
@@ -323,6 +323,11 @@ export abstract class GeometryNode extends VisualNode {
             return BoundingBox.fromNumbers(points);
         }
         return this._boundingBox;
+    }
+
+    override dispose(): void {
+        super.dispose();
+        this._mesh = undefined;
     }
 
     protected abstract createMesh(): IShapeMeshData;

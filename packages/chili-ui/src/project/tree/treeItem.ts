@@ -8,11 +8,17 @@ export abstract class TreeItem extends HTMLElement {
     readonly name: HTMLLabelElement;
     readonly visibleIcon: SVGSVGElement;
 
+    private _node: INode;
+    get node() {
+        return this._node;
+    }
+
     constructor(
-        readonly document: IDocument,
-        readonly node: INode,
+        private document: IDocument,
+        node: INode,
     ) {
         super();
+        this._node = node;
         this.draggable = true;
         this.name = label({
             className: style.name,
@@ -56,8 +62,11 @@ export abstract class TreeItem extends HTMLElement {
     abstract getSelectedHandler(): HTMLElement;
 
     dispose() {
+        this.remove();
         this.node.removePropertyChanged(this.onPropertyChanged);
         this.visibleIcon.removeEventListener("click", this.onVisibleIconClick);
+        this.document = null as any;
+        this._node = null as any;
     }
 
     private getVisibleIcon() {

@@ -50,19 +50,18 @@ double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
 class EdgeMesher
 {
 private:
-    TopoDS_Shape shape;
     double lineDeflection;
     std::vector<float> position;
     /// @brief start1,count1,start2,count2...
     std::vector<size_t> group;
     std::vector<TopoDS_Edge> edges;
 
-    void generateEdgeMeshs()
+    void generateEdgeMeshs(const TopoDS_Shape &shape)
     {
         auto transform = shape.Location().Transformation().Inverted();
 
         TopTools_IndexedMapOfShape edgeMap;
-        TopExp::MapShapes(this->shape, TopAbs_EDGE, edgeMap);
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
         {
             TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
@@ -100,9 +99,9 @@ private:
     }
 
 public:
-    EdgeMesher(const TopoDS_Shape &shape, double lineDeflection) : shape(shape), lineDeflection(lineDeflection)
+    EdgeMesher(const TopoDS_Shape &shape, double lineDeflection) : lineDeflection(lineDeflection)
     {
-        generateEdgeMeshs();
+        generateEdgeMeshs(shape);
     }
 
     NumberArray getPosition()
@@ -134,7 +133,6 @@ public:
 class FaceMesher
 {
 private:
-    TopoDS_Shape shape;
     std::vector<float> position;
     std::vector<float> normal;
     std::vector<float> uv;
@@ -143,11 +141,11 @@ private:
     std::vector<size_t> group;
     std::vector<TopoDS_Face> faces;
 
-    void generateFaceMeshs()
+    void generateFaceMeshs(const TopoDS_Shape &shape)
     {
         auto inverted = shape.Location().Transformation().Inverted();
         TopTools_IndexedMapOfShape faceMap;
-        TopExp::MapShapes(this->shape, TopAbs_FACE, faceMap);
+        TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
         {
             auto face = TopoDS::Face(anIt.Value());
@@ -241,10 +239,10 @@ private:
     }
 
 public:
-    FaceMesher(const TopoDS_Shape &shape, double lineDeflection) : shape(shape)
+    FaceMesher(const TopoDS_Shape &shape, double lineDeflection)
     {
-        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, false, 0.1);
-        generateFaceMeshs();
+        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, 0.1, true);
+        generateFaceMeshs(shape);
     }
 
     NumberArray getPosition()
@@ -293,21 +291,21 @@ EMSCRIPTEN_BINDINGS(Mesher)
     emscripten::function("boundingBoxRatio", &boundingBoxRatio);
 
     class_<FaceMesher>("FaceMesher")
-        .constructor<const TopoDS_Shape &, double>()
+        .constructor<const TopoDS_Shape &, double>(return_value_policy::take_ownership())
         .function("getPosition", &FaceMesher::getPosition)
         .function("getNormal", &FaceMesher::getNormal)
         .function("getUV", &FaceMesher::getUV)
         .function("getIndex", &FaceMesher::getIndex)
         .function("getGroups", &FaceMesher::getGroups)
         .function("getFaceSize", &FaceMesher::getFaceSize)
-        .function("getFace", &FaceMesher::getFace)
-        .function("getFaces", &FaceMesher::getFaces);
+        .function("getFace", &FaceMesher::getFace, return_value_policy::take_ownership())
+        .function("getFaces", &FaceMesher::getFaces, return_value_policy::take_ownership());
 
     class_<EdgeMesher>("EdgeMesher")
-        .constructor<const TopoDS_Shape &, double>()
+        .constructor<const TopoDS_Shape &, double>(return_value_policy::take_ownership())
         .function("getPosition", &EdgeMesher::getPosition)
         .function("getGroups", &EdgeMesher::getGroups)
         .function("getEdgeSize", &EdgeMesher::getEdgeSize)
-        .function("getEdge", &EdgeMesher::getEdge)
-        .function("getEdges", &EdgeMesher::getEdges);
+        .function("getEdge", &EdgeMesher::getEdge, return_value_policy::take_ownership())
+        .function("getEdges", &EdgeMesher::getEdges, return_value_policy::take_ownership());
 }

@@ -40,8 +40,8 @@ import { ThreeHelper } from "./threeHelper";
 import { GroupVisualObject, ThreeMeshObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
-    private readonly _visualNodeMap = new WeakMap<IVisualObject, INode>();
-    private readonly _NodeVisualMap = new WeakMap<INode, IVisualObject & Object3D>();
+    private readonly _visualNodeMap = new Map<IVisualObject, INode>();
+    private readonly _NodeVisualMap = new Map<INode, IVisualObject & Object3D>();
     readonly materialMap = new Map<string, ThreeMaterial>();
 
     readonly visualShapes: Group;
@@ -169,6 +169,8 @@ export class ThreeVisualContext implements IVisualContext {
         this.materialMap.clear();
         this.visualShapes.clear();
         this.tempShapes.clear();
+        this._visualNodeMap.clear();
+        this._NodeVisualMap.clear();
         this.scene.remove(this.visualShapes, this.tempShapes);
     }
 
@@ -331,7 +333,7 @@ export class ThreeVisualContext implements IVisualContext {
             if (parentNode instanceof Group) {
                 parent = parentNode;
             }
-        } 
+        }
         return parent;
     }
 

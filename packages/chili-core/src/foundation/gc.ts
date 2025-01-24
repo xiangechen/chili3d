@@ -14,9 +14,8 @@ export namespace Deletable {
 }
 
 export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(v: T) => T) => R): R => {
-    const deletables = new Set<Deletable | IDisposable>();
-
-    const collector = <T extends Deletable | IDisposable>(v: T) => {
+    let deletables = new Set<Deletable | IDisposable>();
+    let collector = <T extends Deletable | IDisposable>(v: T) => {
         deletables.add(v);
         return v;
     };
@@ -32,5 +31,6 @@ export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(v: T
             }
         });
         deletables.clear();
+        deletables = null as any;
     }
 };
