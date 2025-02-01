@@ -1,10 +1,19 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Binding, Combobox, Command, I18nKeys, ICommand, Observable, Property } from "chili-core";
+import {
+    Binding,
+    Combobox,
+    Command,
+    I18nKeys,
+    ICommand,
+    IDisposable,
+    Observable,
+    Property,
+} from "chili-core";
 import { button, div, input, label, localize, option, select, svg } from "../components";
 import style from "./commandContext.module.css";
 
-export class CommandContext extends HTMLElement {
+export class CommandContext extends HTMLElement implements IDisposable {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement]> = new Map();
 
     constructor(readonly command: ICommand) {
@@ -28,6 +37,10 @@ export class CommandContext extends HTMLElement {
         if (this.command instanceof Observable) {
             this.command.removePropertyChanged(this.onPropertyChanged);
         }
+    }
+
+    dispose() {
+        this.propMap.clear();
     }
 
     private readonly onPropertyChanged = (property: string | number | symbol) => {

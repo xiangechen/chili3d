@@ -116,7 +116,8 @@ class DisplayConverter implements IConverter<RibbonTabData> {
 }
 
 export class Ribbon extends HTMLElement {
-    private _commandContextContainer = div({ className: style.commandContextPanel });
+    private readonly _commandContextContainer = div({ className: style.commandContextPanel });
+    private commandContext?: CommandContext;
 
     constructor(readonly dataContent: RibbonDataContent) {
         super();
@@ -291,11 +292,19 @@ export class Ribbon extends HTMLElement {
         PubSub.default.remove("closeCommandContext", this.closeContext);
     }
 
-    private openContext = (command: ICommand) => {
-        this._commandContextContainer.append(new CommandContext(command));
+    private readonly openContext = (command: ICommand) => {
+        if (this.commandContext) {
+            this.closeContext();
+        }
+        this.commandContext = new CommandContext(command);
+        this._commandContextContainer.append(this.commandContext);
     };
 
-    private closeContext = () => {
+    private readonly closeContext = () => {
+        this.commandContext?.remove();
+        this.commandContext?.dispose();
+
+        this.commandContext = undefined;
         this._commandContextContainer.innerHTML = "";
     };
 }

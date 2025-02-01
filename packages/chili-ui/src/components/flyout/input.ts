@@ -63,7 +63,7 @@ export class Input extends HTMLElement implements IDisposable {
         this.tip = undefined;
     }
 
-    private handleKeyDown = (e: KeyboardEvent) => {
+    private readonly handleKeyDown = (e: KeyboardEvent) => {
         e.stopPropagation();
         if (e.key === "Enter") {
             this.textbox.readOnly = true;

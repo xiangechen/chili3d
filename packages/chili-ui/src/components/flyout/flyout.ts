@@ -29,7 +29,7 @@ export class Flyout extends HTMLElement {
         PubSub.default.remove("clearInput", this.clearInput);
     }
 
-    private showTip = (level: MessageType, msg: string) => {
+    private readonly showTip = (level: MessageType, msg: string) => {
         if (this._tip === undefined) {
             this._tip = new Tip(msg, level);
             this.append(this._tip);
@@ -38,14 +38,14 @@ export class Flyout extends HTMLElement {
         }
     };
 
-    private clearTip = () => {
+    private readonly clearTip = () => {
         if (this._tip !== undefined) {
-            this.removeChild(this._tip);
+            this._tip.remove();
             this._tip = undefined;
         }
     };
 
-    private displayInput = (text: string, handler: (text: string) => Result<string, I18nKeys>) => {
+    private readonly displayInput = (text: string, handler: (text: string) => Result<string, I18nKeys>) => {
         if (this._input === undefined) {
             this.lastFocus = document.activeElement as HTMLElement;
             this._input = new Input(text, handler);
@@ -56,7 +56,7 @@ export class Flyout extends HTMLElement {
         }
     };
 
-    private clearInput = () => {
+    private readonly clearInput = () => {
         if (this._input !== undefined) {
             this.removeChild(this._input);
             this._input.dispose();
