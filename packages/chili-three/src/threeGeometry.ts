@@ -85,16 +85,18 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     override dispose() {
         super.dispose();
-        this.removeMeshes();
+
+        this._edges?.material.dispose();
+        this._edgeMaterial = null as any;
         this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
+
+        this.removeMeshes();
     }
 
     private removeMeshes() {
         if (this._edges) {
             this.remove(this._edges);
             this._edges.geometry.dispose();
-            this._edges.material.dispose();
-            this._edgeMaterial = null as any;
             this._edges = null as any;
         }
         if (this._faces) {

@@ -325,8 +325,8 @@ export abstract class GeometryNode extends VisualNode {
         return this._boundingBox;
     }
 
-    override dispose(): void {
-        super.dispose();
+    override disposeInternal(): void {
+        super.disposeInternal();
         this._mesh = undefined;
     }
 

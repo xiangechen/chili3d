@@ -31,6 +31,8 @@ export abstract class ShapeNode extends GeometryNode {
         this._boundingBox = undefined;
         this._shape.value.matrix = this.transform;
         this.emitPropertyChanged("shape", oldShape);
+
+        oldShape.unchecked()?.dispose();
     }
 
     protected override onTransformChanged(newMatrix: Matrix4): void {
