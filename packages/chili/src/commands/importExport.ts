@@ -23,13 +23,12 @@ import { importFiles } from "../utils";
 })
 export class Import implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let extenstions = application.dataExchange.importFormats().join(",");
-        let files = await readFilesAsync(extenstions, true);
+        const extenstions = application.dataExchange.importFormats().join(",");
+        const files = await readFilesAsync(extenstions, true);
         if (!files.isOk || files.value.length === 0) {
             alert(files.error);
             return;
         }
-
         importFiles(application, files.value);
     }
 }
@@ -49,13 +48,13 @@ export class Export extends CancelableCommand {
     }
 
     private initCombobox() {
-        let box = new Combobox<string>();
+        const box = new Combobox<string>();
         box.items.push(...this.application.dataExchange.exportFormats());
         return box;
     }
 
     protected async executeAsync() {
-        let nodes = await this.selectNodesAsync();
+        const nodes = await this.selectNodesAsync();
         if (!nodes || nodes.length === 0) {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
@@ -64,13 +63,11 @@ export class Export extends CancelableCommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let format = this.formats.selectedItem;
+                const format = this.formats.selectedItem;
                 if (format === undefined) return;
 
-                let data = await this.application.dataExchange.export(format, nodes);
-                if (!data) {
-                    return;
-                }
+                const data = await this.application.dataExchange.export(format, nodes);
+                if (!data) return;
 
                 PubSub.default.pub("showToast", "toast.downloading");
                 download(data, `${nodes[0].name}${format}`);
@@ -81,9 +78,9 @@ export class Export extends CancelableCommand {
     }
 
     private async selectNodesAsync() {
-        let controller = new AsyncController();
-        let step = new SelectNodeStep("prompt.select.models", true);
-        let data = await step.execute(this.application.activeView?.document!, controller);
+        const controller = new AsyncController();
+        const step = new SelectNodeStep("prompt.select.models", true);
+        const data = await step.execute(this.application.activeView?.document!, controller);
         if (!data?.nodes) {
             PubSub.default.pub("showToast", "prompt.select.noModelSelected");
             return undefined;

@@ -26,7 +26,7 @@ export type CollectionChangedArgs =
     | {
           action: CollectionAction.replace;
           index: number;
-          item: any,
+          item: any;
           items: any[];
       };
 
@@ -36,7 +36,7 @@ export interface ICollectionChanged {
 }
 
 export class ObservableCollection<T> implements ICollectionChanged, IDisposable {
-    private readonly _callbacks: Set<(args: CollectionChangedArgs) => void> = new Set();
+    private readonly _callbacks = new Set<(args: CollectionChangedArgs) => void>();
     private _items: T[];
 
     constructor(...items: T[]) {
@@ -44,52 +44,48 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     push(...items: T[]) {
+        if (items.length === 0) return;
         this._items.push(...items);
-        this._callbacks.forEach((callback) =>
-            callback({
-                action: CollectionAction.add,
-                items,
-            }),
-        );
+        this.notifyChange({
+            action: CollectionAction.add,
+            items,
+        });
     }
 
     remove(...items: T[]) {
-        this._items = this._items.filter((item) => !items.includes(item));
-        this._callbacks.forEach((callback) =>
-            callback({
-                action: CollectionAction.remove,
-                items,
-            }),
-        );
+        if (items.length === 0) return;
+        const itemSet = new Set(items);
+        this._items = this._items.filter((item) => !itemSet.has(item));
+        this.notifyChange({
+            action: CollectionAction.remove,
+            items,
+        });
     }
 
     move(from: number, to: number) {
-        let canMove =
-            from !== to && from >= 0 && from < this._items.length && to >= 0 && to < this._items.length;
-        if (!canMove) {
-            return;
-        }
+        if (!this.isValidMove(from, to)) return;
 
-        let items = this._items.splice(from, 1);
+        const items = this._items.splice(from, 1);
         this._items.splice(from < to ? to - 1 : to, 0, ...items);
-        this._callbacks.forEach((callback) =>
-            callback({
-                action: CollectionAction.move,
-                from,
-                to,
-            }),
-        );
+        this.notifyChange({
+            action: CollectionAction.move,
+            from,
+            to,
+        });
+    }
+
+    private isValidMove(from: number, to: number): boolean {
+        return from !== to && from >= 0 && from < this._items.length && to >= 0 && to < this._items.length;
     }
 
     clear() {
-        let items = this._items;
+        if (this._items.length === 0) return;
+        const items = [...this._items];
         this._items = [];
-        this._callbacks.forEach((callback) =>
-            callback({
-                action: CollectionAction.remove,
-                items,
-            }),
-        );
+        this.notifyChange({
+            action: CollectionAction.remove,
+            items,
+        });
     }
 
     get length() {
@@ -97,20 +93,24 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     replace(index: number, ...items: T[]) {
-        if (index < 0 || index >= this._items.length) {
-            return;
-        }
+        if (!this.isValidIndex(index)) return;
 
-        let item = this._items[index];
+        const item = this._items[index];
         this._items.splice(index, 1, ...items);
-        this._callbacks.forEach((callback) =>
-            callback({
-                action: CollectionAction.replace,
-                index,
-                item,
-                items,
-            }),
-        );
+        this.notifyChange({
+            action: CollectionAction.replace,
+            index,
+            item,
+            items,
+        });
+    }
+
+    private isValidIndex(index: number): boolean {
+        return index >= 0 && index < this._items.length;
+    }
+
+    private notifyChange(args: CollectionChangedArgs) {
+        this._callbacks.forEach((callback) => callback(args));
     }
 
     forEach(callback: (item: T, index: number) => void) {

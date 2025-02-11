@@ -11,12 +11,19 @@ export class ToolBar extends HTMLElement {
     constructor(readonly projectView: ProjectView) {
         super();
         this.className = style.panel;
-        this.newIconButton("icon-folder-plus", "items.tool.newFolder", this.newGroup);
-        this.newIconButton("icon-unexpand", "items.tool.unexpandAll", this.unExpandAll);
-        this.newIconButton("icon-expand", "items.tool.expandAll", this.expandAll);
+        this.render();
     }
 
-    private newIconButton(icon: string, tip: I18nKeys, command: () => void) {
+    private render() {
+        const buttons = [
+            { icon: "icon-folder-plus", tip: "items.tool.newFolder", command: this.newGroup },
+            { icon: "icon-unexpand", tip: "items.tool.unexpandAll", command: this.unExpandAll },
+            { icon: "icon-expand", tip: "items.tool.expandAll", command: this.expandAll },
+        ];
+        buttons.forEach(({ icon, tip, command }) => this.button(icon, tip as I18nKeys, command));
+    }
+
+    private button(icon: string, tip: I18nKeys, command: () => void) {
         this.append(
             a(
                 { title: I18n.translate(tip) },

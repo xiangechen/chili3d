@@ -1,15 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import {
-    I18nKeys,
-    IDocument,
-    IFace,
-    IShape,
-    ParameterShapeNode,
-    Property,
-    Result,
-    Serializer,
-} from "chili-core";
+import { I18nKeys, IDocument, IShape, ParameterShapeNode, Property, Result, Serializer } from "chili-core";
 import { GeoUtils } from "chili-geo";
 
 @Serializer.register(["document", "section", "length"])

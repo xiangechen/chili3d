@@ -24,33 +24,35 @@ export function isPropertyChanged(obj: object): obj is IPropertyChanged {
 }
 
 export class Observable implements IPropertyChanged {
-    protected readonly propertyChangedHandlers: Set<PropertyChangedHandler<any, any>> = new Set();
+    protected readonly propertyChangedHandlers = new Set<PropertyChangedHandler<any, any>>();
+    protected _isDisposed = false;
 
     private getPrivateKey<K extends keyof this>(pubKey: K) {
         return `_${String(pubKey)}`;
     }
 
     protected getPrivateValue<K extends keyof this>(pubKey: K, defaultValue?: this[K]): this[K] {
-        let privateKey = this.getPrivateKey(pubKey);
-        if (privateKey in this) {
-            return (this as any)[privateKey];
+        const privateKey = this.getPrivateKey(pubKey) as keyof this;
+        return privateKey in this
+            ? (this[privateKey] as this[K])
+            : this.initializeDefaultValue(pubKey, defaultValue);
+    }
+
+    private initializeDefaultValue<K extends keyof this>(pubKey: K, defaultValue?: this[K]): this[K] {
+        if (defaultValue === undefined) {
+            Logger.warn(
+                `${this.constructor.name}: The property "${String(pubKey)}" is not initialized, and no default value is provided`,
+            );
+            return undefined as this[K];
         }
 
-        if (defaultValue !== undefined) {
-            (this as any)[privateKey] = defaultValue;
-            return defaultValue;
-        }
-
-        Logger.warn(
-            `${this.constructor.name}: The property “${String(pubKey)}” is not initialized, and no default value is provided`,
-        );
-        return undefined as this[K];
+        const privateKey = this.getPrivateKey(pubKey);
+        (this as any)[privateKey] = defaultValue;
+        return defaultValue;
     }
 
     protected setPrivateValue<K extends keyof this>(pubKey: K, newValue: this[K]): void {
-        let privateKey = this.getPrivateKey(pubKey);
-
-        (this as any)[privateKey] = newValue;
+        (this as any)[this.getPrivateKey(pubKey)] = newValue;
     }
 
     /**
@@ -64,8 +66,9 @@ export class Observable implements IPropertyChanged {
         onPropertyChanged?: (property: K, oldValue: this[K]) => void,
         equals?: IEqualityComparer<this[K]>,
     ): boolean {
-        let oldValue = this[property];
+        const oldValue = this[property];
         if (this.isEuqals(oldValue, newValue, equals)) return false;
+
         this.setPrivateValue(property, newValue);
         onPropertyChanged?.(property, oldValue);
         this.emitPropertyChanged(property, oldValue);
@@ -77,11 +80,7 @@ export class Observable implements IPropertyChanged {
         newValue: this[K],
         equals?: IEqualityComparer<this[K]>,
     ): boolean {
-        if (equals !== undefined) {
-            return equals.equals(oldValue, newValue);
-        } else {
-            return oldValue === newValue;
-        }
+        return equals ? equals.equals(oldValue, newValue) : oldValue === newValue;
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
@@ -100,11 +99,9 @@ export class Observable implements IPropertyChanged {
         this.propertyChangedHandlers.clear();
     }
 
-    protected _isDisposed = false;
     dispose() {
         if (this._isDisposed) return;
         this._isDisposed = true;
-
         this.disposeInternal();
     }
 
@@ -115,24 +112,21 @@ export class Observable implements IPropertyChanged {
 
 export abstract class HistoryObservable extends Observable {
     private _document: IDocument;
+
     get document(): IDocument {
         return this._document;
     }
+
     constructor(document: IDocument) {
         super();
         this._document = document;
-    }
-
-    override disposeInternal() {
-        super.disposeInternal();
-        this._document = null as any;
     }
 
     protected override setProperty<K extends keyof this>(
         property: K,
         newValue: this[K],
         onPropertyChanged?: (property: K, oldValue: this[K]) => void,
-        equals?: IEqualityComparer<this[K]> | undefined,
+        equals?: IEqualityComparer<this[K]>,
     ): boolean {
         return super.setProperty(
             property,
@@ -146,5 +140,10 @@ export abstract class HistoryObservable extends Observable {
             },
             equals,
         );
+    }
+
+    override disposeInternal() {
+        super.disposeInternal();
+        this._document = null as any;
     }
 }

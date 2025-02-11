@@ -22,9 +22,11 @@ export namespace Dimension {
      * @returns
      */
     export function from(value: number): Dimension {
-        if (value === 1) return Dimension.D1;
-        else if (value === 2) return Dimension.D2;
-        else if (value === 3) return Dimension.D3;
-        return Dimension.None;
+        const mapping: { [key: number]: Dimension } = {
+            1: Dimension.D1,
+            2: Dimension.D2,
+            3: Dimension.D3,
+        };
+        return mapping[value] || Dimension.None;
     }
 }

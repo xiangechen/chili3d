@@ -92,15 +92,16 @@ export class ObjectSnap implements ISnap {
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {
-        let featurePoints = this.getFeaturePoints(view, shapes[0]);
-        let perpendiculars = this.findPerpendicular(view, shapes[0]);
-        let intersections = this.getIntersections(view, shapes[0], shapes);
-        let ordered = featurePoints
-            .concat(perpendiculars)
-            .concat(intersections)
-            .sort((a, b) => this.sortSnaps(view, x, y, a, b));
+        const featurePoints = this.getFeaturePoints(view, shapes[0]);
+        const perpendiculars = this.findPerpendicular(view, shapes[0]);
+        const intersections = this.getIntersections(view, shapes[0], shapes);
+        const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
+            this.sortSnaps(view, x, y, a, b),
+        );
+
         if (ordered.length === 0) return undefined;
-        let dist = IView.screenDistance(view, x, y, ordered[0].point!);
+
+        const dist = IView.screenDistance(view, x, y, ordered[0].point!);
         if (dist < Config.instance.SnapDistance) {
             this.hilighted(view, ordered[0].shapes);
             return ordered[0];
@@ -121,12 +122,11 @@ export class ObjectSnap implements ISnap {
     }
 
     private snapeInvisible(view: IView, x: number, y: number): SnapedData | undefined {
-        let { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
+        const { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
         if (minDistance < Config.instance.SnapDistance) {
             this.hilighted(view, snap!.shapes);
             return snap;
         }
-
         return undefined;
     }
 
@@ -135,11 +135,12 @@ export class ObjectSnap implements ISnap {
         x: number,
         y: number,
     ): { minDistance: number; snap?: SnapedData } {
-        let snap: SnapedData | undefined = undefined;
+        let snap: SnapedData | undefined;
         let minDistance = Number.MAX_VALUE;
+
         this._invisibleInfos.forEach((info) => {
             info.snaps.forEach((s) => {
-                let dist = IView.screenDistance(view, x, y, s.point!);
+                const dist = IView.screenDistance(view, x, y, s.point!);
                 if (dist < minDistance) {
                     minDistance = dist;
                     snap = s;
@@ -262,7 +263,8 @@ export class ObjectSnap implements ISnap {
         if (this._featureInfos.has(shape)) {
             return this._featureInfos.get(shape)!;
         }
-        let infos = new Array<SnapedData>();
+
+        const infos: SnapedData[] = [];
         if (shape.shape.shapeType === ShapeType.Edge) {
             this.getEdgeFeaturePoints(view, shape, infos);
         }
@@ -271,17 +273,18 @@ export class ObjectSnap implements ISnap {
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
-        let curve = (shape.shape as IEdge).curve();
-        let start = curve.value(curve.firstParameter());
-        let end = curve.value(curve.lastParameter());
-        let addPoint = (point: XYZ, info: string) =>
-            infos.push({ view, point: point, info, shapes: [shape] });
+        const curve = (shape.shape as IEdge).curve();
+        const start = curve.value(curve.firstParameter());
+        const end = curve.value(curve.lastParameter());
+
+        const addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
+
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));
             addPoint(end, I18n.translate("snap.end"));
         }
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint)) {
-            let mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
+            const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, I18n.translate("snap.mid"));
         }
     }

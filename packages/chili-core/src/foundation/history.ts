@@ -13,22 +13,29 @@ export class History implements IDisposable {
     private readonly _undos: IHistoryRecord[] = [];
     private readonly _redos: IHistoryRecord[] = [];
 
-    disabled: boolean = false;
-    undoLimits: number = 50;
+    disabled = false;
+    undoLimits = 50;
 
     dispose(): void {
-        this._redos.forEach((x) => x.dispose());
-        this._undos.forEach((x) => x.dispose());
+        this._redos.forEach((record) => record.dispose());
+        this._undos.forEach((record) => record.dispose());
+        this.clear();
+    }
 
+    private clear(): void {
         this._undos.length = 0;
         this._redos.length = 0;
     }
 
     add(record: IHistoryRecord) {
+        if (this.disabled) return;
+
         this._redos.length = 0;
         this._undos.push(record);
+
         if (this._undos.length > this.undoLimits) {
-            this._undos.shift()?.dispose();
+            const removed = this._undos.shift();
+            removed?.dispose();
         }
     }
 
@@ -42,29 +49,31 @@ export class History implements IDisposable {
 
     undo() {
         this.tryOperate(() => {
-            let records = this._undos.pop();
-            if (records === undefined) return;
-            records.undo();
-            this._redos.push(records);
+            const record = this._undos.pop();
+            if (!record) return;
+
+            record.undo();
+            this._redos.push(record);
         });
     }
 
     redo() {
         this.tryOperate(() => {
-            let records = this._redos.pop();
-            if (records === undefined) return;
-            records.redo();
-            this._undos.push(records);
+            const record = this._redos.pop();
+            if (!record) return;
+
+            record.redo();
+            this._undos.push(record);
         });
     }
 
     private tryOperate(action: () => void) {
-        let isDisabled = this.disabled;
-        if (!this.disabled) this.disabled = true;
+        const previousState = this.disabled;
+        this.disabled = true;
         try {
             action();
         } finally {
-            this.disabled = isDisabled;
+            this.disabled = previousState;
         }
     }
 }
@@ -114,8 +123,9 @@ export interface INodeChangedObserver {
 
 export class NodeLinkedListHistoryRecord implements IHistoryRecord {
     readonly name: string;
+
     constructor(readonly records: NodeRecord[]) {
-        this.name = `change node`;
+        this.name = "change node";
     }
 
     dispose(): void {
@@ -127,37 +137,52 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
         this.records.length = 0;
     }
 
-    undo() {
-        for (let index = this.records.length - 1; index >= 0; index--) {
-            let record = this.records[index];
-            if (record.action === NodeAction.add) {
+    private handleUndo(record: NodeRecord): void {
+        switch (record.action) {
+            case NodeAction.add:
                 record.newParent?.remove(record.node);
-            } else if (record.action === NodeAction.remove) {
+                break;
+            case NodeAction.remove:
                 record.oldParent?.add(record.node);
-            } else if (record.action === NodeAction.move) {
+                break;
+            case NodeAction.move:
                 record.newParent?.move(record.node, record.oldParent!, record.oldPrevious);
-            } else if (record.action === NodeAction.insertAfter) {
+                break;
+            case NodeAction.insertAfter:
+            case NodeAction.insertBefore:
                 record.newParent?.remove(record.node);
-            } else if (record.action === NodeAction.insertBefore) {
-                record.newParent?.remove(record.node);
-            }
+                break;
         }
     }
 
-    redo() {
-        for (const record of this.records) {
-            if (record.action === NodeAction.add) {
+    private handleRedo(record: NodeRecord): void {
+        switch (record.action) {
+            case NodeAction.add:
                 record.newParent?.add(record.node);
-            } else if (record.action === NodeAction.remove) {
+                break;
+            case NodeAction.remove:
                 record.oldParent?.remove(record.node);
-            } else if (record.action === NodeAction.move) {
+                break;
+            case NodeAction.move:
                 record.oldParent?.move(record.node, record.newParent!, record.newPrevious);
-            } else if (record.action === NodeAction.insertAfter) {
+                break;
+            case NodeAction.insertAfter:
                 record.newParent?.insertAfter(record.newPrevious, record.node);
-            } else if (record.action === NodeAction.insertBefore) {
+                break;
+            case NodeAction.insertBefore:
                 record.newParent?.insertBefore(record.newPrevious?.nextSibling, record.node);
-            }
+                break;
         }
+    }
+
+    undo(): void {
+        for (let i = this.records.length - 1; i >= 0; i--) {
+            this.handleUndo(this.records[i]);
+        }
+    }
+
+    redo(): void {
+        this.records.forEach((record) => this.handleRedo(record));
     }
 }
 

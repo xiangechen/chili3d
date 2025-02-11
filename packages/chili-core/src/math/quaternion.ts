@@ -18,11 +18,15 @@ export class Quaternion {
         return new Quaternion(this.w - q.w, this.x - q.x, this.y - q.y, this.z - q.z);
     }
     multiply(q: Quaternion): Quaternion {
-        const w = this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z;
-        const x = this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y;
-        const y = this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x;
-        const z = this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w;
-        return new Quaternion(w, x, y, z);
+        const { w: w1, x: x1, y: y1, z: z1 } = this;
+        const { w: w2, x: x2, y: y2, z: z2 } = q;
+
+        return new Quaternion(
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+        );
     }
     conjugate(): Quaternion {
         return new Quaternion(this.w, -this.x, -this.y, -this.z);
@@ -32,11 +36,15 @@ export class Quaternion {
     }
     normalize(): Quaternion {
         const magnitude = this.magnitude();
+        if (magnitude === 0) {
+            return new Quaternion();
+        }
+        const invMagnitude = 1 / magnitude;
         return new Quaternion(
-            this.w / magnitude,
-            this.x / magnitude,
-            this.y / magnitude,
-            this.z / magnitude,
+            this.w * invMagnitude,
+            this.x * invMagnitude,
+            this.y * invMagnitude,
+            this.z * invMagnitude,
         );
     }
     toEuler(): { x: number; y: number; z: number } {
@@ -55,16 +63,16 @@ export class Quaternion {
         };
     }
     toMatrix4(): Matrix4 {
-        const { x, y, z, w } = this;
-        const xx = x * x,
-            xy = x * y,
-            xz = x * z,
-            xw = x * w;
-        const yy = y * y,
-            yz = y * z,
-            yw = y * w;
-        const zz = z * z,
-            zw = z * w;
+        const xx = this.x * this.x;
+        const yy = this.y * this.y;
+        const zz = this.z * this.z;
+        const xy = this.x * this.y;
+        const xz = this.x * this.z;
+        const yz = this.y * this.z;
+        const xw = this.x * this.w;
+        const yw = this.y * this.w;
+        const zw = this.z * this.w;
+
         return Matrix4.fromArray([
             1 - 2 * (yy + zz),
             2 * (xy - zw),
@@ -85,16 +93,22 @@ export class Quaternion {
         ]);
     }
     static fromEuler(roll: number, pitch: number, yaw: number): Quaternion {
-        const cy = Math.cos(yaw * 0.5);
-        const sy = Math.sin(yaw * 0.5);
-        const cp = Math.cos(pitch * 0.5);
-        const sp = Math.sin(pitch * 0.5);
-        const cr = Math.cos(roll * 0.5);
-        const sr = Math.sin(roll * 0.5);
-        const w = cr * cp * cy + sr * sp * sy;
-        const x = sr * cp * cy - cr * sp * sy;
-        const y = cr * sp * cy + sr * cp * sy;
-        const z = cr * cp * sy - sr * sp * cy;
-        return new Quaternion(w, x, y, z);
+        const halfRoll = roll * 0.5;
+        const halfPitch = pitch * 0.5;
+        const halfYaw = yaw * 0.5;
+
+        const cr = Math.cos(halfRoll);
+        const sr = Math.sin(halfRoll);
+        const cp = Math.cos(halfPitch);
+        const sp = Math.sin(halfPitch);
+        const cy = Math.cos(halfYaw);
+        const sy = Math.sin(halfYaw);
+
+        return new Quaternion(
+            cr * cp * cy + sr * sp * sy,
+            sr * cp * cy - cr * sp * sy,
+            cr * sp * cy + sr * cp * sy,
+            cr * cp * sy - sr * sp * cy,
+        );
     }
 }

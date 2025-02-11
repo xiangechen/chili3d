@@ -115,10 +115,10 @@ export interface IBoundedCurve extends ICurve {
 export interface IBezierCurve extends IBoundedCurve {
     degree(): number;
     weight(index: number): number;
-    insertPoleAfter(index: number, point: XYZ, weight: number | undefined): void;
-    insertPoleBefore(index: number, point: XYZ, weight: number | undefined): void;
+    insertPoleAfter(index: number, point: XYZ, weight?: number): void;
+    insertPoleBefore(index: number, point: XYZ, weight?: number): void;
     removePole(index: number): void;
-    setPole(index: number, point: XYZ, weight: number | undefined): void;
+    setPole(index: number, point: XYZ, weight?: number): void;
     setWeight(index: number, weight: number): void;
     nbPoles(): number;
     pole(index: number): XYZ;
@@ -155,8 +155,7 @@ export interface IComplexCurve {
 
 export namespace ICurve {
     export function isConic(curve: ICurve): curve is IConic {
-        let conic = curve as IConic;
-        return conic.axis !== undefined;
+        return (curve as IConic).axis !== undefined;
     }
 
     export function isCircle(curve: ICurve): curve is ICircle {
@@ -165,7 +164,6 @@ export namespace ICurve {
     }
 
     export function isLine(curve: ICurve): curve is ILine {
-        let line = curve as ILine;
-        return line.direction !== undefined;
+        return (curve as ILine).direction !== undefined;
     }
 }

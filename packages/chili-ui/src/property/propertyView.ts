@@ -58,44 +58,35 @@ export class PropertyView extends HTMLElement {
     private addModel(document: IDocument, nodes: INode[]) {
         if (nodes.length === 0) return;
 
-        let controls: any[] = [];
+        let controls: (HTMLElement | string)[] = [];
         if (nodes[0] instanceof FolderNode) {
-            controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) => {
-                return findPropertyControl(document, nodes, x);
-            });
+            controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
+                findPropertyControl(document, nodes, x),
+            );
         } else if (nodes[0] instanceof Node) {
-            controls = Property.getOwnProperties(Node.prototype).map((x) => {
-                return findPropertyControl(document, nodes, x);
-            });
+            controls = Property.getOwnProperties(Node.prototype).map((x) =>
+                findPropertyControl(document, nodes, x),
+            );
         }
 
         this.panel.append(div({ className: style.rootProperties }, ...controls));
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
-        let geometries = nodes.filter((x) => x instanceof VisualNode || x instanceof GroupNode);
+        const geometries = nodes.filter((x) => x instanceof VisualNode || x instanceof GroupNode);
         if (geometries.length === 0 || !this.isAllElementsOfTypeFirstElement(geometries)) return;
         this.addTransform(document, geometries);
         this.addParameters(geometries, document);
     }
 
     private addTransform(document: IDocument, geometries: (VisualNode | GroupNode)[]) {
-        let matrix = new Expander("common.matrix");
-        // 这部分代码有问题，待完善
-        let converters = MatrixConverter.init();
+        const matrix = new Expander("common.matrix");
+        const converters = MatrixConverter.init();
         this.panel.append(matrix);
 
         const addMatrix = (display: I18nKeys, converter: IConverter) => {
             matrix.contenxtPanel.append(
-                findPropertyControl(
-                    document,
-                    geometries,
-                    {
-                        name: "transform",
-                        display,
-                    },
-                    converter,
-                ),
+                findPropertyControl(document, geometries, { name: "transform", display }, converter),
             );
         };
 
@@ -105,13 +96,13 @@ export class PropertyView extends HTMLElement {
     }
 
     private addParameters(geometries: (VisualNode | GroupNode)[], document: IDocument) {
-        let entities = geometries.filter((x) => x instanceof VisualNode);
+        const entities = geometries.filter((x) => x instanceof VisualNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
-        let parameters = new Expander(entities[0].display());
+        const parameters = new Expander(entities[0].display());
         parameters.contenxtPanel.append(
-            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) => {
-                return findPropertyControl(document, entities, x);
-            }),
+            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
+                findPropertyControl(document, entities, x),
+            ),
         );
         this.panel.append(parameters);
     }

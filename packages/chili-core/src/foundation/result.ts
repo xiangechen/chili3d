@@ -7,26 +7,23 @@ import { Logger } from "./logger";
 @Serializer.register(["isOk", "value", "error"])
 export class Result<T, E = string> {
     readonly #isOk: boolean;
+    readonly #value: T | undefined;
+    readonly #error: E | undefined;
+
     @Serializer.serialze()
     get isOk(): boolean {
         return this.#isOk;
     }
 
-    readonly #value: T | undefined;
     @Serializer.serialze()
     get value(): T {
-        if (!this.#isOk) {
-            Logger.warn("Result is error");
-        }
+        if (!this.#isOk) Logger.warn("Result is error");
         return this.#value!;
     }
 
-    readonly #error: E | undefined;
     @Serializer.serialze()
     get error(): E {
-        if (this.#isOk) {
-            Logger.warn("Result is ok");
-        }
+        if (this.#isOk) Logger.warn("Result is ok");
         return this.#error!;
     }
 
@@ -37,15 +34,15 @@ export class Result<T, E = string> {
     }
 
     parse<U>(): Result<U, E> {
-        return Result.err(this.#error as E) as any;
+        return Result.err(this.#error as E);
     }
 
-    isOkAnd(predict: (value: T | undefined) => boolean): boolean {
-        return this.#isOk && predict(this.#value);
+    isOkAnd(predict: (value: T) => boolean): boolean {
+        return this.#isOk && predict(this.#value!);
     }
 
-    isErrorOr(predict: (value: T | undefined) => boolean): boolean {
-        return !this.#isOk || predict(this.#value);
+    isErrorOr(predict: (value: T) => boolean): boolean {
+        return !this.#isOk || predict(this.#value!);
     }
 
     unchecked(): T | undefined {
@@ -61,16 +58,11 @@ export class Result<T, E = string> {
     }
 }
 
-export class ResultEqualityComparer<T = any> implements IEqualityComparer<Result<T>> {
+export class ResultEqualityComparer<T> implements IEqualityComparer<Result<T>> {
     constructor(readonly equal?: (left: T, right: T) => boolean) {}
 
-    equals(left: Result<any, string>, right: Result<any, string>): boolean {
-        if (!left.isOk || !right.isOk) {
-            return false;
-        }
-        if (this.equal) {
-            return this.equal(left.value, right.value);
-        }
-        return left.value === right.value;
+    equals(left: Result<T>, right: Result<T>): boolean {
+        if (!left.isOk || !right.isOk) return false;
+        return this.equal ? this.equal(left.value, right.value) : left.value === right.value;
     }
 }

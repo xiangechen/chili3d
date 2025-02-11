@@ -31,10 +31,7 @@ export class XY {
     }
 
     divided(scalar: number): XY | undefined {
-        if (Math.abs(scalar) < Precision.Float) {
-            return undefined;
-        }
-        return new XY(this.x / scalar, this.y / scalar);
+        return Math.abs(scalar) < Precision.Float ? undefined : new XY(this.x / scalar, this.y / scalar);
     }
 
     reverse(): XY {
@@ -54,16 +51,13 @@ export class XY {
     }
 
     normalize(): XY | undefined {
-        let d = this.length();
-        if (d < Precision.Float) {
-            return undefined;
-        }
-        return new XY(this.x / d, this.y / d);
+        const d = this.length();
+        return d < Precision.Float ? undefined : new XY(this.x / d, this.y / d);
     }
 
     distanceTo(right: XY): number {
-        let dx = this.x - right.x;
-        let dy = this.y - right.y;
+        const dx = this.x - right.x;
+        const dy = this.y - right.y;
         return Math.sqrt(dx * dx + dy * dy);
     }
 
@@ -72,7 +66,7 @@ export class XY {
     }
 
     lengthSq(): number {
-        return this.x * this.x + this.y * this.y;
+        return this.x ** 2 + this.y ** 2;
     }
 
     length(): number {
@@ -98,14 +92,12 @@ export class XY {
     }
 
     isParallelTo(right: XY, tolerance: number = 1e-8): boolean | undefined {
-        let angle = this.angleTo(right);
-        if (angle === undefined) return undefined;
-        return angle <= tolerance || Math.PI - angle <= tolerance;
+        const angle = this.angleTo(right);
+        return angle === undefined ? undefined : angle <= tolerance || Math.PI - angle <= tolerance;
     }
 
     isOppositeTo(right: XY, tolerance: number = 1e-8): boolean | undefined {
-        let angle = this.angleTo(right);
-        if (angle === undefined) return undefined;
-        return Math.PI - angle <= tolerance;
+        const angle = this.angleTo(right);
+        return angle === undefined ? undefined : Math.PI - angle <= tolerance;
     }
 }

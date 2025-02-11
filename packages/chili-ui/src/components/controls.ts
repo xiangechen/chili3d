@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { PathBinding } from "chili-core";
-import { HTMLProps } from "./htmlProps";
 import { Collection, CollectionProps } from "./collection";
+import { HTMLProps } from "./htmlProps";
 import { Localize } from "./localize";
 
 export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
@@ -12,21 +12,20 @@ export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     ): HTMLElementTagNameMap[K] => {
         const e: HTMLElementTagNameMap[K] = document.createElement(tag);
         if (props) {
-            if (props instanceof Node || typeof props === "string") {
+            if (typeof props === "string" || props instanceof Node) {
                 e.append(props);
             } else {
                 setProperties(e, props);
             }
         }
-
         children.forEach((c) => e.append(c));
         return e;
     };
 }
 
 export function setProperties<T extends { [K: string]: any }>(left: T, prop: HTMLProps<T>) {
-    for (const key of Object.keys(prop)) {
-        let value = prop[key];
+    for (const key in prop) {
+        const value = prop[key];
         if (value instanceof Localize && left instanceof HTMLElement && key === "textContent") {
             value.set(left);
         } else if (value instanceof PathBinding) {
@@ -61,39 +60,34 @@ export const sup = createControl("sup");
 
 export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const ns = "http://www.w3.org/2000/svg";
-    const childNS = "http://www.w3.org/1999/xlink";
     const child = document.createElementNS(ns, "use");
-    child.setAttributeNS(childNS, "xlink:href", `#${props.icon}`);
-    let svg = document.createElementNS(ns, "svg");
+    child.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${props.icon}`);
+    const svg = document.createElementNS(ns, "svg");
     svg.append(child);
-    let className = String(props.className);
+    const className = String(props.className);
     delete props.className;
     setProperties(svg, props);
     svg.classList.add(className);
-
     if (props.title) {
         addTitle(props, svg);
     }
-
     return svg;
 }
 
 export function setSVGIcon(svg: SVGSVGElement, newIcon: string) {
-    const childNS = "http://www.w3.org/1999/xlink";
-    let child = svg.firstChild as SVGUseElement;
-    child?.setAttributeNS(childNS, "xlink:href", `#${newIcon}`);
+    const child = svg.firstChild as SVGUseElement;
+    child?.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${newIcon}`);
 }
 
 function addTitle(props: HTMLProps<HTMLElement> & { icon: string }, svg: SVGSVGElement) {
-    let title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
     let value = "";
     if (typeof props.title === "string") {
         value = props.title;
     } else if (props.title instanceof PathBinding) {
         value = props.title.getPropertyValue();
     }
-    let text = document.createTextNode(value);
-    title.appendChild(text);
+    title.appendChild(document.createTextNode(value));
     svg.appendChild(title);
 }
 

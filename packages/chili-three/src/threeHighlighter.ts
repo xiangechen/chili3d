@@ -93,10 +93,10 @@ export class GeometryState {
         type: ShapeType,
         index: number[],
     ) {
-        let shouldRemoved: string[] = [];
+        const shouldRemoved: string[] = [];
         index.forEach((i) => {
-            let key = this.state_key(type, i);
-            let [oldState, newState] = this.updateStates(key, method, state);
+            const key = this.state_key(type, i);
+            const [oldState, newState] = this.updateStates(key, method, state);
             if (oldState !== undefined && newState === VisualState.normal) {
                 shouldRemoved.push(key);
             } else {
@@ -105,7 +105,7 @@ export class GeometryState {
         });
 
         shouldRemoved.forEach((key) => {
-            let item = this._states.get(key)?.[1];
+            const item = this._states.get(key)?.[1];
             if (item) {
                 this.highlighter.container.remove(item);
                 item.geometry?.dispose();
@@ -115,7 +115,7 @@ export class GeometryState {
     }
 
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
-        let geometry = this.getOrCloneGeometry(type, key, i);
+        const geometry = this.getOrCloneGeometry(type, key, i);
         if (geometry && "material" in geometry) {
             let material = VisualState.hasState(newState, VisualState.highlighter)
                 ? hilightEdgeMaterial
@@ -129,7 +129,7 @@ export class GeometryState {
         if (!(this.visual instanceof ThreeGeometry)) return undefined;
 
         let geometry = this._states.get(key)?.[1];
-        if (geometry !== undefined) return geometry;
+        if (geometry) return geometry;
 
         let points: number[] | undefined = undefined;
         if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
@@ -144,9 +144,9 @@ export class GeometryState {
             return undefined;
         }
 
-        let lineGeometry = new LineSegmentsGeometry();
+        const lineGeometry = new LineSegmentsGeometry();
         lineGeometry.setPositions(points);
-        let segment = new LineSegments2(lineGeometry);
+        const segment = new LineSegments2(lineGeometry);
         this.highlighter.container.add(segment);
         segment.applyMatrix4(this.visual.matrixWorld);
         return segment;

@@ -18,15 +18,15 @@ export class EditorService implements IService {
 
     stop(): void {
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
-        Logger.info(`${EditorService.name} stoped`);
+        Logger.info(`${EditorService.name} stopped`);
     }
 
     private readonly handleSelectionChanged = (document: IDocument, selected: INode[]) => {
-        if (this.editHandler !== undefined) {
-            this.editHandler.dispose();
-            this.editHandler = undefined;
-        }
+        this.editHandler?.dispose();
+        this.editHandler = undefined;
+
         if (document.application.executingCommand) return;
+
         if (selected.length > 0) {
             this.editHandler = this.factory(document, selected);
             document.visual.eventHandler = this.editHandler;

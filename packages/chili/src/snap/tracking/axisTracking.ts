@@ -21,7 +21,7 @@ export class AxisTracking {
             return Axis.getAxiesAtPlane(referencePoint, plane, this.trackingZ);
         }
 
-        let result: Axis[] = [];
+        const result: Axis[] = [];
         let testAngle = 0;
         while (testAngle < 360) {
             let direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
@@ -32,6 +32,7 @@ export class AxisTracking {
             result.push(new Axis(referencePoint, plane.normal, I18n.translate("axis.z")));
             result.push(new Axis(referencePoint, plane.normal.reverse(), I18n.translate("axis.z")));
         }
+
         return result;
     }
 

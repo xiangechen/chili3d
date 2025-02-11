@@ -5,8 +5,13 @@ export interface IDisposable {
 }
 
 export namespace IDisposable {
-    export function isDisposable(value: any): value is IDisposable {
-        if (!value || typeof value.dispose !== "function") return false;
-        return value.dispose.length === 0;
+    export function isDisposable(value: unknown): value is IDisposable {
+        return (
+            value != null &&
+            typeof value === "object" &&
+            "dispose" in value &&
+            typeof (value as IDisposable).dispose === "function" &&
+            (value as IDisposable).dispose.length === 0
+        );
     }
 }

@@ -51,27 +51,23 @@ export class HotkeyService implements IService {
 
     private readonly interactiveKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-
-        let view = this.app?.activeView;
-        if (!view) return;
-
-        view.onKeyDown(e);
-        view.document?.visual.eventHandler.keyDown(view, e);
-
-        if (this.app?.executingCommand) e.stopImmediatePropagation();
+        const view = this.app?.activeView;
+        if (view) {
+            view.onKeyDown(e);
+            view.document?.visual.eventHandler.keyDown(view, e);
+            if (this.app?.executingCommand) e.stopImmediatePropagation();
+        }
     };
 
     private readonly interactiveHandlerKeyUp = (e: KeyboardEvent) => {
         e.preventDefault();
-
         this.app?.activeView?.onKeyUp(e);
-
         if (this.app?.executingCommand) e.stopImmediatePropagation();
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-        let command = this.getCommand(e);
+        const command = this.getCommand(e);
         if (command !== undefined) {
             PubSub.default.pub("executeCommand", command);
         }

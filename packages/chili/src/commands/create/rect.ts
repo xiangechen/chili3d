@@ -26,9 +26,10 @@ export namespace RectData {
 
 export abstract class RectCommandBase extends CreateCommand {
     protected getSteps(): IStep[] {
-        let first = new PointStep("operate.pickFistPoint");
-        let second = new LengthAtPlaneStep("operate.pickNextPoint", this.nextSnapData);
-        return [first, second];
+        return [
+            new PointStep("operate.pickFistPoint"),
+            new LengthAtPlaneStep("operate.pickNextPoint", this.nextSnapData),
+        ];
     }
 
     private readonly nextSnapData = (): SnapLengthAtPlaneData => {
@@ -45,23 +46,20 @@ export abstract class RectCommandBase extends CreateCommand {
     };
 
     private readonly handleValid = (end: XYZ) => {
-        let data = this.getRectData(end);
-        if (data === undefined) return false;
-        return !MathUtils.anyEqualZero(data.dx, data.dy);
+        const data = this.getRectData(end);
+        return data !== undefined && !MathUtils.anyEqualZero(data.dx, data.dy);
     };
 
     protected previewRect = (end: XYZ | undefined) => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (end === undefined) {
-            return [p1];
-        }
-        let data = this.getRectData(end);
-        let p2 = this.previewPoint(end);
+        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (end === undefined) return [p1];
+        const data = this.getRectData(end);
+        const p2 = this.previewPoint(end);
         return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).value.mesh.edges!];
     };
 
     protected getRectData(point: XYZ): RectData {
-        let [p1, p2] = [this.stepDatas[0].point!, point];
+        const [p1, p2] = [this.stepDatas[0].point!, point];
         return RectData.get(this.stepDatas[0].view.workplane, p1, p2);
     }
 }
@@ -81,8 +79,8 @@ export class Rect extends RectCommandBase {
     }
 
     protected override geometryNode(): GeometryNode {
-        let rect = this.getRectData(this.stepDatas[1].point!);
-        let node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
+        const rect = this.getRectData(this.stepDatas[1].point!);
+        const node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
         node.isFace = this.isFace;
         return node;
     }

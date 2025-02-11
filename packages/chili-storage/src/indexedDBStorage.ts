@@ -6,23 +6,39 @@ export class IndexedDBStorage implements IStorage {
     readonly version: number = 4;
 
     async get(database: string, table: string, id: string): Promise<any> {
-        let db = await this.open(database, table, this.version);
-        return await IndexedDBStorage.get(db, table, id).finally(() => db.close());
+        const db = await this.open(database, table, this.version);
+        try {
+            return await IndexedDBStorage.get(db, table, id);
+        } finally {
+            db.close();
+        }
     }
 
     async put(database: string, table: string, id: string, value: any): Promise<boolean> {
-        let db = await this.open(database, table, this.version);
-        return await IndexedDBStorage.put(db, table, id, value).finally(() => db.close());
+        const db = await this.open(database, table, this.version);
+        try {
+            return await IndexedDBStorage.put(db, table, id, value);
+        } finally {
+            db.close();
+        }
     }
 
     async delete(database: string, table: string, id: string): Promise<boolean> {
-        let db = await this.open(database, table, this.version);
-        return await IndexedDBStorage.delete(db, table, id).finally(() => db.close());
+        const db = await this.open(database, table, this.version);
+        try {
+            return await IndexedDBStorage.delete(db, table, id);
+        } finally {
+            db.close();
+        }
     }
 
     async page(database: string, table: string, page: number): Promise<any[]> {
-        let db = await this.open(database, table, this.version);
-        return await IndexedDBStorage.getPage(db, table, page).finally(() => db.close());
+        const db = await this.open(database, table, this.version);
+        try {
+            return await IndexedDBStorage.getPage(db, table, page);
+        } finally {
+            db.close();
+        }
     }
 
     private open(
@@ -57,14 +73,12 @@ export class IndexedDBStorage implements IStorage {
     }
 
     private static get(db: IDBDatabase, storeName: string, key: string) {
-        let request = db.transaction([storeName], "readonly").objectStore(storeName).get(key);
-
+        const request = db.transaction([storeName], "readonly").objectStore(storeName).get(key);
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {
                 Logger.info(`${storeName} store get object success`);
                 resolve((e.target as unknown as any).result);
             };
-
             request.onerror = (e) => {
                 Logger.error(`${storeName} store get object error`);
                 reject(e);
@@ -86,15 +100,14 @@ export class IndexedDBStorage implements IStorage {
         page: number,
         count: number = 20,
     ): Promise<any[]> {
-        let result: any[] = [];
+        const result: any[] = [];
         let index = 0;
         let isAdvanced = false;
-
-        let request = db.transaction([storeName], "readonly").objectStore(storeName).openCursor();
+        const request = db.transaction([storeName], "readonly").objectStore(storeName).openCursor();
 
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {
-                let cursor: IDBCursorWithValue = (e.target as unknown as any).result;
+                const cursor: IDBCursorWithValue = (e.target as unknown as any).result;
                 if (!cursor || index === count) {
                     Logger.info(`${storeName} store get objects success`);
                     resolve(result);
@@ -107,7 +120,6 @@ export class IndexedDBStorage implements IStorage {
                     cursor.continue();
                 }
             };
-
             request.onerror = (e) => {
                 Logger.error(`${storeName} store get objects error`);
                 reject(e);
@@ -116,14 +128,12 @@ export class IndexedDBStorage implements IStorage {
     }
 
     private static delete(db: IDBDatabase, storeName: string, key: string): Promise<boolean> {
-        let request = db.transaction([storeName], "readwrite").objectStore(storeName).delete(key);
-
+        const request = db.transaction([storeName], "readwrite").objectStore(storeName).delete(key);
         return new Promise((resolve, reject) => {
-            request.onsuccess = (e) => {
+            request.onsuccess = () => {
                 Logger.info(`${storeName} store delete object success`);
                 resolve(true);
             };
-
             request.onerror = (e) => {
                 Logger.error(`${storeName} store delete object error`);
                 reject(e);
@@ -132,14 +142,12 @@ export class IndexedDBStorage implements IStorage {
     }
 
     private static put(db: IDBDatabase, storeName: string, key: IDBValidKey, value: any): Promise<boolean> {
-        let request = db.transaction([storeName], "readwrite").objectStore(storeName).put(value, key);
-
+        const request = db.transaction([storeName], "readwrite").objectStore(storeName).put(value, key);
         return new Promise((resolve, reject) => {
-            request.onsuccess = (e) => {
+            request.onsuccess = () => {
                 Logger.info(`${storeName} store put object success`);
                 resolve(true);
             };
-
             request.onerror = (e) => {
                 Logger.error(`${storeName} store put object error`);
                 reject(e);

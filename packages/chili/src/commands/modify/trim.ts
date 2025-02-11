@@ -53,12 +53,10 @@ export class Trim extends CancelableCommand {
                 false,
                 "select.default",
             );
-            if (this.controller.result?.status !== "success") {
+            if (this.controller.result?.status !== "success" || !handler.selected) {
                 break;
             }
-            if (handler.selected) {
-                this.trimEdge(handler.selected);
-            }
+            this.trimEdge(handler.selected);
         }
     }
 
@@ -69,7 +67,6 @@ export class Trim extends CancelableCommand {
             let newEdge = selected.curve.trim(segment.start, segment.end).makeEdge();
             model?.parent?.add(new EditableShapeNode(this.document, model.name, newEdge, materialId));
         });
-
         model?.parent?.remove(model);
     }
 }
@@ -107,20 +104,14 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     protected override setHighlight(view: IView, detecteds: VisualShapeData[]): void {
         this.cleanHighlights();
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
-        let otherEdges = findEdges(detecteds, view);
         let edge = detecteds[0].shape as IEdge;
         let curve = edge.curve();
-        let segments = findSegments(curve, edge, otherEdges, detecteds);
+        let segments = findSegments(curve, edge, findEdges(detecteds, view), detecteds);
         let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
         mesh.lineWidth = 2;
         this.highlightedEdge = view.document.visual.highlighter.highlightMesh(mesh);
-        this.highlight = {
-            edge: detecteds[0],
-            segments,
-            curve,
-        };
-
+        this.highlight = { edge: detecteds[0], segments, curve };
         view.update();
     }
 

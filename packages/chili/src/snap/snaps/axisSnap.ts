@@ -12,17 +12,20 @@ export class AxisSnap implements ISnap {
     ) {}
 
     snap(data: MouseAndDetected): SnapedData | undefined {
-        let right = data.view.up().cross(data.view.direction()).normalize();
-        let normal = right?.cross(this.direction).normalize();
-        if (normal === undefined) return undefined;
-        let plane = new Plane(this.point, normal, right!);
-        let ray = data.view.rayAt(data.mx, data.my);
-        let intersect = plane.intersect(ray, true);
-        if (intersect === undefined) return undefined;
-        let vector = intersect.sub(this.point);
-        let dot = vector.dot(this.direction);
-        let point = this.point.add(this.direction.multiply(dot));
+        const right = data.view.up().cross(data.view.direction()).normalize();
+        const normal = right?.cross(this.direction).normalize();
+        if (!normal) return undefined;
+
+        const plane = new Plane(this.point, normal, right!);
+        const ray = data.view.rayAt(data.mx, data.my);
+        const intersect = plane.intersect(ray, true);
+        if (!intersect) return undefined;
+
+        const vector = intersect.sub(this.point);
+        const dot = vector.dot(this.direction);
+        const point = this.point.add(this.direction.multiply(dot));
         this.showTempLine(data.view, dot);
+
         return {
             view: data.view,
             point,
@@ -32,14 +35,14 @@ export class AxisSnap implements ISnap {
     }
 
     private showTempLine(view: IView, dot: number) {
-        let dist = Math.abs(dot) < 0.000001 ? 1e15 : 1e15 * dot;
-        let lineDats = EdgeMeshData.from(
+        const dist = Math.abs(dot) < 0.000001 ? 1e15 : 1e15 * dot;
+        const lineDats = EdgeMeshData.from(
             this.point,
             this.point.add(this.direction.multiply(dist)),
             VisualConfig.temporaryEdgeColor,
             LineType.Dash,
         );
-        let id = view.document.visual.context.displayMesh(lineDats);
+        const id = view.document.visual.context.displayMesh(lineDats);
         this._tempLines = [view, id];
     }
 

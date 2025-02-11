@@ -34,43 +34,39 @@ export class CommandService implements IService {
     }
 
     private readonly onActiveViewChanged = async (view: IView | undefined) => {
-        if (this.app.executingCommand && ICommand.isCanclableCommand(this.app.executingCommand))
+        if (this.app.executingCommand && ICommand.isCancelableCommand(this.app.executingCommand))
             await this.app.executingCommand.cancel();
     };
 
     private readonly executeCommand = async (commandName: CommandKeys) => {
-        let command = commandName === "special.last" ? this._lastCommand : commandName;
-        if (command === undefined) return;
-        if (!(await this.canExecute(command))) return;
+        const command = commandName === "special.last" ? this._lastCommand : commandName;
+        if (!command || !(await this.canExecute(command))) return;
         Logger.info(`executing command ${command}`);
         await this.executeAsync(command);
     };
 
     private async executeAsync(commandName: CommandKeys) {
-        let commandCtor = Command.get(commandName)!;
-        let command = new commandCtor();
+        const commandCtor = Command.get(commandName)!;
+        const command = new commandCtor();
         this.app.executingCommand = command;
         PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
-        await command
-            .execute(this.app)
-            .catch((err) => {
-                PubSub.default.pub("displayError", err);
-                Logger.error(err);
-            })
-            .finally(() => {
-                this._lastCommand = commandName;
-                this.app.executingCommand = undefined;
-            });
+        try {
+            await command.execute(this.app);
+        } catch (err) {
+            PubSub.default.pub("displayError", err as string);
+            Logger.error(err);
+        } finally {
+            this._lastCommand = commandName;
+            this.app.executingCommand = undefined;
+        }
     }
 
     private async canExecute(commandName: CommandKeys) {
         if (this._checking) return false;
         this._checking = true;
-        try {
-            return await this.checking(commandName);
-        } finally {
-            this._checking = false;
-        }
+        const result = await this.checking(commandName);
+        this._checking = false;
+        return result;
     }
 
     private async checking(commandName: CommandKeys) {
@@ -89,7 +85,7 @@ export class CommandService implements IService {
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
             return false;
         }
-        if (ICommand.isCanclableCommand(this.app.executingCommand)) {
+        if (ICommand.isCancelableCommand(this.app.executingCommand)) {
             await this.app.executingCommand.cancel();
             return true;
         }

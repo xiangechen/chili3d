@@ -4,15 +4,11 @@ import { IConverter, Result } from "chili-core";
 
 export class NumberConverter implements IConverter<number> {
     convert(value: number): Result<string> {
-        if (Number.isNaN(value)) return Result.err("Number is NaN");
-        return Result.ok(String(value));
+        return Number.isNaN(value) ? Result.err("Number is NaN") : Result.ok(String(value));
     }
 
     convertBack(value: string): Result<number> {
-        let n = Number(value);
-        if (Number.isNaN(n)) {
-            return Result.err(`${value} can not convert to number`);
-        }
-        return Result.ok(n);
+        const n = Number(value);
+        return Number.isNaN(n) ? Result.err(`${value} can not convert to number`) : Result.ok(n);
     }
 }

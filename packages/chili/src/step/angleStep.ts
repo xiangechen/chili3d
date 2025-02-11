@@ -26,7 +26,6 @@ export class AngleStep extends Step<PointSnapData> {
     }
 
     protected validator(data: PointSnapData, point: XYZ): boolean {
-        if (data.refPoint === undefined) return true;
-        return data.refPoint().distanceTo(point) > Precision.Distance;
+        return data.refPoint === undefined || data.refPoint().distanceTo(point) > Precision.Distance;
     }
 }

@@ -10,45 +10,39 @@ export class OKCancel extends HTMLElement {
     constructor() {
         super();
         this.className = style.root;
-        this.append(
-            div(
-                { className: style.container },
-                span({
-                    textContent: I18n.translate("ribbon.group.selection"),
-                }),
-                div({ className: style.spacer }),
-                div(
-                    { className: style.panel },
-                    div(
-                        {
-                            className: style.icon,
-                            onclick: this._onConfirm,
-                        },
-                        svg({ icon: "icon-confirm" }),
-                        span({ textContent: I18n.translate("common.confirm") }),
-                    ),
-                    div(
-                        {
-                            className: style.icon,
-                            onclick: this._onCancel,
-                        },
-                        svg({ icon: "icon-cancel" }),
-                        span({ textContent: I18n.translate("common.cancel") }),
-                    ),
-                ),
-            ),
+        this.append(this.container());
+    }
+
+    private container() {
+        return div(
+            { className: style.container },
+            span({ textContent: I18n.translate("ribbon.group.selection") }),
+            div({ className: style.spacer }),
+            this.buttons(),
         );
+    }
+
+    private buttons() {
+        return div(
+            { className: style.panel },
+            this._createIcon("icon-confirm", I18n.translate("common.confirm"), this._onConfirm),
+            this._createIcon("icon-cancel", I18n.translate("common.cancel"), this._onCancel),
+        );
+    }
+
+    private _createIcon(icon: string, text: string, onClick: () => void) {
+        return div({ className: style.icon, onclick: onClick }, svg({ icon }), span({ textContent: text }));
     }
 
     setControl(control: AsyncController | undefined) {
         this.control = control;
     }
 
-    private _onConfirm = () => {
+    private readonly _onConfirm = () => {
         this.control?.success();
     };
 
-    private _onCancel = () => {
+    private readonly _onCancel = () => {
         this.control?.cancel();
     };
 }

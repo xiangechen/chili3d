@@ -10,7 +10,12 @@ export class Permanent {
         dialog.appendChild(
             div(
                 { className: style.container },
-                div({ className: style.loading }),
+                div({
+                    className: style.loading,
+                    style: {
+                        animation: `${style.circle} infinite 0.75s linear`,
+                    },
+                }),
                 span({
                     className: style.message,
                     textContent: I18n.translate(message, ...args),
@@ -20,9 +25,6 @@ export class Permanent {
         document.body.appendChild(dialog);
         dialog.showModal();
 
-        await new Promise((r) => setTimeout(r, 10));
-        requestAnimationFrame(() => {
-            action().finally(() => dialog.remove());
-        });
+        action().finally(() => dialog.remove());
     }
 }

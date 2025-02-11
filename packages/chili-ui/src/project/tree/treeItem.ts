@@ -43,11 +43,7 @@ export abstract class TreeItem extends HTMLElement {
         if (property === "visible") {
             setSVGIcon(this.visibleIcon, this.getVisibleIcon());
         } else if (property === "parentVisible") {
-            if (model[property]) {
-                this.visibleIcon.classList.remove(style["parent-visible"]);
-            } else {
-                this.visibleIcon.classList.add(style["parent-visible"]);
-            }
+            this.visibleIcon.classList.toggle(style["parent-visible"], !model[property]);
         }
     };
 
@@ -70,12 +66,12 @@ export abstract class TreeItem extends HTMLElement {
     }
 
     private getVisibleIcon() {
-        return this.node.visible === true ? "icon-eye" : "icon-eye-slash";
+        return this.node.visible ? "icon-eye" : "icon-eye-slash";
     }
 
     private readonly onVisibleIconClick = (e: MouseEvent) => {
         e.stopPropagation();
-        Transaction.excute(this.document, "change visible", () => {
+        Transaction.execute(this.document, "change visible", () => {
             this.node.visible = !this.node.visible;
         });
         this.document.visual.update();

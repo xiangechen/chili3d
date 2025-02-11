@@ -29,11 +29,11 @@ export class WorkingPlaneViewModel extends Observable {
 })
 export class SetWorkplane implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let view = application.activeView;
+        const view = application.activeView;
         if (!view) return;
-        let vm = new WorkingPlaneViewModel();
+        const vm = new WorkingPlaneViewModel();
         PubSub.default.pub("showDialog", "workingPlane.set", vm, () => {
-            let planes = [Plane.XY, Plane.YZ, Plane.ZX];
+            const planes = [Plane.XY, Plane.YZ, Plane.ZX];
             view.workplane = planes[vm.planes.selectedIndexes[0]];
         });
     }
@@ -46,17 +46,17 @@ export class SetWorkplane implements ICommand {
 })
 export class AlignToPlane implements ICommand {
     async execute(application: IApplication): Promise<void> {
-        let view = application.activeView;
+        const view = application.activeView;
         if (!view) return;
-        application.activeView?.document!.selection.clearSelection();
-        let controller = new AsyncController();
-        let data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false).execute(
-            application.activeView!.document,
+        view.document.selection.clearSelection();
+        const controller = new AsyncController();
+        const data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false).execute(
+            view.document,
             controller,
         );
         if (!data || data.shapes.length === 0) return;
         view.document.visual.highlighter.clear();
-        let [point, normal] = (data.shapes[0].shape as IFace).normal(0, 0);
+        const [point, normal] = (data.shapes[0].shape as IFace).normal(0, 0);
         let xvec = XYZ.unitX;
         if (!normal.isParallelTo(XYZ.unitZ)) {
             xvec = XYZ.unitZ.cross(normal).normalize()!;

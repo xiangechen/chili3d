@@ -47,7 +47,7 @@ export class MainWindow implements IWindow {
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));
     }
 
-    private displayHome = (app: IApplication, displayHome: boolean) => {
+    private readonly displayHome = (app: IApplication, displayHome: boolean) => {
         if (this._home) {
             this._home.remove();
             this._home = undefined;

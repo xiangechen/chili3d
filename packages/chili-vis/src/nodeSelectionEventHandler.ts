@@ -3,6 +3,7 @@
 import {
     AsyncController,
     IDocument,
+    INode,
     INodeFilter,
     IView,
     IVisualObject,
@@ -31,13 +32,13 @@ export class NodeSelectionHandler extends SelectionHandler {
     }
 
     protected override select(view: IView, event: PointerEvent): number {
-        if (!this._highlights || this._highlights.length === 0) {
+        if (!this._highlights?.length) {
             this.clearSelected(this.document);
             return 0;
         }
-        let models = this._highlights
+        const models = this._highlights
             .map((x) => view.document.visual.context.getNode(x))
-            .filter((x) => x !== undefined);
+            .filter((x): x is INode => x !== undefined);
         this.document.selection.setSelection(models, event.shiftKey);
         return models.length;
     }
@@ -55,33 +56,24 @@ export class NodeSelectionHandler extends SelectionHandler {
     }
 
     getDetecteds(view: IView, event: PointerEvent) {
-        let detecteds: IVisualObject[] = [];
         if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
-            detecteds = view.detectVisualRect(
+            return view.detectVisualRect(
                 this.mouse.x,
                 this.mouse.y,
                 event.offsetX,
                 event.offsetY,
                 this.filter,
             );
-        } else {
-            this._detectAtMouse = view.detectVisual(event.offsetX, event.offsetY, this.filter);
-            let detected = this.getDetecting();
-            if (detected) detecteds.push(detected);
         }
-        return detecteds;
+        this._detectAtMouse = view.detectVisual(event.offsetX, event.offsetY, this.filter);
+        const detected = this.getDetecting();
+        return detected ? [detected] : [];
     }
 
     private getDetecting() {
-        if (this._detectAtMouse) {
-            let index = 0;
-            if (this._lockDetected) {
-                let loked = this.getDetcedtingIndex();
-                if (loked >= 0) index = loked;
-            }
-            return this._detectAtMouse[index];
-        }
-        return undefined;
+        if (!this._detectAtMouse) return undefined;
+        const index = this._lockDetected ? this.getDetcedtingIndex() : 0;
+        return this._detectAtMouse[index] || undefined;
     }
 
     private getDetcedtingIndex() {
@@ -112,14 +104,11 @@ export class NodeSelectionHandler extends SelectionHandler {
 
     protected override highlightNext(view: IView): void {
         if (this._detectAtMouse && this._detectAtMouse.length > 1) {
-            let index = 1;
-            if (this._lockDetected) {
-                let detecting = this.getDetcedtingIndex();
-                if (detecting !== -1)
-                    index = detecting === this._detectAtMouse.length - 1 ? 0 : detecting + 1;
-            }
+            const index = this._lockDetected
+                ? (this.getDetcedtingIndex() + 1) % this._detectAtMouse.length
+                : 1;
             this._lockDetected = this._detectAtMouse[index];
-            let detected = this.getDetecting();
+            const detected = this.getDetecting();
             if (detected) this.setHighlight(view, [detected]);
         }
     }

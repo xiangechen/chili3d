@@ -12,12 +12,13 @@ import { TransformedCommand } from "./transformedCommand";
 })
 export class Move extends TransformedCommand {
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint");
-        let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
-        return [firstStep, secondStep];
+        return [
+            new PointStep("operate.pickFistPoint"),
+            new PointStep("operate.pickNextPoint", this.getSecondPointData),
+        ];
     }
 
-    private getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
             dimension: Dimension.D1D2D3,
@@ -25,16 +26,14 @@ export class Move extends TransformedCommand {
         };
     };
 
-    private movePreview = (point: XYZ | undefined) => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
+    private readonly movePreview = (point: XYZ | undefined) => {
+        const p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
-        let models = this.transformPreview(point);
-        let line = this.getTempLineData(this.stepDatas[0].point!, point);
-        return [p1, models, line];
+        return [p1, this.transformPreview(point), this.getTempLineData(this.stepDatas[0].point!, point)];
     };
 
     protected override transfrom(point: XYZ): Matrix4 {
-        let vector = point.sub(this.stepDatas[0].point!);
-        return Matrix4.createTranslation(vector.x, vector.y, vector.z);
+        const { x, y, z } = point.sub(this.stepDatas[0].point!);
+        return Matrix4.createTranslation(x, y, z);
     }
 }

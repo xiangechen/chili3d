@@ -24,18 +24,18 @@ export class OccShapeConverter implements IShapeConverter {
         getMaterialId: (document: IDocument, color: string) => string,
     ) => {
         if (node.shape) {
-            let shape = OcctHelper.wrapShape(node.shape);
-            let material = getMaterialId(folder.document, node.color as string);
+            const shape = OcctHelper.wrapShape(node.shape);
+            const material = getMaterialId(folder.document, node.color as string);
             folder.add(new EditableShapeNode(folder.document, node.name as string, shape, material));
         }
 
         children.forEach((child) => {
             collector(child);
+            const subChildren = child.getChildren();
+            const childFolder =
+                subChildren.length > 1 ? new GroupNode(folder.document, child.name as string) : folder;
 
-            let childFolder = folder;
-            let subChildren = child.getChildren();
             if (subChildren.length > 1) {
-                childFolder = new GroupNode(folder.document, child.name as string);
                 folder.add(childFolder);
             }
             this.addShapeNode(collector, childFolder, child, subChildren, getMaterialId);
@@ -64,7 +64,7 @@ export class OccShapeConverter implements IShapeConverter {
         const materialMap: Map<string, string> = new Map();
         const getMaterialId = (document: IDocument, color: string) => {
             if (!materialMap.has(color)) {
-                let material = new Material(document, color, color);
+                const material = new Material(document, color, color);
                 document.materials.push(material);
                 materialMap.set(color, material.id);
             }
@@ -72,11 +72,11 @@ export class OccShapeConverter implements IShapeConverter {
         };
 
         return gc((c) => {
-            let node = converter(data);
+            const node = converter(data);
             if (!node) {
                 return Result.err("can not convert");
             }
-            let folder = new GroupNode(document, "undefined");
+            const folder = new GroupNode(document, "undefined");
             this.addShapeNode(c, folder, node, node.getChildren(), getMaterialId);
             c(node);
             return Result.ok(folder);

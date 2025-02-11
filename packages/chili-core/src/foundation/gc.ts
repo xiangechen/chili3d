@@ -7,30 +7,29 @@ export interface Deletable {
 }
 
 export namespace Deletable {
-    export function isDeletable(v: any): v is Deletable {
-        if (typeof v.delete !== "function") return false;
-        return v.delete.length === 0;
+    export function isDeletable(value: unknown): value is Deletable {
+        return typeof (value as any)?.delete === "function" && (value as any).delete.length === 0;
     }
 }
 
-export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(v: T) => T) => R): R => {
-    let deletables = new Set<Deletable | IDisposable>();
-    let collector = <T extends Deletable | IDisposable>(v: T) => {
-        deletables.add(v);
-        return v;
+export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(resource: T) => T) => R): R => {
+    const resources = new Set<Deletable | IDisposable>();
+
+    const collectResource = <T extends Deletable | IDisposable>(resource: T) => {
+        resources.add(resource);
+        return resource;
     };
 
     try {
-        return action(collector);
+        return action(collectResource);
     } finally {
-        deletables.forEach((item) => {
-            if (Deletable.isDeletable(item)) {
-                item.delete();
-            } else if (IDisposable.isDisposable(item)) {
-                item.dispose();
+        for (const resource of resources) {
+            if (Deletable.isDeletable(resource)) {
+                resource.delete();
+            } else if (IDisposable.isDisposable(resource)) {
+                resource.dispose();
             }
-        });
-        deletables.clear();
-        deletables = null as any;
+        }
+        resources.clear();
     }
 };

@@ -45,25 +45,25 @@ export class Plane {
     }
 
     project(point: XYZ): XYZ {
-        let vector = point.sub(this.origin);
-        let dot = vector.dot(this.normal);
+        const vector = point.sub(this.origin);
+        const dot = vector.dot(this.normal);
         return this.origin.add(vector.sub(this.normal.multiply(dot)));
     }
 
     transformed(matrix: Matrix4) {
-        let location = matrix.ofPoint(this.origin);
-        let x = matrix.ofVector(this.xvec);
-        let normal = matrix.ofVector(this.normal);
+        const location = matrix.ofPoint(this.origin);
+        const x = matrix.ofVector(this.xvec);
+        const normal = matrix.ofVector(this.normal);
         return new Plane(location, normal, x);
     }
 
     intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {
-        let vec = this.origin.sub(ray.location);
+        const vec = this.origin.sub(ray.location);
         if (vec.isEqualTo(XYZ.zero)) return this.origin;
-        let len = vec.dot(this.normal);
-        let dot = ray.direction.dot(this.normal);
+        const len = vec.dot(this.normal);
+        const dot = ray.direction.dot(this.normal);
         if (MathUtils.almostEqual(dot, 0)) return MathUtils.almostEqual(len, 0) ? ray.location : undefined;
-        let t = len / dot;
+        const t = len / dot;
         if (!containsExtension && t < 0) return undefined;
         return ray.location.add(ray.direction.multiply(t));
     }

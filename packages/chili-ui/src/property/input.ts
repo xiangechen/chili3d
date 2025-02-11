@@ -41,21 +41,15 @@ class ArrayValueConverter implements IConverter {
     }
 
     private getValueString(obj: any): string {
-        let value = obj[this.property.name];
-        let cvalue = this.converter?.convert(value);
+        const value = obj[this.property.name];
+        const cvalue = this.converter?.convert(value);
         return cvalue?.isOk ? cvalue.value : String(value);
     }
 
     private getDefaultValue() {
-        let value = this.getValueString(this.objects[0]);
-        for (let index = 1; index < this.objects.length; index++) {
-            const testValue = this.getValueString(this.objects[index]);
-            if (value !== testValue) {
-                value = "";
-                break;
-            }
-        }
-        return value;
+        const values = this.objects.map(this.getValueString.bind(this));
+        const uniqueValues = new Set(values);
+        return uniqueValues.size === 1 ? values[0] : "";
     }
 }
 
@@ -70,14 +64,11 @@ export class InputProperty extends PropertyBase {
     ) {
         super(objects);
         this.converter = converter ?? this.getConverter();
-        let arrayConverter = new ArrayValueConverter(objects, property, this.converter);
+        const arrayConverter = new ArrayValueConverter(objects, property, this.converter);
         this.append(
             div(
                 { className: commonStyle.panel },
-                span({
-                    className: commonStyle.propertyName,
-                    textContent: localize(property.display),
-                }),
+                span({ className: commonStyle.propertyName, textContent: localize(property.display) }),
                 input({
                     className: style.box,
                     value: new Binding(objects[0], property.name, arrayConverter),
@@ -91,11 +82,11 @@ export class InputProperty extends PropertyBase {
 
     private isReadOnly(): boolean {
         let des = Object.getOwnPropertyDescriptor(this.objects[0], this.property.name);
-        if (des === undefined) {
+        if (!des) {
             let proto = Object.getPrototypeOf(this.objects[0]);
             while (isPropertyChanged(proto)) {
                 des = Object.getOwnPropertyDescriptor(proto, this.property.name);
-                if (des !== undefined) break;
+                if (des) break;
                 proto = Object.getPrototypeOf(proto);
             }
         }
@@ -111,40 +102,35 @@ export class InputProperty extends PropertyBase {
 
     private readonly handleKeyDown = (e: KeyboardEvent) => {
         e.stopPropagation();
-        if (this.converter === undefined) return;
-        if (e.key === "Enter") {
+        if (this.converter && e.key === "Enter") {
             this.setValue(e.target as HTMLInputElement);
         }
     };
 
     private readonly setValue = (input: HTMLInputElement) => {
-        let newValue = this.converter?.convertBack?.(input.value);
+        const newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", newValue?.error);
             return;
         }
-        Transaction.excute(this.document, "modify property", () => {
+        Transaction.execute(this.document, "modify property", () => {
             this.objects.forEach((x) => {
-                x[this.property.name] = newValue?.value;
+                x[this.property.name] = newValue.value;
             });
             this.document.visual.update();
         });
     };
 
     private getConverter(): IConverter | undefined {
-        let name = this.objects[0][this.property.name].constructor.name;
-        if (name === XYZ.name) {
-            return new XYZConverter();
-        } else if (name === XY.name) {
-            return new XYConverter();
-        } else if (name === Quaternion.name) {
-            return new QuaternionConverter();
-        } else if (name === String.name) {
-            return new StringConverter();
-        } else if (name === Number.name) {
-            return new NumberConverter();
-        }
-        return undefined;
+        const name = this.objects[0][this.property.name].constructor.name;
+        const converters: { [key: string]: () => IConverter } = {
+            [XYZ.name]: () => new XYZConverter(),
+            [XY.name]: () => new XYConverter(),
+            [Quaternion.name]: () => new QuaternionConverter(),
+            [String.name]: () => new StringConverter(),
+            [Number.name]: () => new NumberConverter(),
+        };
+        return converters[name]?.();
     }
 }
 

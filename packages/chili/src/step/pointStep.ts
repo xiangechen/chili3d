@@ -11,9 +11,7 @@ import {
 import { Step } from "./step";
 
 function defaultSnapedData(): PointSnapData {
-    return {
-        dimension: Dimension.D1 | Dimension.D1D2D3,
-    };
+    return { dimension: Dimension.D1 | Dimension.D1D2D3 };
 }
 
 export class PointStep extends Step<PointSnapData> {
@@ -26,8 +24,7 @@ export class PointStep extends Step<PointSnapData> {
     }
 
     protected validator(data: PointSnapData, point: XYZ): boolean {
-        if (data.refPoint === undefined) return true;
-        return data.refPoint().distanceTo(point) > Precision.Distance;
+        return data.refPoint === undefined || data.refPoint().distanceTo(point) > Precision.Distance;
     }
 }
 

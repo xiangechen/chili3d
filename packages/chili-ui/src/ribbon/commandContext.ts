@@ -51,14 +51,14 @@ export class CommandContext extends HTMLElement implements IDisposable {
     };
 
     private initContext() {
-        let groupMap: Map<I18nKeys, HTMLDivElement> = new Map();
-        for (const g of Property.getProperties(this.command)) {
-            let group = this.findGroup(groupMap, g);
-            let item = this.createItem(this.command, g);
+        const groupMap = new Map<I18nKeys, HTMLDivElement>();
+        Property.getProperties(this.command).forEach((g) => {
+            const group = this.findGroup(groupMap, g);
+            const item = this.createItem(this.command, g);
             this.setVisible(item, g);
             this.cacheDependencies(item, g);
             group.append(item);
-        }
+        });
     }
 
     private cacheDependencies(item: HTMLElement, g: Property) {
@@ -93,29 +93,24 @@ export class CommandContext extends HTMLElement implements IDisposable {
     }
 
     private createItem(command: ICommand, g: Property) {
-        let noType = command as any;
-        let type = typeof noType[g.name];
-        if (type === "function") {
-            return this.newButton(g, noType);
-        }
+        const noType = command as any;
+        const type = typeof noType[g.name];
 
-        if (type === "boolean") {
-            return this.newCheckbox(g, noType);
+        switch (type) {
+            case "function":
+                return this.newButton(g, noType);
+            case "boolean":
+                return this.newCheckbox(g, noType);
+            case "number":
+                return this.newInput(g, noType, parseFloat);
+            case "string":
+                return this.newInput(g, noType);
+            default:
+                if (noType[g.name] instanceof Combobox) {
+                    return this.newCombobox(noType, g);
+                }
+                throw new Error("暂不支持的类型");
         }
-
-        if (type === "number") {
-            return this.newInput(g, noType, parseFloat);
-        }
-
-        if (type === "string") {
-            return this.newInput(g, noType);
-        }
-
-        if (noType[g.name] instanceof Combobox) {
-            return this.newCombobox(noType, g);
-        }
-
-        throw new Error("暂不支持的类型");
     }
 
     private newCombobox(noType: any, g: Property) {
@@ -151,12 +146,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 onkeydown: (e) => {
                     e.stopPropagation();
                     if (e.key === "Enter") {
-                        let input = e.target as HTMLInputElement;
-                        if (converter) {
-                            noType[g.name] = converter(input.value);
-                        } else {
-                            noType[g.name] = input.value;
-                        }
+                        const input = e.target as HTMLInputElement;
+                        noType[g.name] = converter ? converter(input.value) : input.value;
                         input.blur();
                     }
                 },

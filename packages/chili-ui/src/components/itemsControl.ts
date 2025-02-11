@@ -14,18 +14,11 @@ export class RadioGroup extends HTMLElement {
     }
 
     render() {
-        return div(
-            { className: style.radioGroup },
-            span(this.header + ": "),
-            ul(
-                ...this.context.items.map((x) => {
-                    return li(
-                        input({ type: "radio", value: x, checked: this.context.selectedItems.has(x) }),
-                        x,
-                    );
-                }),
-            ),
+        const items = this.context.items.map((x) =>
+            li(input({ type: "radio", value: x, checked: this.context.selectedItems.has(x) }), x),
         );
+
+        return div({ className: style.radioGroup }, span(`${this.header}: `), ul(...items));
     }
 
     connectedCallback() {
@@ -36,13 +29,10 @@ export class RadioGroup extends HTMLElement {
         this.removeEventListener("click", this._onClick);
     }
 
-    private _onClick = (e: MouseEvent) => {
+    private readonly _onClick = (e: MouseEvent) => {
         const target = e.target as HTMLInputElement;
         if (target?.type === "radio") {
-            this.querySelectorAll("input").forEach((x) => {
-                if (x !== target) x.checked = false;
-            });
-            target.checked = true;
+            this.querySelectorAll("input").forEach((x) => (x.checked = x === target));
             this.context.selectedItems = new Set([target.value]);
         }
     };

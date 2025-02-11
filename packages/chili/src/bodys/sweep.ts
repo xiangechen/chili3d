@@ -37,12 +37,15 @@ export class SweepedNode extends ParameterShapeNode {
     constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
         super(document);
         this.setPrivateValue("profile", profile);
+        this.setPrivateValue("path", this.ensureWire(path));
+    }
 
+    private ensureWire(path: IEdge | IWire) {
         let wire = path as IWire;
         if (path.shapeType !== ShapeType.Wire) {
-            wire = document.application.shapeFactory.wire([path as unknown as IEdge]).value;
+            wire = this.document.application.shapeFactory.wire([path as unknown as IEdge]).value;
         }
-        this.setPrivateValue("path", wire);
+        return wire;
     }
 
     override generateShape(): Result<IShape> {

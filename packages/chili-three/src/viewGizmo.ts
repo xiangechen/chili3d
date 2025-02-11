@@ -140,7 +140,7 @@ export class ViewGizmo extends HTMLElement {
 
     private readonly _onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
-        if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
+        if (e.buttons === 1 && (e.movementX !== 0 || e.movementY !== 0)) {
             this.view.rotate(-e.movementX * 0.08, -e.movementY * 0.08);
             this._canClick = false;
         }
@@ -169,12 +169,11 @@ export class ViewGizmo extends HTMLElement {
         }
 
         if (this._selectedAxis) {
-            let distance = this.view.cameraPosition.distanceTo(this.view.cameraTarget);
-            let position = this._selectedAxis.direction
+            const distance = this.view.cameraPosition.distanceTo(this.view.cameraTarget);
+            this.view.cameraPosition = this._selectedAxis.direction
                 .clone()
                 .multiplyScalar(distance)
                 .add(this.view.cameraTarget);
-            this.view.cameraPosition = position;
         }
     };
 
@@ -198,7 +197,7 @@ export class ViewGizmo extends HTMLElement {
         this._selectedAxis = undefined;
         if (this._mouse && this._canClick) {
             let closestDist = Infinity;
-            for (let axis of axes) {
+            for (const axis of axes) {
                 const distance = this._mouse.distanceTo(axis.position);
                 if (distance < closestDist && distance < axis.size) {
                     closestDist = distance;
@@ -208,9 +207,9 @@ export class ViewGizmo extends HTMLElement {
         }
     }
 
-    drawAxes(axes: Axis[]) {
-        for (let axis of axes) {
-            let color = this.getAxisColor(axis);
+    private drawAxes(axes: Axis[]) {
+        for (const axis of axes) {
+            const color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
             this.drawLine(this._center, axis.position, color, axis.lineWidth);
             this.drawLabel(axis);

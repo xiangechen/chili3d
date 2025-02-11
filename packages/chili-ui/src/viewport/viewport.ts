@@ -32,75 +32,56 @@ export class Viewport extends HTMLElement {
             div(
                 {
                     className: style.viewControls,
-                    onpointerdown(ev) {
-                        ev.stopPropagation();
-                    },
-                    onclick: (e) => {
-                        e.stopPropagation();
-                    },
+                    onpointerdown: (ev) => ev.stopPropagation(),
+                    onclick: (e) => e.stopPropagation(),
                 },
-                div(
-                    {
-                        className: style.border,
-                    },
-                    div(
-                        {
-                            className: new Binding(
-                                this.view,
-                                "cameraType",
-                                new CameraConverter(CameraType.orthographic),
-                            ),
-                        },
-                        svg({
-                            icon: "icon-orthographic",
-                            onclick: (e) => {
-                                e.stopPropagation();
-                                this.view.cameraType = CameraType.orthographic;
-                            },
-                        }),
-                    ),
-                    div(
-                        {
-                            className: new Binding(
-                                this.view,
-                                "cameraType",
-                                new CameraConverter(CameraType.perspective),
-                            ),
-                        },
-                        svg({
-                            icon: "icon-perspective",
-                            onclick: (e) => {
-                                e.stopPropagation();
-                                this.view.cameraType = CameraType.perspective;
-                            },
-                        }),
-                    ),
-                ),
-                div(
-                    {
-                        className: style.border,
-                    },
-                    svg({
-                        icon: "icon-fitcontent",
-                        onclick: async (e) => {
-                            e.stopPropagation();
-                            await this.view.fitContent();
-                        },
-                    }),
-                    svg({
-                        icon: "icon-zoomin",
-                        onclick: () => {
-                            this.view.zoomIn();
-                        },
-                    }),
-                    svg({
-                        icon: "icon-zoomout",
-                        onclick: () => {
-                            this.view.zoomOut();
-                        },
-                    }),
-                ),
+                this.createCameraControls(),
+                this.createActionControls(),
             ),
+        );
+    }
+
+    private createCameraControls() {
+        return div(
+            { className: style.border },
+            this.createCameraControl(CameraType.orthographic, "icon-orthographic"),
+            this.createCameraControl(CameraType.perspective, "icon-perspective"),
+        );
+    }
+
+    private createActionControls() {
+        return div(
+            { className: style.border },
+            svg({
+                icon: "icon-fitcontent",
+                onclick: async (e) => {
+                    e.stopPropagation();
+                    await this.view.fitContent();
+                },
+            }),
+            svg({
+                icon: "icon-zoomin",
+                onclick: () => this.view.zoomIn(),
+            }),
+            svg({
+                icon: "icon-zoomout",
+                onclick: () => this.view.zoomOut(),
+            }),
+        );
+    }
+
+    private createCameraControl(cameraType: CameraType, icon: string) {
+        return div(
+            {
+                className: new Binding(this.view, "cameraType", new CameraConverter(cameraType)),
+            },
+            svg({
+                icon: icon,
+                onclick: (e) => {
+                    e.stopPropagation();
+                    this.view.cameraType = cameraType;
+                },
+            }),
         );
     }
 

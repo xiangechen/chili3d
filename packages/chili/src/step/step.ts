@@ -14,11 +14,13 @@ export abstract class Step<D extends SnapData> implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
-        let data = this.handleStepData();
-        if (data.validators === undefined) data.validators = [];
+        const data = this.handleStepData();
+        data.validators = data.validators || [];
         data.validators.push((point) => this.validator(data, point));
-        let executorHandler = this.getEventHandler(document, controller, data);
+
+        const executorHandler = this.getEventHandler(document, controller, data);
         await document.selection.pickAsync(executorHandler, this.tip, controller, false, "draw");
+
         return controller.result?.status === "success" ? executorHandler.snaped : undefined;
     }
 

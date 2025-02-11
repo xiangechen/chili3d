@@ -160,8 +160,8 @@ export class ThreeView extends Observable implements IView {
         this.animate();
     }
 
-    override dispose(): void {
-        super.dispose();
+    override disposeInternal(): void {
+        super.disposeInternal();
         this.renderer.dispose();
         this._resizeObserver.disconnect();
     }
@@ -173,7 +173,7 @@ export class ThreeView extends Observable implements IView {
             aspect = 1;
         }
         if (this.cameraType === CameraType.perspective) {
-            camera = new PerspectiveCamera(45, aspect, 1, 1e6);
+            camera = new PerspectiveCamera(50, aspect, 1, 1e6);
         } else {
             let length = this.cameraPosition.distanceTo(this.cameraTarget);
             let frustumHalfHeight = length * Math.tan((45 * Math.PI) / 180 / 2);

@@ -17,21 +17,27 @@ export class ColorProperty extends PropertyBase {
         readonly property: Property,
     ) {
         super(objects);
-        this.input = input({
+        this.input = this.createInput(objects[0]);
+        this.appendChild(this.createPanel());
+    }
+
+    private createInput(object: any): HTMLInputElement {
+        return input({
             className: colorStyle.color,
             type: "color",
-            value: new Binding(objects[0], property.name, this.converter),
+            value: new Binding(object, this.property.name, this.converter),
             onchange: this.setColor,
         });
-        this.appendChild(
-            div(
-                { className: commonStyle.panel },
-                label({
-                    className: commonStyle.propertyName,
-                    textContent: localize(property.display),
-                }),
-                this.input,
-            ),
+    }
+
+    private createPanel(): HTMLElement {
+        return div(
+            { className: commonStyle.panel },
+            label({
+                className: commonStyle.propertyName,
+                textContent: localize(this.property.display),
+            }),
+            this.input,
         );
     }
 
@@ -40,13 +46,13 @@ export class ColorProperty extends PropertyBase {
     }
 
     private readonly setColor = (e: Event) => {
-        let value = (e.target as any).value;
-        let color = this.converter.convertBack(value).value;
+        const value = (e.target as HTMLInputElement).value;
+        const color = this.converter.convertBack(value).value;
         if (color === undefined) {
             PubSub.default.pub("showToast", "toast.converter.invalidColor");
             return;
         }
-        Transaction.excute(this.document, "change color", () => {
+        Transaction.execute(this.document, "change color", () => {
             this.objects.forEach((x) => {
                 x[this.property.name] = color;
             });

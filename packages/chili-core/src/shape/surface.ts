@@ -3,7 +3,6 @@
 import { Plane, XYZ } from "../math";
 import { Continuity, ICurve } from "./curve";
 import { IGeometry } from "./geometry";
-import { IFace } from "./shape";
 
 export enum SurfaceType {
     Plate,

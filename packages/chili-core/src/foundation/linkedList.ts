@@ -23,34 +23,41 @@ export class LinkedList<T> {
     }
 
     push(...items: T[]) {
-        items.forEach((item) => {
+        for (const item of items) {
             const node: LinkedListNode<T> = { data: item };
-            if (this._head === undefined) {
-                this._head = node;
+            if (!this._head) {
+                this._head = this._tail = node;
             } else {
-                this._tail!.next = node;
                 node.prev = this._tail;
+                this._tail!.next = node;
+                this._tail = node;
             }
-            this._tail = node;
             this._size++;
-        });
+        }
     }
 
     insert(index: number, item: T) {
-        let node = this.nodeAt(index);
-        if (!node) return;
+        if (index < 0 || index >= this._size) return;
+        if (index === 0) {
+            const node: LinkedListNode<T> = { data: item, next: this._head };
+            if (this._head) this._head.prev = node;
+            this._head = node;
+            if (!this._tail) this._tail = node;
+            this._size++;
+            return;
+        }
+
+        const targetNode = this.nodeAt(index);
+        if (!targetNode) return;
 
         const newNode: LinkedListNode<T> = {
             data: item,
-            next: node,
-            prev: node.prev,
+            next: targetNode,
+            prev: targetNode.prev,
         };
-        if (node.prev) {
-            node.prev.next = newNode;
-        } else {
-            this._head = newNode;
-        }
-        node.prev = newNode;
+
+        if (targetNode.prev) targetNode.prev.next = newNode;
+        targetNode.prev = newNode;
         this._size++;
     }
 
@@ -59,7 +66,7 @@ export class LinkedList<T> {
         while (current) {
             if (current.data === item) {
                 this.removeNode(current);
-                break;
+                return;
             }
             current = current.next;
         }
@@ -84,18 +91,22 @@ export class LinkedList<T> {
         this._size--;
     }
 
-    private nodeAt(index: number) {
-        if (index < 0 || index >= this._size) {
-            return undefined;
-        }
+    private nodeAt(index: number): LinkedListNode<T> | undefined {
+        if (index < 0 || index >= this._size) return undefined;
+        if (index === 0) return this._head;
         if (index === this._size - 1) return this._tail;
-        let [current, currentIndex] = [this._head, 0];
-        while (current) {
-            if (currentIndex === index) {
-                break;
+
+        let current: LinkedListNode<T> | undefined;
+        if (index <= this._size / 2) {
+            current = this._head;
+            for (let i = 0; i < index; i++) {
+                current = current!.next;
             }
-            current = current.next;
-            currentIndex++;
+        } else {
+            current = this._tail;
+            for (let i = this._size - 1; i > index; i--) {
+                current = current!.prev;
+            }
         }
         return current;
     }

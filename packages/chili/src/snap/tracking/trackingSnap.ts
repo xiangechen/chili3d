@@ -45,12 +45,12 @@ export class TrackingSnap implements ISnap {
         PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
     }
 
-    handleSnaped = (document: IDocument, snaped?: SnapedData | undefined) => {
+    readonly handleSnaped = (document: IDocument, snaped?: SnapedData) => {
         this._objectTracking.showTrackingAtTimeout(document, snaped);
     };
 
     snap(data: MouseAndDetected): SnapedData | undefined {
-        let trackingDatas = this.detectTracking(data.view, data.mx, data.my);
+        const trackingDatas = this.detectTracking(data.view, data.mx, data.my);
         if (trackingDatas.length === 0) return undefined;
         trackingDatas.sort((x) => x.distance);
         let snaped = this.shapeIntersectTracking(data, trackingDatas);
@@ -65,19 +65,16 @@ export class TrackingSnap implements ISnap {
     }
 
     private trackingIntersectTracking(view: IView, trackingDatas: TrackingData[]) {
-        let point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
-        if (point !== undefined) {
-            return this.getSnapedAndShowTracking(view, point, [trackingDatas[0], trackingDatas[1]]);
-        }
-        return undefined;
+        const point = trackingDatas[0].axis.intersect(trackingDatas[1].axis);
+        return point
+            ? this.getSnapedAndShowTracking(view, point, [trackingDatas[0], trackingDatas[1]])
+            : undefined;
     }
 
     private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapedData {
-        let lines: number[] = [];
-        trackingDatas.forEach((x) => {
-            let id = this.showTempLine(view, x.axis.location, point);
-            if (id !== undefined) lines.push(id);
-        });
+        const lines: number[] = trackingDatas
+            .map((x) => this.showTempLine(view, x.axis.location, point))
+            .filter((id) => id !== undefined);
         this._tempLines.set(view, lines);
 
         let info: string | undefined = undefined;
@@ -88,17 +85,17 @@ export class TrackingSnap implements ISnap {
         } else if (trackingDatas.length === 2) {
             info = I18n.translate("snap.intersection");
         }
-        let refPoint = trackingDatas[0].axis.location;
+        const refPoint = trackingDatas[0].axis.location;
         return { view, point, info, shapes: [], refPoint, distance };
     }
 
     private showTempLine(view: IView, start: XYZ, end: XYZ): number | undefined {
-        let vector = end.sub(start);
-        let normal = vector.normalize();
-        if (normal === undefined) return undefined;
-        let distance = vector.length() * 1e10;
-        let newEnd = start.add(normal.multiply(distance > 1e20 ? 1e20 : distance));
-        let lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
+        const vector = end.sub(start);
+        const normal = vector.normalize();
+        if (!normal) return undefined;
+        const distance = Math.min(vector.length() * 1e10, 1e20);
+        const newEnd = start.add(normal.multiply(distance));
+        const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
         return view.document.visual.context.displayMesh(lineDats);
     }
 
@@ -107,9 +104,9 @@ export class TrackingSnap implements ISnap {
         trackingDatas: TrackingData[],
     ): SnapedData | undefined {
         if (data.shapes.length === 0 || data.shapes[0].shape.shapeType !== ShapeType.Edge) return undefined;
-        let point = this.findIntersection(data, trackingDatas);
-        if (point === undefined) return undefined;
-        let id = this.showTempLine(data.view, point.location, point.intersect);
+        const point = this.findIntersection(data, trackingDatas);
+        if (!point) return undefined;
+        const id = this.showTempLine(data.view, point.location, point.intersect);
         if (id === undefined) return undefined;
         this._tempLines.set(data.view, [id]);
         return {
@@ -121,8 +118,8 @@ export class TrackingSnap implements ISnap {
     }
 
     private findIntersection(data: MouseAndDetected, trackingDatas: TrackingData[]) {
-        let edge = data.shapes[0].shape as IEdge;
-        let points: { intersect: XYZ; location: XYZ }[] = [];
+        const edge = data.shapes[0].shape as IEdge;
+        const points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {
                 points.push({ intersect: p.point, location: x.axis.location });
@@ -133,25 +130,19 @@ export class TrackingSnap implements ISnap {
     }
 
     private detectTracking(view: IView, x: number, y: number) {
-        let data: TrackingData[] = [];
-        if (this.referencePoint !== undefined) {
-            let axies = this._axisTracking.getAxes(view, this.referencePoint());
-            data.push(...this.getSnapedFromAxes(axies, view, x, y, undefined));
+        const data: TrackingData[] = [];
+        if (this.referencePoint) {
+            const axies = this._axisTracking.getAxes(view, this.referencePoint());
+            data.push(...this.getSnapedFromAxes(axies, view, x, y));
         }
-        let objectTrackingRays = this._objectTracking.getTrackingRays(view);
+        const objectTrackingRays = this._objectTracking.getTrackingRays(view);
         objectTrackingRays.forEach((a) => {
             data.push(...this.getSnapedFromAxes(a.axes, view, x, y, a.objectName));
         });
         return data;
     }
 
-    private getSnapedFromAxes(
-        axes: Axis[],
-        view: IView,
-        x: number,
-        y: number,
-        snapedName: string | undefined,
-    ) {
+    private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapedName?: string) {
         let result: TrackingData[] = [];
         for (const axis of axes) {
             let distance = this.rayDistanceAtScreen(view, x, y, axis);
@@ -172,13 +163,13 @@ export class TrackingSnap implements ISnap {
     }
 
     private rayDistanceAtScreen(view: IView, x: number, y: number, axis: Ray): number {
-        let start = view.worldToScreen(axis.location);
-        let vector = new XY(x - start.x, y - start.y);
+        const start = view.worldToScreen(axis.location);
+        const vector = new XY(x - start.x, y - start.y);
         if (vector.isEqualTo(XY.zero)) return 0;
-        let end = view.worldToScreen(axis.location.add(axis.direction.multiply(100000)));
+        const end = view.worldToScreen(axis.location.add(axis.direction.multiply(100000)));
         if (start.distanceTo(end) < Precision.Float) return vector.length();
-        let dir = end.sub(start).normalize()!;
-        let dot = vector.dot(dir);
+        const dir = end.sub(start).normalize()!;
+        const dot = vector.dot(dir);
         return Math.sqrt(vector.lengthSq() - dot * dot);
     }
 

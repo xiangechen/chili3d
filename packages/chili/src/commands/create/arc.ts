@@ -15,19 +15,20 @@ export class Arc extends CreateCommand {
     private _planeAngle: PlaneAngle | undefined;
 
     getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter");
-        let startStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
-        let angleStep = new AngleStep(
-            "operate.pickNextPoint",
-            () => this.stepDatas[0].point!,
-            () => this.stepDatas[1].point!,
-            this.getAngleData,
-        );
-        return [centerStep, startStep, angleStep];
+        return [
+            new PointStep("operate.pickCircleCenter"),
+            new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData),
+            new AngleStep(
+                "operate.pickNextPoint",
+                () => this.stepDatas[0].point!,
+                () => this.stepDatas[1].point!,
+                this.getAngleData,
+            ),
+        ];
     }
 
     private readonly getRadiusData = (): SnapLengthAtPlaneData => {
-        let point = this.stepDatas[0].point!;
+        const point = this.stepDatas[0].point!;
         return {
             point: () => point,
             preview: this.circlePreview,
@@ -42,50 +43,61 @@ export class Arc extends CreateCommand {
     };
 
     private readonly getAngleData = () => {
-        let [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        let plane = new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
-        let points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
+        const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
+        const plane = this.createPlane(center, p1);
+        const points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
         this._planeAngle = new PlaneAngle(plane);
         return {
             dimension: Dimension.D1D2,
-            preview: (point: XYZ | undefined) => {
-                if (point === undefined) {
-                    point = p1;
-                }
-                this._planeAngle!.movePoint(point);
-                let result = [...points];
-                if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
-                    result.push(
-                        this.application.shapeFactory.arc(plane.normal, center, p1, this._planeAngle!.angle)
-                            .value.mesh.edges!,
-                    );
-                }
-                return result;
-            },
+            preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
             plane: () => plane,
-            validators: [
-                (p: XYZ) => {
-                    if (p.distanceTo(center) < Precision.Distance) return false;
-                    return p.sub(center).isParallelTo(plane.normal) === false;
-                },
-            ],
+            validators: [this.angleValidator(center, plane)],
         };
     };
 
+    private createPlane(center: XYZ, p1: XYZ): Plane {
+        return new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
+    }
+
+    private anglePreview(
+        point: XYZ | undefined,
+        center: XYZ,
+        p1: XYZ,
+        points: ShapeMeshData[],
+    ): ShapeMeshData[] {
+        point = point ?? p1;
+        this._planeAngle!.movePoint(point);
+        const result = [...points];
+        if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
+            result.push(
+                this.application.shapeFactory.arc(
+                    this._planeAngle!.plane.normal,
+                    center,
+                    p1,
+                    this._planeAngle!.angle,
+                ).value.mesh.edges!,
+            );
+        }
+        return result;
+    }
+
+    private angleValidator(center: XYZ, plane: Plane) {
+        return (p: XYZ) =>
+            p.distanceTo(center) >= Precision.Distance && !p.sub(center).isParallelTo(plane.normal);
+    }
+
     protected override geometryNode(): GeometryNode {
-        let [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        let plane = this.stepDatas[0].view.workplane;
+        const [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
+        const plane = this.stepDatas[0].view.workplane;
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
         return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
     }
 
     private readonly circlePreview = (point: XYZ | undefined) => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) {
-            return [p1];
-        }
-        let start = this.stepDatas[0].point!;
-        let plane = this.stepDatas[0].view.workplane;
+        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) return [p1];
+        const start = this.stepDatas[0].point!;
+        const plane = this.stepDatas[0].view.workplane;
         return [
             p1,
             this.previewLine(this.stepDatas[0].point!, point),

@@ -22,9 +22,9 @@ export abstract class SelectStep implements IStep {
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         const { shapeType, shapeFilter, nodeFilter } = document.selection;
+        document.selection.shapeType = this.snapeType;
+        document.selection.shapeFilter = this.filter;
         try {
-            document.selection.shapeType = this.snapeType;
-            document.selection.shapeFilter = this.filter;
             return await this.select(document, controller);
         } finally {
             document.selection.shapeType = shapeType;
@@ -41,7 +41,7 @@ export class SelectShapeStep extends SelectStep {
         document: IDocument,
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
-        let shapes = await document.selection.pickShape(this.prompt, controller, this.multiple);
+        const shapes = await document.selection.pickShape(this.prompt, controller, this.multiple);
         if (shapes.length === 0) return undefined;
         return {
             view: document.application.activeView!,
@@ -60,7 +60,7 @@ export class SelectShapeNodeStep extends SelectStep {
         controller: AsyncController,
     ): Promise<SnapedData | undefined> {
         document.selection.nodeFilter = new ShapeNodeFilter();
-        let nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
+        const nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
         if (nodes.length === 0) return undefined;
         return {
             view: document.application.activeView!,
@@ -79,9 +79,10 @@ export class SelectNodeStep implements IStep {
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
         const oldFilter = document.selection.nodeFilter;
+        document.selection.nodeFilter = this.filter;
         try {
             document.selection.nodeFilter = this.filter;
-            let nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
+            const nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
             if (nodes.length === 0) return undefined;
             return {
                 view: document.application.activeView!,

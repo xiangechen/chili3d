@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
-import { button, collection, div, localize, span, svg } from "../../components";
+import { button, collection, div, Localize, localize, span, svg } from "../../components";
 import { ColorConverter } from "../../converters";
 import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
@@ -22,87 +22,77 @@ export class MaterialEditor extends HTMLElement {
 
     constructor(readonly dataContent: MaterialDataContent) {
         super();
-        this.editingControl = div({className: style.properties});
+        this.editingControl = div({ className: style.properties });
         this.initEditingControl(dataContent.editingMaterial);
-        this.append(
-            div(
-                {
-                    className: style.root,
+        this.append(this.createEditorUI());
+    }
+
+    private createEditorUI() {
+        return div(
+            { className: style.root },
+            this.titleSection(),
+            this.materialsCollection(),
+            this.editingControl,
+            this.buttons(),
+        );
+    }
+
+    private titleSection() {
+        return div(
+            { className: style.title },
+            span({ textContent: localize("common.material") }),
+            this.iconButton("icon-plus", () => this.dataContent.addMaterial()),
+            this.iconButton("icon-clone", () => this.dataContent.copyMaterial()),
+            this.iconButton("icon-trash", () => this.dataContent.deleteMaterial()),
+        );
+    }
+
+    private iconButton(icon: string, onclick: () => void) {
+        return svg({ icon, onclick });
+    }
+
+    private materialsCollection() {
+        return collection({
+            className: style.materials,
+            sources: this.dataContent.document.materials,
+            template: (material: Material) => this.material(material),
+        });
+    }
+
+    private material(material: Material) {
+        return span({
+            className: new Binding(this.dataContent, "editingMaterial", new ActiveStyleConverter(material)),
+            title: material.name,
+            style: {
+                backgroundColor: new Binding(material, "color", this.colorConverter),
+                backgroundImage: new PathBinding(material, "map.image", new UrlStringConverter()),
+                backgroundBlendMode: "multiply",
+                backgroundSize: "contain",
+            },
+            onclick: () => {
+                this.dataContent.editingMaterial = material;
+            },
+            ondblclick: () => {
+                this.dataContent.callback(material);
+                this.remove();
+            },
+        });
+    }
+
+    private buttons() {
+        return div(
+            { className: style.bottom },
+            button({
+                textContent: localize("common.confirm"),
+                onclick: () => {
+                    this.dataContent.callback(this.dataContent.editingMaterial);
+                    this.remove();
                 },
-                div(
-                    { className: style.title },
-                    span({
-                        textContent: localize("common.material"),
-                    }),
-                    svg({
-                        icon: "icon-plus",
-                        onclick: () => {
-                            this.dataContent.addMaterial();
-                        },
-                    }),
-                    svg({
-                        icon: "icon-clone",
-                        onclick: () => {
-                            this.dataContent.copyMaterial();
-                        },
-                    }),
-                    svg({
-                        icon: "icon-trash",
-                        onclick: () => {
-                            this.dataContent.deleteMaterial();
-                        },
-                    }),
-                ),
-                collection({
-                    className: style.materials,
-                    sources: this.dataContent.document.materials,
-                    template: (material: Material) =>
-                        span({
-                            className: new Binding(
-                                this.dataContent,
-                                "editingMaterial",
-                                new ActiveStyleConverter(material),
-                            ),
-                            title: material.name,
-                            style: {
-                                backgroundColor: new Binding(material, "color", this.colorConverter),
-                                backgroundImage: new PathBinding(
-                                    material,
-                                    "map.image",
-                                    new UrlStringConverter(),
-                                ),
-                                backgroundBlendMode: "multiply",
-                                backgroundSize: "contain",
-                            },
-                            onclick: () => {
-                                this.dataContent.editingMaterial = material;
-                            },
-                            ondblclick: () => {
-                                this.dataContent.callback(material);
-                                this.remove();
-                            },
-                        }),
-                }),
-                this.editingControl,
-                div(
-                    {
-                        className: style.bottom,
-                    },
-                    button({
-                        textContent: localize("common.confirm"),
-                        onclick: () => {
-                            this.dataContent.callback(this.dataContent.editingMaterial);
-                            this.remove();
-                        },
-                    }),
-                    button({
-                        textContent: localize("common.cancel"),
-                        onclick: () => {
-                            this.remove();
-                        },
-                    }),
-                ),
-            ),
+            }),
+            button({
+                textContent: localize("common.cancel"),
+                onclick: () => this.remove(),
+            }),
         );
     }
 
@@ -130,16 +120,16 @@ export class MaterialEditor extends HTMLElement {
 
         const isTexture = (p: Property) => {
             return (material as any)[p.name] instanceof Texture;
-        }
+        };
 
         let properties = Property.getProperties(material);
         this.editingControl.append(
-            ...properties.filter(x => !isTexture(x)).map((x) =>
-                findPropertyControl(this.dataContent.document, [material], x),
-            ),
-            ...properties.filter(isTexture).map((x) =>
-                findPropertyControl(this.dataContent.document, [material], x),
-            )
+            ...properties
+                .filter((x) => !isTexture(x))
+                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
+            ...properties
+                .filter(isTexture)
+                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
         );
     }
 }

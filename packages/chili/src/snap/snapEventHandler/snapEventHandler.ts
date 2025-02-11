@@ -95,27 +95,26 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private setSnaped(view: IView, event: MouseEvent) {
-        if (!this.snapToFeaturePoint(view, event)) {
-            this._snaped = this.findSnaped(ShapeType.Edge, view, event);
-            this.snaps.forEach((x) => {
-                x.handleSnaped?.(view.document.visual.document, this._snaped);
-            });
-        }
+        if (this.snapToFeaturePoint(view, event)) return;
+
+        this._snaped = this.findSnaped(ShapeType.Edge, view, event);
+        this.snaps.forEach((x) => x.handleSnaped?.(view.document.visual.document, this._snaped));
     }
 
     private snapToFeaturePoint(view: IView, event: MouseEvent) {
         let minDist = Number.MAX_VALUE;
-        let snapFeaturePoint: { point: XYZ; prompt: string } | undefined = undefined;
-        this.data.featurePoints?.forEach((x) => {
-            if (x.when !== undefined && !x.when()) {
-                return;
-            }
-            let dist = IView.screenDistance(view, event.offsetX, event.offsetY, x.point);
+        let snapFeaturePoint: { point: XYZ; prompt: string } | undefined;
+
+        for (const x of this.data.featurePoints || []) {
+            if (x.when && !x.when()) continue;
+
+            const dist = IView.screenDistance(view, event.offsetX, event.offsetY, x.point);
             if (dist < minDist) {
                 minDist = dist;
                 snapFeaturePoint = x;
             }
-        });
+        }
+
         if (minDist < Config.instance.SnapDistance) {
             this._snaped = {
                 view,
@@ -129,12 +128,11 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private findSnaped(shapeType: ShapeType, view: IView, event: MouseEvent) {
-        let data = this.findDetecteds(shapeType, view, event);
+        const data = this.findDetecteds(shapeType, view, event);
         for (const snap of this.snaps) {
-            let snaped = snap.snap(data);
+            const snaped = snap.snap(data);
             if (snaped && this.validateSnaped(snaped)) return snaped;
         }
-
         return undefined;
     }
 
@@ -148,13 +146,8 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        let shapes = view.detectShapes(shapeType, event.offsetX, event.offsetY, this.data.filter);
-        return {
-            shapes,
-            view,
-            mx: event.offsetX,
-            my: event.offsetY,
-        };
+        const shapes = view.detectShapes(shapeType, event.offsetX, event.offsetY, this.data.filter);
+        return { shapes, view, mx: event.offsetX, my: event.offsetY };
     }
 
     private clearSnapTip() {

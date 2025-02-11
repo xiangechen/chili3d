@@ -9,14 +9,15 @@ export class Dialog {
     private constructor() {}
 
     static show(title: I18nKeys, context: IPropertyChanged, callback: () => void) {
-        let properties = Property.getProperties(context);
-        let dialog = document.createElement("dialog");
+        const dialog = document.createElement("dialog");
+        document.body.appendChild(dialog);
+
         dialog.appendChild(
             div(
                 { className: style.root },
                 div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
-                ...properties.map((x) => {
-                    let value = (context as any)[x.name];
+                ...Property.getProperties(context).map((x) => {
+                    const value = (context as any)[x.name];
                     if (value instanceof SelectableItems) {
                         return new RadioGroup(I18n.translate(x.display), value);
                     }
@@ -38,7 +39,7 @@ export class Dialog {
                 ),
             ),
         );
-        document.body.appendChild(dialog);
+
         dialog.showModal();
     }
 }

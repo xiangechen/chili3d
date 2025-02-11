@@ -19,15 +19,14 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
         snapPointData: PointSnapData,
     ) {
         if (!snapPointData.plane) throw new Error("AngleSnapEventHandler: no plane");
-        let objectSnap = new ObjectSnap(Config.instance.snapType, snapPointData.refPoint);
-        let workplaneSnap = new PlaneSnap(snapPointData.plane, center);
-        let trackingSnap = new TrackingSnap(center, false);
-        let snaps = [objectSnap, trackingSnap, workplaneSnap];
-        super(document, controller, snaps, snapPointData);
-        let xvec = p1.sub(center()).normalize()!;
+        const objectSnap = new ObjectSnap(Config.instance.snapType, snapPointData.refPoint);
+        const workplaneSnap = new PlaneSnap(snapPointData.plane, center);
+        const trackingSnap = new TrackingSnap(center, false);
+        super(document, controller, [objectSnap, trackingSnap, workplaneSnap], snapPointData);
+        const xvec = p1.sub(center()).normalize()!;
         this.plane = new Plane(center(), snapPointData.plane().normal, xvec);
         this.planeAngle = new PlaneAngle(this.plane);
-        if (snapPointData.prompt === undefined) snapPointData.prompt = this.snapedInfo;
+        snapPointData.prompt ??= this.snapedInfo;
     }
 
     private readonly snapedInfo = (snaped?: SnapedData) => {
@@ -36,21 +35,14 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
     };
 
     protected override inputError(text: string) {
-        let angle = Number.parseFloat(text);
-        if (isNaN(angle)) {
-            return "error.input.invalidNumber";
-        }
-        return undefined;
+        const angle = Number.parseFloat(text);
+        return isNaN(angle) ? "error.input.invalidNumber" : undefined;
     }
 
     protected override getPointFromInput(view: IView, text: string): SnapedData {
-        let angle = (Number.parseFloat(text) * Math.PI) / 180;
-        let vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
-        let point = this.center().add(vec);
-        return {
-            point,
-            view,
-            shapes: [],
-        };
+        const angle = (Number.parseFloat(text) * Math.PI) / 180;
+        const vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
+        const point = this.center().add(vec);
+        return { point, view, shapes: [] };
     }
 }

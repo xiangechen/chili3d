@@ -26,6 +26,10 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     constructor(private document: IDocument) {
         super();
         this.className = style.panel;
+        this.initializeTree(document);
+    }
+
+    private initializeTree(document: IDocument) {
         this.addAllNodes(document, this, document.rootNode);
         this.addEvents(this);
     }
@@ -58,22 +62,23 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
 
     handleNodeChanged(records: NodeRecord[]) {
         this.ensureHasHTML(records);
-        for (const record of records) {
-            let ele = this.nodeMap.get(record.node);
+        records.forEach((record) => {
+            const ele = this.nodeMap.get(record.node);
             ele?.remove();
-            if (ele === undefined || record.newParent === undefined) continue;
+            if (!ele || !record.newParent) return;
 
-            let parent = this.nodeMap.get(record.newParent);
-            if (parent === undefined) {
-                parent = this.createHTMLElement(this.document, record.newParent);
-                this.nodeMap.set(record.newParent, parent);
-            }
-
+            let parent = this.nodeMap.get(record.newParent) || this.createAndMapParent(record.newParent);
             if (parent instanceof TreeGroup) {
-                let pre = record.newPrevious === undefined ? null : this.nodeMap.get(record.newPrevious);
+                const pre = record.newPrevious ? this.nodeMap.get(record.newPrevious) : null;
                 parent.insertAfter(ele, pre ?? null);
             }
-        }
+        });
+    }
+
+    private createAndMapParent(newParent: INode) {
+        const parent = this.createHTMLElement(this.document, newParent);
+        this.nodeMap.set(newParent, parent);
+        return parent;
     }
 
     private readonly handleSelectionChanged = (
@@ -102,34 +107,32 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     }
 
     private scrollToNode(selected: INode[]) {
-        let node = selected.at(0);
-        if (node !== undefined) {
-            let parent = node.parent;
-            while (parent) {
-                const group = this.nodeMap.get(parent) as TreeGroup;
-                if (group !== undefined) {
-                    if (group.isExpanded === false) {
-                        group.isExpanded = true;
-                    }
-                    parent = parent.parent;
-                }
-            }
+        const node = selected.at(0);
+        if (node) {
+            this.expandParents(node);
             this.nodeMap.get(node)?.scrollIntoView({ block: "nearest" });
         }
     }
 
+    private expandParents(node: INode) {
+        let parent = node.parent;
+        while (parent) {
+            const group = this.nodeMap.get(parent) as TreeGroup;
+            if (group && !group.isExpanded) {
+                group.isExpanded = true;
+            }
+            parent = parent.parent;
+        }
+    }
+
     private addAllNodes(document: IDocument, parent: HTMLElement, node: INode) {
-        let element = this.createHTMLElement(document, node);
+        const element = this.createHTMLElement(document, node);
         this.nodeMap.set(node, element);
         parent.appendChild(element);
 
-        let firstChild = (node as INodeLinkedList).firstChild;
-        if (firstChild) {
-            this.addAllNodes(document, element, firstChild);
-        }
-        if (node.nextSibling) {
-            this.addAllNodes(document, parent, node.nextSibling);
-        }
+        const firstChild = (node as INodeLinkedList).firstChild;
+        if (firstChild) this.addAllNodes(document, element, firstChild);
+        if (node.nextSibling) this.addAllNodes(document, parent, node.nextSibling);
     }
 
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
@@ -163,25 +166,27 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     }
 
     private readonly onClick = (event: MouseEvent) => {
-        if (!this.canSelect()) {
-            return;
-        }
+        if (!this.canSelect()) return;
 
-        let item = this.getTreeItem(event.target as HTMLElement)?.node;
-        if (item === undefined) return;
+        const item = this.getTreeItem(event.target as HTMLElement)?.node;
+        if (!item) return;
         event.stopPropagation();
 
         if (event.shiftKey) {
-            if (this.lastClicked !== undefined) {
-                let nodes = INode.getNodesBetween(this.lastClicked, item);
-                this.document.selection.setSelection(nodes, false);
-            }
+            this.handleShiftClick(item);
         } else {
             this.document.selection.setSelection([item], event.ctrlKey);
         }
 
         this.setLastClickItem(item);
     };
+
+    private handleShiftClick(item: INode) {
+        if (this.lastClicked) {
+            const nodes = INode.getNodesBetween(this.lastClicked, item);
+            this.document.selection.setSelection(nodes, false);
+        }
+    }
 
     private readonly onDragLeave = (event: DragEvent) => {
         if (!this.canDrop(event)) return;
@@ -236,7 +241,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
 
         let node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
-        Transaction.excute(this.document, "move node", () => {
+        Transaction.execute(this.document, "move node", () => {
             let isLinkList = INode.isLinkedListNode(node);
             let newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
             let target = isLinkList ? undefined : node;
@@ -249,8 +254,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
 
     private readonly onDragStart = (event: DragEvent) => {
         event.stopPropagation();
-
-        let item = this.getTreeItem(event.target as HTMLElement)?.node;
+        const item = this.getTreeItem(event.target as HTMLElement)?.node;
         this.dragging = INode.findTopLevelNodes(this.selectedNodes);
         if (item && !INode.containsDescendant(this.selectedNodes, item)) {
             this.dragging.push(item);

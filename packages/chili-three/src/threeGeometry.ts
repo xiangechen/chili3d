@@ -8,8 +8,8 @@ import {
     ShapeNode,
     VisualConfig,
 } from "chili-core";
-import { DoubleSide, Material, Mesh, MeshLambertMaterial } from "three";
 import { MeshUtils } from "chili-geo";
+import { DoubleSide, Material, Mesh, MeshLambertMaterial } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
@@ -31,18 +31,6 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     private _edges?: LineSegments2;
     private _faces?: Mesh;
 
-    getMainMaterial() {
-        if (this._faces) return this._faceMaterial;
-        return this._edgeMaterial;
-    }
-
-    changeFaceMaterial(material: Material) {
-        if (this._faces) {
-            this._faceMaterial = material;
-            this._faces.material = material;
-        }
-    }
-
     constructor(
         readonly geometryNode: GeometryNode,
         readonly context: ThreeVisualContext,
@@ -53,24 +41,32 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         geometryNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
+    getMainMaterial() {
+        return this._faces ? this._faceMaterial : this._edgeMaterial;
+    }
+
+    changeFaceMaterial(material: Material) {
+        if (this._faces) {
+            this._faceMaterial = material;
+            this._faces.material = material;
+        }
+    }
+
     box() {
-        return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox ?? undefined;
+        return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
     }
 
     override boundingBox() {
-        let box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
-        let min = ThreeHelper.toXYZ(box!.min);
-        let max = ThreeHelper.toXYZ(box!.max);
+        const box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
         return {
-            min,
-            max,
+            min: ThreeHelper.toXYZ(box!.min),
+            max: ThreeHelper.toXYZ(box!.max),
         };
     }
 
     private readonly handleGeometryPropertyChanged = (property: keyof GeometryNode) => {
         if (property === "materialId") {
-            let material = this.context.getMaterial(this.geometryNode.materialId);
-            this.changeFaceMaterial(material);
+            this.changeFaceMaterial(this.context.getMaterial(this.geometryNode.materialId));
         } else if ((property as keyof ShapeNode) === "shape") {
             this.removeMeshes();
             this.generateShape();
@@ -78,18 +74,16 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     };
 
     private generateShape() {
-        let mesh = this.geometryNode.mesh;
+        const mesh = this.geometryNode.mesh;
         if (mesh?.faces?.positions.length) this.initFaces(mesh.faces);
         if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
     }
 
     override dispose() {
         super.dispose();
-
         this._edges?.material.dispose();
         this._edgeMaterial = null as any;
         this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
-
         this.removeMeshes();
     }
 
@@ -107,27 +101,23 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     private initEdges(data: EdgeMeshData) {
-        let buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
+        const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
         this._edges = new LineSegments2(buff, this._edgeMaterial);
         this.add(this._edges);
     }
 
     private initFaces(data: FaceMeshData) {
-        let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         this._faces = new Mesh(buff, this._faceMaterial);
         this.add(this._faces);
     }
 
     setFacesMateiralTemperary(material: MeshLambertMaterial) {
-        if (this._faces) {
-            this._faces.material = material;
-        }
+        if (this._faces) this._faces.material = material;
     }
 
     setEdgesMateiralTemperary(material: LineMaterial) {
-        if (this._edges) {
-            this._edges.material = material;
-        }
+        if (this._edges) this._edges.material = material;
     }
 
     removeTemperaryMaterial(): void {
@@ -136,10 +126,10 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     cloneSubEdge(index: number) {
-        let positions = MeshUtils.subEdge(this.geometryNode.mesh.edges!, index);
+        const positions = MeshUtils.subEdge(this.geometryNode.mesh.edges!, index);
         if (!positions) return undefined;
 
-        let buff = new LineSegmentsGeometry();
+        const buff = new LineSegmentsGeometry();
         buff.setPositions(positions);
         buff.applyMatrix4(this.matrixWorld);
 
@@ -147,10 +137,10 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     cloneSubFace(index: number) {
-        let mesh = MeshUtils.subFace(this.geometryNode.mesh.faces!, index);
+        const mesh = MeshUtils.subFace(this.geometryNode.mesh.faces!, index);
         if (!mesh) return undefined;
 
-        let buff = ThreeGeometryFactory.createFaceBufferGeometry(mesh);
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry(mesh);
         buff.applyMatrix4(this.matrixWorld);
 
         return new Mesh(buff, this._faceMaterial);

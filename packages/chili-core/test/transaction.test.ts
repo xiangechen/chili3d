@@ -8,14 +8,14 @@ describe("test Transaction", () => {
         let history: PropertyHistoryRecord = {} as any;
         Transaction.add(doc, history);
         expect(doc.history.undoCount()).toBe(1);
-        Transaction.excute(doc, "Test", () => {
+        Transaction.execute(doc, "Test", () => {
             Transaction.add(doc, history);
             Transaction.add(doc, history);
         });
         expect(doc.history.undoCount()).toBe(2);
 
         expect(() =>
-            Transaction.excute(doc, "throw", () => {
+            Transaction.execute(doc, "throw", () => {
                 throw new Error("err");
             }),
         ).toThrow("err");

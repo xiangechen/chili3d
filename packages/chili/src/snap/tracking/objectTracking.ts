@@ -19,7 +19,7 @@ export class ObjectTracking {
     private timer?: number;
     private isCleared: boolean = false;
     private snapping?: SnapedData;
-    private trackings: Map<IDocument, SnapeInfo[]>;
+    private readonly trackings: Map<IDocument, SnapeInfo[]>;
 
     constructor(readonly trackingZ: boolean) {
         this.trackings = new Map();
@@ -28,15 +28,13 @@ export class ObjectTracking {
     clear(): void {
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
-            v.forEach((s) => {
-                k.visual.context.removeMesh(s.shapeId);
-            });
+            v.forEach((s) => k.visual.context.removeMesh(s.shapeId));
         });
         this.trackings.clear();
     }
 
     getTrackingRays(view: IView) {
-        let result: ObjectTrackingAxis[] = [];
+        const result: ObjectTrackingAxis[] = [];
         this.trackings.get(view.document)?.map((x) => {
             let axes = Axis.getAxiesAtPlane(x.snap.point!, view.workplane, this.trackingZ);
             result.push({ axes, objectName: x.snap.info });
@@ -51,7 +49,7 @@ export class ObjectTracking {
             clearTimeout(this.timer);
             this.timer = undefined;
         }
-        if (snap === undefined) return;
+        if (!snap) return;
         this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }
 
@@ -60,13 +58,11 @@ export class ObjectTracking {
         if (!this.trackings.has(document)) {
             this.trackings.set(document, []);
         }
-        let currentTrackings = this.trackings.get(document)!;
-        let s = currentTrackings.find((x) => x.snap.point!.isEqualTo(snap.point!));
-        if (s !== undefined) {
-            this.removeTrackingPoint(document, s, currentTrackings);
-        } else {
-            this.addTrackingPoint(snap, document, currentTrackings);
-        }
+        const currentTrackings = this.trackings.get(document)!;
+        const existingTracking = currentTrackings.find((x) => x.snap.point!.isEqualTo(snap.point!));
+        existingTracking
+            ? this.removeTrackingPoint(document, existingTracking, currentTrackings)
+            : this.addTrackingPoint(snap, document, currentTrackings);
         document.visual.update();
     }
 
@@ -79,12 +75,12 @@ export class ObjectTracking {
     }
 
     private addTrackingPoint(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
-        let data = VertexMeshData.from(
+        const data = VertexMeshData.from(
             snap.point!,
             VisualConfig.trackingVertexSize,
             VisualConfig.trackingVertexColor,
         );
-        let pointId = document.visual.context.displayMesh(data);
+        const pointId = document.visual.context.displayMesh(data);
         snaps.push({ shapeId: pointId, snap });
     }
 }

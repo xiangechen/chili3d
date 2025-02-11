@@ -19,7 +19,7 @@ export class Expander extends HTMLElement {
             className: style.expanderIcon,
             onclick: this._handleExpanderClick,
         });
-        let text = label({
+        const text = label({
             textContent: localize(header),
             className: style.headerText,
         });
@@ -28,8 +28,7 @@ export class Expander extends HTMLElement {
     }
 
     override appendChild<T extends Node>(node: T): T {
-        this.contenxtPanel.appendChild(node);
-        return node;
+        return this.contenxtPanel.appendChild(node);
     }
 
     override append(...nodes: Node[]): void {
@@ -37,8 +36,7 @@ export class Expander extends HTMLElement {
     }
 
     override removeChild<T extends Node>(child: T): T {
-        this.contenxtPanel.removeChild(child);
-        return child;
+        return this.contenxtPanel.removeChild(child);
     }
 
     addItem(...nodes: Node[]) {
@@ -47,18 +45,14 @@ export class Expander extends HTMLElement {
     }
 
     private getExpanderIcon() {
-        return this._isExpanded === true ? "icon-angle-down" : "icon-angle-right";
+        return this._isExpanded ? "icon-angle-down" : "icon-angle-right";
     }
 
-    private _handleExpanderClick = (e: MouseEvent) => {
+    private readonly _handleExpanderClick = (e: MouseEvent) => {
         e.stopPropagation();
         this._isExpanded = !this._isExpanded;
         setSVGIcon(this.expanderIcon, this.getExpanderIcon());
-        if (this._isExpanded) {
-            this.contenxtPanel.classList.remove(style.hidden);
-        } else {
-            this.contenxtPanel.classList.add(style.hidden);
-        }
+        this.contenxtPanel.classList.toggle(style.hidden, !this._isExpanded);
     };
 }
 

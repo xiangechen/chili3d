@@ -4,18 +4,12 @@ import { IConverter, Result } from "chili-core";
 
 export class ColorConverter implements IConverter<number> {
     convert(value: number): Result<string> {
-        if (typeof value === "string") {
-            return Result.ok(value);
-        }
-        return Result.ok("#" + value.toString(16).padStart(6, "0"));
+        return Result.ok(typeof value === "string" ? value : `#${value.toString(16).padStart(6, "0")}`);
     }
 
     convertBack(value: string): Result<number> {
-        if (value.startsWith("#")) {
-            value = value.substring(1);
-        }
-        let result = parseInt(value, 16);
-        if (Number.isNaN(value)) return Result.err("Invalid hex string: " + value);
-        return Result.ok(result);
+        const hexValue = value.startsWith("#") ? value.substring(1) : value;
+        const result = parseInt(hexValue, 16);
+        return Number.isNaN(result) ? Result.err(`Invalid hex string: ${value}`) : Result.ok(result);
     }
 }

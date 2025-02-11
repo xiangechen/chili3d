@@ -8,14 +8,10 @@ export class XYConverter implements IConverter<XY> {
     }
 
     convertBack(value: string): Result<XY> {
-        let vs = value
-            .split(",")
-            .map((x) => Number(x))
-            .filter((x) => !isNaN(x));
-        if (vs.length !== 2) {
-            return Result.err(`${value} convert to XY error`);
-        }
-        return Result.ok(new XY(vs[0], vs[1]));
+        const vs = value.split(",").map(Number).filter(isFinite);
+        return vs.length === 2
+            ? Result.ok(new XY(vs[0], vs[1]))
+            : Result.err(`${value} convert to XY error`);
     }
 }
 
@@ -25,13 +21,9 @@ export class XYZConverter implements IConverter<XYZ> {
     }
 
     convertBack(value: string): Result<XYZ> {
-        let vs = value
-            .split(",")
-            .map((x) => Number(x))
-            .filter((x) => !isNaN(x));
-        if (vs.length !== 3) {
-            return Result.err(`${value} convert to XYZ error`);
-        }
-        return Result.ok(new XYZ(vs[0], vs[1], vs[2]));
+        const vs = value.split(",").map(Number).filter(isFinite);
+        return vs.length === 3
+            ? Result.ok(new XYZ(vs[0], vs[1], vs[2]))
+            : Result.err(`${value} convert to XYZ error`);
     }
 }

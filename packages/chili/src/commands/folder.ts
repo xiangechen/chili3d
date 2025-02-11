@@ -2,7 +2,7 @@
 
 import { command, FolderNode, IApplication, ICommand } from "chili-core";
 
-let index: number = 1;
+let index = 1;
 
 @command({
     name: "create.folder",
@@ -11,8 +11,8 @@ let index: number = 1;
 })
 export class NewFolder implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        let document = app.activeView?.document!;
-        let folder = new FolderNode(document, `Folder${index++}`);
+        const document = app.activeView?.document!;
+        const folder = new FolderNode(document, `Folder${index++}`);
         document.addNode(folder);
     }
 }

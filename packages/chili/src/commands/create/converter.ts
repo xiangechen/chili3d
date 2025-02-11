@@ -21,13 +21,13 @@ import { SelectShapeNodeStep } from "../../step";
 
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {
-        let models = await this.getOrPickModels(this.document);
+        const models = await this.getOrPickModels(this.document);
         if (!models) {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
-        Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let node = this.create(this.document, models);
+        Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+            const node = this.create(this.document, models);
             if (!node.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
@@ -41,17 +41,16 @@ abstract class ConvertCommand extends CancelableCommand {
     protected abstract create(document: IDocument, models: INode[]): Result<GeometryNode>;
 
     async getOrPickModels(document: IDocument) {
-        let filter: IShapeFilter = {
-            allow: (shape) => {
-                return shape.shapeType === ShapeType.Edge || shape.shapeType === ShapeType.Wire;
-            },
+        const filter: IShapeFilter = {
+            allow: (shape) => shape.shapeType === ShapeType.Edge || shape.shapeType === ShapeType.Wire,
         };
         let models = this._getSelectedModels(document, filter);
         document.selection.clearSelection();
         if (models.length > 0) return models;
-        let step = new SelectShapeNodeStep("prompt.select.models", true, filter);
+
+        const step = new SelectShapeNodeStep("prompt.select.models", true, filter);
         this.controller = new AsyncController();
-        let data = await step.execute(document, this.controller);
+        const data = await step.execute(document, this.controller);
         document.selection.clearSelection();
         return data?.nodes;
     }
@@ -77,12 +76,11 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        let edges = models.map((x) => x.shape.value) as IEdge[];
-        let wireBody = new WireNode(document, edges);
-        let shape = wireBody.generateShape();
-        if (!shape.isOk) {
-            return Result.err(shape.error);
-        }
+        const edges = models.map((x) => x.shape.value) as IEdge[];
+        const wireBody = new WireNode(document, edges);
+        const shape = wireBody.generateShape();
+        if (!shape.isOk) return Result.err(shape.error);
+
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);
     }
@@ -95,13 +93,11 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        let edges = models.map((x) => x.shape.value) as IEdge[];
-        let wireBody = new FaceNode(document, edges);
-        let shape = wireBody.generateShape();
+        const edges = models.map((x) => x.shape.value) as IEdge[];
+        const wireBody = new FaceNode(document, edges);
+        const shape = wireBody.generateShape();
+        if (!shape.isOk) return Result.err(shape.error);
 
-        if (!shape.isOk) {
-            return Result.err(shape.error);
-        }
         models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);
     }

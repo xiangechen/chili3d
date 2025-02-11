@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { I18n, Plane, Ray, XYZ } from "chili-core";
+import { I18n, I18nKeys, Plane, Ray, XYZ } from "chili-core";
 
 export class Axis extends Ray {
     constructor(
@@ -12,17 +12,18 @@ export class Axis extends Ray {
     }
 
     static getAxiesAtPlane(location: XYZ, plane: Plane, containsZ: boolean) {
-        let axies = [
-            new Axis(location, plane.xvec, I18n.translate("axis.x")),
-            new Axis(location, plane.xvec.reverse(), I18n.translate("axis.x")),
-            new Axis(location, plane.yvec, I18n.translate("axis.y")),
-            new Axis(location, plane.yvec.reverse(), I18n.translate("axis.y")),
+        const createAxis = (direction: XYZ, name: I18nKeys) =>
+            new Axis(location, direction, I18n.translate(name));
+
+        const axies = [
+            createAxis(plane.xvec, "axis.x"),
+            createAxis(plane.xvec.reverse(), "axis.x"),
+            createAxis(plane.yvec, "axis.y"),
+            createAxis(plane.yvec.reverse(), "axis.y"),
         ];
+
         if (containsZ) {
-            axies.push(
-                new Axis(location, plane.normal, I18n.translate("axis.z")),
-                new Axis(location, plane.normal.reverse(), I18n.translate("axis.z")),
-            );
+            axies.push(createAxis(plane.normal, "axis.z"), createAxis(plane.normal.reverse(), "axis.z"));
         }
 
         return axies;

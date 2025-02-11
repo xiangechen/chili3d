@@ -66,20 +66,24 @@ export class Input extends HTMLElement implements IDisposable {
     private readonly handleKeyDown = (e: KeyboardEvent) => {
         e.stopPropagation();
         if (e.key === "Enter") {
-            this.textbox.readOnly = true;
-            let error = this.handler(this.textbox.value);
-            if (error.isOk) {
-                this._completedCallbacks.forEach((x) => x());
-            } else {
-                this.textbox.readOnly = false;
-                this.showTip(error.error);
-            }
+            this.processEnterKey();
         } else if (e.key === "Escape") {
-            this._cancelledCallbacks.forEach((x) => x());
+            this._cancelledCallbacks.forEach((callback) => callback());
         } else {
             this.removeTip();
         }
     };
+
+    private processEnterKey() {
+        this.textbox.readOnly = true;
+        const error = this.handler(this.textbox.value);
+        if (error.isOk) {
+            this._completedCallbacks.forEach((callback) => callback());
+        } else {
+            this.textbox.readOnly = false;
+            this.showTip(error.error);
+        }
+    }
 }
 
 customElements.define("chili-input", Input);

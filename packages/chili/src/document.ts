@@ -131,9 +131,9 @@ export class Document extends Observable implements IDocument {
     }
 
     async save() {
-        let data = this.serialize();
+        const data = this.serialize();
         await this.application.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
-        let image = this.application.activeView?.toImage();
+        const image = this.application.activeView?.toImage();
         await this.application.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
             id: this.id,
             name: this.name,

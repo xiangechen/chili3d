@@ -7,23 +7,30 @@ import { CreateCommand } from "./createCommand";
 
 export abstract class BooleanOperate extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let shape1 = (this.stepDatas[0].nodes?.at(0) as ShapeNode)?.shape.value;
-        let shape2 = (this.stepDatas[1].nodes?.at(0) as ShapeNode)?.shape.value;
-        let booleanType = this.getBooleanOperateType();
-        let booleanShape: Result<IShape>;
-        if (booleanType === "common") {
-            booleanShape = this.application.shapeFactory.booleanCommon(shape1, shape2);
-        } else if (booleanType === "cut") {
-            booleanShape = this.application.shapeFactory.booleanCut(shape1, shape2);
-        } else {
-            booleanShape = this.application.shapeFactory.booleanFuse(shape1, shape2);
-        }
+        const shape1 = (this.stepDatas[0].nodes?.[0] as ShapeNode)?.shape.value;
+        const shape2 = (this.stepDatas[1].nodes?.[0] as ShapeNode)?.shape.value;
+        const booleanType = this.getBooleanOperateType();
 
-        let node = new BooleanNode(this.document, booleanShape.value);
-        this.stepDatas.forEach((x) => {
-            x.nodes?.at(0)?.parent?.remove(x.nodes[0]);
-        });
+        const booleanShape = this.getBooleanShape(booleanType, shape1, shape2);
+        const node = new BooleanNode(this.document, booleanShape.value);
+
+        this.stepDatas.forEach((x) => x.nodes?.[0]?.parent?.remove(x.nodes[0]));
         return node;
+    }
+
+    private getBooleanShape(
+        type: "common" | "cut" | "fuse",
+        shape1: IShape,
+        shape2: IShape,
+    ): Result<IShape> {
+        switch (type) {
+            case "common":
+                return this.application.shapeFactory.booleanCommon(shape1, shape2);
+            case "cut":
+                return this.application.shapeFactory.booleanCut(shape1, shape2);
+            default:
+                return this.application.shapeFactory.booleanFuse(shape1, shape2);
+        }
     }
 
     protected abstract getBooleanOperateType(): "common" | "cut" | "fuse";

@@ -7,7 +7,7 @@ export async function importFiles(application: IApplication, files: File[] | Fil
     PubSub.default.pub(
         "showPermanent",
         async () => {
-            await Transaction.excuteAsync(document, "import model", async () => {
+            await Transaction.executeAsync(document, "import model", async () => {
                 await document.application.dataExchange.import(document, files);
             });
             await document.application.activeView?.fitContent();

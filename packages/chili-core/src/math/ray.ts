@@ -16,7 +16,7 @@ export class Ray {
 
     constructor(location: XYZ, direction: XYZ) {
         this.location = location;
-        let n = direction.normalize();
+        const n = direction.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("direction can not be zero");
         }
@@ -25,23 +25,22 @@ export class Ray {
 
     intersect(right: Ray): XYZ | undefined {
         if (this.direction.isParallelTo(right.direction)) return undefined;
-        let result = this.nearestTo(right);
-        let vec = result.sub(right.location);
-        if (vec.isParallelTo(right.direction)) return result;
-        return undefined;
+        const result = this.nearestTo(right);
+        const vec = result.sub(right.location);
+        return vec.isParallelTo(right.direction) ? result : undefined;
     }
 
     nearestTo(right: Ray): XYZ {
-        let n = right.direction.cross(this.direction).normalize();
+        const n = right.direction.cross(this.direction).normalize();
         if (n === undefined) return this.nearestToPoint(right.location);
-        let normal = n.cross(right.direction).normalize()!;
-        let plane = new Plane(right.location, normal, n);
+        const normal = n.cross(right.direction).normalize()!;
+        const plane = new Plane(right.location, normal, n);
         return plane.intersect(this)!;
     }
 
     nearestToPoint(point: XYZ): XYZ {
-        let vec = point.sub(this.location);
-        let dot = vec.dot(this.direction);
+        const vec = point.sub(this.location);
+        const dot = vec.dot(this.direction);
         return this.location.add(this.direction.multiply(dot));
     }
 }

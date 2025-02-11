@@ -15,9 +15,9 @@ import { CreateCommand } from "../createCommand";
 })
 export class Prism extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let shape = this.stepDatas[0].shapes[0].shape;
+        const shape = this.stepDatas[0].shapes[0].shape;
         const { point, normal } = this.getAxis();
-        let dist = this.stepDatas[1].point!.sub(point).dot(normal);
+        const dist = this.stepDatas[1].point!.sub(point).dot(normal);
         return new PrismNode(this.document, shape, dist);
     }
 
@@ -39,19 +39,19 @@ export class Prism extends CreateCommand {
             direction: normal,
             preview: (p) => {
                 if (!p) return [];
-                let dist = p.sub(point).dot(normal);
+                const dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
-                let vec = normal.multiply(dist);
-                let shape = this.stepDatas[0].shapes[0].shape;
+                const vec = normal.multiply(dist);
+                const shape = this.stepDatas[0].shapes[0].shape;
                 return [this.application.shapeFactory.prism(shape, vec).value.mesh.edges!];
             },
         };
     };
 
     private getAxis() {
-        let point = this.stepDatas[0].shapes[0].point!;
-        let shape = this.stepDatas[0].shapes[0].shape;
-        let normal = GeoUtils.normal(shape as any);
+        const point = this.stepDatas[0].shapes[0].point!;
+        const shape = this.stepDatas[0].shapes[0].shape;
+        const normal = GeoUtils.normal(shape as any);
         return { point, normal };
     }
 }

@@ -18,11 +18,11 @@ export class Statusbar extends HTMLElement {
         PubSub.default.sub("clearStatusBarTip", this.clearStatusBarTip);
     }
 
-    private statusBarTip = (tip: I18nKeys) => {
+    private readonly statusBarTip = (tip: I18nKeys) => {
         I18n.set(this.tip, tip);
     };
 
-    private clearStatusBarTip = () => {
+    private readonly clearStatusBarTip = () => {
         I18n.set(this.tip, "prompt.default");
     };
 }

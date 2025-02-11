@@ -116,7 +116,7 @@ export class Application implements IApplication {
         if (!files || files.length === 0) {
             return;
         }
-        let { opens, imports } = this.groupFiles(files);
+        const { opens, imports } = this.groupFiles(files);
         this.loadDocumentsWithLoading(opens);
         importFiles(this, imports);
     }
@@ -137,8 +137,8 @@ export class Application implements IApplication {
     }
 
     private groupFiles(files: FileList) {
-        let opens: File[] = [];
-        let imports: File[] = [];
+        const opens: File[] = [];
+        const imports: File[] = [];
         for (const element of files) {
             if (element.name.endsWith(DOCUMENT_FILE_EXTENSION)) {
                 opens.push(element);
@@ -150,29 +150,29 @@ export class Application implements IApplication {
     }
 
     async openDocument(id: string): Promise<IDocument | undefined> {
-        let document = await Document.open(this, id);
+        const document = await Document.open(this, id);
         await this.createActiveView(document);
         return document;
     }
 
     async newDocument(name: string): Promise<IDocument> {
-        let document = new Document(this, name);
-        let lightGray = new Material(document, "LightGray", 0xdedede);
-        let deepGray = new Material(document, "DeepGray", 0x898989);
+        const document = new Document(this, name);
+        const lightGray = new Material(document, "LightGray", 0xdedede);
+        const deepGray = new Material(document, "DeepGray", 0x898989);
         document.materials.push(lightGray, deepGray);
         await this.createActiveView(document);
         return document;
     }
 
     async loadDocument(data: Serialized): Promise<IDocument | undefined> {
-        let document = Document.load(this, data);
+        const document = Document.load(this, data);
         await this.createActiveView(document);
         return document;
     }
 
     protected async createActiveView(document: IDocument | undefined) {
         if (document === undefined) return undefined;
-        let view = document.visual.createView("3d", Plane.XY);
+        const view = document.visual.createView("3d", Plane.XY);
         this.activeView = view;
     }
 }

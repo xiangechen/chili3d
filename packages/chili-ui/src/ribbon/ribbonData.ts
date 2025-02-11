@@ -13,9 +13,8 @@ export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> 
 export class RibbonGroupData extends Observable {
     readonly items: ObservableCollection<RibbonCommandData>;
 
-    private _groupName: I18nKeys;
     get groupName(): I18nKeys {
-        return this._groupName;
+        return this.getPrivateValue("groupName");
     }
     set groupName(value: I18nKeys) {
         this.setProperty("groupName", value);
@@ -23,7 +22,7 @@ export class RibbonGroupData extends Observable {
 
     constructor(groupName: I18nKeys, ...items: RibbonCommandData[]) {
         super();
-        this._groupName = groupName;
+        this.setPrivateValue("groupName", groupName);
         this.items = new ObservableCollection<RibbonCommandData>(...items);
     }
 
@@ -40,9 +39,8 @@ export class RibbonGroupData extends Observable {
 export class RibbonTabData extends Observable {
     readonly groups = new ObservableCollection<RibbonGroupData>();
 
-    private _tabName: I18nKeys;
     get tabName(): I18nKeys {
-        return this._tabName;
+        return this.getPrivateValue("tabName");
     }
     set tabName(value: I18nKeys) {
         this.setProperty("tabName", value);
@@ -50,7 +48,7 @@ export class RibbonTabData extends Observable {
 
     constructor(tabName: I18nKeys, ...groups: RibbonGroupData[]) {
         super();
-        this._tabName = tabName;
+        this.setPrivateValue("tabName", tabName);
         this.groups.push(...groups);
     }
 

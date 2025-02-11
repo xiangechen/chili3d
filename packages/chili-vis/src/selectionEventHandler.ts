@@ -60,36 +60,28 @@ export abstract class SelectionHandler implements IEventHandler {
     pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
         if (event.button === 0) {
-            this.mouse = {
-                isDown: true,
-                x: event.offsetX,
-                y: event.offsetY,
-            };
+            this.mouse = { isDown: true, x: event.offsetX, y: event.offsetY };
             if (this.multiMode) this.rect = this.initRect(event);
         }
     }
 
     private initRect(event: PointerEvent): SelectionRect {
-        let rect = document.createElement("div");
+        const rect = document.createElement("div");
         rect.style.cssText = SelectionRectStyle;
         document.body.appendChild(rect);
-        return {
-            element: rect,
-            clientX: event.clientX,
-            clientY: event.clientY,
-        };
+        return { element: rect, clientX: event.clientX, clientY: event.clientY };
     }
 
     protected updateRect(rect: SelectionRect, event: PointerEvent) {
         rect.element.style.display = "block";
-        const x1 = Math.min(rect.clientX, event.clientX);
-        const y1 = Math.min(rect.clientY, event.clientY);
-        const x2 = Math.max(rect.clientX, event.clientX);
-        const y2 = Math.max(rect.clientY, event.clientY);
-        rect.element.style.left = x1 + "px";
-        rect.element.style.top = y1 + "px";
-        rect.element.style.width = x2 - x1 + "px";
-        rect.element.style.height = y2 - y1 + "px";
+        const [x1, y1] = [Math.min(rect.clientX, event.clientX), Math.min(rect.clientY, event.clientY)];
+        const [x2, y2] = [Math.max(rect.clientX, event.clientX), Math.max(rect.clientY, event.clientY)];
+        Object.assign(rect.element.style, {
+            left: `${x1}px`,
+            top: `${y1}px`,
+            width: `${x2 - x1}px`,
+            height: `${y2 - y1}px`,
+        });
     }
 
     pointerOut(view: IView, event: PointerEvent): void {
@@ -103,7 +95,7 @@ export abstract class SelectionHandler implements IEventHandler {
         if (this.mouse.isDown && event.button === 0) {
             this.mouse.isDown = false;
             this.removeRect(view);
-            let count = this.select(view, event);
+            const count = this.select(view, event);
             this.cleanHighlights();
             view.update();
             if (count > 0 && !this.multiMode) this.controller?.success();
@@ -111,20 +103,14 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     private removeRect(view: IView) {
-        if (this.rect) {
-            this.rect.element.remove();
-            this.rect = undefined;
-        }
+        this.rect?.element.remove();
+        this.rect = undefined;
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
         if (event.key === "Escape") {
-            if (this.controller) {
-                this.controller.cancel();
-            } else {
-                this.clearSelected(view.document.visual.document);
-                this.cleanHighlights();
-            }
+            this.controller ? this.controller.cancel() : this.clearSelected(view.document.visual.document);
+            this.cleanHighlights();
         } else if (event.key === "Enter") {
             this.cleanHighlights();
             this.controller?.success();
@@ -138,7 +124,7 @@ export abstract class SelectionHandler implements IEventHandler {
 export abstract class ShapeSelectionHandler extends SelectionHandler {
     protected _highlights: VisualShapeData[] | undefined;
     private _detectAtMouse: VisualShapeData[] | undefined;
-    private _lockDetected: IShape | undefined; // 用于切换捕获的对象
+    private _lockDetected: IShape | undefined;
 
     constructor(
         document: IDocument,
@@ -151,21 +137,16 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
-        if (event.buttons === 4) {
-            return;
-        }
+        if (event.buttons === 4) return;
         this._detectAtMouse = undefined;
-        if (this.rect) {
-            this.updateRect(this.rect, event);
-        }
-        let detecteds = this.getDetecteds(view, event);
+        if (this.rect) this.updateRect(this.rect, event);
+        const detecteds = this.getDetecteds(view, event);
         this.setHighlight(view, detecteds);
     }
 
     private getDetecteds(view: IView, event: PointerEvent) {
-        let detecteds: VisualShapeData[] = [];
         if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
-            detecteds = view.detectShapesRect(
+            return view.detectShapesRect(
                 this.shapeType,
                 this.mouse.x,
                 this.mouse.y,
@@ -173,17 +154,10 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
                 event.offsetY,
                 this.filter,
             );
-        } else {
-            this._detectAtMouse = view.detectShapes(
-                this.shapeType,
-                event.offsetX,
-                event.offsetY,
-                this.filter,
-            );
-            let detected = this.getDetecting();
-            if (detected) detecteds.push(detected);
         }
-        return detecteds;
+        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.filter);
+        const detected = this.getDetecting();
+        return detected ? [detected] : [];
     }
 
     protected setHighlight(view: IView, detecteds: VisualShapeData[]) {
@@ -214,37 +188,24 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 
     protected highlightNext(view: IView) {
         if (this._detectAtMouse && this._detectAtMouse.length > 1) {
-            let index = 1;
-            if (this._lockDetected) {
-                let detecting = this.getDetcedtingIndex();
-                if (detecting !== -1)
-                    index = detecting === this._detectAtMouse.length - 1 ? 0 : detecting + 1;
-            }
+            let index = this._lockDetected
+                ? (this.getDetcedtingIndex() + 1) % this._detectAtMouse.length
+                : 1;
             this._lockDetected = this._detectAtMouse[index].shape;
-            let detected = this.getDetecting();
+            const detected = this.getDetecting();
             if (detected) this.setHighlight(view, [detected]);
         }
     }
 
     private getDetecting() {
         if (this._detectAtMouse) {
-            let index = 0;
-            if (this._lockDetected) {
-                let loked = this.getDetcedtingIndex();
-                if (loked >= 0) index = loked;
-            }
+            const index = this._lockDetected ? this.getDetcedtingIndex() : 0;
             return this._detectAtMouse[index];
         }
         return undefined;
     }
 
     private getDetcedtingIndex() {
-        if (!this._detectAtMouse) return -1;
-        for (let i = 0; i < this._detectAtMouse.length; i++) {
-            if (this._lockDetected === this._detectAtMouse[i].shape) {
-                return i;
-            }
-        }
-        return -1;
+        return this._detectAtMouse?.findIndex((x) => this._lockDetected === x.shape) ?? -1;
     }
 }

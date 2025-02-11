@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { IDocument, IView, PubSub } from "chili-core";
-import { ToolBar } from "./toolBar";
-import { Tree } from "./tree";
 import { div, localize, span } from "../components";
 import style from "./projectView.module.css";
+import { ToolBar } from "./toolBar";
+import { Tree } from "./tree";
 
 export class ProjectView extends HTMLElement {
     private readonly _documentTreeMap = new Map<IDocument, Tree>();
@@ -22,6 +22,13 @@ export class ProjectView extends HTMLElement {
         this.panel = div({
             className: style.itemsPanel,
         });
+        PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
+        PubSub.default.sub("documentClosed", this.handleDocumentClosed);
+
+        this.render();
+    }
+
+    private render() {
         this.append(
             div(
                 { className: style.headerPanel },
@@ -33,8 +40,6 @@ export class ProjectView extends HTMLElement {
             ),
             this.panel,
         );
-        PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
-        PubSub.default.sub("documentClosed", this.handleDocumentClosed);
     }
 
     activeTree() {
@@ -43,30 +48,28 @@ export class ProjectView extends HTMLElement {
     }
 
     private readonly handleDocumentClosed = (document: IDocument) => {
-        let tree = this._documentTreeMap.get(document);
-        if (tree === undefined) return;
-
-        tree.remove();
-        tree.dispose();
-        this._documentTreeMap.delete(document);
+        const tree = this._documentTreeMap.get(document);
+        if (tree) {
+            tree.remove();
+            tree.dispose();
+            this._documentTreeMap.delete(document);
+        }
     };
 
     private readonly handleActiveViewChanged = (view: IView | undefined) => {
         if (this._activeDocument === view?.document) return;
 
-        if (this._activeDocument !== undefined) {
-            this._documentTreeMap.get(this._activeDocument)?.remove();
-        }
-
+        this._documentTreeMap.get(this._activeDocument!)?.remove();
         this._activeDocument = view?.document;
-        if (view === undefined) return;
 
-        let tree = this._documentTreeMap.get(view.document);
-        if (tree === undefined) {
-            tree = new Tree(view.document);
-            this._documentTreeMap.set(view.document, tree);
+        if (view) {
+            let tree = this._documentTreeMap.get(view.document);
+            if (!tree) {
+                tree = new Tree(view.document);
+                this._documentTreeMap.set(view.document, tree);
+            }
+            this.panel.append(tree);
         }
-        this.panel.append(tree);
     };
 }
 

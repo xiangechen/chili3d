@@ -18,21 +18,15 @@ export class TextureProperty extends Expander {
     }
 
     private render() {
+        const properties = Property.getProperties(this.texture)
+            .filter((x) => (x.name as keyof Texture) !== "image")
+            .map((x) => findPropertyControl(this.document, [this.texture], x));
+
         return div(
-            {
-                className: style.expander,
-            },
+            { className: style.expander },
+            div({ className: style.properties }, ...properties),
             div(
-                { className: style.properties },
-                ...Property.getProperties(this.texture).map((x) => {
-                    if ((x.name as keyof Texture) === "image") return "";
-                    return findPropertyControl(this.document, [this.texture], x);
-                }),
-            ),
-            div(
-                {
-                    className: style.image,
-                },
+                { className: style.image },
                 img({
                     style: {
                         backgroundImage: new PathBinding(this.texture, "image", new UrlStringConverter()),

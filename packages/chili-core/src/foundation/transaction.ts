@@ -27,7 +27,7 @@ export class Transaction {
         Logger.info(`history added ${record.name}`);
     }
 
-    static excute(document: IDocument, name: string, action: () => void) {
+    static execute(document: IDocument, name: string, action: () => void) {
         let trans = new Transaction(document, name);
         trans.start();
         try {
@@ -39,8 +39,8 @@ export class Transaction {
         }
     }
 
-    static async excuteAsync(document: IDocument, name: string, action: () => Promise<void>) {
-        let trans = new Transaction(document, name);
+    static async executeAsync(document: IDocument, name: string, action: () => Promise<void>) {
+        const trans = new Transaction(document, name);
         trans.start();
         try {
             await action();
@@ -52,16 +52,16 @@ export class Transaction {
     }
 
     start(name?: string) {
-        let transactionName = name ?? this.name;
-        if (Transaction._transactionMap.get(this.document) !== undefined) {
+        const transactionName = name ?? this.name;
+        if (Transaction._transactionMap.has(this.document)) {
             throw new Error(`The document has started a transaction ${this.name}`);
         }
         Transaction._transactionMap.set(this.document, new ArrayRecord(transactionName));
     }
 
     commit() {
-        let arrayRecord = Transaction._transactionMap.get(this.document);
-        if (arrayRecord === undefined) {
+        const arrayRecord = Transaction._transactionMap.get(this.document);
+        if (!arrayRecord) {
             throw new Error("Transaction has not started");
         }
         if (arrayRecord.records.length > 0) Transaction.addToHistory(this.document, arrayRecord);

@@ -12,13 +12,13 @@ import { TransformedCommand } from "./transformedCommand";
 })
 export class Rotate extends TransformedCommand {
     protected override transfrom(point: XYZ): Matrix4 {
-        let normal = this.stepDatas[0].view.workplane.normal;
-        let center = this.stepDatas[0].point!;
-        let p1 = this.stepDatas[1].point!;
-        let v1 = p1.sub(center);
-        let v2 = point.sub(center);
-        let angle = v1.angleOnPlaneTo(v2, this.stepDatas[0].view.workplane.normal)!;
-        return Matrix4.createRotationAt(this.stepDatas[0].point!, normal, angle);
+        const normal = this.stepDatas[0].view.workplane.normal;
+        const center = this.stepDatas[0].point!;
+        const p1 = this.stepDatas[1].point!;
+        const v1 = p1.sub(center);
+        const v2 = point.sub(center);
+        const angle = v1.angleOnPlaneTo(v2, normal)!;
+        return Matrix4.createRotationAt(center, normal, angle);
     }
 
     getSteps(): IStep[] {

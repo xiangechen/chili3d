@@ -5,9 +5,8 @@ import { IDocument, Material, Observable } from "chili-core";
 let count = 1;
 
 export class MaterialDataContent extends Observable {
-    private _editingMaterial: Material;
     get editingMaterial(): Material {
-        return this._editingMaterial;
+        return this.getPrivateValue("editingMaterial");
     }
     set editingMaterial(value: Material) {
         this.setProperty("editingMaterial", value);
@@ -19,7 +18,7 @@ export class MaterialDataContent extends Observable {
         editingMaterial: Material,
     ) {
         super();
-        this._editingMaterial = editingMaterial;
+        this.setPrivateValue("editingMaterial", editingMaterial);
     }
 
     deleteMaterial() {

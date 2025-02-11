@@ -13,7 +13,7 @@ export interface ICanclableCommand extends ICommand {
 }
 
 export namespace ICommand {
-    export function isCanclableCommand(command: ICommand): command is ICanclableCommand {
+    export function isCancelableCommand(command: ICommand): command is ICanclableCommand {
         return "cancel" in command;
     }
 }

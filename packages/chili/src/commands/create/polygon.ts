@@ -77,7 +77,7 @@ export class Polygon extends CreateFaceableCommand {
         };
     };
 
-    private preview = (point: XYZ | undefined): ShapeMeshData[] => {
+    private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
         let ps = this.stepDatas.map((data) => this.previewPoint(data.point!));
         let edges = new EdgeMeshDataBuilder();
         this.stepDatas.forEach((data) => edges.addPosition(data.point!.x, data.point!.y, data.point!.z));

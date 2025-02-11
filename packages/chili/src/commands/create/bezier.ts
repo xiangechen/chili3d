@@ -24,14 +24,14 @@ export class BezierCommand extends CreateCommand {
         return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.value);
     }
 
-    protected override async executeSteps(): Promise<boolean> {
-        let steps = this.getSteps();
+    protected override async executeSteps() {
+        const steps = this.getSteps();
         let firstStep = true;
         while (true) {
-            let step = firstStep ? steps[0] : steps[1];
+            const step = firstStep ? steps[0] : steps[1];
             if (firstStep) firstStep = false;
             this.controller = new AsyncController();
-            let data = await step.execute(this.document, this.controller);
+            const data = await step.execute(this.document, this.controller);
             if (data === undefined) {
                 return this.controller.result?.status === "success";
             }

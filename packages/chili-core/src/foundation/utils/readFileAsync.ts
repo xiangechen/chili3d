@@ -3,25 +3,25 @@
 import { Result } from "..";
 
 export async function readFilesAsync(accept: string, multiple: boolean): Promise<Result<FileList>> {
-    return new Promise((resolve, _reject) => {
-        let input = document.createElement("input");
+    return new Promise((resolve) => {
+        const input = document.createElement("input");
         input.type = "file";
         input.multiple = multiple;
         input.accept = accept;
         input.style.visibility = "hidden";
-        input.onchange = async () => {
-            document.body.removeChild(input);
-            let files = input.files;
-            if (files === null) {
-                resolve(Result.err(`no files selected`));
-            } else {
-                resolve(Result.ok(files));
-            }
+
+        const cleanup = () => document.body.removeChild(input);
+
+        input.onchange = () => {
+            cleanup();
+            resolve(input.files ? Result.ok(input.files) : Result.err("no files selected"));
         };
+
         input.oncancel = () => {
-            document.body.removeChild(input);
-            resolve(Result.err(`cancel`));
+            cleanup();
+            resolve(Result.err("cancel"));
         };
+
         document.body.appendChild(input);
         input.click();
     });
@@ -37,41 +37,41 @@ export async function readFileAsync(
     multiple: boolean,
     method: "readAsText" | "readAsDataURL" = "readAsText",
 ): Promise<Result<FileData[]>> {
-    let files = await readFilesAsync(accept, multiple);
-    if (!files.isOk) {
-        return files.parse();
-    }
-
-    return readInputedFiles(files.value, method);
+    const filesResult = await readFilesAsync(accept, multiple);
+    return filesResult.isOk ? readInputedFiles(filesResult.value, method) : filesResult.parse();
 }
 
-async function readInputedFiles(files: FileList, method: "readAsText" | "readAsDataURL") {
-    let result: FileData[] = [];
-    for (const file of files) {
-        let data = await readFileDataAsync(file, method);
+async function readInputedFiles(
+    files: FileList,
+    method: "readAsText" | "readAsDataURL",
+): Promise<Result<FileData[]>> {
+    const fileDataPromises = Array.from(files).map(async (file) => {
+        const data = await readFileDataAsync(file, method);
         if (!data) {
-            return Result.err(`Error occurred reading file: ${file.name}`);
+            throw new Error(`Error occurred reading file: ${file.name}`);
         }
+        return { fileName: file.name, data };
+    });
 
-        result.push({
-            fileName: file.name,
-            data,
-        });
+    try {
+        const result = await Promise.all(fileDataPromises);
+        return Result.ok(result);
+    } catch (error) {
+        return Result.err((error as Error).message);
     }
-    return Result.ok(result);
 }
 
-function readFileDataAsync(file: File, method: any): Promise<string | null> {
+function readFileDataAsync(file: File, method: "readAsText" | "readAsDataURL"): Promise<string | null> {
     return new Promise((resolve) => {
-        let reader = new FileReader();
+        const reader = new FileReader();
+
         reader.onload = (e) => {
             if (e.target?.readyState === FileReader.DONE) {
                 resolve(e.target.result as string);
             }
         };
-        reader.onerror = () => {
-            resolve(null);
-        };
-        (reader as any)[method](file);
+
+        reader.onerror = () => resolve(null);
+        reader[method](file);
     });
 }

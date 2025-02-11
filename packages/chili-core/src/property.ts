@@ -31,13 +31,13 @@ export namespace Property {
     }
 
     export function getProperties(target: any, until?: object): Property[] {
-        let result: Property[] = [];
+        const result: Property[] = [];
         getAllKeysOfPrototypeChain(target, result, until);
         return result;
     }
 
     export function getOwnProperties(target: any): Property[] {
-        let properties = PropertyKeyMap.get(target);
+        const properties = PropertyKeyMap.get(target);
         if (!properties) return [];
         return [...properties.values()];
     }

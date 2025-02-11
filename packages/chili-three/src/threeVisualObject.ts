@@ -68,10 +68,11 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
 
 export class ThreeMeshObject extends ThreeVisualObject {
     private _mesh: LineSegments2 | Mesh | Line2;
+    private material: Material | Material[];
+
     get mesh() {
         return this._mesh;
     }
-    private material: Material | Material[];
 
     constructor(
         readonly context: ThreeVisualContext,
@@ -103,47 +104,41 @@ export class ThreeMeshObject extends ThreeVisualObject {
     }
 
     private createMesh() {
-        if (this.meshNode.mesh.meshType === "line") {
-            return this.newLine();
-        } else if (this.meshNode.mesh.meshType === "linesegments") {
-            return this.newLineSegments();
-        } else if (this.meshNode.mesh.meshType === "surface") {
-            return this.newMesh();
+        switch (this.meshNode.mesh.meshType) {
+            case "line":
+                return this.newLine();
+            case "linesegments":
+                return this.newLineSegments();
+            case "surface":
+                return this.newMesh();
+            default:
+                throw new Error("Unknown mesh type");
         }
-
-        throw new Error("Unknown mesh type");
     }
 
-    private readonly handleGeometryPropertyChanged = (property: keyof MeshNode, s: any, o: any) => {
+    private readonly handleGeometryPropertyChanged = (property: keyof MeshNode) => {
         if (property === "mesh") {
             this.disposeMesh();
             this._mesh = this.createMesh();
             this.add(this._mesh);
-        } else if (property === "materialId") {
-            if (this._mesh instanceof Mesh) {
-                this.material = this.getMaterial();
-                this._mesh.material = this.material;
-            }
+        } else if (property === "materialId" && this._mesh instanceof Mesh) {
+            this.material = this.getMaterial();
+            this._mesh.material = this.material;
         }
     };
 
     private newMesh() {
-        let buff = new BufferGeometry();
+        const buff = new BufferGeometry();
         buff.setAttribute("position", new Float32BufferAttribute(this.meshNode.mesh.position, 3));
-        if (this.meshNode.mesh.normal) {
+        if (this.meshNode.mesh.normal)
             buff.setAttribute("normal", new Float32BufferAttribute(this.meshNode.mesh.normal, 3));
-        }
-        if (this.meshNode.mesh.uv) {
+        if (this.meshNode.mesh.uv)
             buff.setAttribute("uv", new Float32BufferAttribute(this.meshNode.mesh.uv, 2));
-        }
-        if (this.meshNode.mesh.index) {
-            buff.setIndex(this.meshNode.mesh.index);
-        }
+        if (this.meshNode.mesh.index) buff.setIndex(this.meshNode.mesh.index);
         this.meshNode.mesh.groups.forEach((g) => {
-            let index = 0;
-            if (Array.isArray(this.meshNode.materialId)) {
-                index = this.meshNode.materialId.indexOf(g.materialId);
-            }
+            const index = Array.isArray(this.meshNode.materialId)
+                ? this.meshNode.materialId.indexOf(g.materialId)
+                : 0;
             buff.addGroup(g.start, g.count, index);
         });
         buff.computeBoundingBox();
@@ -151,46 +146,40 @@ export class ThreeMeshObject extends ThreeVisualObject {
     }
 
     private getMaterial() {
-        let material: Material | Material[];
         if (Array.isArray(this.meshNode.materialId)) {
-            material = this.meshNode.materialId.map((id) => this.context.getMaterial(id));
+            return this.meshNode.materialId.map((id) => this.context.getMaterial(id));
         } else if (typeof this.meshNode.materialId === "string") {
-            material = this.context.getMaterial(this.meshNode.materialId);
-        } else {
-            material = this.context.materialMap.values().next().value!;
+            return this.context.getMaterial(this.meshNode.materialId);
         }
-        return material;
+        return this.context.materialMap.values().next().value!;
     }
 
     private newLineSegments() {
-        let material = new LineMaterial({
+        const material = new LineMaterial({
             linewidth: 1,
             color: this.meshNode.mesh.color as number,
             side: DoubleSide,
         });
-        let buff = new LineSegmentsGeometry();
+        const buff = new LineSegmentsGeometry();
         buff.setPositions(this.meshNode.mesh.position);
         buff.computeBoundingBox();
         return new LineSegments2(buff, material);
     }
 
     private newLine() {
-        let material = new LineMaterial({
+        const material = new LineMaterial({
             linewidth: 1,
             color: this.meshNode.mesh.color as number,
             side: DoubleSide,
         });
-        let geometry = new LineGeometry();
+        const geometry = new LineGeometry();
         geometry.setPositions(this.meshNode.mesh.position);
         geometry.computeBoundingBox();
         return new Line2(geometry, material);
     }
 
     private disposeMesh() {
-        if (this._mesh instanceof LineSegments2) {
-            this._mesh.material.dispose();
-        }
-        if (this._mesh instanceof Line2) {
+        if (this._mesh instanceof LineSegments2 || this._mesh instanceof Line2) {
             this._mesh.material.dispose();
         }
         this._mesh.geometry?.dispose();

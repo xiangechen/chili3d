@@ -43,52 +43,33 @@ export interface PubSubEventMap {
     visibleChanged: (model: INode) => void;
 }
 
+type EventCallback = (...args: any[]) => void;
+type EventMap = Map<keyof PubSubEventMap, Set<EventCallback>>;
+
 export class PubSub implements IDisposable {
-    static readonly default: PubSub = new PubSub();
+    static readonly default = new PubSub();
+    private readonly events: EventMap = new Map();
 
-    private readonly _events: Map<any, Set<(...args: any[]) => void>>;
-
-    constructor() {
-        this._events = new Map();
+    dispose(): void {
+        this.events.forEach((callbacks) => callbacks.clear());
+        this.events.clear();
     }
 
-    dispose() {
-        this._events.forEach((v, k) => {
-            v.clear();
-        });
-        this._events.clear();
+    sub<K extends keyof PubSubEventMap>(event: K, callback: PubSubEventMap[K]): void {
+        const callbacks = this.events.get(event) ?? new Set<EventCallback>();
+        callbacks.add(callback);
+        this.events.set(event, callbacks);
     }
 
-    sub<T extends PubSubEventMap, K extends keyof T>(
-        event: K,
-        callback: T[K] extends (...args: any[]) => any ? T[K] : never,
-    ) {
-        if (!this._events.has(event)) {
-            this._events.set(event, new Set<(...args: any[]) => void>());
-        }
-        this._events.get(event)!.add(callback);
+    pub<K extends keyof PubSubEventMap>(event: K, ...args: Parameters<PubSubEventMap[K]>): void {
+        this.events.get(event)?.forEach((callback) => callback(...args));
     }
 
-    pub<T extends PubSubEventMap, K extends keyof T>(
-        event: K,
-        ...args: Parameters<T[K] extends (...args: any[]) => any ? T[K] : never>
-    ) {
-        this._events.get(event)?.forEach((x) => {
-            x(...args);
-        });
+    remove<K extends keyof PubSubEventMap>(event: K, callback: PubSubEventMap[K]): void {
+        this.events.get(event)?.delete(callback);
     }
 
-    remove<T extends PubSubEventMap, K extends keyof T>(
-        event: K,
-        callback: T[K] extends (...args: any[]) => any ? T[K] : never,
-    ) {
-        let callbacks = this._events.get(event);
-        if (callbacks?.has(callback)) {
-            callbacks.delete(callback);
-        }
-    }
-
-    removeAll<K extends keyof PubSubEventMap>(event: K) {
-        this._events.get(event)?.clear();
+    removeAll<K extends keyof PubSubEventMap>(event: K): void {
+        this.events.get(event)?.clear();
     }
 }

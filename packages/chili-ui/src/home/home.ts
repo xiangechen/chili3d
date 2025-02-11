@@ -54,125 +54,150 @@ export class Home extends HTMLElement {
     }
 
     private async getDocuments() {
-        let documentArray: RecentDocumentDTO[] = await this.app.storage.page(
-            Constants.DBName,
-            Constants.RecentTable,
-            0,
+        return new ObservableCollection(
+            ...(await this.app.storage.page(Constants.DBName, Constants.RecentTable, 0)),
         );
-        return new ObservableCollection(...documentArray);
     }
 
     async render() {
-        let documents = await this.getDocuments();
+        const documents = await this.getDocuments();
         this.append(
-            div(
-                { className: style.left },
-                div(
-                    { className: style.top },
-                    div(
-                        { className: style.logo },
-                        svg({ icon: "icon-chili" }),
-                        span({
-                            textContent: "CHILI3D",
-                        }),
-                        span({
-                            className: style.version,
-                            textContent: __APP_VERSION__,
-                        }),
-                    ),
-                    collection({
-                        className: style.buttons,
-                        sources: applicationCommands,
-                        template: (item) =>
-                            button({
-                                className: style.button,
-                                textContent: localize(item.display),
-                                onclick: item.onclick,
-                            }),
-                    }),
-                    this.app.activeView?.document
-                        ? button({
-                              className: `${style.button} ${style.back}`,
-                              textContent: localize("common.back"),
-                              onclick: () => {
-                                  PubSub.default.pub("displayHome", false);
-                              },
-                          })
-                        : "",
-                ),
-                div(
-                    { className: style.bottom },
-                    a({
-                        textContent: "Github",
-                        href: "https://github.com/xiangechen/chili3d",
-                        target: "_blank",
-                    }),
-                ),
-            ),
-            div(
-                { className: style.right },
-                label({ className: style.welcome, textContent: localize("home.welcome") }),
-                div({ className: style.recent, textContent: localize("home.recent") }),
-                collection({
-                    className: style.documents,
-                    sources: documents,
-                    template: (item) =>
-                        div(
-                            {
-                                className: style.document,
-                                onclick: () => {
-                                    if (this.hasOpen(item.id)) {
-                                        PubSub.default.pub("displayHome", false);
-                                    } else {
-                                        PubSub.default.pub(
-                                            "showPermanent",
-                                            async () => {
-                                                let document = await this.app.openDocument(item.id);
-                                                await document?.application.activeView?.fitContent();
-                                            },
-                                            "toast.excuting{0}",
-                                            I18n.translate("command.document.open"),
-                                        );
-                                    }
-                                },
-                            },
-                            img({ className: style.img, src: item.image }),
-                            div(
-                                { className: style.description },
-                                span({ className: style.title, textContent: item.name }),
-                                span({
-                                    className: style.date,
-                                    textContent: new Date(item.date).toLocaleDateString(),
-                                }),
-                            ),
-                            svg({
-                                className: style.delete,
-                                icon: "icon-times",
-                                onclick: async (e) => {
-                                    e.stopPropagation();
-                                    if (
-                                        window.confirm(I18n.translate("prompt.deleteDocument{0}", item.name))
-                                    ) {
-                                        await this.app.storage.delete(
-                                            Constants.DBName,
-                                            Constants.DocumentTable,
-                                            item.id,
-                                        );
-                                        await this.app.storage.delete(
-                                            Constants.DBName,
-                                            Constants.RecentTable,
-                                            item.id,
-                                        );
-                                        documents.remove(item);
-                                    }
-                                },
-                            }),
-                        ),
-                }),
-            ),
+            this.leftSection(),
+            this.rightSection(documents),
             LanguageSelector({ className: style.language }),
         );
         document.body.appendChild(this);
+    }
+
+    private leftSection() {
+        return div(
+            { className: style.left },
+            div(
+                { className: style.top },
+                this.logoSection(),
+                this.applicationCommands(),
+                this.currentDocument(),
+            ),
+            this.links(),
+        );
+    }
+
+    private logoSection() {
+        return div(
+            { className: style.logo },
+            svg({ icon: "icon-chili" }),
+            span({ textContent: "CHILI3D" }),
+            span({ className: style.version, textContent: __APP_VERSION__ }),
+        );
+    }
+
+    private applicationCommands() {
+        return collection({
+            className: style.buttons,
+            sources: applicationCommands,
+            template: (item) =>
+                button({
+                    className: style.button,
+                    textContent: localize(item.display),
+                    onclick: item.onclick,
+                }),
+        });
+    }
+
+    private currentDocument() {
+        return this.app.activeView?.document
+            ? button({
+                  className: `${style.button} ${style.back}`,
+                  textContent: localize("common.back"),
+                  onclick: () => {
+                      PubSub.default.pub("displayHome", false);
+                  },
+              })
+            : "";
+    }
+
+    private links() {
+        return div(
+            { className: style.bottom },
+            a({
+                textContent: "Github",
+                href: "https://github.com/xiangechen/chili3d",
+                target: "_blank",
+            }),
+        );
+    }
+
+    private rightSection(documents: ObservableCollection<RecentDocumentDTO>) {
+        return div(
+            { className: style.right },
+            label({ className: style.welcome, textContent: localize("home.welcome") }),
+            div({ className: style.recent, textContent: localize("home.recent") }),
+            this.documentCollection(documents),
+        );
+    }
+
+    private documentCollection(documents: ObservableCollection<RecentDocumentDTO>) {
+        return collection({
+            className: style.documents,
+            sources: documents,
+            template: (item) => this.recentDocument(item, documents),
+        });
+    }
+
+    private recentDocument(item: RecentDocumentDTO, documents: ObservableCollection<RecentDocumentDTO>) {
+        return div(
+            {
+                className: style.document,
+                onclick: () => this.handleDocumentClick(item),
+            },
+            img({ className: style.img, src: item.image }),
+            this.documentDescription(item),
+            this.deleteIcon(item, documents),
+        );
+    }
+
+    private documentDescription(item: RecentDocumentDTO) {
+        return div(
+            { className: style.description },
+            span({ className: style.title, textContent: item.name }),
+            span({
+                className: style.date,
+                textContent: new Date(item.date).toLocaleDateString(),
+            }),
+        );
+    }
+
+    private deleteIcon(item: RecentDocumentDTO, documents: ObservableCollection<RecentDocumentDTO>) {
+        return svg({
+            className: style.delete,
+            icon: "icon-times",
+            onclick: async (e) => {
+                e.stopPropagation();
+                if (window.confirm(I18n.translate("prompt.deleteDocument{0}", item.name))) {
+                    await Promise.all([
+                        this.app.storage.delete(Constants.DBName, Constants.DocumentTable, item.id),
+                        this.app.storage.delete(Constants.DBName, Constants.RecentTable, item.id),
+                    ]);
+                    documents.remove(item);
+                }
+            },
+        });
+    }
+
+    private handleDocumentClick(item: RecentDocumentDTO) {
+        if (this.hasOpen(item.id)) {
+            PubSub.default.pub("displayHome", false);
+        } else {
+            PubSub.default.pub(
+                "showPermanent",
+                async () => {
+                    let document = await this.app.openDocument(item.id);
+                    await document?.application.activeView?.fitContent();
+                },
+                "toast.excuting{0}",
+                I18n.translate("command.document.open"),
+            );
+        }
     }
 }
 

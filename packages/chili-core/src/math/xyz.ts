@@ -44,9 +44,7 @@ export class XYZ {
     }
 
     divided(scalar: number): XYZ | undefined {
-        if (Math.abs(scalar) < Precision.Float) {
-            return undefined;
-        }
+        if (Math.abs(scalar) < Precision.Float) return undefined;
         return new XYZ(this.x / scalar, this.y / scalar, this.z / scalar);
     }
 
@@ -67,17 +65,14 @@ export class XYZ {
     }
 
     normalize(): XYZ | undefined {
-        let d = this.length();
-        if (d < Precision.Float) {
-            return undefined;
-        }
-        return new XYZ(this.x / d, this.y / d, this.z / d);
+        const d = this.length();
+        return d < Precision.Float ? undefined : new XYZ(this.x / d, this.y / d, this.z / d);
     }
 
     distanceTo(right: XYZLike): number {
-        let dx = this.x - right.x;
-        let dy = this.y - right.y;
-        let dz = this.z - right.z;
+        const dx = this.x - right.x;
+        const dy = this.y - right.y;
+        const dz = this.z - right.z;
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -113,14 +108,10 @@ export class XYZ {
      * @returns [0, 2PI]
      */
     angleOnPlaneTo(right: XYZLike, normal: XYZLike): number | undefined {
-        let angle = this.angleTo(right);
+        const angle = this.angleTo(right);
         if (angle === undefined || XYZ.zero.isEqualTo(normal)) return undefined;
-        let vec = this.cross(right).normalize();
-        if (vec?.isOppositeTo(normal)) {
-            return Math.PI * 2 - angle;
-        }
-
-        return angle;
+        const vec = this.cross(right).normalize();
+        return vec?.isOppositeTo(normal) ? Math.PI * 2 - angle : angle;
     }
 
     /**
@@ -130,9 +121,9 @@ export class XYZ {
      * @returns
      */
     rotate(normal: XYZ, angle: number): XYZ | undefined {
-        let n = normal.normalize();
+        const n = normal.normalize();
         if (n === undefined) return undefined;
-        let cos = Math.cos(angle);
+        const cos = Math.cos(angle);
         return this.multiply(cos)
             .add(n.multiply((1 - cos) * n.dot(this)))
             .add(n.cross(this).multiply(Math.sin(angle)));
@@ -147,14 +138,12 @@ export class XYZ {
     }
 
     isParallelTo(right: XYZLike, tolerance: number = 1e-8): boolean | undefined {
-        let angle = this.angleTo(right);
-        if (angle === undefined) return undefined;
-        return angle <= tolerance || Math.PI - angle <= tolerance;
+        const angle = this.angleTo(right);
+        return angle === undefined ? undefined : angle <= tolerance || Math.PI - angle <= tolerance;
     }
 
     isOppositeTo(right: XYZLike, tolerance: number = 1e-8): boolean | undefined {
-        let angle = this.angleTo(right);
-        if (angle === undefined) return undefined;
-        return Math.PI - angle <= tolerance;
+        const angle = this.angleTo(right);
+        return angle === undefined ? undefined : Math.PI - angle <= tolerance;
     }
 }

@@ -18,8 +18,8 @@ export class Circle extends CreateFaceableCommand {
         return [centerStep, radiusStep];
     }
 
-    private getRadiusData = (): SnapLengthAtPlaneData => {
-        let point = this.stepDatas[0].point!;
+    private readonly getRadiusData = (): SnapLengthAtPlaneData => {
+        const point = this.stepDatas[0].point!;
         return {
             point: () => point,
             preview: this.circlePreview,
@@ -34,23 +34,22 @@ export class Circle extends CreateFaceableCommand {
     };
 
     protected override geometryNode(): GeometryNode {
-        let [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        let plane = this.stepDatas[0].view.workplane;
-        let body = new CircleNode(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        const [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
+        const plane = this.stepDatas[0].view.workplane;
+        const body = new CircleNode(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
         body.isFace = this.isFace;
         return body;
     }
 
     private readonly circlePreview = (point: XYZ | undefined) => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) {
-            return [p1];
-        }
-        let start = this.stepDatas[0].point!;
-        let plane = this.stepDatas[0].view.workplane;
+        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        if (!point) return [p1];
+
+        const start = this.stepDatas[0].point!;
+        const plane = this.stepDatas[0].view.workplane;
         return [
             p1,
-            this.previewLine(this.stepDatas[0].point!, point),
+            this.previewLine(start, point),
             this.application.shapeFactory.circle(
                 plane.normal,
                 start,

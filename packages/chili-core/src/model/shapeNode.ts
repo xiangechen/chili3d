@@ -56,31 +56,24 @@ export abstract class ShapeNode extends GeometryNode {
 export class ManyMesh implements IShapeMeshData {
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
-    get edges(): EdgeMeshData | undefined {
+
+    get edges() {
         return this._edges.positions.length > 0 ? this._edges : undefined;
     }
-    get faces(): FaceMeshData | undefined {
+
+    get faces() {
         return this._faces.positions.length > 0 ? this._faces : undefined;
     }
 
     constructor(readonly shapes: IShape[]) {
-        this._edges = this.initEdgeMeshData();
-        this._faces = this.initFaceMeshData();
-
-        this.meshShapes();
-    }
-
-    private initEdgeMeshData(): EdgeMeshData {
-        return {
+        this._edges = {
             lineType: LineType.Solid,
             positions: [],
             groups: [],
             color: VisualConfig.defaultEdgeColor,
         };
-    }
 
-    private initFaceMeshData(): FaceMeshData {
-        return {
+        this._faces = {
             indices: [],
             normals: [],
             positions: [],
@@ -88,12 +81,19 @@ export class ManyMesh implements IShapeMeshData {
             groups: [],
             color: VisualConfig.defaultFaceColor,
         };
+
+        for (const shape of shapes) {
+            this.combineShape(shape);
+        }
     }
 
-    private meshShapes() {
-        for (const shape of this.shapes) {
-            this.combineEdge(shape.mesh.edges, shape.matrix);
-            this.combineFace(shape.mesh.faces, shape.matrix);
+    private combineShape(shape: IShape) {
+        const { mesh, matrix } = shape;
+        if (mesh.faces) {
+            this.combineFace(mesh.faces, matrix);
+        }
+        if (mesh.edges) {
+            this.combineEdge(mesh.edges, matrix);
         }
     }
 
@@ -205,9 +205,10 @@ export class EditableShapeNode extends ShapeNode {
     }
 
     @Serializer.serialze()
-    override get shape(): Result<IShape> {
+    override get shape() {
         return this._shape;
     }
+
     override set shape(shape: Result<IShape>) {
         this.setShape(shape);
     }
@@ -220,12 +221,7 @@ export class EditableShapeNode extends ShapeNode {
         id?: string,
     ) {
         super(document, name, materialId, id);
-
-        if (shape instanceof Result) {
-            this._shape = shape;
-        } else {
-            this._shape = Result.ok(shape);
-        }
+        this._shape = shape instanceof Result ? shape : Result.ok(shape);
         this.setPrivateValue("transform", this._shape.value.matrix);
     }
 }

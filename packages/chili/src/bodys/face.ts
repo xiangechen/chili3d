@@ -38,18 +38,9 @@ export class FaceNode extends ParameterShapeNode {
     private getWires(): IWire[] {
         let wires: IWire[] = [];
         if (this.isAllClosed()) {
-            for (const shape of this.shapes) {
-                if (shape.shapeType === ShapeType.Wire) {
-                    wires.push(shape as IWire);
-                } else {
-                    let wire = this.document.application.shapeFactory.wire([shape as IEdge]);
-                    wires.push(wire.value);
-                }
-            }
+            this.addClosedEdges(wires, this.shapes as IEdge[]);
         } else {
-            let wire = this.document.application.shapeFactory.wire((this.shapes as IEdge[]));
-            if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
-            wires.push(wire.value);
+            this.addUnclosedEdges(wires, this.shapes as IEdge[]);
         }
 
         for (let i = 1; i < wires.length; i++) {
@@ -57,6 +48,22 @@ export class FaceNode extends ParameterShapeNode {
         }
 
         return wires;
+    }
+
+    private addClosedEdges(wires: IWire[], edges: IEdge[]): void {
+        for (const shape of this.shapes) {
+            if (shape.shapeType === ShapeType.Wire) {
+                wires.push(shape as IWire);
+            } else {
+                this.addUnclosedEdges(wires, [shape as IEdge]);
+            }
+        }
+    }
+
+    private addUnclosedEdges(wires: IWire[], edges: IEdge[]): void {
+        let wire = this.document.application.shapeFactory.wire(edges);
+        if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
+        wires.push(wire.value);
     }
 
     override generateShape(): Result<IShape> {

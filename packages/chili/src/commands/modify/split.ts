@@ -21,19 +21,20 @@ import { MultistepCommand } from "../multistepCommand";
 })
 export class Split extends MultistepCommand {
     private splitedShape() {
-        let shape1 = this.stepDatas[0].shapes[0].shape;
-        let edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
+        const shape1 = this.stepDatas[0].shapes[0].shape;
+        const edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
         return shape1.split(edges);
     }
 
     protected override executeMainTask() {
-        Transaction.excute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let old = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
-            let shape = this.splitedShape();
+        Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
+            const old = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
+            const shape = this.splitedShape();
+
             if (old instanceof EditableShapeNode) {
                 old.shape = Result.ok(shape);
             } else if (old instanceof GeometryNode) {
-                let model = new EditableShapeNode(this.document, old.name, shape);
+                const model = new EditableShapeNode(this.document, old.name, shape);
                 model.transform = old.transform;
                 this.removeModels(
                     this.stepDatas[0].shapes[0].owner,
@@ -41,13 +42,14 @@ export class Split extends MultistepCommand {
                 );
                 this.document.addNode(model);
             }
+
             this.document.visual.update();
         });
     }
 
     private removeModels(...shapes: IVisualGeometry[]) {
         shapes.forEach((x) => {
-            let model = this.document.visual.context.getNode(x);
+            const model = this.document.visual.context.getNode(x);
             model?.parent?.remove(model);
         });
     }

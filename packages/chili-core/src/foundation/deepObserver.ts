@@ -20,7 +20,7 @@ export class DeepObserver {
     >();
 
     static getPathValue(instance: IPropertyChanged, path: string): Result<any> {
-        let parts = path.split(".");
+        const parts = path.split(".");
 
         let value = instance;
         for (let i = 0; i < parts.length; i++) {
@@ -34,7 +34,7 @@ export class DeepObserver {
     }
 
     static addDeepPropertyChangedHandler(instance: IPropertyChanged, handler: DeepPropertyChangedHandler) {
-        let sourceHandler = DeepObserver.getOrInitHandler(instance, handler);
+        const sourceHandler = DeepObserver.getOrInitHandler(instance, handler);
         this.deepHandlePropertyChanged(sourceHandler, instance);
     }
 
@@ -131,9 +131,9 @@ export class DeepObserver {
         property: string,
         prefix: string | undefined,
     ) {
-        let value = (target as any)[property];
+        const value = (target as any)[property];
         if (value === undefined && prefix != undefined) {
-            let sources = [];
+            const sources = [];
             for (const source of sourceHandler.sources) {
                 if (source.prefix?.startsWith(prefix)) {
                     source.source.removePropertyChanged(sourceHandler.handler);

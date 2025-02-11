@@ -27,12 +27,14 @@ export class Box extends RectCommandBase {
     };
 
     private readonly previewBox = (end: XYZ | undefined) => {
+        const point1 = this.stepDatas[0].point!;
+        const point2 = this.stepDatas[1].point!;
         if (!end) {
-            return this.previewRect(this.stepDatas[1].point);
+            return this.previewRect(point2);
         }
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
-        let p2 = this.previewPoint(this.stepDatas[1].point!);
-        let data = this.getRectData(end);
+        const p1 = this.previewPoint(point1);
+        const p2 = this.previewPoint(point2);
+        const data = this.getRectData(end);
         return [
             p1,
             p2,
@@ -42,8 +44,8 @@ export class Box extends RectCommandBase {
     };
 
     protected override geometryNode(): GeometryNode {
-        let rect = this.getRectData(this.stepDatas[1].point!);
-        let dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
+        const rect = this.getRectData(this.stepDatas[1].point!);
+        const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
         return new BoxNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }
 

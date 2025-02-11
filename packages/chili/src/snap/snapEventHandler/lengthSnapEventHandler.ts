@@ -18,23 +18,16 @@ export interface SnapLengthAtPlaneData extends SnapData {
 
 export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapData> {
     constructor(document: IDocument, controller: AsyncController, lengthData: LengthAtAxisSnapData) {
-        let objectSnap = new ObjectSnap(Config.instance.snapType, () => lengthData.point);
-        let axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
+        const objectSnap = new ObjectSnap(Config.instance.snapType, () => lengthData.point);
+        const axisSnap = new AxisSnap(lengthData.point, lengthData.direction);
         super(document, controller, [objectSnap, axisSnap], lengthData);
     }
 
     protected getPointFromInput(view: IView, text: string): SnapedData {
         let dist = Number(text);
-        if (this.shouldReserse()) {
-            dist = -dist;
-        }
-        let point = this.data.point.add(this.data.direction.multiply(dist));
-        return {
-            view,
-            point,
-            distance: dist,
-            shapes: [],
-        };
+        dist = this.shouldReserse() ? -dist : dist;
+        const point = this.data.point.add(this.data.direction.multiply(dist));
+        return { view, point, distance: dist, shapes: [] };
     }
 
     private shouldReserse() {
@@ -45,17 +38,16 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapDa
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        let n = Number(text);
-        if (Number.isNaN(n)) return "error.input.invalidNumber";
-        return undefined;
+        const n = Number(text);
+        return Number.isNaN(n) ? "error.input.invalidNumber" : undefined;
     }
 }
 
 export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlaneData> {
     constructor(document: IDocument, controller: AsyncController, lengthData: SnapLengthAtPlaneData) {
-        let objectSnap = new ObjectSnap(Config.instance.snapType, lengthData.point);
-        let trackingSnap = new TrackingSnap(lengthData.point, false);
-        let planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
+        const objectSnap = new ObjectSnap(Config.instance.snapType, lengthData.point);
+        const trackingSnap = new TrackingSnap(lengthData.point, false);
+        const planeSnap = new PlaneSnap(lengthData.plane, lengthData.point);
         super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
@@ -78,9 +70,8 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        let ns = text.split(",").map((x) => Number(x));
-        if (ns.some((x) => Number.isNaN(x))) return "error.input.invalidNumber";
-        if (ns.length !== 1 && ns.length !== 2) {
+        const ns = text.split(",").map(Number);
+        if (ns.some(Number.isNaN) || (ns.length !== 1 && ns.length !== 2)) {
             return "error.input.invalidNumber";
         }
         return undefined;

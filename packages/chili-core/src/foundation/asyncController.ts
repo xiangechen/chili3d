@@ -8,10 +8,10 @@ export interface AsyncResult {
 }
 
 export class AsyncController implements IDisposable {
-    private readonly _failHandles: ((state: AsyncResult) => void)[] = [];
-    private readonly _successHandles: ((state: AsyncResult) => void)[] = [];
-
+    private readonly _failListeners = new Set<(state: AsyncResult) => void>();
+    private readonly _successListeners = new Set<(state: AsyncResult) => void>();
     private _result: AsyncResult | undefined;
+
     get result() {
         return this._result;
     }
@@ -21,38 +21,38 @@ export class AsyncController implements IDisposable {
     }
 
     fail = (message?: string) => {
-        this.handle(this._failHandles, "fail", message);
+        this.notifyListeners(this._failListeners, "fail", message);
     };
 
     cancel = (message?: string) => {
-        this.handle(this._failHandles, "cancel", message);
+        this.notifyListeners(this._failListeners, "cancel", message);
     };
 
     success = (message?: string) => {
-        this.handle(this._successHandles, "success", message);
+        this.notifyListeners(this._successListeners, "success", message);
     };
 
-    private handle(
-        handlers: ((result: AsyncResult) => void)[],
-        status: "success" | "cancel" | "fail",
+    private notifyListeners(
+        listeners: Set<(result: AsyncResult) => void>,
+        status: AsyncResult["status"],
         message?: string,
     ) {
         if (this._result === undefined) {
             this._result = { status, message };
-            handlers.forEach((x) => x(this._result!));
+            listeners.forEach((listener) => listener(this._result!));
         }
     }
 
     onCancelled(listener: (result: AsyncResult) => void): void {
-        this._failHandles.push(listener);
+        this._failListeners.add(listener);
     }
 
     onCompleted(listener: (result: AsyncResult) => void): void {
-        this._successHandles.push(listener);
+        this._successListeners.add(listener);
     }
 
     dispose() {
-        this._failHandles.length = 0;
-        this._successHandles.length = 0;
+        this._failListeners.clear();
+        this._successListeners.clear();
     }
 }

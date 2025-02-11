@@ -40,21 +40,26 @@ export class OffsetCommand extends CreateCommand {
                 return {
                     point: ax.point,
                     direction: ax.direction,
-                    preview: (point: XYZ | undefined) => {
-                        let res: ShapeMeshData[] = [this.previewPoint(ax.point)];
-                        if (point === undefined) return res;
-                        res.push(this.previewLine(ax.point, point));
-
-                        let distance = point.sub(ax.point).dot(ax.direction);
-                        let shape = this.createOffsetShape(ax.normal, distance);
-                        if (shape.isOk) {
-                            res.push(shape.value.mesh.edges!);
-                        }
-                        return res;
-                    },
+                    preview: (point: XYZ | undefined) => this.previewShape(ax, point),
                 };
             }),
         ];
+    }
+
+    private previewShape(
+        ax: { point: XYZ; direction: XYZ; normal: XYZ },
+        point: XYZ | undefined,
+    ): ShapeMeshData[] {
+        let res: ShapeMeshData[] = [this.previewPoint(ax.point)];
+        if (point !== undefined) {
+            res.push(this.previewLine(ax.point, point));
+            let distance = point.sub(ax.point).dot(ax.direction);
+            let shape = this.createOffsetShape(ax.normal, distance);
+            if (shape.isOk) {
+                res.push(shape.value.mesh.edges!);
+            }
+        }
+        return res;
     }
 
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
@@ -72,8 +77,8 @@ export class OffsetCommand extends CreateCommand {
         if (shape.shapeType === ShapeType.Wire) {
             face = (shape as IWire).toFace().value;
         }
-        let normal = face.normal(0, 0)[1];
-        let { nearest, direction } = this.getNearstPointAndDirection(shape, start, normal);
+        const normal = face.normal(0, 0)[1];
+        const { nearest, direction } = this.getNearstPointAndDirection(shape, start, normal);
         return {
             point: nearest.point,
             normal,
@@ -82,9 +87,9 @@ export class OffsetCommand extends CreateCommand {
     }
 
     private getEdgeAxis(edge: IEdge, start: XYZ) {
-        let curve = edge.curve();
-        let direction = curve.dn(curve.parameter(start, 1e-3)!, 1);
-        let normal = GeoUtils.normal(edge);
+        const curve = edge.curve();
+        const direction = curve.dn(curve.parameter(start, 1e-3)!, 1);
+        const normal = GeoUtils.normal(edge);
         return {
             point: start,
             normal,
@@ -97,11 +102,11 @@ export class OffsetCommand extends CreateCommand {
         if (shape.shapeType === ShapeType.Face) {
             wire = (shape as IFace).outerWire();
         }
-        let nearest = GeoUtils.nearestPoint(wire, start);
-        let nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).value;
+        const nearest = GeoUtils.nearestPoint(wire, start);
+        const nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).value;
         let direction = nearest.edge.curve().dn(0, 1);
-        let scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
-        let nextDirection = nextEdge.curve().dn(0, 1).multiply(scale);
+        const scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
+        const nextDirection = nextEdge.curve().dn(0, 1).multiply(scale);
         if (direction.cross(nextDirection).normalize()?.isOppositeTo(normal)) {
             direction = direction.multiply(-1);
         }

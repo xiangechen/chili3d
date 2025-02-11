@@ -17,13 +17,16 @@ export class Editor extends HTMLElement {
 
     constructor(app: IApplication, tabs: RibbonTab[]) {
         super();
-        let viewport = new LayoutViewport(app);
+        const viewport = new LayoutViewport(app);
         viewport.classList.add(style.viewport);
-        this.ribbonContent = new RibbonDataContent(
-            app,
-            quickCommands,
-            tabs.map((p) => RibbonTabData.fromProfile(p)),
-        );
+
+        this.ribbonContent = new RibbonDataContent(app, quickCommands, tabs.map(RibbonTabData.fromProfile));
+
+        this.render(viewport);
+        document.body.appendChild(this);
+    }
+
+    private render(viewport: LayoutViewport) {
         this.append(
             div(
                 { className: style.root },
@@ -40,14 +43,12 @@ export class Editor extends HTMLElement {
                 new Statusbar(style.statusbar),
             ),
         );
-        document.body.appendChild(this);
     }
 
     registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
-        this.ribbonContent.ribbonTabs
-            .find((p) => p.tabName === tabName)
-            ?.groups.find((p) => p.groupName === groupName)
-            ?.items.push(command);
+        const tab = this.ribbonContent.ribbonTabs.find((p) => p.tabName === tabName);
+        const group = tab?.groups.find((p) => p.groupName === groupName);
+        group?.items.push(command);
     }
 }
 

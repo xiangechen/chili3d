@@ -60,55 +60,43 @@ export class ThreeVisualContext implements IVisualContext {
 
     private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
         if (args.action === CollectionAction.add) {
-            args.items.forEach((item: Material) => {
-                this.createThreeMaterial(item);
-            });
+            args.items.forEach(this.createThreeMaterial.bind(this));
         } else if (args.action === CollectionAction.remove) {
-            args.items.forEach((item: Material) => {
-                let material = this.materialMap.get(item.id);
-                this.materialMap.delete(item.id);
-                DeepObserver.removeDeepPropertyChangedHandler(item, this.onMaterialPropertyChanged);
-                material?.dispose();
-            });
+            args.items.forEach(this.removeThreeMaterial.bind(this));
         }
     };
 
     private createThreeMaterial(material: Material) {
-        let result = ThreeHelper.parseToThreeMaterial(material);
+        const result = ThreeHelper.parseToThreeMaterial(material);
         DeepObserver.addDeepPropertyChangedHandler(material, this.onMaterialPropertyChanged);
         this.materialMap.set(material.id, result);
     }
 
-    getMaterial(id: string): ThreeMaterial {
-        let material = this.materialMap.get(id);
-        if (!material) {
-            throw new Error(`Material not found: ${id}`);
-        }
-        return material;
+    private removeThreeMaterial(item: Material) {
+        const material = this.materialMap.get(item.id);
+        this.materialMap.delete(item.id);
+        DeepObserver.removeDeepPropertyChangedHandler(item, this.onMaterialPropertyChanged);
+        material?.dispose();
     }
 
     private readonly onMaterialPropertyChanged = (path: string, source: any) => {
-        let material = this.materialMap.get(source?.id) as any;
+        const material: any = this.materialMap.get(source?.id);
         if (!material) return;
 
-        let { isOk, value } = DeepObserver.getPathValue(source, path);
+        const { isOk, value } = DeepObserver.getPathValue(source, path);
         if (!isOk) return;
 
         if (path === "color") {
             material.color.set(value);
-            return;
-        }
-
-        if (!path.includes(".")) {
+        } else if (!path.includes(".")) {
             material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value) : value;
-            return;
+        } else {
+            this.setTextureValue(source, material, path, value);
         }
-
-        this.setTextureValue(source, material, path, value);
     };
 
     private setTextureValue(material: any, threeMaterial: any, path: string, value: any) {
-        let paths = path.split(".");
+        const paths = path.split(".");
         if (path.endsWith(".image") && material[paths[0]] instanceof Texture && paths[0] in threeMaterial) {
             threeMaterial[paths[0]] = ThreeHelper.loadTexture(material[paths[0]]);
             return;
@@ -128,15 +116,15 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     handleNodeChanged = (records: NodeRecord[]) => {
-        let adds: INode[] = [],
-            rms: INode[] = [];
+        const adds: INode[] = [];
+        const rms: INode[] = [];
         records.forEach((x) => {
             if (x.action === NodeAction.add) {
                 INode.nodeOrChildrenAppendToNodes(adds, x.node);
             } else if (x.action === NodeAction.remove) {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
-            } else if (x.action === NodeAction.move) {
-                if (x.newParent) this.moveNode(x.node, x.oldParent!);
+            } else if (x.action === NodeAction.move && x.newParent) {
+                this.moveNode(x.node, x.oldParent!);
             }
         });
 
@@ -292,13 +280,14 @@ export class ThreeVisualContext implements IVisualContext {
 
     addNode(nodes: INode[]) {
         nodes.forEach((node) => {
-            if (this._NodeVisualMap.has(node)) return;
-            this.displayNode(node);
+            if (!this._NodeVisualMap.has(node)) {
+                this.displayNode(node);
+            }
         });
     }
 
     private displayNode(node: INode) {
-        let visualObject: (IVisualObject & Object3D) | undefined = undefined;
+        let visualObject: (IVisualObject & Object3D) | undefined;
         if (node instanceof MeshNode) {
             visualObject = new ThreeMeshObject(this, node);
         } else if (node instanceof GeometryNode) {
@@ -308,7 +297,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
 
         if (visualObject) {
-            let parent = this.getParentVisual(node);
+            const parent = this.getParentVisual(node);
             parent.add(visualObject);
             this._visualNodeMap.set(visualObject, node);
             this._NodeVisualMap.set(node, visualObject);
@@ -354,5 +343,13 @@ export class ThreeVisualContext implements IVisualContext {
             }
         });
         return shapes;
+    }
+
+    getMaterial(id: string): ThreeMaterial {
+        const material = this.materialMap.get(id);
+        if (!material) {
+            throw new Error(`Material not found: ${id}`);
+        }
+        return material;
     }
 }

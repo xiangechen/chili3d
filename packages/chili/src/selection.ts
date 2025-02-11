@@ -31,7 +31,7 @@ export class Selection implements ISelection, IDisposable {
     constructor(readonly document: IDocument) {}
 
     async pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
-        let handler = new SubshapeSelectionHandler(
+        const handler = new SubshapeSelectionHandler(
             this.document,
             this.shapeType,
             multiMode,
@@ -43,7 +43,7 @@ export class Selection implements ISelection, IDisposable {
     }
 
     async pickNode(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
-        let handler = new NodeSelectionHandler(this.document, multiMode, controller, this.nodeFilter);
+        const handler = new NodeSelectionHandler(this.document, multiMode, controller, this.nodeFilter);
         await this.pickAsync(handler, prompt, controller, multiMode);
         return handler.nodes();
     }
@@ -55,22 +55,25 @@ export class Selection implements ISelection, IDisposable {
         showControl: boolean,
         cursor: CursorType = "select.default",
     ) {
-        let oldHandler = this.document.visual.eventHandler;
+        const oldHandler = this.document.visual.eventHandler;
         this.document.visual.eventHandler = handler;
         PubSub.default.pub("viewCursor", cursor);
         PubSub.default.pub("statusBarTip", prompt);
         if (showControl) PubSub.default.pub("showSelectionControl", controller);
-        await new Promise((resolve, reject) => {
-            controller.onCompleted(resolve);
-            controller.onCancelled(reject);
-        })
-            .catch((e) => Logger.debug("pick status: ", e))
-            .finally(() => {
-                if (showControl) PubSub.default.pub("clearSelectionControl");
-                PubSub.default.pub("clearStatusBarTip");
-                this.document.visual.eventHandler = oldHandler;
-                PubSub.default.pub("viewCursor", "default");
+
+        try {
+            await new Promise((resolve, reject) => {
+                controller.onCompleted(resolve);
+                controller.onCancelled(reject);
             });
+        } catch (e) {
+            Logger.debug("pick status: ", e);
+        } finally {
+            if (showControl) PubSub.default.pub("clearSelectionControl");
+            PubSub.default.pub("clearStatusBarTip");
+            this.document.visual.eventHandler = oldHandler;
+            PubSub.default.pub("viewCursor", "default");
+        }
     }
 
     dispose(): void {
@@ -121,8 +124,8 @@ export class Selection implements ISelection, IDisposable {
     }
 
     private toggleSelectPublish(nodes: INode[], publish: boolean) {
-        let selected = nodes.filter((m) => this._selectedNodes.includes(m));
-        let unSelected = nodes.filter((m) => !this._selectedNodes.includes(m));
+        const selected = nodes.filter((m) => this._selectedNodes.includes(m));
+        const unSelected = nodes.filter((m) => !this._selectedNodes.includes(m));
         this.removeSelectedPublish(selected, false);
         this.addSelectPublish(unSelected, publish);
     }
@@ -130,7 +133,7 @@ export class Selection implements ISelection, IDisposable {
     private addSelectPublish(nodes: INode[], publish: boolean) {
         nodes.forEach((m) => {
             if (m instanceof VisualNode) {
-                let visual = this.document.visual.context.getVisual(m);
+                const visual = this.document.visual.context.getVisual(m);
                 if (visual)
                     this.document.visual.highlighter.addState(visual, VisualState.selected, ShapeType.Shape);
             }

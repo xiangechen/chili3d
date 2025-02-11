@@ -6,7 +6,7 @@ import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 
 export class TreeGroup extends TreeItem {
-    private _isExpanded: boolean = true;
+    private _isExpanded = true;
     readonly header: HTMLElement;
     readonly items: HTMLDivElement = div({ className: `${style.container} ${style.left16px}` });
     readonly expanderIcon: SVGSVGElement;
@@ -34,11 +34,7 @@ export class TreeGroup extends TreeItem {
     set isExpanded(value: boolean) {
         this._isExpanded = value;
         setSVGIcon(this.expanderIcon, this.getExpanderIcon());
-        if (this._isExpanded) {
-            this.items.classList.remove(style.hide);
-        } else {
-            this.items.classList.add(style.hide);
-        }
+        this.items.classList.toggle(style.hide, !this._isExpanded);
     }
 
     getSelectedHandler(): HTMLElement {
@@ -47,7 +43,7 @@ export class TreeGroup extends TreeItem {
 
     override dispose() {
         super.dispose();
-        this.header.remove(); // resolve memory leaks
+        this.header.remove();
         this.expanderIcon.removeEventListener("click", this.handleExpanderClick);
     }
 
@@ -57,7 +53,7 @@ export class TreeGroup extends TreeItem {
     };
 
     private getExpanderIcon() {
-        return this._isExpanded === true ? "icon-angle-down" : "icon-angle-right";
+        return this._isExpanded ? "icon-angle-down" : "icon-angle-right";
     }
 
     override appendChild<T extends Node>(node: T): T {
@@ -80,11 +76,8 @@ export class TreeGroup extends TreeItem {
     }
 
     insertAfter(item: TreeItem, child: TreeItem | null): void {
-        if (child === null) {
-            this.items.insertBefore(item, this.items.firstChild);
-        } else {
-            this.items.insertBefore(item, child?.nextSibling ?? null);
-        }
+        const referenceNode = child ? child.nextSibling : this.items.firstChild;
+        this.items.insertBefore(item, referenceNode);
     }
 }
 

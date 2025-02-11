@@ -17,8 +17,8 @@ export class RibbonButton extends HTMLElement {
     }
 
     static fromCommandName(commandName: CommandKeys, size: ButtonSize) {
-        let data = Command.getData(commandName);
-        if (data === undefined) {
+        const data = Command.getData(commandName);
+        if (!data) {
             Logger.warn(`commandData of ${commandName} is undefined`);
             return undefined;
         }
@@ -32,17 +32,10 @@ export class RibbonButton extends HTMLElement {
     }
 
     private initHTML(display: I18nKeys, icon: string, size: ButtonSize) {
-        let image = svg({
-            icon,
-        });
-        if (size === ButtonSize.large) {
-            image.classList.add(style.icon);
-            this.className = style.normal;
-        } else {
-            image.classList.add(style.smallIcon);
-            this.className = style.small;
-        }
-        let text = label({
+        const image = svg({ icon });
+        this.className = size === ButtonSize.large ? style.normal : style.small;
+        image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
+        const text = label({
             className: style.buttonText,
             textContent: localize(display),
         });
