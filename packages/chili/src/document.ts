@@ -115,8 +115,8 @@ export class Document extends Observable implements IDocument {
         return serialized;
     }
 
-    override dispose(): void {
-        super.dispose();
+    override disposeInternal(): void {
+        super.disposeInternal();
         this._nodeChangedObservers.clear();
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
         this._rootNode?.dispose();
@@ -168,14 +168,14 @@ export class Document extends Observable implements IDocument {
             Logger.warn(`document: ${id} not find`);
             return;
         }
-        let document = this.load(application, data);
+        let document = await this.load(application, data);
         if (document !== undefined) {
             Logger.info(`document: ${document.name} opened`);
         }
         return document;
     }
 
-    static load(app: IApplication, data: Serialized): IDocument | undefined {
+    static async load(app: IApplication, data: Serialized): Promise<IDocument | undefined> {
         if ((data as any).version !== __DOCUMENT_VERSION__) {
             alert(
                 "The file version has been upgraded, no compatibility treatment was done in the development phase",
@@ -189,7 +189,9 @@ export class Document extends Observable implements IDocument {
                 Serializer.deserializeObject(document, x),
             ),
         );
-        document.setRootNode(NodeSerializer.deserialize(document, data.properties["nodes"]));
+
+        const rootNode = await NodeSerializer.deserialize(document, data.properties["nodes"]);
+        document.setRootNode(rootNode);
         document.history.disabled = false;
         return document;
     }

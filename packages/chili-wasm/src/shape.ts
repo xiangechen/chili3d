@@ -168,14 +168,20 @@ export class OccShape implements IShape {
         this.shape.reverse();
     }
 
-    dispose(): void {
+    #isDisposed = false;
+    readonly dispose = () => {
+        if (this.#isDisposed) {
+            return;
+        }
+        this.#isDisposed = true;
+
         this._shape.delete();
         this._shape = null as any;
         if (this._mesh && IDisposable.isDisposable(this._mesh)) {
             this._mesh.dispose();
             this._mesh = null as any;
         }
-    }
+    };
 }
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)

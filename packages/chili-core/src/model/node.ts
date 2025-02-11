@@ -354,7 +354,7 @@ export namespace NodeSerializer {
         return nodes;
     }
 
-    export function deserialize(document: IDocument, nodes: Serialized[]) {
+    export async function deserialize(document: IDocument, nodes: Serialized[]) {
         let nodeMap: Map<string, INodeLinkedList> = new Map();
         nodes.forEach((n) => {
             let node = Serializer.deserializeObject(document, n);
@@ -369,6 +369,6 @@ export namespace NodeSerializer {
                 console.warn("parent not found: " + parentId);
             }
         });
-        return nodeMap.get(nodes[0].properties["id"]);
+        return Promise.resolve(nodeMap.get(nodes[0].properties["id"]));
     }
 }

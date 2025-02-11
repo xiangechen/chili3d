@@ -48,8 +48,10 @@ test("test Node Serializer", () => {
     n1.add(n2, n3);
     n2.add(n4);
     let s = NodeSerializer.serialize(n1);
-    let n11: any = NodeSerializer.deserialize(doc, s)!;
-    expect(n11.firstChild.name).toBe("n2");
-    expect(n11.firstChild.nextSibling.name).toBe("n3");
-    expect(n11.firstChild.firstChild.name).toBe("n4");
+
+    NodeSerializer.deserialize(doc, s).then((n11: any) => {
+        expect(n11.firstChild.name).toBe("n2");
+        expect(n11.firstChild.nextSibling.name).toBe("n3");
+        expect(n11.firstChild.firstChild.name).toBe("n4");
+    });
 });

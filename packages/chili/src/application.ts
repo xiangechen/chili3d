@@ -165,7 +165,7 @@ export class Application implements IApplication {
     }
 
     async loadDocument(data: Serialized): Promise<IDocument | undefined> {
-        const document = Document.load(this, data);
+        const document = await Document.load(this, data);
         await this.createActiveView(document);
         return document;
     }

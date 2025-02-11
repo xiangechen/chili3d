@@ -99,11 +99,11 @@ export class Observable implements IPropertyChanged {
         this.propertyChangedHandlers.clear();
     }
 
-    dispose() {
+    readonly dispose = () => {
         if (this._isDisposed) return;
         this._isDisposed = true;
         this.disposeInternal();
-    }
+    };
 
     protected disposeInternal() {
         this.propertyChangedHandlers.clear();
