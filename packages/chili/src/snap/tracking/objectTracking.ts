@@ -26,6 +26,7 @@ export class ObjectTracking {
     }
 
     clear(): void {
+        this.clearTimer();
         this.isCleared = true;
         this.trackings.forEach((v, k) => {
             v.forEach((s) => k.visual.context.removeMesh(s.shapeId));
@@ -45,12 +46,16 @@ export class ObjectTracking {
     showTrackingAtTimeout(document: IDocument, snap?: SnapedData) {
         if (snap !== undefined && this.snapping === snap) return;
         this.snapping = snap;
+        this.clearTimer();
+        if (!snap) return;
+        this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
+    }
+
+    private clearTimer() {
         if (this.timer !== undefined) {
             clearTimeout(this.timer);
             this.timer = undefined;
         }
-        if (!snap) return;
-        this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }
 
     private switchTrackingPoint(document: IDocument, snap: SnapedData) {

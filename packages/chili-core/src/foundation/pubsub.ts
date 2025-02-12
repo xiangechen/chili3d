@@ -36,7 +36,6 @@ export interface PubSubEventMap {
     showProperties(document: IDocument, nodes: INode[]): void;
     showSelectionControl: (controller: AsyncController) => void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
-    snapTypeChanged: (snapeType: ObjectSnapType) => void;
     statusBarTip: (tip: I18nKeys) => void;
     viewClosed: (view: IView) => void;
     viewCursor: (cursor: CursorType) => void;

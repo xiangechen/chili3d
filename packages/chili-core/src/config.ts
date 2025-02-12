@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Lazy, PubSub } from "./foundation";
+import { Observable } from "./foundation";
 import { ObjectSnapType } from "./snapType";
 
 export const VisualConfig = {
@@ -21,32 +21,45 @@ export const VisualConfig = {
     temporaryEdgeColor: 0x0000ff,
 };
 
-export class Config {
-    private static readonly _lazy = new Lazy(() => new Config());
+export class Config extends Observable {
+    static readonly #instance = new Config();
 
     static get instance() {
-        return this._lazy.value;
+        return this.#instance;
     }
 
-    private _snapType: ObjectSnapType;
     get snapType() {
-        return this._snapType;
+        return this.getPrivateValue(
+            "snapType",
+            ObjectSnapType.midPoint |
+                ObjectSnapType.endPoint |
+                ObjectSnapType.center |
+                ObjectSnapType.perpendicular |
+                ObjectSnapType.intersection |
+                ObjectSnapType.nearest,
+        );
+    }
+    set snapType(snapType: ObjectSnapType) {
+        this.setProperty("snapType", snapType);
     }
 
-    set snapType(snapType: ObjectSnapType) {
-        this._snapType = snapType;
-        PubSub.default.pub("snapTypeChanged", snapType);
+    get enableSnapTracking() {
+        return this.getPrivateValue("enableSnapTracking", true);
+    }
+    set enableSnapTracking(value: boolean) {
+        this.setProperty("enableSnapTracking", value);
+    }
+
+    get enableSnap() {
+        return this.getPrivateValue("enableSnap", true);
+    }
+    set enableSnap(value: boolean) {
+        this.setProperty("enableSnap", value);
     }
 
     readonly SnapDistance: number = 5;
 
-    constructor() {
-        this._snapType =
-            ObjectSnapType.midPoint |
-            ObjectSnapType.endPoint |
-            ObjectSnapType.center |
-            ObjectSnapType.perpendicular |
-            ObjectSnapType.intersection |
-            ObjectSnapType.nearest;
+    private constructor() {
+        super();
     }
 }

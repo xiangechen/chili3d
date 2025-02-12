@@ -169,6 +169,8 @@ export default {
         "snap.mid": "Middle",
         "snap.perpendicular": "Perpendicular",
         "snap.nearest": "Nearest",
+        "statusBar.snap": "Snap",
+        "statusBar.tracking": "Tracking",
         "toast.command.{0}excuting": "Command {0} is runing",
         "toast.converter.error": "Converter error",
         "toast.converter.invalidColor": "The color is invalid",

@@ -20,4 +20,12 @@ export namespace ObjectSnapType {
     export function has(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
         return (snapTypes & targetType) === targetType;
     }
+
+    export function add(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
+        return snapTypes | targetType;
+    }
+
+    export function remove(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
+        return snapTypes & ~targetType;
+    }
 }

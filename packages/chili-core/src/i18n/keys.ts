@@ -163,6 +163,8 @@ const I18N_KEYS = [
     "snap.mid",
     "snap.perpendicular",
     "snap.nearest",
+    "statusBar.snap",
+    "statusBar.tracking",
     "toast.command.{0}excuting",
     "toast.converter.error",
     "toast.converter.invalidColor",

@@ -1,10 +1,22 @@
 .panel {
     background: var(--statusbar-background-color);
     border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 8px;
 }
 
-.tip {
-    font-size: 12px;
-    margin: 4px 8px;
-    color: var(--statusbar-foreground-color);
+.left {
+    flex: 1;
+
+    .tip {
+        font-size: 12px;
+        margin: 4px 8px;
+        color: var(--statusbar-foreground-color);
+    }
+}
+
+.right {
+    flex: 0 1 auto;
 }

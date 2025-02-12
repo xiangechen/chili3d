@@ -8,9 +8,7 @@ import {
     IEdge,
     IView,
     LineType,
-    ObjectSnapType,
     Precision,
-    PubSub,
     Ray,
     ShapeType,
     VisualConfig,
@@ -42,14 +40,18 @@ export class TrackingSnap implements ISnap {
     ) {
         this._axisTracking = new AxisTracking(trackingAxisZ);
         this._objectTracking = new ObjectTracking(trackingAxisZ);
-        PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
+        Config.instance.onPropertyChanged(this.onSnapTypeChanged);
     }
 
     readonly handleSnaped = (document: IDocument, snaped?: SnapedData) => {
-        this._objectTracking.showTrackingAtTimeout(document, snaped);
+        if (Config.instance.enableSnapTracking) {
+            this._objectTracking.showTrackingAtTimeout(document, snaped);
+        }
     };
 
     snap(data: MouseAndDetected): SnapedData | undefined {
+        if (!Config.instance.enableSnapTracking) return undefined;
+
         const trackingDatas = this.detectTracking(data.view, data.mx, data.my);
         if (trackingDatas.length === 0) return undefined;
         trackingDatas.sort((x) => x.distance);
@@ -182,15 +184,18 @@ export class TrackingSnap implements ISnap {
         this._tempLines.clear();
     }
 
-    private onSnapTypeChanged(snapType: ObjectSnapType): void {
-        this.removeDynamicObject();
-        this._objectTracking.clear();
-        this._axisTracking.clear();
-    }
+    private readonly onSnapTypeChanged = (property: keyof Config): void => {
+        if (property === "snapType" || property === "enableSnapTracking" || property === "enableSnap") {
+            this.removeDynamicObject();
+            this._objectTracking.clear();
+            this._axisTracking.clear();
+        }
+    };
 
     clear(): void {
         this.removeDynamicObject();
         this._axisTracking.clear();
         this._objectTracking.clear();
+        Config.instance.removePropertyChanged(this.onSnapTypeChanged);
     }
 }

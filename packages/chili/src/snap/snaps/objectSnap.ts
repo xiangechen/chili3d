@@ -10,7 +10,6 @@ import {
     IView,
     IVisualContext,
     ObjectSnapType,
-    PubSub,
     ShapeType,
     VertexMeshData,
     VisualConfig,
@@ -41,7 +40,7 @@ export class ObjectSnap implements ISnap {
         this._featureInfos = new Map();
         this._intersectionInfos = new Map();
         this._invisibleInfos = new Map();
-        PubSub.default.sub("snapTypeChanged", this.onSnapTypeChanged);
+        Config.instance.onPropertyChanged(this.onSnapTypeChanged);
     }
 
     clear() {
@@ -50,6 +49,7 @@ export class ObjectSnap implements ISnap {
             info.displays.forEach((x) => info.view.document.visual.context.removeMesh(x));
         });
         this.removeHint();
+        Config.instance.removePropertyChanged(this.onSnapTypeChanged);
     }
 
     handleSnaped = (document: IDocument, snaped?: SnapedData | undefined) => {
@@ -59,11 +59,13 @@ export class ObjectSnap implements ISnap {
         }
     };
 
-    private onSnapTypeChanged(snapType: ObjectSnapType) {
-        this._snapType = snapType;
-        this._featureInfos.clear();
-        this._intersectionInfos.clear();
-    }
+    private readonly onSnapTypeChanged = (property: keyof Config) => {
+        if (property === "snapType" || property === "enableSnap") {
+            this._snapType = Config.instance.snapType;
+            this._featureInfos.clear();
+            this._intersectionInfos.clear();
+        }
+    };
 
     removeDynamicObject(): void {
         this.unHilighted();
@@ -78,6 +80,8 @@ export class ObjectSnap implements ISnap {
     }
 
     snap(data: MouseAndDetected): SnapedData | undefined {
+        if (!Config.instance.enableSnap) return undefined;
+
         let snap: SnapedData | undefined;
         if (data.shapes.length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
