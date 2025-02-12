@@ -34,7 +34,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         const transform = this.transfrom(point);
         const positions = transform.ofPoints(this.positions!);
         return {
-            positions,
+            positions: new Float32Array(positions),
             lineType: LineType.Solid,
             color: VisualConfig.defaultEdgeColor,
             groups: [],

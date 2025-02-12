@@ -67,7 +67,7 @@ export interface ShapeMeshGroup {
 }
 
 export interface ShapeMeshData {
-    positions: number[];
+    positions: Float32Array;
     groups: ShapeMeshGroup[];
     color?: number | number[];
 }
@@ -93,7 +93,7 @@ export interface VertexMeshData extends ShapeMeshData {
 export namespace VertexMeshData {
     export function from(point: XYZ, size: number, color: number): VertexMeshData {
         return {
-            positions: [point.x, point.y, point.z],
+            positions: new Float32Array([point.x, point.y, point.z]),
             groups: [],
             color,
             size,
@@ -109,7 +109,7 @@ export interface EdgeMeshData extends ShapeMeshData {
 export namespace EdgeMeshData {
     export function from(start: XYZ, end: XYZ, color: number, lineType: LineType): EdgeMeshData {
         return {
-            positions: [start.x, start.y, start.z, end.x, end.y, end.z],
+            positions: new Float32Array([start.x, start.y, start.z, end.x, end.y, end.z]),
             color,
             lineType,
             groups: [],
@@ -118,9 +118,16 @@ export namespace EdgeMeshData {
 }
 
 export interface FaceMeshData extends ShapeMeshData {
-    indices: number[];
-    normals: number[];
-    uvs: number[];
+    indices: Uint16Array | Uint32Array;
+    normals: Float32Array;
+    uvs: Float32Array;
+}
+
+export function arrayNeedsUint32(array: number[]) {
+    for (let i = array.length - 1; i >= 0; --i) {
+        if (array[i] >= 65535) return true; // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
+    }
+    return false;
 }
 
 export abstract class MeshDataBuilder<T extends ShapeMeshData> {
@@ -199,7 +206,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     override build(): EdgeMeshData {
         let color = this.getColor()!;
         return {
-            positions: this._positions,
+            positions: new Float32Array(this._positions),
             groups: this._groups,
             lineType: this._lineType,
             color,
@@ -257,11 +264,13 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     build(): FaceMeshData {
         let color = this.getColor()!;
         return {
-            positions: this._positions,
+            positions: new Float32Array(this._positions),
             color,
-            normals: this._normals,
-            indices: this._indices,
-            uvs: this._uvs,
+            normals: new Float32Array(this._normals),
+            indices: arrayNeedsUint32(this._indices)
+                ? new Uint32Array(this._indices)
+                : new Uint16Array(this._indices),
+            uvs: new Float32Array(this._uvs),
             groups: this._groups,
         };
     }

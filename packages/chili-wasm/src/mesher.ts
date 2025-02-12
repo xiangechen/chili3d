@@ -1,4 +1,5 @@
 import {
+    arrayNeedsUint32,
     EdgeMeshData,
     FaceMeshData,
     IDisposable,
@@ -18,10 +19,10 @@ export class Mesher implements IShapeMeshData, IDisposable {
 
     get edges(): EdgeMeshData | undefined {
         if (this._lines === undefined) {
-            let edgeMesher = new wasm.EdgeMesher(this.shape.shape, this._lineDeflection);
+            const edgeMesher = new wasm.EdgeMesher(this.shape.shape, this._lineDeflection);
             this._lines = {
                 lineType: LineType.Solid,
-                positions: edgeMesher.getPosition(),
+                positions: new Float32Array(edgeMesher.getPosition()),
                 groups: this.getEdgeGroups(edgeMesher),
                 color: VisualConfig.defaultEdgeColor,
             };
@@ -31,12 +32,13 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
     get faces(): FaceMeshData | undefined {
         if (this._faces === undefined) {
-            let faceMesher = new wasm.FaceMesher(this.shape.shape, this._lineDeflection);
+            const faceMesher = new wasm.FaceMesher(this.shape.shape, this._lineDeflection);
+            const index = faceMesher.getIndex();
             this._faces = {
-                positions: faceMesher.getPosition(),
-                normals: faceMesher.getNormal(),
-                uvs: faceMesher.getUV(),
-                indices: faceMesher.getIndex(),
+                positions: new Float32Array(faceMesher.getPosition()),
+                normals: new Float32Array(faceMesher.getNormal()),
+                uvs: new Float32Array(faceMesher.getUV()),
+                indices: arrayNeedsUint32(index) ? new Uint32Array(index) : new Uint16Array(index),
                 groups: this.getFaceGroups(faceMesher),
                 color: VisualConfig.defaultFaceColor,
             };

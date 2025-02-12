@@ -46,7 +46,7 @@ export class GeometryState {
 
     private setWholeState(method: "add" | "remove", state: VisualState, type: ShapeType) {
         const key = this.state_key(type);
-        let [oldState, newState] = this.updateStates(key, method, state);
+        let [_oldState, newState] = this.updateStates(key, method, state);
         if (this.visual instanceof ThreeGeometry) {
             if (newState === VisualState.normal) {
                 this.visual.removeTemperaryMaterial();
@@ -128,10 +128,10 @@ export class GeometryState {
     private getOrCloneGeometry(type: ShapeType, key: string, index: number) {
         if (!(this.visual instanceof ThreeGeometry)) return undefined;
 
-        let geometry = this._states.get(key)?.[1];
+        const geometry = this._states.get(key)?.[1];
         if (geometry) return geometry;
 
-        let points: number[] | undefined = undefined;
+        let points: Float32Array | undefined = undefined;
         if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
             points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }

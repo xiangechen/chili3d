@@ -31,7 +31,7 @@ export class MathUtils {
         return value;
     }
 
-    static minMax(values: number[]) {
+    static minMax(values: ArrayLike<number>) {
         if (values.length === 0) return undefined;
 
         let min = values[0];

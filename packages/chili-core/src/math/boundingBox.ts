@@ -22,7 +22,7 @@ export class BoundingBox {
         max.z = Math.max(max.z, point.z);
     }
 
-    static fromNumbers(points: number[]): BoundingBox {
+    static fromNumbers(points: ArrayLike<number>): BoundingBox {
         const min = { x: Infinity, y: Infinity, z: Infinity };
         const max = { x: -Infinity, y: -Infinity, z: -Infinity };
 

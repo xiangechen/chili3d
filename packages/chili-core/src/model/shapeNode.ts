@@ -68,16 +68,16 @@ export class ManyMesh implements IShapeMeshData {
     constructor(readonly shapes: IShape[]) {
         this._edges = {
             lineType: LineType.Solid,
-            positions: [],
+            positions: new Float32Array(),
             groups: [],
             color: VisualConfig.defaultEdgeColor,
         };
 
         this._faces = {
-            indices: [],
-            normals: [],
-            positions: [],
-            uvs: [],
+            indices: new Uint16Array(),
+            normals: new Float32Array(),
+            positions: new Float32Array(),
+            uvs: new Float32Array(),
             groups: [],
             color: VisualConfig.defaultFaceColor,
         };
@@ -103,10 +103,16 @@ export class ManyMesh implements IShapeMeshData {
         }
 
         let start = this._faces.positions.length / 3;
-        this._faces.indices = this._faces.indices.concat(faceMeshData.indices);
-        this._faces.normals = this._faces.normals.concat(matrix.ofVectors(faceMeshData.normals));
-        this._faces.uvs = this._faces.uvs.concat(faceMeshData.uvs);
-        this._faces.positions = this._faces.positions.concat(matrix.ofPoints(faceMeshData.positions));
+        this._faces.indices = this.combineUintArray(this._faces.indices, faceMeshData.indices);
+        this._faces.normals = this.combineFloat32Array(
+            this._faces.normals,
+            matrix.ofVectors(faceMeshData.normals),
+        );
+        this._faces.uvs = this.combineFloat32Array(this._faces.uvs, faceMeshData.uvs);
+        this._faces.positions = this.combineFloat32Array(
+            this._faces.positions,
+            matrix.ofPoints(faceMeshData.positions),
+        );
         this._faces.groups = this._faces.groups.concat(
             faceMeshData.groups.map((g) => {
                 return {
@@ -118,13 +124,32 @@ export class ManyMesh implements IShapeMeshData {
         );
     }
 
+    private combineFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
+        let arr = new Float32Array(arr1.length + arr2.length);
+        arr.set(arr1);
+        arr.set(arr2, arr1.length);
+        return arr;
+    }
+
+    private combineUintArray(arr1: Uint16Array | Uint32Array, arr2: Uint16Array | Uint32Array) {
+        let array: Uint16Array | Uint32Array;
+        if (arr1 instanceof Uint16Array && arr2 instanceof Uint16Array) {
+            array = new Uint16Array(arr1.length + arr2.length);
+        } else {
+            array = new Uint32Array(arr1.length + arr2.length);
+        }
+        array.set(arr1);
+        array.set(arr2, arr1.length);
+        return array;
+    }
+
     private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {
         if (!edgeMeshData) {
             return;
         }
 
         let start = this._edges.positions.length / 3;
-        this._edges.positions = this._edges.positions.concat(matrix.ofPoints(edgeMeshData.positions));
+        this._edges.positions = this.combineFloat32Array(this._edges.positions, edgeMeshData.positions);
         this._edges.groups = this._edges.groups.concat(
             edgeMeshData.groups.map((g) => {
                 return {

@@ -78,7 +78,14 @@ export class TestEdge implements IEdge {
     get mesh(): IShapeMeshData {
         return {
             edges: {
-                positions: [this.start.x, this.start.y, this.start.z, this.end.x, this.end.y, this.end.z],
+                positions: new Float32Array([
+                    this.start.x,
+                    this.start.y,
+                    this.start.z,
+                    this.end.x,
+                    this.end.y,
+                    this.end.z,
+                ]),
                 color: 0xff0000,
                 lineType: LineType.Solid,
                 groups: [],

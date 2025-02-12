@@ -425,7 +425,7 @@ export class Matrix4 {
         return new XYZ(result[0], result[1], result[2]);
     }
 
-    public ofVectors(vectors: number[]): number[] {
+    public ofVectors(vectors: ArrayLike<number>): number[] {
         let result: number[] = [];
         for (let i = 0; i < vectors.length / 3; i++) {
             let x =

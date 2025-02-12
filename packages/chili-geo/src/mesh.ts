@@ -11,16 +11,11 @@ export class MeshUtils {
         const { min, max } = MathUtils.minMax(indices)!;
         const [indiceStart, indiceEnd] = [min, max + 1];
 
-        const positions = mesh.positions.slice(indiceStart * 3, indiceEnd * 3);
-        const uvs = mesh.uvs.slice(indiceStart * 2, indiceEnd * 2);
-        const normals = mesh.normals.slice(indiceStart * 3, indiceEnd * 3);
-        const adjustedIndices = indices.map((i) => i - indiceStart);
-
         return {
-            positions,
-            normals,
-            indices: adjustedIndices,
-            uvs,
+            positions: mesh.positions.slice(indiceStart * 3, indiceEnd * 3),
+            normals: mesh.normals.slice(indiceStart * 3, indiceEnd * 3),
+            indices: indices.map((i) => i - indiceStart),
+            uvs: mesh.uvs.slice(indiceStart * 2, indiceEnd * 2),
             groups: [],
             color: mesh.color,
         };
@@ -35,7 +30,7 @@ export class MeshUtils {
 
     static addEdge(
         pointsMap: Map<string, { count: number; points: number[] }>,
-        face: { positions: number[] },
+        face: { positions: Float32Array },
         i: number,
         j: number,
     ) {
@@ -52,7 +47,7 @@ export class MeshUtils {
         }
     }
 
-    static faceOutline(face: { positions: number[]; indices: number[] }) {
+    static faceOutline(face: { positions: Float32Array; indices: Uint16Array | Uint32Array }) {
         const pointsMap = new Map<string, { count: number; points: number[] }>();
 
         for (let i = 0; i < face.indices.length; i += 3) {
@@ -61,9 +56,11 @@ export class MeshUtils {
             this.addEdge(pointsMap, face, face.indices[i + 2], face.indices[i]);
         }
 
-        return Array.from(pointsMap.values())
-            .filter((v) => v.count === 1)
-            .flatMap((v) => v.points);
+        return new Float32Array(
+            Array.from(pointsMap.values())
+                .filter((v) => v.count === 1)
+                .flatMap((entry) => entry.points),
+        );
     }
 
     static subEdge(mesh: EdgeMeshData, index: number) {

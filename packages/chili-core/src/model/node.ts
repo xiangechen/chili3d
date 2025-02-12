@@ -318,7 +318,7 @@ export abstract class GeometryNode extends VisualNode {
     protected _boundingBox: BoundingBox | undefined;
     override boundingBox(): BoundingBox {
         if (this._boundingBox === undefined) {
-            let points = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
+            let points: ArrayLike<number> = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
             points = this.transform.ofPoints(points);
             return BoundingBox.fromNumbers(points);
         }
