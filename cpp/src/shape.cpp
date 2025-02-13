@@ -20,6 +20,7 @@
 #include <TopoDS_CompSolid.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Shell.hxx>
 #include <TopoDS_Solid.hxx>
@@ -52,6 +53,15 @@ public:
         TopExp::MapShapes(shape, shapeType, indexShape);
 
         return ShapeArray(val::array(indexShape.cbegin(), indexShape.cend()));
+    }
+
+    static ShapeArray iterShape(const TopoDS_Shape& shape) {
+        val new_array = val::array();
+        for (TopoDS_Iterator iter(shape); iter.More(); iter.Next())
+        {
+            new_array.call<void>("push", iter.Value());
+        }
+        return ShapeArray(new_array);
     }
 
     static TopoDS_Shape sectionSS(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape) {
@@ -199,6 +209,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
     class_<Shape>("Shape")
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
+        .class_function("iterShape", &Shape::iterShape)
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)

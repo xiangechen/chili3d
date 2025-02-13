@@ -812,6 +812,7 @@ interface EmbindModule {
         isClosed(_0: TopoDS_Shape): boolean;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
+        iterShape(_0: TopoDS_Shape): Array<TopoDS_Shape>;
         splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
     };
