@@ -21,7 +21,6 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private _tempPoint?: number;
     private _tempShapes?: number[];
     protected _snaped?: SnapedData;
-    private readonly validators: SnapValidator[] = [];
 
     constructor(
         readonly document: IDocument,
@@ -29,9 +28,6 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         readonly snaps: ISnap[],
         readonly data: D,
     ) {
-        if (data.validators) {
-            this.validators.push(...data.validators);
-        }
         this.showTempShape(undefined);
         controller.onCancelled((s) => {
             this.cancel();
@@ -137,12 +133,9 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private validateSnaped(snaped: SnapedData) {
-        for (const validator of this.validators) {
-            if (!validator(snaped.point!)) {
-                return false;
-            }
-        }
-        return true;
+        if (!this.data.validator) return true;
+
+        return this.data.validator(snaped.point!);
     }
 
     private findDetecteds(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {

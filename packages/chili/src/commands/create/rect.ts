@@ -37,7 +37,7 @@ export abstract class RectCommandBase extends CreateCommand {
             point: () => this.stepDatas[0].point!,
             preview: this.previewRect,
             plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
-            validators: [this.handleValid],
+            validator: this.handleValid,
             prompt: (snaped: SnapedData) => {
                 let data = this.getRectData(snaped.point!);
                 return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;

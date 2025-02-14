@@ -9,7 +9,7 @@ export interface SnapData {
     preview?: SnapPreviewer;
     prompt?: (point: SnapedData) => string;
     filter?: IShapeFilter;
-    validators?: SnapValidator[];
+    validator?: SnapValidator;
     featurePoints?: {
         point: XYZ;
         prompt: string;

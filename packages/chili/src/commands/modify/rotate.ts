@@ -39,7 +39,7 @@ export class Rotate extends TransformedCommand {
             dimension: Dimension.D1D2D3,
             plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
             preview: this.linePreview,
-            validators: [(p) => p.distanceTo(this.stepDatas[0].point!) > 1e-6],
+            validator: (p) => p.distanceTo(this.stepDatas[0].point!) > 1e-6,
         };
     };
 
@@ -48,14 +48,12 @@ export class Rotate extends TransformedCommand {
             dimension: Dimension.D1D2,
             preview: this.rotatePreview,
             plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
-            validators: [
-                (p) => {
-                    return (
-                        p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
-                        p.distanceTo(this.stepDatas[1].point!) > 1e-3
-                    );
-                },
-            ],
+            validator: (p) => {
+                return (
+                    p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
+                    p.distanceTo(this.stepDatas[1].point!) > 1e-3
+                );
+            },
         };
     };
 

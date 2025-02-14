@@ -33,12 +33,10 @@ export class Arc extends CreateCommand {
             point: () => point,
             preview: this.circlePreview,
             plane: () => this.stepDatas[0].view.workplane.translateTo(point),
-            validators: [
-                (p: XYZ) => {
-                    if (p.distanceTo(point) < Precision.Distance) return false;
-                    return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
-                },
-            ],
+            validator: (p: XYZ) => {
+                if (p.distanceTo(point) < Precision.Distance) return false;
+                return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+            },
         };
     };
 

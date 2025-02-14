@@ -49,7 +49,7 @@ export class BezierCommand extends CreateCommand {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
             dimension: Dimension.D1D2D3,
-            validators: [this.validator],
+            validator: this.validator,
             preview: this.preview,
         };
     };
