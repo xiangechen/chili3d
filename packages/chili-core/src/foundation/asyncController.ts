@@ -16,19 +16,15 @@ export class AsyncController implements IDisposable {
         return this._result;
     }
 
-    reset() {
-        this._result = undefined;
-    }
-
-    fail = (message?: string) => {
+    readonly fail = (message?: string) => {
         this.notifyListeners(this._failListeners, "fail", message);
     };
 
-    cancel = (message?: string) => {
+    readonly cancel = (message?: string) => {
         this.notifyListeners(this._failListeners, "cancel", message);
     };
 
-    success = (message?: string) => {
+    readonly success = (message?: string) => {
         this.notifyListeners(this._successListeners, "success", message);
     };
 

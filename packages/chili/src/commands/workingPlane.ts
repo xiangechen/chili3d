@@ -54,6 +54,7 @@ export class AlignToPlane implements ICommand {
             view.document,
             controller,
         );
+        controller.dispose();
         if (!data || data.shapes.length === 0) return;
         view.document.visual.highlighter.clear();
         const [point, normal] = (data.shapes[0].shape as IFace).normal(0, 0);

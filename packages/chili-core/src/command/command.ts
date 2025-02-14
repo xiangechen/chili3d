@@ -38,14 +38,14 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         return this.application.activeView?.document!;
     }
 
-    private _controller?: AsyncController;
+    #controller?: AsyncController;
     protected get controller() {
-        return this._controller;
+        return this.#controller;
     }
     protected set controller(value: AsyncController | undefined) {
-        if (this._controller === value) return;
-        this._controller?.dispose();
-        this._controller = value;
+        if (this.#controller === value) return;
+        this.#controller?.dispose();
+        this.#controller = value;
     }
 
     @Property.define("common.cancel")

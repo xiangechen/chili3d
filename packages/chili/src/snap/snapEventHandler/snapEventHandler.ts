@@ -15,7 +15,7 @@ import {
     VisualConfig,
     XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapData, SnapValidator, SnapedData } from "../snap";
+import { ISnap, MouseAndDetected, SnapData, SnapedData } from "../snap";
 
 export abstract class SnapEventHandler<D extends SnapData = SnapData> implements IEventHandler {
     private _tempPoint?: number;
