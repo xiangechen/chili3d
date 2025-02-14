@@ -93,17 +93,13 @@ export class ThreeView extends Observable implements IView {
     }
 
     get cameraType(): CameraType {
-        return this.getPrivateValue("cameraType", CameraType.perspective);
+        return this.getPrivateValue("cameraType", CameraType.orthographic);
     }
     set cameraType(value: CameraType) {
         if (this.setProperty("cameraType", value)) {
             this._camera = this.createCamera();
             if (this._controls) {
-                let target = this.cameraTarget;
-                let position = this.cameraPosition;
                 this.initCameraControls();
-                this._controls.setTarget(target.x, target.y, target.z);
-                this._controls.setPosition(position.x, position.y, position.z);
             }
         }
     }
@@ -128,7 +124,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     get cameraPosition(): XYZ {
-        let position = new Vector3();
+        let position = new Vector3(1000, 1000, 1000);
         this._controls?.getPosition(position);
         return ThreeHelper.toXYZ(position);
     }
@@ -244,10 +240,16 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initCameraControls() {
+        const position = this.cameraPosition;
+        const target = this.cameraTarget;
+
         if (this._controls) {
             this._controls.dispose();
+            this._controls = undefined;
         }
         this._controls = new CameraControls(this.camera, this.renderer.domElement);
+        this._controls.setPosition(position.x, position.y, position.z);
+        this._controls.setTarget(target.x, target.y, target.z);
         this._controls.draggingSmoothTime = 0.06;
         this._controls.smoothTime = 0.1;
         this._controls.dollyToCursor = true;
