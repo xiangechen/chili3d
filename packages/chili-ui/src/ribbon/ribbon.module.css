@@ -34,7 +34,7 @@
             cursor: pointer;
 
             &:hover {
-                background-color: rgba(128, 128, 128, 0.3);
+                background-color: var(--hover-background-color);
             }
 
             .icon {
@@ -73,7 +73,7 @@
                 align-items: center;
                 border-radius: 6px;
                 height: 26px;
-                background-color: rgba(128, 128, 128, 0.15);
+                background-color: var(--panel-background-color);
                 padding: 2px;
                 min-width: 240px;
                 max-width: 320px;
@@ -81,7 +81,7 @@
                 cursor: default;
 
                 &:hover {
-                    background-color: rgba(128, 128, 128, 0.25);
+                    background-color: var(--hover-background-color);
                 }
 
                 .name {
@@ -112,7 +112,7 @@
                     border-radius: 6px;
 
                     &:hover {
-                        background-color: rgba(128, 128, 128, 0.25);
+                        background-color: var(--hover-background-color);
                     }
                 }
             }
@@ -130,7 +130,7 @@
             border-radius: 6px;
 
             &:hover {
-                background-color: rgba(128, 128, 128, 0.25);
+                background-color: var(--hover-background-color);
             }
         }
     }
@@ -149,7 +149,7 @@
             border-radius: 4px;
 
             &:hover {
-                background-color: rgba(128, 128, 128, 0.25);
+                background-color: var(--hover-background-color);
             }
         }
     }
@@ -170,7 +170,7 @@
         margin: 0px 4px;
 
         &:hover {
-            background-color: rgba(128, 128, 128, 0.25);
+            background-color: var(--hover-background-color);
         }
     }
 
@@ -186,7 +186,7 @@
             margin: 0px 6px;
 
             &:hover {
-                background-color: rgba(128, 128, 128, 0.25);
+                background-color: var(--hover-background-color);
             }
         }
     }
@@ -238,7 +238,6 @@
     border-bottom: 1px solid var(--border-color);
 }
 
-
 .ribbonGroup {
     position: relative;
     display: grid;
@@ -254,7 +253,6 @@
         display: flex;
         flex-direction: row;
     }
-
 }
 
 .ribbonGroup::after {

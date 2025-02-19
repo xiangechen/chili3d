@@ -28,23 +28,23 @@ export class Arc extends CreateCommand {
     }
 
     private readonly getRadiusData = (): SnapLengthAtPlaneData => {
-        const point = this.stepDatas[0].point!;
+        const { point, view } = this.stepDatas[0];
         return {
-            point: () => point,
+            point: () => point!,
             preview: this.circlePreview,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(point),
+            plane: (p: XYZ | undefined) => this.findPlane(view, point!, p),
             validator: (p: XYZ) => {
-                if (p.distanceTo(point) < Precision.Distance) return false;
-                return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                if (p.distanceTo(point!) < Precision.Distance) return false;
+                return p.sub(point!).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
             },
         };
     };
 
     private readonly getAngleData = () => {
         const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        const plane = this.createPlane(center, p1);
+        const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
         const points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
-        this._planeAngle = new PlaneAngle(plane);
+        this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
         return {
             dimension: Dimension.D1D2,
             preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
@@ -52,10 +52,6 @@ export class Arc extends CreateCommand {
             validators: [this.angleValidator(center, plane)],
         };
     };
-
-    private createPlane(center: XYZ, p1: XYZ): Plane {
-        return new Plane(center, this.stepDatas[0].view.workplane.normal, p1.sub(center));
-    }
 
     private anglePreview(
         point: XYZ | undefined,
@@ -86,23 +82,23 @@ export class Arc extends CreateCommand {
 
     protected override geometryNode(): GeometryNode {
         const [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        const plane = this.stepDatas[0].view.workplane;
+        const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, p0, p1);
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
         return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
     }
 
-    private readonly circlePreview = (point: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) return [p1];
-        const start = this.stepDatas[0].point!;
-        const plane = this.stepDatas[0].view.workplane;
+    private readonly circlePreview = (end: XYZ | undefined) => {
+        const visualCenter = this.previewPoint(this.stepDatas[0].point!);
+        if (!end) return [visualCenter];
+        const { point, view } = this.stepDatas[0];
+        const plane = this.findPlane(view, point!, end);
         return [
-            p1,
-            this.previewLine(this.stepDatas[0].point!, point),
+            visualCenter,
+            this.previewLine(this.stepDatas[0].point!, end),
             this.application.shapeFactory.circle(
                 plane.normal,
-                start,
-                this.getDistanceAtPlane(plane, start, point),
+                point!,
+                this.getDistanceAtPlane(plane, point!, end),
             ).value.mesh.edges!,
         ];
     };

@@ -1,6 +1,16 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { ButtonSize, Command, CommandKeys, I18nKeys, Logger, PubSub } from "chili-core";
+import {
+    ButtonSize,
+    Command,
+    CommandData,
+    CommandKeys,
+    I18nKeys,
+    IConverter,
+    Logger,
+    PubSub,
+    Result,
+} from "chili-core";
 import { label, localize, svg } from "../components";
 import style from "./ribbonButton.module.css";
 
@@ -21,6 +31,9 @@ export class RibbonButton extends HTMLElement {
         if (!data) {
             Logger.warn(`commandData of ${commandName} is undefined`);
             return undefined;
+        }
+        if (data.toggle) {
+            return new RibbonToggleButton(data, size);
         }
         return new RibbonButton(data.display, data.icon, size, () => {
             PubSub.default.pub("executeCommand", commandName);
@@ -44,3 +57,28 @@ export class RibbonButton extends HTMLElement {
 }
 
 customElements.define("ribbon-button", RibbonButton);
+
+class ToggleConverter implements IConverter {
+    constructor(
+        readonly className: string,
+        readonly active: string,
+    ) {}
+    convert(isChecked: boolean): Result<string, string> {
+        return isChecked ? Result.ok(`${this.className} ${this.active}`) : Result.ok(this.className);
+    }
+}
+
+export class RibbonToggleButton extends RibbonButton {
+    constructor(data: CommandData, size: ButtonSize) {
+        super(data.display, data.icon, size, () => {
+            PubSub.default.pub("executeCommand", data.name);
+        });
+
+        if (data.toggle) {
+            data.toggle.converter = new ToggleConverter(this.className, style.checked);
+            data.toggle.setBinding(this, "className");
+        }
+    }
+}
+
+customElements.define("ribbon-toggle-button", RibbonToggleButton);

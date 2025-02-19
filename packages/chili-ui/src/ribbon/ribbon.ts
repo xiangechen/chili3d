@@ -20,7 +20,7 @@ import { a, collection, div, label, localize, span, svg } from "../components";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
-import { RibbonGroupData, RibbonTabData } from "./ribbonData";
+import { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonStack } from "./ribbonStack";
 
 export class RibbonDataContent extends Observable {
@@ -237,9 +237,9 @@ export class Ribbon extends HTMLElement {
         );
     }
 
-    private ribbonButton(item: any) {
+    private ribbonButton(item: RibbonCommandData) {
         if (typeof item === "string") {
-            return RibbonButton.fromCommandName(item as CommandKeys, ButtonSize.large)!;
+            return RibbonButton.fromCommandName(item, ButtonSize.large)!;
         } else if (item instanceof ObservableCollection) {
             const stack = new RibbonStack();
             item.forEach((b) => {

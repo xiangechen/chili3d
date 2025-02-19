@@ -90,7 +90,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         return [snaped.info, prompt].filter((x) => x !== undefined).join(" -> ");
     }
 
-    private setSnaped(view: IView, event: MouseEvent) {
+    protected setSnaped(view: IView, event: MouseEvent) {
         if (this.snapToFeaturePoint(view, event)) return;
 
         this._snaped = this.findSnaped(ShapeType.Edge, view, event);

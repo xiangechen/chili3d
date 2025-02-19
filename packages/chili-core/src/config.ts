@@ -57,6 +57,13 @@ export class Config extends Observable {
         this.setProperty("enableSnap", value);
     }
 
+    get dynamicWorkplane() {
+        return this.getPrivateValue("dynamicWorkplane", true);
+    }
+    set dynamicWorkplane(value: boolean) {
+        this.setProperty("dynamicWorkplane", value);
+    }
+
     readonly SnapDistance: number = 5;
 
     private constructor() {

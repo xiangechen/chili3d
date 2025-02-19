@@ -24,7 +24,7 @@ export class PathBinding<T extends IPropertyChanged = IPropertyChanged> {
     constructor(
         readonly source: T,
         readonly path: string,
-        readonly converter?: IConverter,
+        public converter?: IConverter,
     ) {}
 
     setBinding<U extends object>(element: U, property: keyof U) {

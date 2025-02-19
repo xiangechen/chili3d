@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, Plane, XYZ, command } from "chili-core";
+import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
 import { BoxNode } from "../../bodys";
 import { LengthAtAxisSnapData } from "../../snap";
 import { IStep, LengthAtAxisStep } from "../../step";
@@ -19,9 +19,13 @@ export class Box extends RectCommandBase {
     }
 
     private readonly getHeightStepData = (): LengthAtAxisSnapData => {
+        const plane = this.stepDatas[1].plane;
+        if (plane === undefined) {
+            throw new Error("plane is undefined, please report bug");
+        }
         return {
             point: this.stepDatas[1].point!,
-            direction: this.stepDatas[0].view.workplane.normal,
+            direction: plane.normal,
             preview: this.previewBox,
         };
     };
@@ -34,7 +38,7 @@ export class Box extends RectCommandBase {
         }
         const p1 = this.previewPoint(point1);
         const p2 = this.previewPoint(point2);
-        const data = this.getRectData(end);
+        const data = this.point2RectData();
         return [
             p1,
             p2,
@@ -44,12 +48,16 @@ export class Box extends RectCommandBase {
     };
 
     protected override geometryNode(): GeometryNode {
-        const rect = this.getRectData(this.stepDatas[1].point!);
+        const rect = this.point2RectData();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
         return new BoxNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }
 
     private getHeight(plane: Plane, point: XYZ): number {
-        return point.sub(this.stepDatas[1].point!).dot(plane.normal);
+        const h = point.sub(this.stepDatas[1].point!).dot(plane.normal);
+        if (Math.abs(h) < Precision.Distance) {
+            return h < 0 ? -0.00001 : 0.00001;
+        }
+        return h;
     }
 }

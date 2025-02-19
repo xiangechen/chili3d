@@ -40,6 +40,7 @@ const COMMAND_KEYS = [
     "modify.trim",
     "special.last",
     "workingPlane.alignToPlane",
+    "workingPlane.toggleDynamic",
     "workingPlane.set",
     "test.performace",
 ] as const;

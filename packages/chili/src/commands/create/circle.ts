@@ -19,39 +19,39 @@ export class Circle extends CreateFaceableCommand {
     }
 
     private readonly getRadiusData = (): SnapLengthAtPlaneData => {
-        const point = this.stepDatas[0].point!;
+        const { point, view } = this.stepDatas[0];
         return {
-            point: () => point,
+            point: () => point!,
             preview: this.circlePreview,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(point),
+            plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: (p: XYZ) => {
-                if (p.distanceTo(point) < Precision.Distance) return false;
-                return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                if (p.distanceTo(point!) < Precision.Distance) return false;
+                return p.sub(point!).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
             },
         };
     };
 
     protected override geometryNode(): GeometryNode {
         const [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        const plane = this.stepDatas[0].view.workplane;
+        const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, p1, p2);
         const body = new CircleNode(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
         body.isFace = this.isFace;
         return body;
     }
 
-    private readonly circlePreview = (point: XYZ | undefined) => {
+    private readonly circlePreview = (end: XYZ | undefined) => {
         const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) return [p1];
+        if (!end) return [p1];
 
-        const start = this.stepDatas[0].point!;
-        const plane = this.stepDatas[0].view.workplane;
+        const { point, view } = this.stepDatas[0];
+        const plane = this.findPlane(view, point!, end);
         return [
             p1,
-            this.previewLine(start, point),
+            this.previewLine(point!, end),
             this.application.shapeFactory.circle(
                 plane.normal,
-                start,
-                this.getDistanceAtPlane(plane, start, point),
+                point!,
+                this.getDistanceAtPlane(plane, point!, end),
             ).value.mesh.edges!,
         ];
     };

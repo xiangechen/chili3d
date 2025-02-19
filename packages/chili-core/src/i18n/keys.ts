@@ -181,6 +181,7 @@ const I18N_KEYS = [
     "transform.scale",
     "transform.translation",
     "vertex.point",
+    "workingPlane.dynamic",
     "workingPlane.alignToPlane",
     "workingPlane.set",
     "test.performace",

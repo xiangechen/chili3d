@@ -187,6 +187,7 @@ export default {
         "transform.scale": "Scale",
         "transform.translation": "Translation",
         "vertex.point": "Point",
+        "workingPlane.dynamic": "Dynamic Plane",
         "workingPlane.alignToPlane": "Align to plane",
         "workingPlane.set": "Set workplane",
         "test.performace": "Performace test",

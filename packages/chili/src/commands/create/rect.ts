@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import { ViewUtils } from "chili-vis";
 import { RectNode } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -33,34 +34,46 @@ export abstract class RectCommandBase extends CreateCommand {
     }
 
     private readonly nextSnapData = (): SnapLengthAtPlaneData => {
+        const { point, view } = this.stepDatas[0];
         return {
-            point: () => this.stepDatas[0].point!,
+            point: () => point!,
             preview: this.previewRect,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
+            plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: this.handleValid,
             prompt: (snaped: SnapedData) => {
-                let data = this.getRectData(snaped.point!);
+                let data = this.tmpPoint2RectData(snaped.point!);
                 return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;
             },
         };
     };
 
     private readonly handleValid = (end: XYZ) => {
-        const data = this.getRectData(end);
+        const data = this.tmpPoint2RectData(end);
         return data !== undefined && !MathUtils.anyEqualZero(data.dx, data.dy);
     };
 
     protected previewRect = (end: XYZ | undefined) => {
         const p1 = this.previewPoint(this.stepDatas[0].point!);
         if (end === undefined) return [p1];
-        const data = this.getRectData(end);
+        const data = this.tmpPoint2RectData(end);
         const p2 = this.previewPoint(end);
         return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).value.mesh.edges!];
     };
 
-    protected getRectData(point: XYZ): RectData {
+    protected tmpPoint2RectData(point: XYZ): RectData {
         const [p1, p2] = [this.stepDatas[0].point!, point];
-        return RectData.get(this.stepDatas[0].view.workplane, p1, p2);
+        const plane = ViewUtils.raycastClosestPlane(this.stepDatas[0].view, p1, p2);
+        return RectData.get(plane, p1, p2);
+    }
+
+    protected point2RectData() {
+        let rect: RectData;
+        if (this.stepDatas[1].plane) {
+            rect = RectData.get(this.stepDatas[1].plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
+        } else {
+            rect = this.tmpPoint2RectData(this.stepDatas[1].point!);
+        }
+        return rect;
     }
 }
 
@@ -79,7 +92,7 @@ export class Rect extends RectCommandBase {
     }
 
     protected override geometryNode(): GeometryNode {
-        const rect = this.getRectData(this.stepDatas[1].point!);
+        let rect: RectData = this.point2RectData();
         const node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
         node.isFace = this.isFace;
         return node;

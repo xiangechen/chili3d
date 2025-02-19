@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, Property, Transaction } from "chili-core";
+import { Config, GeometryNode, IView, Property, Transaction, XYZ } from "chili-core";
+import { ViewUtils } from "chili-vis";
 import { MultistepCommand } from "./multistepCommand";
 
 let count = 1;
@@ -13,6 +14,14 @@ export abstract class CreateCommand extends MultistepCommand {
             this.document.visual.update();
         });
     }
+
+    protected readonly findPlane = (view: IView, origin: XYZ, point: XYZ | undefined) => {
+        if (point === undefined || !Config.instance.dynamicWorkplane) {
+            return view.workplane.translateTo(origin);
+        } else {
+            return ViewUtils.raycastClosestPlane(view, origin, point);
+        }
+    };
 
     protected abstract geometryNode(): GeometryNode;
 }

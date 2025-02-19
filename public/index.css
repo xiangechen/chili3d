@@ -15,6 +15,7 @@ body {
 }
 
 :root[theme="light"] {
+    --checked-color: rgba(25, 25, 25, 0.2);
     --control-background-color: #ffffff;
     --primary-color: #0e62d7;
     --secondary-color: #6a9ee6;
@@ -31,6 +32,7 @@ body {
 }
 
 :root[theme="dark"] {
+    --checked-color: rgba(25, 25, 25, 0.2);
     --color: red;
     --border: solid 1px lightgray;
     --titlebarBackground: #dddddd;

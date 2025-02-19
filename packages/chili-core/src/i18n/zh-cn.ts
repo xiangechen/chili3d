@@ -186,6 +186,7 @@ export default {
         "transform.scale": "缩放",
         "transform.translation": "位移",
         "vertex.point": "点",
+        "workingPlane.dynamic": "动态平面",
         "workingPlane.alignToPlane": "对齐到平面",
         "workingPlane.set": "设置工作平面",
         "test.performace": "性能测试",

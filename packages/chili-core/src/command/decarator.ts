@@ -1,6 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { CommandKeys, ICommand } from ".";
+import { Binding } from "../foundation";
 import { I18nKeys } from "../i18n";
 
 const commandRegistry = new Map<string, CommandConstructor>();
@@ -11,6 +12,7 @@ export interface CommandData {
     name: CommandKeys;
     display: I18nKeys;
     icon: string;
+    toggle?: Binding;
     helpText?: string;
     helpUrl?: string;
 }

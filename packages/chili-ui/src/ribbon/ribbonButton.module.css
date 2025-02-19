@@ -8,7 +8,12 @@
 }
 
 .normal:hover {
+    opacity: 0.85;
     background-color: var(--hover-background-color);
+}
+
+.normal:active {
+    background-color: var(--active-background-color);
 }
 
 .small {
@@ -20,8 +25,17 @@
     margin: 4px;
 }
 
+.checked {
+    background-color: var(--checked-color);
+}
+
 .small:hover {
+    opacity: 0.85;
     background-color: var(--hover-background-color);
+}
+
+.small:active {
+    background-color: var(--active-background-color);
 }
 
 .buttonText {

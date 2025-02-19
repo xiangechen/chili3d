@@ -43,6 +43,6 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
         const angle = (Number.parseFloat(text) * Math.PI) / 180;
         const vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
         const point = this.center().add(vec);
-        return { point, view, shapes: [] };
+        return { point, view, shapes: [], plane: this.plane };
     }
 }
