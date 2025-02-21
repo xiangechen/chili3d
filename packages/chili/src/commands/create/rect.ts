@@ -3,7 +3,7 @@
 import { GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
 import { ViewUtils } from "chili-vis";
 import { RectNode } from "../../bodys";
-import { SnapLengthAtPlaneData, SnapedData } from "../../snap";
+import { SnapLengthAtPlaneData, SnapResult } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
@@ -40,7 +40,7 @@ export abstract class RectCommandBase extends CreateCommand {
             preview: this.previewRect,
             plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: this.handleValid,
-            prompt: (snaped: SnapedData) => {
+            prompt: (snaped: SnapResult) => {
                 let data = this.tmpPoint2RectData(snaped.point!);
                 return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;
             },

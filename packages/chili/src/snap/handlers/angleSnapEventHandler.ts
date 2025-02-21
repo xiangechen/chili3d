@@ -1,36 +1,39 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, Config, IDocument, IView, Plane, PlaneAngle, XYZ } from "chili-core";
-import { SnapedData } from "../snap";
+import { SnapResult } from "../snap";
 import { ObjectSnap, PlaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
-import { PointSnapData } from "./pointSnapData";
+import { PointSnapData } from "./pointSnapEventHandler";
 import { SnapEventHandler } from "./snapEventHandler";
 
 export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
-    readonly plane: Plane;
-    readonly planeAngle: PlaneAngle;
+    private readonly planeAngle: PlaneAngle;
+    private readonly plane: Plane;
 
     constructor(
         document: IDocument,
         controller: AsyncController,
-        readonly center: () => XYZ,
+        private readonly center: () => XYZ,
         p1: XYZ,
         snapPointData: PointSnapData,
     ) {
         if (!snapPointData.plane) throw new Error("AngleSnapEventHandler: no plane");
+
         const objectSnap = new ObjectSnap(Config.instance.snapType, snapPointData.refPoint);
         const workplaneSnap = new PlaneSnap(snapPointData.plane, center);
         const trackingSnap = new TrackingSnap(center, false);
         super(document, controller, [objectSnap, trackingSnap, workplaneSnap], snapPointData);
+
         const xvec = p1.sub(center()).normalize()!;
         this.plane = new Plane(center(), snapPointData.plane().normal, xvec);
         this.planeAngle = new PlaneAngle(this.plane);
-        snapPointData.prompt ??= this.snapedInfo;
+        snapPointData.prompt ??= this.formatAnglePrompt;
     }
 
-    private readonly snapedInfo = (snaped?: SnapedData) => {
-        this.planeAngle.movePoint(snaped?.point!);
+    private readonly formatAnglePrompt = (snaped?: SnapResult) => {
+        if (!snaped?.point) return "";
+        this.planeAngle.movePoint(snaped.point);
         return `${this.planeAngle.angle.toFixed(2)} °`;
     };
 
@@ -39,7 +42,7 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
         return isNaN(angle) ? "error.input.invalidNumber" : undefined;
     }
 
-    protected override getPointFromInput(view: IView, text: string): SnapedData {
+    protected override getPointFromInput(view: IView, text: string): SnapResult {
         const angle = (Number.parseFloat(text) * Math.PI) / 180;
         const vec = this.plane.xvec.rotate(this.plane.normal, angle)!;
         const point = this.center().add(vec);

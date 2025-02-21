@@ -9,7 +9,7 @@ import {
     ShapeNodeFilter,
     ShapeType,
 } from "chili-core";
-import { SnapedData } from "../snap";
+import { SnapResult } from "../snap";
 import { IStep } from "./step";
 
 export abstract class SelectStep implements IStep {
@@ -20,7 +20,7 @@ export abstract class SelectStep implements IStep {
         readonly filter?: IShapeFilter,
     ) {}
 
-    async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const { shapeType, shapeFilter, nodeFilter } = document.selection;
         document.selection.shapeType = this.snapeType;
         document.selection.shapeFilter = this.filter;
@@ -33,14 +33,14 @@ export abstract class SelectStep implements IStep {
         }
     }
 
-    abstract select(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined>;
+    abstract select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
 }
 
 export class SelectShapeStep extends SelectStep {
     override async select(
         document: IDocument,
         controller: AsyncController,
-    ): Promise<SnapedData | undefined> {
+    ): Promise<SnapResult | undefined> {
         const shapes = await document.selection.pickShape(this.prompt, controller, this.multiple);
         if (shapes.length === 0) return undefined;
         return {
@@ -58,7 +58,7 @@ export class SelectShapeNodeStep extends SelectStep {
     override async select(
         document: IDocument,
         controller: AsyncController,
-    ): Promise<SnapedData | undefined> {
+    ): Promise<SnapResult | undefined> {
         document.selection.nodeFilter = new ShapeNodeFilter();
         const nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
         if (nodes.length === 0) return undefined;
@@ -77,7 +77,7 @@ export class SelectNodeStep implements IStep {
         readonly filter?: INodeFilter,
     ) {}
 
-    async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const oldFilter = document.selection.nodeFilter;
         document.selection.nodeFilter = this.filter;
         try {

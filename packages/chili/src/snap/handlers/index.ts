@@ -2,6 +2,5 @@
 
 export * from "./angleSnapEventHandler";
 export * from "./lengthSnapEventHandler";
-export * from "./pointSnapData";
 export * from "./snapEventHandler";
 export * from "./pointSnapEventHandler";

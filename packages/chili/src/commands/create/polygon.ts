@@ -11,7 +11,7 @@ import {
     command,
 } from "chili-core";
 import { PolygonNode } from "../../bodys";
-import { Dimension, PointSnapData, SnapedData } from "../../snap";
+import { Dimension, PointSnapData, SnapResult } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
@@ -48,7 +48,7 @@ export class Polygon extends CreateFaceableCommand {
         }
     }
 
-    private isClose(data: SnapedData) {
+    private isClose(data: SnapResult) {
         return (
             this.stepDatas.length > 1 &&
             this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Distance

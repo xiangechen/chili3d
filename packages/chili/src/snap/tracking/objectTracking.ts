@@ -1,9 +1,9 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { IDocument, IView, VertexMeshData, VisualConfig } from "chili-core";
-
-import { SnapedData } from "..";
+import { IDocument, IView, VisualConfig } from "chili-core";
+import { SnapResult } from "..";
 import { Axis } from "./axis";
+import { TrackingBase } from "./trackingBase";
 
 export interface ObjectTrackingAxis {
     axes: Axis[];
@@ -11,26 +11,22 @@ export interface ObjectTrackingAxis {
 }
 
 interface SnapeInfo {
-    snap: SnapedData;
+    snap: SnapResult;
     shapeId: number;
 }
 
-export class ObjectTracking {
+export class ObjectTracking extends TrackingBase {
     private timer?: number;
-    private isCleared: boolean = false;
-    private snapping?: SnapedData;
-    private readonly trackings: Map<IDocument, SnapeInfo[]>;
+    private snapping?: SnapResult;
+    private readonly trackings: Map<IDocument, SnapeInfo[]> = new Map();
 
-    constructor(readonly trackingZ: boolean) {
-        this.trackings = new Map();
+    constructor(trackingZ: boolean) {
+        super(trackingZ);
     }
 
-    clear(): void {
+    override clear(): void {
         this.clearTimer();
-        this.isCleared = true;
-        this.trackings.forEach((v, k) => {
-            v.forEach((s) => k.visual.context.removeMesh(s.shapeId));
-        });
+        super.clear();
         this.trackings.clear();
     }
 
@@ -43,7 +39,7 @@ export class ObjectTracking {
         return result;
     }
 
-    showTrackingAtTimeout(document: IDocument, snap?: SnapedData) {
+    showTrackingAtTimeout(document: IDocument, snap?: SnapResult) {
         if (snap !== undefined && this.snapping === snap) return;
         this.snapping = snap;
         this.clearTimer();
@@ -58,7 +54,7 @@ export class ObjectTracking {
         }
     }
 
-    private switchTrackingPoint(document: IDocument, snap: SnapedData) {
+    private switchTrackingPoint(document: IDocument, snap: SnapResult) {
         if (this.isCleared || snap.shapes.length === 0) return;
         if (!this.trackings.has(document)) {
             this.trackings.set(document, []);
@@ -79,13 +75,13 @@ export class ObjectTracking {
         );
     }
 
-    private addTrackingPoint(snap: SnapedData, document: IDocument, snaps: SnapeInfo[]) {
-        const data = VertexMeshData.from(
-            snap.point!,
+    private addTrackingPoint(snap: SnapResult, document: IDocument, snaps: SnapeInfo[]) {
+        const pointId = this.displayPoint(
+            document,
+            snap,
             VisualConfig.trackingVertexSize,
             VisualConfig.trackingVertexColor,
         );
-        const pointId = document.visual.context.displayMesh(data);
         snaps.push({ shapeId: pointId, snap });
     }
 }

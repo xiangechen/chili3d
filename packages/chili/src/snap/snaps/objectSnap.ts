@@ -14,45 +14,47 @@ import {
     VertexMeshData,
     VisualConfig,
     VisualShapeData,
-    VisualState,
     XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapedData } from "../snap";
+import { MouseAndDetected, SnapResult } from "../snap";
+import { BaseSnap } from "./baseSnap";
+import { FeaturePointStrategy } from "./featurePointStrategy";
 
 interface InvisibleSnapInfo {
     view: IView;
-    snaps: SnapedData[];
+    snaps: SnapResult[];
     displays: number[];
 }
 
-export class ObjectSnap implements ISnap {
-    private readonly _featureInfos: Map<VisualShapeData, SnapedData[]>;
-    private readonly _intersectionInfos: Map<string, SnapedData[]>;
+export class ObjectSnap extends BaseSnap {
+    private readonly _featureStrategy: FeaturePointStrategy;
+    private readonly _intersectionInfos: Map<string, SnapResult[]>;
     private readonly _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
-    private readonly _hilightedShapes: VisualShapeData[] = [];
-    private _lastDetected?: [IView, SnapedData];
+    private _lastDetected?: [IView, SnapResult];
     private _hintVertex?: [IVisualContext, number];
 
     constructor(
         private _snapType: ObjectSnapType,
-        readonly referencePoint?: () => XYZ,
+        referencePoint?: () => XYZ,
     ) {
-        this._featureInfos = new Map();
+        super(referencePoint);
+        this._featureStrategy = new FeaturePointStrategy(_snapType);
         this._intersectionInfos = new Map();
         this._invisibleInfos = new Map();
         Config.instance.onPropertyChanged(this.onSnapTypeChanged);
     }
 
-    clear() {
-        this.unHilighted();
+    override clear() {
+        super.clear();
         this._invisibleInfos.forEach((info) => {
             info.displays.forEach((x) => info.view.document.visual.context.removeMesh(x));
         });
         this.removeHint();
+        this._featureStrategy.clear();
         Config.instance.removePropertyChanged(this.onSnapTypeChanged);
     }
 
-    handleSnaped = (document: IDocument, snaped?: SnapedData | undefined) => {
+    readonly handleSnaped = (document: IDocument, snaped?: SnapResult | undefined) => {
         if (snaped?.shapes.length === 0 && this._lastDetected) {
             this.displayHint(this._lastDetected[0], this._lastDetected[1]);
             this._lastDetected = undefined;
@@ -62,13 +64,13 @@ export class ObjectSnap implements ISnap {
     private readonly onSnapTypeChanged = (property: keyof Config) => {
         if (property === "snapType" || property === "enableSnap") {
             this._snapType = Config.instance.snapType;
-            this._featureInfos.clear();
+            this._featureStrategy.updateSnapType(this._snapType);
             this._intersectionInfos.clear();
         }
     };
 
-    removeDynamicObject(): void {
-        this.unHilighted();
+    override removeDynamicObject(): void {
+        super.removeDynamicObject();
         this.removeHint();
     }
 
@@ -79,10 +81,10 @@ export class ObjectSnap implements ISnap {
         }
     }
 
-    snap(data: MouseAndDetected): SnapedData | undefined {
+    snap(data: MouseAndDetected): SnapResult | undefined {
         if (!Config.instance.enableSnap) return undefined;
 
-        let snap: SnapedData | undefined;
+        let snap: SnapResult | undefined;
         if (data.shapes.length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
             snap = this.snapOnShape(data.view, data.mx, data.my, data.shapes);
@@ -96,7 +98,7 @@ export class ObjectSnap implements ISnap {
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {
-        const featurePoints = this.getFeaturePoints(view, shapes[0]);
+        const featurePoints = this._featureStrategy.getFeaturePoints(view, shapes[0]);
         const perpendiculars = this.findPerpendicular(view, shapes[0]);
         const intersections = this.getIntersections(view, shapes[0], shapes);
         const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
@@ -115,7 +117,7 @@ export class ObjectSnap implements ISnap {
         }
     }
 
-    private displayHint(view: IView, shape: SnapedData) {
+    private displayHint(view: IView, shape: SnapResult) {
         this.hilighted(view, shape.shapes);
         let data = VertexMeshData.from(
             shape.point!,
@@ -125,7 +127,7 @@ export class ObjectSnap implements ISnap {
         this._hintVertex = [view.document.visual.context, view.document.visual.context.displayMesh(data)];
     }
 
-    private snapeInvisible(view: IView, x: number, y: number): SnapedData | undefined {
+    private snapeInvisible(view: IView, x: number, y: number): SnapResult | undefined {
         const { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
         if (minDistance < Config.instance.SnapDistance) {
             this.hilighted(view, snap!.shapes);
@@ -138,8 +140,8 @@ export class ObjectSnap implements ISnap {
         view: IView,
         x: number,
         y: number,
-    ): { minDistance: number; snap?: SnapedData } {
-        let snap: SnapedData | undefined;
+    ): { minDistance: number; snap?: SnapResult } {
+        let snap: SnapResult | undefined;
         let minDistance = Number.MAX_VALUE;
 
         this._invisibleInfos.forEach((info) => {
@@ -187,32 +189,22 @@ export class ObjectSnap implements ISnap {
     }
 
     private hilighted(view: IView, shapes: VisualShapeData[]) {
-        shapes.forEach((x) => {
-            let highlighter = x.owner.geometryNode.document.visual.highlighter;
-            highlighter.addState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
-        });
-        this._hilightedShapes.push(...shapes);
+        this.highlight(shapes);
     }
 
-    private unHilighted() {
-        this._hilightedShapes.forEach((x) => {
-            let highlighter = x.owner.geometryNode.document.visual.highlighter;
-            highlighter.removeState(x.owner, VisualState.highlighter, x.shape.shapeType, ...x.indexes);
-        });
-        this._hilightedShapes.length = 0;
-    }
-
-    private sortSnaps(view: IView, x: number, y: number, a: SnapedData, b: SnapedData): number {
+    private sortSnaps(view: IView, x: number, y: number, a: SnapResult, b: SnapResult): number {
         return IView.screenDistance(view, x, y, a.point!) - IView.screenDistance(view, x, y, b.point!);
     }
 
-    private findPerpendicular(view: IView, shape: VisualShapeData): SnapedData[] {
-        let result: SnapedData[] = [];
+    private findPerpendicular(view: IView, shape: VisualShapeData): SnapResult[] {
+        let result: SnapResult[] = [];
         if (
             !ObjectSnapType.has(this._snapType, ObjectSnapType.perpendicular) ||
             this.referencePoint === undefined
-        )
+        ) {
             return result;
+        }
+
         let curve = (shape.shape as IEdge).curve();
         let point = curve.project(this.referencePoint()).at(0);
         if (point === undefined) return result;
@@ -227,7 +219,7 @@ export class ObjectSnap implements ISnap {
     }
 
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
-        let result = new Array<SnapedData>();
+        let result = new Array<SnapResult>();
         if (
             !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) &&
             current.shape.shapeType !== ShapeType.Edge
@@ -251,7 +243,7 @@ export class ObjectSnap implements ISnap {
         return s1.shape.id < s2.shape.id ? `${s1.shape.id}:${s2.shape.id}` : `${s2.shape.id}:${s1.shape.id}`;
     }
 
-    private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapedData[] {
+    private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapResult[] {
         let intersections = (s1.shape as IEdge).intersect(s2.shape as IEdge);
         return intersections.map((point) => {
             return {
@@ -261,35 +253,5 @@ export class ObjectSnap implements ISnap {
                 shapes: [s1, s2],
             };
         });
-    }
-
-    private getFeaturePoints(view: IView, shape: VisualShapeData) {
-        if (this._featureInfos.has(shape)) {
-            return this._featureInfos.get(shape)!;
-        }
-
-        const infos: SnapedData[] = [];
-        if (shape.shape.shapeType === ShapeType.Edge) {
-            this.getEdgeFeaturePoints(view, shape, infos);
-        }
-        this._featureInfos.set(shape, infos);
-        return infos;
-    }
-
-    private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapedData[]) {
-        const curve = (shape.shape as IEdge).curve();
-        const start = curve.value(curve.firstParameter());
-        const end = curve.value(curve.lastParameter());
-
-        const addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
-
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
-            addPoint(start, I18n.translate("snap.end"));
-            addPoint(end, I18n.translate("snap.end"));
-        }
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint)) {
-            const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
-            addPoint(mid, I18n.translate("snap.mid"));
-        }
     }
 }

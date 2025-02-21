@@ -11,14 +11,11 @@ import {
     XYZ,
 } from "chili-core";
 
-export type SnapValidator = (point: XYZ) => boolean;
-export type SnapPreviewer = (point: XYZ | undefined) => ShapeMeshData[];
-
 export interface SnapData {
-    preview?: SnapPreviewer;
-    prompt?: (point: SnapedData) => string;
+    preview?: (point: XYZ | undefined) => ShapeMeshData[];
+    prompt?: (point: SnapResult) => string;
     filter?: IShapeFilter;
-    validator?: SnapValidator;
+    validator?: (point: XYZ) => boolean;
     featurePoints?: {
         point: XYZ;
         prompt: string;
@@ -26,7 +23,7 @@ export interface SnapData {
     }[];
 }
 
-export interface SnapedData {
+export interface SnapResult {
     view: IView;
     point?: XYZ;
     info?: string;
@@ -45,8 +42,8 @@ export interface MouseAndDetected {
 }
 
 export interface ISnap {
-    snap(data: MouseAndDetected): SnapedData | undefined;
-    handleSnaped?: (document: IDocument, snaped?: SnapedData) => void;
+    snap(data: MouseAndDetected): SnapResult | undefined;
+    readonly handleSnaped?: (document: IDocument, snaped?: SnapResult) => void;
     removeDynamicObject(): void;
     clear(): void;
 }

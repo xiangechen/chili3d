@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, Ray, XYZ } from "chili-core";
-import { SnapData, SnapedData } from "../snap";
+import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
+import { SnapData, SnapResult } from "../snap";
 import { AxisSnap, ObjectSnap, PlaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
@@ -23,14 +23,21 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapDa
         super(document, controller, [objectSnap, axisSnap], lengthData);
     }
 
-    protected getPointFromInput(view: IView, text: string): SnapedData {
-        let dist = Number(text);
-        dist = this.shouldReserse() ? -dist : dist;
-        const point = this.data.point.add(this.data.direction.multiply(dist));
+    protected getPointFromInput(view: IView, text: string): SnapResult {
+        const dist = this.calculateDistance(Number(text));
+        const point = this.calculatePoint(dist);
         return { view, point, distance: dist, shapes: [] };
     }
 
-    private shouldReserse() {
+    private calculateDistance(inputValue: number): number {
+        return this.shouldReverse() ? -inputValue : inputValue;
+    }
+
+    private calculatePoint(distance: number): XYZ {
+        return this.data.point.add(this.data.direction.multiply(distance));
+    }
+
+    private shouldReverse() {
         return (
             this._snaped?.point &&
             this._snaped.point.sub(this.data.point).dot(this.data.direction) < -Precision.Distance
@@ -38,8 +45,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapDa
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        const n = Number(text);
-        return Number.isNaN(n) ? "error.input.invalidNumber" : undefined;
+        return Number.isNaN(Number(text)) ? "error.input.invalidNumber" : undefined;
     }
 }
 
@@ -59,36 +65,41 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
 
     protected override setSnaped(view: IView, event: MouseEvent): void {
         super.setSnaped(view, event);
+        this.updateWorkplane();
+    }
 
-        if (this._snaped !== undefined) {
+    private updateWorkplane() {
+        if (this._snaped) {
             this.workplane = this.lengthData.plane(this._snaped.point);
             this._snaped.plane = this.workplane;
         }
     }
 
-    protected getPointFromInput(view: IView, text: string): SnapedData {
-        let plane = this.workplane ?? view.workplane;
+    protected getPointFromInput(view: IView, text: string): SnapResult {
+        const plane = this.workplane ?? view.workplane;
+        const point = this.calculatePoint(text, plane);
+        return { point, view, shapes: [], plane };
+    }
 
-        let point;
-        let ns = text.split(",").map((x) => Number(x));
-        if (ns.length === 1) {
-            let vector = this._snaped?.point!.sub(this.data.point()).normalize();
-            point = this.data.point().add(vector!.multiply(ns[0]));
-        } else {
-            point = this.data.point().add(plane.xvec.multiply(ns[0])).add(plane.yvec.multiply(ns[1]));
-        }
+    private calculatePoint(text: string, plane: Plane): XYZ {
+        const numbers = text.split(",").map(Number);
+        return numbers.length === 1
+            ? this.calculatePointFromDistance(numbers[0])
+            : this.calculatePointFromCoordinates(numbers, plane);
+    }
 
-        return {
-            point,
-            view,
-            shapes: [],
-            plane,
-        };
+    private calculatePointFromDistance(distance: number): XYZ {
+        const vector = this._snaped?.point!.sub(this.data.point()).normalize();
+        return this.data.point().add(vector!.multiply(distance));
+    }
+
+    private calculatePointFromCoordinates(coords: number[], plane: Plane): XYZ {
+        return this.data.point().add(plane.xvec.multiply(coords[0])).add(plane.yvec.multiply(coords[1]));
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        const ns = text.split(",").map(Number);
-        if (ns.some(Number.isNaN) || (ns.length !== 1 && ns.length !== 2)) {
+        const numbers = text.split(",").map(Number);
+        if (numbers.some(Number.isNaN) || (numbers.length !== 1 && numbers.length !== 2)) {
             return "error.input.invalidNumber";
         }
         return undefined;

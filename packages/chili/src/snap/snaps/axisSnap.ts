@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { EdgeMeshData, IView, LineType, Plane, VisualConfig, XYZ } from "chili-core";
-import { ISnap, MouseAndDetected, SnapedData } from "../snap";
+import { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export class AxisSnap implements ISnap {
     private _tempLines?: [IView, number];
@@ -11,7 +11,7 @@ export class AxisSnap implements ISnap {
         readonly direction: XYZ,
     ) {}
 
-    snap(data: MouseAndDetected): SnapedData | undefined {
+    snap(data: MouseAndDetected): SnapResult | undefined {
         const right = data.view.up().cross(data.view.direction()).normalize();
         const normal = right?.cross(this.direction).normalize();
         if (!normal) return undefined;

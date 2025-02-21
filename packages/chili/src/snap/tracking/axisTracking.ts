@@ -1,13 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { I18n, IView, Plane, XYZ } from "chili-core";
-
 import { Axis } from "./axis";
+import { TrackingBase } from "./trackingBase";
 
-export class AxisTracking {
+export class AxisTracking extends TrackingBase {
     private readonly axies: Map<IView, Axis[]> = new Map();
 
-    constructor(readonly trackingZ: boolean) {}
+    constructor(trackingZ: boolean) {
+        super(trackingZ);
+    }
 
     getAxes(view: IView, referencePoint: XYZ, angle: number | undefined = undefined) {
         if (!this.axies.has(view)) {
@@ -36,7 +38,8 @@ export class AxisTracking {
         return result;
     }
 
-    clear(): void {
+    override clear(): void {
+        super.clear();
         this.axies.clear();
     }
 }

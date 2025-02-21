@@ -15,8 +15,7 @@ import {
     XY,
     XYZ,
 } from "chili-core";
-
-import { ISnap, MouseAndDetected, SnapedData } from "../";
+import { ISnap, MouseAndDetected, SnapResult } from "../";
 import { Axis } from "./axis";
 import { AxisTracking } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
@@ -43,13 +42,13 @@ export class TrackingSnap implements ISnap {
         Config.instance.onPropertyChanged(this.onSnapTypeChanged);
     }
 
-    readonly handleSnaped = (document: IDocument, snaped?: SnapedData) => {
+    readonly handleSnaped = (document: IDocument, snaped?: SnapResult) => {
         if (Config.instance.enableSnapTracking) {
             this._objectTracking.showTrackingAtTimeout(document, snaped);
         }
     };
 
-    snap(data: MouseAndDetected): SnapedData | undefined {
+    snap(data: MouseAndDetected): SnapResult | undefined {
         if (!Config.instance.enableSnapTracking) return undefined;
 
         const trackingDatas = this.detectTracking(data.view, data.mx, data.my);
@@ -73,7 +72,7 @@ export class TrackingSnap implements ISnap {
             : undefined;
     }
 
-    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapedData {
+    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapResult {
         const lines: number[] = trackingDatas
             .map((x) => this.showTempLine(view, x.axis.location, point))
             .filter((id) => id !== undefined);
@@ -104,7 +103,7 @@ export class TrackingSnap implements ISnap {
     private shapeIntersectTracking(
         data: MouseAndDetected,
         trackingDatas: TrackingData[],
-    ): SnapedData | undefined {
+    ): SnapResult | undefined {
         if (data.shapes.length === 0 || data.shapes[0].shape.shapeType !== ShapeType.Edge) return undefined;
         const point = this.findIntersection(data, trackingDatas);
         if (!point) return undefined;

@@ -10,11 +10,11 @@ import {
     VisualConfig,
     XYZ,
 } from "chili-core";
-import { SnapedData } from "../snap";
+import { SnapResult } from "../snap";
 import { IStep } from "../step";
 
 export abstract class MultistepCommand extends CancelableCommand {
-    protected stepDatas: SnapedData[] = [];
+    protected stepDatas: SnapResult[] = [];
 
     @Property.define("command.mode.repeat")
     get repeatOperation() {

@@ -1,10 +1,10 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
 import { AsyncController, I18nKeys, IDocument, XYZ } from "chili-core";
-import { SnapData, SnapEventHandler, SnapedData } from "../snap";
+import { SnapData, SnapEventHandler, SnapResult } from "../snap";
 
 export interface IStep {
-    execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined>;
+    execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
 }
 
 export abstract class Step<D extends SnapData> implements IStep {
@@ -13,7 +13,7 @@ export abstract class Step<D extends SnapData> implements IStep {
         private readonly handleStepData: () => D,
     ) {}
 
-    async execute(document: IDocument, controller: AsyncController): Promise<SnapedData | undefined> {
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const data = this.handleStepData();
         this.setValidator(data);
 
