@@ -77,6 +77,7 @@ if (${EMSCRIPTEN})
         -sMODULARIZE=1
         -sEXPORT_ES6=1
         -sALLOW_MEMORY_GROWTH=1
+        -sMAXIMUM_MEMORY=4GB
         -sENVIRONMENT="web"
         --bind
         --emit-tsd "${TARGET}.d.ts"

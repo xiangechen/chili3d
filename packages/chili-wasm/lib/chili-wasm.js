@@ -219,6 +219,7 @@ var Module = (() => {
             var info = getWasmImports();
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
+                wasmExports = applySignatureConversions(wasmExports);
                 wasmMemory = wasmExports["la"];
                 updateMemoryViews();
                 wasmTable = wasmExports["qa"];
@@ -266,30 +267,30 @@ var Module = (() => {
                 this.ptr = excPtr - 24;
             }
             set_type(type) {
-                HEAPU32[(this.ptr + 4) >> 2] = type;
+                HEAPU32[((this.ptr + 4) >>> 2) >>> 0] = type;
             }
             get_type() {
-                return HEAPU32[(this.ptr + 4) >> 2];
+                return HEAPU32[((this.ptr + 4) >>> 2) >>> 0];
             }
             set_destructor(destructor) {
-                HEAPU32[(this.ptr + 8) >> 2] = destructor;
+                HEAPU32[((this.ptr + 8) >>> 2) >>> 0] = destructor;
             }
             get_destructor() {
-                return HEAPU32[(this.ptr + 8) >> 2];
+                return HEAPU32[((this.ptr + 8) >>> 2) >>> 0];
             }
             set_caught(caught) {
                 caught = caught ? 1 : 0;
-                HEAP8[this.ptr + 12] = caught;
+                HEAP8[(this.ptr + 12) >>> 0] = caught;
             }
             get_caught() {
-                return HEAP8[this.ptr + 12] != 0;
+                return HEAP8[(this.ptr + 12) >>> 0] != 0;
             }
             set_rethrown(rethrown) {
                 rethrown = rethrown ? 1 : 0;
-                HEAP8[this.ptr + 13] = rethrown;
+                HEAP8[(this.ptr + 13) >>> 0] = rethrown;
             }
             get_rethrown() {
-                return HEAP8[this.ptr + 13] != 0;
+                return HEAP8[(this.ptr + 13) >>> 0] != 0;
             }
             init(type, destructor) {
                 this.set_adjusted_ptr(0);
@@ -297,21 +298,26 @@ var Module = (() => {
                 this.set_destructor(destructor);
             }
             set_adjusted_ptr(adjustedPtr) {
-                HEAPU32[(this.ptr + 16) >> 2] = adjustedPtr;
+                HEAPU32[((this.ptr + 16) >>> 2) >>> 0] = adjustedPtr;
             }
             get_adjusted_ptr() {
-                return HEAPU32[(this.ptr + 16) >> 2];
+                return HEAPU32[((this.ptr + 16) >>> 2) >>> 0];
             }
         }
         var exceptionLast = 0;
         var uncaughtExceptionCount = 0;
-        var ___cxa_throw = (ptr, type, destructor) => {
+        var convertI32PairToI53Checked = (lo, hi) =>
+            (hi + 2097152) >>> 0 < 4194305 - !!lo ? (lo >>> 0) + hi * 4294967296 : NaN;
+        function ___cxa_throw(ptr, type, destructor) {
+            ptr >>>= 0;
+            type >>>= 0;
+            destructor >>>= 0;
             var info = new ExceptionInfo(ptr);
             info.init(type, destructor);
             exceptionLast = ptr;
             uncaughtExceptionCount++;
             throw exceptionLast;
-        };
+        }
         var PATH = {
             isAbs: (path) => path.charAt(0) === "/",
             splitPath: (filename) => {
@@ -438,6 +444,7 @@ var Module = (() => {
         };
         var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder() : undefined;
         var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
+            idx >>>= 0;
             var endIdx = idx + maxBytesToRead;
             var endPtr = idx;
             while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
@@ -490,6 +497,7 @@ var Module = (() => {
             return len;
         };
         var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
+            outIdx >>>= 0;
             if (!(maxBytesToWrite > 0)) return 0;
             var startIdx = outIdx;
             var endIdx = outIdx + maxBytesToWrite - 1;
@@ -501,25 +509,25 @@ var Module = (() => {
                 }
                 if (u <= 127) {
                     if (outIdx >= endIdx) break;
-                    heap[outIdx++] = u;
+                    heap[outIdx++ >>> 0] = u;
                 } else if (u <= 2047) {
                     if (outIdx + 1 >= endIdx) break;
-                    heap[outIdx++] = 192 | (u >> 6);
-                    heap[outIdx++] = 128 | (u & 63);
+                    heap[outIdx++ >>> 0] = 192 | (u >> 6);
+                    heap[outIdx++ >>> 0] = 128 | (u & 63);
                 } else if (u <= 65535) {
                     if (outIdx + 2 >= endIdx) break;
-                    heap[outIdx++] = 224 | (u >> 12);
-                    heap[outIdx++] = 128 | ((u >> 6) & 63);
-                    heap[outIdx++] = 128 | (u & 63);
+                    heap[outIdx++ >>> 0] = 224 | (u >> 12);
+                    heap[outIdx++ >>> 0] = 128 | ((u >> 6) & 63);
+                    heap[outIdx++ >>> 0] = 128 | (u & 63);
                 } else {
                     if (outIdx + 3 >= endIdx) break;
-                    heap[outIdx++] = 240 | (u >> 18);
-                    heap[outIdx++] = 128 | ((u >> 12) & 63);
-                    heap[outIdx++] = 128 | ((u >> 6) & 63);
-                    heap[outIdx++] = 128 | (u & 63);
+                    heap[outIdx++ >>> 0] = 240 | (u >> 18);
+                    heap[outIdx++ >>> 0] = 128 | ((u >> 12) & 63);
+                    heap[outIdx++ >>> 0] = 128 | ((u >> 6) & 63);
+                    heap[outIdx++ >>> 0] = 128 | (u & 63);
                 }
             }
-            heap[outIdx] = 0;
+            heap[outIdx >>> 0] = 0;
             return outIdx - startIdx;
         };
         function intArrayFromString(stringy, dontAddNull, length) {
@@ -954,7 +962,7 @@ var Module = (() => {
                                     );
                                 }
                             }
-                            HEAP8.set(contents, ptr);
+                            HEAP8.set(contents, ptr >>> 0);
                         }
                     }
                     return { ptr: ptr, allocated: allocated };
@@ -2445,8 +2453,10 @@ var Module = (() => {
                 return node;
             },
         };
-        var UTF8ToString = (ptr, maxBytesToRead) =>
-            ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
+        var UTF8ToString = (ptr, maxBytesToRead) => {
+            ptr >>>= 0;
+            return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
+        };
         var SYSCALLS = {
             DEFAULT_POLLMASK: 5,
             calculateAt(dirfd, path, allowEmpty) {
@@ -2470,12 +2480,12 @@ var Module = (() => {
             },
             doStat(func, path, buf) {
                 var stat = func(path);
-                HEAP32[buf >> 2] = stat.dev;
-                HEAP32[(buf + 4) >> 2] = stat.mode;
-                HEAPU32[(buf + 8) >> 2] = stat.nlink;
-                HEAP32[(buf + 12) >> 2] = stat.uid;
-                HEAP32[(buf + 16) >> 2] = stat.gid;
-                HEAP32[(buf + 20) >> 2] = stat.rdev;
+                HEAP32[(buf >>> 2) >>> 0] = stat.dev;
+                HEAP32[((buf + 4) >>> 2) >>> 0] = stat.mode;
+                HEAPU32[((buf + 8) >>> 2) >>> 0] = stat.nlink;
+                HEAP32[((buf + 12) >>> 2) >>> 0] = stat.uid;
+                HEAP32[((buf + 16) >>> 2) >>> 0] = stat.gid;
+                HEAP32[((buf + 20) >>> 2) >>> 0] = stat.rdev;
                 (tempI64 = [
                     stat.size >>> 0,
                     ((tempDouble = stat.size),
@@ -2485,10 +2495,10 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[(buf + 24) >> 2] = tempI64[0]),
-                    (HEAP32[(buf + 28) >> 2] = tempI64[1]);
-                HEAP32[(buf + 32) >> 2] = 4096;
-                HEAP32[(buf + 36) >> 2] = stat.blocks;
+                    (HEAP32[((buf + 24) >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((buf + 28) >>> 2) >>> 0] = tempI64[1]);
+                HEAP32[((buf + 32) >>> 2) >>> 0] = 4096;
+                HEAP32[((buf + 36) >>> 2) >>> 0] = stat.blocks;
                 var atime = stat.atime.getTime();
                 var mtime = stat.mtime.getTime();
                 var ctime = stat.ctime.getTime();
@@ -2501,9 +2511,9 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[(buf + 40) >> 2] = tempI64[0]),
-                    (HEAP32[(buf + 44) >> 2] = tempI64[1]);
-                HEAPU32[(buf + 48) >> 2] = (atime % 1e3) * 1e3;
+                    (HEAP32[((buf + 40) >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((buf + 44) >>> 2) >>> 0] = tempI64[1]);
+                HEAPU32[((buf + 48) >>> 2) >>> 0] = (atime % 1e3) * 1e3;
                 (tempI64 = [
                     Math.floor(mtime / 1e3) >>> 0,
                     ((tempDouble = Math.floor(mtime / 1e3)),
@@ -2513,9 +2523,9 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[(buf + 56) >> 2] = tempI64[0]),
-                    (HEAP32[(buf + 60) >> 2] = tempI64[1]);
-                HEAPU32[(buf + 64) >> 2] = (mtime % 1e3) * 1e3;
+                    (HEAP32[((buf + 56) >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((buf + 60) >>> 2) >>> 0] = tempI64[1]);
+                HEAPU32[((buf + 64) >>> 2) >>> 0] = (mtime % 1e3) * 1e3;
                 (tempI64 = [
                     Math.floor(ctime / 1e3) >>> 0,
                     ((tempDouble = Math.floor(ctime / 1e3)),
@@ -2525,9 +2535,9 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[(buf + 72) >> 2] = tempI64[0]),
-                    (HEAP32[(buf + 76) >> 2] = tempI64[1]);
-                HEAPU32[(buf + 80) >> 2] = (ctime % 1e3) * 1e3;
+                    (HEAP32[((buf + 72) >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((buf + 76) >>> 2) >>> 0] = tempI64[1]);
+                HEAPU32[((buf + 80) >>> 2) >>> 0] = (ctime % 1e3) * 1e3;
                 (tempI64 = [
                     stat.ino >>> 0,
                     ((tempDouble = stat.ino),
@@ -2537,8 +2547,8 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[(buf + 88) >> 2] = tempI64[0]),
-                    (HEAP32[(buf + 92) >> 2] = tempI64[1]);
+                    (HEAP32[((buf + 88) >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((buf + 92) >>> 2) >>> 0] = tempI64[1]);
                 return 0;
             },
             doMsync(addr, stream, len, flags, offset) {
@@ -2562,6 +2572,7 @@ var Module = (() => {
             },
         };
         function ___syscall_chmod(path, mode) {
+            path >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 FS.chmod(path, mode);
@@ -2572,6 +2583,7 @@ var Module = (() => {
             }
         }
         function ___syscall_faccessat(dirfd, path, amode, flags) {
+            path >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 path = SYSCALLS.calculateAt(dirfd, path);
@@ -2597,12 +2609,13 @@ var Module = (() => {
             }
         }
         function syscallGetVarargI() {
-            var ret = HEAP32[+SYSCALLS.varargs >> 2];
+            var ret = HEAP32[(+SYSCALLS.varargs >>> 2) >>> 0];
             SYSCALLS.varargs += 4;
             return ret;
         }
         var syscallGetVarargP = syscallGetVarargI;
         function ___syscall_fcntl64(fd, cmd, varargs) {
+            varargs >>>= 0;
             SYSCALLS.varargs = varargs;
             try {
                 var stream = SYSCALLS.getStreamFromFD(fd);
@@ -2632,7 +2645,7 @@ var Module = (() => {
                     case 12: {
                         var arg = syscallGetVarargP();
                         var offset = 0;
-                        HEAP16[(arg + offset) >> 1] = 2;
+                        HEAP16[((arg + offset) >>> 1) >>> 0] = 2;
                         return 0;
                     }
                     case 13:
@@ -2646,6 +2659,7 @@ var Module = (() => {
             }
         }
         function ___syscall_fstat64(fd, buf) {
+            buf >>>= 0;
             try {
                 var stream = SYSCALLS.getStreamFromFD(fd);
                 return SYSCALLS.doStat(FS.stat, stream.path, buf);
@@ -2655,6 +2669,7 @@ var Module = (() => {
             }
         }
         function ___syscall_ioctl(fd, op, varargs) {
+            varargs >>>= 0;
             SYSCALLS.varargs = varargs;
             try {
                 var stream = SYSCALLS.getStreamFromFD(fd);
@@ -2668,12 +2683,12 @@ var Module = (() => {
                         if (stream.tty.ops.ioctl_tcgets) {
                             var termios = stream.tty.ops.ioctl_tcgets(stream);
                             var argp = syscallGetVarargP();
-                            HEAP32[argp >> 2] = termios.c_iflag || 0;
-                            HEAP32[(argp + 4) >> 2] = termios.c_oflag || 0;
-                            HEAP32[(argp + 8) >> 2] = termios.c_cflag || 0;
-                            HEAP32[(argp + 12) >> 2] = termios.c_lflag || 0;
+                            HEAP32[(argp >>> 2) >>> 0] = termios.c_iflag || 0;
+                            HEAP32[((argp + 4) >>> 2) >>> 0] = termios.c_oflag || 0;
+                            HEAP32[((argp + 8) >>> 2) >>> 0] = termios.c_cflag || 0;
+                            HEAP32[((argp + 12) >>> 2) >>> 0] = termios.c_lflag || 0;
                             for (var i = 0; i < 32; i++) {
-                                HEAP8[argp + i + 17] = termios.c_cc[i] || 0;
+                                HEAP8[(argp + i + 17) >>> 0] = termios.c_cc[i] || 0;
                             }
                             return 0;
                         }
@@ -2691,13 +2706,13 @@ var Module = (() => {
                         if (!stream.tty) return -59;
                         if (stream.tty.ops.ioctl_tcsets) {
                             var argp = syscallGetVarargP();
-                            var c_iflag = HEAP32[argp >> 2];
-                            var c_oflag = HEAP32[(argp + 4) >> 2];
-                            var c_cflag = HEAP32[(argp + 8) >> 2];
-                            var c_lflag = HEAP32[(argp + 12) >> 2];
+                            var c_iflag = HEAP32[(argp >>> 2) >>> 0];
+                            var c_oflag = HEAP32[((argp + 4) >>> 2) >>> 0];
+                            var c_cflag = HEAP32[((argp + 8) >>> 2) >>> 0];
+                            var c_lflag = HEAP32[((argp + 12) >>> 2) >>> 0];
                             var c_cc = [];
                             for (var i = 0; i < 32; i++) {
-                                c_cc.push(HEAP8[argp + i + 17]);
+                                c_cc.push(HEAP8[(argp + i + 17) >>> 0]);
                             }
                             return stream.tty.ops.ioctl_tcsets(stream.tty, op, {
                                 c_iflag: c_iflag,
@@ -2712,7 +2727,7 @@ var Module = (() => {
                     case 21519: {
                         if (!stream.tty) return -59;
                         var argp = syscallGetVarargP();
-                        HEAP32[argp >> 2] = 0;
+                        HEAP32[(argp >>> 2) >>> 0] = 0;
                         return 0;
                     }
                     case 21520: {
@@ -2728,8 +2743,8 @@ var Module = (() => {
                         if (stream.tty.ops.ioctl_tiocgwinsz) {
                             var winsize = stream.tty.ops.ioctl_tiocgwinsz(stream.tty);
                             var argp = syscallGetVarargP();
-                            HEAP16[argp >> 1] = winsize[0];
-                            HEAP16[(argp + 2) >> 1] = winsize[1];
+                            HEAP16[(argp >>> 1) >>> 0] = winsize[0];
+                            HEAP16[((argp + 2) >>> 1) >>> 0] = winsize[1];
                         }
                         return 0;
                     }
@@ -2750,6 +2765,8 @@ var Module = (() => {
             }
         }
         function ___syscall_lstat64(path, buf) {
+            path >>>= 0;
+            buf >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 return SYSCALLS.doStat(FS.lstat, path, buf);
@@ -2759,6 +2776,8 @@ var Module = (() => {
             }
         }
         function ___syscall_newfstatat(dirfd, path, buf, flags) {
+            path >>>= 0;
+            buf >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 var nofollow = flags & 256;
@@ -2772,6 +2791,8 @@ var Module = (() => {
             }
         }
         function ___syscall_openat(dirfd, path, flags, varargs) {
+            path >>>= 0;
+            varargs >>>= 0;
             SYSCALLS.varargs = varargs;
             try {
                 path = SYSCALLS.getStr(path);
@@ -2784,6 +2805,7 @@ var Module = (() => {
             }
         }
         function ___syscall_rmdir(path) {
+            path >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 FS.rmdir(path);
@@ -2794,6 +2816,8 @@ var Module = (() => {
             }
         }
         function ___syscall_stat64(path, buf) {
+            path >>>= 0;
+            buf >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 return SYSCALLS.doStat(FS.stat, path, buf);
@@ -2803,6 +2827,7 @@ var Module = (() => {
             }
         }
         function ___syscall_unlinkat(dirfd, path, flags) {
+            path >>>= 0;
             try {
                 path = SYSCALLS.getStr(path);
                 path = SYSCALLS.calculateAt(dirfd, path);
@@ -2831,7 +2856,7 @@ var Module = (() => {
             }
         };
         function readPointer(pointer) {
-            return this["fromWireType"](HEAPU32[pointer >> 2]);
+            return this["fromWireType"](HEAPU32[(pointer >>> 2) >>> 0]);
         }
         var awaitingDependencies = {};
         var registeredTypes = {};
@@ -2877,7 +2902,8 @@ var Module = (() => {
                 onComplete(typeConverters);
             }
         };
-        var __embind_finalize_value_object = (structType) => {
+        var __embind_finalize_value_object = function (structType) {
+            structType >>>= 0;
             var reg = structRegistrations[structType];
             delete structRegistrations[structType];
             var rawConstructor = reg.rawConstructor;
@@ -2938,7 +2964,11 @@ var Module = (() => {
                 ];
             });
         };
-        var __embind_register_bigint = (primitiveType, name, size, minRange, maxRange) => {};
+        function __embind_register_bigint(primitiveType, name, size, minRange, maxRange) {
+            primitiveType >>>= 0;
+            name >>>= 0;
+            size >>>= 0;
+        }
         var embind_init_charCodes = () => {
             var codes = new Array(256);
             for (var i = 0; i < 256; ++i) {
@@ -2950,8 +2980,8 @@ var Module = (() => {
         var readLatin1String = (ptr) => {
             var ret = "";
             var c = ptr;
-            while (HEAPU8[c]) {
-                ret += embind_charCodes[HEAPU8[c++]];
+            while (HEAPU8[c >>> 0]) {
+                ret += embind_charCodes[HEAPU8[c++ >>> 0]];
             }
             return ret;
         };
@@ -2983,7 +3013,9 @@ var Module = (() => {
             return sharedRegisterType(rawType, registeredInstance, options);
         }
         var GenericWireTypeSize = 8;
-        var __embind_register_bool = (rawType, name, trueValue, falseValue) => {
+        function __embind_register_bool(rawType, name, trueValue, falseValue) {
+            rawType >>>= 0;
+            name >>>= 0;
             name = readLatin1String(name);
             registerType(rawType, {
                 name: name,
@@ -2995,11 +3027,11 @@ var Module = (() => {
                 },
                 argPackAdvance: GenericWireTypeSize,
                 readValueFromPointer: function (pointer) {
-                    return this["fromWireType"](HEAPU8[pointer]);
+                    return this["fromWireType"](HEAPU8[pointer >>> 0]);
                 },
                 destructorFunction: null,
             });
-        };
+        }
         var shallowCopyInternalPointer = (o) => ({
             count: o.count,
             deleteScheduled: o.deleteScheduled,
@@ -3533,7 +3565,7 @@ var Module = (() => {
                 return dynCallLegacy(sig, ptr, args);
             }
             var rtn = getWasmTableEntry(ptr)(...args);
-            return rtn;
+            return sig[0] == "p" ? rtn >>> 0 : rtn;
         };
         var getDynCaller =
             (sig, ptr) =>
@@ -3543,6 +3575,9 @@ var Module = (() => {
             signature = readLatin1String(signature);
             function makeDynCaller() {
                 if (signature.includes("j")) {
+                    return getDynCaller(signature, rawFunction);
+                }
+                if (signature.includes("p")) {
                     return getDynCaller(signature, rawFunction);
                 }
                 return getWasmTableEntry(rawFunction);
@@ -3600,7 +3635,7 @@ var Module = (() => {
             types.forEach(visit);
             throw new UnboundTypeError(`${message}: ` + unboundTypes.map(getTypeName).join([", "]));
         };
-        var __embind_register_class = (
+        function __embind_register_class(
             rawType,
             rawPointerType,
             rawConstPointerType,
@@ -3614,7 +3649,20 @@ var Module = (() => {
             name,
             destructorSignature,
             rawDestructor,
-        ) => {
+        ) {
+            rawType >>>= 0;
+            rawPointerType >>>= 0;
+            rawConstPointerType >>>= 0;
+            baseClassRawType >>>= 0;
+            getActualTypeSignature >>>= 0;
+            getActualType >>>= 0;
+            upcastSignature >>>= 0;
+            upcast >>>= 0;
+            downcastSignature >>>= 0;
+            downcast >>>= 0;
+            name >>>= 0;
+            destructorSignature >>>= 0;
+            rawDestructor >>>= 0;
             name = readLatin1String(name);
             getActualType = embind__requireFunction(getActualTypeSignature, getActualType);
             upcast &&= embind__requireFunction(upcastSignature, upcast);
@@ -3699,7 +3747,7 @@ var Module = (() => {
                     return [referenceConverter, pointerConverter, constPointerConverter];
                 },
             );
-        };
+        }
         function usesDestructorStack(argTypes) {
             for (var i = 1; i < argTypes.length; ++i) {
                 if (argTypes[i] !== null && argTypes[i].destructorFunction === undefined) {
@@ -3818,7 +3866,7 @@ var Module = (() => {
         var heap32VectorToArray = (count, firstElement) => {
             var array = [];
             for (var i = 0; i < count; i++) {
-                array.push(HEAPU32[(firstElement + i * 4) >> 2]);
+                array.push(HEAPU32[((firstElement + i * 4) >>> 2) >>> 0]);
             }
             return array;
         };
@@ -3831,7 +3879,7 @@ var Module = (() => {
                 return signature;
             }
         };
-        var __embind_register_class_class_function = (
+        var __embind_register_class_class_function = function (
             rawClassType,
             methodName,
             argCount,
@@ -3840,7 +3888,13 @@ var Module = (() => {
             rawInvoker,
             fn,
             isAsync,
-        ) => {
+        ) {
+            rawClassType >>>= 0;
+            methodName >>>= 0;
+            rawArgTypesAddr >>>= 0;
+            invokerSignature >>>= 0;
+            rawInvoker >>>= 0;
+            fn >>>= 0;
             var rawArgTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
             methodName = readLatin1String(methodName);
             methodName = getFunctionName(methodName);
@@ -3890,14 +3944,19 @@ var Module = (() => {
                 return [];
             });
         };
-        var __embind_register_class_constructor = (
+        var __embind_register_class_constructor = function (
             rawClassType,
             argCount,
             rawArgTypesAddr,
             invokerSignature,
             invoker,
             rawConstructor,
-        ) => {
+        ) {
+            rawClassType >>>= 0;
+            rawArgTypesAddr >>>= 0;
+            invokerSignature >>>= 0;
+            invoker >>>= 0;
+            rawConstructor >>>= 0;
             var rawArgTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
             invoker = embind__requireFunction(invokerSignature, invoker);
             whenDependentTypesAreResolved([], [rawClassType], (classType) => {
@@ -3931,7 +3990,7 @@ var Module = (() => {
                 return [];
             });
         };
-        var __embind_register_class_function = (
+        var __embind_register_class_function = function (
             rawClassType,
             methodName,
             argCount,
@@ -3941,7 +4000,13 @@ var Module = (() => {
             context,
             isPureVirtual,
             isAsync,
-        ) => {
+        ) {
+            rawClassType >>>= 0;
+            methodName >>>= 0;
+            rawArgTypesAddr >>>= 0;
+            invokerSignature >>>= 0;
+            rawInvoker >>>= 0;
+            context >>>= 0;
             var rawArgTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
             methodName = readLatin1String(methodName);
             methodName = getFunctionName(methodName);
@@ -4005,7 +4070,7 @@ var Module = (() => {
             }
             return upcastPointer(this_.$$.ptr, this_.$$.ptrType.registeredClass, classType.registeredClass);
         };
-        var __embind_register_class_property = (
+        var __embind_register_class_property = function (
             classType,
             fieldName,
             getterReturnType,
@@ -4016,7 +4081,17 @@ var Module = (() => {
             setterSignature,
             setter,
             setterContext,
-        ) => {
+        ) {
+            classType >>>= 0;
+            fieldName >>>= 0;
+            getterReturnType >>>= 0;
+            getterSignature >>>= 0;
+            getter >>>= 0;
+            getterContext >>>= 0;
+            setterArgumentType >>>= 0;
+            setterSignature >>>= 0;
+            setter >>>= 0;
+            setterContext >>>= 0;
             fieldName = readLatin1String(fieldName);
             getter = embind__requireFunction(getterSignature, getter);
             whenDependentTypesAreResolved([], [classType], (classType) => {
@@ -4073,12 +4148,13 @@ var Module = (() => {
         };
         var emval_freelist = [];
         var emval_handles = [];
-        var __emval_decref = (handle) => {
+        function __emval_decref(handle) {
+            handle >>>= 0;
             if (handle > 9 && 0 === --emval_handles[handle + 1]) {
                 emval_handles[handle] = undefined;
                 emval_freelist.push(handle);
             }
-        };
+        }
         var count_emval_handles = () => emval_handles.length / 2 - 5 - emval_freelist.length;
         var init_emval = () => {
             emval_handles.push(0, 1, undefined, 1, null, 1, true, 1, false, 1);
@@ -4122,38 +4198,44 @@ var Module = (() => {
             readValueFromPointer: readPointer,
             destructorFunction: null,
         };
-        var __embind_register_emval = (rawType) => registerType(rawType, EmValType);
+        function __embind_register_emval(rawType) {
+            rawType >>>= 0;
+            return registerType(rawType, EmValType);
+        }
         var enumReadValueFromPointer = (name, width, signed) => {
             switch (width) {
                 case 1:
                     return signed
                         ? function (pointer) {
-                              return this["fromWireType"](HEAP8[pointer]);
+                              return this["fromWireType"](HEAP8[pointer >>> 0]);
                           }
                         : function (pointer) {
-                              return this["fromWireType"](HEAPU8[pointer]);
+                              return this["fromWireType"](HEAPU8[pointer >>> 0]);
                           };
                 case 2:
                     return signed
                         ? function (pointer) {
-                              return this["fromWireType"](HEAP16[pointer >> 1]);
+                              return this["fromWireType"](HEAP16[(pointer >>> 1) >>> 0]);
                           }
                         : function (pointer) {
-                              return this["fromWireType"](HEAPU16[pointer >> 1]);
+                              return this["fromWireType"](HEAPU16[(pointer >>> 1) >>> 0]);
                           };
                 case 4:
                     return signed
                         ? function (pointer) {
-                              return this["fromWireType"](HEAP32[pointer >> 2]);
+                              return this["fromWireType"](HEAP32[(pointer >>> 2) >>> 0]);
                           }
                         : function (pointer) {
-                              return this["fromWireType"](HEAPU32[pointer >> 2]);
+                              return this["fromWireType"](HEAPU32[(pointer >>> 2) >>> 0]);
                           };
                 default:
                     throw new TypeError(`invalid integer width (${width}): ${name}`);
             }
         };
-        var __embind_register_enum = (rawType, name, size, isSigned) => {
+        function __embind_register_enum(rawType, name, size, isSigned) {
+            rawType >>>= 0;
+            name >>>= 0;
+            size >>>= 0;
             name = readLatin1String(name);
             function ctor() {}
             ctor.values = {};
@@ -4169,7 +4251,7 @@ var Module = (() => {
                 destructorFunction: null,
             });
             exposePublicSymbol(name, ctor);
-        };
+        }
         var requireRegisteredType = (rawType, humanName) => {
             var impl = registeredTypes[rawType];
             if (undefined === impl) {
@@ -4177,7 +4259,9 @@ var Module = (() => {
             }
             return impl;
         };
-        var __embind_register_enum_value = (rawEnumType, name, enumValue) => {
+        function __embind_register_enum_value(rawEnumType, name, enumValue) {
+            rawEnumType >>>= 0;
+            name >>>= 0;
             var enumType = requireRegisteredType(rawEnumType, "enum");
             name = readLatin1String(name);
             var Enum = enumType.constructor;
@@ -4187,7 +4271,7 @@ var Module = (() => {
             });
             Enum.values[enumValue] = Value;
             Enum[name] = Value;
-        };
+        }
         var embindRepr = (v) => {
             if (v === null) {
                 return "null";
@@ -4203,17 +4287,20 @@ var Module = (() => {
             switch (width) {
                 case 4:
                     return function (pointer) {
-                        return this["fromWireType"](HEAPF32[pointer >> 2]);
+                        return this["fromWireType"](HEAPF32[(pointer >>> 2) >>> 0]);
                     };
                 case 8:
                     return function (pointer) {
-                        return this["fromWireType"](HEAPF64[pointer >> 3]);
+                        return this["fromWireType"](HEAPF64[(pointer >>> 3) >>> 0]);
                     };
                 default:
                     throw new TypeError(`invalid float width (${width}): ${name}`);
             }
         };
-        var __embind_register_float = (rawType, name, size) => {
+        var __embind_register_float = function (rawType, name, size) {
+            rawType >>>= 0;
+            name >>>= 0;
+            size >>>= 0;
             name = readLatin1String(name);
             registerType(rawType, {
                 name: name,
@@ -4224,7 +4311,7 @@ var Module = (() => {
                 destructorFunction: null,
             });
         };
-        var __embind_register_function = (
+        function __embind_register_function(
             name,
             argCount,
             rawArgTypesAddr,
@@ -4232,7 +4319,12 @@ var Module = (() => {
             rawInvoker,
             fn,
             isAsync,
-        ) => {
+        ) {
+            name >>>= 0;
+            rawArgTypesAddr >>>= 0;
+            signature >>>= 0;
+            rawInvoker >>>= 0;
+            fn >>>= 0;
             var argTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
             name = readLatin1String(name);
             name = getFunctionName(name);
@@ -4253,20 +4345,27 @@ var Module = (() => {
                 );
                 return [];
             });
-        };
+        }
         var integerReadValueFromPointer = (name, width, signed) => {
             switch (width) {
                 case 1:
-                    return signed ? (pointer) => HEAP8[pointer] : (pointer) => HEAPU8[pointer];
+                    return signed ? (pointer) => HEAP8[pointer >>> 0] : (pointer) => HEAPU8[pointer >>> 0];
                 case 2:
-                    return signed ? (pointer) => HEAP16[pointer >> 1] : (pointer) => HEAPU16[pointer >> 1];
+                    return signed
+                        ? (pointer) => HEAP16[(pointer >>> 1) >>> 0]
+                        : (pointer) => HEAPU16[(pointer >>> 1) >>> 0];
                 case 4:
-                    return signed ? (pointer) => HEAP32[pointer >> 2] : (pointer) => HEAPU32[pointer >> 2];
+                    return signed
+                        ? (pointer) => HEAP32[(pointer >>> 2) >>> 0]
+                        : (pointer) => HEAPU32[(pointer >>> 2) >>> 0];
                 default:
                     throw new TypeError(`invalid integer width (${width}): ${name}`);
             }
         };
-        var __embind_register_integer = (primitiveType, name, size, minRange, maxRange) => {
+        function __embind_register_integer(primitiveType, name, size, minRange, maxRange) {
+            primitiveType >>>= 0;
+            name >>>= 0;
+            size >>>= 0;
             name = readLatin1String(name);
             if (maxRange === -1) {
                 maxRange = 4294967295;
@@ -4298,8 +4397,10 @@ var Module = (() => {
                 readValueFromPointer: integerReadValueFromPointer(name, size, minRange !== 0),
                 destructorFunction: null,
             });
-        };
-        var __embind_register_memory_view = (rawType, dataTypeIndex, name) => {
+        }
+        function __embind_register_memory_view(rawType, dataTypeIndex, name) {
+            rawType >>>= 0;
+            name >>>= 0;
             var typeMapping = [
                 Int8Array,
                 Uint8Array,
@@ -4312,8 +4413,8 @@ var Module = (() => {
             ];
             var TA = typeMapping[dataTypeIndex];
             function decodeMemoryView(handle) {
-                var size = HEAPU32[handle >> 2];
-                var data = HEAPU32[(handle + 4) >> 2];
+                var size = HEAPU32[(handle >>> 2) >>> 0];
+                var data = HEAPU32[((handle + 4) >>> 2) >>> 0];
                 return new TA(HEAP8.buffer, data, size);
             }
             name = readLatin1String(name);
@@ -4327,26 +4428,30 @@ var Module = (() => {
                 },
                 { ignoreDuplicateRegistrations: true },
             );
-        };
-        var __embind_register_optional = (rawOptionalType, rawType) => {
+        }
+        function __embind_register_optional(rawOptionalType, rawType) {
+            rawOptionalType >>>= 0;
+            rawType >>>= 0;
             __embind_register_emval(rawOptionalType);
-        };
+        }
         var stringToUTF8 = (str, outPtr, maxBytesToWrite) =>
             stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
-        var __embind_register_std_string = (rawType, name) => {
+        function __embind_register_std_string(rawType, name) {
+            rawType >>>= 0;
+            name >>>= 0;
             name = readLatin1String(name);
             var stdStringIsUTF8 = name === "std::string";
             registerType(rawType, {
                 name: name,
                 fromWireType(value) {
-                    var length = HEAPU32[value >> 2];
+                    var length = HEAPU32[(value >>> 2) >>> 0];
                     var payload = value + 4;
                     var str;
                     if (stdStringIsUTF8) {
                         var decodeStartPtr = payload;
                         for (var i = 0; i <= length; ++i) {
                             var currentBytePtr = payload + i;
-                            if (i == length || HEAPU8[currentBytePtr] == 0) {
+                            if (i == length || HEAPU8[currentBytePtr >>> 0] == 0) {
                                 var maxRead = currentBytePtr - decodeStartPtr;
                                 var stringSegment = UTF8ToString(decodeStartPtr, maxRead);
                                 if (str === undefined) {
@@ -4361,7 +4466,7 @@ var Module = (() => {
                     } else {
                         var a = new Array(length);
                         for (var i = 0; i < length; ++i) {
-                            a[i] = String.fromCharCode(HEAPU8[payload + i]);
+                            a[i] = String.fromCharCode(HEAPU8[(payload + i) >>> 0]);
                         }
                         str = a.join("");
                     }
@@ -4391,7 +4496,7 @@ var Module = (() => {
                     }
                     var base = _malloc(4 + length + 1);
                     var ptr = base + 4;
-                    HEAPU32[base >> 2] = length;
+                    HEAPU32[(base >>> 2) >>> 0] = length;
                     if (stdStringIsUTF8 && valueIsOfTypeString) {
                         stringToUTF8(value, ptr, length + 1);
                     } else {
@@ -4404,11 +4509,11 @@ var Module = (() => {
                                         "String has UTF-16 code units that do not fit in 8 bits",
                                     );
                                 }
-                                HEAPU8[ptr + i] = charCode;
+                                HEAPU8[(ptr + i) >>> 0] = charCode;
                             }
                         } else {
                             for (var i = 0; i < length; ++i) {
-                                HEAPU8[ptr + i] = value[i];
+                                HEAPU8[(ptr + i) >>> 0] = value[i];
                             }
                         }
                     }
@@ -4423,18 +4528,19 @@ var Module = (() => {
                     _free(ptr);
                 },
             });
-        };
+        }
         var UTF16Decoder = typeof TextDecoder != "undefined" ? new TextDecoder("utf-16le") : undefined;
         var UTF16ToString = (ptr, maxBytesToRead) => {
             var endPtr = ptr;
             var idx = endPtr >> 1;
             var maxIdx = idx + maxBytesToRead / 2;
-            while (!(idx >= maxIdx) && HEAPU16[idx]) ++idx;
+            while (!(idx >= maxIdx) && HEAPU16[idx >>> 0]) ++idx;
             endPtr = idx << 1;
-            if (endPtr - ptr > 32 && UTF16Decoder) return UTF16Decoder.decode(HEAPU8.subarray(ptr, endPtr));
+            if (endPtr - ptr > 32 && UTF16Decoder)
+                return UTF16Decoder.decode(HEAPU8.subarray(ptr >>> 0, endPtr >>> 0));
             var str = "";
             for (var i = 0; !(i >= maxBytesToRead / 2); ++i) {
-                var codeUnit = HEAP16[(ptr + i * 2) >> 1];
+                var codeUnit = HEAP16[((ptr + i * 2) >>> 1) >>> 0];
                 if (codeUnit == 0) break;
                 str += String.fromCharCode(codeUnit);
             }
@@ -4448,10 +4554,10 @@ var Module = (() => {
             var numCharsToWrite = maxBytesToWrite < str.length * 2 ? maxBytesToWrite / 2 : str.length;
             for (var i = 0; i < numCharsToWrite; ++i) {
                 var codeUnit = str.charCodeAt(i);
-                HEAP16[outPtr >> 1] = codeUnit;
+                HEAP16[(outPtr >>> 1) >>> 0] = codeUnit;
                 outPtr += 2;
             }
-            HEAP16[outPtr >> 1] = 0;
+            HEAP16[(outPtr >>> 1) >>> 0] = 0;
             return outPtr - startPtr;
         };
         var lengthBytesUTF16 = (str) => str.length * 2;
@@ -4459,7 +4565,7 @@ var Module = (() => {
             var i = 0;
             var str = "";
             while (!(i >= maxBytesToRead / 4)) {
-                var utf32 = HEAP32[(ptr + i * 4) >> 2];
+                var utf32 = HEAP32[((ptr + i * 4) >>> 2) >>> 0];
                 if (utf32 == 0) break;
                 ++i;
                 if (utf32 >= 65536) {
@@ -4472,6 +4578,7 @@ var Module = (() => {
             return str;
         };
         var stringToUTF32 = (str, outPtr, maxBytesToWrite) => {
+            outPtr >>>= 0;
             maxBytesToWrite ??= 2147483647;
             if (maxBytesToWrite < 4) return 0;
             var startPtr = outPtr;
@@ -4482,11 +4589,11 @@ var Module = (() => {
                     var trailSurrogate = str.charCodeAt(++i);
                     codeUnit = (65536 + ((codeUnit & 1023) << 10)) | (trailSurrogate & 1023);
                 }
-                HEAP32[outPtr >> 2] = codeUnit;
+                HEAP32[(outPtr >>> 2) >>> 0] = codeUnit;
                 outPtr += 4;
                 if (outPtr + 4 > endPtr) break;
             }
-            HEAP32[outPtr >> 2] = 0;
+            HEAP32[(outPtr >>> 2) >>> 0] = 0;
             return outPtr - startPtr;
         };
         var lengthBytesUTF32 = (str) => {
@@ -4498,24 +4605,27 @@ var Module = (() => {
             }
             return len;
         };
-        var __embind_register_std_wstring = (rawType, charSize, name) => {
+        var __embind_register_std_wstring = function (rawType, charSize, name) {
+            rawType >>>= 0;
+            charSize >>>= 0;
+            name >>>= 0;
             name = readLatin1String(name);
             var decodeString, encodeString, readCharAt, lengthBytesUTF;
             if (charSize === 2) {
                 decodeString = UTF16ToString;
                 encodeString = stringToUTF16;
                 lengthBytesUTF = lengthBytesUTF16;
-                readCharAt = (pointer) => HEAPU16[pointer >> 1];
+                readCharAt = (pointer) => HEAPU16[(pointer >>> 1) >>> 0];
             } else if (charSize === 4) {
                 decodeString = UTF32ToString;
                 encodeString = stringToUTF32;
                 lengthBytesUTF = lengthBytesUTF32;
-                readCharAt = (pointer) => HEAPU32[pointer >> 2];
+                readCharAt = (pointer) => HEAPU32[(pointer >>> 2) >>> 0];
             }
             registerType(rawType, {
                 name: name,
                 fromWireType: (value) => {
-                    var length = HEAPU32[value >> 2];
+                    var length = HEAPU32[(value >>> 2) >>> 0];
                     var str;
                     var decodeStartPtr = value + 4;
                     for (var i = 0; i <= length; ++i) {
@@ -4541,7 +4651,7 @@ var Module = (() => {
                     }
                     var length = lengthBytesUTF(value);
                     var ptr = _malloc(4 + length + charSize);
-                    HEAPU32[ptr >> 2] = length / charSize;
+                    HEAPU32[(ptr >>> 2) >>> 0] = length / charSize;
                     encodeString(value, ptr + 4, length + charSize);
                     if (destructors !== null) {
                         destructors.push(_free, ptr);
@@ -4555,25 +4665,33 @@ var Module = (() => {
                 },
             });
         };
-        var __embind_register_user_type = (rawType, name) => {
+        function __embind_register_user_type(rawType, name) {
+            rawType >>>= 0;
+            name >>>= 0;
             __embind_register_emval(rawType);
-        };
-        var __embind_register_value_object = (
+        }
+        function __embind_register_value_object(
             rawType,
             name,
             constructorSignature,
             rawConstructor,
             destructorSignature,
             rawDestructor,
-        ) => {
+        ) {
+            rawType >>>= 0;
+            name >>>= 0;
+            constructorSignature >>>= 0;
+            rawConstructor >>>= 0;
+            destructorSignature >>>= 0;
+            rawDestructor >>>= 0;
             structRegistrations[rawType] = {
                 name: readLatin1String(name),
                 rawConstructor: embind__requireFunction(constructorSignature, rawConstructor),
                 rawDestructor: embind__requireFunction(destructorSignature, rawDestructor),
                 fields: [],
             };
-        };
-        var __embind_register_value_object_field = (
+        }
+        function __embind_register_value_object_field(
             structType,
             fieldName,
             getterReturnType,
@@ -4584,7 +4702,17 @@ var Module = (() => {
             setterSignature,
             setter,
             setterContext,
-        ) => {
+        ) {
+            structType >>>= 0;
+            fieldName >>>= 0;
+            getterReturnType >>>= 0;
+            getterSignature >>>= 0;
+            getter >>>= 0;
+            getterContext >>>= 0;
+            setterArgumentType >>>= 0;
+            setterSignature >>>= 0;
+            setter >>>= 0;
+            setterContext >>>= 0;
             structRegistrations[structType].fields.push({
                 fieldName: readLatin1String(fieldName),
                 getterReturnType: getterReturnType,
@@ -4594,8 +4722,10 @@ var Module = (() => {
                 setter: embind__requireFunction(setterSignature, setter),
                 setterContext: setterContext,
             });
-        };
-        var __embind_register_void = (rawType, name) => {
+        }
+        var __embind_register_void = function (rawType, name) {
+            rawType >>>= 0;
+            name >>>= 0;
             name = readLatin1String(name);
             registerType(rawType, {
                 isVoid: true,
@@ -4698,11 +4828,17 @@ var Module = (() => {
                 return null;
             },
         };
-        var __emscripten_lookup_name = (name) => {
+        function __emscripten_lookup_name(name) {
+            name >>>= 0;
             var nameString = UTF8ToString(name);
             return inetPton4(DNS.lookup_name(nameString));
-        };
-        var __emscripten_memcpy_js = (dest, src, num) => HEAPU8.copyWithin(dest, src, src + num);
+        }
+        function __emscripten_memcpy_js(dest, src, num) {
+            dest >>>= 0;
+            src >>>= 0;
+            num >>>= 0;
+            return HEAPU8.copyWithin(dest >>> 0, src >>> 0, (src + num) >>> 0);
+        }
         var __emscripten_runtime_keepalive_clear = () => {
             noExitRuntime = false;
             runtimeKeepaliveCounter = 0;
@@ -4711,15 +4847,18 @@ var Module = (() => {
             var destructors = [];
             var result = returnType["toWireType"](destructors, handle);
             if (destructors.length) {
-                HEAPU32[destructorsRef >> 2] = Emval.toHandle(destructors);
+                HEAPU32[(destructorsRef >>> 2) >>> 0] = Emval.toHandle(destructors);
             }
             return result;
         };
-        var __emval_as = (handle, returnType, destructorsRef) => {
+        function __emval_as(handle, returnType, destructorsRef) {
+            handle >>>= 0;
+            returnType >>>= 0;
+            destructorsRef >>>= 0;
             handle = Emval.toValue(handle);
             returnType = requireRegisteredType(returnType, "emval::as");
             return emval_returnValue(returnType, destructorsRef, handle);
-        };
+        }
         var emval_symbols = {};
         var getStringOrSymbol = (address) => {
             var symbol = emval_symbols[address];
@@ -4729,12 +4868,17 @@ var Module = (() => {
             return symbol;
         };
         var emval_methodCallers = [];
-        var __emval_call_method = (caller, objHandle, methodName, destructorsRef, args) => {
+        function __emval_call_method(caller, objHandle, methodName, destructorsRef, args) {
+            caller >>>= 0;
+            objHandle >>>= 0;
+            methodName >>>= 0;
+            destructorsRef >>>= 0;
+            args >>>= 0;
             caller = emval_methodCallers[caller];
             objHandle = Emval.toValue(objHandle);
             methodName = getStringOrSymbol(methodName);
             return caller(objHandle, objHandle[methodName], destructorsRef, args);
-        };
+        }
         var emval_addMethodCaller = (caller) => {
             var id = emval_methodCallers.length;
             emval_methodCallers.push(caller);
@@ -4743,12 +4887,13 @@ var Module = (() => {
         var emval_lookupTypes = (argCount, argTypes) => {
             var a = new Array(argCount);
             for (var i = 0; i < argCount; ++i) {
-                a[i] = requireRegisteredType(HEAPU32[(argTypes + i * 4) >> 2], "parameter " + i);
+                a[i] = requireRegisteredType(HEAPU32[((argTypes + i * 4) >>> 2) >>> 0], "parameter " + i);
             }
             return a;
         };
         var reflectConstruct = Reflect.construct;
-        var __emval_get_method_caller = (argCount, argTypes, kind) => {
+        function __emval_get_method_caller(argCount, argTypes, kind) {
+            argTypes >>>= 0;
             var types = emval_lookupTypes(argCount, argTypes);
             var retType = types.shift();
             argCount--;
@@ -4779,35 +4924,47 @@ var Module = (() => {
             var invokerFunction = newFunc(Function, params)(...args);
             var functionName = `methodCaller<(${types.map((t) => t.name).join(", ")}) => ${retType.name}>`;
             return emval_addMethodCaller(createNamedFunction(functionName, invokerFunction));
-        };
-        var __emval_get_property = (handle, key) => {
+        }
+        function __emval_get_property(handle, key) {
+            handle >>>= 0;
+            key >>>= 0;
             handle = Emval.toValue(handle);
             key = Emval.toValue(key);
             return Emval.toHandle(handle[key]);
-        };
-        var __emval_incref = (handle) => {
+        }
+        function __emval_incref(handle) {
+            handle >>>= 0;
             if (handle > 9) {
                 emval_handles[handle + 1] += 1;
             }
-        };
-        var __emval_new_array = () => Emval.toHandle([]);
-        var __emval_new_array_from_memory_view = (view) => {
+        }
+        function __emval_new_array() {
+            return Emval.toHandle([]);
+        }
+        function __emval_new_array_from_memory_view(view) {
+            view >>>= 0;
             view = Emval.toValue(view);
             var a = new Array(view.length);
             for (var i = 0; i < view.length; i++) a[i] = view[i];
             return Emval.toHandle(a);
-        };
-        var __emval_new_cstring = (v) => Emval.toHandle(getStringOrSymbol(v));
-        var __emval_run_destructors = (handle) => {
+        }
+        function __emval_new_cstring(v) {
+            v >>>= 0;
+            return Emval.toHandle(getStringOrSymbol(v));
+        }
+        function __emval_run_destructors(handle) {
+            handle >>>= 0;
             var destructors = Emval.toValue(handle);
             runDestructors(destructors);
             __emval_decref(handle);
-        };
-        var __emval_take_value = (type, arg) => {
+        }
+        function __emval_take_value(type, arg) {
+            type >>>= 0;
+            arg >>>= 0;
             type = requireRegisteredType(type, "_emval_take_value");
             var v = type["readValueFromPointer"](arg);
             return Emval.toHandle(v);
-        };
+        }
         var isLeapYear = (year) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
         var MONTH_DAYS_LEAP_CUMULATIVE = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
         var MONTH_DAYS_REGULAR_CUMULATIVE = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -4817,28 +4974,27 @@ var Module = (() => {
             var yday = monthDaysCumulative[date.getMonth()] + date.getDate() - 1;
             return yday;
         };
-        var convertI32PairToI53Checked = (lo, hi) =>
-            (hi + 2097152) >>> 0 < 4194305 - !!lo ? (lo >>> 0) + hi * 4294967296 : NaN;
         function __localtime_js(time_low, time_high, tmPtr) {
             var time = convertI32PairToI53Checked(time_low, time_high);
+            tmPtr >>>= 0;
             var date = new Date(time * 1e3);
-            HEAP32[tmPtr >> 2] = date.getSeconds();
-            HEAP32[(tmPtr + 4) >> 2] = date.getMinutes();
-            HEAP32[(tmPtr + 8) >> 2] = date.getHours();
-            HEAP32[(tmPtr + 12) >> 2] = date.getDate();
-            HEAP32[(tmPtr + 16) >> 2] = date.getMonth();
-            HEAP32[(tmPtr + 20) >> 2] = date.getFullYear() - 1900;
-            HEAP32[(tmPtr + 24) >> 2] = date.getDay();
+            HEAP32[(tmPtr >>> 2) >>> 0] = date.getSeconds();
+            HEAP32[((tmPtr + 4) >>> 2) >>> 0] = date.getMinutes();
+            HEAP32[((tmPtr + 8) >>> 2) >>> 0] = date.getHours();
+            HEAP32[((tmPtr + 12) >>> 2) >>> 0] = date.getDate();
+            HEAP32[((tmPtr + 16) >>> 2) >>> 0] = date.getMonth();
+            HEAP32[((tmPtr + 20) >>> 2) >>> 0] = date.getFullYear() - 1900;
+            HEAP32[((tmPtr + 24) >>> 2) >>> 0] = date.getDay();
             var yday = ydayFromDate(date) | 0;
-            HEAP32[(tmPtr + 28) >> 2] = yday;
-            HEAP32[(tmPtr + 36) >> 2] = -(date.getTimezoneOffset() * 60);
+            HEAP32[((tmPtr + 28) >>> 2) >>> 0] = yday;
+            HEAP32[((tmPtr + 36) >>> 2) >>> 0] = -(date.getTimezoneOffset() * 60);
             var start = new Date(date.getFullYear(), 0, 1);
             var summerOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
             var winterOffset = start.getTimezoneOffset();
             var dst =
                 (summerOffset != winterOffset &&
                     date.getTimezoneOffset() == Math.min(winterOffset, summerOffset)) | 0;
-            HEAP32[(tmPtr + 32) >> 2] = dst;
+            HEAP32[((tmPtr + 32) >>> 2) >>> 0] = dst;
         }
         var timers = {};
         var handleException = (e) => {
@@ -4897,15 +5053,19 @@ var Module = (() => {
             timers[which] = { id: id, timeout_ms: timeout_ms };
             return 0;
         };
-        var __tzset_js = (timezone, daylight, std_name, dst_name) => {
+        var __tzset_js = function (timezone, daylight, std_name, dst_name) {
+            timezone >>>= 0;
+            daylight >>>= 0;
+            std_name >>>= 0;
+            dst_name >>>= 0;
             var currentYear = new Date().getFullYear();
             var winter = new Date(currentYear, 0, 1);
             var summer = new Date(currentYear, 6, 1);
             var winterOffset = winter.getTimezoneOffset();
             var summerOffset = summer.getTimezoneOffset();
             var stdTimezoneOffset = Math.max(winterOffset, summerOffset);
-            HEAPU32[timezone >> 2] = stdTimezoneOffset * 60;
-            HEAP32[daylight >> 2] = Number(winterOffset != summerOffset);
+            HEAPU32[(timezone >>> 2) >>> 0] = stdTimezoneOffset * 60;
+            HEAP32[(daylight >>> 2) >>> 0] = Number(winterOffset != summerOffset);
             var extractZone = (timezoneOffset) => {
                 var sign = timezoneOffset >= 0 ? "-" : "+";
                 var absOffset = Math.abs(timezoneOffset);
@@ -4924,8 +5084,10 @@ var Module = (() => {
             }
         };
         var _emscripten_date_now = () => Date.now();
-        var getHeapMax = () => 2147483648;
-        var _emscripten_get_heap_max = () => getHeapMax();
+        var getHeapMax = () => 4294901760;
+        function _emscripten_get_heap_max() {
+            return getHeapMax();
+        }
         var growMemory = (size) => {
             var b = wasmMemory.buffer;
             var pages = (size - b.byteLength + 65535) / 65536;
@@ -4935,9 +5097,9 @@ var Module = (() => {
                 return 1;
             } catch (e) {}
         };
-        var _emscripten_resize_heap = (requestedSize) => {
-            var oldSize = HEAPU8.length;
+        function _emscripten_resize_heap(requestedSize) {
             requestedSize >>>= 0;
+            var oldSize = HEAPU8.length;
             var maxHeapSize = getHeapMax();
             if (requestedSize > maxHeapSize) {
                 return false;
@@ -4955,7 +5117,7 @@ var Module = (() => {
                 }
             }
             return false;
-        };
+        }
         var ENV = {};
         var getExecutableName = () => thisProgram || "./this.program";
         var getEnvStrings = () => {
@@ -4988,26 +5150,30 @@ var Module = (() => {
         };
         var stringToAscii = (str, buffer) => {
             for (var i = 0; i < str.length; ++i) {
-                HEAP8[buffer++] = str.charCodeAt(i);
+                HEAP8[buffer++ >>> 0] = str.charCodeAt(i);
             }
-            HEAP8[buffer] = 0;
+            HEAP8[buffer >>> 0] = 0;
         };
-        var _environ_get = (__environ, environ_buf) => {
+        var _environ_get = function (__environ, environ_buf) {
+            __environ >>>= 0;
+            environ_buf >>>= 0;
             var bufSize = 0;
             getEnvStrings().forEach((string, i) => {
                 var ptr = environ_buf + bufSize;
-                HEAPU32[(__environ + i * 4) >> 2] = ptr;
+                HEAPU32[((__environ + i * 4) >>> 2) >>> 0] = ptr;
                 stringToAscii(string, ptr);
                 bufSize += string.length + 1;
             });
             return 0;
         };
-        var _environ_sizes_get = (penviron_count, penviron_buf_size) => {
+        var _environ_sizes_get = function (penviron_count, penviron_buf_size) {
+            penviron_count >>>= 0;
+            penviron_buf_size >>>= 0;
             var strings = getEnvStrings();
-            HEAPU32[penviron_count >> 2] = strings.length;
+            HEAPU32[(penviron_count >>> 2) >>> 0] = strings.length;
             var bufSize = 0;
             strings.forEach((string) => (bufSize += string.length + 1));
-            HEAPU32[penviron_buf_size >> 2] = bufSize;
+            HEAPU32[(penviron_buf_size >>> 2) >>> 0] = bufSize;
             return 0;
         };
         function _fd_close(fd) {
@@ -5023,8 +5189,8 @@ var Module = (() => {
         var doReadv = (stream, iov, iovcnt, offset) => {
             var ret = 0;
             for (var i = 0; i < iovcnt; i++) {
-                var ptr = HEAPU32[iov >> 2];
-                var len = HEAPU32[(iov + 4) >> 2];
+                var ptr = HEAPU32[(iov >>> 2) >>> 0];
+                var len = HEAPU32[((iov + 4) >>> 2) >>> 0];
                 iov += 8;
                 var curr = FS.read(stream, HEAP8, ptr, len, offset);
                 if (curr < 0) return -1;
@@ -5037,10 +5203,13 @@ var Module = (() => {
             return ret;
         };
         function _fd_read(fd, iov, iovcnt, pnum) {
+            iov >>>= 0;
+            iovcnt >>>= 0;
+            pnum >>>= 0;
             try {
                 var stream = SYSCALLS.getStreamFromFD(fd);
                 var num = doReadv(stream, iov, iovcnt);
-                HEAPU32[pnum >> 2] = num;
+                HEAPU32[(pnum >>> 2) >>> 0] = num;
                 return 0;
             } catch (e) {
                 if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -5049,6 +5218,7 @@ var Module = (() => {
         }
         function _fd_seek(fd, offset_low, offset_high, whence, newOffset) {
             var offset = convertI32PairToI53Checked(offset_low, offset_high);
+            newOffset >>>= 0;
             try {
                 if (isNaN(offset)) return 61;
                 var stream = SYSCALLS.getStreamFromFD(fd);
@@ -5062,8 +5232,8 @@ var Module = (() => {
                             : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0
                         : 0),
                 ]),
-                    (HEAP32[newOffset >> 2] = tempI64[0]),
-                    (HEAP32[(newOffset + 4) >> 2] = tempI64[1]);
+                    (HEAP32[(newOffset >>> 2) >>> 0] = tempI64[0]),
+                    (HEAP32[((newOffset + 4) >>> 2) >>> 0] = tempI64[1]);
                 if (stream.getdents && offset === 0 && whence === 0) stream.getdents = null;
                 return 0;
             } catch (e) {
@@ -5074,8 +5244,8 @@ var Module = (() => {
         var doWritev = (stream, iov, iovcnt, offset) => {
             var ret = 0;
             for (var i = 0; i < iovcnt; i++) {
-                var ptr = HEAPU32[iov >> 2];
-                var len = HEAPU32[(iov + 4) >> 2];
+                var ptr = HEAPU32[(iov >>> 2) >>> 0];
+                var len = HEAPU32[((iov + 4) >>> 2) >>> 0];
                 iov += 8;
                 var curr = FS.write(stream, HEAP8, ptr, len, offset);
                 if (curr < 0) return -1;
@@ -5090,10 +5260,13 @@ var Module = (() => {
             return ret;
         };
         function _fd_write(fd, iov, iovcnt, pnum) {
+            iov >>>= 0;
+            iovcnt >>>= 0;
+            pnum >>>= 0;
             try {
                 var stream = SYSCALLS.getStreamFromFD(fd);
                 var num = doWritev(stream, iov, iovcnt);
-                HEAPU32[pnum >> 2] = num;
+                HEAPU32[(pnum >>> 2) >>> 0] = num;
                 return 0;
             } catch (e) {
                 if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -5236,6 +5409,18 @@ var Module = (() => {
                 a8,
                 a9,
             ));
+        function applySignatureConversions(wasmExports) {
+            wasmExports = Object.assign({}, wasmExports);
+            var makeWrapper_pp = (f) => (a0) => f(a0) >>> 0;
+            var makeWrapper_p = (f) => () => f() >>> 0;
+            wasmExports["na"] = makeWrapper_pp(wasmExports["na"]);
+            wasmExports["oa"] = makeWrapper_pp(wasmExports["oa"]);
+            wasmExports["_emscripten_stack_alloc"] = makeWrapper_pp(wasmExports["_emscripten_stack_alloc"]);
+            wasmExports["emscripten_stack_get_current"] = makeWrapper_p(
+                wasmExports["emscripten_stack_get_current"],
+            );
+            return wasmExports;
+        }
         var calledRun;
         dependenciesFulfilled = function runCaller() {
             if (!calledRun) run();
