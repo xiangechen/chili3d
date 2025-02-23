@@ -2,7 +2,6 @@
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
-    DefaultDataExchange,
     I18n,
     IDataExchange,
     IDocument,
@@ -15,6 +14,7 @@ import {
     Logger,
 } from "chili-core";
 import { IAdditionalModule } from "./additionalModule";
+import { DefaultDataExchange } from "./defaultDataExchange";
 
 export class AppBuilder {
     protected readonly _inits: (() => Promise<void>)[] = [];
