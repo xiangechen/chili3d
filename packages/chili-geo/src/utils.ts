@@ -18,6 +18,10 @@ export class GeoUtils {
     }
 
     static curveNormal(curve: ICurve) {
+        if (ICurve.isTrimmed(curve)) {
+            curve = curve.basisCurve();
+        }
+
         if (ICurve.isConic(curve)) {
             return curve.axis;
         }

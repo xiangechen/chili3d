@@ -166,4 +166,8 @@ export namespace ICurve {
     export function isLine(curve: ICurve): curve is ILine {
         return (curve as ILine).direction !== undefined;
     }
+
+    export function isTrimmed(curve: ICurve): curve is ITrimmedCurve {
+        return (curve as ITrimmedCurve).basisCurve !== undefined;
+    }
 }
