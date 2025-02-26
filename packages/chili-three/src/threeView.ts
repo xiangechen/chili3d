@@ -395,19 +395,16 @@ export class ThreeView extends Observable implements IView {
     }
 
     rayAt(mx: number, my: number): Ray {
-        let { position, direction } = this.directionAt(mx, my);
-        return new Ray(ThreeHelper.toXYZ(position), ThreeHelper.toXYZ(direction));
-    }
-
-    private directionAt(mx: number, my: number) {
         let position = this.mouseToWorld(mx, my);
-        let direction = new Vector3();
+
+        let direction: XYZ = XYZ.unitX;
         if (this._camera instanceof PerspectiveCamera) {
-            direction = position.clone().sub(this._camera.position).normalize();
+            direction = ThreeHelper.toXYZ(position.clone().sub(this._camera.position).normalize());
         } else if (this._camera instanceof OrthographicCamera) {
-            this._camera.getWorldDirection(direction);
+            direction = this.direction();
         }
-        return { position, direction };
+
+        return new Ray(ThreeHelper.toXYZ(position), direction);
     }
 
     screenToWorld(mx: number, my: number): XYZ {
@@ -427,7 +424,10 @@ export class ThreeView extends Observable implements IView {
         if (!this._camera) {
             return XYZ.unitX;
         }
-        this._camera.getWorldDirection(vec);
+
+        this._controls?.getTarget(vec);
+        vec.sub(this._camera.position).normalize();
+
         return ThreeHelper.toXYZ(vec);
     }
 
