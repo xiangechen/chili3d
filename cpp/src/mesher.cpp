@@ -243,6 +243,7 @@ public:
     {
         BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, 0.1, true);
         generateFaceMeshs(shape);
+        BRepTools::Clean(shape, true);
     }
 
     NumberArray getPosition()
