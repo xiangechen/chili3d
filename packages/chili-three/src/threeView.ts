@@ -395,16 +395,22 @@ export class ThreeView extends Observable implements IView {
     }
 
     rayAt(mx: number, my: number): Ray {
-        let position = this.mouseToWorld(mx, my);
+        const { x, y } = this.screenToCameraRect(mx, my);
 
-        let direction: XYZ = XYZ.unitX;
+        const origin = new Vector3();
+        const direction = new Vector3(x, y, 0.5);
         if (this._camera instanceof PerspectiveCamera) {
-            direction = ThreeHelper.toXYZ(position.clone().sub(this._camera.position).normalize());
+            origin.setFromMatrixPosition(this._camera.matrixWorld);
+            direction.unproject(this._camera).sub(origin).normalize();
         } else if (this._camera instanceof OrthographicCamera) {
-            direction = this.direction();
+            const z = (this.camera.near + this.camera.far) / (this.camera.near - this.camera.far);
+            origin.set(x, y, z).unproject(this._camera);
+            direction.set(0, 0, -1).transformDirection(this._camera.matrixWorld);
+        } else {
+            console.error("Unsupported camera type: " + this._camera);
         }
 
-        return new Ray(ThreeHelper.toXYZ(position), direction);
+        return new Ray(ThreeHelper.toXYZ(origin), ThreeHelper.toXYZ(direction));
     }
 
     screenToWorld(mx: number, my: number): XYZ {

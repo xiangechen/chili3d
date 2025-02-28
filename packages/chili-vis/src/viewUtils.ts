@@ -17,12 +17,11 @@ export class ViewUtils {
     }
 
     static directionAt(view: IView, point: XYZ) {
-        const cameraPosition = view.cameraPosition;
-        const vector = point.sub(cameraPosition);
         if (view.cameraType === CameraType.orthographic) {
             return view.direction();
         } else {
-            return vector;
+            const cameraPosition = view.cameraPosition;
+            return point.sub(cameraPosition);
         }
     }
 
