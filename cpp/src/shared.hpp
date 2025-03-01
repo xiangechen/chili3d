@@ -146,6 +146,21 @@ struct Pln {
 
 };
 
+struct ProjectPointResult {
+    Vector3 point;
+    double distance;
+    double parameter;
+};
+
+struct ExtremaCCResult {
+    bool isParallel;
+    double distance;
+    Vector3 p1;
+    Vector3 p2;
+    double u1;
+    double u2;
+};
+
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int8Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int16Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int32Array)

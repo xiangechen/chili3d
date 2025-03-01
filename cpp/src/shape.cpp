@@ -138,6 +138,9 @@ public:
         BRepExtrema_ExtCC cc(edge, otherEdge);
         if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel()) {
             for (int i = 1; i <= cc.NbExt(); i++) {
+                if (cc.SquareDistance(i) > Precision::Confusion()) {
+                    continue;
+                }
                 PointAndParameter pointAndParameter = {
                     Vector3::fromPnt(cc.PointOnE1(i)),
                     cc.ParameterOnE1(i),

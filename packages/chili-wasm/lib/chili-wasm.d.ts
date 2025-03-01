@@ -609,21 +609,6 @@ export type Vector3 = {
     z: number;
 };
 
-export type ProjectPointResult = {
-    point: Vector3;
-    distance: number;
-    parameter: number;
-};
-
-export type ExtremaCCResult = {
-    distance: number;
-    p1: Vector3;
-    p2: Vector3;
-    isParallel: boolean;
-    u1: number;
-    u2: number;
-};
-
 export type PointAndParameter = {
     point: Vector3;
     parameter: number;
@@ -650,6 +635,21 @@ export type Pln = {
     location: Vector3;
     direction: Vector3;
     xDirection: Vector3;
+};
+
+export type ProjectPointResult = {
+    point: Vector3;
+    distance: number;
+    parameter: number;
+};
+
+export type ExtremaCCResult = {
+    distance: number;
+    p1: Vector3;
+    p2: Vector3;
+    isParallel: boolean;
+    u1: number;
+    u2: number;
 };
 
 export interface Transient {
@@ -693,11 +693,11 @@ interface EmbindModule {
         trim(_0: Geom_Curve | null, _1: number, _2: number): Handle_Geom_TrimmedCurve;
         uniformAbscissaWithCount(_0: Geom_Curve | null, _1: number): Array<Vector3>;
         uniformAbscissaWithLength(_0: Geom_Curve | null, _1: number): Array<Vector3>;
-        nearestExtremaCC(_0: Geom_Curve | null, _1: Geom_Curve | null): ExtremaCCResult | undefined;
         makeLine(_0: Vector3, _1: Vector3): Handle_Geom_Line;
-        projectOrNearest(_0: Geom_Curve | null, _1: Vector3): ProjectPointResult;
         parameter(_0: Geom_Curve | null, _1: Vector3, _2: number): number | undefined;
         projects(_0: Geom_Curve | null, _1: Vector3): Array<Vector3>;
+        projectOrNearest(_0: Geom_Curve | null, _1: Vector3): ProjectPointResult;
+        nearestExtremaCC(_0: Geom_Curve | null, _1: Geom_Curve | null): ExtremaCCResult | undefined;
     };
     Surface: {
         isPlanar(_0: Geom_Surface | null): boolean;

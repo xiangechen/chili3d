@@ -16,6 +16,7 @@ import {
     MeshPhongMaterial as ThreePhoneMaterial,
     MeshPhysicalMaterial as ThreePhysicalMaterial,
     Vector3,
+    Vector3Like,
 } from "three";
 
 export class ThreeHelper {
@@ -27,7 +28,7 @@ export class ThreeHelper {
         return new XYZ(vector.x, vector.y, vector.z);
     }
 
-    static fromXYZ(vector: XYZ): Vector3 {
+    static fromXYZ(vector: Vector3Like): Vector3 {
         return new Vector3(vector.x, vector.y, vector.z);
     }
 

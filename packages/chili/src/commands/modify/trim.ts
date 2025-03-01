@@ -2,6 +2,7 @@
 
 import {
     AsyncController,
+    BoundingBox,
     CancelableCommand,
     EditableShapeNode,
     GeometryNode,
@@ -93,9 +94,13 @@ interface TrimEdge {
 }
 
 export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
-    selected: TrimEdge | undefined;
+    #selected: TrimEdge | undefined;
     private highlightedEdge: number | undefined;
     private highlight: undefined | TrimEdge;
+
+    get selected() {
+        return this.#selected;
+    }
 
     constructor(document: IDocument, controller: AsyncController) {
         super(document, ShapeType.Shape, false, controller, new EdgeFilter());
@@ -109,7 +114,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         let segments = findSegments(curve, edge, findEdges(detecteds, view), detecteds);
         let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
-        mesh.lineWidth = 2;
+        mesh.lineWidth = 3;
         this.highlightedEdge = view.document.visual.highlighter.highlightMesh(mesh);
         this.highlight = { edge: detecteds[0], segments, curve };
         view.update();
@@ -125,17 +130,17 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     }
 
     protected override clearSelected(document: IDocument): void {
-        this.selected = undefined;
+        this.#selected = undefined;
     }
 
     protected override select(view: IView, event: PointerEvent): number {
-        this.selected = this.highlight;
-        return this.selected ? 1 : 0;
+        this.#selected = this.highlight;
+        return this.#selected ? 1 : 0;
     }
 }
 
 function findEdges(detecteds: VisualShapeData[], view: IView) {
-    let boundingBox = detecteds[0].owner.boundingBox();
+    let boundingBox = BoundingBox.expand(detecteds[0].owner.boundingBox(), 1e-3);
     let otherEdges = view.document.visual.context
         .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
         .map((x) => ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value as IEdge)
@@ -146,11 +151,11 @@ function findEdges(detecteds: VisualShapeData[], view: IView) {
 function findSegments(curve: ITrimmedCurve, edge: IEdge, otherEdges: IEdge[], detecteds: VisualShapeData[]) {
     let intersections = GeoUtils.intersects(edge, otherEdges).map((x) => x.parameter);
     intersections.push(curve.firstParameter(), curve.lastParameter());
-    intersections = [...new Set(intersections)].sort((a, b) => a - b);
+    intersections = Array.from(new Set(intersections)).sort((a, b) => a - b);
 
     if (intersections.length === 2) return allSegment(intersections);
 
-    let parameter = curve.parameter(detecteds[0].point!, 1e-3)!;
+    let parameter = curve.parameter(detecteds[0].point!, 5)!;
     for (let i = 1; i < intersections.length; i++) {
         if (parameter < intersections[i]) {
             if (i === 1) {

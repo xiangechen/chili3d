@@ -28,6 +28,7 @@ EMSCRIPTEN_BINDINGS(Shared) {
     register_optional<double>();
     register_optional<UV>();
     register_optional<PointAndParameter>();
+    register_optional<ProjectPointResult>();
     register_optional<std::string>();
     
     value_object<Domain>("Domain")
@@ -72,6 +73,23 @@ EMSCRIPTEN_BINDINGS(Shared) {
         .field("location", &Pln::location)
         .field("direction", &Pln::direction)
         .field("xDirection", &Pln::xDirection)
+    ;
+
+    register_optional<ExtremaCCResult>();
+
+    value_object<ProjectPointResult>("ProjectPointResult")
+        .field("point", &ProjectPointResult::point)
+        .field("distance", &ProjectPointResult::distance)
+        .field("parameter", &ProjectPointResult::parameter)
+    ;
+
+    value_object<ExtremaCCResult>("ExtremaCCResult")
+        .field("distance", &ExtremaCCResult::distance)
+        .field("p1", &ExtremaCCResult::p1)
+        .field("p2", &ExtremaCCResult::p2)
+        .field("isParallel", &ExtremaCCResult::isParallel)
+        .field("u1", &ExtremaCCResult::u1)
+        .field("u2", &ExtremaCCResult::u2)
     ;
 
 }

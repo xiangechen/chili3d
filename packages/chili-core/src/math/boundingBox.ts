@@ -8,6 +8,21 @@ export class BoundingBox {
         public max: PointLike,
     ) {}
 
+    static expand(box: BoundingBox, value: number) {
+        const min = {
+            x: box.min.x - value,
+            y: box.min.y - value,
+            z: box.min.z - value,
+        };
+        const max = {
+            x: box.max.x + value,
+            y: box.max.y + value,
+            z: box.max.z + value,
+        };
+
+        return new BoundingBox(min, max);
+    }
+
     static isValid(box: BoundingBox) {
         return box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z;
     }

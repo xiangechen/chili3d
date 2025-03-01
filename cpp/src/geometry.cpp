@@ -1,4 +1,5 @@
 #include "shared.hpp"
+#include "utils.hpp"
 #include <Geom_Curve.hxx>
 #include <Geom_Line.hxx>
 #include <Geom_Surface.hxx>
@@ -18,21 +19,6 @@
 #include <GCPnts_AbscissaPoint.hxx>
 
 using namespace emscripten;
-
-struct ProjectPointResult {
-    Vector3 point;
-    double distance;
-    double parameter;
-};
-
-struct ExtremaCCResult {
-    bool isParallel;
-    double distance;
-    Vector3 p1;
-    Vector3 p2;
-    double u1;
-    double u2;
-};
 
 
 class Curve {
@@ -100,32 +86,7 @@ public:
 
     static ProjectPointResult projectOrNearest(const Geom_Curve* curve, const Vector3& point) {
         gp_Pnt pnt = Vector3::toPnt(point);
-        GeomAPI_ProjectPointOnCurve projector(pnt, curve);
-        if (projector.NbPoints() > 0) {
-            return ProjectPointResult {
-                .point = Vector3::fromPnt(projector.NearestPoint()),
-                .distance = projector.LowerDistance(),
-                .parameter = projector.LowerDistanceParameter()
-            };
-        }
-
-        gp_Pnt start = curve->Value(curve->FirstParameter());
-        gp_Pnt end = curve->Value(curve->LastParameter());
-        double distanceToStart = pnt.Distance(start);
-        double distanceToEnd = pnt.Distance(end);
-        if (distanceToStart < distanceToEnd) {
-            return ProjectPointResult {
-                .point = Vector3::fromPnt(start),
-                .distance = distanceToStart,
-                .parameter = curve->FirstParameter()
-            };
-        } else {
-            return ProjectPointResult {
-                .point = Vector3::fromPnt(end),
-                .distance = distanceToEnd,
-                .parameter = curve->LastParameter()
-            };
-        }
+        return projectOrNearestCP(curve, pnt);
     }
 
     static std::optional<double> parameter(const Geom_Curve* curve, const Vector3& point, double maxDistance) {
@@ -212,23 +173,6 @@ public:
 };
 
 EMSCRIPTEN_BINDINGS(Geometry) {
-    register_optional<ExtremaCCResult>();
-
-    value_object<ProjectPointResult>("ProjectPointResult")
-        .field("point", &ProjectPointResult::point)
-        .field("distance", &ProjectPointResult::distance)
-        .field("parameter", &ProjectPointResult::parameter)
-    ;
-
-    value_object<ExtremaCCResult>("ExtremaCCResult")
-        .field("distance", &ExtremaCCResult::distance)
-        .field("p1", &ExtremaCCResult::p1)
-        .field("p2", &ExtremaCCResult::p2)
-        .field("isParallel", &ExtremaCCResult::isParallel)
-        .field("u1", &ExtremaCCResult::u1)
-        .field("u2", &ExtremaCCResult::u2)
-    ;
-
     class_<Curve>("Curve")
         .class_function("makeLine", &Curve::makeLine)
         .class_function("trim", &Curve::trim, allow_raw_pointers())
