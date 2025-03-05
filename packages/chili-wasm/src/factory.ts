@@ -11,6 +11,7 @@ import {
     IWire,
     MathUtils,
     Plane,
+    Precision,
     Ray,
     Result,
     XYZ,
@@ -19,7 +20,7 @@ import {
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
-import { OccShape } from "./shape";
+import { OccEdge, OccShape } from "./shape";
 
 function ensureOccShape(shapes: IShape | IShape[]): TopoDS_Shape[] {
     if (Array.isArray(shapes)) {
@@ -51,8 +52,41 @@ function convertShapeResult(result: ShapeResult): Result<IShape, string> {
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
     readonly converter: IShapeConverter;
+
     constructor() {
         this.converter = new OccShapeConverter();
+    }
+
+    fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape> {
+        if (radius < Precision.Distance) {
+            return Result.err("The radius is too small.");
+        }
+
+        if (edges.length === 0) {
+            return Result.err("The edges is empty.");
+        }
+
+        if (shape instanceof OccShape) {
+            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
+            return convertShapeResult(wasm.ShapeFactory.fillet(shape.shape, occEdges, radius));
+        }
+        return Result.err("Not OccShape");
+    }
+
+    chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape> {
+        if (distance < Precision.Distance) {
+            return Result.err("The distance is too small.");
+        }
+
+        if (edges.length === 0) {
+            return Result.err("The edges is empty.");
+        }
+
+        if (shape instanceof OccShape) {
+            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
+            return convertShapeResult(wasm.ShapeFactory.chamfer(shape.shape, occEdges, distance));
+        }
+        return Result.err("Not OccShape");
     }
 
     face(wire: IWire[]): Result<IFace> {

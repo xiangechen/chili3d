@@ -27,6 +27,8 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.delete",
                     "modify.break",
                     "modify.trim",
+                    "modify.fillet",
+                    "modify.chamfer",
                 ],
             },
             {

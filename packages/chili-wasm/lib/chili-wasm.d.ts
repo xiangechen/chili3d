@@ -15,32 +15,33 @@ declare namespace RuntimeExports {
 interface WasmModule {}
 
 type EmbindString = ArrayBuffer | Uint8Array | Uint8ClampedArray | Int8Array | string;
-export interface ShapeNode {
-    name: EmbindString;
+export interface ClassHandle {
+    isAliasOf(other: ClassHandle): boolean;
+    delete(): void;
+    deleteLater(): this;
+    isDeleted(): boolean;
+    clone(): this;
+}
+export interface ShapeNode extends ClassHandle {
+    get name(): string;
+    set name(value: EmbindString);
     shape: TopoDS_Shape | undefined;
     color: EmbindString | undefined;
     getChildren(): Array<ShapeNode>;
-    delete(): void;
 }
 
-export interface Converter {
-    delete(): void;
-}
+export interface Converter extends ClassHandle {}
 
-export interface ShapeResult {
+export interface ShapeResult extends ClassHandle {
     isOk: boolean;
-    error: EmbindString;
+    get error(): string;
+    set error(value: EmbindString);
     shape: TopoDS_Shape;
-    delete(): void;
 }
 
-export interface ShapeFactory {
-    delete(): void;
-}
+export interface ShapeFactory extends ClassHandle {}
 
-export interface Curve {
-    delete(): void;
-}
+export interface Curve extends ClassHandle {}
 
 export type SurfaceBounds = {
     u1: number;
@@ -49,11 +50,9 @@ export type SurfaceBounds = {
     v2: number;
 };
 
-export interface Surface {
-    delete(): void;
-}
+export interface Surface extends ClassHandle {}
 
-export interface FaceMesher {
+export interface FaceMesher extends ClassHandle {
     getFaceSize(): number;
     getFace(_0: number): TopoDS_Face;
     getPosition(): Array<number>;
@@ -62,16 +61,14 @@ export interface FaceMesher {
     getIndex(): Array<number>;
     getGroups(): Array<number>;
     getFaces(): Array<TopoDS_Face>;
-    delete(): void;
 }
 
-export interface EdgeMesher {
+export interface EdgeMesher extends ClassHandle {
     getEdgeSize(): number;
     getEdge(_0: number): TopoDS_Edge;
     getPosition(): Array<number>;
     getGroups(): Array<number>;
     getEdges(): Array<TopoDS_Edge>;
-    delete(): void;
 }
 
 export interface GeomAbs_ShapeValue<T extends number> {
@@ -117,14 +114,12 @@ export type TopAbs_Orientation =
     | TopAbs_OrientationValue<2>
     | TopAbs_OrientationValue<3>;
 
-export interface Standard_Transient {
+export interface Standard_Transient extends ClassHandle {
     getRefCount(): number;
-    delete(): void;
 }
 
 export interface Geom_Geometry extends Standard_Transient {
     copy(): Handle_Geom_Geometry;
-    delete(): void;
 }
 
 export interface Geom_Curve extends Geom_Geometry {
@@ -143,7 +138,6 @@ export interface Geom_Curve extends Geom_Geometry {
     d2(_0: number, _1: gp_Pnt, _2: gp_Vec, _3: gp_Vec): void;
     d3(_0: number, _1: gp_Pnt, _2: gp_Vec, _3: gp_Vec, _4: gp_Vec): void;
     dn(_0: number, _1: number): gp_Vec;
-    delete(): void;
 }
 
 export interface Geom_Conic extends Geom_Curve {
@@ -157,13 +151,11 @@ export interface Geom_Conic extends Geom_Curve {
     axis(): gp_Ax1;
     xAxis(): gp_Ax1;
     yAxis(): gp_Ax1;
-    delete(): void;
 }
 
 export interface Geom_Circle extends Geom_Conic {
     radius(): number;
     setRadius(_0: number): void;
-    delete(): void;
 }
 
 export interface Geom_Ellipse extends Geom_Conic {
@@ -173,7 +165,6 @@ export interface Geom_Ellipse extends Geom_Conic {
     setMinorRadius(_0: number): void;
     focus1(): gp_Pnt;
     focus2(): gp_Pnt;
-    delete(): void;
 }
 
 export interface Geom_Hyperbola extends Geom_Conic {
@@ -184,7 +175,6 @@ export interface Geom_Hyperbola extends Geom_Conic {
     focal(): number;
     focus1(): gp_Pnt;
     focus2(): gp_Pnt;
-    delete(): void;
 }
 
 export interface Geom_Parabola extends Geom_Conic {
@@ -192,13 +182,11 @@ export interface Geom_Parabola extends Geom_Conic {
     setFocal(_0: number): void;
     focus(): gp_Pnt;
     directrix(): gp_Ax1;
-    delete(): void;
 }
 
 export interface Geom_BoundedCurve extends Geom_Curve {
     startPoint(): gp_Pnt;
     endPoint(): gp_Pnt;
-    delete(): void;
 }
 
 export interface Geom_Line extends Geom_Curve {
@@ -206,20 +194,17 @@ export interface Geom_Line extends Geom_Curve {
     setDirection(_0: gp_Dir): void;
     position(): gp_Ax1;
     setPosition(_0: gp_Ax1): void;
-    delete(): void;
 }
 
 export interface Geom_TrimmedCurve extends Geom_BoundedCurve {
     setTrim(_0: number, _1: number, _2: boolean, _3: boolean): void;
     basisCurve(): Handle_Geom_Curve;
-    delete(): void;
 }
 
 export interface Geom_OffsetCurve extends Geom_Curve {
     offset(): number;
     basisCurve(): Handle_Geom_Curve;
     direction(): gp_Dir;
-    delete(): void;
 }
 
 export interface Geom_BezierCurve extends Geom_BoundedCurve {
@@ -237,7 +222,6 @@ export interface Geom_BezierCurve extends Geom_BoundedCurve {
     setPoleWithWeight(_0: number, _1: gp_Pnt, _2: number): void;
     getPoles(): TColgp_Array1OfPnt;
     setPoles(_0: TColgp_Array1OfPnt): void;
-    delete(): void;
 }
 
 export interface Geom_BSplineCurve extends Geom_BoundedCurve {
@@ -254,7 +238,6 @@ export interface Geom_BSplineCurve extends Geom_BoundedCurve {
     setPoleWithWeight(_0: number, _1: gp_Pnt, _2: number): void;
     getPoles(): TColgp_Array1OfPnt;
     setPoles(_0: TColgp_Array1OfPnt): void;
-    delete(): void;
 }
 
 export interface Geom_Surface extends Geom_Geometry {
@@ -288,12 +271,10 @@ export interface Geom_Surface extends Geom_Geometry {
         _11: gp_Vec,
     ): void;
     dn(_0: number, _1: number, _2: number, _3: number): gp_Vec;
-    delete(): void;
 }
 
 export interface GeomPlate_Surface extends Geom_Surface {
     setBounds(_0: number, _1: number, _2: number, _3: number): void;
-    delete(): void;
 }
 
 export interface Geom_ElementarySurface extends Geom_Surface {
@@ -303,7 +284,6 @@ export interface Geom_ElementarySurface extends Geom_Surface {
     axis(): gp_Ax1;
     position(): gp_Ax3;
     setPosition(_0: gp_Ax3): void;
-    delete(): void;
 }
 
 export interface Geom_OffsetSurface extends Geom_Surface {
@@ -311,7 +291,6 @@ export interface Geom_OffsetSurface extends Geom_Surface {
     setOffsetValue(_0: number): void;
     basisSurface(): Handle_Geom_Surface;
     setBasisSurface(_0: Handle_Geom_Surface, _1: boolean): void;
-    delete(): void;
 }
 
 export interface Geom_SweptSurface extends Geom_Surface {
@@ -319,30 +298,20 @@ export interface Geom_SweptSurface extends Geom_Surface {
     direction(): gp_Dir;
     direction(): gp_Dir;
     direction(): gp_Dir;
-    delete(): void;
 }
 
-export interface ShapeExtend_CompositeSurface extends Geom_Surface {
-    delete(): void;
-}
+export interface ShapeExtend_CompositeSurface extends Geom_Surface {}
 
-export interface Geom_BSplineSurface extends Geom_Surface {
-    delete(): void;
-}
+export interface Geom_BSplineSurface extends Geom_Surface {}
 
-export interface Geom_BezierSurface extends Geom_Surface {
-    delete(): void;
-}
+export interface Geom_BezierSurface extends Geom_Surface {}
 
-export interface Geom_BoundedSurface extends Geom_Surface {
-    delete(): void;
-}
+export interface Geom_BoundedSurface extends Geom_Surface {}
 
 export interface Geom_RectangularTrimmedSurface extends Geom_BoundedSurface {
     setTrim(_0: number, _1: number, _2: number, _3: number, _4: boolean, _5: boolean): void;
     setTrim2(_0: number, _1: number, _2: boolean, _3: boolean): void;
     basisSurface(): Handle_Geom_Surface;
-    delete(): void;
 }
 
 export interface Geom_ConicalSurface extends Geom_ElementarySurface {
@@ -351,19 +320,16 @@ export interface Geom_ConicalSurface extends Geom_ElementarySurface {
     setRadius(_0: number): void;
     refRadius(): number;
     apex(): gp_Pnt;
-    delete(): void;
 }
 
 export interface Geom_CylindricalSurface extends Geom_ElementarySurface {
     radius(): number;
     setRadius(_0: number): void;
-    delete(): void;
 }
 
 export interface Geom_Plane extends Geom_ElementarySurface {
     pln(): gp_Pln;
     setPln(_0: gp_Pln): void;
-    delete(): void;
 }
 
 export interface Geom_SphericalSurface extends Geom_ElementarySurface {
@@ -371,7 +337,6 @@ export interface Geom_SphericalSurface extends Geom_ElementarySurface {
     setRadius(_0: number): void;
     area(): number;
     volume(): number;
-    delete(): void;
 }
 
 export interface Geom_ToroidalSurface extends Geom_ElementarySurface {
@@ -381,13 +346,11 @@ export interface Geom_ToroidalSurface extends Geom_ElementarySurface {
     setMinorRadius(_0: number): void;
     area(): number;
     volume(): number;
-    delete(): void;
 }
 
 export interface Geom_SurfaceOfLinearExtrusion extends Geom_SweptSurface {
     setBasisCurve(_0: Handle_Geom_Curve): void;
     setDirection(_0: gp_Dir): void;
-    delete(): void;
 }
 
 export interface Geom_SurfaceOfRevolution extends Geom_SweptSurface {
@@ -396,99 +359,85 @@ export interface Geom_SurfaceOfRevolution extends Geom_SweptSurface {
     setLocation(_0: gp_Pnt): void;
     setDirection(_0: gp_Dir): void;
     referencePlane(): gp_Ax2;
-    delete(): void;
 }
 
-export interface Handle_Standard_Transient {
+export interface Handle_Standard_Transient extends ClassHandle {
     get(): Standard_Transient | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface Handle_Geom_Geometry {
+export interface Handle_Geom_Geometry extends ClassHandle {
     get(): Geom_Geometry | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface Handle_Geom_Curve {
+export interface Handle_Geom_Curve extends ClassHandle {
     get(): Geom_Curve | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface Handle_Geom_Line {
+export interface Handle_Geom_Line extends ClassHandle {
     get(): Geom_Line | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface Handle_Geom_TrimmedCurve {
+export interface Handle_Geom_TrimmedCurve extends ClassHandle {
     get(): Geom_TrimmedCurve | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface Handle_Geom_Surface {
+export interface Handle_Geom_Surface extends ClassHandle {
     get(): Geom_Surface | null;
     isNull(): boolean;
-    delete(): void;
 }
 
-export interface gp_Pnt {
+export interface gp_Pnt extends ClassHandle {
     readonly x: number;
     readonly y: number;
     readonly z: number;
-    delete(): void;
 }
 
-export interface gp_Vec {
+export interface gp_Vec extends ClassHandle {
     readonly x: number;
     readonly y: number;
     readonly z: number;
-    delete(): void;
 }
 
-export interface gp_Dir {
+export interface gp_Dir extends ClassHandle {
     readonly x: number;
     readonly y: number;
     readonly z: number;
-    delete(): void;
 }
 
-export interface gp_Ax1 {
+export interface gp_Ax1 extends ClassHandle {
     location(): gp_Pnt;
     direction(): gp_Dir;
-    delete(): void;
 }
 
-export interface gp_Ax2 {
+export interface gp_Ax2 extends ClassHandle {
     location(): gp_Pnt;
     direction(): gp_Dir;
     xDirection(): gp_Dir;
     yDirection(): gp_Dir;
-    delete(): void;
 }
 
-export interface gp_Ax3 {
+export interface gp_Ax3 extends ClassHandle {
     location(): gp_Pnt;
     direction(): gp_Dir;
     xDirection(): gp_Dir;
     yDirection(): gp_Dir;
     direct(): boolean;
-    delete(): void;
 }
 
-export interface gp_Pln {
+export interface gp_Pln extends ClassHandle {
     location(): gp_Pnt;
     position(): gp_Ax3;
     axis(): gp_Ax1;
     xAxis(): gp_Ax1;
     yAxis(): gp_Ax1;
-    delete(): void;
 }
 
-export interface gp_Trsf {
+export interface gp_Trsf extends ClassHandle {
     value(_0: number, _1: number): number;
     setValues(
         _0: number,
@@ -504,20 +453,16 @@ export interface gp_Trsf {
         _10: number,
         _11: number,
     ): void;
-    delete(): void;
 }
 
-export interface TopLoc_Location {
+export interface TopLoc_Location extends ClassHandle {
     transformation(): gp_Trsf;
     inverted(): TopLoc_Location;
-    delete(): void;
 }
 
-export interface TopoDS {
-    delete(): void;
-}
+export interface TopoDS extends ClassHandle {}
 
-export interface TopoDS_Shape {
+export interface TopoDS_Shape extends ClassHandle {
     infinite(): boolean;
     isEqual(_0: TopoDS_Shape): boolean;
     isNull(): boolean;
@@ -531,67 +476,39 @@ export interface TopoDS_Shape {
     reverse(): void;
     reversed(): TopoDS_Shape;
     shapeType(): TopAbs_ShapeEnum;
-    delete(): void;
 }
 
-export interface TColgp_Array1OfPnt {
+export interface TColgp_Array1OfPnt extends ClassHandle {
     value(_0: number): gp_Pnt;
     setValue(_0: number, _1: gp_Pnt): void;
     length(): number;
-    delete(): void;
 }
 
-export interface TopoDS_Vertex extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Vertex extends TopoDS_Shape {}
 
-export interface TopoDS_Edge extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Edge extends TopoDS_Shape {}
 
-export interface TopoDS_Wire extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Wire extends TopoDS_Shape {}
 
-export interface TopoDS_Face extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Face extends TopoDS_Shape {}
 
-export interface TopoDS_Shell extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Shell extends TopoDS_Shape {}
 
-export interface TopoDS_Solid extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Solid extends TopoDS_Shape {}
 
-export interface TopoDS_Compound extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_Compound extends TopoDS_Shape {}
 
-export interface TopoDS_CompSolid extends TopoDS_Shape {
-    delete(): void;
-}
+export interface TopoDS_CompSolid extends TopoDS_Shape {}
 
-export interface Shape {
-    delete(): void;
-}
+export interface Shape extends ClassHandle {}
 
-export interface Vertex {
-    delete(): void;
-}
+export interface Vertex extends ClassHandle {}
 
-export interface Edge {
-    delete(): void;
-}
+export interface Edge extends ClassHandle {}
 
-export interface Wire {
-    delete(): void;
-}
+export interface Wire extends ClassHandle {}
 
-export interface Face {
-    delete(): void;
-}
+export interface Face extends ClassHandle {}
 
 export type Domain = {
     start: number;
@@ -652,9 +569,7 @@ export type ExtremaCCResult = {
     u2: number;
 };
 
-export interface Transient {
-    delete(): void;
-}
+export interface Transient extends ClassHandle {}
 
 interface EmbindModule {
     ShapeNode: {};
@@ -678,6 +593,8 @@ interface EmbindModule {
         booleanFuse(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
         combine(_0: Array<TopoDS_Shape>): ShapeResult;
         wire(_0: Array<TopoDS_Edge>): ShapeResult;
+        fillet(_0: TopoDS_Shape, _1: Array<TopoDS_Edge>, _2: number): ShapeResult;
+        chamfer(_0: TopoDS_Shape, _1: Array<TopoDS_Edge>, _2: number): ShapeResult;
         face(_0: Array<TopoDS_Wire>): ShapeResult;
         prism(_0: TopoDS_Shape, _1: Vector3): ShapeResult;
         circle(_0: Vector3, _1: Vector3, _2: number): ShapeResult;
@@ -707,8 +624,12 @@ interface EmbindModule {
         parameters(_0: Geom_Surface | null, _1: Vector3, _2: number): UV | undefined;
         nearestPoint(_0: Geom_Surface | null, _1: Vector3): PointAndParameter | undefined;
     };
-    FaceMesher: { new (_0: TopoDS_Shape, _1: number): FaceMesher };
-    EdgeMesher: { new (_0: TopoDS_Shape, _1: number): EdgeMesher };
+    FaceMesher: {
+        new (_0: TopoDS_Shape, _1: number): FaceMesher;
+    };
+    EdgeMesher: {
+        new (_0: TopoDS_Shape, _1: number): EdgeMesher;
+    };
     GeomAbs_Shape: {
         GeomAbs_C0: GeomAbs_ShapeValue<0>;
         GeomAbs_C1: GeomAbs_ShapeValue<2>;
@@ -771,21 +692,54 @@ interface EmbindModule {
     Geom_ToroidalSurface: {};
     Geom_SurfaceOfLinearExtrusion: {};
     Geom_SurfaceOfRevolution: {};
-    Handle_Standard_Transient: { new (_0: Standard_Transient | null): Handle_Standard_Transient };
-    Handle_Geom_Geometry: { new (_0: Geom_Geometry | null): Handle_Geom_Geometry };
-    Handle_Geom_Curve: { new (_0: Geom_Curve | null): Handle_Geom_Curve };
-    Handle_Geom_Line: { new (_0: Geom_Line | null): Handle_Geom_Line };
-    Handle_Geom_TrimmedCurve: { new (_0: Geom_TrimmedCurve | null): Handle_Geom_TrimmedCurve };
-    Handle_Geom_Surface: { new (_0: Geom_Surface | null): Handle_Geom_Surface };
-    gp_Pnt: { new (_0: number, _1: number, _2: number): gp_Pnt };
-    gp_Vec: { new (_0: number, _1: number, _2: number): gp_Vec };
-    gp_Dir: { new (_0: number, _1: number, _2: number): gp_Dir };
-    gp_Ax1: { new (_0: gp_Pnt, _1: gp_Dir): gp_Ax1 };
-    gp_Ax2: { new (_0: gp_Pnt, _1: gp_Dir): gp_Ax2; new (_0: gp_Pnt, _1: gp_Dir, _2: gp_Dir): gp_Ax2 };
-    gp_Ax3: { new (_0: gp_Pnt, _1: gp_Dir, _2: gp_Dir): gp_Ax3; new (_0: gp_Ax2): gp_Ax3 };
-    gp_Pln: { new (_0: gp_Ax3): gp_Pln; new (_0: gp_Pnt, _1: gp_Dir): gp_Pln };
-    gp_Trsf: { new (): gp_Trsf };
-    TopLoc_Location: { new (_0: gp_Trsf): TopLoc_Location };
+    Handle_Standard_Transient: {
+        new (_0: Standard_Transient | null): Handle_Standard_Transient;
+    };
+    Handle_Geom_Geometry: {
+        new (_0: Geom_Geometry | null): Handle_Geom_Geometry;
+    };
+    Handle_Geom_Curve: {
+        new (_0: Geom_Curve | null): Handle_Geom_Curve;
+    };
+    Handle_Geom_Line: {
+        new (_0: Geom_Line | null): Handle_Geom_Line;
+    };
+    Handle_Geom_TrimmedCurve: {
+        new (_0: Geom_TrimmedCurve | null): Handle_Geom_TrimmedCurve;
+    };
+    Handle_Geom_Surface: {
+        new (_0: Geom_Surface | null): Handle_Geom_Surface;
+    };
+    gp_Pnt: {
+        new (_0: number, _1: number, _2: number): gp_Pnt;
+    };
+    gp_Vec: {
+        new (_0: number, _1: number, _2: number): gp_Vec;
+    };
+    gp_Dir: {
+        new (_0: number, _1: number, _2: number): gp_Dir;
+    };
+    gp_Ax1: {
+        new (_0: gp_Pnt, _1: gp_Dir): gp_Ax1;
+    };
+    gp_Ax2: {
+        new (_0: gp_Pnt, _1: gp_Dir): gp_Ax2;
+        new (_0: gp_Pnt, _1: gp_Dir, _2: gp_Dir): gp_Ax2;
+    };
+    gp_Ax3: {
+        new (_0: gp_Pnt, _1: gp_Dir, _2: gp_Dir): gp_Ax3;
+        new (_0: gp_Ax2): gp_Ax3;
+    };
+    gp_Pln: {
+        new (_0: gp_Ax3): gp_Pln;
+        new (_0: gp_Pnt, _1: gp_Dir): gp_Pln;
+    };
+    gp_Trsf: {
+        new (): gp_Trsf;
+    };
+    TopLoc_Location: {
+        new (_0: gp_Trsf): TopLoc_Location;
+    };
     TopoDS: {
         vertex(_0: TopoDS_Shape): TopoDS_Vertex;
         edge(_0: TopoDS_Shape): TopoDS_Edge;
@@ -798,7 +752,9 @@ interface EmbindModule {
     };
     TopoDS_Shape: {};
     boundingBoxRatio(_0: TopoDS_Shape, _1: number): number;
-    TColgp_Array1OfPnt: { new (_0: number, _1: number): TColgp_Array1OfPnt };
+    TColgp_Array1OfPnt: {
+        new (_0: number, _1: number): TColgp_Array1OfPnt;
+    };
     TopoDS_Vertex: {};
     TopoDS_Edge: {};
     TopoDS_Wire: {};
@@ -816,7 +772,9 @@ interface EmbindModule {
         splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
     };
-    Vertex: { point(_0: TopoDS_Vertex): Vector3 };
+    Vertex: {
+        point(_0: TopoDS_Vertex): Vector3;
+    };
     Edge: {
         fromCurve(_0: Geom_Curve | null): TopoDS_Edge;
         curve(_0: TopoDS_Edge): Handle_Geom_TrimmedCurve;

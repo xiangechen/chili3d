@@ -30,7 +30,12 @@ export class Selection implements ISelection, IDisposable {
 
     constructor(readonly document: IDocument) {}
 
-    async pickShape(prompt: I18nKeys, controller: AsyncController, multiMode: boolean) {
+    async pickShape(
+        prompt: I18nKeys,
+        controller: AsyncController,
+        multiMode: boolean,
+        selectedState: VisualState = VisualState.edgeSelected,
+    ) {
         const handler = new SubshapeSelectionHandler(
             this.document,
             this.shapeType,
@@ -38,6 +43,7 @@ export class Selection implements ISelection, IDisposable {
             controller,
             this.shapeFilter,
         );
+        handler.selectedState = selectedState;
         await this.pickAsync(handler, prompt, controller, multiMode);
         return handler.shapes();
     }
@@ -135,7 +141,11 @@ export class Selection implements ISelection, IDisposable {
             if (m instanceof VisualNode) {
                 const visual = this.document.visual.context.getVisual(m);
                 if (visual)
-                    this.document.visual.highlighter.addState(visual, VisualState.selected, ShapeType.Shape);
+                    this.document.visual.highlighter.addState(
+                        visual,
+                        VisualState.edgeSelected,
+                        ShapeType.Shape,
+                    );
             }
         });
         this._selectedNodes.push(...nodes);
@@ -149,7 +159,7 @@ export class Selection implements ISelection, IDisposable {
                 if (visual)
                     this.document.visual.highlighter.removeState(
                         visual,
-                        VisualState.selected,
+                        VisualState.edgeSelected,
                         ShapeType.Shape,
                     );
             }

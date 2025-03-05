@@ -31,7 +31,7 @@ const libs = [
     {
         name: 'emscripten',
         url: 'https://github.com/emscripten-core/emsdk.git',
-        tag: '3.1.65',
+        tag: '4.0.4',
         dir: EMSDK_DIR,
         actions: [fixEmscripten],
         commands: [

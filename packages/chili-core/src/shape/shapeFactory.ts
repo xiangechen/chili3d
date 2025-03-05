@@ -28,4 +28,6 @@ export interface IShapeFactory {
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
+    fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape>;
+    chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape>;
 }

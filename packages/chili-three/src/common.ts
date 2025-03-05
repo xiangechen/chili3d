@@ -3,7 +3,7 @@
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { ThreeHelper } from "./threeHelper";
 import { VisualConfig } from "chili-core";
-import { DoubleSide } from "three";
+import { DoubleSide, MeshLambertMaterial } from "three";
 
 export const hilightEdgeMaterial = new LineMaterial({
     linewidth: 2,
@@ -34,4 +34,11 @@ export const selectedEdgeMaterial = new LineMaterial({
     polygonOffset: true,
     polygonOffsetFactor: -4,
     polygonOffsetUnits: -4,
+});
+
+export const faceTransparentMaterial = new MeshLambertMaterial({
+    transparent: true,
+    side: DoubleSide,
+    color: ThreeHelper.fromColor(VisualConfig.selectedFaceColor),
+    opacity: 0.1,
 });

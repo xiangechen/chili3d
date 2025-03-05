@@ -2,8 +2,9 @@
 
 export enum VisualState {
     normal = 0,
-    highlighter = 1,
-    selected = 1 << 1,
+    edgeHighlight = 1,
+    edgeSelected = 1 << 1,
+    faceTransparent = 1 << 2,
 }
 
 export namespace VisualState {

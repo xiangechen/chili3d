@@ -31,6 +31,8 @@ const COMMAND_KEYS = [
     "file.export",
     "file.import",
     "modify.array",
+    "modify.chamfer",
+    "modify.fillet",
     "modify.break",
     "modify.delete",
     "modify.mirror",

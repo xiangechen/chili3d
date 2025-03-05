@@ -8,6 +8,7 @@ import {
     IShapeFilter,
     ShapeNodeFilter,
     ShapeType,
+    VisualState,
 } from "chili-core";
 import { SnapResult } from "../snap";
 import { IStep } from "./step";
@@ -18,6 +19,7 @@ export abstract class SelectStep implements IStep {
         readonly prompt: I18nKeys,
         readonly multiple: boolean = false,
         readonly filter?: IShapeFilter,
+        readonly selectedState?: VisualState,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
@@ -41,7 +43,12 @@ export class SelectShapeStep extends SelectStep {
         document: IDocument,
         controller: AsyncController,
     ): Promise<SnapResult | undefined> {
-        const shapes = await document.selection.pickShape(this.prompt, controller, this.multiple);
+        const shapes = await document.selection.pickShape(
+            this.prompt,
+            controller,
+            this.multiple,
+            this.selectedState,
+        );
         if (shapes.length === 0) return undefined;
         return {
             view: document.application.activeView!,
@@ -51,8 +58,8 @@ export class SelectShapeStep extends SelectStep {
 }
 
 export class SelectShapeNodeStep extends SelectStep {
-    constructor(prompt: I18nKeys, multiple: boolean, filter?: IShapeFilter) {
-        super(ShapeType.Shape, prompt, multiple, filter);
+    constructor(prompt: I18nKeys, multiple: boolean, filter?: IShapeFilter, selectedState?: VisualState) {
+        super(ShapeType.Shape, prompt, multiple, filter, selectedState);
     }
 
     override async select(

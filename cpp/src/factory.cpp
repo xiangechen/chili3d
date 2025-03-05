@@ -3,6 +3,8 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
@@ -325,6 +327,33 @@ public:
         return ShapeResult{compound, true, ""};
     }
 
+    static ShapeResult fillet(const TopoDS_Shape &shape, const EdgeArray& edges, double radius) {
+        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+        BRepFilletAPI_MakeFillet makeFillet(shape);
+        for(auto edge : edgeVec) {
+            makeFillet.Add(radius, edge);
+        }
+        makeFillet.Build();
+        if (!makeFillet.IsDone()) {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to fillet"};
+        }
+
+        return ShapeResult{makeFillet.Shape(), true, ""};
+    }
+
+    static ShapeResult chamfer(const TopoDS_Shape &shape, const EdgeArray& edges, double distance) {
+        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+        BRepFilletAPI_MakeChamfer makeChamfer(shape);
+        for(auto edge : edgeVec) {
+            makeChamfer.Add(distance, edge);
+        }
+        makeChamfer.Build();
+        if (!makeChamfer.IsDone()) {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to chamfer"};
+        }
+        return ShapeResult{makeChamfer.Shape(), true, ""};
+    }
+
 };
 
 EMSCRIPTEN_BINDINGS(ShapeFactory)
@@ -354,7 +383,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("booleanCut", &ShapeFactory::booleanCut)
         .class_function("booleanFuse", &ShapeFactory::booleanFuse)
         .class_function("combine", &ShapeFactory::combine)
-
+        .class_function("fillet", &ShapeFactory::fillet)
+        .class_function("chamfer", &ShapeFactory::chamfer)
     ;
 
 }

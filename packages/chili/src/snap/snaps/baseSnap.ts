@@ -41,7 +41,7 @@ export abstract class BaseSnap implements ISnap {
             const highlighter = shape.owner.geometryNode.document.visual.highlighter;
             highlighter.addState(
                 shape.owner,
-                VisualState.highlighter,
+                VisualState.edgeHighlight,
                 shape.shape.shapeType,
                 ...shape.indexes,
             );
@@ -54,7 +54,7 @@ export abstract class BaseSnap implements ISnap {
             const highlighter = shape.owner.geometryNode.document.visual.highlighter;
             highlighter.removeState(
                 shape.owner,
-                VisualState.highlighter,
+                VisualState.edgeHighlight,
                 shape.shape.shapeType,
                 ...shape.indexes,
             );

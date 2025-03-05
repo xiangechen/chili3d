@@ -5,7 +5,7 @@ import { MeshUtils } from "chili-geo";
 import { Group, Mesh, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
-import { hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
+import { faceTransparentMaterial, hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeVisualContext } from "./threeVisualContext";
@@ -50,10 +50,13 @@ export class GeometryState {
         if (this.visual instanceof ThreeGeometry) {
             if (newState === VisualState.normal) {
                 this.visual.removeTemperaryMaterial();
-            } else if (VisualState.hasState(newState, VisualState.highlighter)) {
+            } else if (VisualState.hasState(newState, VisualState.edgeHighlight)) {
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
-            } else if (VisualState.hasState(newState, VisualState.selected)) {
+            } else if (VisualState.hasState(newState, VisualState.edgeSelected)) {
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
+            } else if (VisualState.hasState(newState, VisualState.faceTransparent)) {
+                this.visual.removeTemperaryMaterial();
+                this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
             }
         } else if (this.visual instanceof ThreeMeshObject) {
             this.visual.setHighlighted(newState !== VisualState.normal);
@@ -117,7 +120,7 @@ export class GeometryState {
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
         const geometry = this.getOrCloneGeometry(type, key, i);
         if (geometry && "material" in geometry) {
-            let material = VisualState.hasState(newState, VisualState.highlighter)
+            let material = VisualState.hasState(newState, VisualState.edgeHighlight)
                 ? hilightEdgeMaterial
                 : selectedEdgeMaterial;
             geometry.material = material;

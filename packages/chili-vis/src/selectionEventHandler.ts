@@ -165,7 +165,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         detecteds.forEach((x) => {
             view.document.visual.highlighter.addState(
                 x.owner,
-                VisualState.highlighter,
+                VisualState.edgeHighlight,
                 this.shapeType,
                 ...x.indexes,
             );
@@ -178,7 +178,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         this._highlights?.forEach((x) => {
             x.owner.geometryNode.document.visual.highlighter.removeState(
                 x.owner,
-                VisualState.highlighter,
+                VisualState.edgeHighlight,
                 this.shapeType,
                 ...x.indexes,
             );

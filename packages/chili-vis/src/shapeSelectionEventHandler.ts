@@ -5,20 +5,15 @@ import { ShapeSelectionHandler } from "./selectionEventHandler";
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     private readonly _shapes: Set<VisualShapeData> = new Set();
+    selectedState: VisualState = VisualState.edgeSelected;
 
     shapes(): VisualShapeData[] {
         return [...this._shapes];
     }
 
     override clearSelected(document: IDocument): void {
-        let highlighter = document.visual.highlighter;
         for (const shape of this._shapes.values()) {
-            highlighter.removeState(
-                shape.owner,
-                VisualState.selected,
-                shape.shape.shapeType,
-                ...shape.indexes,
-            );
+            this.removeSelected(shape);
         }
         this._shapes.clear();
     }
@@ -40,7 +35,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
         this._shapes.delete(shape);
         shape.owner.geometryNode.document.visual.highlighter.removeState(
             shape.owner,
-            VisualState.selected,
+            this.selectedState,
             shape.shape.shapeType,
             ...shape.indexes,
         );
@@ -49,7 +44,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     private addSelected(shape: VisualShapeData) {
         shape.owner.geometryNode.document.visual.highlighter.addState(
             shape.owner,
-            VisualState.selected,
+            this.selectedState,
             this.shapeType,
             ...shape.indexes,
         );
