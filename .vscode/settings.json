@@ -4,6 +4,5 @@
         "source.organizeImports": "explicit"
     },
     "editor.inlineSuggest.showToolbar": "onHover",
-    "cmake.sourceDirectory": "${workspaceFolder}/cpp",
-    "C_Cpp.default.configurationProvider": "${default}"
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp"
 }
