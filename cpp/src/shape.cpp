@@ -8,6 +8,8 @@
 #include <BRepFeat_SplitShape.hxx>
 #include <BRepGProp_Face.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <GCPnts_AbscissaPoint.hxx>
@@ -170,6 +172,16 @@ public:
         BRepBuilderAPI_MakeFace face(wire);
         return face.Face();
     }
+
+    static EdgeArray edgeLoop(const TopoDS_Wire& wire) {
+        std::vector<TopoDS_Edge> edges;
+        BRepTools_WireExplorer explorer(wire);
+        for (; explorer.More(); explorer.Next()) {
+            edges.push_back(TopoDS::Edge(explorer.Current()));
+        }
+        return EdgeArray(val::array(edges));
+    }
+
 };
 
 class Face {
@@ -198,7 +210,7 @@ public:
     }
 
     static TopoDS_Wire outerWire(const TopoDS_Face& face) {
-        return ShapeAnalysis::OuterWire(face);
+        return BRepTools::OuterWire(face);
     }
 
     static Handle_Geom_Surface surface(const TopoDS_Face& face) {
@@ -235,6 +247,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
     class_<Wire>("Wire")
         .class_function("offset", &Wire::offset)
         .class_function("makeFace", &Wire::makeFace)
+        .class_function("edgeLoop", &Wire::edgeLoop)
     ;
 
     class_<Face>("Face")

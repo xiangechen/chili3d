@@ -31,6 +31,10 @@ export class XYZ {
         return `${this.x}, ${this.y}, ${this.z}`;
     }
 
+    toArray(): number[] {
+        return [this.x, this.y, this.z];
+    }
+
     cross(right: XYZLike): XYZ {
         return new XYZ(
             this.y * right.z - this.z * right.y,

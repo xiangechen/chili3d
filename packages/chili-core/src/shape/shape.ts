@@ -61,6 +61,7 @@ export enum JoinType {
 
 export interface IWire extends IShape {
     toFace(): Result<IFace>;
+    edgeLoop(): IEdge[];
     offset(distance: number, joinType: JoinType): Result<IShape>;
 }
 

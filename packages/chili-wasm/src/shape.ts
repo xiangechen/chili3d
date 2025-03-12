@@ -275,6 +275,10 @@ export class OccWire extends OccShape implements IWire {
         super(wire, id);
     }
 
+    edgeLoop(): IEdge[] {
+        return wasm.Wire.edgeLoop(this.wire).map((x) => OcctHelper.wrapShape(x)) as IEdge[];
+    }
+
     toFace(): Result<IFace> {
         let face = wasm.Wire.makeFace(this.wire);
         if (face.isNull()) {
