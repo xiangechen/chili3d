@@ -89,6 +89,19 @@ export class ShapeFactory implements IShapeFactory {
         return Result.err("Not OccShape");
     }
 
+    removeFaces(shape: IShape, faces: IFace[]): Result<IShape> {
+        if (!(shape instanceof OccShape)) {
+            return Result.err("Not OccShape");
+        }
+        let occFaces = faces.map((x) => {
+            if (!(x instanceof OccShape)) {
+                throw new Error("The OCC kernel only supports OCC geometries.");
+            }
+            return x.shape;
+        });
+        return Result.ok(OcctHelper.wrapShape(wasm.Shape.removeFaces(shape.shape, occFaces)));
+    }
+
     face(wire: IWire[]): Result<IFace> {
         let shapes = ensureOccShape(wire);
         return convertShapeResult(wasm.ShapeFactory.face(shapes)) as Result<IFace>;

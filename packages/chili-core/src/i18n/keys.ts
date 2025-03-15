@@ -62,6 +62,7 @@ const I18N_KEYS = [
     "command.prism",
     "command.rect",
     "command.redo",
+    "command.removeFaces",
     "command.revol",
     "command.rotate",
     "command.section",

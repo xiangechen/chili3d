@@ -37,6 +37,7 @@ const COMMAND_KEYS = [
     "modify.delete",
     "modify.mirror",
     "modify.move",
+    "modify.removeFaces",
     "modify.rotate",
     "modify.split",
     "modify.trim",

@@ -67,6 +67,7 @@ export default {
         "command.prism": "Prism",
         "command.rect": "Rectangle",
         "command.redo": "Redo",
+        "command.removeFaces": "Remove Faces",
         "command.revol": "Revol",
         "command.rotate": "Rotate",
         "command.section": "Section",

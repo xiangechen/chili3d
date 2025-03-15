@@ -67,6 +67,7 @@ export default {
         "command.prism": "拉伸",
         "command.rect": "矩形",
         "command.redo": "重做",
+        "command.removeFaces": "移除面",
         "command.revol": "旋转",
         "command.rotate": "旋转",
         "command.section": "相交线",

@@ -29,6 +29,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.trim",
                     "modify.fillet",
                     "modify.chamfer",
+                    "modify.removeFaces",
                 ],
             },
             {

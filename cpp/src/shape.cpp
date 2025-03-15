@@ -1,6 +1,7 @@
 #include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
@@ -88,6 +89,18 @@ public:
         splitter.Add(shapes);
         splitter.Build();
         return splitter.Shape();
+    }
+
+    static TopoDS_Shape removeFaces(const TopoDS_Shape& shape, const ShapeArray& faces) {
+        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
+        BRepAlgoAPI_Defeaturing defea;
+        defea.SetShape(shape);
+        for (auto& face : facesVector) {
+            defea.AddFaceToRemove(face);
+        }
+        defea.SetRunParallel(true);
+        defea.Build();
+        return defea.Shape();
     }
 
 };
@@ -229,6 +242,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
         .class_function("splitByEdgeOrWires", &Shape::splitByEdgeOrWires)
+        .class_function("removeFaces", &Shape::removeFaces)
     ;
 
     class_<Vertex>("Vertex")
