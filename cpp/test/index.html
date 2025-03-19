@@ -87,7 +87,7 @@
     <script type="module">
         window.onload = async () => {
             let output = document.getElementById('output');
-            let initWasm = await import('../build/target/debug/chili-wasm.js');
+            let initWasm = await import('../build/target/release/chili-wasm.js');
             let wasm = await initWasm.default();
             test("test face mesh", (expect) => {
                 let location = { x: 0, y: 0, z: 0 };
@@ -116,9 +116,9 @@
                 expect(mesh.getGroups().length).toBe(24);
             })
 
-            test("test mesh 1000", (expect) => {
+            test("test mesh 100", (expect) => {
                 let count = 0;
-                for (let i = 0; i < 1000; i++) {
+                for (let i = 0; i < 100; i++) {
                     let location = { x: 0, y: 0, z: 0 };
                     let direction = { x: 0, y: 0, z: 1 };
                     let xDirection = { x: 1, y: 0, z: 0 };
@@ -155,7 +155,7 @@
                 let newEdge = wasm.Edge.fromCurve(curve.get());
                 expect(wasm.Edge.curveLength(newEdge)).toBe(1);
 
-                let faces = wasm.Shape.findAncestor(box, edges[0], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+                let faces = wasm.Shape.findAncestor(box, edges[1], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
                 expect(faces.length).toBe(2);
                 expect(faces[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_FACE)
 

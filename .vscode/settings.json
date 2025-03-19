@@ -4,5 +4,6 @@
         "source.organizeImports": "explicit"
     },
     "editor.inlineSuggest.showToolbar": "onHover",
-    "cmake.sourceDirectory": "${workspaceFolder}/cpp"
+    "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cpptools"
 }
