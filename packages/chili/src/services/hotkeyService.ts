@@ -36,38 +36,31 @@ export class HotkeyService implements IService {
     }
 
     start(): void {
-        window.addEventListener("keydown", this.interactiveKeyDown);
+        window.addEventListener("keydown", this.eventHandlerKeyDown);
         window.addEventListener("keydown", this.commandKeyDown);
-        window.addEventListener("keyup", this.interactiveHandlerKeyUp);
         Logger.info(`${HotkeyService.name} started`);
     }
 
     stop(): void {
-        window.removeEventListener("keydown", this.interactiveKeyDown);
+        window.removeEventListener("keydown", this.eventHandlerKeyDown);
         window.removeEventListener("keydown", this.commandKeyDown);
-        window.removeEventListener("keyup", this.interactiveHandlerKeyUp);
         Logger.info(`${HotkeyService.name} stoped`);
     }
 
-    private readonly interactiveKeyDown = (e: KeyboardEvent) => {
+    private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-        const view = this.app?.activeView;
-        if (view) {
-            view.onKeyDown(e);
-            view.document?.visual.eventHandler.keyDown(view, e);
-            if (this.app?.executingCommand) e.stopImmediatePropagation();
+        let visual = this.app?.activeView?.document?.visual;
+        let view = this.app?.activeView;
+        if (view && visual) {
+            visual.eventHandler.keyDown(view, e);
+            visual.viewHandler.keyDown(view, e);
+            if (this.app!.executingCommand) e.stopImmediatePropagation();
         }
-    };
-
-    private readonly interactiveHandlerKeyUp = (e: KeyboardEvent) => {
-        e.preventDefault();
-        this.app?.activeView?.onKeyUp(e);
-        if (this.app?.executingCommand) e.stopImmediatePropagation();
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
         e.preventDefault();
-        const command = this.getCommand(e);
+        let command = this.getCommand(e);
         if (command !== undefined) {
             PubSub.default.pub("executeCommand", command);
         }

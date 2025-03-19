@@ -1,8 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import CameraControls from "camera-controls";
 import {
-    CameraType,
     IDocument,
     INodeFilter,
     IShape,
@@ -21,12 +19,9 @@ import {
     VisualShapeData,
     XY,
     XYZ,
-    XYZLike,
     debounce,
 } from "chili-core";
 import {
-    Box3,
-    Clock,
     DirectionalLight,
     Intersection,
     Mesh,
@@ -35,17 +30,13 @@ import {
     PerspectiveCamera,
     Raycaster,
     Scene,
-    Sphere,
-    Spherical,
-    Matrix4 as ThreeMatrix4,
-    Quaternion as ThreeQuaternion,
     Vector2,
     Vector3,
-    Vector4,
     WebGLRenderer,
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -54,30 +45,16 @@ import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
 
-CameraControls.install({
-    THREE: {
-        Vector2: Vector2,
-        Vector3: Vector3,
-        Vector4: Vector4,
-        Quaternion: ThreeQuaternion,
-        Matrix4: ThreeMatrix4,
-        Spherical: Spherical,
-        Box3: Box3,
-        Sphere: Sphere,
-        Raycaster: Raycaster,
-    },
-});
-
 export class ThreeView extends Observable implements IView {
-    #requestAnimationFrameHandler = 0;
     private _dom?: HTMLElement;
-    private _needsUpdate: boolean = false;
-    private _controls?: CameraControls;
     private readonly _resizeObserver: ResizeObserver;
+
     private readonly _scene: Scene;
     private readonly _renderer: WebGLRenderer;
     private readonly _workplane: Plane;
+    private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
+    readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 2);
 
     get name(): string {
@@ -92,49 +69,9 @@ export class ThreeView extends Observable implements IView {
         return this._isClosed;
     }
 
-    get cameraType(): CameraType {
-        return this.getPrivateValue("cameraType", CameraType.orthographic);
+    get camera(): PerspectiveCamera | OrthographicCamera {
+        return this.cameraController.camera;
     }
-    set cameraType(value: CameraType) {
-        if (this.setProperty("cameraType", value)) {
-            this._camera = this.createCamera();
-            if (this._controls) {
-                this.initCameraControls();
-            }
-        }
-    }
-
-    private _camera?: OrthographicCamera | PerspectiveCamera;
-    get camera() {
-        if (!this._camera) {
-            this._camera = this.createCamera();
-        }
-        return this._camera;
-    }
-
-    get cameraTarget(): XYZ {
-        let position = new Vector3();
-        this._controls?.getTarget(position);
-        return ThreeHelper.toXYZ(position);
-    }
-    set cameraTarget(value: XYZLike) {
-        if (this._controls) {
-            this._controls.setTarget(value.x, value.y, value.z);
-        }
-    }
-
-    get cameraPosition(): XYZ {
-        let position = new Vector3(1000, 1000, 1000);
-        this._controls?.getPosition(position);
-        return ThreeHelper.toXYZ(position);
-    }
-    set cameraPosition(value: XYZLike) {
-        if (this._controls) {
-            this._controls.setPosition(value.x, value.y, value.z);
-        }
-    }
-
-    private readonly clock = new Clock();
 
     constructor(
         readonly document: IDocument,
@@ -149,47 +86,22 @@ export class ThreeView extends Observable implements IView {
         this._workplane = workplane;
         let resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
+        this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
-        this.document.application.views.push(this);
         this.animate();
+        this.document.application.views.push(this);
     }
 
     override disposeInternal(): void {
         super.disposeInternal();
-        this.renderer.dispose();
         this._resizeObserver.disconnect();
-    }
-
-    private createCamera() {
-        let camera: PerspectiveCamera | OrthographicCamera;
-        let aspect = this.width! / this.height!;
-        if (Number.isNaN(aspect)) {
-            aspect = 1;
-        }
-        if (this.cameraType === CameraType.perspective) {
-            camera = new PerspectiveCamera(50, aspect, 1, 1e6);
-        } else {
-            let length = this.cameraPosition.distanceTo(this.cameraTarget);
-            let frustumHalfHeight = length * Math.tan((45 * Math.PI) / 180 / 2);
-            camera = new OrthographicCamera(
-                -frustumHalfHeight * aspect,
-                frustumHalfHeight * aspect,
-                frustumHalfHeight,
-                -frustumHalfHeight,
-                1,
-                1e6,
-            );
-        }
-        camera.position.set(1000, 1000, 1000);
-        return camera;
     }
 
     close(): void {
         if (this._isClosed) return;
         this._isClosed = true;
-        cancelAnimationFrame(this.#requestAnimationFrameHandler);
         this.document.application.views.remove(this);
         let otherView = this.document.application.views.find((x) => x.document === this.document);
         if (!otherView) {
@@ -235,52 +147,9 @@ export class ThreeView extends Observable implements IView {
         element.appendChild(this._renderer.domElement);
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);
-
-        this.initCameraControls();
-    }
-
-    private initCameraControls() {
-        const position = this.cameraPosition;
-        const target = this.cameraTarget;
-
-        if (this._controls) {
-            this._controls.dispose();
-            this._controls = undefined;
-        }
-        this._controls = new CameraControls(this.camera, this.renderer.domElement);
-        this._controls.setPosition(position.x, position.y, position.z);
-        this._controls.setTarget(target.x, target.y, target.z);
-        this._controls.draggingSmoothTime = 0.06;
-        this._controls.smoothTime = 0.1;
-        this._controls.dollyToCursor = true;
-        this._controls.polarRotateSpeed = 0.8;
-        this._controls.azimuthRotateSpeed = 0.8;
-        this._controls.mouseButtons.left = CameraControls.ACTION.NONE;
-        this._controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;
-        this._controls.mouseButtons.right = CameraControls.ACTION.NONE;
-    }
-
-    onKeyDown(e: KeyboardEvent) {
-        if (e.shiftKey && this._controls) {
-            this._controls.mouseButtons.middle = CameraControls.ACTION.ROTATE;
-
-            let shapes = this.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
-            let point = new Vector3();
-            let box = new Box3();
-            for (let shape of shapes) {
-                let threeGeometry = this.content.getVisual(shape) as ThreeGeometry;
-                box.union(new Box3().setFromObject(threeGeometry));
-            }
-            box.getCenter(point);
-            this._controls?.setOrbitPoint(point.x, point.y, point.z);
-        }
-    }
-
-    onKeyUp(e: KeyboardEvent) {
-        if (!e.shiftKey && this._controls) {
-            this._controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;
-            this._controls.setOrbitPoint(0, 0, 0);
-        }
+        setTimeout(() => {
+            this.cameraController.update();
+        }, 50);
     }
 
     toImage(): string {
@@ -301,62 +170,29 @@ export class ThreeView extends Observable implements IView {
     }
 
     private animate() {
-        if (this._isClosed) {
-            return;
-        }
-        this.#requestAnimationFrameHandler = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
             this.animate();
         });
+        if (!this._needsUpdate) return;
 
-        if (!this._camera) {
-            return;
-        }
-        let needsUpdate = this._controls?.update(this.clock.getDelta());
-        if (!this._needsUpdate && !needsUpdate) return;
-
-        let dir = this.cameraPosition.sub(this.cameraTarget);
+        let dir = this.camera.position.clone().sub(this.cameraController.target);
         this.dynamicLight.position.copy(dir);
-        this._renderer.render(this._scene, this._camera);
+        this._renderer.render(this._scene, this.camera);
         this._gizmo?.update();
 
         this._needsUpdate = false;
     }
 
     resize(width: number, height: number) {
-        if (height < 0.00001) {
-            return;
+        if (this.camera instanceof PerspectiveCamera) {
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+        } else if (this.camera instanceof OrthographicCamera) {
+            this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, height);
-        this._camera = this.createCamera();
-        if (this._controls) {
-            this._controls.camera = this._camera;
-        }
-        if (this._camera instanceof PerspectiveCamera) {
-            this._camera.aspect = width / height;
-            this._camera.updateProjectionMatrix();
-        } else if (this._camera instanceof OrthographicCamera) {
-            this._camera.updateProjectionMatrix();
-        }
+        this.cameraController.update();
         this.update();
-    }
-
-    async fitContent() {
-        let box = new Box3();
-        let shapes = this.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
-        if (shapes.length === 0) {
-            box.setFromObject(this.content.visualShapes);
-        } else {
-            for (let shape of shapes) {
-                let threeGeometry = this.content.getVisual(shape) as ThreeVisualObject;
-                box.union(new Box3().setFromObject(threeGeometry));
-            }
-        }
-        let sphere = new Sphere();
-        box.getBoundingSphere(sphere);
-        if (sphere.radius < 1) {
-            sphere.radius = 1;
-        }
-        await this._controls?.fitToSphere(sphere, true);
     }
 
     get width() {
@@ -365,26 +201,6 @@ export class ThreeView extends Observable implements IView {
 
     get height() {
         return this._dom?.clientHeight;
-    }
-
-    async rotate(dx: number, dy: number) {
-        await this._controls?.rotate(dx, dy);
-    }
-
-    async zoomIn() {
-        if (this.cameraType === CameraType.orthographic) {
-            await this._controls?.zoom(this.camera.zoom * 0.3);
-        } else {
-            await this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * 0.2);
-        }
-    }
-
-    async zoomOut() {
-        if (this.cameraType === CameraType.orthographic) {
-            await this._controls?.zoom(-this.camera.zoom * 0.3);
-        } else {
-            await this._controls?.dolly(this.cameraPosition.distanceTo(this.cameraTarget) * -0.2);
-        }
     }
 
     screenToCameraRect(mx: number, my: number) {
@@ -399,15 +215,15 @@ export class ThreeView extends Observable implements IView {
 
         const origin = new Vector3();
         const direction = new Vector3(x, y, 0.5);
-        if (this._camera instanceof PerspectiveCamera) {
-            origin.setFromMatrixPosition(this._camera.matrixWorld);
-            direction.unproject(this._camera).sub(origin).normalize();
-        } else if (this._camera instanceof OrthographicCamera) {
+        if (this.camera instanceof PerspectiveCamera) {
+            origin.setFromMatrixPosition(this.camera.matrixWorld);
+            direction.unproject(this.camera).sub(origin).normalize();
+        } else if (this.camera instanceof OrthographicCamera) {
             const z = (this.camera.near + this.camera.far) / (this.camera.near - this.camera.far);
-            origin.set(x, y, z).unproject(this._camera);
-            direction.set(0, 0, -1).transformDirection(this._camera.matrixWorld);
+            origin.set(x, y, z).unproject(this.camera);
+            direction.set(0, 0, -1).transformDirection(this.camera.matrixWorld);
         } else {
-            console.error("Unsupported camera type: " + this._camera);
+            console.error("Unsupported camera type: " + this.camera);
         }
 
         return new Ray(ThreeHelper.toXYZ(origin), ThreeHelper.toXYZ(direction));
@@ -427,13 +243,7 @@ export class ThreeView extends Observable implements IView {
 
     direction(): XYZ {
         const vec = new Vector3();
-        if (!this._camera) {
-            return XYZ.unitX;
-        }
-
-        this._controls?.getTarget(vec);
-        vec.sub(this._camera.position).normalize();
-
+        this.camera.getWorldDirection(vec);
         return ThreeHelper.toXYZ(vec);
     }
 

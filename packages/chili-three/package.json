@@ -5,7 +5,6 @@
     "main": "src/index.ts",
     "devDependencies": {
         "@types/three": "0.173.0",
-        "camera-controls": "^2.9.0",
         "chili-core": "*",
         "chili-vis": "*",
         "three": "0.173.0",

@@ -5,35 +5,23 @@ import { IDisposable, IPropertyChanged } from "../foundation";
 import { Plane, Ray, XY, XYZ } from "../math";
 import { INodeFilter, IShapeFilter } from "../selectionFilter";
 import { ShapeType } from "../shape";
+import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
 import { IVisualObject } from "./visualObject";
 
-export enum CameraType {
-    perspective,
-    orthographic,
-}
-
 export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
+    readonly cameraController: ICameraController;
     get isClosed(): boolean;
     name: string;
     workplane: Plane;
-    cameraType: CameraType;
-    cameraTarget: XYZ;
-    cameraPosition: XYZ;
-    onKeyDown(e: KeyboardEvent): void;
-    onKeyUp(e: KeyboardEvent): void;
     update(): void;
     up(): XYZ;
     toImage(): string;
     direction(): XYZ;
-    rotate(dx: number, dy: number): Promise<void>;
-    zoomIn(): Promise<void>;
-    zoomOut(): Promise<void>;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
-    fitContent(): Promise<void>;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
     close(): void;

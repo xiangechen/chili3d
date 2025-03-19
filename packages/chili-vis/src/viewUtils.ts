@@ -4,9 +4,9 @@ import { CameraType, IView, Plane, Ray, XYZ } from "chili-core";
 
 export class ViewUtils {
     static rayFromEye(view: IView, point: XYZ) {
-        const cameraPosition = view.cameraPosition;
+        const cameraPosition = view.cameraController.cameraPosition;
         const vector = point.sub(cameraPosition);
-        if (view.cameraType === CameraType.orthographic) {
+        if (view.cameraController.cameraType === "orthographic") {
             const direction = view.direction();
             const dot = vector.dot(direction);
             const location = point.sub(direction.multiply(dot));
@@ -17,10 +17,10 @@ export class ViewUtils {
     }
 
     static directionAt(view: IView, point: XYZ) {
-        if (view.cameraType === CameraType.orthographic) {
+        if (view.cameraController.cameraType === "orthographic") {
             return view.direction();
         } else {
-            const cameraPosition = view.cameraPosition;
+            const cameraPosition = view.cameraController.cameraPosition;
             return point.sub(cameraPosition);
         }
     }

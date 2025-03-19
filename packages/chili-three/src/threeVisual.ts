@@ -6,6 +6,7 @@ import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeView } from "./threeView";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeViewHandler } from "./threeViewEventHandler";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -14,7 +15,7 @@ export class ThreeVisual implements IVisual {
     readonly context: ThreeVisualContext;
     readonly scene: Scene;
     readonly highlighter: ThreeHighlighter;
-
+    readonly viewHandler: IEventHandler;
     private _eventHandler: IEventHandler;
 
     get eventHandler() {
@@ -30,6 +31,7 @@ export class ThreeVisual implements IVisual {
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
         this.defaultEventHandler = new NodeSelectionHandler(document, true);
+        this.viewHandler = new ThreeViewHandler();
         this.context = new ThreeVisualContext(this, this.scene);
         this.highlighter = new ThreeHighlighter(this.context);
         this._eventHandler = this.defaultEventHandler;
@@ -65,6 +67,7 @@ export class ThreeVisual implements IVisual {
         this.context.dispose();
         this.defaultEventHandler.dispose();
         this._eventHandler.dispose();
+        this.viewHandler.dispose();
         this.scene.traverse((x) => {
             if (IDisposable.isDisposable(x)) x.dispose();
         });

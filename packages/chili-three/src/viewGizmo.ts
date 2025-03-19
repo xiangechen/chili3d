@@ -1,6 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
+import { XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
+import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
 
 const options = {
@@ -27,7 +29,7 @@ export interface Axis {
     size: number;
     position: Vector3;
     color: string[];
-    lineWidth?: number;
+    line?: number;
     label?: string;
 }
 
@@ -36,12 +38,14 @@ export class ViewGizmo extends HTMLElement {
     private readonly _center: Vector3;
     private readonly _canvas: HTMLCanvasElement;
     private readonly _context: CanvasRenderingContext2D;
+    readonly cameraController: CameraController;
     private _canClick: boolean = true;
     private _selectedAxis?: Axis;
     private _mouse?: Vector3;
 
     constructor(readonly view: ThreeView) {
         super();
+        this.cameraController = view.cameraController;
         this._axes = this._initAxes();
         this._center = new Vector3(options.size * 0.5, options.size * 0.5, 0);
         this._canvas = this._initCanvas();
@@ -55,8 +59,6 @@ export class ViewGizmo extends HTMLElement {
         this.style.right = "20px";
         this.style.borderRadius = "100%";
         this.style.cursor = "pointer";
-        this.style.userSelect = "none";
-        this.style.webkitUserSelect = "none";
     }
 
     private _initCanvas() {
@@ -69,7 +71,7 @@ export class ViewGizmo extends HTMLElement {
         return canvas;
     }
 
-    private _initAxes(): Axis[] {
+    private _initAxes() {
         return [
             {
                 axis: "x",
@@ -77,7 +79,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.x,
-                lineWidth: options.lineWidth,
+                line: options.lineWidth,
                 label: "X",
             },
             {
@@ -86,7 +88,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.y,
-                lineWidth: options.lineWidth,
+                line: options.lineWidth,
                 label: "Y",
             },
             {
@@ -95,7 +97,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.z,
-                lineWidth: options.lineWidth,
+                line: options.lineWidth,
                 label: "Z",
             },
             {
@@ -126,7 +128,6 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.addEventListener("pointermove", this._onPointerMove, false);
         this._canvas.addEventListener("pointerenter", this._onPointerEnter, false);
         this._canvas.addEventListener("pointerout", this._onPointerOut, false);
-        this._canvas.addEventListener("pointerdown", this._onPointDown, false);
         this._canvas.addEventListener("click", this._onClick, false);
     }
 
@@ -134,23 +135,18 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.removeEventListener("pointermove", this._onPointerMove, false);
         this._canvas.removeEventListener("pointerenter", this._onPointerEnter, false);
         this._canvas.removeEventListener("pointerout", this._onPointerOut, false);
-        this._canvas.removeEventListener("pointerdown", this._onPointDown, false);
         this._canvas.removeEventListener("click", this._onClick, false);
     }
 
     private readonly _onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
-        if (e.buttons === 1 && (e.movementX !== 0 || e.movementY !== 0)) {
-            this.view.rotate(-e.movementX * 0.08, -e.movementY * 0.08);
+        if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
+            this.cameraController.rotate(e.movementX * 4, e.movementY * 4);
             this._canClick = false;
         }
         const rect = this._canvas.getBoundingClientRect();
         this._mouse = new Vector3(e.clientX - rect.left, e.clientY - rect.top, 0).multiplyScalar(2);
         this.view.update();
-    };
-
-    private readonly _onPointDown = (e: PointerEvent) => {
-        e.stopPropagation();
     };
 
     private readonly _onPointerOut = (e: PointerEvent) => {
@@ -167,13 +163,21 @@ export class ViewGizmo extends HTMLElement {
             this._canClick = true;
             return;
         }
-
         if (this._selectedAxis) {
-            const distance = this.view.cameraPosition.distanceTo(this.view.cameraTarget);
-            this.view.cameraPosition = this._selectedAxis.direction
+            let distance = this.cameraController.camera.position.distanceTo(this.cameraController.target);
+            let position = this._selectedAxis.direction
                 .clone()
                 .multiplyScalar(distance)
-                .add(this.view.cameraTarget);
+                .add(this.cameraController.target);
+            this.cameraController.camera.position.copy(position);
+            let up = new XYZ(0, 0, 1);
+            if (this._selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
+            else if (this._selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
+            this.cameraController.lookAt(
+                this.cameraController.camera.position,
+                this.cameraController.target,
+                up,
+            );
         }
     };
 
@@ -183,7 +187,7 @@ export class ViewGizmo extends HTMLElement {
 
     update() {
         this.clear();
-        let invRotMat = new Matrix4().makeRotationFromEuler(this.view.camera.rotation).invert();
+        let invRotMat = new Matrix4().makeRotationFromEuler(this.cameraController.camera.rotation).invert();
         this._axes.forEach(
             (axis) =>
                 (axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat))),
@@ -197,7 +201,7 @@ export class ViewGizmo extends HTMLElement {
         this._selectedAxis = undefined;
         if (this._mouse && this._canClick) {
             let closestDist = Infinity;
-            for (const axis of axes) {
+            for (let axis of axes) {
                 const distance = this._mouse.distanceTo(axis.position);
                 if (distance < closestDist && distance < axis.size) {
                     closestDist = distance;
@@ -207,11 +211,11 @@ export class ViewGizmo extends HTMLElement {
         }
     }
 
-    private drawAxes(axes: Axis[]) {
-        for (const axis of axes) {
-            const color = this.getAxisColor(axis);
+    drawAxes(axes: Axis[]) {
+        for (let axis of axes) {
+            let color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
-            this.drawLine(this._center, axis.position, color, axis.lineWidth);
+            this.drawLine(this._center, axis.position, color, axis.line);
             this.drawLabel(axis);
         }
     }

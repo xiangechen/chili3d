@@ -44,8 +44,8 @@ export class Viewport extends HTMLElement {
     private createCameraControls() {
         return div(
             { className: style.border },
-            this.createCameraControl(CameraType.orthographic, "icon-orthographic"),
-            this.createCameraControl(CameraType.perspective, "icon-perspective"),
+            this.createCameraControl("orthographic", "icon-orthographic"),
+            this.createCameraControl("perspective", "icon-perspective"),
         );
     }
 
@@ -56,16 +56,23 @@ export class Viewport extends HTMLElement {
                 icon: "icon-fitcontent",
                 onclick: async (e) => {
                     e.stopPropagation();
-                    await this.view.fitContent();
+                    this.view.cameraController.fitContent();
+                    this.view.update();
                 },
             }),
             svg({
                 icon: "icon-zoomin",
-                onclick: () => this.view.zoomIn(),
+                onclick: () => {
+                    this.view.cameraController.zoomIn();
+                    this.view.update();
+                },
             }),
             svg({
                 icon: "icon-zoomout",
-                onclick: () => this.view.zoomOut(),
+                onclick: () => {
+                    this.view.cameraController.zoomOut();
+                    this.view.update();
+                },
             }),
         );
     }
@@ -73,13 +80,17 @@ export class Viewport extends HTMLElement {
     private createCameraControl(cameraType: CameraType, icon: string) {
         return div(
             {
-                className: new Binding(this.view, "cameraType", new CameraConverter(cameraType)),
+                className: new Binding(
+                    this.view.cameraController,
+                    "cameraType",
+                    new CameraConverter(cameraType),
+                ),
             },
             svg({
                 icon: icon,
                 onclick: (e) => {
                     e.stopPropagation();
-                    this.view.cameraType = cameraType;
+                    this.view.cameraController.cameraType = cameraType;
                 },
             }),
         );
@@ -138,23 +149,28 @@ export class Viewport extends HTMLElement {
 
     private readonly pointerMove = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerMove(view, event);
+        view.document.visual.viewHandler.pointerMove(view, event);
     };
 
     private readonly pointerDown = (view: IView, event: PointerEvent) => {
         view.document.application.activeView = view;
         view.document.visual.eventHandler.pointerDown(view, event);
+        view.document.visual.viewHandler.pointerDown(view, event);
     };
 
     private readonly pointerUp = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerUp(view, event);
+        view.document.visual.viewHandler.pointerUp(view, event);
     };
 
     private readonly pointerOut = (view: IView, event: PointerEvent) => {
         view.document.visual.eventHandler.pointerOut?.(view, event);
+        view.document.visual.viewHandler.pointerOut?.(view, event);
     };
 
     private readonly mouseWheel = (view: IView, event: WheelEvent) => {
         view.document.visual.eventHandler.mouseWheel?.(view, event);
+        view.document.visual.viewHandler.mouseWheel?.(view, event);
     };
 }
 
