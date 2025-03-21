@@ -29,7 +29,7 @@ export interface Axis {
     size: number;
     position: Vector3;
     color: string[];
-    line?: number;
+    lineWidth?: number;
     label?: string;
 }
 
@@ -54,11 +54,14 @@ export class ViewGizmo extends HTMLElement {
     }
 
     private _initStyle() {
+        this.style.zIndex = "999";
         this.style.position = "absolute";
         this.style.top = "20px";
         this.style.right = "20px";
         this.style.borderRadius = "100%";
         this.style.cursor = "pointer";
+        this.style.userSelect = "none";
+        this.style.webkitUserSelect = "none";
     }
 
     private _initCanvas() {
@@ -79,7 +82,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.x,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "X",
             },
             {
@@ -88,7 +91,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.y,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "Y",
             },
             {
@@ -97,7 +100,7 @@ export class ViewGizmo extends HTMLElement {
                 position: new Vector3(),
                 size: options.bubbleSizePrimary,
                 color: options.colors.z,
-                line: options.lineWidth,
+                lineWidth: options.lineWidth,
                 label: "Z",
             },
             {
@@ -125,17 +128,19 @@ export class ViewGizmo extends HTMLElement {
     }
 
     connectedCallback() {
-        this._canvas.addEventListener("pointermove", this._onPointerMove, false);
-        this._canvas.addEventListener("pointerenter", this._onPointerEnter, false);
-        this._canvas.addEventListener("pointerout", this._onPointerOut, false);
-        this._canvas.addEventListener("click", this._onClick, false);
+        this._canvas.addEventListener("pointermove", this._onPointerMove);
+        this._canvas.addEventListener("pointerenter", this._onPointerEnter);
+        this._canvas.addEventListener("pointerout", this._onPointerOut);
+        this._canvas.addEventListener("click", this._onClick);
+        this._canvas.addEventListener("pointerdown", this._onPointerDown);
     }
 
     disconnectedCallback() {
-        this._canvas.removeEventListener("pointermove", this._onPointerMove, false);
-        this._canvas.removeEventListener("pointerenter", this._onPointerEnter, false);
-        this._canvas.removeEventListener("pointerout", this._onPointerOut, false);
-        this._canvas.removeEventListener("click", this._onClick, false);
+        this._canvas.removeEventListener("pointermove", this._onPointerMove);
+        this._canvas.removeEventListener("pointerenter", this._onPointerEnter);
+        this._canvas.removeEventListener("pointerout", this._onPointerOut);
+        this._canvas.removeEventListener("click", this._onClick);
+        this._canvas.removeEventListener("pointerdown", this._onPointerDown);
     }
 
     private readonly _onPointerMove = (e: PointerEvent) => {
@@ -149,23 +154,30 @@ export class ViewGizmo extends HTMLElement {
         this.view.update();
     };
 
+    private readonly _onPointerDown = (e: PointerEvent) => {
+        e.stopPropagation();
+    };
+
     private readonly _onPointerOut = (e: PointerEvent) => {
+        e.stopPropagation();
         this._mouse = undefined;
         this.style.backgroundColor = "transparent";
     };
 
     private readonly _onPointerEnter = (e: PointerEvent) => {
-        this.style.backgroundColor = "rgba(255, 255, 255, .2)";
+        e.stopPropagation();
+        this.style.backgroundColor = "rgba(66, 66, 66, .9)";
     };
 
     private readonly _onClick = (e: MouseEvent) => {
+        e.stopPropagation();
         if (!this._canClick) {
             this._canClick = true;
             return;
         }
         if (this._selectedAxis) {
-            let distance = this.cameraController.camera.position.distanceTo(this.cameraController.target);
-            let position = this._selectedAxis.direction
+            const distance = this.cameraController.camera.position.distanceTo(this.cameraController.target);
+            const position = this._selectedAxis.direction
                 .clone()
                 .multiplyScalar(distance)
                 .add(this.cameraController.target);
@@ -178,6 +190,7 @@ export class ViewGizmo extends HTMLElement {
                 this.cameraController.target,
                 up,
             );
+            this.view.update();
         }
     };
 
@@ -187,7 +200,9 @@ export class ViewGizmo extends HTMLElement {
 
     update() {
         this.clear();
-        let invRotMat = new Matrix4().makeRotationFromEuler(this.cameraController.camera.rotation).invert();
+        const invRotMat = new Matrix4()
+            .makeRotationFromEuler(this.cameraController.camera.rotation)
+            .invert();
         this._axes.forEach(
             (axis) =>
                 (axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat))),
@@ -213,9 +228,9 @@ export class ViewGizmo extends HTMLElement {
 
     drawAxes(axes: Axis[]) {
         for (let axis of axes) {
-            let color = this.getAxisColor(axis);
+            const color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
-            this.drawLine(this._center, axis.position, color, axis.line);
+            this.drawLine(this._center, axis.position, color, axis.lineWidth);
             this.drawLabel(axis);
         }
     }

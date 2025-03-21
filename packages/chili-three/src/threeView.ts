@@ -170,6 +170,9 @@ export class ThreeView extends Observable implements IView {
     }
 
     private animate() {
+        if (this._isClosed) {
+            return;
+        }
         requestAnimationFrame(() => {
             this.animate();
         });
@@ -184,6 +187,9 @@ export class ThreeView extends Observable implements IView {
     }
 
     resize(width: number, height: number) {
+        if (height < 0.00001) {
+            return;
+        }
         if (this.camera instanceof PerspectiveCamera) {
             this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
