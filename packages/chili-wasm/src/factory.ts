@@ -161,6 +161,48 @@ export class ShapeFactory implements IShapeFactory {
             ) as Result<ISolid>;
         });
     }
+    cylinder(dir: XYZ, center: XYZ, radius: number, dz: number): Result<ISolid> {
+        return gc((c) => {
+            return convertShapeResult(wasm.ShapeFactory.cylinder(dir, center, radius, dz)) as Result<ISolid>;
+        });
+    }
+    cone(dir: XYZ, center: XYZ, radius: number, radiusUp: number, dz: number): Result<ISolid> {
+        return gc((c) => {
+            return convertShapeResult(
+                wasm.ShapeFactory.cone(dir, center, radius, radiusUp, dz),
+            ) as Result<ISolid>;
+        });
+    }
+    sphere(center: XYZ, radius: number): Result<ISolid> {
+        return gc((c) => {
+            return convertShapeResult(wasm.ShapeFactory.sphere(center, radius)) as Result<ISolid>;
+        });
+    }
+    ellipsoid(
+        normal: XYZLike,
+        center: XYZLike,
+        xVec: XYZLike,
+        xRadius: number,
+        yRadius: number,
+        zRadius: number,
+    ): Result<ISolid> {
+        return gc((c) => {
+            return convertShapeResult(
+                wasm.ShapeFactory.ellipsoid(normal, center, xVec, xRadius, yRadius, zRadius),
+            ) as Result<ISolid>;
+        });
+    }
+    ellipse(normal: XYZLike, center: XYZLike, majorRadius: number, minorRadius: number): Result<IEdge> {
+        return convertShapeResult(
+            wasm.ShapeFactory.ellipse(normal, center, majorRadius, minorRadius),
+        ) as Result<IEdge>;
+    }
+    pyramid(dir: XYZ, dx: number, dy: number, dz: number): Result<ISolid> {
+        return gc((c) => {
+            const a = wasm.ShapeFactory.pyramid(dir, dx, dy, dz);
+            return convertShapeResult(a) as Result<ISolid>;
+        });
+    }
     wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
     }
