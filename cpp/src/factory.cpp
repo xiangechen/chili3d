@@ -23,6 +23,11 @@
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepBuilderAPI_GTransform.hxx>
 
 using namespace emscripten;
 
@@ -38,21 +43,102 @@ class ShapeFactory
 public:
     static ShapeResult box(const Pln &ax3, double x, double y, double z)
     {
-        gp_Pln pln = Pln::toPln(ax3);
-        BRepBuilderAPI_MakeFace makeFace(pln, 0, x, 0, y);
-        if (!makeFace.IsDone())
-        {
-            return ShapeResult{TopoDS_Shape(), false, "Failed to create box"};
-        }
+        TopoDS_Shape box = BRepPrimAPI_MakeBox(Vector3::toPnt(ax3.location), x, y, z).Shape();
+        return ShapeResult{box, true, ""};
+    }
 
-        gp_Vec vec(pln.Axis().Direction());
-        vec.Multiply(z);
-        BRepPrimAPI_MakePrism box(makeFace.Face(), vec);
-        if (!box.IsDone())
+    static ShapeResult cone(const Vector3 &normal, const Vector3 &center, double radius, double radiusUp, double height)
+    {
+        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
+        TopoDS_Shape cone = BRepPrimAPI_MakeCone(ax2, radius, radiusUp, height).Shape();
+        return ShapeResult{cone, true, ""};
+    }
+
+    static ShapeResult sphere(const Vector3 &center, double radius)
+    {
+        TopoDS_Shape sphere = BRepPrimAPI_MakeSphere(Vector3::toPnt(center), radius).Shape();
+        return ShapeResult{sphere, true, ""};
+    }
+
+    static ShapeResult ellipsoid(const Vector3 &normal, const Vector3 &center, const Vector3 &xVec, double xRadius, double yRadius, double zRadius)
+    {
+        TopoDS_Shape sphere = BRepPrimAPI_MakeSphere(1).Shape();
+
+        gp_GTrsf transform;
+        transform.SetValue(1, 1, xRadius);
+        transform.SetValue(2, 2, yRadius);
+        transform.SetValue(3, 3, zRadius);
+        transform.SetTranslationPart(gp_XYZ(center.x, center.y, center.z));
+
+        BRepBuilderAPI_GTransform builder(sphere, transform);
+        if (builder.IsDone())
         {
-            return ShapeResult{TopoDS_Shape(), false, "Failed to create box"};
+            TopoDS_Shape ellipsoid = builder.Shape();
+            return ShapeResult{ellipsoid, true, ""};
         }
-        return ShapeResult{box.Shape(), true, ""};
+        return ShapeResult{TopoDS_Shape(), false, ""};
+    }
+
+    static ShapeResult ellipse(const Vector3 &normal, const Vector3 &center, double majorRadius, double minorRadius)
+    {
+        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
+        gp_Elips ellipse(ax2, majorRadius, minorRadius);
+        BRepBuilderAPI_MakeEdge edge(ellipse);
+        if (!edge.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create ellipse"};
+        }
+        return ShapeResult{edge.Edge(), true, ""};
+    }
+
+    static ShapeResult pyramid(const Vector3 &point, double x, double y, double z)
+    {
+        Standard_Real baseSizeX = x;
+        Standard_Real baseSizeY = y;
+        Standard_Real height = z;
+        gp_Pnt baseCenter = gp_Pnt(point.x, point.y, point.z);
+
+        gp_Pnt p1(baseCenter.X(), baseCenter.Y(), baseCenter.Z());
+        gp_Pnt p2(baseCenter.X() + baseSizeX, baseCenter.Y(), baseCenter.Z());
+        gp_Pnt p3(baseCenter.X() + baseSizeX, baseCenter.Y() + baseSizeY, baseCenter.Z());
+        gp_Pnt p4(baseCenter.X(), baseCenter.Y() + baseSizeY, baseCenter.Z());
+        gp_Pnt apex(baseCenter.X() + baseSizeX / 2, baseCenter.Y() + baseSizeY / 2, baseCenter.Z() + height);
+
+        TopoDS_Wire baseWire = BRepBuilderAPI_MakeWire(
+                                BRepBuilderAPI_MakeEdge(p1, p2),
+                                BRepBuilderAPI_MakeEdge(p2, p3),
+                                BRepBuilderAPI_MakeEdge(p3, p4),
+                                BRepBuilderAPI_MakeEdge(p4, p1))
+                                .Wire();
+        TopoDS_Face baseFace = BRepBuilderAPI_MakeFace(baseWire).Face();
+
+        TopoDS_Face face1 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p1, p2), BRepBuilderAPI_MakeEdge(p2, apex), BRepBuilderAPI_MakeEdge(apex, p1))).Face();
+        TopoDS_Face face2 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p2, p3), BRepBuilderAPI_MakeEdge(p3, apex), BRepBuilderAPI_MakeEdge(apex, p2))).Face();
+        TopoDS_Face face3 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p3, p4), BRepBuilderAPI_MakeEdge(p4, apex), BRepBuilderAPI_MakeEdge(apex, p3))).Face();
+        TopoDS_Face face4 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p4, p1), BRepBuilderAPI_MakeEdge(p1, apex), BRepBuilderAPI_MakeEdge(apex, p4))).Face();
+
+        TopoDS_Shell shell;
+        BRep_Builder shellBuilder;
+        shellBuilder.MakeShell(shell);
+        shellBuilder.Add(shell, baseFace);
+        shellBuilder.Add(shell, face1);
+        shellBuilder.Add(shell, face2);
+        shellBuilder.Add(shell, face3);
+        shellBuilder.Add(shell, face4);
+
+        TopoDS_Solid pyramid;
+        BRep_Builder solidBuilder;
+        solidBuilder.MakeSolid(pyramid);
+        solidBuilder.Add(pyramid, shell);
+
+        return ShapeResult{pyramid, true, ""};
+    }
+
+    static ShapeResult cylinder(const Vector3 &normal, const Vector3 &center, double radius, double height)
+    {
+        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
+        BRepPrimAPI_MakeCylinder cylinder(ax2, radius, height);
+        return ShapeResult{cylinder.Shape(), true, ""};
     }
 
     static ShapeResult sweep(const TopoDS_Shape &profile, const TopoDS_Wire &wire)
@@ -365,6 +451,12 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)
+        .class_function("cone", &ShapeFactory::cone)
+        .class_function("sphere", &ShapeFactory::sphere)
+        .class_function("ellipsoid", &ShapeFactory::ellipsoid)
+        .class_function("ellipse", &ShapeFactory::ellipse)
+        .class_function("cylinder", &ShapeFactory::cylinder)
+        .class_function("pyramid", &ShapeFactory::pyramid)
         .class_function("sweep", &ShapeFactory::sweep)
         .class_function("revolve", &ShapeFactory::revolve)
         .class_function("prism", &ShapeFactory::prism)
