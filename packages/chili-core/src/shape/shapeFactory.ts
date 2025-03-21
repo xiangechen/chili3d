@@ -17,6 +17,19 @@ export interface IShapeFactory {
     rect(plane: Plane, dx: number, dy: number): Result<IFace>;
     polygon(points: XYZLike[]): Result<IWire>;
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid>;
+    ellipse(normal: XYZLike, center: XYZLike, radius: number, radius2: number): Result<IEdge>;
+    cylinder(normal: XYZLike, center: XYZLike, radius: number, dz: number): Result<ISolid>;
+    cone(normal: XYZLike, center: XYZLike, radius: number, radiusUp: number, dz: number): Result<ISolid>;
+    sphere(center: XYZLike, radius: number): Result<ISolid>;
+    ellipsoid(
+        normal: XYZLike,
+        center: XYZLike,
+        xVec: XYZLike,
+        radiusX: number,
+        radiusY: number,
+        radiusZ: number,
+    ): Result<ISolid>;
+    pyramid(point: XYZLike, dx: number, dy: number, dz: number): Result<ISolid>;
     wire(edges: IEdge[]): Result<IWire>;
     prism(shape: IShape, vec: XYZ): Result<IShape>;
     fuse(bottom: IShape, top: IShape): Result<IShape>;

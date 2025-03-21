@@ -7,24 +7,22 @@ import { ThreeHelper } from "./threeHelper";
 import { ThreeView } from "./threeView";
 import { ThreeVisualContext } from "./threeVisualContext";
 
-const DegRad = Math.PI / 180.0;
+const DEG_TO_RAD = Math.PI / 180.0;
+const ZOOM_SPEED_FACTOR = 0.05;
+const ROTATE_SPEED = 0.01;
+const PAN_SPEED_FACTOR = 0.002;
+const CAMERA_FOV = 50;
+const CAMERA_NEAR = 0.1;
+const CAMERA_FAR = 1e6;
+const DEFAULT_UP = new Vector3(0, 0, 1);
 
 export class CameraController extends Observable implements ICameraController {
-    static ZOOM_SPEED_FACTOR = 0.05;
-    static ROTATE_SPEED = 0.01;
-    static PAN_SPEED_FACTOR = 0.002;
-    static FOV_TO_DISTANCE_RATIO = 360;
-    static SPHERE_RADIUS_FACTOR = 0.5;
-    static CAMERA_FOV = 50;
-    static CAMERA_NEAR = 0.1;
-    static CAMERA_FAR = 1e6;
-    static DEFAULT_UP = new Vector3(0, 0, 1);
-
     private _target: Vector3 = new Vector3();
     private _position: Vector3 = new Vector3(1500, 1500, 1500);
     private _rotateCenter: Vector3 | undefined;
     private _camera: PerspectiveCamera | OrthographicCamera;
     private _zoomValue = 1;
+    private readonly _up = DEFAULT_UP.clone();
 
     get cameraType(): CameraType {
         return this.getPrivateValue("cameraType", "orthographic");
@@ -45,8 +43,6 @@ export class CameraController extends Observable implements ICameraController {
             this._camera.up.copy(currentUp);
             this._camera.lookAt(this._target);
             this._camera.updateProjectionMatrix();
-
-            this.view.update();
         }
     }
 
@@ -74,10 +70,10 @@ export class CameraController extends Observable implements ICameraController {
     private newCamera() {
         if (this.cameraType === "perspective") {
             return new PerspectiveCamera(
-                CameraController.CAMERA_FOV,
+                CAMERA_FOV,
                 this.view.width! / this.view.height!,
-                CameraController.CAMERA_NEAR,
-                CameraController.CAMERA_FAR,
+                CAMERA_NEAR,
+                CAMERA_FAR,
             );
         } else {
             let camera = new OrthographicCamera(
@@ -85,8 +81,8 @@ export class CameraController extends Observable implements ICameraController {
                 this.view.width! / 2,
                 this.view.height! / 2,
                 -this.view.height! / 2,
-                CameraController.CAMERA_NEAR,
-                CameraController.CAMERA_FAR,
+                CAMERA_NEAR,
+                CAMERA_FAR,
             );
             camera.zoom = this._zoomValue;
             return camera;
@@ -94,9 +90,9 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     pan(dx: number, dy: number): void {
-        let ratio = CameraController.PAN_SPEED_FACTOR * this._target.distanceTo(this._position);
+        let ratio = PAN_SPEED_FACTOR * this._target.distanceTo(this._position);
         let direction = this._target.clone().sub(this._position).normalize();
-        let hor = direction.clone().cross(CameraController.DEFAULT_UP).normalize();
+        let hor = direction.clone().cross(this._up).normalize();
         let ver = hor.clone().cross(direction).normalize();
         let vector = hor.multiplyScalar(-dx).add(ver.multiplyScalar(dy)).multiplyScalar(ratio);
         this._target.add(vector);
@@ -107,7 +103,7 @@ export class CameraController extends Observable implements ICameraController {
 
     update() {
         this._camera.position.copy(this._position);
-        this._camera.up.copy(CameraController.DEFAULT_UP);
+        this._camera.up.copy(this._up);
         this._camera.lookAt(this._target);
         if (this._camera instanceof OrthographicCamera) {
             this.updateOrthographicCamera(this._camera);
@@ -119,7 +115,7 @@ export class CameraController extends Observable implements ICameraController {
     private updateOrthographicCamera(camera: OrthographicCamera) {
         let aspect = this.view.width! / this.view.height!;
         let length = this._position.distanceTo(this._target);
-        let frustumHalfHeight = length * Math.tan((CameraController.CAMERA_FOV * DegRad) / 2);
+        let frustumHalfHeight = length * Math.tan((CAMERA_FOV * DEG_TO_RAD) / 2);
         camera.left = -frustumHalfHeight * aspect;
         camera.right = frustumHalfHeight * aspect;
         camera.top = frustumHalfHeight;
@@ -141,12 +137,9 @@ export class CameraController extends Observable implements ICameraController {
     rotate(dx: number, dy: number): void {
         let center = this._rotateCenter ?? this._target;
         let direction = this._position.clone().sub(center);
-        let hor = CameraController.DEFAULT_UP.clone().cross(direction).normalize();
-        let matrixX = new Matrix4().makeRotationAxis(hor, -dy * CameraController.ROTATE_SPEED);
-        let matrixY = new Matrix4().makeRotationAxis(
-            new Vector3(0, 0, 1),
-            -dx * CameraController.ROTATE_SPEED,
-        );
+        let hor = this._up.clone().cross(direction).normalize();
+        let matrixX = new Matrix4().makeRotationAxis(hor, -dy * ROTATE_SPEED);
+        let matrixY = new Matrix4().makeRotationAxis(new Vector3(0, 0, 1), -dx * ROTATE_SPEED);
         let matrix = new Matrix4().multiplyMatrices(matrixY, matrixX);
         this._position = ThreeHelper.transformVector(matrix, direction).add(center);
         if (this._rotateCenter) {
@@ -154,7 +147,7 @@ export class CameraController extends Observable implements ICameraController {
             this._target = ThreeHelper.transformVector(matrix, targetToEye).add(this._position);
         }
 
-        CameraController.DEFAULT_UP.transformDirection(matrix);
+        this._up.transformDirection(matrix);
 
         this.update();
     }
@@ -162,11 +155,11 @@ export class CameraController extends Observable implements ICameraController {
     fitContent(): void {
         let context = this.view.document.visual.context as ThreeVisualContext;
         let sphere = this.getBoundingSphere(context);
-        let fieldOfView = CameraController.CAMERA_FOV / 2.0;
+        let fieldOfView = CAMERA_FOV / 2.0;
         if (this.view.width! < this.view.height!) {
             fieldOfView = (fieldOfView * this.view.width!) / this.view.height!;
         }
-        let distance = sphere.radius / Math.sin(fieldOfView * DegRad);
+        let distance = sphere.radius / Math.sin(fieldOfView * DEG_TO_RAD);
         let direction = this._target.clone().sub(this._position).normalize();
 
         this._target.copy(sphere.center);
@@ -198,7 +191,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     zoom(x: number, y: number, delta: number): void {
-        let scale = delta > 0 ? CameraController.ZOOM_SPEED_FACTOR : -CameraController.ZOOM_SPEED_FACTOR;
+        let scale = delta > 0 ? ZOOM_SPEED_FACTOR : -ZOOM_SPEED_FACTOR;
         let direction = this._target.clone().sub(this._position);
         let mouse = this.mouseToWorld(x, y);
         if (this._camera instanceof PerspectiveCamera) {
@@ -263,7 +256,7 @@ export class CameraController extends Observable implements ICameraController {
     lookAt(eye: XYZLike, target: XYZLike, up: XYZLike): void {
         this._position.set(eye.x, eye.y, eye.z);
         this._target.set(target.x, target.y, target.z);
-        CameraController.DEFAULT_UP.set(up.x, up.y, up.z);
+        this._up.set(up.x, up.y, up.z);
         this.update();
     }
 

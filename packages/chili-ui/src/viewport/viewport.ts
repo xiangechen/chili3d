@@ -22,7 +22,6 @@ export class Viewport extends HTMLElement {
     constructor(readonly view: IView) {
         super();
         this.className = style.root;
-        this.initEvent();
         this._flyout = new Flyout();
         this.render();
     }
@@ -91,31 +90,24 @@ export class Viewport extends HTMLElement {
                 onclick: (e) => {
                     e.stopPropagation();
                     this.view.cameraController.cameraType = cameraType;
+                    this.view.update();
                 },
             }),
         );
     }
 
     connectedCallback() {
+        this.initEvent();
         this.appendChild(this._flyout);
-        this.addEventListener("mousemove", this._handleFlyoutMove);
     }
 
     disconnectedCallback() {
+        this.removeEvents();
         this._flyout.remove();
-        this.removeEventListener("mousemove", this._handleFlyoutMove);
-    }
-
-    private _handleFlyoutMove(e: MouseEvent) {
-        if (this._flyout) {
-            this._flyout.style.top = e.offsetY + "px";
-            this._flyout.style.left = e.offsetX + "px";
-        }
     }
 
     dispose() {
         this.removeEvents();
-        this.removeEventListener("mousemove", this._handleFlyoutMove);
     }
 
     private initEvent() {
@@ -148,6 +140,10 @@ export class Viewport extends HTMLElement {
     }
 
     private readonly pointerMove = (view: IView, event: PointerEvent) => {
+        if (this._flyout) {
+            this._flyout.style.top = event.offsetY + "px";
+            this._flyout.style.left = event.offsetX + "px";
+        }
         view.document.visual.eventHandler.pointerMove(view, event);
         view.document.visual.viewHandler.pointerMove(view, event);
     };
