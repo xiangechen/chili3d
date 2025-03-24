@@ -11,7 +11,7 @@ import {
     XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "radius"])
+@Serializer.register(["document", "center", "radius"])
 export class SphereNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sphere";
@@ -31,18 +31,12 @@ export class SphereNode extends ParameterShapeNode {
     get radius() {
         return this.getPrivateValue("radius");
     }
-    set radius(dy: number) {
-        this.setPropertyEmitShapeChanged("radius", dy);
+    set radius(value: number) {
+        this.setPropertyEmitShapeChanged("radius", value);
     }
 
-    @Serializer.serialze()
-    get normal(): XYZ {
-        return this.getPrivateValue("normal");
-    }
-
-    constructor(document: IDocument, normal: XYZ, center: XYZ, radius: number) {
+    constructor(document: IDocument, center: XYZ, radius: number) {
         super(document);
-        this.setPrivateValue("normal", normal);
         this.setPrivateValue("center", center);
         this.setPrivateValue("radius", radius);
     }

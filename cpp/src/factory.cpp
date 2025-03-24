@@ -2,6 +2,7 @@
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
@@ -28,6 +29,7 @@
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepBuilderAPI_GTransform.hxx>
+#include <TopoDS.hxx>
 
 using namespace emscripten;
 
@@ -43,8 +45,21 @@ class ShapeFactory
 public:
     static ShapeResult box(const Pln &ax3, double x, double y, double z)
     {
-        TopoDS_Shape box = BRepPrimAPI_MakeBox(Vector3::toPnt(ax3.location), x, y, z).Shape();
-        return ShapeResult{box, true, ""};
+        gp_Pln pln = Pln::toPln(ax3);
+        BRepBuilderAPI_MakeFace makeFace(pln, 0, x, 0, y);
+        if (!makeFace.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create box"};
+        }
+
+        gp_Vec vec(pln.Axis().Direction());
+        vec.Multiply(z);
+        BRepPrimAPI_MakePrism box(makeFace.Face(), vec);
+        if (!box.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create box"};
+        }
+        return ShapeResult{box.Shape(), true, ""};
     }
 
     static ShapeResult cone(const Vector3 &normal, const Vector3 &center, double radius, double radiusUp, double height)
@@ -60,10 +75,25 @@ public:
         return ShapeResult{sphere, true, ""};
     }
 
-    static ShapeResult ellipsoid(const Vector3 &normal, const Vector3 &center, const Vector3 &xVec, double xRadius, double yRadius, double zRadius)
+    static ShapeResult ellipse(const Vector3 &normal, const Vector3 &center, const Vector3 &xvec, double majorRadius, double minorRadius)
     {
-        TopoDS_Shape sphere = BRepPrimAPI_MakeSphere(1).Shape();
+        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal), Vector3::toDir(xvec));
+        gp_Elips ellipse(ax2, majorRadius, minorRadius);
+        BRepBuilderAPI_MakeEdge edge(ellipse);
+        if (!edge.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create ellipse"};
+        }
+        return ShapeResult{edge.Edge(), true, ""};
+    }
 
+    /**
+     * TODO
+     */
+    static ShapeResult ellipsoid(const Vector3 &normal, const Vector3 &center, const Vector3 &xvec, double xRadius, double yRadius, double zRadius)
+    {
+        TopoDS_Shape sphere = BRepPrimAPI_MakeSphere(1).Solid();
+        
         gp_GTrsf transform;
         transform.SetValue(1, 1, xRadius);
         transform.SetValue(2, 2, yRadius);
@@ -79,66 +109,98 @@ public:
         return ShapeResult{TopoDS_Shape(), false, ""};
     }
 
-    static ShapeResult ellipse(const Vector3 &normal, const Vector3 &center, double majorRadius, double minorRadius)
+    static ShapeResult pyramid(const Pln &ax3, double x, double y, double z)
     {
-        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
-        gp_Elips ellipse(ax2, majorRadius, minorRadius);
-        BRepBuilderAPI_MakeEdge edge(ellipse);
-        if (!edge.IsDone())
-        {
-            return ShapeResult{TopoDS_Shape(), false, "Failed to create ellipse"};
+        if (abs(x) <= Precision::Confusion() || abs(y) <= Precision::Confusion() || abs(z) <= Precision::Confusion()) {
+            return ShapeResult{TopoDS_Shape(), false, "Invalid dimensions"};
         }
-        return ShapeResult{edge.Edge(), true, ""};
+
+        gp_Pln pln = Pln::toPln(ax3);
+        auto xvec = gp_Vec(pln.XAxis().Direction()).Multiplied(x);
+        auto yvec = gp_Vec(pln.YAxis().Direction()).Multiplied(y);
+        auto zvec = gp_Vec(pln.Axis().Direction()).Multiplied(z);
+        auto p1 = pln.Location();
+        auto p2 = p1.Translated(xvec);
+        auto p3 = p1.Translated(xvec).Translated(yvec);
+        auto p4 = p1.Translated(yvec);
+        auto top = pln.Location().Translated((xvec + yvec) * 0.5 + zvec);
+
+        std::vector<TopoDS_Face> faces = {
+            TopoDS::Face(pointsToFace({ p1, p2, p3, p4, p1 }).shape),
+            TopoDS::Face(pointsToFace({ p1, p2, top, p1 }).shape),
+            TopoDS::Face(pointsToFace({ p2, p3, top, p2 }).shape),
+            TopoDS::Face(pointsToFace({ p3, p4, top, p3 }).shape),
+            TopoDS::Face(pointsToFace({ p4, p1, top, p4 }).shape)
+        };
+        
+        return facesToSolid(faces);
     }
 
-    static ShapeResult pyramid(const Vector3 &point, double x, double y, double z)
+    static ShapeResult pointsToFace(std::vector<gp_Pnt> &&points)
     {
-        Standard_Real baseSizeX = x;
-        Standard_Real baseSizeY = y;
-        Standard_Real height = z;
-        gp_Pnt baseCenter = gp_Pnt(point.x, point.y, point.z);
+        auto wire = pointsToWire(points);
+        if (!wire.isOk)
+        {
+            return wire;
+        }
 
-        gp_Pnt p1(baseCenter.X(), baseCenter.Y(), baseCenter.Z());
-        gp_Pnt p2(baseCenter.X() + baseSizeX, baseCenter.Y(), baseCenter.Z());
-        gp_Pnt p3(baseCenter.X() + baseSizeX, baseCenter.Y() + baseSizeY, baseCenter.Z());
-        gp_Pnt p4(baseCenter.X(), baseCenter.Y() + baseSizeY, baseCenter.Z());
-        gp_Pnt apex(baseCenter.X() + baseSizeX / 2, baseCenter.Y() + baseSizeY / 2, baseCenter.Z() + height);
+        BRepBuilderAPI_MakeFace face(TopoDS::Wire(wire.shape));
+        if (!face.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create face"};
+        }
+        return ShapeResult{face.Face(), true, ""};
+    }
 
-        TopoDS_Wire baseWire = BRepBuilderAPI_MakeWire(
-                                BRepBuilderAPI_MakeEdge(p1, p2),
-                                BRepBuilderAPI_MakeEdge(p2, p3),
-                                BRepBuilderAPI_MakeEdge(p3, p4),
-                                BRepBuilderAPI_MakeEdge(p4, p1))
-                                .Wire();
-        TopoDS_Face baseFace = BRepBuilderAPI_MakeFace(baseWire).Face();
+    static ShapeResult pointsToWire(std::vector<gp_Pnt> &points) 
+    {
+        BRepBuilderAPI_MakePolygon poly;
+        for (auto &p : points)
+        {
+            poly.Add(p);
+        }
+        if (!poly.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create polygon"};
+        }
+        return ShapeResult{poly.Wire(), true, ""};
+    }
 
-        TopoDS_Face face1 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p1, p2), BRepBuilderAPI_MakeEdge(p2, apex), BRepBuilderAPI_MakeEdge(apex, p1))).Face();
-        TopoDS_Face face2 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p2, p3), BRepBuilderAPI_MakeEdge(p3, apex), BRepBuilderAPI_MakeEdge(apex, p2))).Face();
-        TopoDS_Face face3 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p3, p4), BRepBuilderAPI_MakeEdge(p4, apex), BRepBuilderAPI_MakeEdge(apex, p3))).Face();
-        TopoDS_Face face4 = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p4, p1), BRepBuilderAPI_MakeEdge(p1, apex), BRepBuilderAPI_MakeEdge(apex, p4))).Face();
-
+    static ShapeResult facesToSolid(const std::vector<TopoDS_Face> &faces)
+    {
         TopoDS_Shell shell;
         BRep_Builder shellBuilder;
         shellBuilder.MakeShell(shell);
-        shellBuilder.Add(shell, baseFace);
-        shellBuilder.Add(shell, face1);
-        shellBuilder.Add(shell, face2);
-        shellBuilder.Add(shell, face3);
-        shellBuilder.Add(shell, face4);
+        for (const auto &face : faces)
+        {
+            shellBuilder.Add(shell, face);
+        }
 
-        TopoDS_Solid pyramid;
-        BRep_Builder solidBuilder;
-        solidBuilder.MakeSolid(pyramid);
-        solidBuilder.Add(pyramid, shell);
+        BRepBuilderAPI_MakeSolid solidBuilder(shell);
+        if (!solidBuilder.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create solid"};
+        }
 
-        return ShapeResult{pyramid, true, ""};
+        return ShapeResult{solidBuilder.Solid(), true, ""};
+    }
+
+    static ShapeResult facesToSolid(const FaceArray &faces)
+    {
+        auto facesVec = vecFromJSArray<TopoDS_Face>(faces);
+        return facesToSolid(facesVec);
     }
 
     static ShapeResult cylinder(const Vector3 &normal, const Vector3 &center, double radius, double height)
     {
         gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
         BRepPrimAPI_MakeCylinder cylinder(ax2, radius, height);
-        return ShapeResult{cylinder.Shape(), true, ""};
+        cylinder.Build();
+        if (!cylinder.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create cylinder"};
+        }
+        return ShapeResult{cylinder.Solid(), true, ""};
     }
 
     static ShapeResult sweep(const TopoDS_Shape &profile, const TopoDS_Wire &wire)
@@ -174,17 +236,13 @@ public:
 
     static ShapeResult polygon(const Vector3Array &points)
     {
-        std::vector<Vector3> pts = vecFromJSArray<Vector3>(points);
-        BRepBuilderAPI_MakePolygon poly;
-        for (auto &p : pts)
+        std::vector<Vector3> vector3s = vecFromJSArray<Vector3>(points);
+        std::vector<gp_Pnt> pnts;
+        for (auto &p : vector3s)
         {
-            poly.Add(Vector3::toPnt(p));
+            pnts.push_back(Vector3::toPnt(p));
         }
-        if (!poly.IsDone())
-        {
-            return ShapeResult{TopoDS_Shape(), false, "Failed to create polygon"};
-        }
-        return ShapeResult{poly.Wire(), true, ""};
+        return pointsToWire(pnts);
     }
 
     static ShapeResult arc(const Vector3 &normal, const Vector3 &center, const Vector3 &start, double rad)

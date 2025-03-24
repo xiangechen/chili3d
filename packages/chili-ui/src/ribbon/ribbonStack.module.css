@@ -1,7 +1,6 @@
 .root {
     display: flex;
     flex-direction: column;
-    margin-left: 8px;
-    max-height: 56px;
     justify-content: space-between;
+    overflow: hidden;
 }

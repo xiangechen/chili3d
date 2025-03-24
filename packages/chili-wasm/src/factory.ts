@@ -42,7 +42,7 @@ function ensureOccShape(shapes: IShape | IShape[]): TopoDS_Shape[] {
 function convertShapeResult(result: ShapeResult): Result<IShape, string> {
     let res: Result<IShape, string>;
     if (!result.isOk) {
-        res = Result.err(String(result.error));
+        res = Result.err(result.error);
     }
     res = Result.ok(OcctHelper.wrapShape(result.shape));
     result.delete();
@@ -128,80 +128,70 @@ export class ShapeFactory implements IShapeFactory {
         return convertShapeResult(wasm.ShapeFactory.circle(normal, center, radius)) as Result<IEdge>;
     }
     rect(plane: Plane, dx: number, dy: number): Result<IFace> {
-        return gc((c) => {
-            return convertShapeResult(
-                wasm.ShapeFactory.rect(
-                    {
-                        location: plane.origin,
-                        direction: plane.normal,
-                        xDirection: plane.xvec,
-                    },
-                    dx,
-                    dy,
-                ),
-            ) as Result<IFace>;
-        });
+        return convertShapeResult(
+            wasm.ShapeFactory.rect(
+                {
+                    location: plane.origin,
+                    direction: plane.normal,
+                    xDirection: plane.xvec,
+                },
+                dx,
+                dy,
+            ),
+        ) as Result<IFace>;
     }
     polygon(points: XYZLike[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.polygon(points)) as Result<IWire>;
     }
     box(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid> {
-        return gc((c) => {
-            return convertShapeResult(
-                wasm.ShapeFactory.box(
-                    {
-                        location: plane.origin,
-                        direction: plane.normal,
-                        xDirection: plane.xvec,
-                    },
-                    dx,
-                    dy,
-                    dz,
-                ),
-            ) as Result<ISolid>;
-        });
+        return convertShapeResult(
+            wasm.ShapeFactory.box(
+                {
+                    location: plane.origin,
+                    direction: plane.normal,
+                    xDirection: plane.xvec,
+                },
+                dx,
+                dy,
+                dz,
+            ),
+        ) as Result<ISolid>;
     }
     cylinder(dir: XYZ, center: XYZ, radius: number, dz: number): Result<ISolid> {
-        return gc((c) => {
-            return convertShapeResult(wasm.ShapeFactory.cylinder(dir, center, radius, dz)) as Result<ISolid>;
-        });
+        return convertShapeResult(wasm.ShapeFactory.cylinder(dir, center, radius, dz)) as Result<ISolid>;
     }
     cone(dir: XYZ, center: XYZ, radius: number, radiusUp: number, dz: number): Result<ISolid> {
-        return gc((c) => {
-            return convertShapeResult(
-                wasm.ShapeFactory.cone(dir, center, radius, radiusUp, dz),
-            ) as Result<ISolid>;
-        });
+        return convertShapeResult(
+            wasm.ShapeFactory.cone(dir, center, radius, radiusUp, dz),
+        ) as Result<ISolid>;
     }
     sphere(center: XYZ, radius: number): Result<ISolid> {
-        return gc((c) => {
-            return convertShapeResult(wasm.ShapeFactory.sphere(center, radius)) as Result<ISolid>;
-        });
+        return convertShapeResult(wasm.ShapeFactory.sphere(center, radius)) as Result<ISolid>;
     }
-    ellipsoid(
+    ellipse(
         normal: XYZLike,
         center: XYZLike,
-        xVec: XYZLike,
-        xRadius: number,
-        yRadius: number,
-        zRadius: number,
-    ): Result<ISolid> {
-        return gc((c) => {
-            return convertShapeResult(
-                wasm.ShapeFactory.ellipsoid(normal, center, xVec, xRadius, yRadius, zRadius),
-            ) as Result<ISolid>;
-        });
-    }
-    ellipse(normal: XYZLike, center: XYZLike, majorRadius: number, minorRadius: number): Result<IEdge> {
+        xvec: XYZLike,
+        majorRadius: number,
+        minorRadius: number,
+    ): Result<IEdge> {
         return convertShapeResult(
-            wasm.ShapeFactory.ellipse(normal, center, majorRadius, minorRadius),
+            wasm.ShapeFactory.ellipse(normal, center, xvec, majorRadius, minorRadius),
         ) as Result<IEdge>;
     }
-    pyramid(dir: XYZ, dx: number, dy: number, dz: number): Result<ISolid> {
-        return gc((c) => {
-            const a = wasm.ShapeFactory.pyramid(dir, dx, dy, dz);
-            return convertShapeResult(a) as Result<ISolid>;
-        });
+    pyramid(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid> {
+        return convertShapeResult(
+            wasm.ShapeFactory.pyramid(
+                {
+                    location: plane.origin,
+                    direction: plane.normal,
+                    xDirection: plane.xvec,
+                },
+                dx,
+                dy,
+                dz,
+            ),
+        ) as Result<ISolid>;
     }
     wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
@@ -223,18 +213,16 @@ export class ShapeFactory implements IShapeFactory {
         );
     }
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {
-        return gc((c) => {
-            return convertShapeResult(
-                wasm.ShapeFactory.revolve(
-                    ensureOccShape(profile)[0],
-                    {
-                        location: axis.location,
-                        direction: axis.direction,
-                    },
-                    MathUtils.degToRad(angle),
-                ),
-            );
-        });
+        return convertShapeResult(
+            wasm.ShapeFactory.revolve(
+                ensureOccShape(profile)[0],
+                {
+                    location: axis.location,
+                    direction: axis.direction,
+                },
+                MathUtils.degToRad(angle),
+            ),
+        );
     }
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape> {
         return convertShapeResult(

@@ -2,7 +2,7 @@
 
 import { FacebaseNode, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "majorRadius", "minorRadius"])
+@Serializer.register(["document", "normal", "center", "xvec", "majorRadius", "minorRadius"])
 export class EllipseNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.ellipse";
@@ -39,10 +39,23 @@ export class EllipseNode extends FacebaseNode {
         return this.getPrivateValue("normal");
     }
 
-    constructor(document: IDocument, normal: XYZ, center: XYZ, majorRadius: number, minorRadius: number) {
+    @Serializer.serialze()
+    get xvec(): XYZ {
+        return this.getPrivateValue("xvec");
+    }
+
+    constructor(
+        document: IDocument,
+        normal: XYZ,
+        center: XYZ,
+        xvec: XYZ,
+        majorRadius: number,
+        minorRadius: number,
+    ) {
         super(document);
         this.setPrivateValue("normal", normal);
         this.setPrivateValue("center", center);
+        this.setPrivateValue("xvec", xvec);
         this.setPrivateValue("majorRadius", majorRadius);
         this.setPrivateValue("minorRadius", minorRadius);
     }
@@ -51,6 +64,7 @@ export class EllipseNode extends FacebaseNode {
         let circle = this.document.application.shapeFactory.ellipse(
             this.normal,
             this.center,
+            this.xvec,
             this.majorRadius,
             this.minorRadius,
         );

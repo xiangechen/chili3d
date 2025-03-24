@@ -9,7 +9,7 @@ import { RectCommandBase } from "./rect";
 @command({
     name: "create.pyramid",
     display: "command.pyramid",
-    icon: "icon-box",
+    icon: "icon-pyramid",
 })
 export class Pyramid extends RectCommandBase {
     protected override getSteps(): IStep[] {
@@ -19,40 +19,44 @@ export class Pyramid extends RectCommandBase {
     }
 
     private readonly getHeightStepData = (): LengthAtAxisSnapData => {
+        const plane = this.stepDatas[1].plane;
+        if (plane === undefined) {
+            throw new Error("plane is undefined, please report bug");
+        }
+        const point = this.stepDatas[1].point!.add(this.stepDatas[0].point!).multiply(0.5);
         return {
-            point: this.stepDatas[1].point!,
-            direction: this.stepDatas[0].view.workplane.normal,
+            point,
+            direction: plane.normal,
             preview: this.previewPyramid,
         };
     };
 
     private readonly previewPyramid = (end: XYZ | undefined) => {
-        const point1 = this.stepDatas[0].point!;
-        const point2 = this.stepDatas[1].point!;
         if (!end) {
-            return this.previewRect(point2);
+            return this.previewRect(this.stepDatas[1].point);
         }
-        const p1 = this.previewPoint(point1);
-        const p2 = this.previewPoint(point2);
-        const data = this.tmpPoint2RectData(end);
+        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        const p2 = this.previewPoint(this.stepDatas[1].point!);
 
-        const aaa = this.application.shapeFactory.pyramid(
-            data.plane.origin,
+        const data = this.point2RectData();
+
+        const pyramid = this.application.shapeFactory.pyramid(
+            data.plane,
             data.dx,
             data.dy,
             this.getHeight(data.plane, end),
         ).value.mesh.edges!;
 
-        return [p1, p2, aaa];
+        return [p1, p2, pyramid];
     };
 
     protected override geometryNode(): GeometryNode {
-        const rect = this.tmpPoint2RectData(this.stepDatas[1].point!);
+        const rect = this.point2RectData();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
         return new PyramidNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }
 
-    private getHeight(plane: Plane, point: XYZ) {
-        return point.sub(this.stepDatas[1].point!).dot(plane.normal);
+    private getHeight(plane: Plane, point: XYZ): number {
+        return point.sub(plane.origin).dot(plane.normal);
     }
 }

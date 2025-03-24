@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
+import { GeometryNode, Precision, XYZ, command } from "chili-core";
 import { CircleNode } from "../../bodys";
 import { SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -26,7 +26,8 @@ export class Circle extends CreateFaceableCommand {
             plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: (p: XYZ) => {
                 if (p.distanceTo(point!) < Precision.Distance) return false;
-                return p.sub(point!).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                const plane = this.findPlane(view, point!, p);
+                return p.sub(point!).isParallelTo(plane.normal) === false;
             },
         };
     };
@@ -34,31 +35,21 @@ export class Circle extends CreateFaceableCommand {
     protected override geometryNode(): GeometryNode {
         const [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, p1, p2);
-        const body = new CircleNode(this.document, plane.normal, p1, this.getDistanceAtPlane(plane, p1, p2));
+        const body = new CircleNode(this.document, plane.normal, p1, plane.projectDistance(p1, p2));
         body.isFace = this.isFace;
         return body;
     }
 
     private readonly circlePreview = (end: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!end) return [p1];
+        if (!end) return [this.previewPoint(this.stepDatas[0].point!)];
 
         const { point, view } = this.stepDatas[0];
         const plane = this.findPlane(view, point!, end);
         return [
-            p1,
+            this.previewPoint(this.stepDatas[0].point!),
             this.previewLine(point!, end),
-            this.application.shapeFactory.circle(
-                plane.normal,
-                point!,
-                this.getDistanceAtPlane(plane, point!, end),
-            ).value.mesh.edges!,
+            this.application.shapeFactory.circle(plane.normal, point!, plane.projectDistance(point!, end))
+                .value.mesh.edges!,
         ];
     };
-
-    private getDistanceAtPlane(plane: Plane, p1: XYZ, p2: XYZ) {
-        let dp1 = plane.project(p1);
-        let dp2 = plane.project(p2);
-        return dp1.distanceTo(dp2);
-    }
 }

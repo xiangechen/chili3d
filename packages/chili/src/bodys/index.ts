@@ -5,7 +5,6 @@ export * from "./circle";
 export * from "./cone";
 export * from "./cylinder";
 export * from "./ellipse";
-export * from "./ellipsoid";
 export * from "./line";
 export * from "./polygon";
 export * from "./prism";

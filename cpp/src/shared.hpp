@@ -39,6 +39,10 @@ struct Vector3 {
     double y;
     double z;
 
+    static gp_XYZ toXYZ(const Vector3& p) {
+        return gp_XYZ(p.x, p.y, p.z);
+    }
+
     static gp_Pnt toPnt(const Vector3& p) {
         return gp_Pnt(p.x, p.y, p.z);
     }

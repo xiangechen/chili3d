@@ -67,4 +67,10 @@ export class Plane {
         if (!containsExtension && t < 0) return undefined;
         return ray.location.add(ray.direction.multiply(t));
     }
+
+    projectDistance(p1: XYZ, p2: XYZ) {
+        let dp1 = this.project(p1);
+        let dp2 = this.project(p2);
+        return dp1.distanceTo(dp2);
+    }
 }

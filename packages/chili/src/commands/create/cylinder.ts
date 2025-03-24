@@ -9,7 +9,7 @@ import { CreateCommand } from "../createCommand";
 @command({
     name: "create.cylinder",
     display: "command.cylinder",
-    icon: "icon-box",
+    icon: "icon-cylinder",
 })
 export class Cylinder extends CreateCommand {
     protected override getSteps(): IStep[] {
@@ -20,70 +20,57 @@ export class Cylinder extends CreateCommand {
     }
 
     private readonly getRadiusData = (): SnapLengthAtPlaneData => {
-        const point = this.stepDatas[0].point!;
+        const { point, view } = this.stepDatas[0];
         return {
-            point: () => point,
+            point: () => point!,
             preview: this.circlePreview,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(point),
+            plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: (p: XYZ) => {
-                if (p.distanceTo(point) < Precision.Distance) return false;
-                return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                if (p.distanceTo(point!) < Precision.Distance) return false;
+                const plane = this.findPlane(view, point!, p);
+                return p.sub(point!).isParallelTo(plane.normal) === false;
             },
         };
     };
 
     private readonly circlePreview = (point: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) return [p1];
+        if (!point) return [this.previewPoint(this.stepDatas[0].point!)];
 
         const start = this.stepDatas[0].point!;
-        const plane = this.stepDatas[0].view.workplane;
+        const plane = this.findPlane(this.stepDatas[0].view, start, point);
         return [
-            p1,
+            this.previewPoint(this.stepDatas[0].point!),
             this.previewLine(start, point),
-            this.application.shapeFactory.circle(
-                plane.normal,
-                start,
-                this.getDistanceAtPlane(plane, start, point),
-            ).value.mesh.edges!,
+            this.application.shapeFactory.circle(plane.normal, start, plane.projectDistance(start, point))
+                .value.mesh.edges!,
         ];
     };
 
-    private getDistanceAtPlane(plane: Plane, p1: XYZ, p2: XYZ) {
-        let dp1 = plane.project(p1);
-        let dp2 = plane.project(p2);
-        return dp1.distanceTo(dp2);
-    }
-
     private readonly getHeightStepData = (): LengthAtAxisSnapData => {
         return {
-            point: this.stepDatas[1].point!,
-            direction: this.stepDatas[0].view.workplane.normal,
+            point: this.stepDatas[0].point!,
+            direction: this.stepDatas[1].plane!.normal,
             preview: this.previewCylinder,
             validator: (p: XYZ) => {
-                if (this.getHeight(this.stepDatas[0].view.workplane, p) === 0) return false;
-                return true;
+                return Math.abs(this.getHeight(this.stepDatas[1].plane!, p)) > 0.001;
             },
         };
     };
 
     private readonly previewCylinder = (end: XYZ | undefined) => {
-        const center = this.stepDatas[0].point!;
-        const point2 = this.stepDatas[1].point!;
         if (!end) {
-            return this.circlePreview(point2);
+            return this.circlePreview(this.stepDatas[1].point);
         }
-        const p1 = this.previewPoint(center);
-        const p2 = this.previewPoint(point2);
-        const plane = this.stepDatas[0].view.workplane;
-        const radius = this.getDistanceAtPlane(plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
+
+        const plane = this.stepDatas[1].plane!;
+        const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
         const height = this.getHeight(plane, end);
+
         return [
-            p1,
-            p2,
+            this.previewPoint(this.stepDatas[0].point!),
             this.application.shapeFactory.cylinder(
                 height < 0 ? plane.normal.reverse() : plane.normal,
-                center,
+                this.stepDatas[0].point!,
                 radius,
                 Math.abs(height),
             ).value.mesh.edges!,
@@ -91,8 +78,8 @@ export class Cylinder extends CreateCommand {
     };
 
     protected override geometryNode(): GeometryNode {
-        const plane = this.stepDatas[0].view.workplane;
-        const radius = this.getDistanceAtPlane(plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
+        const plane = this.stepDatas[1].plane!;
+        const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
         const dz = this.getHeight(plane, this.stepDatas[2].point!);
         return new CylinderNode(
             this.document,
@@ -104,7 +91,6 @@ export class Cylinder extends CreateCommand {
     }
 
     private getHeight(plane: Plane, point: XYZ): number {
-        const height = point.sub(this.stepDatas[1].point!).dot(plane.normal);
-        return height;
+        return point.sub(this.stepDatas[0].point!).dot(plane.normal);
     }
 }

@@ -1,6 +1,15 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
+import {
+    EdgeMeshData,
+    GeometryNode,
+    LineType,
+    Plane,
+    Precision,
+    VisualConfig,
+    XYZ,
+    command,
+} from "chili-core";
 import { ConeNode } from "../../bodys";
 import { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
 import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
@@ -9,7 +18,7 @@ import { CreateCommand } from "../createCommand";
 @command({
     name: "create.cone",
     display: "command.cone",
-    icon: "icon-box",
+    icon: "icon-cone",
 })
 export class Cone extends CreateCommand {
     protected override getSteps(): IStep[] {
@@ -24,10 +33,11 @@ export class Cone extends CreateCommand {
         return {
             point: () => point,
             preview: this.circlePreview,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(point),
+            plane: (p: XYZ | undefined) => this.findPlane(this.stepDatas[0].view, point, p),
             validator: (p: XYZ) => {
                 if (p.distanceTo(point) < Precision.Distance) return false;
-                return p.sub(point).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
+                const plane = this.findPlane(this.stepDatas[0].view, point, p);
+                return p.sub(point).isParallelTo(plane.normal) === false;
             },
         };
     };
@@ -37,59 +47,49 @@ export class Cone extends CreateCommand {
         if (!point) return [p1];
 
         const start = this.stepDatas[0].point!;
-        const plane = this.stepDatas[0].view.workplane;
+        const plane = this.findPlane(this.stepDatas[0].view, start, point);
         return [
             p1,
             this.previewLine(start, point),
-            this.application.shapeFactory.circle(
-                plane.normal,
-                start,
-                this.getDistanceAtPlane(plane, start, point),
-            ).value.mesh.edges!,
+            this.application.shapeFactory.circle(plane.normal, start, plane.projectDistance(start, point))
+                .value.mesh.edges!,
         ];
     };
-
-    private getDistanceAtPlane(plane: Plane, p1: XYZ, p2: XYZ) {
-        let dp1 = plane.project(p1);
-        let dp2 = plane.project(p2);
-        return dp1.distanceTo(dp2);
-    }
 
     private readonly getHeightStepData = (): LengthAtAxisSnapData => {
         return {
-            point: this.stepDatas[1].point!,
-            direction: this.stepDatas[0].view.workplane.normal,
-            preview: this.previewCylinder,
+            point: this.stepDatas[0].point!,
+            direction: this.stepDatas[1].plane!.normal,
+            preview: this.previewCone,
         };
     };
 
-    private readonly previewCylinder = (end: XYZ | undefined) => {
-        const center = this.stepDatas[0].point!;
-        const point2 = this.stepDatas[1].point!;
+    private readonly previewCone = (end: XYZ | undefined) => {
         if (!end) {
-            return this.circlePreview(point2);
+            return this.circlePreview(this.stepDatas[1].point);
         }
-        const p1 = this.previewPoint(center);
-        const p2 = this.previewPoint(point2);
-        const plane = this.stepDatas[0].view.workplane;
-        const radius = this.getDistanceAtPlane(plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
-        const height = this.getHeight(plane, end);
+        const center = this.stepDatas[0].point!;
+        const p1Visual = this.previewPoint(center);
+        const plane = this.stepDatas[1].plane!;
+        const radius = plane.projectDistance(center, this.stepDatas[1].point!);
+        const up = center.add(plane.normal.multiply(this.getHeight(plane, end)));
         return [
-            p1,
-            p2,
-            this.application.shapeFactory.cone(
-                height < 0 ? plane.normal.reverse() : plane.normal,
-                center,
-                radius,
-                0,
-                Math.abs(height),
-            ).value.mesh.edges!,
+            p1Visual,
+            this.application.shapeFactory.circle(plane.normal, center, radius).value.mesh.edges!,
+            this.previewLine(center.add(plane.xvec.multiply(radius)), up),
+            this.previewLine(center.add(plane.xvec.multiply(-radius)), up),
+            this.previewLine(center.add(plane.yvec.multiply(radius)), up),
+            this.previewLine(center.add(plane.yvec.multiply(-radius)), up),
         ];
     };
 
+    protected override previewLine(start: XYZ, end: XYZ) {
+        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
+    }
+
     protected override geometryNode(): GeometryNode {
-        const plane = this.stepDatas[0].view.workplane;
-        const radius = this.getDistanceAtPlane(plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
+        const plane = this.stepDatas[1].plane!;
+        const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
         const height = this.getHeight(plane, this.stepDatas[2].point!);
         return new ConeNode(
             this.document,
@@ -101,6 +101,6 @@ export class Cone extends CreateCommand {
     }
 
     private getHeight(plane: Plane, point: XYZ): number {
-        return point.sub(this.stepDatas[1].point!).dot(plane.normal);
+        return point.sub(this.stepDatas[0].point!).dot(plane.normal);
     }
 }

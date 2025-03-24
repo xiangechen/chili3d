@@ -95,17 +95,8 @@ export class Arc extends CreateCommand {
         return [
             visualCenter,
             this.previewLine(this.stepDatas[0].point!, end),
-            this.application.shapeFactory.circle(
-                plane.normal,
-                point!,
-                this.getDistanceAtPlane(plane, point!, end),
-            ).value.mesh.edges!,
+            this.application.shapeFactory.circle(plane.normal, point!, plane.projectDistance(point!, end))
+                .value.mesh.edges!,
         ];
     };
-
-    private getDistanceAtPlane(plane: Plane, p1: XYZ, p2: XYZ) {
-        let dp1 = plane.project(p1);
-        let dp2 = plane.project(p2);
-        return dp1.distanceTo(dp2);
-    }
 }

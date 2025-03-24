@@ -11,7 +11,7 @@ import {
     Serializer,
 } from "chili-core";
 
-@Serializer.register(["document", "dx", "dy", "dz", "plane"])
+@Serializer.register(["document", "plane", "dx", "dy", "dz"])
 export class PyramidNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.pyramid";
@@ -58,6 +58,6 @@ export class PyramidNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.pyramid(this.plane.origin, this.dx, this.dy, this.dz);
+        return this.document.application.shapeFactory.pyramid(this.plane, this.dx, this.dy, this.dz);
     }
 }

@@ -8,7 +8,6 @@ export * from "./cone";
 export * from "./converter";
 export * from "./cylinder";
 export * from "./ellipse";
-export * from "./ellipsoid";
 export * from "./fuse";
 export * from "./line";
 export * from "./offset";
