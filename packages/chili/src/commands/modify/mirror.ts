@@ -39,7 +39,7 @@ export class Mirror extends TransformedCommand {
     };
 
     private readonly mirrorPreview = (point: XYZ | undefined): ShapeMeshData[] => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        const p1 = this.meshPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
         const shape = this.transformPreview(point);
         const offset = point.sub(this.stepDatas[0].point!).normalize()!.multiply(1e6);

@@ -53,10 +53,9 @@ export class Line extends CreateCommand {
     };
 
     private readonly linePreview = (point: XYZ | undefined) => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
         if (!point) {
-            return [p1];
+            return [this.meshPoint(this.stepDatas[0].point!)];
         }
-        return [p1, this.application.shapeFactory.line(this.stepDatas[0].point!, point).value.mesh.edges!];
+        return [this.meshPoint(this.stepDatas[0].point!), this.meshLine(this.stepDatas[0].point!, point)];
     };
 }

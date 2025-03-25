@@ -35,23 +35,17 @@ export class Pyramid extends RectCommandBase {
         if (!end) {
             return this.previewRect(this.stepDatas[1].point);
         }
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        const p2 = this.previewPoint(this.stepDatas[1].point!);
 
-        const data = this.point2RectData();
-
-        const pyramid = this.application.shapeFactory.pyramid(
-            data.plane,
-            data.dx,
-            data.dy,
-            this.getHeight(data.plane, end),
-        ).value.mesh.edges!;
-
-        return [p1, p2, pyramid];
+        const data = this.rectDataFromTwoSteps();
+        return [
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(this.stepDatas[1].point!),
+            this.meshCreatedShape("pyramid", data.plane, data.dx, data.dy, this.getHeight(data.plane, end)),
+        ];
     };
 
     protected override geometryNode(): GeometryNode {
-        const rect = this.point2RectData();
+        const rect = this.rectDataFromTwoSteps();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
         return new PyramidNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }

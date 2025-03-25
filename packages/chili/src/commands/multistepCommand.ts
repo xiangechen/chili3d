@@ -4,8 +4,11 @@ import {
     AsyncController,
     CancelableCommand,
     EdgeMeshData,
+    IShape,
+    IShapeFactory,
     LineType,
     Property,
+    Result,
     VertexMeshData,
     VisualConfig,
     XYZ,
@@ -64,12 +67,35 @@ export abstract class MultistepCommand extends CancelableCommand {
         this.stepDatas.length = 0;
     }
 
-    protected previewPoint(point: XYZ) {
+    protected meshPoint(point: XYZ) {
         return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
     }
 
-    protected previewLine(start: XYZ, end: XYZ) {
+    protected meshLine(start: XYZ, end: XYZ) {
         return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Dash);
+    }
+
+    protected meshCreatedShape<K extends keyof IShapeFactory>(
+        method: K,
+        ...args: Parameters<IShapeFactory[K] extends (...args: any) => any ? IShapeFactory[K] : never>
+    ) {
+        const shape = (this.application.shapeFactory as any)[method](...args);
+        return this.meshShape(shape);
+    }
+
+    protected meshShape(shape: IShape | Result<IShape>, disposeShape = true) {
+        if (shape instanceof Result && !shape.isOk) {
+            throw shape.error;
+        }
+
+        const s = shape instanceof Result ? shape.value : shape;
+        const edgeMesh = s.mesh.edges!;
+        if (disposeShape) {
+            s.dispose();
+            edgeMesh.groups.forEach((g) => g.shape.dispose());
+        }
+
+        return edgeMesh;
     }
 
     protected abstract getSteps(): IStep[];

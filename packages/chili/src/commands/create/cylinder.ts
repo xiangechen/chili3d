@@ -34,15 +34,14 @@ export class Cylinder extends CreateCommand {
     };
 
     private readonly circlePreview = (point: XYZ | undefined) => {
-        if (!point) return [this.previewPoint(this.stepDatas[0].point!)];
+        if (!point) return [this.meshPoint(this.stepDatas[0].point!)];
 
         const start = this.stepDatas[0].point!;
         const plane = this.findPlane(this.stepDatas[0].view, start, point);
         return [
-            this.previewPoint(this.stepDatas[0].point!),
-            this.previewLine(start, point),
-            this.application.shapeFactory.circle(plane.normal, start, plane.projectDistance(start, point))
-                .value.mesh.edges!,
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshLine(start, point),
+            this.meshCreatedShape("circle", plane.normal, start, plane.projectDistance(start, point)),
         ];
     };
 
@@ -67,13 +66,14 @@ export class Cylinder extends CreateCommand {
         const height = this.getHeight(plane, end);
 
         return [
-            this.previewPoint(this.stepDatas[0].point!),
-            this.application.shapeFactory.cylinder(
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshCreatedShape(
+                "cylinder",
                 height < 0 ? plane.normal.reverse() : plane.normal,
                 this.stepDatas[0].point!,
                 radius,
                 Math.abs(height),
-            ).value.mesh.edges!,
+            ),
         ];
     };
 

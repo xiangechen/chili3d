@@ -43,7 +43,7 @@ export class Arc extends CreateCommand {
     private readonly getAngleData = () => {
         const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
-        const points: ShapeMeshData[] = [this.previewPoint(center), this.previewPoint(p1)];
+        const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
         this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
         return {
             dimension: Dimension.D1D2,
@@ -64,12 +64,13 @@ export class Arc extends CreateCommand {
         const result = [...points];
         if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
             result.push(
-                this.application.shapeFactory.arc(
+                this.meshCreatedShape(
+                    "arc",
                     this._planeAngle!.plane.normal,
                     center,
                     p1,
                     this._planeAngle!.angle,
-                ).value.mesh.edges!,
+                ),
             );
         }
         return result;
@@ -88,15 +89,14 @@ export class Arc extends CreateCommand {
     }
 
     private readonly circlePreview = (end: XYZ | undefined) => {
-        const visualCenter = this.previewPoint(this.stepDatas[0].point!);
+        const visualCenter = this.meshPoint(this.stepDatas[0].point!);
         if (!end) return [visualCenter];
         const { point, view } = this.stepDatas[0];
         const plane = this.findPlane(view, point!, end);
         return [
             visualCenter,
-            this.previewLine(this.stepDatas[0].point!, end),
-            this.application.shapeFactory.circle(plane.normal, point!, plane.projectDistance(point!, end))
-                .value.mesh.edges!,
+            this.meshLine(this.stepDatas[0].point!, end),
+            this.meshCreatedShape("circle", plane.normal, point!, plane.projectDistance(point!, end)),
         ];
     };
 }

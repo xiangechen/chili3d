@@ -41,15 +41,14 @@ export class Circle extends CreateFaceableCommand {
     }
 
     private readonly circlePreview = (end: XYZ | undefined) => {
-        if (!end) return [this.previewPoint(this.stepDatas[0].point!)];
+        if (!end) return [this.meshPoint(this.stepDatas[0].point!)];
 
         const { point, view } = this.stepDatas[0];
         const plane = this.findPlane(view, point!, end);
         return [
-            this.previewPoint(this.stepDatas[0].point!),
-            this.previewLine(point!, end),
-            this.application.shapeFactory.circle(plane.normal, point!, plane.projectDistance(point!, end))
-                .value.mesh.edges!,
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshLine(point!, end),
+            this.meshCreatedShape("circle", plane.normal, point!, plane.projectDistance(point!, end)),
         ];
     };
 }

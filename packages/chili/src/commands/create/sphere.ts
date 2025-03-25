@@ -29,18 +29,15 @@ export class Sphere extends CreateCommand {
     };
 
     private readonly previewSphere = (end: XYZ | undefined) => {
-        const centerVisual = this.previewPoint(this.stepDatas[0].point!);
         if (!end) {
-            return [centerVisual];
+            return [this.meshPoint(this.stepDatas[0].point!)];
         }
 
         const radius = this.stepDatas[0].point?.distanceTo(end)!;
         return [
-            centerVisual,
-            this.application.shapeFactory.circle(XYZ.unitZ, this.stepDatas[0].point!, radius).value.mesh
-                .edges!,
-            this.application.shapeFactory.circle(XYZ.unitY, this.stepDatas[0].point!, radius).value.mesh
-                .edges!,
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshCreatedShape("circle", XYZ.unitZ, this.stepDatas[0].point!, radius),
+            this.meshCreatedShape("circle", XYZ.unitY, this.stepDatas[0].point!, radius),
         ];
     };
 

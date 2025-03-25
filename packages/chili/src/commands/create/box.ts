@@ -31,24 +31,20 @@ export class Box extends RectCommandBase {
     };
 
     private readonly previewBox = (end: XYZ | undefined) => {
-        const point1 = this.stepDatas[0].point!;
-        const point2 = this.stepDatas[1].point!;
         if (!end) {
-            return this.previewRect(point2);
+            return this.previewRect(this.stepDatas[1].point);
         }
-        const p1 = this.previewPoint(point1);
-        const p2 = this.previewPoint(point2);
-        const data = this.point2RectData();
+
+        const { plane, dx, dy } = this.rectDataFromTwoSteps();
         return [
-            p1,
-            p2,
-            this.application.shapeFactory.box(data.plane, data.dx, data.dy, this.getHeight(data.plane, end))
-                .value.mesh.edges!,
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(this.stepDatas[1].point!),
+            this.meshCreatedShape("box", plane, dx, dy, this.getHeight(plane, end)),
         ];
     };
 
     protected override geometryNode(): GeometryNode {
-        const rect = this.point2RectData();
+        const rect = this.rectDataFromTwoSteps();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
         return new BoxNode(this.document, rect.plane, rect.dx, rect.dy, dz);
     }

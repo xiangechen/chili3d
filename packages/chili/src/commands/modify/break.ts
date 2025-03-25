@@ -46,7 +46,7 @@ export class Break extends MultistepCommand {
                         const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve();
                         const project = curve.project(point).at(0);
 
-                        return [this.previewPoint(project ?? point)];
+                        return [this.meshPoint(project ?? point)];
                     },
                 };
             }),

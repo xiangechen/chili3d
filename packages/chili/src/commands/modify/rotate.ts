@@ -58,9 +58,9 @@ export class Rotate extends TransformedCommand {
     };
 
     private readonly rotatePreview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        let p1 = this.meshPoint(this.stepDatas[0].point!);
         let l1 = this.getRayData(this.stepDatas[1].point!);
-        let result = [p1, l1, this.previewPoint(this.stepDatas[1].point!)];
+        let result = [p1, l1, this.meshPoint(this.stepDatas[1].point!)];
         if (point) {
             let shape = this.transformPreview(point);
             let l2 = this.getRayData(point);
@@ -76,7 +76,7 @@ export class Rotate extends TransformedCommand {
     }
 
     private readonly linePreview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let p1 = this.previewPoint(this.stepDatas[0].point!);
+        let p1 = this.meshPoint(this.stepDatas[0].point!);
         if (!point) {
             return [p1];
         }

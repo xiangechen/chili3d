@@ -37,17 +37,19 @@ export class Ellipse extends CreateFaceableCommand {
     };
 
     protected previewCircle = (end: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (end === undefined) return [p1];
+        if (end === undefined) return [this.meshPoint(this.stepDatas[0].point!)];
 
-        const p2 = this.previewPoint(end);
         const plane = this.findPlane(this.stepDatas[0].view, this.stepDatas[0].point!, end);
-        const circle = this.application.shapeFactory.circle(
-            plane.normal,
-            this.stepDatas[0].point!,
-            end.distanceTo(this.stepDatas[0].point!),
-        );
-        return [p1, p2, circle.value.mesh.edges!];
+        return [
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(end),
+            this.meshCreatedShape(
+                "circle",
+                plane.normal,
+                this.stepDatas[0].point!,
+                end.distanceTo(this.stepDatas[0].point!),
+            ),
+        ];
     };
 
     private readonly getRadius2Data = (): LengthAtAxisSnapData => {
@@ -74,8 +76,11 @@ export class Ellipse extends CreateFaceableCommand {
     private readonly ellipsePreview = (point: XYZ | undefined) => {
         if (!point) return this.previewCircle(this.stepDatas[1].point);
 
-        const center = this.previewPoint(this.stepDatas[0].point!);
-        return [center, this.previewPoint(this.stepDatas[1].point!), this.createEllipse(point).mesh.edges!];
+        return [
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(this.stepDatas[1].point!),
+            this.createEllipse(point),
+        ];
     };
 
     private createEllipse(p2: XYZ) {
@@ -85,7 +90,6 @@ export class Ellipse extends CreateFaceableCommand {
 
         const d1 = plane.projectDistance(p0, p1);
         const d2 = plane.projectDistance(p0, p2);
-        return this.application.shapeFactory.ellipse(plane.normal, p0, p1.sub(p0), d1, d2 > d1 ? d1 : d2)
-            .value;
+        return this.meshCreatedShape("ellipse", plane.normal, p0, p1.sub(p0), d1, d2 > d1 ? d1 : d2);
     }
 }

@@ -27,7 +27,7 @@ export class Move extends TransformedCommand {
     };
 
     private readonly movePreview = (point: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
+        const p1 = this.meshPoint(this.stepDatas[0].point!);
         if (!point) return [p1];
         return [p1, this.transformPreview(point), this.getTempLineData(this.stepDatas[0].point!, point)];
     };

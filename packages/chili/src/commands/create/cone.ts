@@ -43,16 +43,14 @@ export class Cone extends CreateCommand {
     };
 
     private readonly circlePreview = (point: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (!point) return [p1];
+        if (!point) return [this.meshPoint(this.stepDatas[0].point!)];
 
         const start = this.stepDatas[0].point!;
         const plane = this.findPlane(this.stepDatas[0].view, start, point);
         return [
-            p1,
-            this.previewLine(start, point),
-            this.application.shapeFactory.circle(plane.normal, start, plane.projectDistance(start, point))
-                .value.mesh.edges!,
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshLine(start, point),
+            this.meshCreatedShape("circle", plane.normal, start, plane.projectDistance(start, point)),
         ];
     };
 
@@ -69,21 +67,21 @@ export class Cone extends CreateCommand {
             return this.circlePreview(this.stepDatas[1].point);
         }
         const center = this.stepDatas[0].point!;
-        const p1Visual = this.previewPoint(center);
+        const p1Visual = this.meshPoint(center);
         const plane = this.stepDatas[1].plane!;
         const radius = plane.projectDistance(center, this.stepDatas[1].point!);
         const up = center.add(plane.normal.multiply(this.getHeight(plane, end)));
         return [
             p1Visual,
-            this.application.shapeFactory.circle(plane.normal, center, radius).value.mesh.edges!,
-            this.previewLine(center.add(plane.xvec.multiply(radius)), up),
-            this.previewLine(center.add(plane.xvec.multiply(-radius)), up),
-            this.previewLine(center.add(plane.yvec.multiply(radius)), up),
-            this.previewLine(center.add(plane.yvec.multiply(-radius)), up),
+            this.meshCreatedShape("circle", plane.normal, center, radius),
+            this.meshLine(center.add(plane.xvec.multiply(radius)), up),
+            this.meshLine(center.add(plane.xvec.multiply(-radius)), up),
+            this.meshLine(center.add(plane.yvec.multiply(radius)), up),
+            this.meshLine(center.add(plane.yvec.multiply(-radius)), up),
         ];
     };
 
-    protected override previewLine(start: XYZ, end: XYZ) {
+    protected override meshLine(start: XYZ, end: XYZ) {
         return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
     }
 

@@ -43,7 +43,7 @@ export class Prism extends CreateCommand {
                 if (Math.abs(dist) < Precision.Float) return [];
                 const vec = normal.multiply(dist);
                 const shape = this.stepDatas[0].shapes[0].shape;
-                return [this.application.shapeFactory.prism(shape, vec).value.mesh.edges!];
+                return [this.meshCreatedShape("prism", shape, vec)];
             },
         };
     };

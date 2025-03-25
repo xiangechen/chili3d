@@ -41,37 +41,39 @@ export abstract class RectCommandBase extends CreateCommand {
             plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: this.handleValid,
             prompt: (snaped: SnapResult) => {
-                let data = this.tmpPoint2RectData(snaped.point!);
+                let data = this.rectDataFromTemp(snaped.point!);
                 return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;
             },
         };
     };
 
     private readonly handleValid = (end: XYZ) => {
-        const data = this.tmpPoint2RectData(end);
+        const data = this.rectDataFromTemp(end);
         return data !== undefined && !MathUtils.anyEqualZero(data.dx, data.dy);
     };
 
     protected previewRect = (end: XYZ | undefined) => {
-        const p1 = this.previewPoint(this.stepDatas[0].point!);
-        if (end === undefined) return [p1];
-        const data = this.tmpPoint2RectData(end);
-        const p2 = this.previewPoint(end);
-        return [p1, p2, this.application.shapeFactory.rect(data.plane, data.dx, data.dy).value.mesh.edges!];
+        if (end === undefined) return [this.meshPoint(this.stepDatas[0].point!)];
+        const { plane, dx, dy } = this.rectDataFromTemp(end);
+        return [
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(end),
+            this.meshCreatedShape("rect", plane, dx, dy),
+        ];
     };
 
-    protected tmpPoint2RectData(point: XYZ): RectData {
+    protected rectDataFromTemp(point: XYZ): RectData {
         const [p1, p2] = [this.stepDatas[0].point!, point];
         const plane = ViewUtils.raycastClosestPlane(this.stepDatas[0].view, p1, p2);
         return RectData.get(plane, p1, p2);
     }
 
-    protected point2RectData() {
+    protected rectDataFromTwoSteps() {
         let rect: RectData;
         if (this.stepDatas[1].plane) {
             rect = RectData.get(this.stepDatas[1].plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
         } else {
-            rect = this.tmpPoint2RectData(this.stepDatas[1].point!);
+            rect = this.rectDataFromTemp(this.stepDatas[1].point!);
         }
         return rect;
     }
@@ -92,8 +94,8 @@ export class Rect extends RectCommandBase {
     }
 
     protected override geometryNode(): GeometryNode {
-        let rect: RectData = this.point2RectData();
-        const node = new RectNode(this.document, rect.plane, rect.dx, rect.dy);
+        const { plane, dx, dy } = this.rectDataFromTwoSteps();
+        const node = new RectNode(this.document, plane, dx, dy);
         node.isFace = this.isFace;
         return node;
     }

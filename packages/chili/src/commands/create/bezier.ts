@@ -55,15 +55,14 @@ export class BezierCommand extends CreateCommand {
     };
 
     private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.previewPoint(data.point!));
+        let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.meshPoint(data.point!));
         let points = this.stepDatas.map((data) => data.point) as XYZ[];
         if (point) {
             points.push(point);
         }
         if (points.length > 1) {
             ps.push(...this.previewLines(points));
-            let bezier = this.application.shapeFactory.bezier(points);
-            ps.push(bezier.value.mesh.edges!);
+            ps.push(this.meshCreatedShape("bezier", points));
         }
 
         return ps;
@@ -75,7 +74,7 @@ export class BezierCommand extends CreateCommand {
         }
         let res: ShapeMeshData[] = [];
         for (let i = 1; i < points.length; i++) {
-            res.push(this.previewLine(points[i - 1], points[i]));
+            res.push(this.meshLine(points[i - 1], points[i]));
         }
         return res;
     };

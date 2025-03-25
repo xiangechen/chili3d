@@ -40,19 +40,19 @@ export class OffsetCommand extends CreateCommand {
                 return {
                     point: ax.point,
                     direction: ax.direction,
-                    preview: (point: XYZ | undefined) => this.previewShape(ax, point),
+                    preview: (point: XYZ | undefined) => this.preview(ax, point),
                 };
             }),
         ];
     }
 
-    private previewShape(
+    private preview(
         ax: { point: XYZ; direction: XYZ; normal: XYZ },
         point: XYZ | undefined,
     ): ShapeMeshData[] {
-        let res: ShapeMeshData[] = [this.previewPoint(ax.point)];
+        let res: ShapeMeshData[] = [this.meshPoint(ax.point)];
         if (point !== undefined) {
-            res.push(this.previewLine(ax.point, point));
+            res.push(this.meshLine(ax.point, point));
             let distance = point.sub(ax.point).dot(ax.direction);
             let shape = this.createOffsetShape(ax.normal, distance);
             if (shape.isOk) {
