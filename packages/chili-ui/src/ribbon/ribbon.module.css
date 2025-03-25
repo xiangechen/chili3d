@@ -243,6 +243,7 @@
     display: grid;
     grid-template-rows: 1fr auto;
     justify-items: center;
+    flex-shrink: 0;
 
     .header {
         color: var(--foreground-color);
@@ -250,8 +251,13 @@
     }
 
     .content {
+        height: 72px;
+        flex-shrink: 0;
         display: flex;
         flex-direction: row;
+        align-items: center;
+        justify-items: center;
+        overflow: hidden;
     }
 }
 

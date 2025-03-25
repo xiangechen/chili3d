@@ -6,9 +6,6 @@
     margin: 4px;
     border-radius: 4px;
     max-width: 42px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    text-wrap: nowrap;
 }
 
 .normal:hover {
@@ -44,6 +41,9 @@
 .buttonText {
     color: var(--foreground-color);
     font-size: 12px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    text-wrap: nowrap;
 }
 
 .icon {
