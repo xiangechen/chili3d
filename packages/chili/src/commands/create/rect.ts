@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import { Config, GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
 import { ViewUtils } from "chili-vis";
 import { RectNode } from "../../bodys";
 import { SnapLengthAtPlaneData, SnapResult } from "../../snap";
@@ -55,6 +55,7 @@ export abstract class RectCommandBase extends CreateCommand {
     protected previewRect = (end: XYZ | undefined) => {
         if (end === undefined) return [this.meshPoint(this.stepDatas[0].point!)];
         const { plane, dx, dy } = this.rectDataFromTemp(end);
+
         return [
             this.meshPoint(this.stepDatas[0].point!),
             this.meshPoint(end),
@@ -62,10 +63,12 @@ export abstract class RectCommandBase extends CreateCommand {
         ];
     };
 
-    protected rectDataFromTemp(point: XYZ): RectData {
-        const [p1, p2] = [this.stepDatas[0].point!, point];
-        const plane = ViewUtils.raycastClosestPlane(this.stepDatas[0].view, p1, p2);
-        return RectData.get(plane, p1, p2);
+    protected rectDataFromTemp(tmp: XYZ): RectData {
+        const { view, point } = this.stepDatas[0];
+        const plane = Config.instance.dynamicWorkplane
+            ? ViewUtils.raycastClosestPlane(view, point!, tmp)
+            : this.stepDatas[0].view.workplane.translateTo(point!);
+        return RectData.get(plane, point!, tmp);
     }
 
     protected rectDataFromTwoSteps() {
