@@ -2,10 +2,13 @@
 
 import {
     AsyncController,
+    EdgeMeshData,
     EditableShapeNode,
     GeometryNode,
     I18n,
+    LineType,
     ShapeMeshData,
+    VisualConfig,
     XYZ,
     command,
 } from "chili-core";
@@ -74,10 +77,14 @@ export class BezierCommand extends CreateCommand {
         }
         let res: ShapeMeshData[] = [];
         for (let i = 1; i < points.length; i++) {
-            res.push(this.meshLine(points[i - 1], points[i]));
+            res.push(this.meshHandle(points[i - 1], points[i]));
         }
         return res;
     };
+
+    protected meshHandle(start: XYZ, end: XYZ) {
+        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Dash);
+    }
 
     private readonly validator = (point: XYZ): boolean => {
         for (const data of this.stepDatas) {

@@ -72,7 +72,7 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected meshLine(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Dash);
+        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
     }
 
     protected meshCreatedShape<K extends keyof IShapeFactory>(
