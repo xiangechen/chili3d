@@ -1,8 +1,8 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Matrix4, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, PointSnapData } from "../../snap";
-import { AngleStep, IStep, PointStep } from "../../step";
+import { Matrix4, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import { Dimension, SnapLengthAtPlaneData } from "../../snap";
+import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
@@ -11,75 +11,85 @@ import { TransformedCommand } from "./transformedCommand";
     icon: "icon-rotate",
 })
 export class Rotate extends TransformedCommand {
+    private _planeAngle: PlaneAngle | undefined;
+
     protected override transfrom(point: XYZ): Matrix4 {
-        const normal = this.stepDatas[0].view.workplane.normal;
+        const normal = this.stepDatas[1].plane!.normal;
         const center = this.stepDatas[0].point!;
-        const p1 = this.stepDatas[1].point!;
-        const v1 = p1.sub(center);
-        const v2 = point.sub(center);
-        const angle = v1.angleOnPlaneTo(v2, normal)!;
+        const angle = (this._planeAngle?.angle! * Math.PI) / 180;
         return Matrix4.createRotationAt(center, normal, angle);
     }
 
     getSteps(): IStep[] {
         let firstStep = new PointStep("operate.pickFistPoint");
-        let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
+        let secondStep = new LengthAtPlaneStep("operate.pickNextPoint", this.getSecondPointData);
         let thirdStep = new AngleStep(
             "operate.pickNextPoint",
             () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
-            this.getThirdPointData,
+            this.getAngleData,
         );
         return [firstStep, secondStep, thirdStep];
     }
 
-    private readonly getSecondPointData = (): PointSnapData => {
+    private readonly getSecondPointData = (): SnapLengthAtPlaneData => {
+        const { point, view } = this.stepDatas[0];
         return {
-            refPoint: () => this.stepDatas[0].point!,
-            dimension: Dimension.D1D2D3,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
-            preview: this.linePreview,
-            validator: (p) => p.distanceTo(this.stepDatas[0].point!) > 1e-6,
-        };
-    };
-
-    private readonly getThirdPointData = (): PointSnapData => {
-        return {
-            dimension: Dimension.D1D2,
-            preview: this.rotatePreview,
-            plane: () => this.stepDatas[0].view.workplane.translateTo(this.stepDatas[0].point!),
-            validator: (p) => {
-                return (
-                    p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
-                    p.distanceTo(this.stepDatas[1].point!) > 1e-3
-                );
+            point: () => point!,
+            preview: this.circlePreview,
+            plane: (p: XYZ | undefined) => this.findPlane(view, point!, p),
+            validator: (p: XYZ) => {
+                if (p.distanceTo(point!) < Precision.Distance) return false;
+                return p.sub(point!).isParallelTo(this.stepDatas[0].view.workplane.normal) === false;
             },
         };
     };
 
-    private readonly rotatePreview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let p1 = this.meshPoint(this.stepDatas[0].point!);
-        let l1 = this.getRayData(this.stepDatas[1].point!);
-        let result = [p1, l1, this.meshPoint(this.stepDatas[1].point!)];
-        if (point) {
-            let shape = this.transformPreview(point);
-            let l2 = this.getRayData(point);
-            result.push(l2, shape);
-        }
-        return result;
+    private readonly getAngleData = () => {
+        const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
+        const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
+        const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
+        this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
+        return {
+            dimension: Dimension.D1D2,
+            preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
+            plane: () => plane,
+        };
     };
 
-    private getRayData(end: XYZ) {
-        let start = this.stepDatas[0].point!;
-        let e = start.add(end.sub(start).normalize()!.multiply(1e6));
-        return this.getTempLineData(start, e);
+    private anglePreview(
+        point: XYZ | undefined,
+        center: XYZ,
+        p1: XYZ,
+        points: ShapeMeshData[],
+    ): ShapeMeshData[] {
+        point = point ?? p1;
+        this._planeAngle!.movePoint(point);
+        const result = [...points];
+        if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
+            result.push(
+                this.meshCreatedShape(
+                    "arc",
+                    this._planeAngle!.plane.normal,
+                    center,
+                    p1,
+                    this._planeAngle!.angle,
+                ),
+                this.transformPreview(point),
+            );
+        }
+        return result;
     }
 
-    private readonly linePreview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let p1 = this.meshPoint(this.stepDatas[0].point!);
-        if (!point) {
-            return [p1];
-        }
-        return [p1, this.getTempLineData(this.stepDatas[0].point!, point)];
+    private readonly circlePreview = (end: XYZ | undefined) => {
+        const visualCenter = this.meshPoint(this.stepDatas[0].point!);
+        if (!end) return [visualCenter];
+        const { point, view } = this.stepDatas[0];
+        const plane = this.findPlane(view, point!, end);
+        return [
+            visualCenter,
+            this.meshLine(this.stepDatas[0].point!, end),
+            this.meshCreatedShape("circle", plane.normal, point!, plane.projectDistance(point!, end)),
+        ];
     };
 }

@@ -3,9 +3,11 @@
 import {
     AsyncController,
     CancelableCommand,
+    Config,
     EdgeMeshData,
     IShape,
     IShapeFactory,
+    IView,
     LineType,
     Property,
     Result,
@@ -15,6 +17,7 @@ import {
 } from "chili-core";
 import { SnapResult } from "../snap";
 import { IStep } from "../step";
+import { ViewUtils } from "chili-vis";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
@@ -97,6 +100,14 @@ export abstract class MultistepCommand extends CancelableCommand {
 
         return edgeMesh;
     }
+
+    protected readonly findPlane = (view: IView, origin: XYZ, point: XYZ | undefined) => {
+        if (point === undefined || !Config.instance.dynamicWorkplane) {
+            return view.workplane.translateTo(origin);
+        } else {
+            return ViewUtils.raycastClosestPlane(view, origin, point);
+        }
+    };
 
     protected abstract getSteps(): IStep[];
 
