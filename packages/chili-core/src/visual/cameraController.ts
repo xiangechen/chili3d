@@ -14,7 +14,5 @@ export interface ICameraController extends IPropertyChanged, IDisposable {
     startRotate(x: number, y: number): void;
     rotate(dx: number, dy: number): void;
     zoom(x: number, y: number, delta: number): void;
-    zoomIn(): void;
-    zoomOut(): void;
-    update(): void;
+    updateCameraPosionTarget(): void;
 }

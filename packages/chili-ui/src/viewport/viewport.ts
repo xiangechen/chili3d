@@ -62,14 +62,14 @@ export class Viewport extends HTMLElement {
             svg({
                 icon: "icon-zoomin",
                 onclick: () => {
-                    this.view.cameraController.zoomIn();
+                    this.view.cameraController.zoom(this.view.width / 2, this.view.height / 2, -5);
                     this.view.update();
                 },
             }),
             svg({
                 icon: "icon-zoomout",
                 onclick: () => {
-                    this.view.cameraController.zoomOut();
+                    this.view.cameraController.zoom(this.view.width / 2, this.view.height / 2, 5);
                     this.view.update();
                 },
             }),

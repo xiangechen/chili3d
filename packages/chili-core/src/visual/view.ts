@@ -13,6 +13,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
     readonly cameraController: ICameraController;
     get isClosed(): boolean;
+    get width(): number;
+    get height(): number;
     name: string;
     workplane: Plane;
     update(): void;

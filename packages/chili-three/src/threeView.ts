@@ -147,9 +147,7 @@ export class ThreeView extends Observable implements IView {
         element.appendChild(this._renderer.domElement);
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);
-        setTimeout(() => {
-            this.cameraController.update();
-        }, 50);
+        this.cameraController.updateCameraPosionTarget();
     }
 
     toImage(): string {
@@ -197,23 +195,20 @@ export class ThreeView extends Observable implements IView {
             this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, height);
-        this.cameraController.update();
+        this.cameraController.setSize(width, height);
         this.update();
     }
 
     get width() {
-        return this._dom?.clientWidth;
+        return this._dom?.clientWidth ?? 1;
     }
 
     get height() {
-        return this._dom?.clientHeight;
+        return this._dom?.clientHeight ?? 1;
     }
 
     screenToCameraRect(mx: number, my: number) {
-        return {
-            x: (mx / this.width!) * 2 - 1,
-            y: -(my / this.height!) * 2 + 1,
-        };
+        return new Vector2((mx / this.width) * 2 - 1, -(my / this.height) * 2 + 1);
     }
 
     rayAt(mx: number, my: number): Ray {
@@ -241,8 +236,8 @@ export class ThreeView extends Observable implements IView {
     }
 
     worldToScreen(point: XYZ): XY {
-        let cx = this.width! / 2;
-        let cy = this.height! / 2;
+        let cx = this.width / 2;
+        let cy = this.height / 2;
         let vec = new Vector3(point.x, point.y, point.z).project(this.camera);
         return new XY(Math.round(cx * vec.x + cx), Math.round(-cy * vec.y + cy));
     }
