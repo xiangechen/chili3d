@@ -76,7 +76,7 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const edges = models.map((x) => x.shape.value) as IEdge[];
+        const edges = models.map((x) => x.shape.value.copy()) as IEdge[];
         const wireBody = new WireNode(document, edges);
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
@@ -93,7 +93,7 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const edges = models.map((x) => x.shape.value) as IEdge[];
+        const edges = models.map((x) => x.shape.value.copy()) as IEdge[];
         const wireBody = new FaceNode(document, edges);
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);

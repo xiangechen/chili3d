@@ -40,6 +40,7 @@ export interface IShape extends IDisposable {
     section(shape: IShape | Plane): IShape;
     split(edges: (IEdge | IWire)[]): IShape;
     reserve(): void;
+    copy(): IShape;
 }
 
 export interface IVertex extends IShape {}

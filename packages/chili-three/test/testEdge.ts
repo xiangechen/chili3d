@@ -25,6 +25,10 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    copy(): IShape {
+        throw new Error("Method not implemented.");
+    }
+
     dispose(): void {
         throw new Error("Method not implemented.");
     }

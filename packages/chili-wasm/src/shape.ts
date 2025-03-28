@@ -87,6 +87,10 @@ export class OccShape implements IShape {
         this.shapeType = OcctHelper.getShapeType(shape);
     }
 
+    copy(): IShape {
+        return OcctHelper.wrapShape(wasm.Shape.copy(this._shape));
+    }
+
     isClosed(): boolean {
         return wasm.Shape.isClosed(this.shape);
     }

@@ -3,6 +3,7 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepExtrema_ExtCC.hxx>
@@ -37,6 +38,11 @@ using namespace emscripten;
 
 class Shape {
 public:
+    
+    static TopoDS_Shape copy(const TopoDS_Shape& shape) {
+        BRepBuilderAPI_Copy copy(shape);
+        return copy.Shape();
+    }
 
     static bool isClosed(const TopoDS_Shape& shape) {
         return BRep_Tool::IsClosed(shape);
@@ -235,6 +241,7 @@ public:
 EMSCRIPTEN_BINDINGS(Shape) {
 
     class_<Shape>("Shape")
+        .class_function("copy", &Shape::copy)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
         .class_function("iterShape", &Shape::iterShape)

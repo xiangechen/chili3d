@@ -770,6 +770,7 @@ interface EmbindModule {
     TopoDS_Compound: {};
     TopoDS_CompSolid: {};
     Shape: {
+        copy(_0: TopoDS_Shape): TopoDS_Shape;
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
