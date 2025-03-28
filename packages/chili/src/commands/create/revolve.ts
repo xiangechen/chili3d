@@ -40,12 +40,11 @@ export class Revolve extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(
-                ShapeType.Edge | ShapeType.Face | ShapeType.Wire,
-                "prompt.select.shape",
-                false,
-            ),
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", false, new LineFilter()),
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Face | ShapeType.Wire, "prompt.select.shape"),
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", {
+                filter: new LineFilter(),
+                keepSelection: true,
+            }),
         ];
     }
 }

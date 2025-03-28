@@ -21,8 +21,8 @@ export class Mirror extends TransformedCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint");
-        let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
+        let firstStep = new PointStep("operate.pickFistPoint", undefined, true);
+        let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData, true);
         return [firstStep, secondStep];
     }
 

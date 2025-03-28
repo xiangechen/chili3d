@@ -25,6 +25,6 @@ export class ThickSolidCommand extends CreateCommand {
     }
 
     protected override getSteps(): IStep[] {
-        return [new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false)];
+        return [new SelectShapeStep(ShapeType.Shape, "prompt.select.shape")];
     }
 }

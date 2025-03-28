@@ -20,12 +20,10 @@ export class Sweep extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(
-                ShapeType.Edge | ShapeType.Wire | ShapeType.Face,
-                "prompt.select.shape",
-                false,
-            ),
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.edges", false),
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire | ShapeType.Face, "prompt.select.shape"),
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.edges", {
+                keepSelection: true,
+            }),
         ];
     }
 }

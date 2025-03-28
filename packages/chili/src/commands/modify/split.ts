@@ -56,8 +56,8 @@ export class Split extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", true),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
+            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", { multiple: true }),
         ];
     }
 }

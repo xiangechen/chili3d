@@ -7,13 +7,19 @@ export interface IStep {
     execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
 }
 
-export abstract class Step<D extends SnapData> implements IStep {
+export abstract class SnapStep<D extends SnapData> implements IStep {
     constructor(
         readonly tip: I18nKeys,
         private readonly handleStepData: () => D,
+        private readonly keepSelected: boolean = false,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        if (!this.keepSelected) {
+            document.selection.clearSelection();
+            document.visual.highlighter.clear();
+        }
+
         const data = this.handleStepData();
         this.setValidator(data);
 

@@ -50,7 +50,7 @@ export class AlignToPlane implements ICommand {
         if (!view) return;
         view.document.selection.clearSelection();
         const controller = new AsyncController();
-        const data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false).execute(
+        const data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces").execute(
             view.document,
             controller,
         );

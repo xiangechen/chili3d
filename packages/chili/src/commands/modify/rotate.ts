@@ -21,13 +21,14 @@ export class Rotate extends TransformedCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint");
-        let secondStep = new LengthAtPlaneStep("operate.pickNextPoint", this.getSecondPointData);
+        let firstStep = new PointStep("operate.pickFistPoint", undefined, true);
+        let secondStep = new LengthAtPlaneStep("operate.pickNextPoint", this.getSecondPointData, true);
         let thirdStep = new AngleStep(
             "operate.pickNextPoint",
             () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
             this.getAngleData,
+            true,
         );
         return [firstStep, secondStep, thirdStep];
     }

@@ -8,15 +8,15 @@ import {
     SnapPointOnCurveData,
     SnapPointOnCurveEventHandler,
 } from "../snap";
-import { Step } from "./step";
+import { SnapStep } from "./step";
 
 function defaultSnapedData(): PointSnapData {
     return { dimension: Dimension.D1 | Dimension.D1D2D3 };
 }
 
-export class PointStep extends Step<PointSnapData> {
-    constructor(tip: I18nKeys, handleData: () => PointSnapData = defaultSnapedData) {
-        super(tip, handleData);
+export class PointStep extends SnapStep<PointSnapData> {
+    constructor(tip: I18nKeys, handleData: () => PointSnapData = defaultSnapedData, keepSelected = false) {
+        super(tip, handleData, keepSelected);
     }
 
     protected getEventHandler(document: IDocument, controller: AsyncController, data: PointSnapData) {
@@ -28,9 +28,9 @@ export class PointStep extends Step<PointSnapData> {
     }
 }
 
-export class PointOnCurveStep extends Step<SnapPointOnCurveData> {
-    constructor(tip: I18nKeys, handleData: () => SnapPointOnCurveData) {
-        super(tip, handleData);
+export class PointOnCurveStep extends SnapStep<SnapPointOnCurveData> {
+    constructor(tip: I18nKeys, handleData: () => SnapPointOnCurveData, keepSelected = false) {
+        super(tip, handleData, keepSelected);
     }
 
     protected override validator(data: SnapPointOnCurveData, point: XYZ): boolean {

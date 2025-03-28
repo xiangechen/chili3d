@@ -44,6 +44,9 @@ export class Trim extends CancelableCommand {
     }
 
     private async trimAsync() {
+        this.document.visual.highlighter.clear();
+        this.document.selection.clearSelection();
+
         while (!this.isCompleted) {
             this.controller = new AsyncController();
             let handler = new PickTrimEdgeEventHandler(this.document, this.controller);

@@ -20,8 +20,8 @@ export class Section extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", false),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
         ];
     }
 }

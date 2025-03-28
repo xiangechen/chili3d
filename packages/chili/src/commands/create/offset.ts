@@ -30,11 +30,7 @@ export class OffsetCommand extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(
-                ShapeType.Edge | ShapeType.Wire | ShapeType.Face,
-                "prompt.select.shape",
-                false,
-            ),
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire | ShapeType.Face, "prompt.select.shape"),
             new LengthAtAxisStep("common.length", () => {
                 let ax = this.getAxis();
                 return {

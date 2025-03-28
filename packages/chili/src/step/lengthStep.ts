@@ -7,9 +7,9 @@ import {
     SnapLengthAtPlaneData,
     SnapLengthAtPlaneHandler,
 } from "../snap";
-import { Step } from "./step";
+import { SnapStep } from "./step";
 
-export class LengthAtAxisStep extends Step<LengthAtAxisSnapData> {
+export class LengthAtAxisStep extends SnapStep<LengthAtAxisSnapData> {
     protected getEventHandler(document: IDocument, controller: AsyncController, data: LengthAtAxisSnapData) {
         return new SnapLengthAtAxisHandler(document, controller, data);
     }
@@ -19,7 +19,7 @@ export class LengthAtAxisStep extends Step<LengthAtAxisSnapData> {
     }
 }
 
-export class LengthAtPlaneStep extends Step<SnapLengthAtPlaneData> {
+export class LengthAtPlaneStep extends SnapStep<SnapLengthAtPlaneData> {
     protected getEventHandler(
         document: IDocument,
         controller: AsyncController,

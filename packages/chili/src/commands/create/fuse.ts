@@ -22,7 +22,7 @@ export class Fuse extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", false),
+            new SelectShapeStep(ShapeType.Face, "prompt.select.faces"),
             new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData),
         ];
     }

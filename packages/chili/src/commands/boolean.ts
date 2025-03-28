@@ -37,13 +37,16 @@ export abstract class BooleanOperate extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeNodeStep("prompt.select.shape", false),
-            new SelectShapeNodeStep("prompt.select.shape", false, {
-                allow: (shape) => {
-                    return !this.stepDatas[0].nodes
-                        ?.map((x) => (x as ShapeNode).shape.value)
-                        .includes(shape);
+            new SelectShapeNodeStep("prompt.select.shape"),
+            new SelectShapeNodeStep("prompt.select.shape", {
+                filter: {
+                    allow: (shape) => {
+                        return !this.stepDatas[0].nodes
+                            ?.map((x) => (x as ShapeNode).shape.value)
+                            .includes(shape);
+                    },
                 },
+                keepSelection: true,
             }),
         ];
     }

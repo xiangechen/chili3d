@@ -49,11 +49,8 @@ export class ChamferCommand extends MultistepCommand {
 
     protected override getSteps() {
         return [
-            new SelectShapeStep(
-                ShapeType.Shape,
-                "prompt.select.shape",
-                false,
-                {
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+                filter: {
                     allow: (shape) => {
                         return (
                             shape.shapeType === ShapeType.Solid ||
@@ -62,9 +59,9 @@ export class ChamferCommand extends MultistepCommand {
                         );
                     },
                 },
-                VisualState.faceTransparent,
-            ),
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", true),
+                selectedState: VisualState.faceTransparent,
+            }),
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", { multiple: true }),
         ];
     }
 }

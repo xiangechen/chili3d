@@ -36,20 +36,24 @@ export class Break extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", false),
-            new PointOnCurveStep("operate.pickFistPoint", () => {
-                return {
-                    curve: (this.stepDatas[0].shapes[0].shape as IEdge).curve(),
-                    dimension: Dimension.D1,
-                    preview: (point: XYZ | undefined) => {
-                        if (!point) return [];
-                        const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve();
-                        const project = curve.project(point).at(0);
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges"),
+            new PointOnCurveStep(
+                "operate.pickFistPoint",
+                () => {
+                    return {
+                        curve: (this.stepDatas[0].shapes[0].shape as IEdge).curve(),
+                        dimension: Dimension.D1,
+                        preview: (point: XYZ | undefined) => {
+                            if (!point) return [];
+                            const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve();
+                            const project = curve.project(point).at(0);
 
-                        return [this.meshPoint(project ?? point)];
-                    },
-                };
-            }),
+                            return [this.meshPoint(project ?? point)];
+                        },
+                    };
+                },
+                true,
+            ),
         ];
     }
 }

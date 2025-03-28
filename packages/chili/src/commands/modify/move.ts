@@ -13,8 +13,8 @@ import { TransformedCommand } from "./transformedCommand";
 export class Move extends TransformedCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("operate.pickFistPoint"),
-            new PointStep("operate.pickNextPoint", this.getSecondPointData),
+            new PointStep("operate.pickFistPoint", undefined, true),
+            new PointStep("operate.pickNextPoint", this.getSecondPointData, true),
         ];
     }
 

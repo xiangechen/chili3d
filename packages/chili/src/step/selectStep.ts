@@ -13,19 +13,28 @@ import {
 import { SnapResult } from "../snap";
 import { IStep } from "./step";
 
+export interface SelectShapeOptions {
+    multiple?: boolean;
+    filter?: IShapeFilter;
+    selectedState?: VisualState;
+    keepSelection?: boolean;
+}
+
 export abstract class SelectStep implements IStep {
     constructor(
         readonly snapeType: ShapeType,
         readonly prompt: I18nKeys,
-        readonly multiple: boolean = false,
-        readonly filter?: IShapeFilter,
-        readonly selectedState?: VisualState,
+        readonly options?: SelectShapeOptions,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const { shapeType, shapeFilter, nodeFilter } = document.selection;
         document.selection.shapeType = this.snapeType;
-        document.selection.shapeFilter = this.filter;
+        document.selection.shapeFilter = this.options?.filter;
+        if (!this.options?.keepSelection) {
+            document.selection.clearSelection();
+            document.visual.highlighter.clear();
+        }
         try {
             return await this.select(document, controller);
         } finally {
@@ -46,8 +55,8 @@ export class SelectShapeStep extends SelectStep {
         const shapes = await document.selection.pickShape(
             this.prompt,
             controller,
-            this.multiple,
-            this.selectedState,
+            this.options?.multiple === true,
+            this.options?.selectedState,
         );
         if (shapes.length === 0) return undefined;
         return {
@@ -58,8 +67,8 @@ export class SelectShapeStep extends SelectStep {
 }
 
 export class SelectShapeNodeStep extends SelectStep {
-    constructor(prompt: I18nKeys, multiple: boolean, filter?: IShapeFilter, selectedState?: VisualState) {
-        super(ShapeType.Shape, prompt, multiple, filter, selectedState);
+    constructor(prompt: I18nKeys, options?: SelectShapeOptions) {
+        super(ShapeType.Shape, prompt, options);
     }
 
     override async select(
@@ -67,7 +76,11 @@ export class SelectShapeNodeStep extends SelectStep {
         controller: AsyncController,
     ): Promise<SnapResult | undefined> {
         document.selection.nodeFilter = new ShapeNodeFilter();
-        const nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
+        const nodes = await document.selection.pickNode(
+            this.prompt,
+            controller,
+            this.options?.multiple === true,
+        );
         if (nodes.length === 0) return undefined;
         return {
             view: document.application.activeView!,

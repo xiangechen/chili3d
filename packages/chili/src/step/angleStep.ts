@@ -3,7 +3,7 @@
 import { AsyncController, I18nKeys, IDocument, Precision, XYZ } from "chili-core";
 
 import { AngleSnapEventHandler, Dimension, PointSnapData } from "../snap";
-import { Step } from "./step";
+import { SnapStep } from "./step";
 
 function defaultSnapedData(): PointSnapData {
     return {
@@ -11,14 +11,15 @@ function defaultSnapedData(): PointSnapData {
     };
 }
 
-export class AngleStep extends Step<PointSnapData> {
+export class AngleStep extends SnapStep<PointSnapData> {
     constructor(
         tip: I18nKeys,
         private readonly handleCenter: () => XYZ,
         private readonly handleP1: () => XYZ,
         handleP2Data: () => PointSnapData = defaultSnapedData,
+        keepSelected = false,
     ) {
-        super(tip, handleP2Data);
+        super(tip, handleP2Data, keepSelected);
     }
 
     protected getEventHandler(document: IDocument, controller: AsyncController, data: PointSnapData) {

@@ -7,7 +7,7 @@ import {
     ShapeType,
     Transaction,
     VisualState,
-    command
+    command,
 } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
@@ -18,15 +18,11 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-removeFaces",
 })
 export class RemoveFaceCommand extends MultistepCommand {
-
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.stepDatas[0].shapes[0].owner.geometryNode as ShapeNode;
             const faces = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IFace);
-            const filetShape = this.document.application.shapeFactory.removeFaces(
-                node.shape.value,
-                faces
-            );
+            const filetShape = this.document.application.shapeFactory.removeFaces(node.shape.value, faces);
 
             const model = new EditableShapeNode(this.document, node.name, filetShape, node.materialId);
             model.transform = node.transform;
@@ -39,11 +35,8 @@ export class RemoveFaceCommand extends MultistepCommand {
 
     protected override getSteps() {
         return [
-            new SelectShapeStep(
-                ShapeType.Shape,
-                "prompt.select.shape",
-                false,
-                {
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+                filter: {
                     allow: (shape) => {
                         return (
                             shape.shapeType === ShapeType.Solid ||
@@ -52,9 +45,9 @@ export class RemoveFaceCommand extends MultistepCommand {
                         );
                     },
                 },
-                VisualState.faceTransparent,
-            ),
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", true),
+                selectedState: VisualState.faceTransparent,
+            }),
+            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { multiple: true }),
         ];
     }
 }
