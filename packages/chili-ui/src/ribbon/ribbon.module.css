@@ -73,12 +73,13 @@
                 align-items: center;
                 border-radius: 6px;
                 height: 26px;
-                background-color: var(--panel-background-color);
+                background-color: var(--title-background);
                 padding: 2px;
-                min-width: 240px;
-                max-width: 320px;
+                width: 220px;
+                overflow: hidden;
                 margin: 0px 2px;
                 cursor: default;
+                transition: width 0.2s ease-out;
 
                 &:hover {
                     background-color: var(--hover-background-color);
@@ -110,6 +111,7 @@
                     margin: 4px;
                     padding: 6px;
                     border-radius: 6px;
+                    flex-shrink: 0;
 
                     &:hover {
                         background-color: var(--hover-background-color);
@@ -118,7 +120,8 @@
             }
 
             .active {
-                background-color: var(--panel-background-color);
+                width: 260px;
+                background-color: var(--title-checked);
             }
         }
 

@@ -23,9 +23,11 @@ body {
     --border-color: #dddddd;
     --background-color: #eeeeee;
     --panel-background-color: #ffffff;
-    --hover-background-color: rgba(25, 25, 25, 0.1);
+    --hover-background-color: rgba(25, 25, 25, 0.15);
     --titlebar-forground-color: #333;
     --titlebar-background-color: #eeeeee;
+    --title-background: rgba(25, 25, 25, 0.08);
+    --title-checked: #ffffff;
     --statusbar-foreground-color: #333;
     --statusbar-background-color: #eeeeee;
     --viewport-background-color: #888;

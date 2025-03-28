@@ -178,7 +178,7 @@ export class Ribbon extends HTMLElement {
                 className: new Binding(
                     this.dataContent,
                     "activeView",
-                    new ViewActiveConverter(view, style.tab, `${style.tab} ${style.active}`),
+                    new ViewActiveConverter(view, style.tab, style.active),
                 ),
                 onclick: () => {
                     this.dataContent.app.activeView = view;
