@@ -17,6 +17,9 @@ import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
 document.oncontextmenu = (e) => e.preventDefault();
+document.body.addEventListener("scroll", (e) => {
+    document.body.scrollTop = 0;
+})
 
 export class MainWindow implements IWindow {
     private _inited: boolean = false;
@@ -27,7 +30,7 @@ export class MainWindow implements IWindow {
         this.setTheme("light");
     }
 
-    async init(app: IApplication) {
+    init(app: IApplication) {
         if (this._inited) {
             throw new Error("MainWindow is already inited");
         }

@@ -9,11 +9,6 @@ body {
     font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
-#root {
-    width: 100%;
-    height: 100%;
-}
-
 :root[theme="light"] {
     --checked-color: rgba(25, 25, 25, 0.2);
     --control-background-color: #ffffff;

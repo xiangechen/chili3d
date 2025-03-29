@@ -1,16 +1,19 @@
 .name {
-    flex: 1;
+    flex: 1 1 auto;
     font-size: 12px;
     user-select: none;
+    text-wrap: nowrap;
     -moz-user-select: none;
     -webkit-user-select: none;
     -ms-user-select: none;
+    overflow: hidden;
 }
 
 .icon {
+    flex-shrink: 0;
     width: 16px;
     height: 16px;
-    padding: 0px;
+    padding: 0px 8px;
 }
 
 .parent-visible {

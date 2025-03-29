@@ -110,7 +110,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         const node = selected.at(0);
         if (node) {
             this.expandParents(node);
-            this.nodeMap.get(node)?.scrollIntoView({ block: "nearest" });
+            this.nodeMap.get(node)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         }
     }
 
