@@ -40,7 +40,7 @@ export class FilletCommand extends MultistepCommand {
 
             const model = new EditableShapeNode(this.document, node.name, filetShape, node.materialId);
             model.transform = node.transform;
-            this.document.addNode(model);
+            (node.parent ?? this.document.rootNode).add(model);
             node.parent?.remove(node);
             this.document.visual.update();
         });
@@ -60,7 +60,10 @@ export class FilletCommand extends MultistepCommand {
                 },
                 selectedState: VisualState.faceTransparent,
             }),
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", { multiple: true }),
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", {
+                multiple: true,
+                keepSelection: true,
+            }),
         ];
     }
 }

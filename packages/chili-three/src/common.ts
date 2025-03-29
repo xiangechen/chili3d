@@ -6,7 +6,7 @@ import { VisualConfig } from "chili-core";
 import { DoubleSide, MeshLambertMaterial } from "three";
 
 export const hilightEdgeMaterial = new LineMaterial({
-    linewidth: 2,
+    linewidth: 3,
     color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
     side: DoubleSide,
     polygonOffset: true,
@@ -15,7 +15,7 @@ export const hilightEdgeMaterial = new LineMaterial({
 });
 
 export const hilightDashedEdgeMaterial = new LineMaterial({
-    linewidth: 2,
+    linewidth: 3,
     color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
     side: DoubleSide,
     polygonOffset: true,
@@ -28,7 +28,7 @@ export const hilightDashedEdgeMaterial = new LineMaterial({
 });
 
 export const selectedEdgeMaterial = new LineMaterial({
-    linewidth: 2,
+    linewidth: 3,
     color: ThreeHelper.fromColor(VisualConfig.selectedEdgeColor),
     side: DoubleSide,
     polygonOffset: true,

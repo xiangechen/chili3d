@@ -25,7 +25,7 @@ const CAMERA_FOV = 50;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
 const MAX_PITCH_ANGLE = 88 * DEG_TO_RAD;
-const MIN_CARME_TO_TARGET = 50;
+const MIN_CARME_TO_TARGET = 100;
 
 Camera.DEFAULT_UP = new Vector3(0, 0, 1);
 
@@ -230,27 +230,26 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     zoom(x: number, y: number, delta: number): void {
-        const direction = this._target.clone().sub(this._position);
+        const vector = this._target.clone().sub(this._position);
 
-        let zoomFactor = this.caclueZoomFactor(x, y, direction);
+        let zoomFactor = this.caclueZoomFactor(x, y, vector);
         const scale = delta > 0 ? zoomFactor : -zoomFactor;
         let mouse = this.mouseToWorld(x, y);
         if (this._camera instanceof PerspectiveCamera) {
-            mouse = this.caculePerspectiveCameraMouse(direction, mouse);
+            mouse = this.caculePerspectiveCameraMouse(vector, mouse);
         }
-        const vector = this._target.clone().sub(mouse).multiplyScalar(scale);
-        this._target.add(vector);
-        this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(1 + scale)));
-        if (direction.length() < MIN_CARME_TO_TARGET) {
+        const targetMoveVector = this._target.clone().sub(mouse).multiplyScalar(scale);
+        this._target.add(targetMoveVector);
+        this._position.copy(this._target.clone().sub(vector.clone().multiplyScalar(1 + scale)));
+        if (vector.length() < MIN_CARME_TO_TARGET) {
             this._target = this._position
                 .clone()
-                .add(direction.clone().normalize().multiplyScalar(MIN_CARME_TO_TARGET));
+                .add(vector.clone().normalize().multiplyScalar(MIN_CARME_TO_TARGET));
         }
 
         if (this._camera instanceof OrthographicCamera) {
             this.updateOrthographicCamera(this._camera);
         }
-
         this.updateCameraNearFar();
         this.updateCameraPosionTarget();
     }

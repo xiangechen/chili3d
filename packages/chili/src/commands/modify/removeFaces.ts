@@ -47,7 +47,10 @@ export class RemoveFaceCommand extends MultistepCommand {
                 },
                 selectedState: VisualState.faceTransparent,
             }),
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { multiple: true }),
+            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", {
+                multiple: true,
+                keepSelection: true,
+            }),
         ];
     }
 }

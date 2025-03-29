@@ -6,8 +6,8 @@ import { ObjectSnapType } from "./snapType";
 export const VisualConfig = {
     defaultEdgeColor: 0x111111,
     defaultFaceColor: 0xdedede,
-    highlightEdgeColor: 0x4444cc,
-    highlightFaceColor: 0x4444cc,
+    highlightEdgeColor: 0x3333ff,
+    highlightFaceColor: 0x3333ff,
     selectedEdgeColor: 0x0000ff,
     selectedFaceColor: 0x0000ff,
     editVertexSize: 7,

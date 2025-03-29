@@ -1,7 +1,7 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { Matrix4, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, SnapLengthAtPlaneData } from "../../snap";
+import { Matrix4, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import { Dimension, PointSnapData, SnapLengthAtPlaneData } from "../../snap";
 import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
@@ -11,12 +11,10 @@ import { TransformedCommand } from "./transformedCommand";
     icon: "icon-rotate",
 })
 export class Rotate extends TransformedCommand {
-    private _planeAngle: PlaneAngle | undefined;
-
     protected override transfrom(point: XYZ): Matrix4 {
         const normal = this.stepDatas[1].plane!.normal;
         const center = this.stepDatas[0].point!;
-        const angle = (this._planeAngle?.angle! * Math.PI) / 180;
+        const angle = this.getAngle(point);
         return Matrix4.createRotationAt(center, normal, angle);
     }
 
@@ -27,7 +25,7 @@ export class Rotate extends TransformedCommand {
             "operate.pickNextPoint",
             () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
-            this.getAngleData,
+            this.getThirdPointData,
             true,
         );
         return [firstStep, secondStep, thirdStep];
@@ -46,42 +44,6 @@ export class Rotate extends TransformedCommand {
         };
     };
 
-    private readonly getAngleData = () => {
-        const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
-        const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
-        const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
-        this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
-        return {
-            dimension: Dimension.D1D2,
-            preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
-            plane: () => plane,
-        };
-    };
-
-    private anglePreview(
-        point: XYZ | undefined,
-        center: XYZ,
-        p1: XYZ,
-        points: ShapeMeshData[],
-    ): ShapeMeshData[] {
-        point = point ?? p1;
-        this._planeAngle!.movePoint(point);
-        const result = [...points];
-        if (Math.abs(this._planeAngle!.angle) > Precision.Angle) {
-            result.push(
-                this.meshCreatedShape(
-                    "arc",
-                    this._planeAngle!.plane.normal,
-                    center,
-                    p1,
-                    this._planeAngle!.angle,
-                ),
-                this.transformPreview(point),
-            );
-        }
-        return result;
-    }
-
     private readonly circlePreview = (end: XYZ | undefined) => {
         const visualCenter = this.meshPoint(this.stepDatas[0].point!);
         if (!end) return [visualCenter];
@@ -93,4 +55,58 @@ export class Rotate extends TransformedCommand {
             this.meshCreatedShape("circle", plane.normal, point!, plane.projectDistance(point!, end)),
         ];
     };
+
+    private readonly getThirdPointData = (): PointSnapData => {
+        return {
+            dimension: Dimension.D1D2,
+            preview: this.anglePreview,
+            plane: () => this.stepDatas[1].plane!,
+            validator: (p) => {
+                return (
+                    p.distanceTo(this.stepDatas[0].point!) > 1e-3 &&
+                    p.distanceTo(this.stepDatas[1].point!) > 1e-3
+                );
+            },
+        };
+    };
+
+    private getAngle(point: XYZ) {
+        const normal = this.stepDatas[1].plane!.normal;
+        const center = this.stepDatas[0].point!;
+        const p1 = this.stepDatas[1].point!;
+        const v1 = p1.sub(center);
+        const v2 = point.sub(center);
+        return v1.angleOnPlaneTo(v2, normal)!;
+    }
+
+    private readonly anglePreview = (point: XYZ | undefined): ShapeMeshData[] => {
+        point = point ?? this.stepDatas[1].point!;
+        const result = [
+            this.transformPreview(point),
+            this.meshPoint(this.stepDatas[0].point!),
+            this.meshPoint(this.stepDatas[1].point!),
+            this.getRayData(this.stepDatas[1].point!),
+            this.getRayData(point),
+        ];
+
+        const angle = this.getAngle(point);
+        if (Math.abs(angle) > Precision.Angle) {
+            result.push(
+                this.meshCreatedShape(
+                    "arc",
+                    this.stepDatas[1].plane!.normal,
+                    this.stepDatas[0].point!,
+                    this.stepDatas[1].point!,
+                    (angle * 180) / Math.PI,
+                ),
+            );
+        }
+        return result;
+    };
+
+    private getRayData(end: XYZ) {
+        let center = this.stepDatas[0].point!;
+        let rayEnd = center.add(end.sub(center).normalize()!.multiply(1e6));
+        return this.getTempLineData(center, rayEnd);
+    }
 }
