@@ -8,6 +8,7 @@ import {
     Result,
     ShapeType,
     Transaction,
+    VisualState,
     command,
 } from "chili-core";
 import { IStep } from "../../step";
@@ -56,8 +57,13 @@ export class Split extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
-            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", { multiple: true }),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+                selectedState: VisualState.faceTransparent,
+            }),
+            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", {
+                multiple: true,
+                keepSelection: true,
+            }),
         ];
     }
 }

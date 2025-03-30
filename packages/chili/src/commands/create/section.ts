@@ -1,6 +1,6 @@
 // Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
 
-import { EditableShapeNode, GeometryNode, I18n, ShapeType, command } from "chili-core";
+import { EditableShapeNode, GeometryNode, I18n, ShapeType, VisualState, command } from "chili-core";
 import { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
@@ -20,8 +20,10 @@ export class Section extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape"),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+                selectedState: VisualState.faceTransparent,
+            }),
+            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", { keepSelection: true }),
         ];
     }
 }
