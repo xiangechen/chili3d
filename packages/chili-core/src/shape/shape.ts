@@ -3,7 +3,7 @@
 import { IDisposable, Result } from "../foundation";
 import { Matrix4, Plane, Ray, XYZ } from "../math";
 import { ICurve, ITrimmedCurve } from "./curve";
-import { IShapeMeshData } from "./meshData";
+import { EdgeMeshData, IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
 import { ISurface } from "./surface";
 
@@ -18,6 +18,7 @@ export interface IShape extends IDisposable {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;
+    edgesMeshPosition(): EdgeMeshData;
     matrix: Matrix4;
     isClosed(): boolean;
     isNull(): boolean;

@@ -1,4 +1,5 @@
 import {
+    EdgeMeshData,
     gc,
     ICompound,
     ICompoundSolid,
@@ -16,6 +17,7 @@ import {
     IVertex,
     IWire,
     JoinType,
+    LineType,
     MathUtils,
     Matrix4,
     Orientation,
@@ -25,6 +27,7 @@ import {
     SerializedProperties,
     Serializer,
     ShapeType,
+    VisualConfig,
     XYZ,
 } from "chili-core";
 import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../lib/chili-wasm";
@@ -85,6 +88,18 @@ export class OccShape implements IShape {
         this._id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OcctHelper.getShapeType(shape);
+    }
+
+    edgesMeshPosition(): EdgeMeshData {
+        const occMesher = new wasm.Mesher(this.shape, 0.005);
+        const position = occMesher.edgesMeshPosition();
+        occMesher.delete();
+        return {
+            lineType: LineType.Solid,
+            positions: new Float32Array(position),
+            groups: [],
+            color: VisualConfig.defaultEdgeColor,
+        };
     }
 
     copy(): IShape {

@@ -95,13 +95,14 @@
                 let xDirection = { x: 1, y: 0, z: 0 };
                 let ax3 = { location, direction, xDirection };
                 let box = wasm.ShapeFactory.box(ax3, 1, 2, 3).shape;
-                let mesh = new wasm.FaceMesher(box, 0.1);
+                let mesher = new wasm.Mesher(box, 0.1);
+                let mesh = mesher.mesh();
 
-                expect(mesh.getPosition().length).toBe(72);
-                expect(mesh.getIndex().length).toBe(36);
-                expect(mesh.getGroups().length).toBe(12);
-                expect(mesh.getNormal().length).toBe(72);
-                expect(mesh.getUV().length).toBe(48);
+                expect(mesh.faceMeshData.position.length).toBe(72);
+                expect(mesh.faceMeshData.index.length).toBe(36);
+                expect(mesh.faceMeshData.group.length).toBe(12);
+                expect(mesh.faceMeshData.normal.length).toBe(72);
+                expect(mesh.faceMeshData.uv.length).toBe(48);
             })
 
             test("test edge mesh", (expect) => {
@@ -110,35 +111,10 @@
                 let xDirection = { x: 1, y: 0, z: 0 };
                 let ax3 = { location, direction, xDirection };
                 let box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
-                let mesh = new wasm.EdgeMesher(box, 0.1);
-
-                expect(mesh.getPosition().length).toBe(72);
-                expect(mesh.getGroups().length).toBe(24);
-            })
-
-            test("test mesh 100", (expect) => {
-                let count = 0;
-                for (let i = 0; i < 100; i++) {
-                    let location = { x: 0, y: 0, z: 0 };
-                    let direction = { x: 0, y: 0, z: 1 };
-                    let xDirection = { x: 1, y: 0, z: 0 };
-                    let ax2 = {location, direction, xDirection};
-                    let box = wasm.ShapeFactory.box(ax2, 10, 10, 10).shape;
-                    let fm = new wasm.FaceMesher(box, 0.1);
-                    let em = new wasm.EdgeMesher(box, 0.1);
-
-                    count += new Float32Array(fm.getPosition()).length;
-                    count += new Uint32Array(fm.getIndex()).length;
-                    count += new Uint32Array(fm.getGroups()).length;
-                    count += new Float32Array(fm.getNormal()).length;
-                    count += new Float32Array(fm.getUV()).length;
-
-                    box.delete();
-                    fm.delete();
-                    em.delete();
-                }
-                console.log(count);
-                
+                let mesher = new wasm.Mesher(box, 0.1);
+                let mesh = mesher.mesh();
+                expect(mesh.edgeMeshData.position.length).toBe(72);
+                expect(mesh.edgeMeshData.group.length).toBe(24);
             })
 
             test("test shape", (expect) => {

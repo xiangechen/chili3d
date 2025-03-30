@@ -2,53 +2,79 @@ import {
     arrayNeedsUint32,
     EdgeMeshData,
     FaceMeshData,
+    gc,
     IDisposable,
     IShapeMeshData,
     LineType,
     ShapeMeshGroup,
     VisualConfig,
 } from "chili-core";
-import { EdgeMesher, FaceMesher } from "../lib/chili-wasm";
+import {
+    Mesher as OccMesher,
+    EdgeMeshData as OccEdgeMeshData,
+    FaceMeshData as OccFaceMeshData,
+} from "../lib/chili-wasm";
 import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
 
 export class Mesher implements IShapeMeshData, IDisposable {
-    private readonly _lineDeflection: number;
+    private _occMesher: OccMesher;
+    private _isMeshed = false;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
 
     get edges(): EdgeMeshData | undefined {
         if (this._lines === undefined) {
-            const edgeMesher = new wasm.EdgeMesher(this.shape.shape, this._lineDeflection);
-            this._lines = {
-                lineType: LineType.Solid,
-                positions: new Float32Array(edgeMesher.getPosition()),
-                groups: this.getEdgeGroups(edgeMesher),
-                color: VisualConfig.defaultEdgeColor,
-            };
-            edgeMesher.delete();
+            this.mesh();
         }
         return this._lines;
     }
     get faces(): FaceMeshData | undefined {
         if (this._faces === undefined) {
-            const faceMesher = new wasm.FaceMesher(this.shape.shape, this._lineDeflection);
-            const index = faceMesher.getIndex();
-            this._faces = {
-                positions: new Float32Array(faceMesher.getPosition()),
-                normals: new Float32Array(faceMesher.getNormal()),
-                uvs: new Float32Array(faceMesher.getUV()),
-                indices: arrayNeedsUint32(index) ? new Uint32Array(index) : new Uint16Array(index),
-                groups: this.getFaceGroups(faceMesher),
-                color: VisualConfig.defaultFaceColor,
-            };
-            faceMesher.delete();
+            this.mesh();
         }
         return this._faces;
     }
 
     constructor(private shape: OccShape) {
-        this._lineDeflection = wasm.boundingBoxRatio(this.shape.shape, 0.001);
+        this._occMesher = new wasm.Mesher(shape.shape, 0.005);
+    }
+
+    private mesh() {
+        if (this._isMeshed) {
+            return;
+        }
+        this._isMeshed = true;
+
+        gc((c) => {
+            const meshData = c(this._occMesher.mesh());
+            const faceMeshData = c(meshData.faceMeshData);
+            const edgeMeshData = c(meshData.edgeMeshData);
+
+            this._faces = Mesher.parseFaceMeshData(faceMeshData);
+            this._lines = Mesher.parseEdgeMeshData(edgeMeshData);
+        });
+    }
+
+    private static parseFaceMeshData(faceMeshData: OccFaceMeshData) {
+        const faceIndex = faceMeshData.index;
+        return {
+            positions: new Float32Array(faceMeshData.position),
+            normals: new Float32Array(faceMeshData.normal),
+            uvs: new Float32Array(faceMeshData.uv),
+            indices: arrayNeedsUint32(faceIndex) ? new Uint32Array(faceIndex) : new Uint16Array(faceIndex),
+            groups: Mesher.getFaceGroups(faceMeshData),
+            color: VisualConfig.defaultFaceColor,
+        };
+    }
+
+    private static parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
+        return {
+            lineType: LineType.Solid,
+            positions: new Float32Array(edgeMeshData.position),
+            groups: this.getEdgeGroups(edgeMeshData),
+            color: VisualConfig.defaultEdgeColor,
+        };
     }
 
     dispose(): void {
@@ -58,6 +84,8 @@ export class Mesher implements IShapeMeshData, IDisposable {
         this.shape = null as any;
         this._faces = null as any;
         this._lines = null as any;
+        this._occMesher.delete();
+        this._occMesher = null as any;
     }
 
     updateMeshShape(): void {
@@ -81,29 +109,25 @@ export class Mesher implements IShapeMeshData, IDisposable {
         }
     }
 
-    private getEdgeGroups(mesher: EdgeMesher): ShapeMeshGroup[] {
+    private static getEdgeGroups(data: OccEdgeMeshData): ShapeMeshGroup[] {
         let result: ShapeMeshGroup[] = [];
-        let groups = mesher.getGroups();
-        let edges = mesher.getEdges();
-        for (let i = 0; i < edges.length; i++) {
+        for (let i = 0; i < data.edges.length; i++) {
             result.push({
-                start: groups[2 * i],
-                count: groups[2 * i + 1],
-                shape: OcctHelper.wrapShape(edges[i]),
+                start: data.group[2 * i],
+                count: data.group[2 * i + 1],
+                shape: OcctHelper.wrapShape(data.edges[i]),
             });
         }
         return result;
     }
 
-    private getFaceGroups(mesher: FaceMesher): ShapeMeshGroup[] {
+    private static getFaceGroups(data: OccFaceMeshData): ShapeMeshGroup[] {
         let result: ShapeMeshGroup[] = [];
-        let groups = mesher.getGroups();
-        let faces = mesher.getFaces();
-        for (let i = 0; i < faces.length; i++) {
+        for (let i = 0; i < data.faces.length; i++) {
             result.push({
-                start: groups[2 * i],
-                count: groups[2 * i + 1],
-                shape: OcctHelper.wrapShape(faces[i]),
+                start: data.group[2 * i],
+                count: data.group[2 * i + 1],
+                shape: OcctHelper.wrapShape(data.faces[i]),
             });
         }
         return result;

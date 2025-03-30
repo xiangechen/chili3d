@@ -52,7 +52,7 @@ export class OffsetCommand extends CreateCommand {
             let distance = point.sub(ax.point).dot(ax.direction);
             let shape = this.createOffsetShape(ax.normal, distance);
             if (shape.isOk) {
-                res.push(shape.value.mesh.edges!);
+                res.push(shape.value.edgesMeshPosition());
             }
         }
         return res;

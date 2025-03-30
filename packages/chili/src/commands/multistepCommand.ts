@@ -15,9 +15,9 @@ import {
     VisualConfig,
     XYZ,
 } from "chili-core";
+import { ViewUtils } from "chili-vis";
 import { SnapResult } from "../snap";
 import { IStep } from "../step";
-import { ViewUtils } from "chili-vis";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
@@ -92,10 +92,9 @@ export abstract class MultistepCommand extends CancelableCommand {
         }
 
         const s = shape instanceof Result ? shape.value : shape;
-        const edgeMesh = s.mesh.edges!;
+        const edgeMesh = s.edgesMeshPosition();
         if (disposeShape) {
             s.dispose();
-            edgeMesh.groups.forEach((g) => g.shape.dispose());
         }
 
         return edgeMesh;

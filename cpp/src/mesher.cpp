@@ -25,7 +25,7 @@
 using namespace emscripten;
 using namespace std;
 
-const double ANGLE_DEFLECTION = 0.5;
+const double ANGLE_DEFLECTION = 0.2;
 
 double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
 {
@@ -47,92 +47,118 @@ double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
     return linDeflection;
 }
 
+void addPointToPosition(const gp_Pnt &pnt, std::optional<gp_Pnt> &prePnt, std::vector<float> &position)
+{
+    if (prePnt.has_value())
+    {
+        auto pre = prePnt.value();
+        position.push_back(pre.X());
+        position.push_back(pre.Y());
+        position.push_back(pre.Z());
+
+        position.push_back(pnt.X());
+        position.push_back(pnt.Y());
+        position.push_back(pnt.Z());
+    }
+    prePnt = pnt;
+}
+
+
+void pointByGCTangential(const TopoDS_Edge &edge, const gp_Trsf &transform, double lineDeflection, std::vector<float> &position)
+{
+    BRepAdaptor_Curve curve(edge);
+    GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, lineDeflection);
+
+    std::optional<gp_Pnt> prePnt = std::nullopt;
+    for (int i = 0; i < pnts.NbPoints(); i++)
+    {
+        addPointToPosition(pnts.Value(i + 1).Transformed(transform), prePnt, position);
+    }
+}
+
+struct EdgeMeshData
+{
+    NumberArray position;
+    /// @brief start1,count1,start2,count2...
+    NumberArray group;
+    EdgeArray edges;
+};
+
+struct FaceMeshData
+{
+    NumberArray position;
+    NumberArray normal;
+    NumberArray uv;
+    NumberArray index;
+    /// @brief start1,count1,start2,count2...
+    NumberArray group;
+    FaceArray faces;
+};
+
+struct MeshData
+{
+    EdgeMeshData edgeMeshData;
+    FaceMeshData faceMeshData;
+};
+
 class EdgeMesher
 {
-private:
+public:
     double lineDeflection;
     std::vector<float> position;
     /// @brief start1,count1,start2,count2...
     std::vector<size_t> group;
     std::vector<TopoDS_Edge> edges;
 
-    void generateEdgeMeshs(const TopoDS_Shape &shape)
+    EdgeMesher(double lineDeflection) : lineDeflection(lineDeflection)
     {
-        auto transform = shape.Location().Transformation().Inverted();
-
-        TopTools_IndexedMapOfShape edgeMap;
-        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
-        for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
-        {
-            TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
-            edges.push_back(edge);
-            generateEdgeMesh(edge, transform);
-        }
     }
 
-    void generateEdgeMesh(const TopoDS_Edge &edge, const gp_Trsf &transform)
+    void generateEdgeMesh(const TopoDS_Edge &edge, const Handle(Poly_Triangulation) & triangulation, const gp_Trsf &transform)
     {
         auto start = this->position.size() / 3;
 
-        BRepAdaptor_Curve curve(edge);
-        GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, this->lineDeflection);
-        std::optional<gp_Pnt> prePnt = std::nullopt;
-        for (int i = 0; i < pnts.NbPoints(); i++)
+        if (triangulation.IsNull())
         {
-            auto pnt = pnts.Value(i + 1).Transformed(transform);
-            if (prePnt.has_value())
+            pointByGCTangential(edge, transform, this->lineDeflection, this->position);
+        }
+        else
+        {
+            TopLoc_Location location;
+            Handle(Poly_PolygonOnTriangulation) polygon = BRep_Tool::PolygonOnTriangulation(edge, triangulation, location);
+            if (polygon.IsNull())
             {
-                auto pre = prePnt.value();
-                this->position.push_back(pre.X());
-                this->position.push_back(pre.Y());
-                this->position.push_back(pre.Z());
-
-                this->position.push_back(pnt.X());
-                this->position.push_back(pnt.Y());
-                this->position.push_back(pnt.Z());
+                pointByGCTangential(edge, transform, this->lineDeflection, this->position);
             }
-            prePnt = pnt;
+            else
+            {
+                auto trsf = transform.Multiplied(location.Transformation());
+                pointByFaceTriangulation(polygon, triangulation, trsf);
+            }
         }
 
         this->group.push_back(start);
         this->group.push_back(this->position.size() / 3 - start);
     }
 
-public:
-    EdgeMesher(const TopoDS_Shape &shape, double lineDeflection) : lineDeflection(lineDeflection)
+    void pointByFaceTriangulation(
+        const Handle_Poly_PolygonOnTriangulation &polygon,
+        const Handle_Poly_Triangulation &triangulation,
+        const gp_Trsf &transform)
     {
-        generateEdgeMeshs(shape);
-    }
-
-    NumberArray getPosition()
-    {
-        return NumberArray(val::array(position));
-    }
-
-    NumberArray getGroups()
-    {
-        return NumberArray(val::array(group));
-    }
-
-    size_t getEdgeSize()
-    {
-        return edges.size();
-    }
-
-    TopoDS_Edge &getEdge(size_t index)
-    {
-        return edges[index];
-    }
-
-    EdgeArray getEdges()
-    {
-        return EdgeArray(val::array(edges));
+        std::optional<gp_Pnt> prePnt = std::nullopt;
+        auto nodeIndex = polygon->Nodes();
+        for (auto i = nodeIndex.Lower(); i <= nodeIndex.Upper(); i++)
+        {
+            auto pnt = triangulation->Node(nodeIndex[i]).Transformed(transform);
+            addPointToPosition(pnt, prePnt, this->position);
+        }
     }
 };
 
 class FaceMesher
 {
-private:
+public:
     std::vector<float> position;
     std::vector<float> normal;
     std::vector<float> uv;
@@ -141,28 +167,12 @@ private:
     std::vector<size_t> group;
     std::vector<TopoDS_Face> faces;
 
-    void generateFaceMeshs(const TopoDS_Shape &shape)
+    void generateFaceMesh(const TopoDS_Face &face, const Handle(Poly_Triangulation) & handlePoly, const gp_Trsf &trsf)
     {
-        auto inverted = shape.Location().Transformation().Inverted();
-        TopTools_IndexedMapOfShape faceMap;
-        TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
-        for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
-        {
-            auto face = TopoDS::Face(anIt.Value());
-            faces.push_back(face);
-            generateFaceMesh(face, inverted);
-        }
-    }
-
-    void generateFaceMesh(const TopoDS_Face &face, const gp_Trsf &inverted)
-    {
-        TopLoc_Location location;
-        auto handlePoly = BRep_Tool::Triangulation(face, location);
         if (handlePoly.IsNull())
         {
             return;
         }
-        auto trsf = inverted.Multiplied(location.Transformation());
 
         bool isMirrod = trsf.VectorialPart().Determinant() < 0;
         auto orientation = face.Orientation();
@@ -237,76 +247,140 @@ private:
             this->uv.push_back((uv.Y() - aVmin) / dVmax);
         }
     }
+};
+
+class Mesher
+{
+    TopoDS_Shape shape;
+    double lineDeflection;
 
 public:
-    FaceMesher(const TopoDS_Shape &shape, double lineDeflection)
+    Mesher(const TopoDS_Shape &shape, double lineDeflection) : shape(shape)
     {
-        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, 0.1, true);
-        generateFaceMeshs(shape);
-        BRepTools::Clean(shape, true);
+        this->lineDeflection = boundingBoxRatio(shape, lineDeflection);
     }
 
-    NumberArray getPosition()
+    NumberArray edgesMeshPosition()
     {
+        auto transform = shape.Location().Transformation().Inverted();
+
+        std::vector<float> position;
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+        for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
+        {
+            TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
+            pointByGCTangential(edge, transform, this->lineDeflection, position);
+        }
+
         return NumberArray(val::array(position));
     }
 
-    NumberArray getNormal()
+    MeshData mesh()
     {
-        return NumberArray(val::array(normal));
+        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, ANGLE_DEFLECTION, true);
+        auto inverted = shape.Location().Transformation().Inverted();
+
+        std::unordered_map<TopoDS_Face, Handle(Poly_Triangulation)> facePolyMap;
+        auto faceMeshData = meshFaces(inverted, facePolyMap);
+        auto edgeMeshData = meshEdges(inverted, facePolyMap);
+
+        return MeshData{
+            edgeMeshData,
+            faceMeshData};
     }
 
-    NumberArray getUV()
+    EdgeMeshData meshEdges(gp_Trsf &inverted, std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
     {
-        return NumberArray(val::array(uv));
+        EdgeMesher mesher(lineDeflection);
+        TopTools_IndexedDataMapOfShapeListOfShape mapEF;
+        TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, mapEF);
+        for (int ie = 1; ie <= mapEF.Extent(); ie++)
+        {
+            const TopoDS_Edge &aEdge = TopoDS::Edge(mapEF.FindKey(ie));
+            mesher.edges.push_back(aEdge);
+
+            const TopTools_ListOfShape &aFaces = mapEF(ie);
+            if (aFaces.Extent() < 1)
+            {
+                mesher.generateEdgeMesh(aEdge, nullptr, inverted);
+            }
+            else
+            {
+                const TopoDS_Face &face = TopoDS::Face(aFaces.First());
+                auto it = facePolyMap.find(face);
+                if (it != facePolyMap.end())
+                {
+                    mesher.generateEdgeMesh(aEdge, it->second, inverted);
+                }
+                else
+                {
+                    mesher.generateEdgeMesh(aEdge, nullptr, inverted);
+                }
+            }
+        }
+
+        return EdgeMeshData{
+            NumberArray(val::array(mesher.position)),
+            NumberArray(val::array(mesher.group)),
+            EdgeArray(val::array(mesher.edges))};
     }
 
-    NumberArray getIndex()
+    FaceMeshData meshFaces(gp_Trsf &inverted, std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
     {
-        return NumberArray(val::array(index));
+        FaceMesher mesher;
+        TopTools_IndexedMapOfShape faceMap;
+        TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
+        for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next())
+        {
+            auto face = TopoDS::Face(anIt.Value());
+            mesher.faces.push_back(face);
+            TopLoc_Location location;
+            auto handlePoly = BRep_Tool::Triangulation(face, location);
+            if (!handlePoly.IsNull())
+            {
+                auto trsf = inverted.Multiplied(location.Transformation());
+                mesher.generateFaceMesh(face, handlePoly, trsf);
+                facePolyMap[face] = handlePoly;
+            }
+        }
+
+        return FaceMeshData{
+            NumberArray(val::array(mesher.position)),
+            NumberArray(val::array(mesher.normal)),
+            NumberArray(val::array(mesher.uv)),
+            NumberArray(val::array(mesher.index)),
+            NumberArray(val::array(mesher.group)),
+            FaceArray(val::array(mesher.faces))};
     }
 
-    NumberArray getGroups()
+    ~Mesher()
     {
-        return NumberArray(val::array(group));
-    }
-
-    size_t getFaceSize()
-    {
-        return faces.size();
-    }
-
-    TopoDS_Face &getFace(size_t index)
-    {
-        return faces[index];
-    }
-
-    FaceArray getFaces()
-    {
-        return FaceArray(val::array(faces));
+        BRepTools::Clean(shape, true);
     }
 };
 
 EMSCRIPTEN_BINDINGS(Mesher)
 {
-    emscripten::function("boundingBoxRatio", &boundingBoxRatio);
+    class_<Mesher>("Mesher")
+        .constructor<TopoDS_Shape, double>()
+        .function("mesh", &Mesher::mesh)
+        .function("edgesMeshPosition", &Mesher::edgesMeshPosition);
 
-    class_<FaceMesher>("FaceMesher")
-        .constructor<const TopoDS_Shape &, double>(return_value_policy::take_ownership())
-        .function("getPosition", &FaceMesher::getPosition)
-        .function("getNormal", &FaceMesher::getNormal)
-        .function("getUV", &FaceMesher::getUV)
-        .function("getIndex", &FaceMesher::getIndex)
-        .function("getGroups", &FaceMesher::getGroups)
-        .function("getFaceSize", &FaceMesher::getFaceSize)
-        .function("getFace", &FaceMesher::getFace, return_value_policy::take_ownership())
-        .function("getFaces", &FaceMesher::getFaces, return_value_policy::take_ownership());
+    class_<EdgeMeshData>("EdgeMeshData")
+        .property("position", &EdgeMeshData::position)
+        .property("group", &EdgeMeshData::group)
+        .property("edges", &EdgeMeshData::edges);
 
-    class_<EdgeMesher>("EdgeMesher")
-        .constructor<const TopoDS_Shape &, double>(return_value_policy::take_ownership())
-        .function("getPosition", &EdgeMesher::getPosition)
-        .function("getGroups", &EdgeMesher::getGroups)
-        .function("getEdgeSize", &EdgeMesher::getEdgeSize)
-        .function("getEdge", &EdgeMesher::getEdge, return_value_policy::take_ownership())
-        .function("getEdges", &EdgeMesher::getEdges, return_value_policy::take_ownership());
+    class_<FaceMeshData>("FaceMeshData")
+        .property("position", &FaceMeshData::position)
+        .property("normal", &FaceMeshData::normal)
+        .property("uv", &FaceMeshData::uv)
+        .property("index", &FaceMeshData::index)
+        .property("group", &FaceMeshData::group)
+        .property("faces", &FaceMeshData::faces);
+
+    class_<MeshData>("MeshData")
+        .property("edgeMeshData", &MeshData::edgeMeshData)
+        .property("faceMeshData", &MeshData::faceMeshData);
 }

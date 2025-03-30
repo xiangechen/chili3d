@@ -52,23 +52,29 @@ export type SurfaceBounds = {
 
 export interface Surface extends ClassHandle {}
 
-export interface FaceMesher extends ClassHandle {
-    getFaceSize(): number;
-    getFace(_0: number): TopoDS_Face;
-    getPosition(): Array<number>;
-    getNormal(): Array<number>;
-    getUV(): Array<number>;
-    getIndex(): Array<number>;
-    getGroups(): Array<number>;
-    getFaces(): Array<TopoDS_Face>;
+export interface Mesher extends ClassHandle {
+    mesh(): MeshData;
+    edgesMeshPosition(): Array<number>;
 }
 
-export interface EdgeMesher extends ClassHandle {
-    getEdgeSize(): number;
-    getEdge(_0: number): TopoDS_Edge;
-    getPosition(): Array<number>;
-    getGroups(): Array<number>;
-    getEdges(): Array<TopoDS_Edge>;
+export interface EdgeMeshData extends ClassHandle {
+    position: Array<number>;
+    group: Array<number>;
+    edges: Array<TopoDS_Edge>;
+}
+
+export interface FaceMeshData extends ClassHandle {
+    position: Array<number>;
+    normal: Array<number>;
+    uv: Array<number>;
+    index: Array<number>;
+    group: Array<number>;
+    faces: Array<TopoDS_Face>;
+}
+
+export interface MeshData extends ClassHandle {
+    edgeMeshData: EdgeMeshData;
+    faceMeshData: FaceMeshData;
 }
 
 export interface GeomAbs_ShapeValue<T extends number> {
@@ -630,12 +636,12 @@ interface EmbindModule {
         parameters(_0: Geom_Surface | null, _1: Vector3, _2: number): UV | undefined;
         nearestPoint(_0: Geom_Surface | null, _1: Vector3): PointAndParameter | undefined;
     };
-    FaceMesher: {
-        new (_0: TopoDS_Shape, _1: number): FaceMesher;
+    Mesher: {
+        new (_0: TopoDS_Shape, _1: number): Mesher;
     };
-    EdgeMesher: {
-        new (_0: TopoDS_Shape, _1: number): EdgeMesher;
-    };
+    EdgeMeshData: {};
+    FaceMeshData: {};
+    MeshData: {};
     GeomAbs_Shape: {
         GeomAbs_C0: GeomAbs_ShapeValue<0>;
         GeomAbs_C1: GeomAbs_ShapeValue<2>;
@@ -757,7 +763,6 @@ interface EmbindModule {
         compsolid(_0: TopoDS_Shape): TopoDS_CompSolid;
     };
     TopoDS_Shape: {};
-    boundingBoxRatio(_0: TopoDS_Shape, _1: number): number;
     TColgp_Array1OfPnt: {
         new (_0: number, _1: number): TColgp_Array1OfPnt;
     };

@@ -97,7 +97,7 @@ var Module = (() => {
             runtimeInitialized = true;
             if (!Module["noFSInit"] && !FS.initialized) FS.init();
             TTY.init();
-            wasmExports["la"]();
+            wasmExports["ka"]();
             FS.ignorePermissions = false;
         }
         function postRun() {
@@ -194,9 +194,9 @@ var Module = (() => {
             function receiveInstance(instance, module) {
                 wasmExports = instance.exports;
                 wasmExports = applySignatureConversions(wasmExports);
-                wasmMemory = wasmExports["ka"];
+                wasmMemory = wasmExports["ja"];
                 updateMemoryViews();
-                wasmTable = wasmExports["pa"];
+                wasmTable = wasmExports["oa"];
                 removeRunDependency("wasm-instantiate");
                 return wasmExports;
             }
@@ -4289,42 +4289,6 @@ var Module = (() => {
                 destructorFunction: null,
             });
         };
-        function __embind_register_function(
-            name,
-            argCount,
-            rawArgTypesAddr,
-            signature,
-            rawInvoker,
-            fn,
-            isAsync,
-            isNonnullReturn,
-        ) {
-            name >>>= 0;
-            rawArgTypesAddr >>>= 0;
-            signature >>>= 0;
-            rawInvoker >>>= 0;
-            fn >>>= 0;
-            var argTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
-            name = readLatin1String(name);
-            name = getFunctionName(name);
-            rawInvoker = embind__requireFunction(signature, rawInvoker);
-            exposePublicSymbol(
-                name,
-                function () {
-                    throwUnboundTypeError(`Cannot call ${name} due to unbound types`, argTypes);
-                },
-                argCount - 1,
-            );
-            whenDependentTypesAreResolved([], argTypes, (argTypes) => {
-                var invokerArgsArray = [argTypes[0], null].concat(argTypes.slice(1));
-                replacePublicSymbol(
-                    name,
-                    craftInvokerFunction(name, invokerArgsArray, null, rawInvoker, fn, isAsync),
-                    argCount - 1,
-                );
-                return [];
-            });
-        }
         function __embind_register_integer(primitiveType, name, size, minRange, maxRange) {
             primitiveType >>>= 0;
             name >>>= 0;
@@ -5278,39 +5242,38 @@ var Module = (() => {
             M: __abort_js,
             p: __embind_finalize_value_object,
             F: __embind_register_bigint,
-            ia: __embind_register_bool,
-            d: __embind_register_class,
-            c: __embind_register_class_class_function,
-            k: __embind_register_class_constructor,
+            ha: __embind_register_bool,
+            e: __embind_register_class,
+            d: __embind_register_class_class_function,
+            l: __embind_register_class_constructor,
             b: __embind_register_class_function,
-            n: __embind_register_class_property,
-            ga: __embind_register_emval,
+            h: __embind_register_class_property,
+            fa: __embind_register_emval,
             z: __embind_register_enum,
-            i: __embind_register_enum_value,
+            j: __embind_register_enum_value,
             E: __embind_register_float,
-            fa: __embind_register_function,
             v: __embind_register_integer,
-            l: __embind_register_memory_view,
-            w: __embind_register_optional,
-            ha: __embind_register_std_string,
+            m: __embind_register_memory_view,
+            x: __embind_register_optional,
+            ga: __embind_register_std_string,
             C: __embind_register_std_wstring,
-            m: __embind_register_user_type,
+            n: __embind_register_user_type,
             q: __embind_register_value_object,
-            f: __embind_register_value_object_field,
-            ja: __embind_register_void,
+            g: __embind_register_value_object_field,
+            ia: __embind_register_void,
             H: __emscripten_lookup_name,
             L: __emscripten_runtime_keepalive_clear,
             o: __emval_as,
             t: __emval_call_method,
-            e: __emval_decref,
+            c: __emval_decref,
             s: __emval_get_method_caller,
             r: __emval_get_property,
-            g: __emval_incref,
+            f: __emval_incref,
             u: __emval_new_array,
-            x: __emval_new_array_from_memory_view,
+            w: __emval_new_array_from_memory_view,
             y: __emval_new_cstring,
-            h: __emval_run_destructors,
-            j: __emval_take_value,
+            i: __emval_run_destructors,
+            k: __emval_take_value,
             P: __localtime_js,
             G: __setitimer_js,
             $: __tzset_js,
@@ -5328,18 +5291,18 @@ var Module = (() => {
             K: _proc_exit,
         };
         var wasmExports = await createWasm();
-        var ___wasm_call_ctors = wasmExports["la"];
-        var ___getTypeName = wasmExports["ma"];
-        var _malloc = wasmExports["na"];
-        var _free = wasmExports["oa"];
-        var _htons = wasmExports["qa"];
-        var __emscripten_timeout = wasmExports["ra"];
+        var ___wasm_call_ctors = wasmExports["ka"];
+        var ___getTypeName = wasmExports["la"];
+        var _malloc = wasmExports["ma"];
+        var _free = wasmExports["na"];
+        var _htons = wasmExports["pa"];
+        var __emscripten_timeout = wasmExports["qa"];
         function applySignatureConversions(wasmExports) {
             wasmExports = Object.assign({}, wasmExports);
             var makeWrapper_pp = (f) => (a0) => f(a0) >>> 0;
             var makeWrapper_p = (f) => () => f() >>> 0;
+            wasmExports["la"] = makeWrapper_pp(wasmExports["la"]);
             wasmExports["ma"] = makeWrapper_pp(wasmExports["ma"]);
-            wasmExports["na"] = makeWrapper_pp(wasmExports["na"]);
             wasmExports["_emscripten_stack_alloc"] = makeWrapper_pp(wasmExports["_emscripten_stack_alloc"]);
             wasmExports["emscripten_stack_get_current"] = makeWrapper_p(
                 wasmExports["emscripten_stack_get_current"],

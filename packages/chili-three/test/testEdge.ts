@@ -1,4 +1,5 @@
 import {
+    EdgeMeshData,
     I18nKeys,
     ICurve,
     IDocument,
@@ -25,6 +26,9 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    edgesMeshPosition(): EdgeMeshData {
+        throw new Error("Method not implemented.");
+    }
     copy(): IShape {
         throw new Error("Method not implemented.");
     }
