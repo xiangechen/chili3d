@@ -22,6 +22,31 @@ export namespace ShapeType {
         );
     }
 
+    export function stringValue(type: ShapeType) {
+        switch (type) {
+            case ShapeType.Shape:
+                return "Shape";
+            case ShapeType.Compound:
+                return "Compound";
+            case ShapeType.CompoundSolid:
+                return "CompoundSolid";
+            case ShapeType.Solid:
+                return "Solid";
+            case ShapeType.Shell:
+                return "Shell";
+            case ShapeType.Face:
+                return "Face";
+            case ShapeType.Wire:
+                return "Wire";
+            case ShapeType.Edge:
+                return "Edge";
+            case ShapeType.Vertex:
+                return "Vertex";
+            default:
+                return "Unknown";
+        }
+    }
+
     export function hasCompound(type: ShapeType): boolean {
         return (type & ShapeType.Compound) !== 0;
     }

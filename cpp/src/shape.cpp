@@ -11,6 +11,7 @@
 #include <BRepGProp_Face.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepTools.hxx>
+#include <BRepTools_ReShape.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
@@ -19,6 +20,7 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <GeomAbs_JoinType.hxx>
 #include <ShapeAnalysis.hxx>
+#include <ShapeFix_Shape.hxx>
 #include <TopExp.hxx>
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_CompSolid.hxx>
@@ -97,7 +99,7 @@ public:
         return splitter.Shape();
     }
 
-    static TopoDS_Shape removeFaces(const TopoDS_Shape& shape, const ShapeArray& faces) {
+    static TopoDS_Shape removeFeature(const TopoDS_Shape& shape, const ShapeArray& faces) {
         std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
         BRepAlgoAPI_Defeaturing defea;
         defea.SetShape(shape);
@@ -107,6 +109,40 @@ public:
         defea.SetRunParallel(true);
         defea.Build();
         return defea.Shape();
+    }
+
+    static TopoDS_Shape removeSubShape(const TopoDS_Shape& shape, const ShapeArray& subShapes) {
+        std::vector<TopoDS_Shape> subShapesVector = vecFromJSArray<TopoDS_Shape>(subShapes);
+
+        TopTools_IndexedDataMapOfShapeListOfShape mapEF;
+        TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, mapEF);
+        BRepTools_ReShape reShape;
+        for (auto& subShape : subShapesVector) {
+            reShape.Remove(subShape);
+
+            TopTools_ListOfShape faces;
+            if (mapEF.FindFromKey(subShape, faces))
+            {
+                for (auto& face : faces) {
+                    reShape.Remove(face);
+                }
+            }
+        }
+
+        ShapeFix_Shape fixer(reShape.Apply(shape));
+        fixer.Perform();
+
+        return fixer.Shape();
+    }
+
+    static TopoDS_Shape replaceSubShape(const TopoDS_Shape& shape, const TopoDS_Shape& subShape, const TopoDS_Shape& newShape) {
+        BRepTools_ReShape reShape;
+        reShape.Replace(subShape, newShape);
+        
+        ShapeFix_Shape fixer(reShape.Apply(shape));
+        fixer.Perform();
+
+        return fixer.Shape();
     }
 
 };
@@ -249,7 +285,9 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
         .class_function("splitByEdgeOrWires", &Shape::splitByEdgeOrWires)
-        .class_function("removeFaces", &Shape::removeFaces)
+        .class_function("removeFeature", &Shape::removeFeature)
+        .class_function("removeSubShape", &Shape::removeSubShape)
+        .class_function("replaceSubShape", &Shape::replaceSubShape)
     ;
 
     class_<Vertex>("Vertex")

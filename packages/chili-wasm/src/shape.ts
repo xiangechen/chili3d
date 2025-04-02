@@ -157,7 +157,13 @@ export class OccShape implements IShape {
     }
 
     iterShape(): IShape[] {
-        return wasm.Shape.iterShape(this.shape).map((x) => OcctHelper.wrapShape(x));
+        let subShape = wasm.Shape.iterShape(this.shape);
+        console.log(subShape[0].shapeType() === this.shape.shapeType());
+
+        if (subShape.length === 1 && subShape[0].shapeType() === this.shape.shapeType()) {
+            subShape = wasm.Shape.iterShape(subShape[0]);
+        }
+        return subShape.map((x) => OcctHelper.wrapShape(x));
     }
 
     section(shape: IShape | Plane): IShape {
@@ -198,8 +204,10 @@ export class OccShape implements IShape {
         }
         this.#isDisposed = true;
 
+        this._shape.nullify();
         this._shape.delete();
         this._shape = null as any;
+
         if (this._mesh && IDisposable.isDisposable(this._mesh)) {
             this._mesh.dispose();
             this._mesh = null as any;

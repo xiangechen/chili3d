@@ -41,5 +41,7 @@ export interface IShapeFactory {
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
     fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape>;
-    removeFaces(shape: IShape, faces: IFace[]): Result<IShape>;
+    removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
+    removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
+    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;
 }

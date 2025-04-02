@@ -6,6 +6,7 @@ import {
     IDocument,
     INodeFilter,
     IShapeFilter,
+    ShapeNode,
     ShapeNodeFilter,
     ShapeType,
     VisualState,
@@ -87,6 +88,31 @@ export class SelectShapeNodeStep extends SelectStep {
             shapes: [],
             nodes,
         };
+    }
+}
+
+export class GetOrSelectShapeNodeStep extends SelectShapeNodeStep {
+    override execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const selected = document.selection.getSelectedNodes().filter((x) => {
+            if (!(x instanceof ShapeNode) || !x.shape.isOk) return false;
+
+            if (this.options?.filter?.allow) {
+                return this.options.filter.allow(x.shape.value);
+            }
+
+            return true;
+        });
+
+        if (selected.length > 0) {
+            controller.success();
+            return Promise.resolve({
+                view: document.application.activeView!,
+                shapes: [],
+                nodes: selected as ShapeNode[],
+            });
+        }
+
+        return super.execute(document, controller);
     }
 }
 

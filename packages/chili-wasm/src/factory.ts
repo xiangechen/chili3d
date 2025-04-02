@@ -1,5 +1,4 @@
 import {
-    gc,
     ICompound,
     IEdge,
     IFace,
@@ -89,7 +88,7 @@ export class ShapeFactory implements IShapeFactory {
         return Result.err("Not OccShape");
     }
 
-    removeFaces(shape: IShape, faces: IFace[]): Result<IShape> {
+    removeFeature(shape: IShape, faces: IFace[]): Result<IShape> {
         if (!(shape instanceof OccShape)) {
             return Result.err("Not OccShape");
         }
@@ -99,7 +98,18 @@ export class ShapeFactory implements IShapeFactory {
             }
             return x.shape;
         });
-        return Result.ok(OcctHelper.wrapShape(wasm.Shape.removeFaces(shape.shape, occFaces)));
+        return Result.ok(OcctHelper.wrapShape(wasm.Shape.removeFeature(shape.shape, occFaces)));
+    }
+
+    removeSubShape(shape: IShape, subShapes: IShape[]): IShape {
+        const occShape = ensureOccShape(shape);
+        const occSubShapes = ensureOccShape(subShapes);
+        return OcctHelper.wrapShape(wasm.Shape.removeSubShape(occShape[0], occSubShapes));
+    }
+
+    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape {
+        const [occShape, occSubShape, occNewSubShape] = ensureOccShape([shape, subShape, newSubShape]);
+        return OcctHelper.wrapShape(wasm.Shape.replaceSubShape(occShape, occSubShape, occNewSubShape));
     }
 
     face(wire: IWire[]): Result<IFace> {

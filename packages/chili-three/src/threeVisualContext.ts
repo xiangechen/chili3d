@@ -119,7 +119,11 @@ export class ThreeVisualContext implements IVisualContext {
         const adds: INode[] = [];
         const rms: INode[] = [];
         records.forEach((x) => {
-            if (x.action === NodeAction.add) {
+            if (
+                x.action === NodeAction.add ||
+                x.action === NodeAction.insertBefore ||
+                x.action === NodeAction.insertAfter
+            ) {
                 INode.nodeOrChildrenAppendToNodes(adds, x.node);
             } else if (x.action === NodeAction.remove) {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);

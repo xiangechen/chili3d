@@ -2,11 +2,11 @@
 
 export * from "./break";
 export * from "./chamfer";
+export * from "./explode";
 export * from "./fillet";
 export * from "./mirror";
 export * from "./move";
-export * from "./removeFaces";
+export * from "./removeFeature";
 export * from "./rotate";
 export * from "./split";
 export * from "./trim";
-

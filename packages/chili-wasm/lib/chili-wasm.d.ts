@@ -778,11 +778,13 @@ interface EmbindModule {
         copy(_0: TopoDS_Shape): TopoDS_Shape;
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
+        replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         iterShape(_0: TopoDS_Shape): Array<TopoDS_Shape>;
         splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
-        removeFaces(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+        removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+        removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
     };
     Vertex: {
