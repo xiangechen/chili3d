@@ -15,7 +15,7 @@ import { MultistepCommand } from "../multistepCommand";
 @command({
     name: "modify.removeFeature",
     display: "command.removeFeature",
-    icon: "icon-removeFaces",
+    icon: "icon-removeFeature",
 })
 export class RemoveFaceCommand extends MultistepCommand {
     protected override executeMainTask() {

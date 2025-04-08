@@ -84,6 +84,7 @@ export default {
         "command.rect": "矩形",
         "command.redo": "重做",
         "command.removeFeature": "移除特征",
+        "command.removeSubShapes": "移除子形状",
         "command.revol": "旋转",
         "command.rotate": "旋转",
         "command.section": "相交线",

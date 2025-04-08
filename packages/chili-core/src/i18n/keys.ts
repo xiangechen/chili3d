@@ -79,6 +79,7 @@ const I18N_KEYS = [
     "command.rect",
     "command.redo",
     "command.removeFeature",
+    "command.removeSubShapes",
     "command.revol",
     "command.rotate",
     "command.section",

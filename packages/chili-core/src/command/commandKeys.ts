@@ -45,6 +45,7 @@ const COMMAND_KEYS = [
     "modify.mirror",
     "modify.move",
     "modify.removeFeature",
+    "modify.removeSubShapes",
     "modify.rotate",
     "modify.split",
     "modify.trim",

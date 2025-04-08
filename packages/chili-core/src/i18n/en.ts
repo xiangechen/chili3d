@@ -85,6 +85,7 @@ export default {
         "command.rect": "Rectangle",
         "command.redo": "Redo",
         "command.removeFeature": "Remove Feature",
+        "command.removeSubShapes": "Remove SubShapes",
         "command.revol": "Revol",
         "command.rotate": "Rotate",
         "command.section": "Section",

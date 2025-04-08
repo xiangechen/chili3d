@@ -3,6 +3,7 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
+#include <BRep_Builder.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
@@ -34,6 +35,7 @@
 #include <TopoDS_Wire.hxx>
 #include <TopoDS.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+#include <TopExp_Explorer.hxx>
 
 
 using namespace emscripten;
@@ -111,11 +113,46 @@ public:
         return defea.Shape();
     }
 
-    static TopoDS_Shape removeSubShape(const TopoDS_Shape& shape, const ShapeArray& subShapes) {
+    static TopoDS_Compound shapeWires(const TopoDS_Shape& shape) {
+        BRep_Builder builder;
+        TopoDS_Compound compound;
+        builder.MakeCompound(compound);
+
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, TopAbs_WIRE); explorer.More(); explorer.Next()) {
+            builder.Add(compound, TopoDS::Wire(explorer.Current()));
+        }
+
+        return compound;
+    }
+
+    static size_t countShape(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType) {
+        size_t size = 0;
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next()) {
+            size += 1;
+        }
+        return size;
+    }
+
+    static bool hasOnlyOneSub(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType) {
+        size_t size = 0;
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next()) {
+            size += 1;
+            if (size > 1) {
+                return false;
+            }
+        }
+        return size == 1;
+    }
+
+    static TopoDS_Shape removeSubShape(TopoDS_Shape& shape, const ShapeArray& subShapes) {
         std::vector<TopoDS_Shape> subShapesVector = vecFromJSArray<TopoDS_Shape>(subShapes);
 
+        auto source = hasOnlyOneSub(shape, TopAbs_FACE) ? shapeWires(shape) : shape;
         TopTools_IndexedDataMapOfShapeListOfShape mapEF;
-        TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, mapEF);
+        TopExp::MapShapesAndAncestors(source, TopAbs_EDGE, TopAbs_FACE, mapEF);
         BRepTools_ReShape reShape;
         for (auto& subShape : subShapesVector) {
             reShape.Remove(subShape);
@@ -128,8 +165,8 @@ public:
                 }
             }
         }
-
-        ShapeFix_Shape fixer(reShape.Apply(shape));
+        
+        ShapeFix_Shape fixer(reShape.Apply(source));
         fixer.Perform();
 
         return fixer.Shape();
@@ -262,6 +299,15 @@ public:
     static void normal(const TopoDS_Face& face, double u, double v, gp_Pnt& point, gp_Vec& normal) {
         BRepGProp_Face gpProp(face);
         gpProp.Normal(u, v, point, normal);
+    }
+
+    static WireArray wires(const TopoDS_Face& face) {
+        std::vector<TopoDS_Wire> wires;
+        TopExp_Explorer explorer;
+        for (explorer.Init(face, TopAbs_WIRE); explorer.More(); explorer.Next()) {
+            wires.push_back(TopoDS::Wire(explorer.Current()));
+        }
+        return WireArray(val::array(wires));
     }
 
     static TopoDS_Wire outerWire(const TopoDS_Face& face) {
