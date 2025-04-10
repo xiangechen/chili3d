@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
+// Chili3d is licensed under the AGPL-3.0 License.
 
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
@@ -11,13 +12,8 @@ export class GroupNode extends FolderNode {
         return this.getPrivateValue("transform", Matrix4.identity());
     }
     set transform(value: Matrix4) {
-        this.setProperty(
-            "transform",
-            value,
-            undefined,
-            {
-                equals: (left, right) => left.equals(right),
-            },
-        );
+        this.setProperty("transform", value, undefined, {
+            equals: (left, right) => left.equals(right),
+        });
     }
 }

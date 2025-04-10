@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
+// Chili3d is licensed under the AGPL-3.0 License.
 
 import { IDocument } from "../document";
 import { ClassMap } from "./classMap";
@@ -147,9 +148,9 @@ export namespace Serializer {
         let classKey = target.constructor.name;
         if (!reflectMap.has(classKey)) {
             console.log(target);
-            
+
             throw new Error(
-                `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`
+                `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );
         }
         let data = reflectMap.get(classKey)!;

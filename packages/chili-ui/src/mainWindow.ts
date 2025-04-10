@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
+// Chili3d is licensed under the AGPL-3.0 License.
 
 import {
     Button,
@@ -19,7 +20,7 @@ import { Toast } from "./toast";
 document.oncontextmenu = (e) => e.preventDefault();
 document.body.addEventListener("scroll", (e) => {
     document.body.scrollTop = 0;
-})
+});
 
 export class MainWindow implements IWindow {
     private _inited: boolean = false;

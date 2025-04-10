@@ -1,54 +1,57 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { execAsync } from './common.mjs';
+// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
+// Chili3d is licensed under the AGPL-3.0 License.
 
-const CPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../cpp/')
-const BUILD_DIR = path.resolve(CPP_ROOT, 'build');
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { execAsync } from "./common.mjs";
 
-const EMSDK_DIR_NAME = 'emsdk';
+const CPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../cpp/");
+const BUILD_DIR = path.resolve(CPP_ROOT, "build");
+
+const EMSDK_DIR_NAME = "emsdk";
 const EMSDK_DIR = path.resolve(BUILD_DIR, EMSDK_DIR_NAME);
 
-const OCCT_DIR_NAME = 'occt';
+const OCCT_DIR_NAME = "occt";
 const OCCT_DIR = path.resolve(BUILD_DIR, OCCT_DIR_NAME);
 
 /**
  * Due to a WebXR error, we need to use --skipLibCheck
  */
 async function fixEmscripten() {
-    let file = path.resolve(EMSDK_DIR, 'upstream/emscripten/tools/emscripten.py');
-    let contents = fs.readFileSync(file, 'utf8');
+    let file = path.resolve(EMSDK_DIR, "upstream/emscripten/tools/emscripten.py");
+    let contents = fs.readFileSync(file, "utf8");
     contents = contents.replace(
         `cmd = tsc + ['--outFile', tsc_output_file, '--declaration', '--emitDeclarationOnly', '--allowJs', js_doc_file]`,
-        `cmd = tsc + ['--outFile', tsc_output_file, '--declaration', '--skipLibCheck', '--emitDeclarationOnly', '--allowJs', js_doc_file]`
+        `cmd = tsc + ['--outFile', tsc_output_file, '--declaration', '--skipLibCheck', '--emitDeclarationOnly', '--allowJs', js_doc_file]`,
     );
-    fs.writeFileSync(file, contents, 'utf8');
+    fs.writeFileSync(file, contents, "utf8");
 
     console.log(`Fixed emscripten.py`);
 }
 
 const libs = [
     {
-        name: 'emscripten',
-        url: 'https://github.com/emscripten-core/emsdk.git',
-        tag: '4.0.4',
+        name: "emscripten",
+        url: "https://github.com/emscripten-core/emsdk.git",
+        tag: "4.0.4",
         dir: EMSDK_DIR,
         actions: [fixEmscripten],
         commands: [
             `${EMSDK_DIR}/emsdk install latest`,
             `${EMSDK_DIR}/emsdk activate --embedded latest`,
-            `cd ${EMSDK_DIR}/upstream/emscripten && npm i`
-        ]
+            `cd ${EMSDK_DIR}/upstream/emscripten && npm i`,
+        ],
     },
     {
-        name: 'occt',
-        url: 'https://github.com/Open-Cascade-SAS/OCCT.git',
-        tag: 'V7_8_1',
+        name: "occt",
+        url: "https://github.com/Open-Cascade-SAS/OCCT.git",
+        tag: "V7_8_1",
         dir: OCCT_DIR,
         actions: [],
-        commands: []
-    }
-]
+        commands: [],
+    },
+];
 
 async function setupLibs() {
     for (const lib of libs) {
@@ -83,10 +86,10 @@ function main() {
     }
 
     setupLibs()
-        .then(e => {
-            console.log('Setup complete');
+        .then((e) => {
+            console.log("Setup complete");
         })
-        .catch(err => {
+        .catch((err) => {
             console.error(err);
         });
 }
