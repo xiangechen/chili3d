@@ -56,7 +56,7 @@ if (${EMSCRIPTEN})
     add_library(occt STATIC ${OcctSourceFiles})
     target_include_directories (occt PUBLIC ${OcctIncludeDirs})
     target_compile_options (occt PUBLIC
-        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-Os>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -DOCCT_NO_PLUGINS
@@ -65,13 +65,13 @@ if (${EMSCRIPTEN})
     add_executable (${TARGET} ${ChiliWasmSourceFiles})
     target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
     target_compile_options (${TARGET} PUBLIC
-        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-Os>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
     )
     target_link_libraries(${TARGET} PUBLIC occt)
     target_link_options (${TARGET} PUBLIC
-        $<IF:$<CONFIG:Release>,-O3,-O0>
+        $<IF:$<CONFIG:Release>,-Os,-O0>
         $<IF:$<CONFIG:Release>,-flto,-fno-lto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
