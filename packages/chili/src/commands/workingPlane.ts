@@ -5,6 +5,7 @@ import {
     AsyncController,
     IApplication,
     ICommand,
+    IEdge,
     IFace,
     Observable,
     Plane,
@@ -16,7 +17,9 @@ import {
     XYZ,
     command,
 } from "chili-core";
-import { SelectShapeStep } from "../step";
+import { IStep, PointOnCurveStep, SelectShapeStep } from "../step";
+import { MultistepCommand } from "./multistepCommand";
+import { Dimension } from "../snap";
 
 export class WorkingPlaneViewModel extends Observable {
     @Property.define("workingPlane.set")
@@ -64,5 +67,63 @@ export class AlignToPlane implements ICommand {
             xvec = XYZ.unitZ.cross(normal).normalize()!;
         }
         view.workplane = new Plane(point, normal, xvec);
+    }
+}
+
+@command({
+    name: "workingPlane.fromSection",
+    display: "workingPlane.fromSection",
+    icon: "icon-fromSection",
+})
+export class FromSection extends MultistepCommand {
+    protected override executeMainTask() {
+        const shape = this.stepDatas[0].shapes[0].shape as IEdge;
+        const curve = shape.curve();
+        const point = this.stepDatas[1].point!;
+
+        const parameter = curve.parameter(point, 1e-3);
+        if (parameter === undefined) return;
+        const direction = curve.d1(parameter).vec.normalize()!;
+
+        let xvec: XYZ = this.findXVec(direction);
+        const plane = new Plane(point, direction, xvec);
+        const view = this.application.activeView;
+        if (!view) return;
+        view.workplane = plane;
+    }
+
+    private findXVec(direction: XYZ) {
+        let xvec: XYZ;
+        if (direction.isEqualTo(XYZ.unitZ)) {
+            xvec = XYZ.unitX;
+        } else if (direction.isEqualTo(new XYZ(0, 0, -1))) {
+            xvec = XYZ.unitY;
+        } else {
+            xvec = direction.cross(XYZ.unitZ).normalize()!;
+        }
+        return xvec;
+    }
+
+    protected override getSteps(): IStep[] {
+        return [
+            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges"),
+            new PointOnCurveStep(
+                "operate.pickFistPoint",
+                () => {
+                    return {
+                        curve: (this.stepDatas[0].shapes[0].shape as IEdge).curve(),
+                        dimension: Dimension.D1,
+                        preview: (point: XYZ | undefined) => {
+                            if (!point) return [];
+                            const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve();
+                            const project = curve.project(point).at(0);
+
+                            return [this.meshPoint(project ?? point)];
+                        },
+                    };
+                },
+                true,
+            ),
+        ];
     }
 }

@@ -213,6 +213,7 @@ export default {
         "vertex.point": "点",
         "workingPlane.dynamic": "动态",
         "workingPlane.alignToPlane": "对齐",
+        "workingPlane.fromSection": "从截面",
         "workingPlane.set": "设置",
         "test.performace": "性能测试",
     },

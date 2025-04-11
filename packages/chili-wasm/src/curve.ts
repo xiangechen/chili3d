@@ -62,15 +62,23 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     nearestExtrema(curve: ICurve | Ray) {
         return gc((c) => {
-            let result: any;
+            let result;
             if (curve instanceof OccCurve) {
                 result = wasm.Curve.nearestExtremaCC(this.curve, curve.curve);
-            }
-            if (curve instanceof Ray) {
+            } else if (curve instanceof Ray) {
                 let line = c(wasm.Curve.makeLine(curve.location, curve.direction));
                 result = wasm.Curve.nearestExtremaCC(this.curve, line.get());
             }
-            return result;
+
+            if (!result) {
+                return undefined;
+            }
+
+            return {
+                ...result,
+                p1: OcctHelper.toXYZ(result.p1),
+                p2: OcctHelper.toXYZ(result.p2),
+            };
         });
     }
 

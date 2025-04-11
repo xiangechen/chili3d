@@ -215,6 +215,7 @@ export default {
         "vertex.point": "Point",
         "workingPlane.dynamic": "Dynamic",
         "workingPlane.alignToPlane": "Align",
+        "workingPlane.fromSection": "From Section",
         "workingPlane.set": "Set",
         "test.performace": "Performace test",
     },

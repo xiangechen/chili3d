@@ -52,6 +52,7 @@ const COMMAND_KEYS = [
     "modify.trim",
     "special.last",
     "workingPlane.alignToPlane",
+    "workingPlane.fromSection",
     "workingPlane.toggleDynamic",
     "workingPlane.set",
     "test.performace",

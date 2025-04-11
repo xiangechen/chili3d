@@ -208,6 +208,7 @@ const I18N_KEYS = [
     "vertex.point",
     "workingPlane.dynamic",
     "workingPlane.alignToPlane",
+    "workingPlane.fromSection",
     "workingPlane.set",
     "test.performace",
 ] as const;

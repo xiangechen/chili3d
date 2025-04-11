@@ -47,7 +47,10 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.workingPlane",
-                items: ["workingPlane.toggleDynamic", "workingPlane.set", "workingPlane.alignToPlane"],
+                items: [
+                    "workingPlane.toggleDynamic",
+                    ["workingPlane.set", "workingPlane.alignToPlane", "workingPlane.fromSection"],
+                ],
             },
             {
                 groupName: "ribbon.group.tools",
