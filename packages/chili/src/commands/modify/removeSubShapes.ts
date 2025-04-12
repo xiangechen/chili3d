@@ -20,7 +20,7 @@ export class RemoveSubShapesCommand extends MultistepCommand {
             const model = new EditableShapeNode(this.document, node.name, shape, node.materialId);
             model.transform = node.transform;
 
-            this.document.addNode(model);
+            node.parent?.insertAfter(node.previousSibling, model);
             node.parent?.remove(node);
             this.document.visual.update();
         });

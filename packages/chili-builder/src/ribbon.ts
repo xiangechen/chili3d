@@ -25,10 +25,9 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.move",
                     "modify.rotate",
                     "modify.mirror",
-                    "modify.delete",
-                    ["create.offset", "modify.break", "modify.trim"],
-                    ["modify.fillet", "modify.chamfer", "modify.removeFeature"],
-                    ["modify.explode", "modify.removeSubShapes"],
+                    ["modify.explode", "modify.break", "modify.trim"],
+                    ["modify.fillet", "modify.chamfer", "modify.split"],
+                    ["modify.delete", "modify.removeSubShapes", "modify.removeFeature"],
                 ],
             },
             {
@@ -54,7 +53,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.tools",
-                items: ["create.section", "modify.split"],
+                items: ["create.section", "create.offset", "create.copySubShape"],
             },
             {
                 groupName: "ribbon.group.importExport",

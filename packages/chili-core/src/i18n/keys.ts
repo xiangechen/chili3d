@@ -55,6 +55,7 @@ const I18N_KEYS = [
     "command.chamfer",
     "command.circle",
     "command.copy",
+    "command.copySubShape",
     "command.delete",
     "command.document.new",
     "command.document.open",

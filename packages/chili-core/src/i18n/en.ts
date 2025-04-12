@@ -54,6 +54,7 @@ export default {
         "command.pyramid": "Pyramid",
         "command.cylinder": "Cylinder",
         "command.cone": "Cone",
+        "command.copySubShape": "SubShape",
         "command.sphere": "Sphere",
         "command.ellipsoid": "Ellipsoid",
         "command.ellipse": "ellipse",

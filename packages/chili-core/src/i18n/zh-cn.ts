@@ -60,6 +60,7 @@ export default {
         "command.chamfer": "倒角",
         "command.circle": "圆",
         "command.copy": "复制",
+        "command.copySubShape": "子形状",
         "command.delete": "删除",
         "command.document.new": "新建文档",
         "command.document.open": "打开文档",
