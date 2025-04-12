@@ -11,6 +11,8 @@ const COMMAND_KEYS = [
     "convert.sweep",
     "convert.toFace",
     "convert.toWire",
+    "convert.toShell",
+    "convert.toSolid",
     "create.arc",
     "create.bezier",
     "create.box",

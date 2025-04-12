@@ -25,19 +25,19 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.move",
                     "modify.rotate",
                     "modify.mirror",
-                    ["modify.explode", "modify.break", "modify.trim"],
-                    ["modify.fillet", "modify.chamfer", "modify.split"],
+                    ["modify.split", "modify.break", "modify.trim"],
+                    ["modify.fillet", "modify.chamfer", "modify.explode"],
                     ["modify.delete", "modify.removeSubShapes", "modify.removeFeature"],
                 ],
             },
             {
                 groupName: "ribbon.group.converter",
                 items: [
-                    "convert.toWire",
-                    "convert.toFace",
                     "convert.prism",
                     "convert.sweep",
                     "convert.revol",
+                    "convert.toWire",
+                    ["convert.toFace", "convert.toShell", "convert.toSolid"],
                 ],
             },
             {

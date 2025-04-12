@@ -4,11 +4,15 @@
 import {
     AsyncController,
     CancelableCommand,
+    EditableShapeNode,
     GeometryNode,
     IDocument,
     IEdge,
+    IFace,
     INode,
+    IShape,
     IShapeFilter,
+    IShell,
     PubSub,
     Result,
     ShapeNode,
@@ -36,15 +40,21 @@ abstract class ConvertCommand extends CancelableCommand {
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
+
+            models.forEach((x) => x.parent?.remove(x));
         });
     }
 
     protected abstract create(document: IDocument, models: INode[]): Result<GeometryNode>;
+    protected shapeFilter(): IShapeFilter {
+        return {
+            allow: (shape: IShape) =>
+                shape.shapeType === ShapeType.Edge || shape.shapeType === ShapeType.Wire,
+        };
+    }
 
     async getOrPickModels(document: IDocument) {
-        const filter: IShapeFilter = {
-            allow: (shape) => shape.shapeType === ShapeType.Edge || shape.shapeType === ShapeType.Wire,
-        };
+        const filter = this.shapeFilter();
         let models = this._getSelectedModels(document, filter);
         document.selection.clearSelection();
         if (models.length > 0) return models;
@@ -82,7 +92,6 @@ export class ConvertToWire extends ConvertCommand {
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
 
-        models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);
     }
 }
@@ -99,7 +108,50 @@ export class ConvertToFace extends ConvertCommand {
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
 
-        models.forEach((x) => x.parent?.remove(x));
         return Result.ok(wireBody);
+    }
+}
+
+@command({
+    name: "convert.toShell",
+    display: "command.toShell",
+    icon: "icon-toShell",
+})
+export class ConvertToShell extends ConvertCommand {
+    protected override shapeFilter(): IShapeFilter {
+        return {
+            allow: (shape: IShape) => shape.shapeType === ShapeType.Face,
+        };
+    }
+
+    protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
+        const faces = models.map((x) => x.shape.value.copy()) as IFace[];
+        const shape = this.application.shapeFactory.shell(faces);
+        if (!shape.isOk) return Result.err(shape.error);
+
+        const shell = new EditableShapeNode(document, "shell", shape);
+        return Result.ok(shell);
+    }
+}
+
+@command({
+    name: "convert.toSolid",
+    display: "command.toSolid",
+    icon: "icon-toSolid",
+})
+export class ConvertToSolid extends ConvertCommand {
+    protected override shapeFilter(): IShapeFilter {
+        return {
+            allow: (shape: IShape) => shape.shapeType === ShapeType.Shell,
+        };
+    }
+
+    protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
+        const faces = models.map((x) => x.shape.value.copy()) as IShell[];
+        const shape = this.application.shapeFactory.solid(faces);
+        if (!shape.isOk) return Result.err(shape.error);
+
+        const solid = new EditableShapeNode(document, "solid", shape);
+        return Result.ok(solid);
     }
 }

@@ -8,6 +8,7 @@ import {
     IShape,
     IShapeConverter,
     IShapeFactory,
+    IShell,
     ISolid,
     IVertex,
     IWire,
@@ -208,6 +209,12 @@ export class ShapeFactory implements IShapeFactory {
     }
     wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
+    }
+    shell(faces: IFace[]): Result<IShell> {
+        return convertShapeResult(wasm.ShapeFactory.shell(ensureOccShape(faces))) as Result<IShell>;
+    }
+    solid(shells: IShell[]): Result<ISolid> {
+        return convertShapeResult(wasm.ShapeFactory.solid(ensureOccShape(shells))) as Result<ISolid>;
     }
     prism(shape: IShape, vec: XYZ): Result<IShape> {
         if (vec.length() === 0) {

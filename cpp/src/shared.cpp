@@ -26,6 +26,7 @@ EMSCRIPTEN_BINDINGS(Shared) {
     register_type<EdgeArray>("Array<TopoDS_Edge>");
     register_type<FaceArray>("Array<TopoDS_Face>");
     register_type<WireArray>("Array<TopoDS_Wire>");
+    register_type<ShellArray>("Array<TopoDS_Shell>");
     register_type<PntArray>("Array<gp_Pnt>");
 
     register_optional<double>();

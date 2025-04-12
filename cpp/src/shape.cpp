@@ -39,6 +39,8 @@
 #include <TopoDS.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopExp_Explorer.hxx>
+#include <BRepPrim_Builder.hxx>
+#include <BRepBuilderAPI_Sewing.hxx>
 
 
 using namespace emscripten;
@@ -183,6 +185,15 @@ public:
         fixer.Perform();
 
         return fixer.Shape();
+    }
+
+    static TopoDS_Shape sewing(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2) {
+        BRepBuilderAPI_Sewing sewing;
+        sewing.Add(shape1);
+        sewing.Add(shape2);
+
+        sewing.Perform();
+        return sewing.SewedShape();
     }
 
 };
@@ -337,6 +348,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("removeFeature", &Shape::removeFeature)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)
+        .class_function("sewing", &Shape::sewing)
     ;
 
     class_<Vertex>("Vertex")

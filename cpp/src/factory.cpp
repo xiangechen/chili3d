@@ -188,12 +188,6 @@ public:
         return ShapeResult{solidBuilder.Solid(), true, ""};
     }
 
-    static ShapeResult facesToSolid(const FaceArray &faces)
-    {
-        auto facesVec = vecFromJSArray<TopoDS_Face>(faces);
-        return facesToSolid(facesVec);
-    }
-
     static ShapeResult cylinder(const Vector3 &normal, const Vector3 &center, double radius, double height)
     {
         gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
@@ -400,6 +394,33 @@ public:
         return ShapeResult{makeFace.Face(), true, ""};
     }
 
+    static ShapeResult shell(const FaceArray& faces) {
+        std::vector<TopoDS_Face> facesVec = vecFromJSArray<TopoDS_Face>(faces);
+        
+        TopoDS_Shell shell;
+        BRep_Builder shellBuilder;
+        shellBuilder.MakeShell(shell);
+        for (const auto &face : facesVec)
+        {
+            shellBuilder.Add(shell, face);
+        }
+
+        return ShapeResult{shell, true, ""};
+    }
+
+    static ShapeResult solid(const ShellArray& shells) {
+        std::vector<TopoDS_Shell> shellsVec = vecFromJSArray<TopoDS_Shell>(shells);
+
+        BRepBuilderAPI_MakeSolid makeSolid;
+        for (auto shell : shellsVec) {
+            makeSolid.Add(shell);
+        }
+        if (!makeSolid.IsDone()) {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create solid"};
+        }
+        return ShapeResult{makeSolid.Solid(), true, ""};
+    }
+
     static ShapeResult makeThickSolidBySimple(const TopoDS_Shape &shape, double thickness) {
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
         makeThickSolid.MakeThickSolidBySimple(shape, thickness);
@@ -530,6 +551,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("line", &ShapeFactory::line)
         .class_function("wire", &ShapeFactory::wire)
         .class_function("face", &ShapeFactory::face)
+        .class_function("shell", &ShapeFactory::shell)
+        .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)

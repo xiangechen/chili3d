@@ -95,6 +95,8 @@ export default {
         "command.thickSolid": "抽壳",
         "command.toFace": "转面",
         "command.toWire": "转多段线",
+        "command.toShell": "转壳体",
+        "command.toSolid": "转实体",
         "command.trim": "修剪",
         "command.undo": "撤销",
         "common.angle": "角度",

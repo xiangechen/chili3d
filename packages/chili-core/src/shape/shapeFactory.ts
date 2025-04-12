@@ -3,13 +3,15 @@
 
 import { Result } from "../foundation";
 import { Plane, Ray, XYZ, XYZLike } from "../math";
-import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
+import { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly kernelName: string;
     readonly converter: IShapeConverter;
     face(wire: IWire[]): Result<IFace>;
+    shell(faces: IFace[]): Result<IShell>;
+    solid(shells: IShell[]): Result<ISolid>;
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
     point(point: XYZLike): Result<IVertex>;
     line(start: XYZLike, end: XYZLike): Result<IEdge>;
