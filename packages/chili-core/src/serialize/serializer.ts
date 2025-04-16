@@ -1,5 +1,5 @@
-// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
-// Chili3d is licensed under the AGPL-3.0 License.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
 import { ClassMap } from "./classMap";

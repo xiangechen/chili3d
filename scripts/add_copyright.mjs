@@ -1,11 +1,11 @@
-// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)
-// Chili3d is licensed under the AGPL-3.0 License.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const COPYRIGHT = `// Copyright (c) 2022-2025 陈仙阁 (Chen Xiange)\n`;
+const COPYRIGHT = `// Part of the Chili3d Project, under the AGPL-3.0 License.\n`;
 
 const ROOT_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -24,7 +24,7 @@ function addCopyrightToFile(filePath) {
     const content = fs.readFileSync(filePath, "utf8");
     const lines = content.split("\n");
 
-    const hasExistingCopyright = lines[0].includes("Copyright");
+    const hasExistingCopyright = lines[0].startsWith("// Part");
 
     if (hasExistingCopyright) {
         const newContent = COPYRIGHT + lines.slice(1).join("\n");
