@@ -6,7 +6,6 @@ import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { Material } from "../material";
 import { INode } from "../model";
-import { ObjectSnapType } from "../snapType";
 import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
@@ -27,6 +26,7 @@ export interface PubSubEventMap {
     editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
     executeCommand: (commandName: CommandKeys) => void;
     modelUpdate: (model: INode) => void;
+    njsgcs_showDialog: () => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
