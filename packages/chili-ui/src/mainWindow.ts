@@ -14,6 +14,7 @@ import {
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
+import { njsgcs_Dialog } from "./njsgcs_dialog";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
@@ -46,6 +47,7 @@ export class MainWindow implements IWindow {
         PubSub.default.sub("showToast", Toast.info);
         PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", Dialog.show);
+        PubSub.default.sub("njsgcs_showDialog", njsgcs_Dialog.show);
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));

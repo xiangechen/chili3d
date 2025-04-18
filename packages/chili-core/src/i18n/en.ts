@@ -221,5 +221,6 @@ export default {
         "workingPlane.fromSection": "From Section",
         "workingPlane.set": "Set",
         "test.performace": "Performace test",
+        "njsgcs.test": "NJSGCS Test",
     },
 } satisfies Locale;

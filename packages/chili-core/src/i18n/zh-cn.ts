@@ -219,5 +219,6 @@ export default {
         "workingPlane.fromSection": "从截面",
         "workingPlane.set": "设置",
         "test.performace": "性能测试",
+        "njsgcs.test": "njsgcs测试",
     },
 } satisfies Locale;
