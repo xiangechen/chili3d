@@ -25,7 +25,7 @@ export async function send_to_llm(mycontent: String): Promise<string> {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const result = await response.text();
-        console.log(result); // 可选：打印日志以便调试
+        // console.log(result); // 可选：打印日志以便调试
         return result;
     } catch (error) {
         console.error("Error in send_to_llm:", error);

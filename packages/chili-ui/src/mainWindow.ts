@@ -14,7 +14,7 @@ import {
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
-import { njsgcs_Dialog } from "./njsgcs_dialog";
+import { njsgcs_Dialog } from "./njsgcs/njsgcs_dialog";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
