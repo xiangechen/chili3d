@@ -20,7 +20,7 @@ export class njsgcs_Dialog {
         dialog.appendChild(
             div(
                 { className: style.root },
-                div({ className: style.title }, label({ textContent: I18n.translate("njsgcs.test") })),
+                div({ className: style.title }, label({ textContent: I18n.translate("njsgcs_showDialog") })),
                 div({ className: style.input }, user_say_input),
                 div(
                     { className: style.buttons },

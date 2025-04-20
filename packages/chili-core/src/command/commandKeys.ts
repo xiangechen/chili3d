@@ -59,7 +59,7 @@ const COMMAND_KEYS = [
     "workingPlane.fromSection",
     "workingPlane.set",
     "workingPlane.toggleDynamic",
-    "njsgcs.test",
+    "njsgcs_showDialog",
 ] as const;
 
 export type CommandKeys = (typeof COMMAND_KEYS)[number];

@@ -10,7 +10,7 @@ export * from "./folder";
 export * from "./importExport";
 export * from "./modify";
 export * from "./multistepCommand";
-export * from "./njsgcs";
+export * from "./njsgcs/showDialog";
 export * from "./redo";
 export * from "./undo";
 export * from "./workingPlane";
