@@ -19,6 +19,20 @@
             "type": "msedge",
             "request": "launch",
             "url": "http://localhost:8080/"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Rspack",
+            "runtimeExecutable": "npx",
+            "args": ["rspack", "dev", "--config", "${workspaceFolder}/rspack.config.js"],
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Rspack and Launch Edge",
+            "configurations": ["Debug Rspack", "debug"]
         }
     ]
 }
