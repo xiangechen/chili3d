@@ -220,5 +220,6 @@ export default {
         "workingPlane.set": "设置",
         "test.performace": "性能测试",
         njsgcs_showDialog: "njsgcs创建窗口",
+        njsgcs_send_to_llm: "发送到llm",
     },
 } satisfies Locale;

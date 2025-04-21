@@ -1,7 +1,7 @@
 import { I18n, Logger } from "chili-core";
 import { button, div, input, label } from "../components";
 import style from "../dialog.module.css";
-import { send_to_llm } from "./send_to_llm";
+
 export class njsgcs_Dialog {
     private constructor() {}
     static show() {
@@ -32,7 +32,7 @@ export class njsgcs_Dialog {
                         onclick: async () => {
                             try {
                                 // 动态获取输入框的值
-                                let response: string = await send_to_llm(user_say_input.value);
+                                let response: string = "";
                                 // 将 response 解析为 JSON 对象
                                 const jsonResponse = JSON.parse(response);
                                 let content_response: string = jsonResponse.choices[0].message.content;

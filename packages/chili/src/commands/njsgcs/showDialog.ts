@@ -5,7 +5,7 @@ import { command, IApplication, ICommand, Logger, PubSub } from "chili-core";
     display: "njsgcs_showDialog", // 替换为合法的枚举值或扩展枚举
     icon: "njsgcs_showDialog",
 })
-export class TestMy implements ICommand {
+export class showDialog implements ICommand {
     // 实现 execute 方法
     async execute(app: IApplication): Promise<void> {
         Logger.info("njsqcs.test!!!!!!!!!!!!!!!");
