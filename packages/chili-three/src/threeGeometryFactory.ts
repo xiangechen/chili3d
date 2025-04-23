@@ -20,7 +20,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData) {
         let buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(data.positions, 3));
+        buff.setAttribute("position", new BufferAttribute(data.position, 3));
         let material = new PointsMaterial({
             size: data.size,
             sizeAttenuation: false,
@@ -54,10 +54,10 @@ export class ThreeGeometryFactory {
 
     static createFaceBufferGeometry(data: FaceMeshData) {
         let buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(data.positions, 3));
-        buff.setAttribute("normal", new BufferAttribute(data.normals, 3));
-        buff.setAttribute("uv", new BufferAttribute(data.uvs, 2));
-        buff.setIndex(new BufferAttribute(data.indices, 1));
+        buff.setAttribute("position", new BufferAttribute(data.position, 3));
+        buff.setAttribute("normal", new BufferAttribute(data.normal, 3));
+        buff.setAttribute("uv", new BufferAttribute(data.uv, 2));
+        buff.setIndex(new BufferAttribute(data.index, 1));
         buff.computeBoundingBox();
         return buff;
     }
@@ -83,7 +83,7 @@ export class ThreeGeometryFactory {
 
     static createEdgeBufferGeometry(data: EdgeMeshData) {
         let buff = new LineSegmentsGeometry();
-        buff.setPositions(data.positions);
+        buff.setPositions(data.position);
         buff.computeBoundingBox();
         return buff;
     }

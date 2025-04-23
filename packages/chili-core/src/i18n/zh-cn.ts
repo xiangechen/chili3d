@@ -72,6 +72,7 @@ export default {
         "command.faceable.isFace": "面",
         "command.fillet": "圆角",
         "command.fuse": "合并",
+        "command.group": "成组",
         "command.import": "导入",
         "command.line.isConnected": "相连",
         "command.line": "直线",

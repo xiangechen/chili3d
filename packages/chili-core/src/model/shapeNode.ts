@@ -8,7 +8,7 @@ import { I18n, I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
-import { GeometryNode } from "./node";
+import { GeometryNode } from "./geometryNode";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
@@ -59,36 +59,32 @@ export class ManyMesh implements IShapeMeshData {
     private readonly _faces: FaceMeshData;
 
     get edges() {
-        return this._edges.positions.length > 0 ? this._edges : undefined;
+        return this._edges.position.length > 0 ? this._edges : undefined;
     }
 
     get faces() {
-        return this._faces.positions.length > 0 ? this._faces : undefined;
+        return this._faces.position.length > 0 ? this._faces : undefined;
     }
 
-    constructor(readonly shapes: IShape[]) {
+    constructor() {
         this._edges = {
             lineType: LineType.Solid,
-            positions: new Float32Array(),
-            groups: [],
+            position: new Float32Array(),
+            range: [],
             color: VisualConfig.defaultEdgeColor,
         };
 
         this._faces = {
-            indices: new Uint16Array(),
-            normals: new Float32Array(),
-            positions: new Float32Array(),
-            uvs: new Float32Array(),
-            groups: [],
+            index: new Uint16Array(),
+            normal: new Float32Array(),
+            position: new Float32Array(),
+            uv: new Float32Array(),
+            range: [],
             color: VisualConfig.defaultFaceColor,
         };
-
-        for (const shape of shapes) {
-            this.combineShape(shape);
-        }
     }
 
-    private combineShape(shape: IShape) {
+    public addShape(shape: IShape) {
         const { mesh, matrix } = shape;
         if (mesh.faces) {
             this.combineFace(mesh.faces, matrix);
@@ -103,19 +99,22 @@ export class ManyMesh implements IShapeMeshData {
             return;
         }
 
-        let start = this._faces.positions.length / 3;
-        this._faces.indices = this.combineUintArray(this._faces.indices, faceMeshData.indices);
-        this._faces.normals = this.combineFloat32Array(
-            this._faces.normals,
-            matrix.ofVectors(faceMeshData.normals),
+        let start = this._faces.position.length / 3;
+        this._faces.index = this.combineUintArray(
+            this._faces.index,
+            faceMeshData.index.map((x) => x + start),
         );
-        this._faces.uvs = this.combineFloat32Array(this._faces.uvs, faceMeshData.uvs);
-        this._faces.positions = this.combineFloat32Array(
-            this._faces.positions,
-            matrix.ofPoints(faceMeshData.positions),
+        this._faces.normal = this.combineFloat32Array(
+            this._faces.normal,
+            matrix.ofVectors(faceMeshData.normal),
         );
-        this._faces.groups = this._faces.groups.concat(
-            faceMeshData.groups.map((g) => {
+        this._faces.uv = this.combineFloat32Array(this._faces.uv, faceMeshData.uv);
+        this._faces.position = this.combineFloat32Array(
+            this._faces.position,
+            matrix.ofPoints(faceMeshData.position),
+        );
+        this._faces.range = this._faces.range.concat(
+            faceMeshData.range.map((g) => {
                 return {
                     start: g.start + start,
                     shape: g.shape,
@@ -149,10 +148,13 @@ export class ManyMesh implements IShapeMeshData {
             return;
         }
 
-        let start = this._edges.positions.length / 3;
-        this._edges.positions = this.combineFloat32Array(this._edges.positions, edgeMeshData.positions);
-        this._edges.groups = this._edges.groups.concat(
-            edgeMeshData.groups.map((g) => {
+        let start = this._edges.position.length / 3;
+        this._edges.position = this.combineFloat32Array(
+            this._edges.position,
+            matrix.ofPoints(edgeMeshData.position),
+        );
+        this._edges.range = this._edges.range.concat(
+            edgeMeshData.range.map((g) => {
                 return {
                     start: g.start + start,
                     shape: g.shape,
@@ -185,7 +187,13 @@ export class MultiShapeNode extends GeometryNode {
     }
 
     protected override createMesh(): IShapeMeshData {
-        return new ManyMesh(this._shapes);
+        const meshes = new ManyMesh();
+
+        this._shapes.forEach((shape) => {
+            meshes.addShape(shape);
+        });
+
+        return meshes;
     }
 
     override display(): I18nKeys {

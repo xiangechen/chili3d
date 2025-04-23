@@ -11,6 +11,7 @@ export * from "./copySubShape";
 export * from "./cylinder";
 export * from "./ellipse";
 export * from "./fuse";
+export * from "./group";
 export * from "./line";
 export * from "./offset";
 export * from "./polygon";

@@ -7,6 +7,8 @@ import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
 import { IShape } from "./shape";
 
+export type MeshGroupLike = { start: number; count: number; materialId: string };
+
 @Serializer.register(["start", "count", "materialId"])
 export class MeshGroup {
     @Serializer.serialze()
@@ -52,7 +54,7 @@ export class Mesh {
     uv: number[] | undefined = undefined;
 
     @Serializer.serialze()
-    groups: MeshGroup[] = [];
+    group: MeshGroup[] = [];
 }
 
 export interface IShapeMeshData {
@@ -61,15 +63,15 @@ export interface IShapeMeshData {
     updateMeshShape(): void;
 }
 
-export interface ShapeMeshGroup {
+export interface ShapeMeshRange {
     start: number;
     count: number;
     shape: IShape;
 }
 
 export interface ShapeMeshData {
-    positions: Float32Array;
-    groups: ShapeMeshGroup[];
+    position: Float32Array;
+    range: ShapeMeshRange[];
     color?: number | number[];
 }
 
@@ -83,7 +85,7 @@ export namespace ShapeMeshData {
     }
 
     export function isFace(data: ShapeMeshData): data is FaceMeshData {
-        return (data as FaceMeshData)?.indices !== undefined;
+        return (data as FaceMeshData)?.index !== undefined;
     }
 }
 
@@ -94,8 +96,8 @@ export interface VertexMeshData extends ShapeMeshData {
 export namespace VertexMeshData {
     export function from(point: XYZ, size: number, color: number): VertexMeshData {
         return {
-            positions: new Float32Array([point.x, point.y, point.z]),
-            groups: [],
+            position: new Float32Array([point.x, point.y, point.z]),
+            range: [],
             color,
             size,
         };
@@ -110,18 +112,18 @@ export interface EdgeMeshData extends ShapeMeshData {
 export namespace EdgeMeshData {
     export function from(start: XYZ, end: XYZ, color: number, lineType: LineType): EdgeMeshData {
         return {
-            positions: new Float32Array([start.x, start.y, start.z, end.x, end.y, end.z]),
+            position: new Float32Array([start.x, start.y, start.z, end.x, end.y, end.z]),
             color,
             lineType,
-            groups: [],
+            range: [],
         };
     }
 }
 
 export interface FaceMeshData extends ShapeMeshData {
-    indices: Uint16Array | Uint32Array;
-    normals: Float32Array;
-    uvs: Float32Array;
+    index: Uint16Array | Uint32Array;
+    normal: Float32Array;
+    uv: Float32Array;
 }
 
 export function arrayNeedsUint32(array: number[]) {
@@ -133,7 +135,7 @@ export function arrayNeedsUint32(array: number[]) {
 
 export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     protected readonly _positions: number[] = [];
-    protected readonly _groups: ShapeMeshGroup[] = [];
+    protected readonly _groups: ShapeMeshRange[] = [];
     protected _color: number | undefined;
     protected _vertexColor: number[] | undefined;
 
@@ -207,8 +209,8 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     override build(): EdgeMeshData {
         let color = this.getColor()!;
         return {
-            positions: new Float32Array(this._positions),
-            groups: this._groups,
+            position: new Float32Array(this._positions),
+            range: this._groups,
             lineType: this._lineType,
             color,
         };
@@ -265,14 +267,14 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     build(): FaceMeshData {
         let color = this.getColor()!;
         return {
-            positions: new Float32Array(this._positions),
+            position: new Float32Array(this._positions),
             color,
-            normals: new Float32Array(this._normals),
-            indices: arrayNeedsUint32(this._indices)
+            normal: new Float32Array(this._normals),
+            index: arrayNeedsUint32(this._indices)
                 ? new Uint32Array(this._indices)
                 : new Uint16Array(this._indices),
-            uvs: new Float32Array(this._uvs),
-            groups: this._groups,
+            uv: new Float32Array(this._uvs),
+            range: this._groups,
         };
     }
 }

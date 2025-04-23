@@ -53,7 +53,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.tools",
-                items: ["create.section", "create.offset", "create.copySubShape"],
+                items: ["create.section", "create.offset", "create.copySubShape", "create.group"],
             },
             {
                 groupName: "ribbon.group.importExport",

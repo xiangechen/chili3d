@@ -4,6 +4,7 @@
 import {
     CollectionAction,
     CollectionChangedArgs,
+    Component,
     Constants,
     FolderNode,
     History,
@@ -31,6 +32,7 @@ import {
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
+    readonly components: Component[] = [];
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
@@ -109,6 +111,7 @@ export class Document extends Observable implements IDocument {
             properties: {
                 id: this.id,
                 name: this.name,
+                components: this.components.map((x) => Serializer.serializeObject(x)),
                 nodes: NodeSerializer.serialize(this.rootNode),
                 materials: this.materials.map((x) => Serializer.serializeObject(x)),
             },
@@ -187,6 +190,11 @@ export class Document extends Observable implements IDocument {
         document.history.disabled = true;
         document.materials.push(
             ...data.properties["materials"].map((x: Serialized) =>
+                Serializer.deserializeObject(document, x),
+            ),
+        );
+        document.components.push(
+            ...data.properties["components"].map((x: Serialized) =>
                 Serializer.deserializeObject(document, x),
             ),
         );

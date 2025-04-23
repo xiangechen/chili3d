@@ -99,8 +99,8 @@ export class OccShape implements IShape {
         occMesher.delete();
         return {
             lineType: LineType.Solid,
-            positions: new Float32Array(position),
-            groups: [],
+            position: new Float32Array(position),
+            range: [],
             color: VisualConfig.defaultEdgeColor,
         };
     }

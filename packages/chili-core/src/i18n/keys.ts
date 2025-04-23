@@ -67,6 +67,7 @@ const I18N_KEYS = [
     "command.faceable.isFace",
     "command.fillet",
     "command.fuse",
+    "command.group",
     "command.import",
     "command.line.isConnected",
     "command.line",

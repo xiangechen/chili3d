@@ -13,7 +13,7 @@ import {
     Plane,
     PubSub,
     Ray,
-    ShapeMeshGroup,
+    ShapeMeshRange,
     ShapeNode,
     ShapeType,
     VisualNode,
@@ -43,7 +43,7 @@ import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeVisualContext } from "./threeVisualContext";
-import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
+import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
@@ -304,6 +304,8 @@ export class ThreeView extends Observable implements IView {
             node = threeObject.meshNode;
         } else if (threeObject instanceof ThreeGeometry) {
             node = threeObject.geometryNode;
+        } else if (threeObject instanceof ThreeComponentObject) {
+            node = threeObject.componentNode;
         }
 
         return node;
@@ -361,7 +363,7 @@ export class ThreeView extends Observable implements IView {
         if ((shape.shapeType & shapeType) === 0) return;
         if (shapeFilter && !shapeFilter.allow(shape)) return;
 
-        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.groups : shape.mesh.faces?.groups;
+        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
         addShape([...Array(groups?.length).keys()]);
     }
 
@@ -471,7 +473,7 @@ export class ThreeView extends Observable implements IView {
     private getAncestor(
         type: ShapeType,
         directShape: IShape,
-        groups: ShapeMeshGroup[],
+        groups: ShapeMeshRange[],
         parent: ThreeGeometry,
     ) {
         let ancestor = directShape.findAncestor(type, (parent.geometryNode as ShapeNode).shape.value).at(0);
@@ -484,7 +486,7 @@ export class ThreeView extends Observable implements IView {
         return { shape: ancestor, indexes, directShape };
     }
 
-    private findIndex(groups: ShapeMeshGroup[], shape: IShape, indexes: number[]) {
+    private findIndex(groups: ShapeMeshRange[], shape: IShape, indexes: number[]) {
         for (let i = 0; i < groups.length; i++) {
             if (shape.isEqual(groups[i].shape)) {
                 indexes.push(i);
@@ -495,15 +497,15 @@ export class ThreeView extends Observable implements IView {
     private findShapeAndIndex(parent: ThreeGeometry, element: Intersection) {
         let shape: IShape | undefined = undefined;
         let index: number | undefined = undefined;
-        let groups: ShapeMeshGroup[] | undefined = undefined;
+        let groups: ShapeMeshRange[] | undefined = undefined;
         if (element.pointOnLine !== undefined) {
-            groups = parent.geometryNode.mesh.edges?.groups;
+            groups = parent.geometryNode.mesh.edges?.range;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 2)!;
                 shape = groups[index].shape;
             }
         } else {
-            groups = parent.geometryNode.mesh.faces?.groups;
+            groups = parent.geometryNode.mesh.faces?.range;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
                 shape = groups[index].shape;
@@ -527,6 +529,13 @@ export class ThreeView extends Observable implements IView {
 
             if (x instanceof ThreeMeshObject) {
                 addObject(x.mesh);
+            }
+
+            if (x instanceof ThreeComponentObject) {
+                addObject(x.faces);
+                addObject(x.edges);
+                addObject(x.lines);
+                addObject(x.meshes);
             }
         });
 

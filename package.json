@@ -2,6 +2,7 @@
     "name": "chili3d",
     "version": "0.5",
     "description": "",
+    "documentVersion": "0.6",
     "author": "仙阁",
     "scripts": {
         "dev": "npx rspack dev",

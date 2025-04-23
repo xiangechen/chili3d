@@ -11,7 +11,7 @@ import {
     ObservableCollection,
 } from "./foundation";
 import { Material } from "./material";
-import { INode, INodeLinkedList } from "./model/node";
+import { Component, INode, INodeLinkedList } from "./model";
 import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";
 import { IVisual } from "./visual";
@@ -27,6 +27,7 @@ export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     readonly history: History;
     readonly visual: IVisual;
     readonly application: IApplication;
+    readonly components: Array<Component>;
     materials: ObservableCollection<Material>;
     addNode(...nodes: INode[]): void;
     addNodeObserver(observer: INodeChangedObserver): void;

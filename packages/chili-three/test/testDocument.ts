@@ -18,9 +18,11 @@ import {
     Serialized,
 } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
+import { Component } from "chili-core/src/model/component";
 
 export class TestDocument implements IDocument, ISerialize {
     application: IApplication;
+    components: Component[] = [];
     name: string;
     currentNode: INodeLinkedList | undefined;
     id: string;

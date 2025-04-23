@@ -76,8 +76,8 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private generateShape() {
         const mesh = this.geometryNode.mesh;
-        if (mesh?.faces?.positions.length) this.initFaces(mesh.faces);
-        if (mesh?.edges?.positions.length) this.initEdges(mesh.edges);
+        if (mesh?.faces?.position.length) this.initFaces(mesh.faces);
+        if (mesh?.edges?.position.length) this.initEdges(mesh.edges);
     }
 
     override dispose() {

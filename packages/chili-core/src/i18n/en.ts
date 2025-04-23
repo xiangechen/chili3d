@@ -73,6 +73,7 @@ export default {
         "command.faceable.isFace": "Face",
         "command.fillet": "Fillet",
         "command.fuse": "Fuse",
+        "command.group": "Group",
         "command.import": "Import",
         "command.line.isConnected": "Connected",
         "command.line": "Line",

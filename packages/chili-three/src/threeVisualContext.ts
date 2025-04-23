@@ -4,6 +4,7 @@
 import {
     CollectionAction,
     CollectionChangedArgs,
+    ComponentNode,
     DeepObserver,
     GeometryNode,
     GroupNode,
@@ -38,7 +39,7 @@ import {
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { GroupVisualObject, ThreeMeshObject } from "./threeVisualObject";
+import { GroupVisualObject, ThreeComponentObject, ThreeMeshObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new Map<IVisualObject, INode>();
@@ -223,7 +224,11 @@ export class ThreeVisualContext implements IVisualContext {
         let group = obj as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getVisualObject(visuals, x));
-        } else if (obj instanceof ThreeGeometry || obj instanceof ThreeMeshObject) {
+        } else if (
+            obj instanceof ThreeGeometry ||
+            obj instanceof ThreeMeshObject ||
+            obj instanceof ThreeComponentObject
+        ) {
             visuals.push(obj);
         }
     }
@@ -299,6 +304,8 @@ export class ThreeVisualContext implements IVisualContext {
             visualObject = new ThreeGeometry(node, this);
         } else if (node instanceof GroupNode) {
             visualObject = new GroupVisualObject(node);
+        } else if (node instanceof ComponentNode) {
+            visualObject = new ThreeComponentObject(node, this);
         }
 
         if (visualObject) {

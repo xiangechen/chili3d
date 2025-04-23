@@ -9,7 +9,7 @@ import {
     IDisposable,
     IShapeMeshData,
     LineType,
-    ShapeMeshGroup,
+    ShapeMeshRange,
     VisualConfig,
 } from "chili-core";
 import { EdgeMeshData as OccEdgeMeshData, FaceMeshData as OccFaceMeshData } from "../lib/chili-wasm";
@@ -53,14 +53,14 @@ export class Mesher implements IShapeMeshData, IDisposable {
         });
     }
 
-    private static parseFaceMeshData(faceMeshData: OccFaceMeshData) {
+    private static parseFaceMeshData(faceMeshData: OccFaceMeshData): FaceMeshData {
         const faceIndex = faceMeshData.index;
         return {
-            positions: new Float32Array(faceMeshData.position),
-            normals: new Float32Array(faceMeshData.normal),
-            uvs: new Float32Array(faceMeshData.uv),
-            indices: arrayNeedsUint32(faceIndex) ? new Uint32Array(faceIndex) : new Uint16Array(faceIndex),
-            groups: Mesher.getFaceGroups(faceMeshData),
+            position: new Float32Array(faceMeshData.position),
+            normal: new Float32Array(faceMeshData.normal),
+            uv: new Float32Array(faceMeshData.uv),
+            index: arrayNeedsUint32(faceIndex) ? new Uint32Array(faceIndex) : new Uint16Array(faceIndex),
+            range: Mesher.getFaceGroups(faceMeshData),
             color: VisualConfig.defaultFaceColor,
         };
     }
@@ -68,15 +68,15 @@ export class Mesher implements IShapeMeshData, IDisposable {
     private static parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
         return {
             lineType: LineType.Solid,
-            positions: new Float32Array(edgeMeshData.position),
-            groups: this.getEdgeGroups(edgeMeshData),
+            position: new Float32Array(edgeMeshData.position),
+            range: this.getEdgeGroups(edgeMeshData),
             color: VisualConfig.defaultEdgeColor,
         };
     }
 
     dispose(): void {
-        this._faces?.groups.forEach((g) => g.shape.dispose());
-        this._lines?.groups.forEach((g) => g.shape.dispose());
+        this._faces?.range.forEach((g) => g.shape.dispose());
+        this._lines?.range.forEach((g) => g.shape.dispose());
 
         this.shape = null as any;
         this._faces = null as any;
@@ -87,8 +87,8 @@ export class Mesher implements IShapeMeshData, IDisposable {
         if (this._lines !== undefined) {
             wasm.Shape.findSubShapes(this.shape.shape, wasm.TopAbs_ShapeEnum.TopAbs_EDGE).forEach(
                 (edge, i) => {
-                    let s = this._lines!.groups[i].shape;
-                    this._lines!.groups[i].shape = OcctHelper.wrapShape(edge, s.id);
+                    let s = this._lines!.range[i].shape;
+                    this._lines!.range[i].shape = OcctHelper.wrapShape(edge, s.id);
                     s.dispose();
                 },
             );
@@ -96,16 +96,16 @@ export class Mesher implements IShapeMeshData, IDisposable {
         if (this._faces !== undefined) {
             wasm.Shape.findSubShapes(this.shape.shape, wasm.TopAbs_ShapeEnum.TopAbs_FACE).forEach(
                 (face, i) => {
-                    let s = this._faces!.groups[i].shape;
-                    this._faces!.groups[i].shape = OcctHelper.wrapShape(face, s.id);
+                    let s = this._faces!.range[i].shape;
+                    this._faces!.range[i].shape = OcctHelper.wrapShape(face, s.id);
                     s.dispose();
                 },
             );
         }
     }
 
-    private static getEdgeGroups(data: OccEdgeMeshData): ShapeMeshGroup[] {
-        let result: ShapeMeshGroup[] = [];
+    private static getEdgeGroups(data: OccEdgeMeshData): ShapeMeshRange[] {
+        let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.edges.length; i++) {
             result.push({
                 start: data.group[2 * i],
@@ -116,8 +116,8 @@ export class Mesher implements IShapeMeshData, IDisposable {
         return result;
     }
 
-    private static getFaceGroups(data: OccFaceMeshData): ShapeMeshGroup[] {
-        let result: ShapeMeshGroup[] = [];
+    private static getFaceGroups(data: OccFaceMeshData): ShapeMeshRange[] {
+        let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.faces.length; i++) {
             result.push({
                 start: data.group[2 * i],

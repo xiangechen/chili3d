@@ -4,20 +4,20 @@
 import { EdgeMeshData, FaceMeshData, MathUtils } from "chili-core";
 
 export class MeshUtils {
-    static subFace(mesh: FaceMeshData, index: number) {
-        const group = mesh?.groups[index];
+    static subFace(mesh: FaceMeshData, index: number): FaceMeshData | undefined {
+        const group = mesh?.range[index];
         if (!group) return undefined;
 
-        const indices = mesh.indices.slice(group.start, group.start + group.count);
+        const indices = mesh.index.slice(group.start, group.start + group.count);
         const { min, max } = MathUtils.minMax(indices)!;
         const [indiceStart, indiceEnd] = [min, max + 1];
 
         return {
-            positions: mesh.positions.slice(indiceStart * 3, indiceEnd * 3),
-            normals: mesh.normals.slice(indiceStart * 3, indiceEnd * 3),
-            indices: indices.map((i) => i - indiceStart),
-            uvs: mesh.uvs.slice(indiceStart * 2, indiceEnd * 2),
-            groups: [],
+            position: mesh.position.slice(indiceStart * 3, indiceEnd * 3),
+            normal: mesh.normal.slice(indiceStart * 3, indiceEnd * 3),
+            index: indices.map((i) => i - indiceStart),
+            uv: mesh.uv.slice(indiceStart * 2, indiceEnd * 2),
+            range: [],
             color: mesh.color,
         };
     }
@@ -31,7 +31,7 @@ export class MeshUtils {
 
     static addEdge(
         pointsMap: Map<string, { count: number; points: number[] }>,
-        face: { positions: Float32Array },
+        face: { position: Float32Array },
         i: number,
         j: number,
     ) {
@@ -41,20 +41,20 @@ export class MeshUtils {
             entry.count++;
         } else {
             const points = [
-                ...face.positions.slice(i * 3, i * 3 + 3),
-                ...face.positions.slice(j * 3, j * 3 + 3),
+                ...face.position.slice(i * 3, i * 3 + 3),
+                ...face.position.slice(j * 3, j * 3 + 3),
             ];
             pointsMap.set(key, { count: 1, points });
         }
     }
 
-    static faceOutline(face: { positions: Float32Array; indices: Uint16Array | Uint32Array }) {
+    static faceOutline(face: { position: Float32Array; index: Uint16Array | Uint32Array }) {
         const pointsMap = new Map<string, { count: number; points: number[] }>();
 
-        for (let i = 0; i < face.indices.length; i += 3) {
-            this.addEdge(pointsMap, face, face.indices[i], face.indices[i + 1]);
-            this.addEdge(pointsMap, face, face.indices[i + 1], face.indices[i + 2]);
-            this.addEdge(pointsMap, face, face.indices[i + 2], face.indices[i]);
+        for (let i = 0; i < face.index.length; i += 3) {
+            this.addEdge(pointsMap, face, face.index[i], face.index[i + 1]);
+            this.addEdge(pointsMap, face, face.index[i + 1], face.index[i + 2]);
+            this.addEdge(pointsMap, face, face.index[i + 2], face.index[i]);
         }
 
         return new Float32Array(
@@ -65,9 +65,9 @@ export class MeshUtils {
     }
 
     static subEdge(mesh: EdgeMeshData, index: number) {
-        const group = mesh?.groups[index];
+        const group = mesh?.range[index];
         if (!group) return undefined;
 
-        return mesh.positions.slice(group.start * 3, (group.start + group.count) * 3);
+        return mesh.position.slice(group.start * 3, (group.start + group.count) * 3);
     }
 }

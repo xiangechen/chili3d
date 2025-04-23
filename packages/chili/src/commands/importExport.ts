@@ -80,7 +80,7 @@ export class Export extends CancelableCommand {
 
     private async selectNodesAsync() {
         this.controller = new AsyncController();
-        const step = new SelectNodeStep("prompt.select.models", true);
+        const step = new SelectNodeStep("prompt.select.models", { multiple: true });
         const data = await step.execute(this.application.activeView?.document!, this.controller);
         if (!data?.nodes) {
             PubSub.default.pub("showToast", "prompt.select.noModelSelected");
