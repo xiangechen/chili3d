@@ -4,17 +4,15 @@
 import { IDocument } from "../document";
 import { Id } from "../foundation";
 import { I18nKeys } from "../i18n";
-import { BoundingBox, XYZ } from "../math";
+import { BoundingBox, Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
 import { Mesh, MeshGroupLike } from "../shape";
-import { MeshNode } from "./meshNode";
-import { INode } from "./node";
-import { ManyMesh, ShapeNode } from "./shapeNode";
+import { MultiShapeMesh, ShapeNode } from "./shapeNode";
 import { VisualNode } from "./visualNode";
 
 export type MultiMesh = {
     shapes: {
-        mesh: ManyMesh;
+        mesh: MultiShapeMesh;
         group: MeshGroupLike[];
     };
     meshes: Mesh;
@@ -70,22 +68,22 @@ export class Component {
     private mergeMesh(): MultiMesh {
         const result: MultiMesh = {
             shapes: {
-                mesh: new ManyMesh(),
+                mesh: new MultiShapeMesh(),
                 group: [],
             },
             meshes: new Mesh(),
         };
 
-        this.mergeNodesMesh(result, this._nodes);
+        this.mergeNodesMesh(result, this._nodes, Matrix4.identity());
 
         return result;
     }
 
-    private readonly mergeNodesMesh = (result: MultiMesh, nodes: Iterable<VisualNode>) => {
+    private readonly mergeNodesMesh = (result: MultiMesh, nodes: Iterable<VisualNode>, transform: Matrix4) => {
         for (const node of nodes) {
             if (node instanceof ShapeNode && node.shape.isOk) {
                 const start = result.shapes.mesh.faces?.index.length ?? 0;
-                result.shapes.mesh.addShape(node.shape.value);
+                result.shapes.mesh.addShape(node.shape.value, transform);
                 const end = result.shapes.mesh.faces?.index.length ?? 0;
                 result.shapes.group.push({
                     start,
@@ -93,7 +91,7 @@ export class Component {
                     materialId: node.materialId,
                 });
             } else if (node instanceof ComponentNode) {
-                this.mergeNodesMesh(result, node.component.nodes);
+                this.mergeNodesMesh(result, node.component.nodes, node.transform);
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
             }
@@ -120,7 +118,11 @@ export class ComponentNode extends VisualNode {
     }
 
     override boundingBox(): BoundingBox | undefined {
-        return this.component.boundingBox;
+        if (!this.component.boundingBox) {
+            return undefined;
+        }
+        
+        return BoundingBox.transformed(this.component.boundingBox, this.transform);
     }
 
     private _component?: Component;

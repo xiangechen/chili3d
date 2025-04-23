@@ -54,7 +54,7 @@ export abstract class ShapeNode extends GeometryNode {
     }
 }
 
-export class ManyMesh implements IShapeMeshData {
+export class MultiShapeMesh implements IShapeMeshData {
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
 
@@ -84,13 +84,14 @@ export class ManyMesh implements IShapeMeshData {
         };
     }
 
-    public addShape(shape: IShape) {
-        const { mesh, matrix } = shape;
+    public addShape(shape: IShape, matrix: Matrix4) {
+        const mesh = shape.mesh;
+        const totleMatrix = shape.matrix.multiply(matrix);
         if (mesh.faces) {
-            this.combineFace(mesh.faces, matrix);
+            this.combineFace(mesh.faces, totleMatrix);
         }
         if (mesh.edges) {
-            this.combineEdge(mesh.edges, matrix);
+            this.combineEdge(mesh.edges, totleMatrix);
         }
     }
 
@@ -187,10 +188,10 @@ export class MultiShapeNode extends GeometryNode {
     }
 
     protected override createMesh(): IShapeMeshData {
-        const meshes = new ManyMesh();
+        const meshes = new MultiShapeMesh();
 
         this._shapes.forEach((shape) => {
-            meshes.addShape(shape);
+            meshes.addShape(shape, Matrix4.identity());
         });
 
         return meshes;

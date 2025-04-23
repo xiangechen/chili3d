@@ -168,11 +168,9 @@ export class Matrix4 {
                 roll = Math.atan2(this._array[1], this._array[5]);
             } else {
                 yaw = -Math.atan2(-this._array[2], this._array[0]);
-                roll = 0.0;
             }
         } else {
             yaw = Math.atan2(-this._array[2], this._array[0]);
-            roll = 0.0;
         }
         return { pitch, yaw, roll };
     }
@@ -416,12 +414,12 @@ export class Matrix4 {
         return result;
     }
 
-    public ofPoint(point: XYZ): XYZ {
+    public ofPoint(point: XYZLike): XYZ {
         let result = this.ofPoints([point.x, point.y, point.z]);
         return new XYZ(result[0], result[1], result[2]);
     }
 
-    public ofVector(vector: XYZ): XYZ {
+    public ofVector(vector: XYZLike): XYZ {
         let result = this.ofVectors([vector.x, vector.y, vector.z]);
         return new XYZ(result[0], result[1], result[2]);
     }

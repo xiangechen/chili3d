@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { EdgeMeshData, LineType } from "../shape";
+import { Matrix4 } from "./matrix4";
 import { XYZ } from "./xyz";
 
 export type PointLike = { x: number; y: number; z: number };
@@ -13,6 +14,13 @@ export class BoundingBox {
     ) {}
 
     static readonly zero = new BoundingBox(new XYZ(0, 0, 0), new XYZ(0, 0, 0));
+
+    static transformed(box: BoundingBox, matrix: Matrix4) {
+        const min = matrix.ofPoint(box.min);
+        const max = matrix.ofPoint(box.max);
+
+        return new BoundingBox(min, max);
+    }
 
     static center(box: BoundingBox | undefined) {
         if (!box) {
@@ -44,80 +52,18 @@ export class BoundingBox {
     static wireframe(box: BoundingBox): EdgeMeshData {
         const { min, max } = box;
         const position = [
-            min.x,
-            min.y,
-            min.z,
-            min.x,
-            min.y,
-            max.z,
-            min.x,
-            min.y,
-            max.z,
-            min.x,
-            max.y,
-            max.z,
-            min.x,
-            max.y,
-            max.z,
-            min.x,
-            max.y,
-            min.z,
-            min.x,
-            max.y,
-            min.z,
-            min.x,
-            min.y,
-            min.z,
-
-            max.x,
-            min.y,
-            min.z,
-            max.x,
-            min.y,
-            max.z,
-            max.x,
-            min.y,
-            max.z,
-            max.x,
-            max.y,
-            max.z,
-            max.x,
-            max.y,
-            max.z,
-            max.x,
-            max.y,
-            min.z,
-            max.x,
-            max.y,
-            min.z,
-            max.x,
-            min.y,
-            min.z,
-
-            min.x,
-            min.y,
-            min.z,
-            max.x,
-            min.y,
-            min.z,
-            min.x,
-            min.y,
-            max.z,
-            max.x,
-            min.y,
-            max.z,
-            min.x,
-            max.y,
-            max.z,
-            max.x,
-            max.y,
-            max.z,
-            min.x,
-            max.y,
-            min.z,
-            max.x,
-            max.y,
-            min.z,
+            min.x, min.y, min.z, min.x, min.y, max.z, // z
+            min.x, min.y, max.z, min.x, max.y, max.z, // y
+            min.x, max.y, max.z, min.x, max.y, min.z, // z
+            min.x, max.y, min.z, min.x, min.y, min.z, // y
+            max.x, min.y, min.z, max.x, min.y, max.z, // z
+            max.x, min.y, max.z, max.x, max.y, max.z, // y
+            max.x, max.y, max.z, max.x, max.y, min.z, // z
+            max.x, max.y, min.z, max.x, min.y, min.z, // y
+            min.x, min.y, min.z, max.x, min.y, min.z, // x
+            min.x, min.y, max.z, max.x, min.y, max.z, // x
+            min.x, max.y, max.z, max.x, max.y, max.z, // x
+            min.x, max.y, min.z, max.x, max.y, min.z, // x
         ];
         return {
             position: new Float32Array(position),
