@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Button, CommandKeys, I18nKeys, IApplication, PubSub, RibbonTab } from "chili-core";
+import { Button, CommandKeys, I18nKeys, IApplication, RibbonTab } from "chili-core";
 import { div } from "./components";
 import style from "./editor.module.css";
 import { njsgcs_ProjectView } from "./njsgcs/njsgcs_projectView";
-import { njsgcs_Send_to_llm } from "./njsgcs/njsgcs_send_to_llm";
+
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { Ribbon, RibbonDataContent } from "./ribbon";
@@ -39,16 +39,16 @@ export class Editor extends HTMLElement {
                     div(
                         { className: style.sidebar },
                         new ProjectView({ className: style.sidebarItem }),
+
+                        new PropertyView({ className: style.sidebarItem }),
+
                         (() => {
                             const njsgcs_projectView = new njsgcs_ProjectView({
                                 className: style.sidebarItem,
                             });
-                            PubSub.default.sub("njsgcs_send_to_llm", njsgcs_Send_to_llm.send_to_llm);
 
                             return njsgcs_projectView;
                         })(),
-
-                        new PropertyView({ className: style.sidebarItem }),
                     ),
                     viewport,
                 ),

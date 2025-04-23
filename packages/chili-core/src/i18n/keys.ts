@@ -216,6 +216,7 @@ const I18N_KEYS = [
     "test.performace",
     "njsgcs_showDialog",
     "njsgcs_send_to_llm",
+    "njsgcs_sidebar",
 ] as const;
 
 export type I18nKeys = (typeof I18N_KEYS)[number];

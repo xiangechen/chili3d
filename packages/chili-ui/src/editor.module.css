@@ -24,8 +24,7 @@
         & .sidebarItem {
             margin-top: 10px;
             overflow: hidden;
-            flex: 1 1 auto;
-            height: 0;
+            /* flex: 1 1 auto; */
         }
     }
 

@@ -1,6 +1,5 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
-
 import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
@@ -28,6 +27,7 @@ export interface PubSubEventMap {
     modelUpdate: (model: INode) => void;
     njsgcs_showDialog: () => void;
     njsgcs_send_to_llm: (content: string, callback: (backresult: string) => void) => void;
+    njsgcs_get_property: () => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;

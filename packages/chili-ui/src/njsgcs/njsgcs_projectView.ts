@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDocument, Logger, PubSub } from "chili-core";
-import { button, div, input, span } from "../components";
-import style from "./projectView.module.css";
+import { button, div, Expander, input } from "../components";
+import style from "../property/propertyView.module.css";
 
 export class njsgcs_ProjectView extends HTMLElement {
     private _activeDocument: IDocument | undefined;
@@ -24,6 +24,7 @@ export class njsgcs_ProjectView extends HTMLElement {
         this.resultLabel.className = style.resultLabel;
         this.user_say_input = input({
             type: "text",
+
             id: "njsgcs_test_input",
             onkeydown: (e: KeyboardEvent) => {
                 e.stopPropagation();
@@ -33,15 +34,12 @@ export class njsgcs_ProjectView extends HTMLElement {
     }
 
     private render() {
-        this.panel.append(
-            div(
-                { className: style.headerPanel },
-                span({
-                    className: style.header,
-                    textContent: "njsgcs sidebar",
-                }),
-            ),
+        const expander = new Expander("njsgcs_sidebar"); // 创建 Expander
+
+        // 把原来添加到 this.panel 的内容先添加到 expander 中
+        expander.append(
             div({ className: style.input }, this.user_say_input),
+            //llm_button
             div(
                 { className: style.buttons },
                 button({
@@ -65,9 +63,26 @@ export class njsgcs_ProjectView extends HTMLElement {
                     },
                 }),
             ),
+            //get属性后发送
+            div(
+                { className: style.buttons },
+                button({
+                    textContent: "带属性发送",
+                    onclick: async () => {
+                        try {
+                            Logger.info("按钮接收到点击事件");
+                            // 动态获取输入框的值
+                            PubSub.default.pub("njsgcs_get_property");
+                        } catch (error) {
+                            Logger.error("Failed to parse response as JSON:", error);
+                        }
+                    },
+                }),
+            ),
+
             div({ className: style.result }, this.resultLabel),
         );
-
+        this.panel.append(expander);
         // 确保 this.panel 被添加到当前的 HTMLElement 中
         this.appendChild(this.panel);
     }

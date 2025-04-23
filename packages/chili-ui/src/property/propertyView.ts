@@ -14,24 +14,19 @@ import {
     PubSub,
     VisualNode,
 } from "chili-core";
-import { Expander, div, label, localize } from "../components";
+import { Expander, div } from "../components";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 import { findPropertyControl } from "./utils";
 
 export class PropertyView extends HTMLElement {
     private readonly panel = div({ className: style.panel });
-
+    private readonly expander = new Expander("properties.header");
     constructor(props: { className: string }) {
         super();
         this.classList.add(props.className, style.root);
-        this.append(
-            label({
-                className: style.header,
-                textContent: localize("properties.header"),
-            }),
-            this.panel,
-        );
+        this.expander.append(this.panel);
+        this.append(this.expander);
         PubSub.default.sub("showProperties", this.handleShowProperties);
         PubSub.default.sub("activeViewChanged", this.handleActiveViewChanged);
     }
