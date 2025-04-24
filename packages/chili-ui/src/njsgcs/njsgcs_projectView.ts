@@ -30,9 +30,12 @@ export class njsgcs_ProjectView extends HTMLElement {
                 e.stopPropagation();
             },
         });
+        this.user_say_input.value = "生成一个500*500*500的正方体";
         this.render();
     }
-
+    private makebox(length: number, width: number, height: number) {
+        PubSub.default.pub("njsgcs_makebox", length, width, height);
+    }
     private render() {
         const expander = new Expander("njsgcs_sidebar"); // 创建 Expander
 
@@ -48,8 +51,14 @@ export class njsgcs_ProjectView extends HTMLElement {
                         try {
                             Logger.info("按钮接收到点击事件");
                             // 动态获取输入框的值
-
-                            const result = await send_to_llm(this.user_say_input.value);
+                            const body = JSON.stringify({
+                                messages: [
+                                    { content: this.user_say_input.value, role: "user" },
+                                    { content: "you are a helpful assistant", role: "system" },
+                                ],
+                                model: "deepseek-chat",
+                            });
+                            const result = await send_to_llm(body);
                             this.resultLabel.textContent = result;
                             Logger.info("llm返回：" + result);
                         } catch (error) {
@@ -69,12 +78,50 @@ export class njsgcs_ProjectView extends HTMLElement {
                             // 动态获取输入框的值
 
                             PubSub.default.pub("njsgcs_get_property", async (callbackresult2: string) => {
-                                const result = await send_to_llm(
-                                    this.user_say_input.value + callbackresult2,
-                                );
+                                const body = JSON.stringify({
+                                    messages: [
+                                        {
+                                            content: this.user_say_input.value + callbackresult2,
+                                            role: "user",
+                                        },
+                                        { content: "you are a helpful assistant", role: "system" },
+                                    ],
+                                    model: "deepseek-chat",
+                                });
+                                const result = await send_to_llm(body);
                                 this.resultLabel.textContent = result;
                                 Logger.info("llm返回：" + result);
                             });
+                        } catch (error) {
+                            Logger.error("Failed to parse response as JSON:", error);
+                        }
+                    },
+                }),
+            ),
+            div(
+                { className: style.buttons },
+                button({
+                    textContent: "ai生成立方体",
+                    onclick: async () => {
+                        try {
+                            Logger.info("按钮接收到点击事件");
+                            // 动态获取输入框的值
+                            let prompt = `请返回纯代码文本，不要返回其他内容
+                            如果创建一个30*50*60的立方体：
+
+                             this.makebox(30,50,60 )
+                             `;
+
+                            // this.makebox(10,10,10)
+                            const body = JSON.stringify({
+                                messages: [
+                                    { content: this.user_say_input.value, role: "user" },
+                                    { content: prompt, role: "system" },
+                                ],
+                                model: "deepseek-chat",
+                            });
+                            const result = await send_to_llm(body);
+                            eval(result);
                         } catch (error) {
                             Logger.error("Failed to parse response as JSON:", error);
                         }

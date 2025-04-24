@@ -1,22 +1,14 @@
 import { Logger } from "chili-core";
-export async function send_to_llm(mycontent: string): Promise<string> {
-    Logger.info("llm接收到点击事件，参数：" + mycontent);
+export async function send_to_llm(bodystring: string): Promise<string> {
+    Logger.info("llm接收到请求" + bodystring);
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer sk-240e8a769152439594a0c4c17618db9c");
     myHeaders.append("Content-Type", "application/json");
 
-    const raw = JSON.stringify({
-        messages: [
-            { content: mycontent, role: "user" },
-            { content: "you are a helpful assistant", role: "system" },
-        ],
-        model: "deepseek-chat",
-    });
-
     const requestOptions: RequestInit = {
         method: "POST",
         headers: myHeaders,
-        body: raw,
+        body: bodystring,
         redirect: "follow" as RequestRedirect,
     };
 

@@ -12,12 +12,15 @@ export class njsgcs_get_property {
             Logger.info(`SelectedNode class: ${geometry.constructor.name}`);
         }
         const entities = geometries.filter((x) => x instanceof VisualNode);
-
-        const properties = Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype);
         let backresult = "";
-        Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map(
-            (x) => (backresult += `Property ${x.name} is ${(entities[0] as any)[x.name]}\n`),
-        );
+        for (const entity of entities) {
+            const properties = Property.getProperties(Object.getPrototypeOf(entity), Node.prototype);
+
+            Property.getProperties(Object.getPrototypeOf(entity), Node.prototype).map(
+                (x) => (backresult += `Property ${x.name} is ${(entity as any)[x.name]}\n`),
+            );
+        }
+
         Logger.info(backresult);
         return backresult;
         // entities[0].getPrivateValue(dx);
