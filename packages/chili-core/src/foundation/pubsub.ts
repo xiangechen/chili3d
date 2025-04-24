@@ -26,8 +26,8 @@ export interface PubSubEventMap {
     executeCommand: (commandName: CommandKeys) => void;
     modelUpdate: (model: INode) => void;
     njsgcs_showDialog: () => void;
-    njsgcs_send_to_llm: (content: string, callback: (backresult: string) => void) => void;
-    njsgcs_get_property: () => void;
+
+    njsgcs_get_property: (callback: (backresult: string) => void) => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;

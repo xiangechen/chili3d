@@ -4,7 +4,7 @@
 import { IDocument, Logger, PubSub } from "chili-core";
 import { button, div, Expander, input } from "../components";
 import style from "../property/propertyView.module.css";
-
+import { send_to_llm } from "./njsgcs_send_to_llm";
 export class njsgcs_ProjectView extends HTMLElement {
     private _activeDocument: IDocument | undefined;
     get activeDocument() {
@@ -48,15 +48,10 @@ export class njsgcs_ProjectView extends HTMLElement {
                         try {
                             Logger.info("按钮接收到点击事件");
                             // 动态获取输入框的值
-                            PubSub.default.pub(
-                                "njsgcs_send_to_llm",
-                                this.user_say_input.value,
-                                async (callbackresult: string) => {
-                                    const result = await callbackresult;
-                                    this.resultLabel.textContent = result;
-                                    Logger.info("回调返回：" + result);
-                                },
-                            );
+
+                            const result = await send_to_llm(this.user_say_input.value);
+                            this.resultLabel.textContent = result;
+                            Logger.info("llm返回：" + result);
                         } catch (error) {
                             Logger.error("Failed to parse response as JSON:", error);
                         }
@@ -72,7 +67,14 @@ export class njsgcs_ProjectView extends HTMLElement {
                         try {
                             Logger.info("按钮接收到点击事件");
                             // 动态获取输入框的值
-                            PubSub.default.pub("njsgcs_get_property");
+
+                            PubSub.default.pub("njsgcs_get_property", async (callbackresult2: string) => {
+                                const result = await send_to_llm(
+                                    this.user_say_input.value + callbackresult2,
+                                );
+                                this.resultLabel.textContent = result;
+                                Logger.info("llm返回：" + result);
+                            });
                         } catch (error) {
                             Logger.error("Failed to parse response as JSON:", error);
                         }

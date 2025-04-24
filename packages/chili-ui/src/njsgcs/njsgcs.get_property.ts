@@ -1,5 +1,4 @@
 import { IApplication, Logger, Property, VisualNode } from "chili-core";
-import { findPropertyControl } from "../property/utils";
 export class njsgcs_get_property {
     static async get_property(app: IApplication) {
         Logger.info("njsgcs_get_property:");
@@ -13,14 +12,14 @@ export class njsgcs_get_property {
             Logger.info(`SelectedNode class: ${geometry.constructor.name}`);
         }
         const entities = geometries.filter((x) => x instanceof VisualNode);
-        Logger.info(...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype));
 
-        Logger.info(
-            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
-                findPropertyControl(document, entities, x),
-            ),
+        const properties = Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype);
+        let backresult = "";
+        Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map(
+            (x) => (backresult += `Property ${x.name} is ${(entities[0] as any)[x.name]}\n`),
         );
-
-        // entities[0].getPrivateValue("dx");
+        Logger.info(backresult);
+        return backresult;
+        // entities[0].getPrivateValue(dx);
     }
 }

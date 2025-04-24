@@ -100,6 +100,7 @@ export class PropertyView extends HTMLElement {
                 findPropertyControl(document, entities, x),
             ),
         );
+
         this.panel.append(parameters);
     }
 

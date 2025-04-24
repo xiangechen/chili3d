@@ -16,7 +16,7 @@ import { Editor } from "./editor";
 import { Home } from "./home";
 import { njsgcs_get_property } from "./njsgcs/njsgcs.get_property";
 import { njsgcs_Dialog } from "./njsgcs/njsgcs_dialog";
-import { njsgcs_Send_to_llm } from "./njsgcs/njsgcs_send_to_llm";
+
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
@@ -50,8 +50,11 @@ export class MainWindow implements IWindow {
         PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", Dialog.show);
         PubSub.default.sub("njsgcs_showDialog", njsgcs_Dialog.show);
-        PubSub.default.sub("njsgcs_send_to_llm", njsgcs_Send_to_llm.send_to_llm);
-        PubSub.default.sub("njsgcs_get_property", () => njsgcs_get_property.get_property(app));
+
+        PubSub.default.sub("njsgcs_get_property", async (callback) => {
+            const property = await njsgcs_get_property.get_property(app); // 等待异步结果
+            callback(property!);
+        });
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));
