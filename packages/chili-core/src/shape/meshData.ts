@@ -121,16 +121,9 @@ export namespace EdgeMeshData {
 }
 
 export interface FaceMeshData extends ShapeMeshData {
-    index: Uint16Array | Uint32Array;
+    index: number[];
     normal: Float32Array;
     uv: Float32Array;
-}
-
-export function arrayNeedsUint32(array: number[]) {
-    for (let i = array.length - 1; i >= 0; --i) {
-        if (array[i] >= 65535) return true; // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
-    }
-    return false;
 }
 
 export abstract class MeshDataBuilder<T extends ShapeMeshData> {
@@ -144,7 +137,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     }
 
     addColor(r: number, g: number, b: number) {
-        if (this._vertexColor === undefined) this._vertexColor = [];
+        this._vertexColor ??= [];
         this._vertexColor.push(r, g, b);
         return this;
     }
@@ -265,14 +258,11 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     }
 
     build(): FaceMeshData {
-        let color = this.getColor()!;
         return {
             position: new Float32Array(this._positions),
-            color,
+            color: this.getColor()!,
             normal: new Float32Array(this._normals),
-            index: arrayNeedsUint32(this._indices)
-                ? new Uint32Array(this._indices)
-                : new Uint16Array(this._indices),
+            index: this._indices,
             uv: new Float32Array(this._uvs),
             range: this._groups,
         };

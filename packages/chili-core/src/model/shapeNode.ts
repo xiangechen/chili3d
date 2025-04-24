@@ -75,7 +75,7 @@ export class MultiShapeMesh implements IShapeMeshData {
         };
 
         this._faces = {
-            index: new Uint16Array(),
+            index: [],
             normal: new Float32Array(),
             position: new Float32Array(),
             uv: new Float32Array(),
@@ -101,10 +101,7 @@ export class MultiShapeMesh implements IShapeMeshData {
         }
 
         let start = this._faces.position.length / 3;
-        this._faces.index = this.combineUintArray(
-            this._faces.index,
-            faceMeshData.index.map((x) => x + start),
-        );
+        this._faces.index = this._faces.index.concat(faceMeshData.index.map((x) => x + start));
         this._faces.normal = this.combineFloat32Array(
             this._faces.normal,
             matrix.ofVectors(faceMeshData.normal),
@@ -130,18 +127,6 @@ export class MultiShapeMesh implements IShapeMeshData {
         arr.set(arr1);
         arr.set(arr2, arr1.length);
         return arr;
-    }
-
-    private combineUintArray(arr1: Uint16Array | Uint32Array, arr2: Uint16Array | Uint32Array) {
-        let array: Uint16Array | Uint32Array;
-        if (arr1 instanceof Uint16Array && arr2 instanceof Uint16Array) {
-            array = new Uint16Array(arr1.length + arr2.length);
-        } else {
-            array = new Uint32Array(arr1.length + arr2.length);
-        }
-        array.set(arr1);
-        array.set(arr2, arr1.length);
-        return array;
     }
 
     private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {

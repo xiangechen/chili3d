@@ -48,7 +48,7 @@ export class MeshUtils {
         }
     }
 
-    static faceOutline(face: { position: Float32Array; index: Uint16Array | Uint32Array }) {
+    static faceOutline(face: { position: Float32Array; index: number[] }) {
         const pointsMap = new Map<string, { count: number; points: number[] }>();
 
         for (let i = 0; i < face.index.length; i += 3) {

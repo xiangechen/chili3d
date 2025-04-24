@@ -2,7 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    arrayNeedsUint32,
     EdgeMeshData,
     FaceMeshData,
     gc,
@@ -54,13 +53,12 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
 
     private static parseFaceMeshData(faceMeshData: OccFaceMeshData): FaceMeshData {
-        const faceIndex = faceMeshData.index;
         return {
             position: new Float32Array(faceMeshData.position),
             normal: new Float32Array(faceMeshData.normal),
             uv: new Float32Array(faceMeshData.uv),
-            index: arrayNeedsUint32(faceIndex) ? new Uint32Array(faceIndex) : new Uint16Array(faceIndex),
-            range: Mesher.getFaceGroups(faceMeshData),
+            index: faceMeshData.index,
+            range: Mesher.getFaceRanges(faceMeshData),
             color: VisualConfig.defaultFaceColor,
         };
     }
@@ -69,7 +67,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
         return {
             lineType: LineType.Solid,
             position: new Float32Array(edgeMeshData.position),
-            range: this.getEdgeGroups(edgeMeshData),
+            range: this.getEdgeRanges(edgeMeshData),
             color: VisualConfig.defaultEdgeColor,
         };
     }
@@ -104,7 +102,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
         }
     }
 
-    private static getEdgeGroups(data: OccEdgeMeshData): ShapeMeshRange[] {
+    private static getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {
         let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.edges.length; i++) {
             result.push({
@@ -116,7 +114,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
         return result;
     }
 
-    private static getFaceGroups(data: OccFaceMeshData): ShapeMeshRange[] {
+    private static getFaceRanges(data: OccFaceMeshData): ShapeMeshRange[] {
         let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.faces.length; i++) {
             result.push({
