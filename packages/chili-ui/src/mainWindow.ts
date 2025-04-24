@@ -1,19 +1,25 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { BoxNode } from "chili";
 import {
     Button,
     CommandKeys,
+    debounce,
     I18nKeys,
     IApplication,
     IWindow,
+    Logger,
+    Plane,
     PubSub,
     RibbonTab,
-    debounce,
+    XYZ,
 } from "chili-core";
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
+import { njsgcs_get_property } from "./njsgcs/njsgcs.get_property";
+import { njsgcs_Dialog } from "./njsgcs/njsgcs_dialog";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
@@ -46,6 +52,26 @@ export class MainWindow implements IWindow {
         PubSub.default.sub("showToast", Toast.info);
         PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", Dialog.show);
+        PubSub.default.sub("njsgcs_showDialog", njsgcs_Dialog.show);
+
+        PubSub.default.sub("njsgcs_get_property", async (callback) => {
+            const property = await njsgcs_get_property.get_property(app); // 等待异步结果
+            callback(property!);
+        });
+        PubSub.default.sub("njsgcs_makebox", (length: number, width: number, height: number) => {
+            Logger.info("makebox!!!!");
+
+            const boxnode = new BoxNode(
+                app.activeView?.document!,
+                new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX),
+                length,
+                width,
+                height,
+            );
+            app.activeView?.document.addNode(boxnode);
+            app.activeView?.update();
+            app.activeView?.cameraController.fitContent();
+        });
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));

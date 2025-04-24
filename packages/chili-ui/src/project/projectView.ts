@@ -2,7 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDocument, IView, PubSub } from "chili-core";
-import { div, localize, span } from "../components";
+import { div } from "../components";
+import { Expander } from "../components/expander/expander"; // 引入 Expander
 import style from "./projectView.module.css";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
@@ -30,17 +31,15 @@ export class ProjectView extends HTMLElement {
     }
 
     private render() {
-        this.append(
-            div(
-                { className: style.headerPanel },
-                span({
-                    className: style.header,
-                    textContent: localize("items.header"),
-                }),
-                new ToolBar(this),
-            ),
+        const expander = new Expander("items.header"); // 创建 Expander
+        expander.append(
+            // 将内容面板放入 Expander
+            new ToolBar(this),
+
             this.panel,
         );
+
+        this.append(expander);
     }
 
     activeTree() {

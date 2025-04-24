@@ -1,12 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
-
 import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { Material } from "../material";
 import { INode } from "../model";
-import { ObjectSnapType } from "../snapType";
 import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
@@ -27,6 +25,9 @@ export interface PubSubEventMap {
     editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
     executeCommand: (commandName: CommandKeys) => void;
     modelUpdate: (model: INode) => void;
+    njsgcs_showDialog: () => void;
+    njsgcs_makebox: (length: number, width: number, height: number) => void;
+    njsgcs_get_property: (callback: (backresult: string) => void) => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;

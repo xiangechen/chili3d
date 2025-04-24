@@ -16,9 +16,8 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    overflow-y: auto;
-    border-top: 2px solid transparent;
-    border-bottom: 2px solid transparent;
+
+    max-height: 360px;
     background-color: var(--panel-background-color);
 }
 

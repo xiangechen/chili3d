@@ -32,7 +32,7 @@ export class Observable implements IPropertyChanged {
         return `_${String(pubKey)}`;
     }
 
-    protected getPrivateValue<K extends keyof this>(pubKey: K, defaultValue?: this[K]): this[K] {
+    public getPrivateValue<K extends keyof this>(pubKey: K, defaultValue?: this[K]): this[K] {
         const privateKey = this.getPrivateKey(pubKey) as keyof this;
         return privateKey in this
             ? (this[privateKey] as this[K])

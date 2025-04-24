@@ -5,3 +5,4 @@ coverage
 .VSCodeCounter
 .DS_Store
 CMakeUserPresets.json
+packages/chili-ui/src/njsgcs/api_key.ts

@@ -221,5 +221,8 @@ export default {
         "workingPlane.fromSection": "From Section",
         "workingPlane.set": "Set",
         "test.performace": "Performace test",
+        njsgcs_send_to_llm: "njsgcs send to llm",
+        njsgcs_showDialog: "njsgcs showDialog",
+        njsgcs_sidebar: "njsgcs sidebar",
     },
 } satisfies Locale;

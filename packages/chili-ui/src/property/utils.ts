@@ -30,6 +30,7 @@ export function findPropertyControl(
     }
 
     if (["object", "string", "number"].includes(typeof value)) {
+        Logger.info(`Property ${prop.name} is ${value}`);
         return new InputProperty(document, objs, prop, converter);
     }
 
