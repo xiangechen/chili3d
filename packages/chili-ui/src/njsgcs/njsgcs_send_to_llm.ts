@@ -1,8 +1,9 @@
 import { Logger } from "chili-core";
+import { API_KEY } from "./api_key";
 export async function send_to_llm(bodystring: string): Promise<string> {
     Logger.info("llm接收到请求" + bodystring);
     const myHeaders = new Headers();
-    myHeaders.append("Authorization", "Bearer sk-240e8a769152439594a0c4c17618db9c");
+    myHeaders.append("Authorization", API_KEY);
     myHeaders.append("Content-Type", "application/json");
 
     const requestOptions: RequestInit = {
