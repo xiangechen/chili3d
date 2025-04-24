@@ -30,7 +30,7 @@ export class njsgcs_ProjectView extends HTMLElement {
                 e.stopPropagation();
             },
         });
-        this.user_say_input.value = "生成一个500*500*500的正方体";
+        this.user_say_input.value = "生成一个10*10*10的正方体";
         this.render();
     }
     private makebox(length: number, width: number, height: number) {

@@ -70,6 +70,7 @@ export class MainWindow implements IWindow {
             );
             app.activeView?.document.addNode(boxnode);
             app.activeView?.update();
+            app.activeView?.cameraController.fitContent();
         });
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
