@@ -82,6 +82,22 @@ export class FolderNode extends Node implements INodeLinkedList {
         this.document.notifyNodeChanged(records);
     }
 
+    transfer(...items: INode[]): void {
+        const records = items
+            .filter((item) => this.validateChild(item))
+            .map((item) => ({
+                action: NodeAction.transfer,
+                node: item,
+                newParent: undefined,
+                newPrevious: undefined,
+                oldParent: this,
+                oldPrevious: item.previousSibling,
+            }));
+
+        records.forEach((record) => this.removeNode(record.node, true));
+        this.document.notifyNodeChanged(records);
+    }
+
     private validateChild(item: INode): boolean {
         if (item.parent !== this) {
             Logger.warn(`${item.name} is not a child node of the ${this.name} node`);

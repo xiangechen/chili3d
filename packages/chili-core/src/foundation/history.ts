@@ -105,6 +105,7 @@ export enum NodeAction {
     add,
     remove,
     move,
+    transfer,
     insertAfter,
     insertBefore,
 }
@@ -146,10 +147,15 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
             case NodeAction.remove:
                 record.oldParent?.add(record.node);
                 break;
+            case NodeAction.transfer:
+                record.oldParent?.add(record.node);
+                break;
             case NodeAction.move:
                 record.newParent?.move(record.node, record.oldParent!, record.oldPrevious);
                 break;
             case NodeAction.insertAfter:
+                record.newParent?.remove(record.node);
+                break;
             case NodeAction.insertBefore:
                 record.newParent?.remove(record.node);
                 break;
@@ -163,6 +169,9 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
                 break;
             case NodeAction.remove:
                 record.oldParent?.remove(record.node);
+                break;
+            case NodeAction.transfer:
+                record.oldParent?.transfer(record.node);
                 break;
             case NodeAction.move:
                 record.oldParent?.move(record.node, record.newParent!, record.newPrevious);

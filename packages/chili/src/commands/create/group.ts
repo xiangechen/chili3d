@@ -20,7 +20,7 @@ export class GroupCommand extends MultistepCommand {
             this.document.addNode(group);
 
             for (const node of component.nodes) {
-                node.parent?.remove(node);
+                node.parent?.transfer(node);
             }
         });
     }

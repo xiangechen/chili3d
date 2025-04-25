@@ -22,6 +22,7 @@ export interface INodeLinkedList extends INode {
     get lastChild(): INode | undefined;
     add(...items: INode[]): void;
     remove(...items: INode[]): void;
+    transfer(...items: INode[]): void;
     size(): number;
     insertAfter(target: INode | undefined, node: INode): void;
     insertBefore(target: INode | undefined, node: INode): void;

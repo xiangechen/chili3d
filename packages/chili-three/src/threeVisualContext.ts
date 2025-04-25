@@ -127,7 +127,7 @@ export class ThreeVisualContext implements IVisualContext {
                 x.action === NodeAction.insertAfter
             ) {
                 INode.nodeOrChildrenAppendToNodes(adds, x.node);
-            } else if (x.action === NodeAction.remove) {
+            } else if (x.action === NodeAction.remove || x.action === NodeAction.transfer) {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
             } else if (x.action === NodeAction.move && x.newParent) {
                 this.moveNode(x.node, x.oldParent!);
