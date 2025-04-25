@@ -51,7 +51,7 @@ export interface IEdge extends IShape {
     update(curve: ICurve): void;
     intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[];
     length(): number;
-    curve(): ITrimmedCurve;
+    get curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
     trim(start: number, end: number): IEdge;
 }

@@ -421,11 +421,20 @@ export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
         this.trimmedCurve.setTrim(u1, u2, true, true);
     }
 
-    basisCurve(): ICurve {
-        return gc((c) => {
+    private _basisCurve: ICurve | undefined;
+    get basisCurve(): ICurve {
+        this._basisCurve ??= gc((c) => {
             let curve = c(this.trimmedCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
+        return this._basisCurve;
+    }
+
+    protected override disposeInternal(): void {
+        super.disposeInternal();
+        if (this._basisCurve) {
+            this._basisCurve.dispose();
+        }
     }
 }
 
@@ -434,11 +443,13 @@ export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
         super(offsetCurve);
     }
 
-    basisCurve(): ICurve {
-        return gc((c) => {
+    private _basisCurve: ICurve | undefined;
+    get basisCurve(): ICurve {
+        this._basisCurve ??= gc((c) => {
             let curve = c(this.offsetCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
+        return this._basisCurve;
     }
 
     offset(): number {
@@ -447,6 +458,13 @@ export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
 
     direction(): XYZ {
         return gc((c) => OcctHelper.toXYZ(c(this.offsetCurve.direction())));
+    }
+
+    protected override disposeInternal(): void {
+        super.disposeInternal();
+        if (this._basisCurve) {
+            this._basisCurve.dispose();
+        }
     }
 }
 

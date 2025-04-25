@@ -17,9 +17,9 @@ import {
     XYZ,
     command,
 } from "chili-core";
+import { Dimension } from "../snap";
 import { IStep, PointOnCurveStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
-import { Dimension } from "../snap";
 
 export class WorkingPlaneViewModel extends Observable {
     @Property.define("workingPlane.set")
@@ -78,7 +78,7 @@ export class AlignToPlane implements ICommand {
 export class FromSection extends MultistepCommand {
     protected override executeMainTask() {
         const shape = this.stepDatas[0].shapes[0].shape as IEdge;
-        const curve = shape.curve();
+        const curve = shape.curve;
         const point = this.stepDatas[1].point!;
 
         const parameter = curve.parameter(point, 1e-3);
@@ -111,11 +111,11 @@ export class FromSection extends MultistepCommand {
                 "operate.pickFistPoint",
                 () => {
                     return {
-                        curve: (this.stepDatas[0].shapes[0].shape as IEdge).curve(),
+                        curve: (this.stepDatas[0].shapes[0].shape as IEdge).curve,
                         dimension: Dimension.D1,
                         preview: (point: XYZ | undefined) => {
                             if (!point) return [];
-                            const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve();
+                            const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve;
                             const project = curve.project(point).at(0);
 
                             return [this.meshPoint(project ?? point)];

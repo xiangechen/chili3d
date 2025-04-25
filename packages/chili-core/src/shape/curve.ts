@@ -139,12 +139,12 @@ export interface IBSplineCurve extends IBoundedCurve {
 }
 
 export interface ITrimmedCurve extends IBoundedCurve {
-    basisCurve(): ICurve;
+    get basisCurve(): ICurve;
     setTrim(u1: number, u2: number): void;
 }
 
 export interface IOffsetCurve extends ICurve {
-    basisCurve(): ICurve;
+    get basisCurve(): ICurve;
     offset(): number;
     direction(): XYZ;
 }

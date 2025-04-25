@@ -34,7 +34,7 @@ export class Revolve extends CreateCommand {
 
     protected override geometryNode(): GeometryNode {
         const shape = this.stepDatas[0].shapes[0].shape;
-        const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve().basisCurve() as ILine;
+        const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
         const axis = new Ray(edge.value(0), edge.direction);
         return new RevolvedNode(this.document, shape, axis, this.angle);
     }
@@ -54,7 +54,7 @@ class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
             let edge = shape as IEdge;
-            let curve = edge.curve().basisCurve();
+            let curve = edge.curve.basisCurve;
             return ICurve.isLine(curve);
         }
         return false;

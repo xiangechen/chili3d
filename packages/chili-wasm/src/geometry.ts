@@ -29,7 +29,15 @@ export abstract class OccGeometry implements IGeometry {
         throw new Error("Unknown geometry type");
     }
 
-    dispose() {
+    #disposed = false;
+    dispose = () => {
+        if (!this.#disposed) {
+            this.#disposed = true;
+            this.disposeInternal();
+        }
+    };
+
+    protected disposeInternal() {
         this._handleGeometry.delete();
     }
 

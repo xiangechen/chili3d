@@ -12,7 +12,7 @@ export class CurveSnap implements ISnap {
 
         const ray = data.view.rayAt(data.mx, data.my);
         const edge = data.shapes[0].shape as IEdge;
-        const curve = edge.curve();
+        const curve = edge.curve;
         const nearest = curve.project(ray.location);
         if (nearest.length === 0) return undefined;
 

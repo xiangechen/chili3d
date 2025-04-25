@@ -202,11 +202,13 @@ export class OccShape implements IShape {
 
     #isDisposed = false;
     readonly dispose = () => {
-        if (this.#isDisposed) {
-            return;
+        if (!this.#isDisposed) {
+            this.#isDisposed = true;
+            this.disposeInternal();
         }
-        this.#isDisposed = true;
+    };
 
+    protected disposeInternal(): void {
         this._shape.nullify();
         this._shape.delete();
         this._shape = null as any;
@@ -215,7 +217,7 @@ export class OccShape implements IShape {
             this._mesh.dispose();
             this._mesh = null as any;
         }
-    };
+    }
 }
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
@@ -272,11 +274,13 @@ export class OccEdge extends OccShape implements IEdge {
         return wasm.Edge.curveLength(this.edge);
     }
 
-    curve(): ITrimmedCurve {
-        return gc((c) => {
+    private _curve: ITrimmedCurve | undefined;
+    get curve(): ITrimmedCurve {
+        this._curve ??= gc((c) => {
             let curve = c(wasm.Edge.curve(this.edge));
             return new OccTrimmedCurve(curve.get()!);
         });
+        return this._curve;
     }
 
     offset(distance: number, dir: XYZ): Result<IEdge> {
@@ -293,6 +297,14 @@ export class OccEdge extends OccShape implements IEdge {
     trim(start: number, end: number): IEdge {
         let newEdge = wasm.Edge.trim(this.edge, start, end);
         return new OccEdge(newEdge);
+    }
+
+    protected override disposeInternal(): void {
+        super.disposeInternal();
+        if (this._curve && IDisposable.isDisposable(this._curve)) {
+            this._curve.dispose();
+            this._curve = null as any;
+        }
     }
 }
 

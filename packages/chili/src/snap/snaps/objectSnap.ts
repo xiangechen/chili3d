@@ -160,8 +160,8 @@ export class ObjectSnap extends BaseSnap {
     private showInvisibleSnaps(view: IView, shape: VisualShapeData) {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape.shape as IEdge).curve();
-            let basisCurve = curve.basisCurve();
+            let curve = (shape.shape as IEdge).curve;
+            let basisCurve = curve.basisCurve;
             if (ICurve.isCircle(basisCurve)) {
                 this.showCircleCenter(basisCurve, view, shape);
             }
@@ -206,7 +206,7 @@ export class ObjectSnap extends BaseSnap {
             return result;
         }
 
-        let curve = (shape.shape as IEdge).curve();
+        let curve = (shape.shape as IEdge).curve;
         let point = curve.project(this.referencePoint()).at(0);
         if (point === undefined) return result;
         result.push({

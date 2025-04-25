@@ -23,7 +23,7 @@ export class FeaturePointStrategy {
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
-        const curve = (shape.shape as IEdge).curve();
+        const curve = (shape.shape as IEdge).curve;
         const start = curve.value(curve.firstParameter());
         const end = curve.value(curve.lastParameter());
 

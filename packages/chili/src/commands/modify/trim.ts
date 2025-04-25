@@ -114,7 +114,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         this.cleanHighlights();
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
         let edge = detecteds[0].shape as IEdge;
-        let curve = edge.curve();
+        let curve = edge.curve;
         let segments = findSegments(curve, edge, findEdges(detecteds, view), detecteds);
         let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
