@@ -69,6 +69,9 @@ export class ThreeHelper {
     static getBoundingBox(object: Object3D) {
         const box = new Box3();
         box.setFromObject(object);
+        if (box.isEmpty()) {
+            return undefined;
+        }
         return { min: ThreeHelper.toXYZ(box.min), max: ThreeHelper.toXYZ(box.max) };
     }
 

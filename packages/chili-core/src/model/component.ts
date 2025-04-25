@@ -79,7 +79,11 @@ export class Component {
         return result;
     }
 
-    private readonly mergeNodesMesh = (result: MultiMesh, nodes: Iterable<VisualNode>, transform: Matrix4) => {
+    private readonly mergeNodesMesh = (
+        result: MultiMesh,
+        nodes: Iterable<VisualNode>,
+        transform: Matrix4,
+    ) => {
         for (const node of nodes) {
             if (node instanceof ShapeNode && node.shape.isOk) {
                 const start = result.shapes.mesh.faces?.index.length ?? 0;
@@ -91,7 +95,7 @@ export class Component {
                     materialId: node.materialId,
                 });
             } else if (node instanceof ComponentNode) {
-                this.mergeNodesMesh(result, node.component.nodes, node.transform);
+                this.mergeNodesMesh(result, node.component.nodes, node.transform.multiply(transform));
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
             }
@@ -100,7 +104,7 @@ export class Component {
 
     private computeBoundingBox() {
         if (this._nodes.length === 0) {
-            return BoundingBox.zero;
+            return undefined;
         }
 
         let box = this._nodes[0].boundingBox();
@@ -121,7 +125,7 @@ export class ComponentNode extends VisualNode {
         if (!this.component.boundingBox) {
             return undefined;
         }
-        
+
         return BoundingBox.transformed(this.component.boundingBox, this.transform);
     }
 

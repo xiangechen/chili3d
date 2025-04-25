@@ -144,7 +144,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
 }
 
 function findEdges(detecteds: VisualShapeData[], view: IView) {
-    let boundingBox = BoundingBox.expand(detecteds[0].owner.boundingBox(), 1e-3);
+    let boundingBox = BoundingBox.expand(detecteds[0].owner.boundingBox()!, 1e-3);
     let otherEdges = view.document.visual.context
         .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
         .map((x) => ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value as IEdge)

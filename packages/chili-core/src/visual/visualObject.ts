@@ -6,7 +6,7 @@ import { BoundingBox, GeometryNode, IDisposable, Matrix4 } from "chili-core";
 export interface IVisualObject extends IDisposable {
     visible: boolean;
     transform: Matrix4;
-    boundingBox(): BoundingBox;
+    boundingBox(): BoundingBox | undefined;
 }
 
 export interface IVisualGeometry extends IVisualObject {

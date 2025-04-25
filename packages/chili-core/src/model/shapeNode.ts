@@ -10,6 +10,12 @@ import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
 import { GeometryNode } from "./geometryNode";
 
+/**
+ * ShapeNode is the base class for all shape nodes.
+ * It provides a shape property that can be used to set the shape of the node.
+ * The matrix of the shape is equal to the matrix of the node.
+ * When the matrix of the node is changed, the matrix of the shape is also changed.
+ */
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
     get shape(): Result<IShape> {

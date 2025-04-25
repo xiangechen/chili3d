@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     EdgeMeshData,
     FaceMeshData,
     GeometryNode,
@@ -57,11 +58,13 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
     }
 
-    override boundingBox() {
+    override boundingBox(): BoundingBox | undefined {
         const box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
+        if (!box) return undefined;
+
         return {
-            min: ThreeHelper.toXYZ(box!.min),
-            max: ThreeHelper.toXYZ(box!.max),
+            min: ThreeHelper.toXYZ(box.min),
+            max: ThreeHelper.toXYZ(box.max),
         };
     }
 

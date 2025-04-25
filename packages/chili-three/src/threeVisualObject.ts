@@ -63,7 +63,7 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         }
     };
 
-    boundingBox(): BoundingBox {
+    boundingBox(): BoundingBox | undefined {
         return ThreeHelper.getBoundingBox(this);
     }
 
@@ -222,7 +222,7 @@ export class GroupVisualObject extends Group implements IVisualObject {
         }
     };
 
-    boundingBox(): BoundingBox {
+    boundingBox(): BoundingBox | undefined {
         return ThreeHelper.getBoundingBox(this);
     }
 
@@ -302,8 +302,8 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
 
     private initMesh(mesh: OccMesh) {}
 
-    override boundingBox(): BoundingBox {
-        return this.componentNode.component.boundingBox ?? BoundingBox.zero;
+    override boundingBox(): BoundingBox | undefined {
+        return this.componentNode.component.boundingBox;
     }
 
     highlight(): void {
