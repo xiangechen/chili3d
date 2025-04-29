@@ -12,6 +12,7 @@ const I18N_KEYS = [
     "body.box",
     "body.cylinder",
     "body.cone",
+    "body.group",
     "body.sphere",
     "body.ellipse",
     "body.pyramid",

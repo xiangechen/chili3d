@@ -170,7 +170,7 @@ export class Component {
 @Serializer.register(["document", "name", "componentId", "insert", "id"])
 export class ComponentNode extends VisualNode {
     override display(): I18nKeys {
-        return "arc.angle";
+        return "body.group";
     }
 
     override boundingBox(): BoundingBox | undefined {

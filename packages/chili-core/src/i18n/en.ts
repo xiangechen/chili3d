@@ -18,6 +18,7 @@ export default {
         "body.pyramid": "Pyramid",
         "body.cylinder": "Cylinder",
         "body.cone": "Cone",
+        "body.group": "Group",
         "body.sphere": "Sphere",
         "body.ellipse": "Ellipse",
         "body.circle": "Circle",

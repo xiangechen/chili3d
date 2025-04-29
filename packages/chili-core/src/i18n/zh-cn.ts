@@ -18,6 +18,7 @@ export default {
         "body.pyramid": "棱锥",
         "body.cylinder": "圆柱",
         "body.cone": "圆锥",
+        "body.group": "组",
         "body.sphere": "球体",
         "body.ellipse": "椭圆",
         "body.circle": "圆形",
