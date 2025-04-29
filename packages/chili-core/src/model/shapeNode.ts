@@ -36,7 +36,6 @@ export abstract class ShapeNode extends GeometryNode {
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._boundingBox = undefined;
         this._shape.value.matrix = this.transform;
         this.emitPropertyChanged("shape", oldShape);
 

@@ -69,8 +69,9 @@ export class Explode extends MultistepCommand {
 
     private explodeComponentNode(x: ComponentNode) {
         for (const node of x.component.nodes) {
-            node.transform = node.transform.multiply(x.transform);
-            x.parent?.insertAfter(x.previousSibling, node);
+            const newNode = node.clone();
+            newNode.transform = node.transform.multiply(x.transform);
+            x.parent?.insertAfter(x.previousSibling, newNode);
         }
 
         x.parent?.remove(x);

@@ -53,20 +53,16 @@ export abstract class GeometryNode extends VisualNode {
         return this._mesh as any;
     }
 
-    protected _boundingBox: BoundingBox | undefined;
     override boundingBox(): BoundingBox | undefined {
-        if (this._boundingBox === undefined) {
-            let points = this.mesh.faces?.position;
-            if (!points || points.length === 0) {
-                points = this.mesh.edges?.position;
-            }
-
-            if (!points || points.length === 0) {
-                return undefined;
-            }
-            this._boundingBox = BoundingBox.fromNumbers(this.transform.ofPoints(points));
+        let points = this.mesh.faces?.position;
+        if (!points || points.length === 0) {
+            points = this.mesh.edges?.position;
         }
-        return this._boundingBox;
+
+        if (!points || points.length === 0) {
+            return undefined;
+        }
+        return BoundingBox.fromNumbers(this.transform.ofPoints(points));
     }
 
     override disposeInternal(): void {
