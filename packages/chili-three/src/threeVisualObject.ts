@@ -4,8 +4,6 @@
 import {
     BoundingBox,
     ComponentNode,
-    EdgeMeshData,
-    FaceMeshData,
     GroupNode,
     IVisualObject,
     Matrix4,
@@ -131,7 +129,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
             this._mesh = this.createMesh();
             this.add(this._mesh);
         } else if (property === "materialId" && this._mesh instanceof Mesh) {
-            this.material = this.getMaterial();
+            this.material = this.context.getMaterial(this.meshNode.materialId);
             this._mesh.material = this.material;
         }
     };
@@ -144,23 +142,9 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         if (this.meshNode.mesh.uv)
             buff.setAttribute("uv", new Float32BufferAttribute(this.meshNode.mesh.uv, 2));
         if (this.meshNode.mesh.index) buff.setIndex(this.meshNode.mesh.index);
-        this.meshNode.mesh.group.forEach((g) => {
-            const index = Array.isArray(this.meshNode.materialId)
-                ? this.meshNode.materialId.indexOf(g.materialId)
-                : 0;
-            buff.addGroup(g.start, g.count, index);
-        });
+        if (this.meshNode.mesh.groups.length > 1) buff.groups = this.meshNode.mesh.groups;
         buff.computeBoundingBox();
-        return new Mesh(buff, this.getMaterial());
-    }
-
-    private getMaterial() {
-        if (Array.isArray(this.meshNode.materialId)) {
-            return this.meshNode.materialId.map((id) => this.context.getMaterial(id));
-        } else if (typeof this.meshNode.materialId === "string") {
-            return this.context.getMaterial(this.meshNode.materialId);
-        }
-        return this.context.materialMap.values().next().value!;
+        return new Mesh(buff, this.context.getMaterial(this.meshNode.materialId));
     }
 
     private newLineSegments() {
@@ -273,7 +257,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
     }
 
     private initEdges() {
-        const data = this.componentNode.component.mesh.shapes.mesh.edges;
+        const data = this.componentNode.component.mesh.edge;
         if (!data) {
             return;
         }
@@ -284,18 +268,14 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
     }
 
     private initFaces() {
-        const data = this.componentNode.component.mesh.shapes.mesh.faces;
+        const data = this.componentNode.component.mesh.face;
         if (!data) {
             return;
         }
 
         const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
-        const materials: Material[] = [];
-        this.componentNode.component.mesh.shapes.group.forEach((g, i) => {
-            buff.addGroup(g.start, g.count, i);
-            materials.push(this.context.getMaterial(g.materialId));
-        });
-
+        if (data.groups.length > 1) buff.groups = data.groups;
+        const materials = this.context.getMaterial(this.componentNode.component.mesh.faceMaterials);
         this._faces = new Mesh(buff, materials);
         this.add(this._faces);
     }

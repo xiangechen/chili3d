@@ -26,11 +26,18 @@ export class Mesher implements IShapeMeshData, IDisposable {
         }
         return this._lines;
     }
+    set edges(value: EdgeMeshData | undefined) {
+        this._lines = value;
+    }
+
     get faces(): FaceMeshData | undefined {
         if (this._faces === undefined) {
             this.mesh();
         }
         return this._faces;
+    }
+    set faces(value: FaceMeshData | undefined) {
+        this._faces = value;
     }
 
     constructor(private shape: OccShape) {}
@@ -60,6 +67,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
             index: faceMeshData.index,
             range: Mesher.getFaceRanges(faceMeshData),
             color: VisualConfig.defaultFaceColor,
+            groups: [],
         };
     }
 

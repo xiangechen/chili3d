@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { MeshUtils } from "chili-geo";
 import { VisualConfig } from "../config";
 import { IDocument } from "../document";
 import { Id, IEqualityComparer, PubSub, Result } from "../foundation";
@@ -50,7 +51,9 @@ export abstract class ShapeNode extends GeometryNode {
         if (!this.shape.isOk) {
             throw new Error(this.shape.error);
         }
-        return this.shape.value.mesh;
+        const mesh = this.shape.value.mesh;
+        if (mesh.faces) mesh.faces = MeshUtils.mergeFaceMesh(mesh.faces, this.faceMaterialPair);
+        return mesh;
     }
 
     override disposeInternal(): void {
@@ -86,6 +89,7 @@ export class MultiShapeMesh implements IShapeMeshData {
             position: new Float32Array(),
             uv: new Float32Array(),
             range: [],
+            groups: [],
             color: VisualConfig.defaultFaceColor,
         };
     }
@@ -94,66 +98,11 @@ export class MultiShapeMesh implements IShapeMeshData {
         const mesh = shape.mesh;
         const totleMatrix = shape.matrix.multiply(matrix);
         if (mesh.faces) {
-            this.combineFace(mesh.faces, totleMatrix);
+            MeshUtils.combineFaceMeshData(this._faces, mesh.faces, totleMatrix);
         }
         if (mesh.edges) {
-            this.combineEdge(mesh.edges, totleMatrix);
+            MeshUtils.combineEdgeMeshData(this._edges, mesh.edges, totleMatrix);
         }
-    }
-
-    private combineFace(faceMeshData: FaceMeshData | undefined, matrix: Matrix4) {
-        if (!faceMeshData) {
-            return;
-        }
-
-        let start = this._faces.position.length / 3;
-        this._faces.index = this._faces.index.concat(faceMeshData.index.map((x) => x + start));
-        this._faces.normal = this.combineFloat32Array(
-            this._faces.normal,
-            matrix.ofVectors(faceMeshData.normal),
-        );
-        this._faces.uv = this.combineFloat32Array(this._faces.uv, faceMeshData.uv);
-        this._faces.position = this.combineFloat32Array(
-            this._faces.position,
-            matrix.ofPoints(faceMeshData.position),
-        );
-        this._faces.range = this._faces.range.concat(
-            faceMeshData.range.map((g) => {
-                return {
-                    start: g.start + start,
-                    shape: g.shape,
-                    count: g.count,
-                };
-            }),
-        );
-    }
-
-    private combineFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
-        let arr = new Float32Array(arr1.length + arr2.length);
-        arr.set(arr1);
-        arr.set(arr2, arr1.length);
-        return arr;
-    }
-
-    private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {
-        if (!edgeMeshData) {
-            return;
-        }
-
-        let start = this._edges.position.length / 3;
-        this._edges.position = this.combineFloat32Array(
-            this._edges.position,
-            matrix.ofPoints(edgeMeshData.position),
-        );
-        this._edges.range = this._edges.range.concat(
-            edgeMeshData.range.map((g) => {
-                return {
-                    start: g.start + start,
-                    shape: g.shape,
-                    count: g.count,
-                };
-            }),
-        );
     }
 
     updateMeshShape() {}
@@ -243,7 +192,7 @@ export class EditableShapeNode extends ShapeNode {
         document: IDocument,
         name: string,
         shape: IShape | Result<IShape>,
-        materialId?: string,
+        materialId?: string | string[],
         id?: string,
     ) {
         super(document, name, materialId, id);

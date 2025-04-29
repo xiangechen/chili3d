@@ -21,7 +21,7 @@ import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
-    private _faceMaterial: Material;
+    private _faceMaterial: Material | Material[];
     private _edgeMaterial = new LineMaterial({
         linewidth: 1,
         color: VisualConfig.defaultEdgeColor,
@@ -47,7 +47,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         return this._faces ? this._faceMaterial : this._edgeMaterial;
     }
 
-    changeFaceMaterial(material: Material) {
+    changeFaceMaterial(material: Material | Material[]) {
         if (this._faces) {
             this._faceMaterial = material;
             this._faces.material = material;
@@ -112,6 +112,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private initFaces(data: FaceMeshData) {
         const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        if (data.groups.length > 1) buff.groups = data.groups;
         this._faces = new Mesh(buff, this._faceMaterial);
         this.add(this._faces);
     }

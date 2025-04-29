@@ -357,7 +357,19 @@ export class ThreeVisualContext implements IVisualContext {
         return shapes;
     }
 
-    getMaterial(id: string): ThreeMaterial {
+    getMaterial(id: string | string[]): ThreeMaterial | ThreeMaterial[] {
+        if (Array.isArray(id)) {
+            const materials = [];
+            for (const i of id) {
+                const material = this.materialMap.get(i);
+                if (!material) {
+                    throw new Error(`Material not found: ${i}`);
+                }
+                materials.push(material);
+            }
+            return materials.length === 1 ? materials[0] : materials;
+        }
+
         const material = this.materialMap.get(id);
         if (!material) {
             throw new Error(`Material not found: ${id}`);

@@ -1,21 +1,23 @@
 // Part of the Chili3d Project, under the AGPL-3.0 Licensettt.
 // See LICENSE file in the project root for full license information.
 
+import { MeshUtils } from "chili-geo";
 import { IDocument } from "../document";
 import { Id } from "../foundation";
 import { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
-import { Mesh, MeshGroupLike } from "../shape";
-import { MultiShapeMesh, ShapeNode } from "./shapeNode";
+import { EdgeMeshData, FaceMeshData, LineType, Mesh } from "../shape";
+import { ShapeNode } from "./shapeNode";
 import { VisualNode } from "./visualNode";
 
-export type MultiMesh = {
-    shapes: {
-        mesh: MultiShapeMesh;
-        group: MeshGroupLike[];
-    };
-    meshes: Mesh;
+export type ComponentMesh = {
+    faceMaterials: string[];
+    edge: EdgeMeshData;
+    face: FaceMeshData;
+    line: Mesh;
+    surfaceMaterials: string[];
+    surface: Mesh;
 };
 
 @Serializer.register(["name", "nodes", "origin", "id"])
@@ -50,8 +52,8 @@ export class Component {
         return this._boundingBox;
     }
 
-    private _mesh?: MultiMesh;
-    get mesh(): MultiMesh {
+    private _mesh?: ComponentMesh;
+    get mesh(): ComponentMesh {
         this._mesh ??= this.mergeMesh();
         return this._mesh;
     }
@@ -65,42 +67,92 @@ export class Component {
         this._origin = origin ?? BoundingBox.center(this.boundingBox);
     }
 
-    private mergeMesh(): MultiMesh {
-        const result: MultiMesh = {
-            shapes: {
-                mesh: new MultiShapeMesh(),
-                group: [],
+    private mergeMesh() {
+        const mesh: ComponentMesh = {
+            faceMaterials: [],
+            edge: {
+                lineType: LineType.Solid,
+                position: new Float32Array(),
+                range: [],
             },
-            meshes: new Mesh(),
+            face: {
+                index: [],
+                normal: new Float32Array(),
+                position: new Float32Array(),
+                uv: new Float32Array(),
+                range: [],
+                groups: [],
+            },
+            line: Mesh.createLine(),
+            surfaceMaterials: [],
+            surface: Mesh.createSurface(),
         };
+        const faceMaterialPair: [number, number][] = [];
+        this.mergeNodesMesh(mesh, faceMaterialPair, this._nodes, Matrix4.identity());
+        mesh.face = MeshUtils.mergeFaceMesh(mesh.face, faceMaterialPair);
 
-        this.mergeNodesMesh(result, this._nodes, Matrix4.identity());
-
-        return result;
+        return mesh;
     }
 
     private readonly mergeNodesMesh = (
-        result: MultiMesh,
+        visual: ComponentMesh,
+        faceMaterialPair: [number, number][],
         nodes: Iterable<VisualNode>,
         transform: Matrix4,
     ) => {
         for (const node of nodes) {
             if (node instanceof ShapeNode && node.shape.isOk) {
-                const start = result.shapes.mesh.faces?.index.length ?? 0;
-                result.shapes.mesh.addShape(node.shape.value, transform);
-                const end = result.shapes.mesh.faces?.index.length ?? 0;
-                result.shapes.group.push({
-                    start,
-                    count: end - start,
-                    materialId: node.materialId,
-                });
+                this.mergeShapeNode(visual, faceMaterialPair, node, node.transform.multiply(transform));
             } else if (node instanceof ComponentNode) {
-                this.mergeNodesMesh(result, node.component.nodes, node.transform.multiply(transform));
+                this.mergeNodesMesh(
+                    visual,
+                    faceMaterialPair,
+                    node.component.nodes,
+                    node.transform.multiply(transform),
+                );
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
             }
         }
     };
+
+    private mergeShapeNode(
+        visual: ComponentMesh,
+        faceMaterialPair: [number, number][],
+        node: ShapeNode,
+        transform: Matrix4,
+    ) {
+        const mesh = node.shape.value.mesh;
+        if (mesh.edges) MeshUtils.combineEdgeMeshData(visual.edge, mesh.edges, transform);
+        if (mesh.faces) {
+            this.mergeMaterial(node, visual, faceMaterialPair);
+            MeshUtils.combineFaceMeshData(visual.face, mesh.faces, transform);
+        }
+    }
+
+    private mergeMaterial(node: ShapeNode, visual: ComponentMesh, faceMaterialPair: [number, number][]) {
+        const materialIndexMap = new Map<number, number>();
+        const materials = Array.isArray(node.materialId) ? node.materialId : [node.materialId];
+        for (let i = 0; i < materials.length; i++) {
+            const index = visual.faceMaterials.indexOf(materials[i]);
+            if (index === -1) {
+                visual.faceMaterials.push(materials[i]);
+                materialIndexMap.set(i, visual.faceMaterials.length - 1);
+            } else {
+                materialIndexMap.set(i, index);
+            }
+        }
+
+        const map = new Map<number, number>(node.faceMaterialPair);
+        node.mesh.faces?.range.forEach((range, i) => {
+            if (!map.has(i)) {
+                faceMaterialPair.push([i + visual.face.range.length, materialIndexMap.get(0)!]);
+            }
+        });
+        node.faceMaterialPair.forEach((pair) => {
+            faceMaterialPair.push([pair[0] + visual.face.range.length, materialIndexMap.get(pair[1])!]);
+        });
+    }
 
     private computeBoundingBox() {
         if (this._nodes.length === 0) {
