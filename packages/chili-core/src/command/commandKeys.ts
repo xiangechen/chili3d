@@ -55,6 +55,7 @@ const COMMAND_KEYS = [
     "modify.trim",
     "special.last",
     "test.performace",
+    "wechat.group",
     "workingPlane.alignToPlane",
     "workingPlane.fromSection",
     "workingPlane.set",

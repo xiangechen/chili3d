@@ -86,6 +86,7 @@ const I18N_KEYS = [
     "command.removeSubShapes",
     "command.revol",
     "command.rotate",
+    "command.wechatGroup",
     "command.section",
     "command.split",
     "command.sweep",

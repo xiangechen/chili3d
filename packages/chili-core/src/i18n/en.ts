@@ -92,6 +92,7 @@ export default {
         "command.removeSubShapes": "Remove SubShapes",
         "command.revol": "Revol",
         "command.rotate": "Rotate",
+        "command.wechatGroup": "WeChat",
         "command.section": "Section",
         "command.split": "Split",
         "command.sweep": "Sweep",

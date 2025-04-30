@@ -7,3 +7,4 @@ export * from "./performanceTest";
 export * from "./saveDocument";
 export * from "./toFile";
 export * from "./toggleDynamicWorkplane";
+export * from "./wechatGroup";

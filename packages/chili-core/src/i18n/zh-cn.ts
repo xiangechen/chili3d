@@ -91,6 +91,7 @@ export default {
         "command.removeSubShapes": "移除子形状",
         "command.revol": "旋转",
         "command.rotate": "旋转",
+        "command.wechatGroup": "微信群",
         "command.section": "相交线",
         "command.split": "分割",
         "command.sweep": "扫略",
