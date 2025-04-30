@@ -1,8 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { RadioGroup, div } from "chili-controls";
 import {
     AsyncController,
+    DialogResult,
+    I18n,
     IApplication,
     ICommand,
     IEdge,
@@ -22,7 +25,7 @@ import { IStep, PointOnCurveStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
-    @Property.define("workingPlane.set")
+    @Property.define("workingPlane.set.selectPlane")
     planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], SelectMode.radio, ["XOY"]);
 }
 
@@ -35,11 +38,26 @@ export class SetWorkplane implements ICommand {
     async execute(application: IApplication): Promise<void> {
         const view = application.activeView;
         if (!view) return;
+
         const vm = new WorkingPlaneViewModel();
-        PubSub.default.pub("showDialog", "workingPlane.set", vm, () => {
-            const planes = [Plane.XY, Plane.YZ, Plane.ZX];
-            view.workplane = planes[vm.planes.selectedIndexes[0]];
+        PubSub.default.pub("showDialog", "workingPlane.set.selectPlane", this.ui(vm), (result) => {
+            if (result === DialogResult.ok) {
+                const planes = [Plane.XY, Plane.YZ, Plane.ZX];
+                view.workplane = planes[vm.planes.selectedIndexes[0]];
+            }
         });
+    }
+
+    private ui(vm: WorkingPlaneViewModel) {
+        return div(
+            ...Property.getProperties(vm).map((x) => {
+                const value = (vm as any)[x.name];
+                if (value instanceof SelectableItems) {
+                    return new RadioGroup(I18n.translate(x.display), value);
+                }
+                return "";
+            }),
+        );
     }
 }
 

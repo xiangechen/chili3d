@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { I18n, I18nKeys } from "chili-core";
-import { label } from "../components";
+import { label } from "chili-controls";
 import style from "./toast.module.css";
 
 export class Toast {

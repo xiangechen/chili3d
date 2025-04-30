@@ -1,0 +1,20 @@
+.radioGroup {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-items: center;
+
+    input {
+        font-size: 1em;
+        width: 1.5em;
+        height: 1.5em;
+        justify-content: center;
+    }
+
+    label {
+        justify-content: center;
+        font-size: 1em;
+        margin-left: 2px;
+        margin-right: 16px;
+    }
+}

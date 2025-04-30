@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { button, collection, div, localize, span } from "chili-controls";
 import {
     Binding,
     IDocument,
@@ -11,7 +12,6 @@ import {
     PubSub,
     Transaction,
 } from "chili-core";
-import { button, collection, div, localize, span } from "../components";
 import { ColorConverter } from "../converters";
 import { UrlStringConverter } from "./material/urlConverter";
 import style from "./materialProperty.module.css";

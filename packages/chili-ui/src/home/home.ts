@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { a, button, collection, div, img, label, localize, span, svg } from "chili-controls";
 import {
     Constants,
     I18n,
@@ -10,19 +11,8 @@ import {
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
-import {
-    LanguageSelector,
-    a,
-    button,
-    collection,
-    div,
-    img,
-    label,
-    localize,
-    span,
-    svg,
-} from "../components";
 import style from "./home.module.css";
+import { LanguageSelector } from "./languageSelector";
 
 interface ApplicationCommand {
     display: I18nKeys;

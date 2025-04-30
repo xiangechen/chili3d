@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { button, div, input, label, localize, option, select, svg } from "chili-controls";
 import {
     Binding,
     Combobox,
@@ -11,7 +12,6 @@ import {
     Observable,
     Property,
 } from "chili-core";
-import { button, div, input, label, localize, option, select, svg } from "../components";
 import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {

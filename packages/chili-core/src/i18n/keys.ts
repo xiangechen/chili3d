@@ -215,6 +215,7 @@ const I18N_KEYS = [
     "workingPlane.alignToPlane",
     "workingPlane.fromSection",
     "workingPlane.set",
+    "workingPlane.set.selectPlane",
     "test.performace",
 ] as const;
 

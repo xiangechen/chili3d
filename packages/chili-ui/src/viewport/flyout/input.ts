@@ -1,9 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { input, label, localize } from "chili-controls";
 import { I18n, I18nKeys, IDisposable, Result } from "chili-core";
-import { input, label } from "../controls";
-import { localize } from "../localize";
 import style from "./input.module.css";
 
 export class Input extends HTMLElement implements IDisposable {

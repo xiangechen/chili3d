@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, Expander, label, localize } from "chili-controls";
 import {
     FolderNode,
     GroupNode,
@@ -14,7 +15,6 @@ import {
     PubSub,
     VisualNode,
 } from "chili-core";
-import { Expander, div, label, localize } from "../components";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 import { findPropertyControl } from "./utils";

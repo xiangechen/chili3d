@@ -222,6 +222,7 @@ export default {
         "workingPlane.alignToPlane": "Align",
         "workingPlane.fromSection": "From Section",
         "workingPlane.set": "Set",
+        "workingPlane.set.selectPlane": "Select Plane",
         "test.performace": "Performace test",
     },
 } satisfies Locale;

@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { label, localize, svg } from "chili-controls";
 import {
     ButtonSize,
     Command,
@@ -12,7 +13,6 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { label, localize, svg } from "../components";
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {

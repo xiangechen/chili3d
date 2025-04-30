@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { HTMLProps, option, select } from "chili-controls";
 import { I18n } from "chili-core";
-import { HTMLProps, option, select } from ".";
 
 export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
     let languages: HTMLOptionElement[] = [];

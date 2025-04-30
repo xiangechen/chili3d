@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { a, svg } from "chili-controls";
 import { I18n, I18nKeys, INode, PubSub } from "chili-core";
-import { a, svg } from "../components";
 import { ProjectView } from "./projectView";
 import style from "./toolBar.module.css";
 import { Tree } from "./tree";

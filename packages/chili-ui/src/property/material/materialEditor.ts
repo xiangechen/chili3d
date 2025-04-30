@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { button, collection, div, localize, span, svg } from "chili-controls";
 import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
-import { button, collection, div, Localize, localize, span, svg } from "../../components";
 import { ColorConverter } from "../../converters";
 import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";

@@ -1,8 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, svg } from "chili-controls";
 import { Binding, CameraType, IConverter, IView, Result } from "chili-core";
-import { div, Flyout, svg } from "../components";
+import { Flyout } from "./flyout";
 import style from "./viewport.module.css";
 
 class CameraConverter implements IConverter<CameraType> {

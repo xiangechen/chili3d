@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, label, localize } from "chili-controls";
 import { I18n, I18nKeys, PubSub } from "chili-core";
-import { div, label, localize } from "../components";
 import { SnapConfig } from "./snapConfig";
 import style from "./statusbar.module.css";
 

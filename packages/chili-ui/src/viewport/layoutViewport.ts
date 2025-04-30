@@ -12,11 +12,11 @@ import {
     Material,
     PubSub,
 } from "chili-core";
-import { OKCancel } from "../components/okCancel";
 import { Cursor } from "../cursor";
 import { MaterialEditor } from "../property/material";
 import { MaterialDataContent } from "../property/material/materialDataContent";
 import style from "./layoutViewport.module.css";
+import { OKCancel } from "./okCancel";
 import { Viewport } from "./viewport";
 
 export class LayoutViewport extends HTMLElement {

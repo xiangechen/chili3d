@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, span, svg } from "chili-controls";
 import { AsyncController, I18n } from "chili-core";
-import { div, span, svg } from "./controls";
 import style from "./okCancel.module.css";
 
 export class OKCancel extends HTMLElement {

@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { SelectableItems } from "chili-core";
-import { div, input, li, span, ul } from "./controls";
-import style from "./itemsControl.module.css";
+import { div, input, label, li, span, ul } from "./controls";
+import style from "./radioGroup.module.css";
 
 export class RadioGroup extends HTMLElement {
     constructor(
@@ -15,11 +15,21 @@ export class RadioGroup extends HTMLElement {
     }
 
     render() {
-        const items = this.context.items.map((x) =>
-            li(input({ type: "radio", value: x, checked: this.context.selectedItems.has(x) }), x),
+        return div(
+            { className: style.radioGroup },
+            ...this.context.items.flatMap((x, i) => [
+                input({
+                    type: "radio",
+                    value: x,
+                    checked: this.context.selectedItems.has(x),
+                    id: `radio-${i}`,
+                }),
+                label({
+                    htmlFor: `radio-${i}`,
+                    textContent: x,
+                }),
+            ]),
         );
-
-        return div({ className: style.radioGroup }, span(`${this.header}: `), ul(...items));
     }
 
     connectedCallback() {

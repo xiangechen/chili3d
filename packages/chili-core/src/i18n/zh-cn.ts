@@ -220,6 +220,7 @@ export default {
         "workingPlane.alignToPlane": "对齐",
         "workingPlane.fromSection": "从截面",
         "workingPlane.set": "设置",
+        "workingPlane.set.selectPlane": "选择平面",
         "test.performace": "性能测试",
     },
 } satisfies Locale;

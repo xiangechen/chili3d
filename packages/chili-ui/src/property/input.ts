@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, input, localize, span } from "chili-controls";
 import {
     Binding,
     IConverter,
@@ -14,7 +15,6 @@ import {
     XY,
     XYZ,
 } from "chili-core";
-import { div, input, localize, span } from "../components";
 import {
     NumberConverter,
     QuaternionConverter,
