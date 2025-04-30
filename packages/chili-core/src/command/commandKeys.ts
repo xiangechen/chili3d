@@ -3,8 +3,6 @@
 
 import { I18nKeys } from "../i18n";
 
-type COMMAND_KEYS = {
+export type CommandKeys = {
     [P in I18nKeys]: P extends `command.${infer K}` ? K : never;
-};
-
-export type CommandKeys = COMMAND_KEYS[I18nKeys];
+}[I18nKeys];
