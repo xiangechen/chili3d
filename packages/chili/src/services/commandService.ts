@@ -82,7 +82,7 @@ export class CommandService implements IService {
         if (!this.app.executingCommand) {
             return true;
         }
-        if (Command.getData(this.app.executingCommand)?.name === commandName) {
+        if (Command.getData(this.app.executingCommand)?.key === commandName) {
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
             return false;
         }

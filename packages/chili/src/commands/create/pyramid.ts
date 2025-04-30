@@ -8,8 +8,7 @@ import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
 @command({
-    name: "create.pyramid",
-    display: "command.pyramid",
+    key: "create.pyramid",
     icon: "icon-pyramid",
 })
 export class Pyramid extends RectCommandBase {

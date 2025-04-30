@@ -8,8 +8,7 @@ import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.sphere",
-    display: "command.sphere",
+    key: "create.sphere",
     icon: "icon-sphere",
 })
 export class Sphere extends CreateCommand {

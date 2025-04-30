@@ -25,13 +25,12 @@ import { IStep, PointOnCurveStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
-    @Property.define("workingPlane.set.selectPlane")
+    @Property.define("dialog.title.selectWorkingPlane")
     planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], SelectMode.radio, ["XOY"]);
 }
 
 @command({
-    name: "workingPlane.set",
-    display: "workingPlane.set",
+    key: "workingPlane.set",
     icon: "icon-setWorkingPlane",
 })
 export class SetWorkplane implements ICommand {
@@ -40,7 +39,7 @@ export class SetWorkplane implements ICommand {
         if (!view) return;
 
         const vm = new WorkingPlaneViewModel();
-        PubSub.default.pub("showDialog", "workingPlane.set.selectPlane", this.ui(vm), (result) => {
+        PubSub.default.pub("showDialog", "dialog.title.selectWorkingPlane", this.ui(vm), (result) => {
             if (result === DialogResult.ok) {
                 const planes = [Plane.XY, Plane.YZ, Plane.ZX];
                 view.workplane = planes[vm.planes.selectedIndexes[0]];
@@ -62,8 +61,7 @@ export class SetWorkplane implements ICommand {
 }
 
 @command({
-    name: "workingPlane.alignToPlane",
-    display: "workingPlane.alignToPlane",
+    key: "workingPlane.alignToPlane",
     icon: "icon-alignWorkingPlane",
 })
 export class AlignToPlane implements ICommand {
@@ -89,8 +87,7 @@ export class AlignToPlane implements ICommand {
 }
 
 @command({
-    name: "workingPlane.fromSection",
-    display: "workingPlane.fromSection",
+    key: "workingPlane.fromSection",
     icon: "icon-fromSection",
 })
 export class FromSection extends MultistepCommand {

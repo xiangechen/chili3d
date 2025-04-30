@@ -9,8 +9,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "convert.fuse",
-    display: "command.fuse",
+    key: "convert.fuse",
     icon: "icon-circle",
 })
 export class Fuse extends CreateCommand {

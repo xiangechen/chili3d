@@ -6,12 +6,11 @@ import { IStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.thickSolid",
-    display: "command.thickSolid",
+    key: "create.thickSolid",
     icon: "icon-thickSolid",
 })
 export class ThickSolidCommand extends CreateCommand {
-    @Property.define("command.thickSolid")
+    @Property.define("option.command.thickness")
     get thickness() {
         return this.getPrivateValue("thickness", 10);
     }
@@ -22,7 +21,11 @@ export class ThickSolidCommand extends CreateCommand {
     protected override geometryNode() {
         let shape = this.stepDatas[0].shapes[0].shape;
         let thickSolid = this.application.shapeFactory.makeThickSolidBySimple(shape, this.thickness);
-        return new EditableShapeNode(this.document, I18n.translate("command.thickSolid"), thickSolid.value);
+        return new EditableShapeNode(
+            this.document,
+            I18n.translate("command.create.thickSolid"),
+            thickSolid.value,
+        );
     }
 
     protected override getSteps(): IStep[] {

@@ -133,7 +133,7 @@ export class Application implements IApplication {
                 }
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.open"),
+            I18n.translate("command.doc.open"),
         );
     }
 

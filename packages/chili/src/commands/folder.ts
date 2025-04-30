@@ -6,8 +6,7 @@ import { command, FolderNode, IApplication, ICommand } from "chili-core";
 let index = 1;
 
 @command({
-    name: "create.folder",
-    display: "command.newFolder",
+    key: "create.folder",
     icon: "icon-folder-plus",
 })
 export class NewFolder implements ICommand {

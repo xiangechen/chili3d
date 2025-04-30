@@ -36,7 +36,7 @@ export class RibbonButton extends HTMLElement {
         if (data.toggle) {
             return new RibbonToggleButton(data, size);
         }
-        return new RibbonButton(data.display, data.icon, size, () => {
+        return new RibbonButton(`command.${data.key}`, data.icon, size, () => {
             PubSub.default.pub("executeCommand", commandName);
         });
     }
@@ -71,8 +71,8 @@ class ToggleConverter implements IConverter {
 
 export class RibbonToggleButton extends RibbonButton {
     constructor(data: CommandData, size: ButtonSize) {
-        super(data.display, data.icon, size, () => {
-            PubSub.default.pub("executeCommand", data.name);
+        super(`command.${data.key}`, data.icon, size, () => {
+            PubSub.default.pub("executeCommand", data.key);
         });
 
         if (data.toggle) {

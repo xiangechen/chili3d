@@ -17,8 +17,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.split",
-    display: "command.split",
+    key: "modify.split",
     icon: "icon-split",
 })
 export class Split extends MultistepCommand {

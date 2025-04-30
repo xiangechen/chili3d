@@ -18,8 +18,7 @@ import { SelectNodeStep } from "../step";
 import { importFiles } from "../utils";
 
 @command({
-    name: "file.import",
-    display: "command.import",
+    key: "file.import",
     icon: "icon-import",
 })
 export class Import implements ICommand {
@@ -35,8 +34,7 @@ export class Import implements ICommand {
 }
 
 @command({
-    name: "file.export",
-    display: "command.export",
+    key: "file.export",
     icon: "icon-export",
 })
 export class Export extends CancelableCommand {
@@ -74,7 +72,7 @@ export class Export extends CancelableCommand {
                 download(data, `${nodes[0].name}${format}`);
             },
             "toast.excuting{0}",
-            I18n.translate("command.export"),
+            I18n.translate("command.file.export"),
         );
     }
 

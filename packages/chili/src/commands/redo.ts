@@ -4,8 +4,7 @@
 import { command, IApplication, ICommand } from "chili-core";
 
 @command({
-    name: "edit.redo",
-    display: "command.redo",
+    key: "edit.redo",
     icon: "icon-redo",
 })
 export class Redo implements ICommand {

@@ -8,8 +8,7 @@ import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({
-    name: "create.circle",
-    display: "command.circle",
+    key: "create.circle",
     icon: "icon-circle",
 })
 export class Circle extends CreateFaceableCommand {

@@ -15,8 +15,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.fillet",
-    display: "command.fillet",
+    key: "modify.fillet",
     icon: "icon-fillet",
 })
 export class FilletCommand extends MultistepCommand {

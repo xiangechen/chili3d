@@ -4,8 +4,7 @@
 import { I18n, IApplication, ICommand, PubSub, Serialized, command, readFileAsync } from "chili-core";
 
 @command({
-    name: "doc.open",
-    display: "command.document.open",
+    key: "doc.open",
     icon: "icon-open",
 })
 export class OpenDocument implements ICommand {
@@ -21,7 +20,7 @@ export class OpenDocument implements ICommand {
                 }
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.open"),
+            I18n.translate("command.doc.open"),
         );
     }
 }

@@ -8,8 +8,7 @@ import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../ste
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({
-    name: "create.ellipse",
-    display: "command.ellipse",
+    key: "create.ellipse",
     icon: "icon-ellipse",
 })
 export class Ellipse extends CreateFaceableCommand {

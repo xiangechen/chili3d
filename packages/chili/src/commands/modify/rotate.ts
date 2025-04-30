@@ -7,8 +7,7 @@ import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "modify.rotate",
-    display: "command.rotate",
+    key: "modify.rotate",
     icon: "icon-rotate",
 })
 export class Rotate extends TransformedCommand {

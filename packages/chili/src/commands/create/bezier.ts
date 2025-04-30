@@ -18,14 +18,13 @@ import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.bezier",
-    display: "command.bezier",
+    key: "create.bezier",
     icon: "icon-bezier",
 })
 export class BezierCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
         let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
-        return new EditableShapeNode(this.document, I18n.translate("command.bezier"), bezier.value);
+        return new EditableShapeNode(this.document, I18n.translate("command.create.bezier"), bezier.value);
     }
 
     protected override async executeSteps() {

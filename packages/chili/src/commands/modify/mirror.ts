@@ -7,8 +7,7 @@ import { IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "modify.mirror",
-    display: "command.mirror",
+    key: "modify.mirror",
     icon: "icon-mirror",
 })
 export class Mirror extends TransformedCommand {

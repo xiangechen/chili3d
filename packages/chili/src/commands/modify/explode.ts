@@ -16,8 +16,7 @@ import { GetOrSelectNodeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.explode",
-    display: "command.explode",
+    key: "modify.explode",
     icon: "icon-explode",
 })
 export class Explode extends MultistepCommand {

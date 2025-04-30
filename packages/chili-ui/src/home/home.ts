@@ -22,11 +22,11 @@ interface ApplicationCommand {
 
 const applicationCommands = new ObservableCollection<ApplicationCommand>(
     {
-        display: "command.document.new",
+        display: "command.doc.new",
         onclick: () => PubSub.default.pub("executeCommand", "doc.new"),
     },
     {
-        display: "command.document.open",
+        display: "command.doc.open",
         onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
     },
 );
@@ -183,10 +183,10 @@ export class Home extends HTMLElement {
                 "showPermanent",
                 async () => {
                     let document = await this.app.openDocument(item.id);
-                    await document?.application.activeView?.cameraController.fitContent();
+                    document?.application.activeView?.cameraController.fitContent();
                 },
                 "toast.excuting{0}",
-                I18n.translate("command.document.open"),
+                I18n.translate("command.doc.open"),
             );
         }
     }

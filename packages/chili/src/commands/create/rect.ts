@@ -84,12 +84,11 @@ export abstract class RectCommandBase extends CreateCommand {
 }
 
 @command({
-    name: "create.rect",
-    display: "command.rect",
+    key: "create.rect",
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
-    @Property.define("command.faceable.isFace")
+    @Property.define("option.command.isFace")
     public get isFace() {
         return this.getPrivateValue("isFace", false);
     }

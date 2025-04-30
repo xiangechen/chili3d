@@ -1,65 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-const COMMAND_KEYS = [
-    "boolean.common",
-    "boolean.cut",
-    "boolean.fuse",
-    "convert.fuse",
-    "convert.prism",
-    "convert.revol",
-    "convert.sweep",
-    "convert.toFace",
-    "convert.toWire",
-    "convert.toShell",
-    "convert.toSolid",
-    "create.arc",
-    "create.bezier",
-    "create.box",
-    "create.circle",
-    "create.cone",
-    "create.copySubShape",
-    "create.cylinder",
-    "create.ellipse",
-    "create.ellipsoid",
-    "create.folder",
-    "create.group",
-    "create.line",
-    "create.offset",
-    "create.polygon",
-    "create.pyramid",
-    "create.rect",
-    "create.section",
-    "create.sphere",
-    "create.thickSolid",
-    "doc.new",
-    "doc.open",
-    "doc.save",
-    "doc.saveToFile",
-    "edit.redo",
-    "edit.undo",
-    "file.export",
-    "file.import",
-    "modify.array",
-    "modify.break",
-    "modify.chamfer",
-    "modify.delete",
-    "modify.explode",
-    "modify.fillet",
-    "modify.mirror",
-    "modify.move",
-    "modify.removeFeature",
-    "modify.removeSubShapes",
-    "modify.rotate",
-    "modify.split",
-    "modify.trim",
-    "special.last",
-    "test.performace",
-    "wechat.group",
-    "workingPlane.alignToPlane",
-    "workingPlane.fromSection",
-    "workingPlane.set",
-    "workingPlane.toggleDynamic",
-] as const;
+import { I18nKeys } from "../i18n";
 
-export type CommandKeys = (typeof COMMAND_KEYS)[number];
+type COMMAND_KEYS = {
+    [P in I18nKeys]: P extends `command.${infer K}` ? K : never;
+};
+
+export type CommandKeys = COMMAND_KEYS[I18nKeys];

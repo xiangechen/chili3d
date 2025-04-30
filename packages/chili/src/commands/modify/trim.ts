@@ -27,13 +27,12 @@ import { GeoUtils } from "chili-geo";
 import { ShapeSelectionHandler } from "chili-vis";
 
 @command({
-    name: "modify.trim",
-    display: "command.trim",
+    key: "modify.trim",
     icon: "icon-trim",
 })
 export class Trim extends CancelableCommand {
     protected override async executeAsync() {
-        let transaction = new Transaction(this.document, I18n.translate("command.trim"));
+        let transaction = new Transaction(this.document, I18n.translate("command.modify.trim"));
         transaction.start();
         try {
             await this.trimAsync();

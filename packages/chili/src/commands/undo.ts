@@ -4,8 +4,7 @@
 import { command, IApplication, ICommand } from "chili-core";
 
 @command({
-    name: "edit.undo",
-    display: "command.undo",
+    key: "edit.undo",
     icon: "icon-undo",
 })
 export class Undo implements ICommand {

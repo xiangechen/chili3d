@@ -23,7 +23,7 @@ import { IStep } from "../step";
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
 
-    @Property.define("command.mode.repeat")
+    @Property.define("option.command.repeat")
     get repeatOperation() {
         return this.getPrivateValue("repeatOperation", false);
     }

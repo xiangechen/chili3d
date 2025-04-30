@@ -4,8 +4,7 @@
 import { command, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
-    name: "modify.delete",
-    display: "command.delete",
+    key: "modify.delete",
     icon: "icon-delete",
 })
 export class Delete implements ICommand {

@@ -3,8 +3,7 @@ import { GetOrSelectNodeStep, IStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "create.group",
-    display: "command.group",
+    key: "create.group",
     icon: "icon-group",
 })
 export class GroupCommand extends MultistepCommand {

@@ -81,8 +81,7 @@ abstract class ConvertCommand extends CancelableCommand {
 }
 
 @command({
-    name: "convert.toWire",
-    display: "command.toWire",
+    key: "convert.toWire",
     icon: "icon-toPoly",
 })
 export class ConvertToWire extends ConvertCommand {
@@ -97,8 +96,7 @@ export class ConvertToWire extends ConvertCommand {
 }
 
 @command({
-    name: "convert.toFace",
-    display: "command.toFace",
+    key: "convert.toFace",
     icon: "icon-toFace",
 })
 export class ConvertToFace extends ConvertCommand {
@@ -113,8 +111,7 @@ export class ConvertToFace extends ConvertCommand {
 }
 
 @command({
-    name: "convert.toShell",
-    display: "command.toShell",
+    key: "convert.toShell",
     icon: "icon-toShell",
 })
 export class ConvertToShell extends ConvertCommand {
@@ -135,8 +132,7 @@ export class ConvertToShell extends ConvertCommand {
 }
 
 @command({
-    name: "convert.toSolid",
-    display: "command.toSolid",
+    key: "convert.toSolid",
     icon: "icon-toSolid",
 })
 export class ConvertToSolid extends ConvertCommand {

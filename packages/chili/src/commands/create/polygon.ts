@@ -17,8 +17,7 @@ import { IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({
-    name: "create.polygon",
-    display: "command.polygon",
+    key: "create.polygon",
     icon: "icon-polygon",
 })
 export class Polygon extends CreateFaceableCommand {

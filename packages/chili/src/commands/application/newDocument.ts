@@ -6,8 +6,7 @@ import { IApplication, ICommand, command } from "chili-core";
 let count = 1;
 
 @command({
-    name: "doc.new",
-    display: "command.document.new",
+    key: "doc.new",
     icon: "icon-new",
 })
 export class NewDocument implements ICommand {

@@ -8,12 +8,11 @@ import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.line",
-    display: "command.line",
+    key: "create.line",
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    @Property.define("command.line.isConnected", {
+    @Property.define("option.command.isConnected", {
         dependencies: [{ property: "repeatOperation", value: true }],
     })
     get isContinue() {

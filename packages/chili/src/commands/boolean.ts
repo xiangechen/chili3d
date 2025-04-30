@@ -54,8 +54,7 @@ export abstract class BooleanOperate extends CreateCommand {
 }
 
 @command({
-    name: "boolean.common",
-    display: "command.boolean.common",
+    key: "boolean.common",
     icon: "icon-booleanCommon",
 })
 export class BooleanCommon extends BooleanOperate {
@@ -65,8 +64,7 @@ export class BooleanCommon extends BooleanOperate {
 }
 
 @command({
-    name: "boolean.cut",
-    display: "command.boolean.cut",
+    key: "boolean.cut",
     icon: "icon-booleanCut",
 })
 export class BooleanCut extends BooleanOperate {
@@ -76,8 +74,7 @@ export class BooleanCut extends BooleanOperate {
 }
 
 @command({
-    name: "boolean.fuse",
-    display: "command.boolean.fuse",
+    key: "boolean.fuse",
     icon: "icon-booleanFuse",
 })
 export class BooleanFuse extends BooleanOperate {

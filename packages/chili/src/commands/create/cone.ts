@@ -17,8 +17,7 @@ import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../ste
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.cone",
-    display: "command.cone",
+    key: "create.cone",
     icon: "icon-cone",
 })
 export class Cone extends CreateCommand {

@@ -19,8 +19,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "convert.revol",
-    display: "command.revol",
+    key: "convert.revol",
     icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {

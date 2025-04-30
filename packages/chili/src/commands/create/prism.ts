@@ -10,8 +10,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "convert.prism",
-    display: "command.prism",
+    key: "convert.prism",
     icon: "icon-prism",
 })
 export class Prism extends CreateCommand {

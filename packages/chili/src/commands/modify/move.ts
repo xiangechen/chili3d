@@ -7,8 +7,7 @@ import { IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
-    name: "modify.move",
-    display: "command.move",
+    key: "modify.move",
     icon: "icon-move",
 })
 export class Move extends TransformedCommand {

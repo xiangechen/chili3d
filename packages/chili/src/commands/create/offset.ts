@@ -20,15 +20,14 @@ import { IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.offset",
-    display: "command.offset",
+    key: "create.offset",
     icon: "icon-offset",
 })
 export class OffsetCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
         let normal = this.getAxis().normal;
         let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        return new EditableShapeNode(this.document, I18n.translate("command.offset"), shape.value);
+        return new EditableShapeNode(this.document, I18n.translate("command.create.offset"), shape.value);
     }
 
     protected override getSteps(): IStep[] {

@@ -8,8 +8,7 @@ import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../ste
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.cylinder",
-    display: "command.cylinder",
+    key: "create.cylinder",
     icon: "icon-cylinder",
 })
 export class Cylinder extends CreateCommand {

@@ -8,8 +8,7 @@ import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.arc",
-    display: "command.arc",
+    key: "create.arc",
     icon: "icon-arc",
 })
 export class Arc extends CreateCommand {

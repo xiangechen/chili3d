@@ -14,6 +14,6 @@ export async function importFiles(application: IApplication, files: File[] | Fil
             document.application.activeView?.cameraController.fitContent();
         },
         "toast.excuting{0}",
-        I18n.translate("command.import"),
+        I18n.translate("command.file.import"),
     );
 }

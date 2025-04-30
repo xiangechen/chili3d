@@ -31,7 +31,7 @@ export abstract class CreateNodeCommand extends MultistepCommand {
 
 export abstract class CreateFaceableCommand extends CreateCommand {
     protected _isFace: boolean = false;
-    @Property.define("command.faceable.isFace")
+    @Property.define("option.command.isFace")
     public get isFace() {
         return this._isFace;
     }

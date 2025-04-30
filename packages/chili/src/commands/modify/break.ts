@@ -8,8 +8,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.break",
-    display: "command.break",
+    key: "modify.break",
     icon: "icon-break",
 })
 export class Break extends MultistepCommand {

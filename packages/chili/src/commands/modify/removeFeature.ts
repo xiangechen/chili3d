@@ -14,8 +14,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.removeFeature",
-    display: "command.removeFeature",
+    key: "modify.removeFeature",
     icon: "icon-removeFeature",
 })
 export class RemoveFaceCommand extends MultistepCommand {

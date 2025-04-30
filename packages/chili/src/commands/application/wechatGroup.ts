@@ -5,13 +5,12 @@ import { div, img, label } from "chili-controls";
 import { IApplication, ICommand, PubSub, command } from "chili-core";
 
 @command({
-    name: "wechat.group",
-    display: "command.wechatGroup",
+    key: "wechat.group",
     icon: "icon-qrcode",
 })
 export class WeChatGroup implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        PubSub.default.pub("showDialog", "command.wechatGroup", this.ui());
+        PubSub.default.pub("showDialog", "command.wechat.group", this.ui());
     }
 
     private ui() {

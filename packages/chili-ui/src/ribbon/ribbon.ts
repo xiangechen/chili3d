@@ -65,7 +65,7 @@ export const QuickButton = (command: ICommand) => {
     }
     return svg({
         icon: data.icon,
-        title: I18n.translate(data.display),
+        title: I18n.translate(`command.${data.key}`),
         onclick: () => PubSub.default.pub("executeCommand", command as any),
     });
 };
@@ -167,7 +167,7 @@ export class Ribbon extends HTMLElement {
             svg({
                 className: style.new,
                 icon: "icon-plus",
-                title: I18n.translate("command.document.new"),
+                title: I18n.translate("command.doc.new"),
                 onclick: () => PubSub.default.pub("executeCommand", "doc.new"),
             }),
         );

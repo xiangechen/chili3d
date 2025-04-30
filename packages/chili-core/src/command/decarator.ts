@@ -1,17 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CommandKeys, ICommand } from ".";
 import { Binding } from "../foundation";
-import { I18nKeys } from "../i18n";
+import { ICommand } from "./command";
+import { CommandKeys } from "./commandKeys";
 
 const commandRegistry = new Map<string, CommandConstructor>();
 
 export type CommandConstructor = new (...args: any[]) => ICommand;
 
 export interface CommandData {
-    name: CommandKeys;
-    display: I18nKeys;
+    key: CommandKeys;
     icon: string;
     toggle?: Binding;
     helpText?: string;
@@ -20,7 +19,7 @@ export interface CommandData {
 
 export function command<T extends CommandConstructor>(metadata: CommandData) {
     return (constructor: T) => {
-        commandRegistry.set(metadata.name, constructor);
+        commandRegistry.set(metadata.key, constructor);
         constructor.prototype.data = metadata;
     };
 }

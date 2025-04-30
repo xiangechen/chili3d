@@ -4,8 +4,7 @@
 import { Binding, Config, IApplication, ICommand, command } from "chili-core";
 
 @command({
-    name: "workingPlane.toggleDynamic",
-    display: "workingPlane.dynamic",
+    key: "workingPlane.toggleDynamic",
     toggle: new Binding(Config.instance, "dynamicWorkplane"),
     icon: "icon-dynamicPlane",
 })

@@ -12,8 +12,7 @@ import {
 } from "chili-core";
 
 @command({
-    name: "doc.saveToFile",
-    display: "command.document.saveToFile",
+    key: "doc.saveToFile",
     icon: "icon-download",
 })
 export class SaveDocumentToFile implements ICommand {
@@ -30,7 +29,7 @@ export class SaveDocumentToFile implements ICommand {
                 download([JSON.stringify(s)], `${app.activeView?.document!.name}${DOCUMENT_FILE_EXTENSION}`);
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.saveToFile"),
+            I18n.translate("command.doc.saveToFile"),
         );
     }
 }

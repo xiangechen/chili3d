@@ -4,8 +4,7 @@
 import { command, I18n, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
-    name: "doc.save",
-    display: "command.document.save",
+    key: "doc.save",
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {
@@ -18,7 +17,7 @@ export class SaveDocument implements ICommand {
                 PubSub.default.pub("showToast", "toast.document.saved");
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.save"),
+            I18n.translate("command.doc.save"),
         );
     }
 }

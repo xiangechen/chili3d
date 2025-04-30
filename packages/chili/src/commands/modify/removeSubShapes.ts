@@ -6,8 +6,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.removeSubShapes",
-    display: "command.removeSubShapes",
+    key: "modify.removeSubShapes",
     icon: "icon-removeSubShape",
 })
 export class RemoveSubShapesCommand extends MultistepCommand {

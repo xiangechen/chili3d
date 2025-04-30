@@ -15,8 +15,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.chamfer",
-    display: "command.chamfer",
+    key: "modify.chamfer",
     icon: "icon-chamfer",
 })
 export class ChamferCommand extends MultistepCommand {
