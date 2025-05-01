@@ -1,9 +1,37 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EdgeMeshData, FaceMeshData, MathUtils, Matrix4 } from "chili-core";
+import { concatTypedArrays, EdgeMeshData, FaceMeshData, MathUtils, Matrix4 } from "chili-core";
 
 export class MeshUtils {
+    static setFaceMeshData(
+        data: FaceMeshData,
+        other: FaceMeshData | undefined,
+        matrix: Matrix4,
+        offset: { facePosition: number; faceIndex: number },
+    ) {
+        if (!other) {
+            return;
+        }
+
+        data.range = data.range.concat(
+            other.range.map((g) => {
+                return {
+                    start: g.start + offset.faceIndex,
+                    shape: g.shape,
+                    count: g.count,
+                };
+            }),
+        );
+        data.index.set(
+            other.index.map((x) => x + offset.facePosition),
+            offset.faceIndex,
+        );
+        data.position.set(matrix.ofPoints(other.position), offset.facePosition * 3);
+        data.normal.set(matrix.ofVectors(other.normal), offset.facePosition * 3);
+        data.uv.set(other.uv, offset.facePosition * 2);
+    }
+
     static combineFaceMeshData(data: FaceMeshData, other: FaceMeshData | undefined, matrix: Matrix4) {
         if (!other) {
             return;
@@ -18,17 +46,40 @@ export class MeshUtils {
                 };
             }),
         );
-        data.index = data.index.concat(other.index.map((x) => x + data.position.length / 3));
-        data.position = this.combineFloat32Array(data.position, matrix.ofPoints(other.position));
-        data.normal = this.combineFloat32Array(data.normal, matrix.ofVectors(other.normal));
-        data.uv = this.combineFloat32Array(data.uv, other.uv);
+        data.index = concatTypedArrays([data.index, other.index.map((x) => x + data.position.length / 3)]);
+        data.position = this.concatFloat32Array(data.position, matrix.ofPoints(other.position));
+        data.normal = this.concatFloat32Array(data.normal, matrix.ofVectors(other.normal));
+        data.uv = this.concatFloat32Array(data.uv, other.uv);
     }
 
-    static combineFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
+    static concatFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
         let arr = new Float32Array(arr1.length + arr2.length);
         arr.set(arr1);
         arr.set(arr2, arr1.length);
         return arr;
+    }
+
+    static setEdgeMeshData(
+        data: EdgeMeshData,
+        other: EdgeMeshData | undefined,
+        matrix: Matrix4,
+        offset: number,
+    ) {
+        if (!other) {
+            return;
+        }
+
+        let start = data.position.length / 3;
+        data.position.set(matrix.ofPoints(other.position), offset * 3);
+        data.range = data.range.concat(
+            other.range.map((g) => {
+                return {
+                    start: g.start + start,
+                    shape: g.shape,
+                    count: g.count,
+                };
+            }),
+        );
     }
 
     static combineEdgeMeshData(data: EdgeMeshData, other: EdgeMeshData | undefined, matrix: Matrix4) {
@@ -37,7 +88,7 @@ export class MeshUtils {
         }
 
         let start = data.position.length / 3;
-        data.position = this.combineFloat32Array(data.position, matrix.ofPoints(other.position));
+        data.position = this.concatFloat32Array(data.position, matrix.ofPoints(other.position));
         data.range = data.range.concat(
             other.range.map((g) => {
                 return {
@@ -69,19 +120,19 @@ export class MeshUtils {
             position: new Float32Array(mesh.position.length),
             normal: new Float32Array(mesh.normal.length),
             uv: new Float32Array(mesh.uv.length),
-            index: [],
+            index: new Uint32Array(mesh.index.length),
             range: [],
             color: mesh.color,
             groups: [],
         };
-        let vertexCount = 0;
+        let offset = { facePosition: 0, faceIndex: 0 };
         const grouped = Object.groupBy(materialMap, (x) => x[1]);
         for (let i = 0; i < Object.keys(grouped).length; i++) {
-            const groupStart = result.index.length;
-            vertexCount = MeshUtils.mergeSameGroup(grouped[i]!, mesh, result, vertexCount);
+            const groupStart = offset.faceIndex;
+            MeshUtils.mergeSameGroup(grouped[i]!, mesh, result, offset);
             result.groups.push({
                 start: groupStart,
-                count: result.index.length - groupStart,
+                count: offset.faceIndex - groupStart,
                 materialIndex: i,
             });
         }
@@ -92,27 +143,28 @@ export class MeshUtils {
         group: [number, number][],
         mesh: FaceMeshData,
         result: FaceMeshData,
-        vertexCount: number,
+        offset: { facePosition: number; faceIndex: number },
     ) {
         for (const index of group) {
             const { start, count, shape } = mesh.range[index[0]];
 
             const oldIndex = mesh.index.slice(start, start + count);
             const { min, max } = MathUtils.minMax(oldIndex)!;
-            result.position.set(mesh.position.slice(min * 3, (max + 1) * 3), vertexCount * 3);
-            result.normal.set(mesh.normal.slice(min * 3, (max + 1) * 3), vertexCount * 3);
-            result.uv.set(mesh.uv.slice(min * 2, (max + 1) * 2), vertexCount * 2);
-            for (let j = 0; j < count; j++) {
-                result.index.push(oldIndex[j] - min + vertexCount);
-            }
+            result.position.set(mesh.position.slice(min * 3, (max + 1) * 3), offset.facePosition * 3);
+            result.normal.set(mesh.normal.slice(min * 3, (max + 1) * 3), offset.facePosition * 3);
+            result.uv.set(mesh.uv.slice(min * 2, (max + 1) * 2), offset.facePosition * 2);
+            result.index.set(
+                oldIndex.map((x) => x - min + offset.facePosition),
+                offset.faceIndex,
+            );
             result.range.push({
-                start: result.index.length - count,
-                count: count,
+                start: offset.faceIndex,
+                count,
                 shape,
             });
-            vertexCount += max - min + 1;
+            offset.facePosition += max - min + 1;
+            offset.faceIndex += oldIndex.length;
         }
-        return vertexCount;
     }
 
     static subFace(mesh: FaceMeshData, index: number): FaceMeshData | undefined {
@@ -160,7 +212,7 @@ export class MeshUtils {
         }
     }
 
-    static faceOutline(face: { position: Float32Array; index: number[] }) {
+    static faceOutline(face: { position: Float32Array; index: Uint32Array }) {
         const pointsMap = new Map<string, { count: number; points: number[] }>();
 
         for (let i = 0; i < face.index.length; i += 3) {

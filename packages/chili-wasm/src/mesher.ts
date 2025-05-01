@@ -64,7 +64,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
             position: new Float32Array(faceMeshData.position),
             normal: new Float32Array(faceMeshData.normal),
             uv: new Float32Array(faceMeshData.uv),
-            index: faceMeshData.index,
+            index: new Uint32Array(faceMeshData.index),
             range: Mesher.getFaceRanges(faceMeshData),
             color: VisualConfig.defaultFaceColor,
             groups: [],

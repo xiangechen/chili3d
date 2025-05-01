@@ -161,7 +161,7 @@ export namespace EdgeMeshData {
 }
 
 export interface FaceMeshData extends ShapeMeshData {
-    index: number[];
+    index: Uint32Array;
     normal: Float32Array;
     uv: Float32Array;
     groups: MeshGroup[];
@@ -186,7 +186,7 @@ export namespace FaceMeshData {
         return {
             position: concatTypedArrays([data.position, other.position]),
             range: data.range.concat(otherRange),
-            index: data.index.concat(other.index),
+            index: concatTypedArrays([data.index, other.index]),
             normal: concatTypedArrays([data.normal, other.normal]),
             uv: concatTypedArrays([data.uv, other.uv]),
             color: data.color,
@@ -331,7 +331,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
             position: new Float32Array(this._positions),
             color: this.getColor()!,
             normal: new Float32Array(this._normals),
-            index: this._indices,
+            index: new Uint32Array(this._indices),
             uv: new Float32Array(this._uvs),
             range: this._groups,
             groups: [],

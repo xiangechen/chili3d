@@ -83,7 +83,7 @@ export class MultiShapeMesh implements IShapeMeshData {
         };
 
         this._faces = {
-            index: [],
+            index: new Uint32Array(),
             normal: new Float32Array(),
             position: new Float32Array(),
             uv: new Float32Array(),

@@ -20,6 +20,14 @@ export type ComponentMesh = {
     surface: Mesh;
 };
 
+export type ComponentSize = {
+    facePosition: number;
+    faceIndex: number;
+    edge: number;
+    line: number;
+    surf: number;
+};
+
 @Serializer.register(["name", "nodes", "origin", "id"])
 export class Component {
     private readonly _nodes: ReadonlyArray<VisualNode>;
@@ -68,18 +76,22 @@ export class Component {
     }
 
     private mergeMesh() {
+        const size: ComponentSize = { facePosition: 0, edge: 0, line: 0, surf: 0, faceIndex: 0 };
+        const offset: ComponentSize = { facePosition: 0, edge: 0, line: 0, surf: 0, faceIndex: 0 };
+
+        this.getSize(this._nodes, size);
         const mesh: ComponentMesh = {
             faceMaterials: [],
             edge: {
                 lineType: LineType.Solid,
-                position: new Float32Array(),
+                position: new Float32Array(size.edge * 3),
                 range: [],
             },
             face: {
-                index: [],
-                normal: new Float32Array(),
-                position: new Float32Array(),
-                uv: new Float32Array(),
+                index: new Uint32Array(size.faceIndex),
+                normal: new Float32Array(size.facePosition * 3),
+                position: new Float32Array(size.facePosition * 3),
+                uv: new Float32Array(size.facePosition * 2),
                 range: [],
                 groups: [],
             },
@@ -88,10 +100,25 @@ export class Component {
             surface: Mesh.createSurface(),
         };
         const faceMaterialPair: [number, number][] = [];
-        this.mergeNodesMesh(mesh, faceMaterialPair, this._nodes, Matrix4.identity());
+        this.mergeNodesMesh(mesh, faceMaterialPair, this._nodes, Matrix4.identity(), offset);
         mesh.face = MeshUtils.mergeFaceMesh(mesh.face, faceMaterialPair);
 
         return mesh;
+    }
+
+    private getSize(nodes: Iterable<VisualNode>, size: ComponentSize) {
+        for (const node of nodes) {
+            if (node instanceof ShapeNode && node.shape.isOk) {
+                const mesh = node.shape.value.mesh;
+                if (mesh.faces) {
+                    size.facePosition += mesh.faces.position.length / 3;
+                    size.faceIndex += mesh.faces.index.length;
+                }
+                if (mesh.edges) size.edge += mesh.edges.position.length / 3;
+            } else if (node instanceof ComponentNode) {
+                this.getSize(node.component.nodes, size);
+            }
+        }
     }
 
     private readonly mergeNodesMesh = (
@@ -99,16 +126,24 @@ export class Component {
         faceMaterialPair: [number, number][],
         nodes: Iterable<VisualNode>,
         transform: Matrix4,
+        offset: ComponentSize,
     ) => {
         for (const node of nodes) {
             if (node instanceof ShapeNode && node.shape.isOk) {
-                this.mergeShapeNode(visual, faceMaterialPair, node, node.transform.multiply(transform));
+                this.mergeShapeNode(
+                    visual,
+                    faceMaterialPair,
+                    node,
+                    node.transform.multiply(transform),
+                    offset,
+                );
             } else if (node instanceof ComponentNode) {
                 this.mergeNodesMesh(
                     visual,
                     faceMaterialPair,
                     node.component.nodes,
                     node.transform.multiply(transform),
+                    offset,
                 );
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
@@ -121,12 +156,18 @@ export class Component {
         faceMaterialPair: [number, number][],
         node: ShapeNode,
         transform: Matrix4,
+        offset: ComponentSize,
     ) {
         const mesh = node.shape.value.mesh;
-        if (mesh.edges) MeshUtils.combineEdgeMeshData(visual.edge, mesh.edges, transform);
+        if (mesh.edges) {
+            MeshUtils.setEdgeMeshData(visual.edge, mesh.edges, transform, offset.edge);
+            offset.edge += mesh.edges.position.length / 3;
+        }
         if (mesh.faces) {
             this.mergeMaterial(node, visual, faceMaterialPair);
-            MeshUtils.combineFaceMeshData(visual.face, mesh.faces, transform);
+            MeshUtils.setFaceMeshData(visual.face, mesh.faces, transform, offset);
+            offset.facePosition += mesh.faces.position.length / 3;
+            offset.faceIndex += mesh.faces.index.length;
         }
     }
 
