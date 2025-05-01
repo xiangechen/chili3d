@@ -1,12 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, input, localize, span } from "chili-controls";
+import { div, input, span } from "chili-controls";
 import {
     Binding,
     IConverter,
     IDocument,
     isPropertyChanged,
+    Localize,
     Property,
     PubSub,
     Quaternion,
@@ -69,7 +70,7 @@ export class InputProperty extends PropertyBase {
         this.append(
             div(
                 { className: commonStyle.panel },
-                span({ className: commonStyle.propertyName, textContent: localize(property.display) }),
+                span({ className: commonStyle.propertyName, textContent: new Localize(property.display) }),
                 input({
                     className: style.box,
                     value: new Binding(objects[0], property.name, arrayConverter),

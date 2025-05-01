@@ -1,14 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { label, localize, svg } from "chili-controls";
+import { label, svg } from "chili-controls";
 import {
     ButtonSize,
     Command,
     CommandData,
     CommandKeys,
+    I18n,
     I18nKeys,
     IConverter,
+    Localize,
     Logger,
     PubSub,
     Result,
@@ -51,8 +53,9 @@ export class RibbonButton extends HTMLElement {
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
         const text = label({
             className: style.buttonText,
-            textContent: localize(display),
+            textContent: new Localize(display),
         });
+        I18n.set(this, "title", display);
         this.append(image, text);
     }
 }

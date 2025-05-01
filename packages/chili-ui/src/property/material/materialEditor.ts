@@ -1,8 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, collection, div, localize, span, svg } from "chili-controls";
-import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
+import { button, collection, div, span, svg } from "chili-controls";
+import {
+    Binding,
+    IConverter,
+    Localize,
+    Material,
+    PathBinding,
+    Property,
+    PubSub,
+    Result,
+    Texture,
+} from "chili-core";
 import { ColorConverter } from "../../converters";
 import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
@@ -41,7 +51,7 @@ export class MaterialEditor extends HTMLElement {
     private titleSection() {
         return div(
             { className: style.title },
-            span({ textContent: localize("common.material") }),
+            span({ textContent: new Localize("common.material") }),
             this.iconButton("icon-plus", () => this.dataContent.addMaterial()),
             this.iconButton("icon-clone", () => this.dataContent.copyMaterial()),
             this.iconButton("icon-trash", () => this.dataContent.deleteMaterial()),
@@ -84,14 +94,14 @@ export class MaterialEditor extends HTMLElement {
         return div(
             { className: style.bottom },
             button({
-                textContent: localize("common.confirm"),
+                textContent: new Localize("common.confirm"),
                 onclick: () => {
                     this.dataContent.callback(this.dataContent.editingMaterial);
                     this.remove();
                 },
             }),
             button({
-                textContent: localize("common.cancel"),
+                textContent: new Localize("common.cancel"),
                 onclick: () => this.remove(),
             }),
         );

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, div, input, label, localize, option, select, svg } from "chili-controls";
+import { button, div, input, label, option, select, svg } from "chili-controls";
 import {
     Binding,
     Combobox,
@@ -9,6 +9,7 @@ import {
     I18nKeys,
     ICommand,
     IDisposable,
+    Localize,
     Observable,
     Property,
 } from "chili-core";
@@ -23,7 +24,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         let data = Command.getData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
-            label({ className: style.title, textContent: localize(`command.${data!.key}`) }, `: `),
+            label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
         );
         this.initContext();
     }
@@ -124,7 +125,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         );
 
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             select(
                 {
                     className: style.select,
@@ -139,7 +140,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newInput(g: Property, noType: any, converter?: (v: string) => any) {
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             input({
                 type: "text",
                 className: style.input,
@@ -158,7 +159,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newCheckbox(g: Property, noType: any) {
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             input({
                 type: "checkbox",
                 checked: new Binding(noType, g.name),
@@ -172,7 +173,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
     private newButton(g: Property, noType: any) {
         return button({
             className: style.button,
-            textContent: localize(g.display),
+            textContent: new Localize(g.display),
             onclick: () => noType[g.name](),
         });
     }

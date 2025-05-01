@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, input, label, localize } from "chili-controls";
-import { Config, I18nKeys, ObjectSnapType } from "chili-core";
+import { div, input, label } from "chili-controls";
+import { Config, I18nKeys, Localize, ObjectSnapType } from "chili-core";
 import style from "./snapConfig.module.css";
 
 const SnapTypes: Array<{
@@ -67,7 +67,7 @@ export class SnapConfig extends HTMLElement {
                     }),
                     label({
                         htmlFor: `snap-${snapType.type}`,
-                        textContent: localize(snapType.display),
+                        textContent: new Localize(snapType.display),
                     }),
                 );
             }),
@@ -81,7 +81,7 @@ export class SnapConfig extends HTMLElement {
                 }),
                 label({
                     htmlFor: "snap-tracking",
-                    textContent: localize("statusBar.tracking"),
+                    textContent: new Localize("statusBar.tracking"),
                 }),
             ),
         );

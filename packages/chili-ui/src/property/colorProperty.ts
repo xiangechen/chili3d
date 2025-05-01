@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, input, label, localize } from "chili-controls";
-import { Binding, IDocument, Property, PubSub, Transaction } from "chili-core";
+import { div, input, label } from "chili-controls";
+import { Binding, IDocument, Localize, Property, PubSub, Transaction } from "chili-core";
 import { ColorConverter } from "../converters";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
@@ -36,7 +36,7 @@ export class ColorProperty extends PropertyBase {
             { className: commonStyle.panel },
             label({
                 className: commonStyle.propertyName,
-                textContent: localize(this.property.display),
+                textContent: new Localize(this.property.display),
             }),
             this.input,
         );

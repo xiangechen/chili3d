@@ -20,6 +20,16 @@ export type Locale = {
     };
 };
 
+export type I18nPath = "textContent" | "title";
+
+export class Localize {
+    constructor(readonly key: I18nKeys) {}
+
+    set(e: HTMLElement, path: I18nPath) {
+        I18n.set(e, path, this.key);
+    }
+}
+
 export type Translation = Record<I18nKeys, string>;
 
 export namespace I18n {
@@ -53,9 +63,11 @@ export namespace I18n {
         return text;
     }
 
-    export function set(dom: HTMLElement, key: I18nKeys, ...args: any[]) {
-        dom.textContent = translate(key, ...args);
-        dom.dataset[I18nId] = key;
+    const LINK_KEY = "_:_";
+
+    export function set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {
+        dom[path] = translate(key, ...args);
+        dom.dataset[I18nId] = `${key}${LINK_KEY}${path}`;
         if (args.length > 0) {
             I18nArgs.set(dom, args);
         }
@@ -70,10 +82,10 @@ export namespace I18n {
 
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
             let html = e as HTMLElement;
-            let id = html?.dataset[I18nId] as I18nKeys;
-            if (id === undefined) return;
+            let data = html?.dataset[I18nId]?.split(LINK_KEY);
+            if (data?.length !== 2) return;
             let args = I18nArgs.get(html) ?? [];
-            html.textContent = translate(id, ...args);
+            html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
         });
     }
 }

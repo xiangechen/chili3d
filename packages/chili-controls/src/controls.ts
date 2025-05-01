@@ -1,10 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { PathBinding } from "chili-core";
+import { Localize, PathBinding } from "chili-core";
 import { Collection, CollectionProps } from "./collection";
 import { HTMLProps } from "./htmlProps";
-import { Localize } from "./localize";
 
 export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     return (
@@ -27,8 +26,8 @@ export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
 export function setProperties<T extends { [K: string]: any }>(left: T, prop: HTMLProps<T>) {
     for (const key in prop) {
         const value = prop[key];
-        if (value instanceof Localize && left instanceof HTMLElement && key === "textContent") {
-            value.set(left);
+        if (value instanceof Localize && (key === "textContent" || key === "title")) {
+            value.set(left, key);
         } else if (value instanceof PathBinding) {
             value.setBinding(left, key);
         } else if (typeof value === "object" && typeof left[key] === "object") {
@@ -82,13 +81,14 @@ export function setSVGIcon(svg: SVGSVGElement, newIcon: string) {
 
 function addTitle(props: HTMLProps<HTMLElement> & { icon: string }, svg: SVGSVGElement) {
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-    let value = "";
-    if (typeof props.title === "string") {
-        value = props.title;
-    } else if (props.title instanceof PathBinding) {
-        value = props.title.getPropertyValue();
+    if (props.title instanceof Localize) {
+        props.title.set(title as any, "textContent");
+    } else if (typeof props.title === "string") {
+        title.textContent = props.title;
+    } else {
+        props.title?.setBinding(title, "textContent");
     }
-    title.appendChild(document.createTextNode(value));
+
     svg.appendChild(title);
 }
 

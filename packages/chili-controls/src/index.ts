@@ -5,5 +5,4 @@ export * from "./collection";
 export * from "./controls";
 export * from "./expander";
 export * from "./htmlProps";
-export * from "./localize";
 export * from "./radioGroup";

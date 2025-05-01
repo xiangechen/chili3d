@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { a, collection, div, label, localize, span, svg } from "chili-controls";
+import { a, collection, div, label, span, svg } from "chili-controls";
 import {
     Binding,
     ButtonSize,
@@ -12,6 +12,7 @@ import {
     ICommand,
     IConverter,
     IView,
+    Localize,
     Logger,
     Observable,
     ObservableCollection,
@@ -63,10 +64,11 @@ export const QuickButton = (command: ICommand) => {
         Logger.warn("commandData is undefined");
         return span({ textContent: "null" });
     }
+
     return svg({
         icon: data.icon,
-        title: I18n.translate(`command.${data.key}`),
-        onclick: () => PubSub.default.pub("executeCommand", command as any),
+        title: new Localize(`command.${data.key}`),
+        onclick: () => PubSub.default.pub("executeCommand", data.key),
     });
 };
 
@@ -149,7 +151,7 @@ export class Ribbon extends HTMLElement {
                 const converter = new ActivedRibbonTabConverter(tab, style.tabHeader, style.activedTab);
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
-                    textContent: localize(tab.tabName),
+                    textContent: new Localize(tab.tabName),
                     onclick: () => (this.dataContent.activeTab = tab),
                 });
             },
@@ -234,7 +236,7 @@ export class Ribbon extends HTMLElement {
                 className: style.content,
                 template: (item) => this.ribbonButton(item),
             }),
-            label({ className: style.header, textContent: localize(group.groupName) }),
+            label({ className: style.header, textContent: new Localize(group.groupName) }),
         );
     }
 

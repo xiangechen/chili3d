@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, localize, span } from "chili-controls";
-import { IDocument, IView, PubSub } from "chili-core";
+import { div, span } from "chili-controls";
+import { IDocument, IView, Localize, PubSub } from "chili-core";
 import style from "./projectView.module.css";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";
@@ -35,7 +35,7 @@ export class ProjectView extends HTMLElement {
                 { className: style.headerPanel },
                 span({
                     className: style.header,
-                    textContent: localize("items.header"),
+                    textContent: new Localize("items.header"),
                 }),
                 new ToolBar(this),
             ),

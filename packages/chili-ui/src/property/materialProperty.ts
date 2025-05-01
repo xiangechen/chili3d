@@ -1,10 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, collection, div, localize, span } from "chili-controls";
+import { button, collection, div, span } from "chili-controls";
 import {
     Binding,
     IDocument,
+    Localize,
     Material,
     ObservableCollection,
     PathBinding,
@@ -39,7 +40,7 @@ export class MaterialProperty extends PropertyBase {
         return div(
             { className: style.material },
             div(
-                span({ textContent: localize("common.material") }),
+                span({ textContent: new Localize("common.material") }),
                 this.materials.length > 1 ? span({ textContent: ` ${index + 1}` }) : "",
             ),
             button({

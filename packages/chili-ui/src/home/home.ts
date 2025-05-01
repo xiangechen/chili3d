@@ -1,12 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { a, button, collection, div, img, label, localize, span, svg } from "chili-controls";
+import { a, button, collection, div, img, label, span, svg } from "chili-controls";
 import {
     Constants,
     I18n,
     I18nKeys,
     IApplication,
+    Localize,
     ObservableCollection,
     PubSub,
     RecentDocumentDTO,
@@ -89,7 +90,7 @@ export class Home extends HTMLElement {
             template: (item) =>
                 button({
                     className: style.button,
-                    textContent: localize(item.display),
+                    textContent: new Localize(item.display),
                     onclick: item.onclick,
                 }),
         });
@@ -99,7 +100,7 @@ export class Home extends HTMLElement {
         return this.app.activeView?.document
             ? button({
                   className: `${style.button} ${style.back}`,
-                  textContent: localize("common.back"),
+                  textContent: new Localize("common.back"),
                   onclick: () => {
                       PubSub.default.pub("displayHome", false);
                   },
@@ -121,8 +122,8 @@ export class Home extends HTMLElement {
     private rightSection(documents: ObservableCollection<RecentDocumentDTO>) {
         return div(
             { className: style.right },
-            label({ className: style.welcome, textContent: localize("home.welcome") }),
-            div({ className: style.recent, textContent: localize("home.recent") }),
+            label({ className: style.welcome, textContent: new Localize("home.welcome") }),
+            div({ className: style.recent, textContent: new Localize("home.recent") }),
             this.documentCollection(documents),
         );
     }
