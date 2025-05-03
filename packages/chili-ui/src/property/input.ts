@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, input, span } from "chili-controls";
+import {
+    div,
+    input,
+    NumberConverter,
+    QuaternionConverter,
+    span,
+    StringConverter,
+    XYConverter,
+    XYZConverter,
+} from "chili-controls";
 import {
     Binding,
     IConverter,
@@ -16,13 +25,6 @@ import {
     XY,
     XYZ,
 } from "chili-core";
-import {
-    NumberConverter,
-    QuaternionConverter,
-    StringConverter,
-    XYConverter,
-    XYZConverter,
-} from "../converters";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";

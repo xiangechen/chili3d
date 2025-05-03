@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { NumberConverter, StringConverter, XYZConverter } from "chili-controls";
 import { IConverter, XYZ } from "chili-core";
-import { NumberConverter, StringConverter, XYZConverter } from "../src/converters";
 
 describe("converter test", () => {
     test("test type", () => {
