@@ -10,6 +10,7 @@ import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, LineType, Mesh } from "../shape";
 import { ShapeNode } from "./shapeNode";
 import { VisualNode } from "./visualNode";
+import { Property } from "../property";
 
 export type ComponentMesh = {
     faceMaterials: string[];
@@ -73,6 +74,10 @@ export class Component {
         this._nodes = nodes;
         this.id = id;
         this._origin = origin ?? BoundingBox.center(this.boundingBox);
+    }
+
+    toString(): string {
+        return this.name;
     }
 
     private mergeMesh() {
@@ -223,6 +228,7 @@ export class ComponentNode extends VisualNode {
     }
 
     private _component?: Component;
+    @Property.define("body.group")
     get component() {
         if (!this._component) {
             this._component = this.document.components.find((c) => c.id === this.componentId);

@@ -66,7 +66,7 @@ export default {
         "command.create.ellipse": "Ellipse",
         "command.create.ellipsoid": "Ellipsoid",
         "command.create.folder": "Folder",
-        "command.create.group": "Group",
+        "command.create.group": "Create Group",
         "command.create.line": "Line",
         "command.create.offset": "Offset",
         "command.create.polygon": "Polygon",
@@ -167,6 +167,8 @@ export default {
         "option.command.isFace": "Face",
         "option.command.thickness": "Thickness",
         "option.command.isConnected": "Connected",
+        "option.command.isConvertInstance": "Convert Instance",
+        "option.command.insertPoint": "Insert Point",
         "polygon.points": "Points",
         "prompt.default":
             "Middle mouse button to pan the view, Shift + Middle button to rotate the view, Middle button to scroll the zoom view",

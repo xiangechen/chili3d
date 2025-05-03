@@ -162,6 +162,8 @@ const I18N_KEYS = [
     "option.command.isFace",
     "option.command.thickness",
     "option.command.isConnected",
+    "option.command.isConvertInstance",
+    "option.command.insertPoint",
     "polygon.points",
     "prompt.default",
     "prompt.deleteDocument{0}",

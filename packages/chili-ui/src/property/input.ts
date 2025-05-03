@@ -112,6 +112,8 @@ export class InputProperty extends PropertyBase {
     };
 
     private readonly setValue = (input: HTMLInputElement) => {
+        if (this.isReadOnly()) return;
+
         const newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", newValue?.error);
