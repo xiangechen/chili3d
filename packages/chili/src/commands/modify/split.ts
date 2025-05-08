@@ -5,7 +5,7 @@ import {
     EditableShapeNode,
     GeometryNode,
     IEdge,
-    IVisualGeometry,
+    IVisualObject,
     Result,
     ShapeType,
     Transaction,
@@ -48,7 +48,7 @@ export class Split extends MultistepCommand {
         });
     }
 
-    private removeModels(...shapes: IVisualGeometry[]) {
+    private removeModels(...shapes: IVisualObject[]) {
         shapes.forEach((x) => {
             const model = this.document.visual.context.getNode(x);
             model?.parent?.remove(model);

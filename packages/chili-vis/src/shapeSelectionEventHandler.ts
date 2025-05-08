@@ -34,7 +34,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
 
     private removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape);
-        shape.owner.geometryNode.document.visual.highlighter.removeState(
+        shape.owner.node.document.visual.highlighter.removeState(
             shape.owner,
             this.selectedState,
             shape.shape.shapeType,
@@ -43,7 +43,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     }
 
     private addSelected(shape: VisualShapeData) {
-        shape.owner.geometryNode.document.visual.highlighter.addState(
+        shape.owner.node.document.visual.highlighter.addState(
             shape.owner,
             this.selectedState,
             this.shapeType,

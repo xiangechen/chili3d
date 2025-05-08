@@ -42,7 +42,7 @@ export class Revolve extends CreateCommand {
         return [
             new SelectShapeStep(ShapeType.Edge | ShapeType.Face | ShapeType.Wire, "prompt.select.shape"),
             new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", {
-                filter: new LineFilter(),
+                shapeFilter: new LineFilter(),
                 keepSelection: true,
             }),
         ];

@@ -6,8 +6,11 @@ import {
     EdgeMeshData,
     FaceMeshData,
     GeometryNode,
+    IShape,
     IVisualGeometry,
+    ShapeMeshRange,
     ShapeNode,
+    ShapeType,
     VisualConfig,
 } from "chili-core";
 import { MeshUtils } from "chili-geo";
@@ -157,5 +160,54 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     edges() {
         return this._edges;
+    }
+
+    override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
+        let subShape: IShape | undefined = undefined;
+        let index: number = -1;
+        let groups: ShapeMeshRange[] | undefined = undefined;
+        if (shapeType === "edge") {
+            groups = this.geometryNode.mesh.edges?.range;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
+                subShape = groups[index].shape;
+            }
+        } else {
+            groups = this.geometryNode.mesh.faces?.range;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
+                subShape = groups[index].shape;
+            }
+        }
+
+        let fromShape = subShape;
+        if (this.geometryNode instanceof ShapeNode) {
+            fromShape = this.geometryNode.shape.value;
+        }
+        return { fromShape, subShape, index, groups: groups ?? [] };
+    }
+
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
+        const shapes: (Mesh | LineSegments2 | undefined)[] = [];
+
+        const isWhole =
+            shapeType === ShapeType.Shape ||
+            ShapeType.hasCompound(shapeType) ||
+            ShapeType.hasCompoundSolid(shapeType) ||
+            ShapeType.hasSolid(shapeType);
+
+        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+            shapes.push(this.edges());
+        }
+
+        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+            shapes.push(this.faces());
+        }
+
+        return shapes.filter((x) => x !== undefined);
+    }
+
+    override wholeVisual(): (Mesh | LineSegments2)[] {
+        return [this.edges(), this.faces()].filter((x) => x !== undefined);
     }
 }

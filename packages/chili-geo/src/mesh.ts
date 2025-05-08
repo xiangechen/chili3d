@@ -69,12 +69,11 @@ export class MeshUtils {
             return;
         }
 
-        let start = data.position.length / 3;
         data.position.set(matrix.ofPoints(other.position), offset * 3);
         data.range = data.range.concat(
             other.range.map((g) => {
                 return {
-                    start: g.start + start,
+                    start: g.start + offset,
                     shape: g.shape,
                     count: g.count,
                 };

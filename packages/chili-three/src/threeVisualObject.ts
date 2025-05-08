@@ -5,10 +5,13 @@ import {
     BoundingBox,
     ComponentNode,
     GroupNode,
+    IShape,
     IVisualObject,
     Matrix4,
     MeshNode,
     Mesh as OccMesh,
+    ShapeMeshRange,
+    ShapeType,
     VisualConfig,
     VisualNode,
 } from "chili-core";
@@ -40,7 +43,7 @@ const HighlightFaceMaterial = new MeshLambertMaterial({
     opacity: 0.56,
 });
 
-export class ThreeVisualObject extends Object3D implements IVisualObject {
+export abstract class ThreeVisualObject extends Object3D implements IVisualObject {
     get transform() {
         return ThreeHelper.toMatrix(this.matrix);
     }
@@ -48,16 +51,22 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
-    constructor(private visualNode: VisualNode) {
+    private _node: VisualNode;
+    get node(): VisualNode {
+        return this._node;
+    }
+
+    constructor(node: VisualNode) {
         super();
+        this._node = node;
         this.matrixAutoUpdate = false;
-        this.transform = visualNode.transform;
-        visualNode.onPropertyChanged(this.handlePropertyChanged);
+        this.transform = node.transform;
+        node.onPropertyChanged(this.handlePropertyChanged);
     }
 
     private readonly handlePropertyChanged = (property: keyof VisualNode) => {
         if (property === "transform") {
-            this.transform = this.visualNode.transform;
+            this.transform = this.node.transform;
         }
     };
 
@@ -66,9 +75,23 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
     }
 
     dispose() {
-        this.visualNode.removePropertyChanged(this.handlePropertyChanged);
-        this.visualNode = null as any;
+        this.node.removePropertyChanged(this.handlePropertyChanged);
+        this._node = null as any;
     }
+
+    abstract getSubShapeAndIndex(
+        shapeType: "face" | "edge",
+        subVisualIndex: number,
+    ): {
+        fromShape: IShape | undefined;
+        subShape: IShape | undefined;
+        index: number;
+        groups: ShapeMeshRange[];
+    };
+
+    abstract subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[];
+
+    abstract wholeVisual(): (Mesh | LineSegments2)[];
 }
 
 export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable {
@@ -108,6 +131,27 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         if (this._mesh instanceof LineSegments2) {
             this._mesh.material = this.material as LineMaterial;
         }
+    }
+
+    getSubShapeAndIndex(
+        shapeType: "face" | "edge",
+        subVisualIndex: number,
+    ): {
+        fromShape: IShape | undefined;
+        subShape: IShape | undefined;
+        index: number;
+        groups: ShapeMeshRange[];
+    } {
+        return {
+            fromShape: undefined,
+            subShape: undefined,
+            index: -1,
+            groups: [],
+        };
+    }
+
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
+        return [];
     }
 
     private createMesh() {
@@ -169,6 +213,10 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         geometry.setPositions(this.meshNode.mesh.position);
         geometry.computeBoundingBox();
         return new Line2(geometry, material);
+    }
+
+    override wholeVisual() {
+        return [this.mesh];
     }
 
     private disposeMesh() {
@@ -306,5 +354,52 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         if (this._boundbox) {
             this._boundbox.visible = false;
         }
+    }
+
+    override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
+        const range =
+            shapeType === "face"
+                ? this.componentNode.component.mesh.face.range
+                : this.componentNode.component.mesh.edge.range;
+        const index = ThreeHelper.findGroupIndex(range, subVisualIndex);
+        if (index !== undefined) {
+            return {
+                fromShape: range[index].shape,
+                subShape: range[index].shape,
+                index,
+                groups: range,
+            };
+        }
+
+        return {
+            fromShape: undefined,
+            subShape: undefined,
+            index: -1,
+            groups: [],
+        };
+    }
+
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
+        const shapes: (Mesh | LineSegments2 | undefined)[] = [];
+
+        const isWhole =
+            shapeType === ShapeType.Shape ||
+            ShapeType.hasCompound(shapeType) ||
+            ShapeType.hasCompoundSolid(shapeType) ||
+            ShapeType.hasSolid(shapeType);
+
+        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+            shapes.push(this.edges);
+        }
+
+        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+            shapes.push(this.faces);
+        }
+
+        return shapes.filter((x) => x !== undefined);
+    }
+
+    override wholeVisual(): (Mesh | LineSegments2)[] {
+        return [this.edges, this.faces, this.lines, this.meshes].filter((x) => x !== undefined);
     }
 }

@@ -59,7 +59,10 @@ abstract class ConvertCommand extends CancelableCommand {
         document.selection.clearSelection();
         if (models.length > 0) return models;
 
-        const step = new SelectShapeNodeStep("prompt.select.models", { filter, multiple: true });
+        const step = new SelectShapeNodeStep("prompt.select.models", {
+            shapeFilter: filter,
+            multiple: true,
+        });
         this.controller = new AsyncController();
         const data = await step.execute(document, this.controller);
         document.selection.clearSelection();

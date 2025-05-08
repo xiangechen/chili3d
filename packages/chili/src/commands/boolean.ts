@@ -40,7 +40,7 @@ export abstract class BooleanOperate extends CreateCommand {
         return [
             new SelectShapeNodeStep("prompt.select.shape"),
             new SelectShapeNodeStep("prompt.select.shape", {
-                filter: {
+                shapeFilter: {
                     allow: (shape) => {
                         return !this.stepDatas[0].nodes
                             ?.map((x) => (x as ShapeNode).shape.value)

@@ -19,7 +19,7 @@ export class CopySubShapeCommand extends MultistepCommand {
                 subShapes[0],
             );
 
-            const node = this.stepDatas[0].shapes[0].owner.geometryNode;
+            const node = this.stepDatas[0].shapes[0].owner.node;
             node.parent?.insertAfter(node, model);
             this.document.visual.update();
         });

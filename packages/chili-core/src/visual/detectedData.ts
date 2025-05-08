@@ -3,11 +3,11 @@
 
 import { XYZ } from "../math";
 import { IShape } from "../shape";
-import { IVisualGeometry } from "./visualObject";
+import { INodeVisual } from "./visualObject";
 
 export interface VisualShapeData {
     shape: IShape;
-    owner: IVisualGeometry;
+    owner: INodeVisual;
     point?: XYZ;
     directShape?: IShape;
     indexes: number[];

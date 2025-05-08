@@ -39,7 +39,7 @@ export abstract class BaseSnap implements ISnap {
 
     protected highlight(shapes: VisualShapeData[]): void {
         shapes.forEach((shape) => {
-            const highlighter = shape.owner.geometryNode.document.visual.highlighter;
+            const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.addState(
                 shape.owner,
                 VisualState.edgeHighlight,
@@ -52,7 +52,7 @@ export abstract class BaseSnap implements ISnap {
 
     protected unhighlight(): void {
         this._highlightedShapes.forEach((shape) => {
-            const highlighter = shape.owner.geometryNode.document.visual.highlighter;
+            const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.removeState(
                 shape.owner,
                 VisualState.edgeHighlight,

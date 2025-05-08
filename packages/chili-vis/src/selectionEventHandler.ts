@@ -177,7 +177,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 
     protected cleanHighlights() {
         this._highlights?.forEach((x) => {
-            x.owner.geometryNode.document.visual.highlighter.removeState(
+            x.owner.node.document.visual.highlighter.removeState(
                 x.owner,
                 VisualState.edgeHighlight,
                 this.shapeType,
