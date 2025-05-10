@@ -211,7 +211,12 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
     pointerDown(view: IView, event: MouseEvent): void {
         if (event.button === 0) {
-            this.handleSuccess();
+            // Left click
+            if (this._snaped) {
+                this.handleSuccess();
+            } else {
+                PubSub.default.pub("showToast", "toast.snap.notFoundValidPoint");
+            }
         }
     }
 

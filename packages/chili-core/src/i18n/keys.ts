@@ -216,6 +216,7 @@ const I18N_KEYS = [
     "toast.read.error",
     "toast.select.noSelected",
     "toast.success",
+    "toast.snap.notFoundValidPoint",
     "transform.rotation",
     "transform.scale",
     "transform.translation",

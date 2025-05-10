@@ -104,9 +104,9 @@ export abstract class MultistepCommand extends CancelableCommand {
     protected readonly findPlane = (view: IView, origin: XYZ, point: XYZ | undefined) => {
         if (point === undefined || !Config.instance.dynamicWorkplane) {
             return view.workplane.translateTo(origin);
-        } else {
-            return ViewUtils.raycastClosestPlane(view, origin, point);
         }
+
+        return ViewUtils.raycastClosestPlane(view, origin, point);
     };
 
     protected abstract getSteps(): IStep[];

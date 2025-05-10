@@ -181,6 +181,7 @@ export default {
         "prompt.select.shape": "选择形状",
         "prompt.select.vertexs": "请选择点",
         "prompt.select.wires": "请选择线",
+        "toast.snap.notFoundValidPoint": "未找到有效的点",
         "properties.group.transform": "转换",
         "properties.header": "属性",
         "properties.multivalue": "多个值",

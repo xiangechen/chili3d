@@ -182,6 +182,7 @@ export default {
         "prompt.select.shape": "Please select shape",
         "prompt.select.vertexs": "Please select vertexs",
         "prompt.select.wires": "Please select wires",
+        "toast.snap.notFoundValidPoint": "No valid point",
         "properties.group.transform": "Transform",
         "properties.header": "Properties",
         "properties.multivalue": "Multi Value",

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane, XYZ } from "chili-core";
+import { ViewUtils } from "chili-vis";
 import { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export abstract class PlaneSnapBase implements ISnap {
@@ -12,6 +13,7 @@ export abstract class PlaneSnapBase implements ISnap {
     constructor(readonly refPoint?: () => XYZ) {}
 
     protected snapAtPlane(plane: Plane, data: MouseAndDetected): SnapResult | undefined {
+        plane = ViewUtils.ensurePlane(data.view, plane);
         const ray = data.view.rayAt(data.mx, data.my);
         const point = plane.intersect(ray);
         if (!point) return undefined;
