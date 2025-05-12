@@ -53,3 +53,9 @@
         }
     }
 }
+
+@media (max-width: 680px) {
+    .viewControls {
+        display: none;
+    }
+}

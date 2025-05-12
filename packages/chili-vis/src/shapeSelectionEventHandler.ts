@@ -1,8 +1,103 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument, IView, VisualShapeData, VisualState } from "chili-core";
-import { ShapeSelectionHandler } from "./selectionEventHandler";
+import {
+    AsyncController,
+    IDocument,
+    IShape,
+    IShapeFilter,
+    IView,
+    ShapeType,
+    VisualShapeData,
+    VisualState,
+} from "chili-core";
+import { SelectionHandler } from "./selectionEventHandler";
+
+export abstract class ShapeSelectionHandler extends SelectionHandler {
+    protected _highlights: VisualShapeData[] | undefined;
+    private _detectAtMouse: VisualShapeData[] | undefined;
+    private _lockDetected: IShape | undefined;
+
+    constructor(
+        document: IDocument,
+        readonly shapeType: ShapeType,
+        multiMode: boolean,
+        controller?: AsyncController,
+        readonly filter?: IShapeFilter,
+    ) {
+        super(document, multiMode, controller);
+    }
+
+    private getDetecteds(view: IView, event: PointerEvent) {
+        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
+            return view.detectShapesRect(
+                this.shapeType,
+                this.mouse.x,
+                this.mouse.y,
+                event.offsetX,
+                event.offsetY,
+                this.filter,
+            );
+        }
+        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.filter);
+        const detected = this.getDetecting();
+        return detected ? [detected] : [];
+    }
+
+    protected override setHighlight(view: IView, event: PointerEvent) {
+        let detecteds = this.getDetecteds(view, event);
+        this.highlightDetecteds(view, detecteds);
+    }
+
+    protected highlightDetecteds(view: IView, detecteds: VisualShapeData[]) {
+        this.cleanHighlights();
+        detecteds.forEach((x) => {
+            view.document.visual.highlighter.addState(
+                x.owner,
+                VisualState.edgeHighlight,
+                this.shapeType,
+                ...x.indexes,
+            );
+        });
+        this._highlights = detecteds;
+        view.update();
+    }
+
+    protected cleanHighlights() {
+        this._highlights?.forEach((x) => {
+            x.owner.node.document.visual.highlighter.removeState(
+                x.owner,
+                VisualState.edgeHighlight,
+                this.shapeType,
+                ...x.indexes,
+            );
+        });
+        this._highlights = undefined;
+    }
+
+    protected highlightNext(view: IView) {
+        if (this._detectAtMouse && this._detectAtMouse.length > 1) {
+            let index = this._lockDetected
+                ? (this.getDetcedtingIndex() + 1) % this._detectAtMouse.length
+                : 1;
+            this._lockDetected = this._detectAtMouse[index].shape;
+            const detected = this.getDetecting();
+            if (detected) this.highlightDetecteds(view, [detected]);
+        }
+    }
+
+    private getDetecting() {
+        if (this._detectAtMouse) {
+            const index = this._lockDetected ? this.getDetcedtingIndex() : 0;
+            return this._detectAtMouse[index];
+        }
+        return undefined;
+    }
+
+    private getDetcedtingIndex() {
+        return this._detectAtMouse?.findIndex((x) => this._lockDetected === x.shape) ?? -1;
+    }
+}
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     private readonly _shapes: Set<VisualShapeData> = new Set();

@@ -1,17 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    AsyncController,
-    IDocument,
-    IEventHandler,
-    IShape,
-    IShapeFilter,
-    IView,
-    ShapeType,
-    VisualShapeData,
-    VisualState,
-} from "chili-core";
+import { AsyncController, IDocument, IEventHandler, IView } from "chili-core";
+
+const MOUSE_MIDDLE = 4;
 
 const SelectionRectStyle = `
     border: 1px solid #55aaff;
@@ -34,6 +26,7 @@ interface SelectionRect {
 export abstract class SelectionHandler implements IEventHandler {
     protected rect?: SelectionRect;
     protected mouse = { isDown: false, x: 0, y: 0 };
+    protected readonly pointerEventMap: Map<number, PointerEvent> = new Map();
 
     constructor(
         readonly document: IDocument,
@@ -46,9 +39,18 @@ export abstract class SelectionHandler implements IEventHandler {
         });
     }
 
-    dispose() {}
+    dispose() {
+        this.pointerEventMap.clear();
+    }
 
-    abstract pointerMove(view: IView, event: PointerEvent): void;
+    pointerMove(view: IView, event: PointerEvent): void {
+        if (event.buttons === MOUSE_MIDDLE) return;
+        if (this.rect) this.updateRect(this.rect, event);
+
+        this.setHighlight(view, event);
+    }
+
+    protected abstract setHighlight(view: IView, event: PointerEvent): void;
 
     protected abstract cleanHighlights(): void;
 
@@ -60,10 +62,13 @@ export abstract class SelectionHandler implements IEventHandler {
 
     pointerDown(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        if (event.button === 0) {
+        if (event.button === 0 && event.isPrimary) {
             this.mouse = { isDown: true, x: event.offsetX, y: event.offsetY };
-            if (this.multiMode) this.rect = this.initRect(event);
+            if (this.multiMode) {
+                this.rect = this.initRect(event);
+            }
         }
+        this.pointerEventMap.set(event.pointerId, event);
     }
 
     private initRect(event: PointerEvent): SelectionRect {
@@ -74,6 +79,7 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     protected updateRect(rect: SelectionRect, event: PointerEvent) {
+        if (this.pointerEventMap.size !== 1) return;
         rect.element.style.display = "block";
         const [x1, y1] = [Math.min(rect.clientX, event.clientX), Math.min(rect.clientY, event.clientY)];
         const [x2, y2] = [Math.max(rect.clientX, event.clientX), Math.max(rect.clientY, event.clientY)];
@@ -86,14 +92,17 @@ export abstract class SelectionHandler implements IEventHandler {
     }
 
     pointerOut(view: IView, event: PointerEvent): void {
-        this.mouse.isDown = false;
-        this.removeRect(view);
-        this.cleanHighlights();
+        if (event.isPrimary) {
+            this.mouse.isDown = false;
+            this.removeRect(view);
+            this.cleanHighlights();
+        }
+        this.pointerEventMap.delete(event.pointerId);
     }
 
     pointerUp(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        if (this.mouse.isDown && event.button === 0) {
+        if (this.mouse.isDown && event.button === 0 && event.isPrimary) {
             this.mouse.isDown = false;
             this.removeRect(view);
             const count = this.select(view, event);
@@ -101,6 +110,7 @@ export abstract class SelectionHandler implements IEventHandler {
             view.update();
             if (count > 0 && !this.multiMode) this.controller?.success();
         }
+        this.pointerEventMap.delete(event.pointerId);
     }
 
     private removeRect(view: IView) {
@@ -119,94 +129,5 @@ export abstract class SelectionHandler implements IEventHandler {
             event.preventDefault();
             this.highlightNext(view);
         }
-    }
-}
-
-export abstract class ShapeSelectionHandler extends SelectionHandler {
-    protected _highlights: VisualShapeData[] | undefined;
-    private _detectAtMouse: VisualShapeData[] | undefined;
-    private _lockDetected: IShape | undefined;
-
-    constructor(
-        document: IDocument,
-        readonly shapeType: ShapeType,
-        multiMode: boolean,
-        controller?: AsyncController,
-        readonly filter?: IShapeFilter,
-    ) {
-        super(document, multiMode, controller);
-    }
-
-    pointerMove(view: IView, event: PointerEvent): void {
-        if (event.buttons === 4) return;
-        this._detectAtMouse = undefined;
-        if (this.rect) this.updateRect(this.rect, event);
-        const detecteds = this.getDetecteds(view, event);
-        this.setHighlight(view, detecteds);
-    }
-
-    private getDetecteds(view: IView, event: PointerEvent) {
-        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
-            return view.detectShapesRect(
-                this.shapeType,
-                this.mouse.x,
-                this.mouse.y,
-                event.offsetX,
-                event.offsetY,
-                this.filter,
-            );
-        }
-        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.filter);
-        const detected = this.getDetecting();
-        return detected ? [detected] : [];
-    }
-
-    protected setHighlight(view: IView, detecteds: VisualShapeData[]) {
-        this.cleanHighlights();
-        detecteds.forEach((x) => {
-            view.document.visual.highlighter.addState(
-                x.owner,
-                VisualState.edgeHighlight,
-                this.shapeType,
-                ...x.indexes,
-            );
-        });
-        this._highlights = detecteds;
-        view.update();
-    }
-
-    protected cleanHighlights() {
-        this._highlights?.forEach((x) => {
-            x.owner.node.document.visual.highlighter.removeState(
-                x.owner,
-                VisualState.edgeHighlight,
-                this.shapeType,
-                ...x.indexes,
-            );
-        });
-        this._highlights = undefined;
-    }
-
-    protected highlightNext(view: IView) {
-        if (this._detectAtMouse && this._detectAtMouse.length > 1) {
-            let index = this._lockDetected
-                ? (this.getDetcedtingIndex() + 1) % this._detectAtMouse.length
-                : 1;
-            this._lockDetected = this._detectAtMouse[index].shape;
-            const detected = this.getDetecting();
-            if (detected) this.setHighlight(view, [detected]);
-        }
-    }
-
-    private getDetecting() {
-        if (this._detectAtMouse) {
-            const index = this._lockDetected ? this.getDetcedtingIndex() : 0;
-            return this._detectAtMouse[index];
-        }
-        return undefined;
-    }
-
-    private getDetcedtingIndex() {
-        return this._detectAtMouse?.findIndex((x) => this._lockDetected === x.shape) ?? -1;
     }
 }

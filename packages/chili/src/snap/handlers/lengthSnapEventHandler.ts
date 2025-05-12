@@ -64,7 +64,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
         super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
-    protected override setSnaped(view: IView, event: MouseEvent): void {
+    protected override setSnaped(view: IView, event: PointerEvent): void {
         super.setSnaped(view, event);
         this.updateWorkplane();
     }

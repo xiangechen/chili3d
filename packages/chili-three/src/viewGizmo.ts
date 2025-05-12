@@ -6,6 +6,8 @@ import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
 
+const MOUSE_LEFT = 1;
+
 const options = {
     size: 200,
     padding: 16,
@@ -134,6 +136,7 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.addEventListener("pointerout", this._onPointerOut);
         this._canvas.addEventListener("click", this._onClick);
         this._canvas.addEventListener("pointerdown", this._onPointerDown);
+        this._canvas.addEventListener("pointerup", this._onPointerUp);
     }
 
     disconnectedCallback() {
@@ -142,11 +145,12 @@ export class ViewGizmo extends HTMLElement {
         this._canvas.removeEventListener("pointerout", this._onPointerOut);
         this._canvas.removeEventListener("click", this._onClick);
         this._canvas.removeEventListener("pointerdown", this._onPointerDown);
+        this._canvas.removeEventListener("pointerup", this._onPointerUp);
     }
 
     private readonly _onPointerMove = (e: PointerEvent) => {
         e.stopPropagation();
-        if (e.buttons === 1 && !(e.movementX === 0 && e.movementY === 0)) {
+        if (e.buttons === MOUSE_LEFT && !(e.movementX === 0 && e.movementY === 0)) {
             this.cameraController.rotate(e.movementX * 4, e.movementY * 4);
             this._canClick = false;
         }
@@ -157,6 +161,12 @@ export class ViewGizmo extends HTMLElement {
 
     private readonly _onPointerDown = (e: PointerEvent) => {
         e.stopPropagation();
+        this._canvas.setPointerCapture(e.pointerId);
+    };
+
+    private readonly _onPointerUp = (e: PointerEvent) => {
+        e.stopPropagation();
+        this._canvas.releasePointerCapture(e.pointerId);
     };
 
     private readonly _onPointerOut = (e: PointerEvent) => {

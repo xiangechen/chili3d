@@ -109,7 +109,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         super(document, ShapeType.Shape, false, controller, new EdgeFilter());
     }
 
-    protected override setHighlight(view: IView, detecteds: VisualShapeData[]): void {
+    protected override highlightDetecteds(view: IView, detecteds: VisualShapeData[]): void {
         this.cleanHighlights();
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
         let edge = detecteds[0].shape as IEdge;
