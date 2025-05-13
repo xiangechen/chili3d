@@ -3,12 +3,18 @@
 
 import { Result } from "..";
 
+const isIOS =
+    /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase()) ||
+    (navigator.maxTouchPoints > 0 && /(Macintosh)/.test(navigator.userAgent));
+
 export async function readFilesAsync(accept: string, multiple: boolean): Promise<Result<FileList>> {
     return new Promise((resolve) => {
         const input = document.createElement("input");
         input.type = "file";
         input.multiple = multiple;
-        input.accept = accept;
+        if (!isIOS) {
+            input.accept = accept;
+        }
         input.style.visibility = "hidden";
 
         const cleanup = () => document.body.removeChild(input);

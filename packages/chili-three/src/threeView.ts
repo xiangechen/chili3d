@@ -145,6 +145,8 @@ export class ThreeView extends Observable implements IView {
         this._gizmo?.remove();
         element.appendChild(this._gizmo);
         this._renderer.domElement.remove();
+        this._renderer.domElement.style.userSelect = "none";
+        this._renderer.domElement.style.webkitUserSelect = "none";
         element.appendChild(this._renderer.domElement);
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);

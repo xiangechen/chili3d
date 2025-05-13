@@ -74,7 +74,7 @@ export default {
         "command.create.rect": "矩形",
         "command.create.section": "截面",
         "command.create.sphere": "球体",
-        "command.create.thickSolid": "拉伸体",
+        "command.create.thickSolid": "厚体",
         "command.doc.new": "新建文档",
         "command.doc.open": "打开文档",
         "command.doc.save": "保存文档",

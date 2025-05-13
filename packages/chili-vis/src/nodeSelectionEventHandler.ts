@@ -45,7 +45,11 @@ export class NodeSelectionHandler extends SelectionHandler {
     }
 
     getDetecteds(view: IView, event: PointerEvent) {
-        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
+        if (
+            this.rect &&
+            Math.abs(this.mouse.x - event.offsetX) > 3 &&
+            Math.abs(this.mouse.y - event.offsetY) > 3
+        ) {
             return view.detectVisualRect(
                 this.mouse.x,
                 this.mouse.y,

@@ -69,7 +69,7 @@ export class ThreeViewHandler implements IEventHandler {
 
         if (this.currentPointerEventMap.size === 3 && this.lastPointerEventMap.size === 3) {
             const offset = this.getPrimaryTouchOffset();
-            if (offset) view.cameraController.pan(offset.dx, offset.dy);
+            if (offset) view.cameraController.rotate(offset.dx, offset.dy);
         } else if (this.currentPointerEventMap.size === 2 && this.lastPointerEventMap.size === 2) {
             const last = this.getCenterAndDistance(this.lastPointerEventMap);
             const current = this.getCenterAndDistance(this.currentPointerEventMap);
@@ -77,7 +77,7 @@ export class ThreeViewHandler implements IEventHandler {
             const dtDistance = current.distance - last.distance;
             if (dtCenter > Math.abs(dtDistance) * 0.5) {
                 // 0.5 no meaning, just for scale
-                view.cameraController.rotate(
+                view.cameraController.pan(
                     current.center.x - last.center.x,
                     current.center.y - last.center.y,
                 );

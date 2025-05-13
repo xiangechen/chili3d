@@ -100,11 +100,22 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 }
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
-    private readonly _shapes: Set<VisualShapeData> = new Set();
+    private readonly _shapes: Map<IShape, VisualShapeData> = new Map();
     selectedState: VisualState = VisualState.edgeSelected;
 
+    constructor(
+        document: IDocument,
+        shapeType: ShapeType,
+        multiMode: boolean,
+        controller?: AsyncController,
+        filter?: IShapeFilter,
+    ) {
+        super(document, shapeType, multiMode, controller, filter);
+        this.showRect = false;
+    }
+
     shapes(): VisualShapeData[] {
-        return [...this._shapes];
+        return [...this._shapes.values()];
     }
 
     override clearSelected(document: IDocument): void {
@@ -116,9 +127,9 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
 
     protected override select(view: IView, event: PointerEvent): number {
         const document = view.document.visual.document;
-        if (event.shiftKey) {
+        if (this.multiMode) {
             this._highlights?.forEach((x) =>
-                this._shapes.has(x) ? this.removeSelected(x) : this.addSelected(x),
+                this._shapes.has(x.shape) ? this.removeSelected(x) : this.addSelected(x),
             );
         } else {
             this.clearSelected(document);
@@ -128,7 +139,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     }
 
     private removeSelected(shape: VisualShapeData) {
-        this._shapes.delete(shape);
+        this._shapes.delete(shape.shape);
         shape.owner.node.document.visual.highlighter.removeState(
             shape.owner,
             this.selectedState,
@@ -144,6 +155,6 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
             this.shapeType,
             ...shape.indexes,
         );
-        this._shapes.add(shape);
+        this._shapes.set(shape.shape, shape);
     }
 }

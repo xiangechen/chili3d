@@ -25,6 +25,7 @@ interface SelectionRect {
 
 export abstract class SelectionHandler implements IEventHandler {
     protected rect?: SelectionRect;
+    protected showRect = true;
     protected mouse = { isDown: false, x: 0, y: 0 };
     protected readonly pointerEventMap: Map<number, PointerEvent> = new Map();
 
@@ -64,7 +65,7 @@ export abstract class SelectionHandler implements IEventHandler {
         event.preventDefault();
         if (event.button === 0 && event.isPrimary) {
             this.mouse = { isDown: true, x: event.offsetX, y: event.offsetY };
-            if (this.multiMode) {
+            if (this.multiMode && this.showRect) {
                 this.rect = this.initRect(event);
             }
         }

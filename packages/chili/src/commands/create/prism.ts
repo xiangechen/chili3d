@@ -24,7 +24,7 @@ export class Prism extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Face | ShapeType.Edge | ShapeType.Wire, "prompt.select.shape"),
-            new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData),
+            new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData, true),
         ];
     }
 
