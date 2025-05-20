@@ -15,12 +15,15 @@ import {
     IShapeMeshData,
     IShell,
     ISolid,
+    ISubEdgeShape,
+    ISubFaceShape,
     ISurface,
     ITrimmedCurve,
     IVertex,
     IWire,
     JoinType,
     LineType,
+    Logger,
     MathUtils,
     Matrix4,
     Orientation,
@@ -57,9 +60,7 @@ export class OccShape implements IShape {
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
-        if (this._mesh === undefined) {
-            this._mesh = new Mesher(this);
-        }
+        this._mesh ??= new Mesher(this);
         return this._mesh;
     }
 
@@ -81,9 +82,9 @@ export class OccShape implements IShape {
 
     set matrix(matrix: Matrix4) {
         gc((c) => {
-            let location = c(new wasm.TopLoc_Location(OcctHelper.convertFromMatrix(matrix)));
+            let location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
             this._shape.setLocation(location, false);
-            this._mesh?.updateMeshShape();
+            this.onTransformChanged();
         });
     }
 
@@ -91,6 +92,21 @@ export class OccShape implements IShape {
         this._id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OcctHelper.getShapeType(shape);
+    }
+
+    transformed(matrix: Matrix4): IShape {
+        return gc((c) => {
+            const location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const shape = this._shape.located(location, false); // TODO: check if this is correct
+            return OcctHelper.wrapShape(shape);
+        });
+    }
+
+    protected onTransformChanged(): void {
+        if (this._mesh) {
+            Logger.warn("Shape matrix changed, mesh will be recreated");
+            this._mesh = undefined;
+        }
     }
 
     edgesMeshPosition(): EdgeMeshData {
@@ -105,8 +121,8 @@ export class OccShape implements IShape {
         };
     }
 
-    copy(): IShape {
-        return OcctHelper.wrapShape(wasm.Shape.copy(this._shape));
+    clone(): IShape {
+        return OcctHelper.wrapShape(wasm.Shape.clone(this._shape));
     }
 
     isClosed(): boolean {
@@ -161,8 +177,6 @@ export class OccShape implements IShape {
 
     iterShape(): IShape[] {
         let subShape = wasm.Shape.iterShape(this.shape);
-        console.log(subShape[0].shapeType() === this.shape.shapeType());
-
         if (subShape.length === 1 && subShape[0].shapeType() === this.shape.shapeType()) {
             subShape = wasm.Shape.iterShape(subShape[0]);
         }
@@ -283,6 +297,14 @@ export class OccEdge extends OccShape implements IEdge {
         return this._curve;
     }
 
+    protected override onTransformChanged(): void {
+        super.onTransformChanged();
+        if (this._curve) {
+            this._curve.dispose();
+            this._curve = undefined;
+        }
+    }
+
     offset(distance: number, dir: XYZ): Result<IEdge> {
         return gc((c) => {
             let occDir = c(OcctHelper.toDir(dir));
@@ -386,3 +408,33 @@ export class OccCompSolid extends OccShape implements ICompoundSolid {}
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccCompound extends OccShape implements ICompound {}
+
+export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
+    override get mesh(): IShapeMeshData {
+        throw new Error("SubShape can not be meshed");
+    }
+
+    constructor(
+        readonly parent: IShape,
+        edge: TopoDS_Edge,
+        readonly index: number,
+        id?: string,
+    ) {
+        super(edge, id);
+    }
+}
+
+export class OccSubFaceShape extends OccFace implements ISubFaceShape {
+    override get mesh(): IShapeMeshData {
+        throw new Error("SubShape can not be meshed");
+    }
+
+    constructor(
+        readonly parent: IShape,
+        face: TopoDS_Face,
+        readonly index: number,
+        id?: string,
+    ) {
+        super(face, id);
+    }
+}

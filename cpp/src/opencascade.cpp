@@ -96,6 +96,8 @@ EMSCRIPTEN_BINDINGS(opencascade) {
 
     class_<Geom_Geometry, base<Standard_Transient>>("Geom_Geometry")
         .function("copy", &Geom_Geometry::Copy)
+        .function("transform", &Geom_Geometry::Transform)
+        .function("transformed", &Geom_Geometry::Transformed)
     ;
 
     class_<Geom_Curve, base<Geom_Geometry>>("Geom_Curve")
@@ -408,14 +410,15 @@ EMSCRIPTEN_BINDINGS(opencascade) {
         .function("isNull", &TopoDS_Shape::IsNull)
         .function("isPartner", &TopoDS_Shape::IsPartner)
         .function("isSame", &TopoDS_Shape::IsSame)
-        .function("getLocation", select_overload<const TopLoc_Location& () const>(&TopoDS_Shape::Location))
-        .function("setLocation", select_overload<void(const TopLoc_Location&, bool)>(&TopoDS_Shape::Location))
+        .function("getLocation", select_overload<const TopLoc_Location &() const>(&TopoDS_Shape::Location))
+        .function("setLocation", select_overload<void(const TopLoc_Location &, bool)>(&TopoDS_Shape::Location))
         .function("nbChildren", &TopoDS_Shape::NbChildren)
         .function("nullify", &TopoDS_Shape::Nullify)
         .function("orientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
         .function("reverse", &TopoDS_Shape::Reverse)
         .function("reversed", &TopoDS_Shape::Reversed)
         .function("shapeType", &TopoDS_Shape::ShapeType)
+        .function("located", &TopoDS_Shape::Located)
     ;
 
     class_<TColgp_Array1OfPnt>("TColgp_Array1OfPnt")

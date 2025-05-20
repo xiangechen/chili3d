@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     CollectionAction,
     CollectionChangedArgs,
     ComponentNode,
@@ -207,7 +208,7 @@ export class ThreeVisualContext implements IVisualContext {
                 return false;
             }
 
-            let boundingBox = x.boundingBox();
+            let boundingBox = BoundingBox.transformed(x.boundingBox()!, x.totalTransform);
             if (boundingBox === undefined) {
                 return false;
             }

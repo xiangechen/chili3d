@@ -19,6 +19,7 @@ import {
     IOffsetCurve,
     IParabola,
     ITrimmedCurve,
+    Matrix4,
     Ray,
     XYZ,
     gc,
@@ -52,6 +53,13 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
     override copy(): IGeometry {
         return gc((c) => {
             let newCurve = c(this.curve.copy());
+            return OcctHelper.wrapCurve(newCurve.get() as Geom_Curve);
+        });
+    }
+
+    override transformed(matrix: Matrix4): IGeometry {
+        return gc((c) => {
+            let newCurve = c(this.curve.transformed(OcctHelper.convertFromMatrix(matrix)));
             return OcctHelper.wrapCurve(newCurve.get() as Geom_Curve);
         });
     }

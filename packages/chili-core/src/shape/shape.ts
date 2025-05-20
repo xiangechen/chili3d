@@ -19,6 +19,7 @@ export interface IShape extends IDisposable {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;
+    transformed(matrix: Matrix4): IShape;
     edgesMeshPosition(): EdgeMeshData;
     matrix: Matrix4;
     isClosed(): boolean;
@@ -42,8 +43,17 @@ export interface IShape extends IDisposable {
     section(shape: IShape | Plane): IShape;
     split(edges: (IEdge | IWire)[]): IShape;
     reserve(): void;
-    copy(): IShape;
+    clone(): IShape;
 }
+
+export interface ISubShape extends IShape {
+    index: number;
+    parent: IShape;
+}
+
+export interface ISubEdgeShape extends ISubShape, IEdge {}
+
+export interface ISubFaceShape extends ISubShape, IFace {}
 
 export interface IVertex extends IShape {}
 

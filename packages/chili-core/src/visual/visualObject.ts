@@ -6,6 +6,7 @@ import { BoundingBox, GeometryNode, IDisposable, Matrix4, VisualNode } from "chi
 export interface IVisualObject extends IDisposable {
     visible: boolean;
     transform: Matrix4;
+    get totalTransform(): Matrix4;
     boundingBox(): BoundingBox | undefined;
 }
 

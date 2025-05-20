@@ -6,7 +6,7 @@ import {
     EdgeMeshData,
     I18n,
     IDocument,
-    IEdge,
+    ISubEdgeShape,
     IView,
     LineType,
     Precision,
@@ -120,7 +120,7 @@ export class TrackingSnap implements ISnap {
     }
 
     private findIntersection(data: MouseAndDetected, trackingDatas: TrackingData[]) {
-        const edge = data.shapes[0].shape as IEdge;
+        const edge = data.shapes[0].shape as ISubEdgeShape;
         const points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {

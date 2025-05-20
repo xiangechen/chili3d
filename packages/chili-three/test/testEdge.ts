@@ -29,10 +29,13 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    transformed(matrix: Matrix4): IShape {
+        throw new Error("Method not implemented.");
+    }
     edgesMeshPosition(): EdgeMeshData {
         throw new Error("Method not implemented.");
     }
-    copy(): IShape {
+    clone(): IShape {
         throw new Error("Method not implemented.");
     }
 
@@ -105,7 +108,6 @@ export class TestEdge implements IEdge {
                 range: [],
             },
             faces: undefined,
-            updateMeshShape() {},
         };
     }
     serialize(): Serialized {

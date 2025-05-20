@@ -13,8 +13,8 @@ import { CreateCommand } from "../createCommand";
 })
 export class Sweep extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        const shape = this.stepDatas[0].shapes[0].shape;
-        const path = this.stepDatas[1].shapes[0].shape as IWire;
+        const shape = this.transformdFirstShape(this.stepDatas[0], false);
+        const path = this.transformdFirstShape(this.stepDatas[1], false) as IWire;
         return new SweepedNode(this.document, shape, path);
     }
 

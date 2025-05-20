@@ -13,8 +13,8 @@ export class EditEventHandler extends NodeSelectionHandler {
         PubSub.default.pub("showProperties", document, selectedNodes);
     }
 
-    override dispose() {
+    override disposeInternal() {
         PubSub.default.pub("showProperties", this.document, []);
-        super.dispose();
+        super.disposeInternal();
     }
 }

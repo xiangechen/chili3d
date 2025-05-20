@@ -14,16 +14,9 @@ export abstract class VisualNode extends Node {
         return this.getPrivateValue("transform", Matrix4.identity());
     }
     set transform(value: Matrix4) {
-        this.setProperty(
-            "transform",
-            value,
-            (_p, oldMatrix) => {
-                this.onTransformChanged(value, oldMatrix);
-            },
-            {
-                equals: (left, right) => left.equals(right),
-            },
-        );
+        this.setProperty("transform", value, undefined, {
+            equals: (left, right) => left.equals(right),
+        });
     }
 
     protected onVisibleChanged(): void {
@@ -35,6 +28,4 @@ export abstract class VisualNode extends Node {
     }
 
     abstract boundingBox(): BoundingBox | undefined;
-
-    protected onTransformChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
 }

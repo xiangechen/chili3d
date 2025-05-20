@@ -169,8 +169,9 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private showCircleCenter(curve: ICircle, view: IView, shape: VisualShapeData) {
+        const center = shape.owner.totalTransform.ofPoint(curve.center);
         let temporary = VertexMeshData.from(
-            curve.center,
+            center,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
         );
@@ -180,7 +181,7 @@ export class ObjectSnap extends BaseSnap {
             snaps: [
                 {
                     view,
-                    point: curve.center,
+                    point: center,
                     info: I18n.translate("snap.center"),
                     shapes: [shape],
                 },
@@ -207,11 +208,12 @@ export class ObjectSnap extends BaseSnap {
         }
 
         let curve = (shape.shape as IEdge).curve;
-        let point = curve.project(this.referencePoint()).at(0);
+        const transform = shape.owner.totalTransform;
+        let point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
         if (point === undefined) return result;
         result.push({
             view,
-            point,
+            point: transform.ofPoint(point),
             info: I18n.translate("snap.perpendicular"),
             shapes: [shape],
         });
@@ -245,7 +247,11 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapResult[] {
-        let intersections = (s1.shape as IEdge).intersect(s2.shape as IEdge);
+        const e1 = s1.shape.transformed(s1.owner.totalTransform) as IEdge;
+        const e2 = s2.shape.transformed(s2.owner.totalTransform) as IEdge;
+        let intersections = e1.intersect(e2);
+        e1.dispose();
+        e2.dispose();
         return intersections.map((point) => {
             return {
                 view,

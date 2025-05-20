@@ -29,7 +29,11 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     }
 
     private getDetecteds(view: IView, event: PointerEvent) {
-        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
+        if (
+            this.rect &&
+            Math.abs(this.mouse.x - event.offsetX) > 3 &&
+            Math.abs(this.mouse.y - event.offsetY) > 3
+        ) {
             return view.detectShapesRect(
                 this.shapeType,
                 this.mouse.x,

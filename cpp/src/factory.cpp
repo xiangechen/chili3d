@@ -495,11 +495,15 @@ public:
         return ShapeResult{compound, true, ""};
     }
 
-    static ShapeResult fillet(const TopoDS_Shape &shape, const EdgeArray& edges, double radius) {
-        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+    static ShapeResult fillet(const TopoDS_Shape &shape, const NumberArray& edges, double radius) {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
         BRepFilletAPI_MakeFillet makeFillet(shape);
         for(auto edge : edgeVec) {
-            makeFillet.Add(radius, edge);
+            makeFillet.Add(radius, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
         }
         makeFillet.Build();
         if (!makeFillet.IsDone()) {
@@ -509,11 +513,15 @@ public:
         return ShapeResult{makeFillet.Shape(), true, ""};
     }
 
-    static ShapeResult chamfer(const TopoDS_Shape &shape, const EdgeArray& edges, double distance) {
-        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+    static ShapeResult chamfer(const TopoDS_Shape &shape, const NumberArray& edges, double distance) {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
         BRepFilletAPI_MakeChamfer makeChamfer(shape);
         for(auto edge : edgeVec) {
-            makeChamfer.Add(distance, edge);
+            makeChamfer.Add(distance, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
         }
         makeChamfer.Build();
         if (!makeChamfer.IsDone()) {

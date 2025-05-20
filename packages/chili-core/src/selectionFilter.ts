@@ -13,7 +13,16 @@ export interface INodeFilter {
 }
 
 export class ShapeNodeFilter implements INodeFilter {
+    constructor(readonly shapeFilter?: IShapeFilter) {}
+
     allow(node: INode): boolean {
-        return node instanceof ShapeNode;
+        if (node instanceof ShapeNode) {
+            if (this.shapeFilter && node.shape.isOk) {
+                return this.shapeFilter.allow(node.shape.value);
+            }
+            return true;
+        }
+
+        return false;
     }
 }

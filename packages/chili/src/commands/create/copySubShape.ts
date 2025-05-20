@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EditableShapeNode, ShapeType, Transaction, command } from "chili-core";
+import { EditableShapeNode, PubSub, ShapeType, Transaction, command } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -12,20 +12,25 @@ import { MultistepCommand } from "../multistepCommand";
 export class CopySubShapeCommand extends MultistepCommand {
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            const subShapes = this.stepDatas.at(0)!.shapes.map((x) => x.shape);
-            const model = new EditableShapeNode(
-                this.document,
-                ShapeType.stringValue(subShapes[0].shapeType),
-                subShapes[0],
-            );
+            this.stepDatas[0].shapes.forEach((x) => {
+                const subShape = x.shape.transformed(x.owner.totalTransform);
+                const model = new EditableShapeNode(
+                    this.document,
+                    ShapeType.stringValue(subShape.shapeType),
+                    subShape,
+                );
 
-            const node = this.stepDatas[0].shapes[0].owner.node;
-            node.parent?.insertAfter(node, model);
+                const node = x.owner.node;
+                node.parent!.insertAfter(node, model);
+            });
             this.document.visual.update();
+            PubSub.default.pub("showToast", "toast.success");
         });
     }
 
     protected override getSteps() {
-        return [new SelectShapeStep(ShapeType.Edge | ShapeType.Face, "prompt.select.shape")];
+        return [
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Face, "prompt.select.shape", { multiple: true }),
+        ];
     }
 }

@@ -4,7 +4,7 @@
 import { IDocument } from "../document";
 import { Id } from "../foundation";
 import { I18nKeys } from "../i18n";
-import { BoundingBox } from "../math";
+import { BoundingBox, Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
 import { Mesh } from "../shape";

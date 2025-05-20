@@ -23,7 +23,7 @@ import {
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
-import { OccEdge, OccShape } from "./shape";
+import { OccShape } from "./shape";
 
 function ensureOccShape(shapes: IShape | IShape[]): TopoDS_Shape[] {
     if (Array.isArray(shapes)) {
@@ -60,7 +60,7 @@ export class ShapeFactory implements IShapeFactory {
         this.converter = new OccShapeConverter();
     }
 
-    fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape> {
+    fillet(shape: IShape, edges: number[], radius: number): Result<IShape> {
         if (radius < Precision.Distance) {
             return Result.err("The radius is too small.");
         }
@@ -70,13 +70,12 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
-            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
-            return convertShapeResult(wasm.ShapeFactory.fillet(shape.shape, occEdges, radius));
+            return convertShapeResult(wasm.ShapeFactory.fillet(shape.shape, edges, radius));
         }
         return Result.err("Not OccShape");
     }
 
-    chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape> {
+    chamfer(shape: IShape, edges: number[], distance: number): Result<IShape> {
         if (distance < Precision.Distance) {
             return Result.err("The distance is too small.");
         }
@@ -86,8 +85,7 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
-            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
-            return convertShapeResult(wasm.ShapeFactory.chamfer(shape.shape, occEdges, distance));
+            return convertShapeResult(wasm.ShapeFactory.chamfer(shape.shape, edges, distance));
         }
         return Result.err("Not OccShape");
     }

@@ -12,8 +12,7 @@ import {
     VisualConfig,
 } from "chili-core";
 import { EdgeMeshData as OccEdgeMeshData, FaceMeshData as OccFaceMeshData } from "../lib/chili-wasm";
-import { OcctHelper } from "./helper";
-import { OccShape } from "./shape";
+import { OccShape, OccSubEdgeShape, OccSubFaceShape } from "./shape";
 
 export class Mesher implements IShapeMeshData, IDisposable {
     private _isMeshed = false;
@@ -54,24 +53,24 @@ export class Mesher implements IShapeMeshData, IDisposable {
             const faceMeshData = c(meshData.faceMeshData);
             const edgeMeshData = c(meshData.edgeMeshData);
 
-            this._faces = Mesher.parseFaceMeshData(faceMeshData);
-            this._lines = Mesher.parseEdgeMeshData(edgeMeshData);
+            this._faces = this.parseFaceMeshData(faceMeshData);
+            this._lines = this.parseEdgeMeshData(edgeMeshData);
         });
     }
 
-    private static parseFaceMeshData(faceMeshData: OccFaceMeshData): FaceMeshData {
+    private parseFaceMeshData(faceMeshData: OccFaceMeshData): FaceMeshData {
         return {
             position: new Float32Array(faceMeshData.position),
             normal: new Float32Array(faceMeshData.normal),
             uv: new Float32Array(faceMeshData.uv),
             index: new Uint32Array(faceMeshData.index),
-            range: Mesher.getFaceRanges(faceMeshData),
+            range: this.getFaceRanges(faceMeshData),
             color: VisualConfig.defaultFaceColor,
             groups: [],
         };
     }
 
-    private static parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
+    private parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
         return {
             lineType: LineType.Solid,
             position: new Float32Array(edgeMeshData.position),
@@ -89,46 +88,25 @@ export class Mesher implements IShapeMeshData, IDisposable {
         this._lines = null as any;
     }
 
-    updateMeshShape(): void {
-        if (this._lines !== undefined) {
-            wasm.Shape.findSubShapes(this.shape.shape, wasm.TopAbs_ShapeEnum.TopAbs_EDGE).forEach(
-                (edge, i) => {
-                    let s = this._lines!.range[i].shape;
-                    this._lines!.range[i].shape = OcctHelper.wrapShape(edge, s.id);
-                    s.dispose();
-                },
-            );
-        }
-        if (this._faces !== undefined) {
-            wasm.Shape.findSubShapes(this.shape.shape, wasm.TopAbs_ShapeEnum.TopAbs_FACE).forEach(
-                (face, i) => {
-                    let s = this._faces!.range[i].shape;
-                    this._faces!.range[i].shape = OcctHelper.wrapShape(face, s.id);
-                    s.dispose();
-                },
-            );
-        }
-    }
-
-    private static getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {
+    private getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {
         let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.edges.length; i++) {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: OcctHelper.wrapShape(data.edges[i]),
+                shape: new OccSubEdgeShape(this.shape, data.edges[i], i),
             });
         }
         return result;
     }
 
-    private static getFaceRanges(data: OccFaceMeshData): ShapeMeshRange[] {
+    private getFaceRanges(data: OccFaceMeshData): ShapeMeshRange[] {
         let result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.faces.length; i++) {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: OcctHelper.wrapShape(data.faces[i]),
+                shape: new OccSubFaceShape(this.shape, data.faces[i], i),
             });
         }
         return result;

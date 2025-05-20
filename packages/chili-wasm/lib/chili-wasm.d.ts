@@ -1,19 +1,4 @@
-// Part of the Chili3d Project, under the AGPL-3.0 License.
-// See LICENSE file in the project root for full license information.
 // TypeScript bindings for emscripten-generated code.  Automatically generated at compile time.
-declare namespace RuntimeExports {
-    let HEAPF32: any;
-    let HEAPF64: any;
-    let HEAP_DATA_VIEW: any;
-    let HEAP8: any;
-    let HEAPU8: any;
-    let HEAP16: any;
-    let HEAPU16: any;
-    let HEAP32: any;
-    let HEAPU32: any;
-    let HEAP64: any;
-    let HEAPU64: any;
-}
 interface WasmModule {}
 
 type EmbindString = ArrayBuffer | Uint8Array | Uint8ClampedArray | Int8Array | string;
@@ -128,6 +113,8 @@ export interface Standard_Transient extends ClassHandle {
 
 export interface Geom_Geometry extends Standard_Transient {
     copy(): Handle_Geom_Geometry;
+    transform(_0: gp_Trsf): void;
+    transformed(_0: gp_Trsf): Handle_Geom_Geometry;
 }
 
 export interface Geom_Curve extends Geom_Geometry {
@@ -484,6 +471,7 @@ export interface TopoDS_Shape extends ClassHandle {
     reverse(): void;
     reversed(): TopoDS_Shape;
     shapeType(): TopAbs_ShapeEnum;
+    located(_0: TopLoc_Location, _1: boolean): TopoDS_Shape;
 }
 
 export interface TColgp_Array1OfPnt extends ClassHandle {
@@ -595,14 +583,14 @@ interface EmbindModule {
         sweep(_0: TopoDS_Shape, _1: TopoDS_Wire): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
+        fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
+        chamfer(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
         makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number): ShapeResult;
         booleanCommon(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
         booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
         booleanFuse(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
         combine(_0: Array<TopoDS_Shape>): ShapeResult;
         wire(_0: Array<TopoDS_Edge>): ShapeResult;
-        fillet(_0: TopoDS_Shape, _1: Array<TopoDS_Edge>, _2: number): ShapeResult;
-        chamfer(_0: TopoDS_Shape, _1: Array<TopoDS_Edge>, _2: number): ShapeResult;
         shell(_0: Array<TopoDS_Face>): ShapeResult;
         face(_0: Array<TopoDS_Wire>): ShapeResult;
         solid(_0: Array<TopoDS_Shell>): ShapeResult;
@@ -779,7 +767,7 @@ interface EmbindModule {
     TopoDS_Compound: {};
     TopoDS_CompSolid: {};
     Shape: {
-        copy(_0: TopoDS_Shape): TopoDS_Shape;
+        clone(_0: TopoDS_Shape): TopoDS_Shape;
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
         replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
@@ -821,5 +809,5 @@ interface EmbindModule {
     };
 }
 
-export type MainModule = WasmModule & typeof RuntimeExports & EmbindModule;
+export type MainModule = WasmModule & EmbindModule;
 export default function MainModuleFactory(options?: unknown): Promise<MainModule>;

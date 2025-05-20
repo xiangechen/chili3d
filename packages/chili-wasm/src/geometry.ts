@@ -1,8 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryType, IGeometry } from "chili-core";
+import { GeometryType, IGeometry, Matrix4 } from "chili-core";
 import { Geom_Geometry, Handle_Geom_Geometry } from "../lib/chili-wasm";
+import { OcctHelper } from "./helper";
 
 export abstract class OccGeometry implements IGeometry {
     private readonly _geometryType: GeometryType;
@@ -41,5 +42,10 @@ export abstract class OccGeometry implements IGeometry {
         this._handleGeometry.delete();
     }
 
+    transform(value: Matrix4) {
+        this.geometry.transform(OcctHelper.convertFromMatrix(value));
+    }
+
     abstract copy(): IGeometry;
+    abstract transformed(matrix: Matrix4): IGeometry;
 }

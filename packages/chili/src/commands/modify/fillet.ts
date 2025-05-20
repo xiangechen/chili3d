@@ -3,7 +3,7 @@
 
 import {
     EditableShapeNode,
-    IEdge,
+    ISubEdgeShape,
     Property,
     ShapeNode,
     ShapeType,
@@ -31,7 +31,7 @@ export class FilletCommand extends MultistepCommand {
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
-            const edges = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IEdge);
+            const edges = this.stepDatas.at(-1)!.shapes.map((x) => (x.shape as ISubEdgeShape).index);
             const filetShape = this.document.application.shapeFactory.fillet(
                 node.shape.value,
                 edges,

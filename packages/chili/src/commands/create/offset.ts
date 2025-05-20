@@ -62,7 +62,7 @@ export class OffsetCommand extends CreateCommand {
 
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
         let start = this.stepDatas[0].shapes[0].point!;
-        let shape = this.stepDatas[0].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[1]);
         if (shape.shapeType === ShapeType.Edge) {
             return this.getEdgeAxis(shape as IEdge, start);
         }
@@ -112,7 +112,7 @@ export class OffsetCommand extends CreateCommand {
     }
 
     private createOffsetShape(normal: XYZ, distance: number) {
-        let shape = this.stepDatas[0].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return (shape as IEdge).offset(distance, normal);
         }

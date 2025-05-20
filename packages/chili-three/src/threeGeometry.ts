@@ -7,6 +7,7 @@ import {
     FaceMeshData,
     GeometryNode,
     IShape,
+    ISubShape,
     IVisualGeometry,
     ShapeMeshRange,
     ShapeNode,
@@ -163,7 +164,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
-        let subShape: IShape | undefined = undefined;
+        let subShape: ISubShape | undefined = undefined;
         let index: number = -1;
         let groups: ShapeMeshRange[] | undefined = undefined;
         if (shapeType === "edge") {
@@ -180,11 +181,11 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             }
         }
 
-        let fromShape = subShape;
+        let shape: IShape | undefined = subShape;
         if (this.geometryNode instanceof ShapeNode) {
-            fromShape = this.geometryNode.shape.value;
+            shape = this.geometryNode.shape.value;
         }
-        return { fromShape, subShape, index, groups: groups ?? [] };
+        return { shape, subShape, index, groups: groups ?? [] };
     }
 
     override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {

@@ -11,12 +11,6 @@ import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
 import { GeometryNode } from "./geometryNode";
 
-/**
- * ShapeNode is the base class for all shape nodes.
- * It provides a shape property that can be used to set the shape of the node.
- * The matrix of the shape is equal to the matrix of the node.
- * When the matrix of the node is changed, the matrix of the shape is also changed.
- */
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
     get shape(): Result<IShape> {
@@ -36,14 +30,10 @@ export abstract class ShapeNode extends GeometryNode {
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._shape.value.matrix = this.transform;
+
         this.emitPropertyChanged("shape", oldShape);
 
         oldShape.unchecked()?.dispose();
-    }
-
-    protected override onTransformChanged(newMatrix: Matrix4): void {
-        if (this.shape.isOk) this.shape.value.matrix = newMatrix;
     }
 
     protected override createMesh(): IShapeMeshData {
@@ -103,8 +93,6 @@ export class MultiShapeMesh implements IShapeMeshData {
             MeshUtils.combineEdgeMeshData(this._edges, mesh.edges, totleMatrix);
         }
     }
-
-    updateMeshShape() {}
 }
 
 @Serializer.register(["document", "name", "shapes", "materialId", "id"])
@@ -196,6 +184,5 @@ export class EditableShapeNode extends ShapeNode {
     ) {
         super(document, name, materialId, id);
         this._shape = shape instanceof Result ? shape : Result.ok(shape);
-        this.setPrivateValue("transform", this._shape.value.matrix);
     }
 }

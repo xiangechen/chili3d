@@ -79,6 +79,8 @@ export class DefaultDataExchange implements IDataExchange {
         if (!shapes.length) return;
 
         const shapeResult = await this.convertShapes(type, nodes[0].document, shapes);
+        shapes.forEach((x) => x.dispose());
+
         return this.handleExportResult(shapeResult);
     }
 
@@ -89,7 +91,12 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private getExportShapes(nodes: VisualNode[]): IShape[] {
-        const shapes = nodes.filter((x): x is ShapeNode => x instanceof ShapeNode).map((x) => x.shape.value);
+        const shapes = nodes
+            .filter((x): x is ShapeNode => x instanceof ShapeNode)
+            .map((x) => {
+                const matrix = x.document.visual.context.getVisual(x)!.totalTransform;
+                return x.shape.value.transformed(matrix);
+            });
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");
         return shapes;

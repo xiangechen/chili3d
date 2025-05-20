@@ -27,7 +27,13 @@ export class FeaturePointStrategy {
         const start = curve.value(curve.firstParameter());
         const end = curve.value(curve.lastParameter());
 
-        const addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
+        const addPoint = (point: XYZ, info: string) =>
+            infos.push({
+                view,
+                point: shape.owner.totalTransform.ofPoint(point),
+                info,
+                shapes: [shape],
+            });
 
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));

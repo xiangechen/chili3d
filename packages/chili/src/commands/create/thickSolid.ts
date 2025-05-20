@@ -19,7 +19,7 @@ export class ThickSolidCommand extends CreateCommand {
     }
 
     protected override geometryNode() {
-        let shape = this.stepDatas[0].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
         let thickSolid = this.application.shapeFactory.makeThickSolidBySimple(shape, this.thickness);
         return new EditableShapeNode(
             this.document,

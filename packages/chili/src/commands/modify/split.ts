@@ -22,9 +22,15 @@ import { MultistepCommand } from "../multistepCommand";
 })
 export class Split extends MultistepCommand {
     private splitedShape() {
-        const shape1 = this.stepDatas[0].shapes[0].shape;
-        const edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
-        return shape1.split(edges);
+        const shape1 = this.transformdFirstShape(this.stepDatas[0]);
+        const edges = this.stepDatas[1].shapes.map((x) =>
+            x.shape.transformed(x.owner.totalTransform),
+        ) as IEdge[];
+        const result = shape1.split(edges);
+
+        edges.forEach((x) => x.dispose());
+
+        return result;
     }
 
     protected override executeMainTask() {
@@ -36,7 +42,6 @@ export class Split extends MultistepCommand {
                 old.shape = Result.ok(shape);
             } else if (old instanceof GeometryNode) {
                 const model = new EditableShapeNode(this.document, old.name, shape);
-                model.transform = old.transform;
                 this.removeModels(
                     this.stepDatas[0].shapes[0].owner,
                     ...this.stepDatas[1].shapes.map((x) => x.owner),

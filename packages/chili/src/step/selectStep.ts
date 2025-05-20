@@ -8,7 +8,6 @@ import {
     INodeFilter,
     IShapeFilter,
     ShapeNode,
-    ShapeNodeFilter,
     ShapeType,
     VisualState,
 } from "chili-core";
@@ -26,6 +25,7 @@ export interface SelectShapeOptions {
 export interface SelectNodeOptions {
     multiple?: boolean;
     filter?: INodeFilter;
+    keepSelection?: boolean;
 }
 
 export abstract class SelectStep implements IStep {
@@ -36,9 +36,8 @@ export abstract class SelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const { shapeType, shapeFilter, nodeFilter } = document.selection;
+        const { shapeType, shapeFilter } = document.selection;
         document.selection.shapeType = this.snapeType;
-        document.selection.nodeFilter = this.options?.nodeFilter;
         document.selection.shapeFilter = this.options?.shapeFilter;
         if (!this.options?.keepSelection) {
             document.selection.clearSelection();
@@ -49,7 +48,6 @@ export abstract class SelectStep implements IStep {
         } finally {
             document.selection.shapeType = shapeType;
             document.selection.shapeFilter = shapeFilter;
-            document.selection.nodeFilter = nodeFilter;
         }
     }
 
@@ -71,30 +69,7 @@ export class SelectShapeStep extends SelectStep {
         return {
             view: document.application.activeView!,
             shapes,
-        };
-    }
-}
-
-export class SelectShapeNodeStep extends SelectStep {
-    constructor(prompt: I18nKeys, options?: SelectShapeOptions) {
-        super(ShapeType.Shape, prompt, options);
-    }
-
-    override async select(
-        document: IDocument,
-        controller: AsyncController,
-    ): Promise<SnapResult | undefined> {
-        document.selection.nodeFilter ??= new ShapeNodeFilter();
-        const nodes = await document.selection.pickNode(
-            this.prompt,
-            controller,
-            this.options?.multiple === true,
-        );
-        if (nodes.length === 0) return undefined;
-        return {
-            view: document.application.activeView!,
-            shapes: [],
-            nodes,
+            nodes: shapes.map((x) => x.owner.node),
         };
     }
 }
@@ -106,10 +81,13 @@ export class SelectNodeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const oldFilter = document.selection.nodeFilter;
+        const { nodeFilter } = document.selection;
         document.selection.nodeFilter = this.options?.filter;
+        if (!this.options?.keepSelection) {
+            document.selection.clearSelection();
+            document.visual.highlighter.clear();
+        }
         try {
-            document.selection.nodeFilter = this.options?.filter;
             const nodes = await document.selection.pickNode(
                 this.prompt,
                 controller,
@@ -122,7 +100,7 @@ export class SelectNodeStep implements IStep {
                 nodes,
             };
         } finally {
-            document.selection.nodeFilter = oldFilter;
+            document.selection.nodeFilter = nodeFilter;
         }
     }
 }

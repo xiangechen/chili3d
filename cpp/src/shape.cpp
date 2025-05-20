@@ -48,7 +48,7 @@ using namespace emscripten;
 class Shape {
 public:
     
-    static TopoDS_Shape copy(const TopoDS_Shape& shape) {
+    static TopoDS_Shape clone(const TopoDS_Shape& shape) {
         BRepBuilderAPI_Copy copy(shape);
         return copy.Shape();
     }
@@ -246,7 +246,7 @@ public:
         BRepExtrema_ExtCC cc(edge, otherEdge);
         if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel()) {
             for (int i = 1; i <= cc.NbExt(); i++) {
-                if (cc.SquareDistance(i) > Precision::Confusion()) {
+                if (cc.SquareDistance(i) > Precision::Intersection()) {
                     continue;
                 }
                 PointAndParameter pointAndParameter = {
@@ -337,7 +337,7 @@ public:
 EMSCRIPTEN_BINDINGS(Shape) {
 
     class_<Shape>("Shape")
-        .class_function("copy", &Shape::copy)
+        .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
         .class_function("iterShape", &Shape::iterShape)
@@ -348,8 +348,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("removeFeature", &Shape::removeFeature)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)
-        .class_function("sewing", &Shape::sewing)
-    ;
+        .class_function("sewing", &Shape::sewing);
 
     class_<Vertex>("Vertex")
         .class_function("point", &Vertex::point)

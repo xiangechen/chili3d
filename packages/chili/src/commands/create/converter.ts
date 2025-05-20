@@ -16,13 +16,14 @@ import {
     PubSub,
     Result,
     ShapeNode,
+    ShapeNodeFilter,
     ShapeType,
     Transaction,
     command,
 } from "chili-core";
 import { FaceNode } from "../../bodys/face";
 import { WireNode } from "../../bodys/wire";
-import { SelectShapeNodeStep } from "../../step";
+import { SelectNodeStep } from "../../step";
 
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {
@@ -59,8 +60,8 @@ abstract class ConvertCommand extends CancelableCommand {
         document.selection.clearSelection();
         if (models.length > 0) return models;
 
-        const step = new SelectShapeNodeStep("prompt.select.models", {
-            shapeFilter: filter,
+        const step = new SelectNodeStep("prompt.select.models", {
+            filter: new ShapeNodeFilter(filter),
             multiple: true,
         });
         this.controller = new AsyncController();
@@ -89,7 +90,10 @@ abstract class ConvertCommand extends CancelableCommand {
 })
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const edges = models.map((x) => x.shape.value.copy()) as IEdge[];
+        const edges = models.map((x) => {
+            const transform = document.visual.context.getVisual(x)!.totalTransform;
+            return x.shape.value.transformed(transform);
+        }) as IEdge[];
         const wireBody = new WireNode(document, edges);
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
@@ -104,7 +108,10 @@ export class ConvertToWire extends ConvertCommand {
 })
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const edges = models.map((x) => x.shape.value.copy()) as IEdge[];
+        const edges = models.map((x) => {
+            const transform = document.visual.context.getVisual(x)!.totalTransform;
+            return x.shape.value.transformed(transform);
+        }) as IEdge[];
         const wireBody = new FaceNode(document, edges);
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
@@ -125,8 +132,12 @@ export class ConvertToShell extends ConvertCommand {
     }
 
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const faces = models.map((x) => x.shape.value.copy()) as IFace[];
+        const faces = models.map((x) => {
+            const transform = document.visual.context.getVisual(x)!.totalTransform;
+            return x.shape.value.transformed(transform);
+        }) as IFace[];
         const shape = this.application.shapeFactory.shell(faces);
+        faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 
         const shell = new EditableShapeNode(document, "shell", shape);
@@ -146,8 +157,12 @@ export class ConvertToSolid extends ConvertCommand {
     }
 
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const faces = models.map((x) => x.shape.value.copy()) as IShell[];
+        const faces = models.map((x) => {
+            const transform = document.visual.context.getVisual(x)!.totalTransform;
+            return x.shape.value.transformed(transform);
+        }) as IShell[];
         const shape = this.application.shapeFactory.solid(faces);
+        faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 
         const solid = new EditableShapeNode(document, "solid", shape);

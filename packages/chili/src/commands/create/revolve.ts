@@ -32,9 +32,10 @@ export class Revolve extends CreateCommand {
     }
 
     protected override geometryNode(): GeometryNode {
-        const shape = this.stepDatas[0].shapes[0].shape;
+        const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
-        const axis = new Ray(edge.value(0), edge.direction);
+        const transform = this.stepDatas[1].shapes[0].owner.totalTransform;
+        const axis = new Ray(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
         return new RevolvedNode(this.document, shape, axis, this.angle);
     }
 

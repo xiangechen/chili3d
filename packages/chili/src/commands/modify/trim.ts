@@ -9,6 +9,7 @@ import {
     GeometryNode,
     I18n,
     ICurve,
+    IDisposable,
     IDocument,
     IEdge,
     IShape,
@@ -61,6 +62,7 @@ export class Trim extends CancelableCommand {
                 break;
             }
             this.trimEdge(handler.selected);
+            handler.dispose();
         }
     }
 
@@ -100,6 +102,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     #selected: TrimEdge | undefined;
     private highlightedEdge: number | undefined;
     private highlight: undefined | TrimEdge;
+    private readonly releaseStack = new Set<IDisposable>();
 
     get selected() {
         return this.#selected;
@@ -112,14 +115,21 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     protected override highlightDetecteds(view: IView, detecteds: VisualShapeData[]): void {
         this.cleanHighlights();
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
-        let edge = detecteds[0].shape as IEdge;
-        let curve = edge.curve;
-        let segments = findSegments(curve, edge, findEdges(detecteds, view), detecteds);
+
+        const box = BoundingBox.transformed(
+            detecteds[0].owner.boundingBox()!,
+            detecteds[0].owner.totalTransform,
+        );
+        const edges = this.filterByBoundingBox(box, view, detecteds[0].shape.id);
+        const edge = detecteds[0].shape.transformed(detecteds[0].owner.totalTransform) as IEdge;
+        this.releaseStack.add(edge);
+
+        let segments = findSegments(edge.curve, edge, edges, detecteds);
         let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
         mesh.lineWidth = 3;
         this.highlightedEdge = view.document.visual.highlighter.highlightMesh(mesh);
-        this.highlight = { edge: detecteds[0], segments, curve };
+        this.highlight = { edge: detecteds[0], segments, curve: edge.curve };
         view.update();
     }
 
@@ -140,15 +150,27 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         this.#selected = this.highlight;
         return this.#selected ? 1 : 0;
     }
-}
 
-function findEdges(detecteds: VisualShapeData[], view: IView) {
-    let boundingBox = BoundingBox.expand(detecteds[0].owner.boundingBox()!, 1e-3);
-    let otherEdges = view.document.visual.context
-        .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
-        .map((x) => ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value as IEdge)
-        .filter((x) => x !== undefined && x.id !== detecteds[0].shape.id);
-    return otherEdges;
+    private filterByBoundingBox(box: BoundingBox, view: IView, currentId: string) {
+        let boundingBox = BoundingBox.expand(box, 1e-3);
+        return view.document.visual.context
+            .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
+            .map((x) => {
+                const shape = ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value;
+                if (shape.id === currentId) return undefined;
+                const edge = shape.transformed(x.totalTransform) as IEdge;
+                this.releaseStack.add(edge);
+                return edge;
+            })
+            .filter((x) => x !== undefined);
+    }
+
+    override disposeInternal(): void {
+        super.disposeInternal();
+
+        this.releaseStack.forEach((x) => x.dispose());
+        this.releaseStack.clear();
+    }
 }
 
 function findSegments(curve: ITrimmedCurve, edge: IEdge, otherEdges: IEdge[], detecteds: VisualShapeData[]) {

@@ -22,6 +22,7 @@ import {
     ISurfaceOfRevolution,
     ISweptSurface,
     IToroidalSurface,
+    Matrix4,
     Plane,
     XYZ,
     gc,
@@ -54,7 +55,17 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
 
     override copy(): IGeometry {
-        return OcctHelper.wrapSurface(this.surface);
+        return gc((c) => {
+            let s = c(this.surface.copy());
+            return OcctHelper.wrapSurface(s.get() as Geom_Surface);
+        });
+    }
+
+    override transformed(matrix: Matrix4): IGeometry {
+        return gc((c) => {
+            let s = c(this.surface.transformed(OcctHelper.convertFromMatrix(matrix)));
+            return OcctHelper.wrapSurface(s.get() as Geom_Surface);
+        });
     }
 
     projectCurve(curve: ICurve): ICurve | undefined {

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDisposable } from "../foundation";
+import { Matrix4 } from "../math";
 
 export enum GeometryType {
     Curve,
@@ -10,5 +11,7 @@ export enum GeometryType {
 
 export interface IGeometry extends IDisposable {
     get geometryType(): GeometryType;
+    transform(matrix: Matrix4): void;
+    transformed(matrix: Matrix4): IGeometry;
     copy(): IGeometry;
 }

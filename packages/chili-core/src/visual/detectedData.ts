@@ -9,6 +9,5 @@ export interface VisualShapeData {
     shape: IShape;
     owner: INodeVisual;
     point?: XYZ;
-    directShape?: IShape;
     indexes: number[];
 }

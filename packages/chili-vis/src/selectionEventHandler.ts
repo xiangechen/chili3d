@@ -40,7 +40,16 @@ export abstract class SelectionHandler implements IEventHandler {
         });
     }
 
-    dispose() {
+    #disposed = false;
+    readonly dispose = () => {
+        if (!this.#disposed) {
+            this.#disposed = true;
+
+            this.disposeInternal();
+        }
+    };
+
+    protected disposeInternal() {
         this.pointerEventMap.clear();
     }
 

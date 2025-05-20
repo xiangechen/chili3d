@@ -6,6 +6,7 @@ import {
     INodeFilter,
     IShape,
     IShapeFilter,
+    ISubShape,
     IView,
     IVisualObject,
     MultiShapeNode,
@@ -396,7 +397,7 @@ export class ThreeView extends Observable implements IView {
             if (parent.geometryNode instanceof ShapeNode) {
                 shape = parent.geometryNode.shape.unchecked();
             } else if (parent.geometryNode instanceof MultiShapeNode) {
-                shape = this.findShapeAndIndex(parent, element).subShape;
+                shape = this.findShapeAndIndex(parent, element).shape;
             }
             if (!shape) continue;
 
@@ -425,18 +426,17 @@ export class ThreeView extends Observable implements IView {
         for (const intersected of intersections) {
             const visualShape = intersected.object.parent;
             if (visualShape instanceof ThreeVisualObject) {
-                let { shape, subShape, indexes } = this.getShapeFromInsection(
+                let { subShape, indexes } = this.getSubShapeFromInsection(
                     shapeType,
                     visualShape,
                     intersected,
                 );
-                if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
+                if (!subShape || (shapeFilter && !shapeFilter.allow(subShape))) {
                     continue;
                 }
                 result.push({
                     owner: visualShape,
-                    shape,
-                    directShape: subShape,
+                    shape: subShape,
                     point: ThreeHelper.toXYZ(intersected.pointOnLine ?? intersected.point),
                     indexes,
                 });
@@ -445,17 +445,16 @@ export class ThreeView extends Observable implements IView {
         return result;
     }
 
-    private getShapeFromInsection(
+    private getSubShapeFromInsection(
         shapeType: ShapeType,
         parent: ThreeVisualObject,
         intersection: Intersection,
     ): {
-        shape: IShape | undefined;
-        subShape: IShape | undefined;
+        subShape: ISubShape | undefined;
         indexes: number[];
     } {
-        let { fromShape, subShape, index, groups } = this.findShapeAndIndex(parent, intersection);
-        if (!subShape || !fromShape) return { shape: undefined, subShape: undefined, indexes: [] };
+        let { shape: fromShape, subShape, index, groups } = this.findShapeAndIndex(parent, intersection);
+        if (!subShape || !fromShape) return { subShape: undefined, indexes: [] };
 
         if (ShapeType.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
             let shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, fromShape, groups);
@@ -466,16 +465,21 @@ export class ThreeView extends Observable implements IView {
             if (wire.shape) return wire;
         }
         if (!ShapeType.hasFace(shapeType) && subShape.shapeType === ShapeType.Face) {
-            return { shape: undefined, subShape: undefined, indexes: [index] };
+            return { subShape: undefined, indexes: [index] };
         }
         if (!ShapeType.hasEdge(shapeType) && subShape.shapeType === ShapeType.Edge) {
-            return { shape: undefined, subShape: undefined, indexes: [index] };
+            return { subShape: undefined, indexes: [index] };
         }
 
-        return { shape: subShape, subShape, indexes: [index] };
+        return { subShape, indexes: [index] };
     }
 
-    private getAncestorAndIndex(type: ShapeType, subShape: IShape, shape: IShape, groups: ShapeMeshRange[]) {
+    private getAncestorAndIndex(
+        type: ShapeType,
+        subShape: ISubShape,
+        shape: IShape,
+        groups: ShapeMeshRange[],
+    ) {
         let ancestor = subShape.findAncestor(type, shape).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 

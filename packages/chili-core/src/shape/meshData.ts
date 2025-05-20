@@ -5,7 +5,7 @@ import { VisualConfig } from "../config";
 import { XYZ } from "../math";
 import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
-import { IShape } from "./shape";
+import { ISubShape } from "./shape";
 
 @Serializer.register(["start", "count", "materialIndex"])
 export class MeshGroup {
@@ -72,13 +72,12 @@ export class Mesh {
 export interface IShapeMeshData {
     edges: EdgeMeshData | undefined;
     faces: FaceMeshData | undefined;
-    updateMeshShape(): void;
 }
 
 export interface ShapeMeshRange {
     start: number;
     count: number;
-    shape: IShape;
+    shape: ISubShape;
 }
 
 export interface ShapeMeshData {
@@ -221,7 +220,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
 
     abstract newGroup(): this;
 
-    abstract endGroup(shape: IShape): this;
+    abstract endGroup(shape: ISubShape): this;
 
     abstract addPosition(x: number, y: number, z: number): this;
 
@@ -251,7 +250,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
         return this;
     }
 
-    override endGroup(shape: IShape) {
+    override endGroup(shape: ISubShape) {
         this._groups.push({
             start: this._positionStart / 3,
             count: (this._positions.length - this._positionStart) / 3,
@@ -297,7 +296,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
         return this;
     }
 
-    override endGroup(shape: IShape) {
+    override endGroup(shape: ISubShape) {
         this._groups.push({
             start: this._groupStart,
             count: this._indices.length - this._groupStart,

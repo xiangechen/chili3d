@@ -12,8 +12,8 @@ import { CreateCommand } from "../createCommand";
 })
 export class Section extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let shape = this.stepDatas[0].shapes[0].shape;
-        let path = this.stepDatas[1].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
+        let path = this.transformdFirstShape(this.stepDatas[1]);
         let section = shape.section(path);
         return new EditableShapeNode(this.document, I18n.translate("command.create.section"), section);
     }

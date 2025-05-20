@@ -6,6 +6,7 @@ import {
     ComponentNode,
     GroupNode,
     IShape,
+    ISubShape,
     IVisualObject,
     Matrix4,
     MeshNode,
@@ -56,6 +57,10 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         return this._node;
     }
 
+    get totalTransform(): Matrix4 {
+        return ThreeHelper.toMatrix(this.matrixWorld);
+    }
+
     constructor(node: VisualNode) {
         super();
         this._node = node;
@@ -83,8 +88,8 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         shapeType: "face" | "edge",
         subVisualIndex: number,
     ): {
-        fromShape: IShape | undefined;
-        subShape: IShape | undefined;
+        shape: IShape | undefined;
+        subShape: ISubShape | undefined;
         index: number;
         groups: ShapeMeshRange[];
     };
@@ -137,13 +142,13 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         shapeType: "face" | "edge",
         subVisualIndex: number,
     ): {
-        fromShape: IShape | undefined;
-        subShape: IShape | undefined;
+        shape: IShape | undefined;
+        subShape: ISubShape | undefined;
         index: number;
         groups: ShapeMeshRange[];
     } {
         return {
-            fromShape: undefined,
+            shape: undefined,
             subShape: undefined,
             index: -1,
             groups: [],
@@ -239,6 +244,10 @@ export class GroupVisualObject extends Group implements IVisualObject {
     }
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
+    }
+
+    get totalTransform(): Matrix4 {
+        return ThreeHelper.toMatrix(this.matrixWorld);
     }
 
     constructor(private readonly groupNode: GroupNode) {
@@ -364,7 +373,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         const index = ThreeHelper.findGroupIndex(range, subVisualIndex);
         if (index !== undefined) {
             return {
-                fromShape: range[index].shape,
+                shape: range[index].shape,
                 subShape: range[index].shape,
                 index,
                 groups: range,
@@ -372,7 +381,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         }
 
         return {
-            fromShape: undefined,
+            shape: undefined,
             subShape: undefined,
             index: -1,
             groups: [],

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Precision, ShapeType, command } from "chili-core";
+import { GeometryNode, IShape, Precision, ShapeType, command } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { PrismNode } from "../../bodys";
 import { LengthAtAxisSnapData } from "../../snap";
@@ -15,8 +15,8 @@ import { CreateCommand } from "../createCommand";
 })
 export class Prism extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        const shape = this.stepDatas[0].shapes[0].shape;
-        const { point, normal } = this.getAxis();
+        const shape = this.transformdFirstShape(this.stepDatas[0], false);
+        const { point, normal } = this.getAxis(shape);
         const dist = this.stepDatas[1].point!.sub(point).dot(normal);
         return new PrismNode(this.document, shape, dist);
     }
@@ -29,7 +29,8 @@ export class Prism extends CreateCommand {
     }
 
     private readonly getLengthStepData = (): LengthAtAxisSnapData => {
-        const { point, normal } = this.getAxis();
+        const shape = this.transformdFirstShape(this.stepDatas[0]);
+        const { point, normal } = this.getAxis(shape);
         return {
             point,
             direction: normal,
@@ -38,15 +39,13 @@ export class Prism extends CreateCommand {
                 const dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
                 const vec = normal.multiply(dist);
-                const shape = this.stepDatas[0].shapes[0].shape;
                 return [this.meshCreatedShape("prism", shape, vec)];
             },
         };
     };
 
-    private getAxis() {
+    private getAxis(shape: IShape) {
         const point = this.stepDatas[0].shapes[0].point!;
-        const shape = this.stepDatas[0].shapes[0].shape;
         const normal = GeoUtils.normal(shape as any);
         return { point, normal };
     }

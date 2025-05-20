@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import { IApplication } from "../application";
-import { AsyncController, Observable, PubSub } from "../foundation";
+import { AsyncController, IDisposable, Observable, PubSub } from "../foundation";
 import { Property } from "../property";
 
 export interface ICommand {
     execute(application: IApplication): Promise<void>;
 }
 
-export interface ICanclableCommand extends ICommand {
+export interface ICanclableCommand extends ICommand, IDisposable {
     cancel(): Promise<void>;
 }
 
@@ -21,6 +21,7 @@ export namespace ICommand {
 
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
     private static readonly _propertiesCache: Map<string, any> = new Map(); // 所有命令共享
+    protected readonly disposeStack: Set<IDisposable> = new Set();
 
     private _isCompleted: boolean = false;
     get isCompleted() {
@@ -79,6 +80,8 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.saveProperties();
         PubSub.default.pub("closeCommandContext");
         this.controller?.dispose();
+        this.disposeStack.forEach((x) => x.dispose());
+        this.disposeStack.clear();
         this._isCompleted = true;
     }
 
