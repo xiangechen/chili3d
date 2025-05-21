@@ -20,6 +20,7 @@ export interface IShape extends IDisposable {
     get id(): string;
     get mesh(): IShapeMeshData;
     transformed(matrix: Matrix4): IShape;
+    transformedMul(matrix: Matrix4): IShape;
     edgesMeshPosition(): EdgeMeshData;
     matrix: Matrix4;
     isClosed(): boolean;

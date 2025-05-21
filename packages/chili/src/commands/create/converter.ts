@@ -37,7 +37,7 @@ abstract class ConvertCommand extends CancelableCommand {
             if (!node.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
-                this.document.addNode(node.value);
+                this.document.rootNode.add(node.value);
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }
@@ -92,7 +92,7 @@ export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const edges = models.map((x) => {
             const transform = document.visual.context.getVisual(x)!.totalTransform;
-            return x.shape.value.transformed(transform);
+            return x.shape.value.transformedMul(transform);
         }) as IEdge[];
         const wireBody = new WireNode(document, edges);
         const shape = wireBody.generateShape();
@@ -110,7 +110,7 @@ export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const edges = models.map((x) => {
             const transform = document.visual.context.getVisual(x)!.totalTransform;
-            return x.shape.value.transformed(transform);
+            return x.shape.value.transformedMul(transform);
         }) as IEdge[];
         const wireBody = new FaceNode(document, edges);
         const shape = wireBody.generateShape();
@@ -134,7 +134,7 @@ export class ConvertToShell extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const faces = models.map((x) => {
             const transform = document.visual.context.getVisual(x)!.totalTransform;
-            return x.shape.value.transformed(transform);
+            return x.shape.value.transformedMul(transform);
         }) as IFace[];
         const shape = this.application.shapeFactory.shell(faces);
         faces.forEach((x) => x.dispose());
@@ -159,7 +159,7 @@ export class ConvertToSolid extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const faces = models.map((x) => {
             const transform = document.visual.context.getVisual(x)!.totalTransform;
-            return x.shape.value.transformed(transform);
+            return x.shape.value.transformedMul(transform);
         }) as IShell[];
         const shape = this.application.shapeFactory.solid(faces);
         faces.forEach((x) => x.dispose());

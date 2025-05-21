@@ -3,7 +3,6 @@
 
 import {
     EditableShapeNode,
-    GeometryNode,
     I18n,
     IEdge,
     IFace,
@@ -17,17 +16,23 @@ import {
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
-import { CreateCommand } from "../createCommand";
+import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.offset",
     icon: "icon-offset",
 })
-export class OffsetCommand extends CreateCommand {
-    protected override geometryNode(): GeometryNode {
-        let normal = this.getAxis().normal;
-        let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        return new EditableShapeNode(this.document, I18n.translate("command.create.offset"), shape.value);
+export class OffsetCommand extends MultistepCommand {
+    protected override executeMainTask() {
+        const normal = this.getAxis().normal;
+        const shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
+        const node = new EditableShapeNode(
+            this.document,
+            I18n.translate("command.create.offset"),
+            shape.value,
+        );
+        this.document.rootNode.add(node);
+        this.document.visual.update();
     }
 
     protected override getSteps(): IStep[] {
@@ -62,7 +67,7 @@ export class OffsetCommand extends CreateCommand {
 
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
         let start = this.stepDatas[0].shapes[0].point!;
-        let shape = this.transformdFirstShape(this.stepDatas[1]);
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return this.getEdgeAxis(shape as IEdge, start);
         }

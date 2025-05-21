@@ -1,24 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, IShape, Result, ShapeNode, ShapeType, command } from "chili-core";
+import { IShape, Result, ShapeNode, ShapeType, command } from "chili-core";
 import { BooleanNode } from "../bodys/boolean";
 import { IStep, SelectShapeStep } from "../step";
-import { CreateCommand } from "./createCommand";
+import { MultistepCommand } from "./multistepCommand";
 
-export abstract class BooleanOperate extends CreateCommand {
-    protected override geometryNode(): GeometryNode {
+export abstract class BooleanOperate extends MultistepCommand {
+    protected override executeMainTask() {
         const shape1 = this.transformdFirstShape(this.stepDatas[0]);
         const shape2 = this.transformdFirstShape(this.stepDatas[1]);
         const booleanType = this.getBooleanOperateType();
 
         const booleanShape = this.getBooleanShape(booleanType, shape1, shape2);
         const node = new BooleanNode(this.document, booleanShape.value);
-
-        console.log(this.stepDatas);
-
+        this.document.rootNode.add(node);
         this.stepDatas.forEach((x) => x.nodes?.[0]?.parent?.remove(x.nodes[0]));
-        return node;
+        this.document.visual.update();
     }
 
     private getBooleanShape(

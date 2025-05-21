@@ -188,7 +188,7 @@ export class OcctHelper {
     }
 
     static getOrientation(shape: TopoDS_Shape): Orientation {
-        switch (shape.orientation()) {
+        switch (shape.getOrientation()) {
             case wasm.TopAbs_Orientation.TopAbs_FORWARD:
                 return Orientation.FORWARD;
             case wasm.TopAbs_Orientation.TopAbs_REVERSED:

@@ -102,6 +102,14 @@ export class OccShape implements IShape {
         });
     }
 
+    transformedMul(matrix: Matrix4): IShape {
+        return gc((c) => {
+            const location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const shape = this._shape.moved(location, false); // TODO: check if this is correct
+            return OcctHelper.wrapShape(shape);
+        });
+    }
+
     protected onTransformChanged(): void {
         if (this._mesh) {
             Logger.warn("Shape matrix changed, mesh will be recreated");

@@ -3,8 +3,8 @@
 
 import {
     EditableShapeNode,
-    ICurve,
     IEdge,
+    ITrimmedCurve,
     ShapeNode,
     ShapeType,
     Transaction,
@@ -33,18 +33,17 @@ export class Break extends MultistepCommand {
 
             const curve2 = curve.trim(parameter, curve.lastParameter());
             curve.setTrim(curve.firstParameter(), parameter);
-
-            const model = this.document.visual.context.getNode(
-                this.stepDatas[0].shapes[0].owner,
-            ) as ShapeNode;
-            model.parent?.remove(model);
             shape.update(curve);
 
+            const model = this.stepDatas[0].nodes![0] as ShapeNode;
             const model1 = new EditableShapeNode(this.document, `${model.name}_1`, shape);
             const model2 = new EditableShapeNode(this.document, `${model.name}_2`, curve2.makeEdge());
             model1.transform = model.transform;
             model2.transform = model.transform;
-            this.document.addNode(model1, model2);
+            model.parent?.insertAfter(model, model1);
+            model.parent?.insertAfter(model1, model2);
+            model.parent?.remove(model);
+
             this.document.visual.update();
         });
     }
@@ -59,9 +58,10 @@ export class Break extends MultistepCommand {
     }
 
     private readonly handlePointData = () => {
-        const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve.transformed(
-            this.stepDatas[0].shapes[0].owner.totalTransform,
-        ) as ICurve;
+        const edge = this.stepDatas[0].shapes[0].shape as IEdge;
+        const curve = edge.curve.transformed(
+            edge.matrix.multiply(this.stepDatas[0].shapes[0].owner.totalTransform),
+        ) as ITrimmedCurve;
         this.disposeStack.add(curve);
 
         return {

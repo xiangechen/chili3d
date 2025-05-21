@@ -3,10 +3,8 @@
 
 import {
     EditableShapeNode,
-    GeometryNode,
     IEdge,
     IVisualObject,
-    Result,
     ShapeType,
     Transaction,
     VisualState,
@@ -22,9 +20,10 @@ import { MultistepCommand } from "../multistepCommand";
 })
 export class Split extends MultistepCommand {
     private splitedShape() {
-        const shape1 = this.transformdFirstShape(this.stepDatas[0]);
+        const shape1 = this.stepDatas[0].shapes[0].shape;
+        const invertTransform = this.stepDatas[0].shapes[0].owner.totalTransform.invert()!;
         const edges = this.stepDatas[1].shapes.map((x) =>
-            x.shape.transformed(x.owner.totalTransform),
+            x.shape.transformedMul(x.owner.totalTransform.multiply(invertTransform)),
         ) as IEdge[];
         const result = shape1.split(edges);
 
@@ -35,20 +34,17 @@ export class Split extends MultistepCommand {
 
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            const old = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
+            const old = this.stepDatas[0].nodes![0];
             const shape = this.splitedShape();
 
-            if (old instanceof EditableShapeNode) {
-                old.shape = Result.ok(shape);
-            } else if (old instanceof GeometryNode) {
-                const model = new EditableShapeNode(this.document, old.name, shape);
-                this.removeModels(
-                    this.stepDatas[0].shapes[0].owner,
-                    ...this.stepDatas[1].shapes.map((x) => x.owner),
-                );
-                this.document.addNode(model);
-            }
+            const model = new EditableShapeNode(this.document, old.name, shape);
+            model.transform = old.transform;
+            old.parent?.add(model);
 
+            this.removeModels(
+                this.stepDatas[0].shapes[0].owner,
+                ...this.stepDatas[1].shapes.map((x) => x.owner),
+            );
             this.document.visual.update();
         });
     }

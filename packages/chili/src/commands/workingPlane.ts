@@ -78,7 +78,7 @@ export class AlignToPlane implements ICommand {
         controller.dispose();
         if (!data || data.shapes.length === 0) return;
         view.document.visual.highlighter.clear();
-        const face = data.shapes[0].shape.transformed(data.shapes[0].owner.totalTransform) as IFace;
+        const face = data.shapes[0].shape.transformedMul(data.shapes[0].owner.totalTransform) as IFace;
         const [point, normal] = face.normal(0, 0);
         face.dispose();
         let xvec = XYZ.unitX;
@@ -95,9 +95,7 @@ export class AlignToPlane implements ICommand {
 })
 export class FromSection extends MultistepCommand {
     protected override executeMainTask() {
-        const shape = this.stepDatas[0].shapes[0].shape as IEdge;
-        const curve = shape.curve.transformed(this.stepDatas[0].shapes[0].owner.totalTransform) as ICurve;
-        this.disposeStack.add(curve);
+        const curve = this.transformedCurve();
         const point = this.stepDatas[1].point!;
 
         const parameter = curve.parameter(point, 1e-3);
@@ -129,11 +127,16 @@ export class FromSection extends MultistepCommand {
         ];
     }
 
-    private readonly handlePointData = () => {
-        const curve = (this.stepDatas[0].shapes[0].shape as IEdge).curve.transformed(
-            this.stepDatas[0].shapes[0].owner.totalTransform,
-        ) as ICurve;
+    private transformedCurve() {
+        const shape = this.stepDatas[0].shapes[0].shape as IEdge;
+        const matrix = shape.matrix.multiply(this.stepDatas[0].shapes[0].owner.totalTransform);
+        const curve = shape.curve.transformed(matrix) as ICurve;
         this.disposeStack.add(curve);
+        return curve;
+    }
+
+    private readonly handlePointData = () => {
+        const curve = this.transformedCurve();
         return {
             curve,
             dimension: Dimension.D1,

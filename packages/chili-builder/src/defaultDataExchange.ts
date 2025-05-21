@@ -95,7 +95,7 @@ export class DefaultDataExchange implements IDataExchange {
             .filter((x): x is ShapeNode => x instanceof ShapeNode)
             .map((x) => {
                 const matrix = x.document.visual.context.getVisual(x)!.totalTransform;
-                return x.shape.value.transformed(matrix);
+                return x.shape.value.transformedMul(matrix);
             });
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");

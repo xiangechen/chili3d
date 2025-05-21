@@ -121,7 +121,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
             detecteds[0].owner.totalTransform,
         );
         const edges = this.filterByBoundingBox(box, view, detecteds[0].shape.id);
-        const edge = detecteds[0].shape.transformed(detecteds[0].owner.totalTransform) as IEdge;
+        const edge = detecteds[0].shape.transformedMul(detecteds[0].owner.totalTransform) as IEdge;
         this.releaseStack.add(edge);
 
         let segments = findSegments(edge.curve, edge, edges, detecteds);
@@ -158,7 +158,7 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
             .map((x) => {
                 const shape = ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value;
                 if (shape.id === currentId) return undefined;
-                const edge = shape.transformed(x.totalTransform) as IEdge;
+                const edge = shape.transformedMul(x.totalTransform) as IEdge;
                 this.releaseStack.add(edge);
                 return edge;
             })

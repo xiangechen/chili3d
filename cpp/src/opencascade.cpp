@@ -414,12 +414,14 @@ EMSCRIPTEN_BINDINGS(opencascade) {
         .function("setLocation", select_overload<void(const TopLoc_Location &, bool)>(&TopoDS_Shape::Location))
         .function("nbChildren", &TopoDS_Shape::NbChildren)
         .function("nullify", &TopoDS_Shape::Nullify)
-        .function("orientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
+        .function("getOrientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
+        .function("setOrientation", select_overload<void(TopAbs_Orientation)>(&TopoDS_Shape::Orientation))
         .function("reverse", &TopoDS_Shape::Reverse)
         .function("reversed", &TopoDS_Shape::Reversed)
         .function("shapeType", &TopoDS_Shape::ShapeType)
         .function("located", &TopoDS_Shape::Located)
-    ;
+        .function("move", &TopoDS_Shape::Move)
+        .function("moved", &TopoDS_Shape::Moved);
 
     class_<TColgp_Array1OfPnt>("TColgp_Array1OfPnt")
         .constructor<int, int>()

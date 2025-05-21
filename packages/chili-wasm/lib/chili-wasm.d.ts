@@ -467,11 +467,14 @@ export interface TopoDS_Shape extends ClassHandle {
     setLocation(_0: TopLoc_Location, _1: boolean): void;
     nbChildren(): number;
     nullify(): void;
-    orientation(): TopAbs_Orientation;
+    getOrientation(): TopAbs_Orientation;
+    setOrientation(_0: TopAbs_Orientation): void;
     reverse(): void;
     reversed(): TopoDS_Shape;
     shapeType(): TopAbs_ShapeEnum;
     located(_0: TopLoc_Location, _1: boolean): TopoDS_Shape;
+    move(_0: TopLoc_Location, _1: boolean): void;
+    moved(_0: TopLoc_Location, _1: boolean): TopoDS_Shape;
 }
 
 export interface TColgp_Array1OfPnt extends ClassHandle {

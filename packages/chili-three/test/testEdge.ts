@@ -32,6 +32,9 @@ export class TestEdge implements IEdge {
     transformed(matrix: Matrix4): IShape {
         throw new Error("Method not implemented.");
     }
+    transformedMul(matrix: Matrix4): IShape {
+        throw new Error("Method not implemented.");
+    }
     edgesMeshPosition(): EdgeMeshData {
         throw new Error("Method not implemented.");
     }

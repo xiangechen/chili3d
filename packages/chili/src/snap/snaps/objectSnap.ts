@@ -247,8 +247,8 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapResult[] {
-        const e1 = s1.shape.transformed(s1.owner.totalTransform) as IEdge;
-        const e2 = s2.shape.transformed(s2.owner.totalTransform) as IEdge;
+        const e1 = s1.shape.transformedMul(s1.owner.totalTransform) as IEdge;
+        const e2 = s2.shape.transformedMul(s2.owner.totalTransform) as IEdge;
         let intersections = e1.intersect(e2);
         e1.dispose();
         e2.dispose();

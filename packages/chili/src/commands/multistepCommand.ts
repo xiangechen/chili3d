@@ -110,7 +110,7 @@ export abstract class MultistepCommand extends CancelableCommand {
     };
 
     protected transformdFirstShape(step: SnapResult, shouldDispose = true) {
-        const shape = step.shapes[0].shape.transformed(step.shapes[0].owner.totalTransform);
+        const shape = step.shapes[0].shape.transformedMul(step.shapes[0].owner.totalTransform);
         if (shouldDispose) this.disposeStack.add(shape);
         return shape;
     }
