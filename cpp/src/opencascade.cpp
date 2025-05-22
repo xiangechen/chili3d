@@ -393,16 +393,16 @@ EMSCRIPTEN_BINDINGS(opencascade) {
         .function("inverted", &TopLoc_Location::Inverted)
     ;
 
-    class_<TopoDS>("TopoDS")
-        .class_function("vertex", select_overload<TopoDS_Vertex&(TopoDS_Shape&)>(&TopoDS::Vertex), return_value_policy::take_ownership())
-        .class_function("edge", select_overload<TopoDS_Edge&(TopoDS_Shape&)>(&TopoDS::Edge), return_value_policy::take_ownership())
-        .class_function("wire", select_overload<TopoDS_Wire&(TopoDS_Shape&)>(&TopoDS::Wire), return_value_policy::take_ownership())
-        .class_function("face", select_overload<TopoDS_Face&(TopoDS_Shape&)>(&TopoDS::Face), return_value_policy::take_ownership())
-        .class_function("shell", select_overload<TopoDS_Shell&(TopoDS_Shape&)>(&TopoDS::Shell), return_value_policy::take_ownership())
-        .class_function("solid", select_overload<TopoDS_Solid&(TopoDS_Shape&)>(&TopoDS::Solid), return_value_policy::take_ownership())
-        .class_function("compound", select_overload<TopoDS_Compound&(TopoDS_Shape&)>(&TopoDS::Compound), return_value_policy::take_ownership())
-        .class_function("compsolid", select_overload<TopoDS_CompSolid&(TopoDS_Shape&)>(&TopoDS::CompSolid), return_value_policy::take_ownership())
-    ;
+    class TopoDSUtils {};
+    class_<TopoDSUtils>("TopoDS")
+        .class_function("vertex", select_overload<TopoDS_Vertex &(TopoDS_Shape &)>(&TopoDS::Vertex), return_value_policy::take_ownership())
+        .class_function("edge", select_overload<TopoDS_Edge &(TopoDS_Shape &)>(&TopoDS::Edge), return_value_policy::take_ownership())
+        .class_function("wire", select_overload<TopoDS_Wire &(TopoDS_Shape &)>(&TopoDS::Wire), return_value_policy::take_ownership())
+        .class_function("face", select_overload<TopoDS_Face &(TopoDS_Shape &)>(&TopoDS::Face), return_value_policy::take_ownership())
+        .class_function("shell", select_overload<TopoDS_Shell &(TopoDS_Shape &)>(&TopoDS::Shell), return_value_policy::take_ownership())
+        .class_function("solid", select_overload<TopoDS_Solid &(TopoDS_Shape &)>(&TopoDS::Solid), return_value_policy::take_ownership())
+        .class_function("compound", select_overload<TopoDS_Compound &(TopoDS_Shape &)>(&TopoDS::Compound), return_value_policy::take_ownership())
+        .class_function("compsolid", select_overload<TopoDS_CompSolid &(TopoDS_Shape &)>(&TopoDS::CompSolid), return_value_policy::take_ownership());
 
     class_<TopoDS_Shape>("TopoDS_Shape")
         .function("infinite", select_overload<bool() const>(&TopoDS_Shape::Infinite))

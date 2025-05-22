@@ -40,6 +40,10 @@ foreach(package ${OcctUsedPackages})
     endif()
 endforeach()
 
+include(build/occt/adm/cmake/version.cmake)
+configure_file("build/occt/adm/templates/Standard_Version.hxx.in" "include/Standard_Version.hxx" @ONLY)
+list (APPEND OcctIncludeDirs ${CMAKE_CURRENT_BINARY_DIR}/include)
+
 file (GLOB OcctSourceFiles ${OcctSourceFolders})
 
 set (ChiliWasmSourcesFolder src)
@@ -76,6 +80,8 @@ if (${EMSCRIPTEN})
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
         -sEXPORT_ES6=1
+        -sSTACK_SIZE=8MB
+        -sINITIAL_HEAP=64MB
         -sALLOW_MEMORY_GROWTH=1
         -sMAXIMUM_MEMORY=4GB
         -sENVIRONMENT="web"
