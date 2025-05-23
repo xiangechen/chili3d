@@ -61,7 +61,7 @@ export class Break extends MultistepCommand {
     private readonly handlePointData = () => {
         const edge = this.stepDatas[0].shapes[0].shape as IEdge;
         const curve = edge.curve.transformed(
-            edge.matrix.multiply(this.stepDatas[0].shapes[0].owner.node.worldTransform()),
+            edge.matrix.multiply(this.stepDatas[0].shapes[0].transform),
         ) as ITrimmedCurve;
         this.disposeStack.add(curve);
 

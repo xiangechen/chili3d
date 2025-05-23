@@ -30,7 +30,7 @@ export class FeaturePointStrategy {
         const addPoint = (point: XYZ, info: string) =>
             infos.push({
                 view,
-                point: shape.owner.node.worldTransform().ofPoint(point),
+                point: shape.transform.ofPoint(point),
                 info,
                 shapes: [shape],
             });

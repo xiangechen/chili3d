@@ -91,6 +91,7 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         shape: IShape | undefined;
         subShape: ISubShape | undefined;
         index: number;
+        transform?: Matrix4;
         groups: ShapeMeshRange[];
     };
 
@@ -375,6 +376,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
             return {
                 shape: range[index].shape,
                 subShape: range[index].shape,
+                transform: range[index].transform,
                 index,
                 groups: range,
             };
@@ -383,6 +385,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         return {
             shape: undefined,
             subShape: undefined,
+            transform: undefined,
             index: -1,
             groups: [],
         };

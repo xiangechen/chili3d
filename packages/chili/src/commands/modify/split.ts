@@ -21,9 +21,9 @@ import { MultistepCommand } from "../multistepCommand";
 export class Split extends MultistepCommand {
     private splitedShape() {
         const shape1 = this.stepDatas[0].shapes[0].shape;
-        const invertTransform = this.stepDatas[0].shapes[0].owner.node.worldTransform().invert()!;
+        const invertTransform = this.stepDatas[0].shapes[0].transform.invert()!;
         const edges = this.stepDatas[1].shapes.map((x) =>
-            x.shape.transformedMul(x.owner.node.worldTransform().multiply(invertTransform)),
+            x.shape.transformedMul(x.transform.multiply(invertTransform)),
         ) as IEdge[];
         const result = shape1.split(edges);
 

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { VisualConfig } from "../config";
-import { XYZ } from "../math";
+import { Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
 import { ISubShape } from "./shape";
@@ -78,6 +78,7 @@ export interface ShapeMeshRange {
     start: number;
     count: number;
     shape: ISubShape;
+    transform?: Matrix4;
 }
 
 export interface ShapeMeshData {
@@ -147,6 +148,7 @@ export namespace EdgeMeshData {
                 start: range.start + data.position.length / 3,
                 count: range.count,
                 shape: range.shape,
+                transform: range.transform,
             };
         });
         return {
@@ -173,6 +175,7 @@ export namespace FaceMeshData {
                 start: range.start + data.position.length / 3,
                 count: range.count,
                 shape: range.shape,
+                transform: range.transform,
             };
         });
         const groups = other.groups.map((group) => {

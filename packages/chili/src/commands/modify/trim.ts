@@ -116,12 +116,9 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         this.cleanHighlights();
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
 
-        const box = BoundingBox.transformed(
-            detecteds[0].owner.boundingBox()!,
-            detecteds[0].owner.node.worldTransform(),
-        );
+        const box = BoundingBox.transformed(detecteds[0].owner.boundingBox()!, detecteds[0].transform);
         const edges = this.filterByBoundingBox(box, view, detecteds[0].shape.id);
-        const edge = detecteds[0].shape.transformedMul(detecteds[0].owner.node.worldTransform()) as IEdge;
+        const edge = detecteds[0].shape.transformedMul(detecteds[0].transform) as IEdge;
         this.releaseStack.add(edge);
 
         let segments = findSegments(edge.curve, edge, edges, detecteds);

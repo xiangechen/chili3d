@@ -20,6 +20,7 @@ export class MeshUtils {
                     start: g.start + offset.faceIndex,
                     shape: g.shape,
                     count: g.count,
+                    transform: matrix,
                 };
             }),
         );
@@ -43,6 +44,7 @@ export class MeshUtils {
                     start: g.start + data.index.length,
                     shape: g.shape,
                     count: g.count,
+                    transform: matrix,
                 };
             }),
         );
@@ -73,6 +75,7 @@ export class MeshUtils {
         data.range = data.range.concat(
             other.range.map((g) => {
                 return {
+                    transform: matrix,
                     start: g.start + offset,
                     shape: g.shape,
                     count: g.count,
@@ -94,6 +97,7 @@ export class MeshUtils {
                     start: g.start + start,
                     shape: g.shape,
                     count: g.count,
+                    transform: matrix,
                 };
             }),
         );
@@ -145,7 +149,7 @@ export class MeshUtils {
         offset: { facePosition: number; faceIndex: number },
     ) {
         for (const index of group) {
-            const { start, count, shape } = mesh.range[index[0]];
+            const { start, count, shape, transform: worldTransform } = mesh.range[index[0]];
 
             const oldIndex = mesh.index.slice(start, start + count);
             const { min, max } = MathUtils.minMax(oldIndex)!;
@@ -160,6 +164,7 @@ export class MeshUtils {
                 start: offset.faceIndex,
                 count,
                 shape,
+                transform: worldTransform,
             });
             offset.facePosition += max - min + 1;
             offset.faceIndex += oldIndex.length;
