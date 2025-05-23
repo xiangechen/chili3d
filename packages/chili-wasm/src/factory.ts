@@ -46,8 +46,12 @@ function convertShapeResult(result: ShapeResult): Result<IShape, string> {
     let res: Result<IShape, string>;
     if (!result.isOk) {
         res = Result.err(result.error);
+    } else if (result.shape.isNull()) {
+        res = Result.err("The shape is null.");
+    } else {
+        res = Result.ok(OcctHelper.wrapShape(result.shape));
     }
-    res = Result.ok(OcctHelper.wrapShape(result.shape));
+
     result.delete();
     return res;
 }
@@ -98,9 +102,16 @@ export class ShapeFactory implements IShapeFactory {
             if (!(x instanceof OccShape)) {
                 throw new Error("The OCC kernel only supports OCC geometries.");
             }
+            if (x.shape.isNull()) {
+                throw new Error("The shape is null.");
+            }
             return x.shape;
         });
-        return Result.ok(OcctHelper.wrapShape(wasm.Shape.removeFeature(shape.shape, occFaces)));
+        const removed = wasm.Shape.removeFeature(shape.shape, occFaces);
+        if (removed.isNull()) {
+            return Result.err("Can not remove");
+        }
+        return Result.ok(OcctHelper.wrapShape(removed));
     }
 
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape {

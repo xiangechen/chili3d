@@ -203,6 +203,10 @@ export class OcctHelper {
     }
 
     static getShapeType(shape: TopoDS_Shape): ShapeType {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return ShapeType.Compound;
@@ -251,6 +255,10 @@ export class OcctHelper {
     }
 
     static getActualShape(shape: TopoDS_Shape): TopoDS_Shape {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return wasm.TopoDS.compound(shape);
@@ -287,6 +295,10 @@ export class OcctHelper {
     }
 
     static wrapShape(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return new OccCompound(wasm.TopoDS.compound(shape), id);
