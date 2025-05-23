@@ -55,7 +55,7 @@ export default {
         "command.convert.toFace": "转为面",
         "command.convert.toShell": "转为壳",
         "command.convert.toSolid": "转为体",
-        "command.convert.toWire": "转为线",
+        "command.convert.toWire": "转多段线",
         "command.create.arc": "圆弧",
         "command.create.bezier": "贝塞尔",
         "command.create.box": "立方体",
