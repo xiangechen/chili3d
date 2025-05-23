@@ -57,7 +57,7 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         return this._node;
     }
 
-    get totalTransform(): Matrix4 {
+    worldTransform(): Matrix4 {
         return ThreeHelper.toMatrix(this.matrixWorld);
     }
 
@@ -246,7 +246,7 @@ export class GroupVisualObject extends Group implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
-    get totalTransform(): Matrix4 {
+    worldTransform(): Matrix4 {
         return ThreeHelper.toMatrix(this.matrixWorld);
     }
 

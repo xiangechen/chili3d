@@ -93,10 +93,7 @@ export class DefaultDataExchange implements IDataExchange {
     private getExportShapes(nodes: VisualNode[]): IShape[] {
         const shapes = nodes
             .filter((x): x is ShapeNode => x instanceof ShapeNode)
-            .map((x) => {
-                const matrix = x.document.visual.context.getVisual(x)!.totalTransform;
-                return x.shape.value.transformedMul(matrix);
-            });
+            .map((x) => x.shape.value.transformedMul(x.worldTransform()));
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");
         return shapes;

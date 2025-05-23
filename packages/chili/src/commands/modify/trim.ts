@@ -118,10 +118,10 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
 
         const box = BoundingBox.transformed(
             detecteds[0].owner.boundingBox()!,
-            detecteds[0].owner.totalTransform,
+            detecteds[0].owner.node.worldTransform(),
         );
         const edges = this.filterByBoundingBox(box, view, detecteds[0].shape.id);
-        const edge = detecteds[0].shape.transformedMul(detecteds[0].owner.totalTransform) as IEdge;
+        const edge = detecteds[0].shape.transformedMul(detecteds[0].owner.node.worldTransform()) as IEdge;
         this.releaseStack.add(edge);
 
         let segments = findSegments(edge.curve, edge, edges, detecteds);
@@ -156,9 +156,10 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         return view.document.visual.context
             .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
             .map((x) => {
-                const shape = ((x as IVisualGeometry)?.geometryNode as ShapeNode)?.shape.value;
+                const node = (x as IVisualGeometry)?.geometryNode;
+                const shape = (node as ShapeNode)?.shape.value;
                 if (shape.id === currentId) return undefined;
-                const edge = shape.transformedMul(x.totalTransform) as IEdge;
+                const edge = shape.transformedMul(node.worldTransform()) as IEdge;
                 this.releaseStack.add(edge);
                 return edge;
             })

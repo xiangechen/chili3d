@@ -19,6 +19,14 @@ export abstract class VisualNode extends Node {
         });
     }
 
+    worldTransform(): Matrix4 {
+        const visual = this.document.visual.context.getVisual(this);
+        if (visual) {
+            return visual.worldTransform();
+        }
+        return this.transform;
+    }
+
     protected onVisibleChanged(): void {
         this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
     }

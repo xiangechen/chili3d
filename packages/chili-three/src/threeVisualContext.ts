@@ -204,12 +204,13 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.visuals().filter((x) => {
-            const shape = ((x as ThreeGeometry)?.geometryNode as ShapeNode)?.shape.unchecked();
+            const node = (x as ThreeGeometry)?.geometryNode;
+            const shape = (node as ShapeNode)?.shape.unchecked();
             if (filter && shape && !filter.allow(shape)) {
                 return false;
             }
 
-            let boundingBox = BoundingBox.transformed(x.boundingBox()!, x.totalTransform);
+            let boundingBox = BoundingBox.transformed(x.boundingBox()!, node.worldTransform());
             if (boundingBox === undefined) {
                 return false;
             }

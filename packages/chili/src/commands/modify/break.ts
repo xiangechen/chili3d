@@ -25,7 +25,8 @@ export class Break extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const shape = this.stepDatas[0].shapes[0].shape as IEdge;
             const curve = shape.curve;
-            const point = this.stepDatas[0].shapes[0].owner.totalTransform
+            const point = this.stepDatas[0].shapes[0].owner.node
+                .worldTransform()
                 .invert()!
                 .ofPoint(this.stepDatas[1].point!);
             const parameter = curve.parameter(point, 1e-3);
@@ -60,7 +61,7 @@ export class Break extends MultistepCommand {
     private readonly handlePointData = () => {
         const edge = this.stepDatas[0].shapes[0].shape as IEdge;
         const curve = edge.curve.transformed(
-            edge.matrix.multiply(this.stepDatas[0].shapes[0].owner.totalTransform),
+            edge.matrix.multiply(this.stepDatas[0].shapes[0].owner.node.worldTransform()),
         ) as ITrimmedCurve;
         this.disposeStack.add(curve);
 
