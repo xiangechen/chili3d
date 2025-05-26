@@ -7,8 +7,21 @@ import { Id } from "../foundation";
 import { BoundingBox } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
-import { IShapeMeshData } from "../shape";
+import { FaceMeshData, IShapeMeshData } from "../shape";
 import { VisualNode } from "./visualNode";
+
+@Serializer.register(["faceIndex", "materialIndex"])
+export class FaceMaterialPair {
+    @Serializer.serialze()
+    faceIndex: number;
+
+    @Serializer.serialze()
+    materialIndex: number;
+    constructor(faceIndex: number, materialIndex: number) {
+        this.faceIndex = faceIndex;
+        this.materialIndex = materialIndex;
+    }
+}
 
 export abstract class GeometryNode extends VisualNode {
     /**
@@ -24,16 +37,17 @@ export abstract class GeometryNode extends VisualNode {
         this.setProperty("materialId", value);
     }
 
+    protected _originFaceMesh?: FaceMeshData;
     /**
      * @internal internal use only, do not use it directly.
      * [[faceIndex, materialIndex], [faceIndex, materialIndex], ...]
      * materialIndex is the index of the material in the material list.
      */
     @Serializer.serialze()
-    get faceMaterialPair(): [number, number][] {
+    get faceMaterialPair(): FaceMaterialPair[] {
         return this.getPrivateValue("faceMaterialPair", []);
     }
-    set faceMaterialPair(value: [number, number][]) {
+    set faceMaterialPair(value: FaceMaterialPair[]) {
         this.setProperty("faceMaterialPair", value, () => this.updateVisual());
     }
 
@@ -70,33 +84,76 @@ export abstract class GeometryNode extends VisualNode {
         this._mesh = undefined;
     }
 
-    setFaceMaterial(faceIndex: number, materialId: string) {
-        if (this.materialId === materialId) {
-            return;
-        }
+    addFaceMaterial(pairs: { faceIndex: number; materialId: string }[]) {
+        pairs.forEach(({ faceIndex, materialId }) => {
+            if (this.materialId === materialId) {
+                return;
+            }
 
-        if (typeof this.materialId === "string") {
-            this.materialId = [this.materialId, materialId];
-            this.faceMaterialPair.push([faceIndex, 1]);
-        } else {
+            if (this._mesh?.faces?.range.length === 1) {
+                this.materialId = materialId;
+                return;
+            }
+
+            if (typeof this.materialId === "string") {
+                this.materialId = [this.materialId, materialId];
+            }
+
             const index = this.materialId.indexOf(materialId);
             if (index === -1) {
                 this.materialId.push(materialId);
-                this.faceMaterialPair.push([faceIndex, this.materialId.length - 1]);
+                this.faceMaterialPair.push(new FaceMaterialPair(faceIndex, this.materialId.length - 1));
             } else {
-                this.faceMaterialPair.push([faceIndex, index]);
+                this.faceMaterialPair.push(new FaceMaterialPair(faceIndex, index));
             }
-        }
+        });
+        this.updateVisual();
+    }
+
+    removeFaceMaterial(faceIndexs: number[]) {
+        faceIndexs.forEach((faceIndex) => {
+            const pair = this.faceMaterialPair.find((x) => x.faceIndex === faceIndex);
+            if (!pair) {
+                return;
+            }
+            this.faceMaterialPair.splice(this.faceMaterialPair.indexOf(pair), 1);
+            const hasSameMaterial = this.faceMaterialPair.some(
+                (x) => x.materialIndex === pair.materialIndex,
+            );
+            if (!hasSameMaterial && Array.isArray(this.materialId)) {
+                this.materialId.splice(pair.materialIndex, 1);
+                if (this.materialId.length === 1) {
+                    this.materialId = this.materialId[0];
+                }
+            }
+        });
 
         this.updateVisual();
     }
 
-    private updateVisual() {
-        if (!this._mesh?.faces) return;
-
-        this._mesh.faces = MeshUtils.mergeFaceMesh(this._mesh.faces, this.faceMaterialPair);
-        this.document.visual.context.redrawNode([this]);
+    clearFaceMaterial() {
+        this.materialId = Array.isArray(this.materialId) ? this.materialId[0] : this.materialId;
+        this.faceMaterialPair = [];
+        this.updateVisual();
     }
+
+    private readonly updateVisual = () => {
+        if (!this._originFaceMesh) return;
+
+        if (this.faceMaterialPair.length === 0) {
+            this._mesh!.faces = this._originFaceMesh;
+        } else {
+            this._mesh!.faces = MeshUtils.mergeFaceMesh(
+                this._originFaceMesh,
+                this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex] as [number, number]),
+            );
+            if (this._mesh!.faces.groups.length === 1) {
+                this.materialId = this.materialId[this.faceMaterialPair[0].materialIndex];
+            }
+        }
+
+        this.document.visual.context.redrawNode([this]);
+    };
 
     protected abstract createMesh(): IShapeMeshData;
 }

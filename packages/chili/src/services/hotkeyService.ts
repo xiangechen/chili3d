@@ -15,8 +15,8 @@ export interface HotkeyMap {
 }
 
 const DefaultKeyMap: HotkeyMap = {
-    Delete: "modify.delete",
-    Backspace: "modify.delete",
+    Delete: "modify.deleteNode",
+    Backspace: "modify.deleteNode",
     " ": "special.last",
     Enter: "special.last",
     "ctrl+z": "edit.undo",

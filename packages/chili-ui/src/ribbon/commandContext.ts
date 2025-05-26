@@ -1,17 +1,32 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, div, input, label, option, select, svg } from "chili-controls";
+import { MultistepCommand } from "chili";
+import {
+    button,
+    ColorConverter,
+    div,
+    input,
+    label,
+    option,
+    select,
+    svg,
+    UrlStringConverter,
+} from "chili-controls";
 import {
     Binding,
+    CancelableCommand,
     Combobox,
     Command,
     I18nKeys,
     ICommand,
     IDisposable,
     Localize,
+    Material,
     Observable,
+    PathBinding,
     Property,
+    PubSub,
 } from "chili-core";
 import style from "./commandContext.module.css";
 
@@ -98,6 +113,10 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const noType = command as any;
         const type = typeof noType[g.name];
 
+        if (g.type === "materialId") {
+            return this.materialEditor(g, noType);
+        }
+
         switch (type) {
             case "function":
                 return this.newButton(g, noType);
@@ -175,6 +194,36 @@ export class CommandContext extends HTMLElement implements IDisposable {
             className: style.button,
             textContent: new Localize(g.display),
             onclick: () => noType[g.name](),
+        });
+    }
+
+    private materialEditor(g: Property, noType: any) {
+        if (!(this.command instanceof CancelableCommand)) {
+            throw new Error("MaterialEditor only support CancelableCommand");
+        }
+
+        const material = this.command.document.materials.find((x) => x.id === noType[g.name])!;
+        const display = material.clone();
+
+        return button({
+            className: style.materialButton,
+            style: {
+                backgroundColor: new Binding(display, "color", new ColorConverter()),
+                backgroundImage: new PathBinding(display, "map.image", new UrlStringConverter()),
+                backgroundBlendMode: "multiply",
+                backgroundSize: "cover",
+                cursor: "pointer",
+            },
+            textContent: new Localize(g.display),
+            onclick: () => {
+                if (this.command instanceof MultistepCommand) {
+                    PubSub.default.pub("editMaterial", this.command.document, material, (newMaterial) => {
+                        noType[g.name] = newMaterial.id;
+                        display.color = newMaterial.color;
+                        display.map = newMaterial.map;
+                    });
+                }
+            },
         });
     }
 }

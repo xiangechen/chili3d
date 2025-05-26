@@ -41,7 +41,12 @@ export abstract class ShapeNode extends GeometryNode {
             throw new Error(this.shape.error);
         }
         const mesh = this.shape.value.mesh;
-        if (mesh.faces) mesh.faces = MeshUtils.mergeFaceMesh(mesh.faces, this.faceMaterialPair);
+        this._originFaceMesh = mesh.faces;
+        if (mesh.faces)
+            mesh.faces = MeshUtils.mergeFaceMesh(
+                mesh.faces,
+                this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex]),
+            );
         return mesh;
     }
 

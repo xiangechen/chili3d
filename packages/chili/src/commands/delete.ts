@@ -6,7 +6,7 @@ import { GetOrSelectNodeStep, IStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 @command({
-    key: "modify.delete",
+    key: "modify.deleteNode",
     icon: "icon-delete",
 })
 export class Delete extends MultistepCommand {

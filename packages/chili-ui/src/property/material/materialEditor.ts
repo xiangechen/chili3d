@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { button, collection, ColorConverter, div, span, svg } from "chili-controls";
+import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
 import {
     Binding,
     IConverter,
@@ -16,7 +17,6 @@ import {
 import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
-import { UrlStringConverter } from "./urlConverter";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}

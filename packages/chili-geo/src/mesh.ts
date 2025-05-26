@@ -128,9 +128,12 @@ export class MeshUtils {
             color: mesh.color,
             groups: [],
         };
+
         let offset = { facePosition: 0, faceIndex: 0 };
         const grouped = Object.groupBy(materialMap, (x) => x[1]);
-        for (let i = 0; i < Object.keys(grouped).length; i++) {
+
+        for (const key of Object.keys(grouped)) {
+            const i = parseInt(key);
             const groupStart = offset.faceIndex;
             MeshUtils.mergeSameGroup(grouped[i]!, mesh, result, offset);
             result.groups.push({

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./break";
+export * from "./brush";
 export * from "./chamfer";
 export * from "./explode";
 export * from "./fillet";

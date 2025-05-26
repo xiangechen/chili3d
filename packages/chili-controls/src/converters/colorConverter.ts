@@ -3,8 +3,8 @@
 
 import { IConverter, Result } from "chili-core";
 
-export class ColorConverter implements IConverter<number> {
-    convert(value: number): Result<string> {
+export class ColorConverter implements IConverter<number | string> {
+    convert(value: number | string): Result<string> {
         return Result.ok(typeof value === "string" ? value : `#${value.toString(16).padStart(6, "0")}`);
     }
 

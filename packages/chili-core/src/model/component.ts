@@ -189,14 +189,19 @@ export class Component {
             }
         }
 
-        const map = new Map<number, number>(node.faceMaterialPair);
+        const map = new Map<number, number>(
+            node.faceMaterialPair.map((pair) => [pair.faceIndex, pair.materialIndex]),
+        );
         node.mesh.faces?.range.forEach((range, i) => {
             if (!map.has(i)) {
                 faceMaterialPair.push([i + visual.face.range.length, materialIndexMap.get(0)!]);
             }
         });
         node.faceMaterialPair.forEach((pair) => {
-            faceMaterialPair.push([pair[0] + visual.face.range.length, materialIndexMap.get(pair[1])!]);
+            faceMaterialPair.push([
+                pair.faceIndex + visual.face.range.length,
+                materialIndexMap.get(pair.materialIndex)!,
+            ]);
         });
     }
 

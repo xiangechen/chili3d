@@ -2,10 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, Expander, img, svg } from "chili-controls";
+import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
 import { I18nKeys, IDocument, PathBinding, Property, readFileAsync, Texture } from "chili-core";
 import { findPropertyControl } from "../utils";
 import style from "./textureEditor.module.css";
-import { UrlStringConverter } from "./urlConverter";
 
 export class TextureProperty extends Expander {
     constructor(
