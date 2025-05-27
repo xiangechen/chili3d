@@ -3,7 +3,7 @@
 
 import { MeshUtils } from "chili-geo";
 import { IDocument } from "../document";
-import { Id } from "../foundation";
+import { Id, PropertyHistoryRecord, Transaction } from "../foundation";
 import { BoundingBox } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
@@ -24,10 +24,6 @@ export class FaceMaterialPair {
 }
 
 export abstract class GeometryNode extends VisualNode {
-    /**
-     * if the materialId is a string, it means that all faces use the same material.
-     * if the materialId is an array, it means that each face has a different material.
-     */
     @Serializer.serialze()
     @Property.define("common.material", { type: "materialId" })
     get materialId(): string | string[] {
@@ -38,17 +34,15 @@ export abstract class GeometryNode extends VisualNode {
     }
 
     protected _originFaceMesh?: FaceMeshData;
-    /**
-     * @internal internal use only, do not use it directly.
-     * [[faceIndex, materialIndex], [faceIndex, materialIndex], ...]
-     * materialIndex is the index of the material in the material list.
-     */
+
     @Serializer.serialze()
     get faceMaterialPair(): FaceMaterialPair[] {
         return this.getPrivateValue("faceMaterialPair", []);
     }
     set faceMaterialPair(value: FaceMaterialPair[]) {
-        this.setProperty("faceMaterialPair", value, () => this.updateVisual());
+        const oldMaterisl = Array.isArray(this.materialId) ? [...this.materialId] : this.materialId;
+        const Face = [...this.faceMaterialPair];
+        this.setProperty("faceMaterialPair", value, () => this.updateVisual(oldMaterisl, Face));
     }
 
     constructor(
@@ -84,62 +78,84 @@ export abstract class GeometryNode extends VisualNode {
         this._mesh = undefined;
     }
 
+    private copyOldValue() {
+        const oldMaterial = Array.isArray(this.materialId) ? [...this.materialId] : this.materialId;
+        const oldFacePair = [...this.faceMaterialPair];
+        return {
+            oldFacePair,
+            oldMaterial,
+        };
+    }
+
     addFaceMaterial(pairs: { faceIndex: number; materialId: string }[]) {
+        const { oldFacePair, oldMaterial } = this.copyOldValue();
         pairs.forEach(({ faceIndex, materialId }) => {
             if (this.materialId === materialId) {
                 return;
             }
 
             if (this._mesh?.faces?.range.length === 1) {
-                this.materialId = materialId;
+                this.setPrivateValue("materialId", materialId);
                 return;
             }
 
             if (typeof this.materialId === "string") {
-                this.materialId = [this.materialId, materialId];
+                this.setPrivateValue("materialId", [this.materialId, materialId]);
             }
 
             const index = this.materialId.indexOf(materialId);
             if (index === -1) {
-                this.materialId.push(materialId);
+                (this.materialId as string[]).push(materialId);
                 this.faceMaterialPair.push(new FaceMaterialPair(faceIndex, this.materialId.length - 1));
             } else {
                 this.faceMaterialPair.push(new FaceMaterialPair(faceIndex, index));
             }
         });
-        this.updateVisual();
+        this.updateVisual(oldMaterial, oldFacePair);
     }
 
     removeFaceMaterial(faceIndexs: number[]) {
-        faceIndexs.forEach((faceIndex) => {
-            const pair = this.faceMaterialPair.find((x) => x.faceIndex === faceIndex);
-            if (!pair) {
-                return;
-            }
-            this.faceMaterialPair.splice(this.faceMaterialPair.indexOf(pair), 1);
+        const { oldFacePair, oldMaterial } = this.copyOldValue();
+        const toDelete = this.faceMaterialPair.filter((x) => faceIndexs.includes(x.faceIndex));
+        this.setPrivateValue(
+            "faceMaterialPair",
+            this.faceMaterialPair.filter((x) => !faceIndexs.includes(x.faceIndex)),
+        );
+        toDelete.forEach((pair) => {
             const hasSameMaterial = this.faceMaterialPair.some(
                 (x) => x.materialIndex === pair.materialIndex,
             );
-            if (!hasSameMaterial && Array.isArray(this.materialId)) {
-                this.materialId.splice(pair.materialIndex, 1);
-                if (this.materialId.length === 1) {
-                    this.materialId = this.materialId[0];
-                }
+            if (hasSameMaterial || !Array.isArray(this.materialId)) {
+                return;
+            }
+            this.materialId.splice(pair.materialIndex, 1);
+            if (this.materialId.length === 1) {
+                this.setPrivateValue("materialId", this.materialId[0]);
+            } else if (this.materialId.length > 1) {
+                this.faceMaterialPair.forEach((x) => {
+                    if (x.materialIndex > pair.materialIndex) {
+                        x.materialIndex--;
+                    }
+                });
             }
         });
 
-        this.updateVisual();
+        this.updateVisual(oldMaterial, oldFacePair);
     }
 
     clearFaceMaterial() {
-        this.materialId = Array.isArray(this.materialId) ? this.materialId[0] : this.materialId;
-        this.faceMaterialPair = [];
-        this.updateVisual();
+        const { oldFacePair, oldMaterial } = this.copyOldValue();
+
+        if (Array.isArray(this.materialId)) {
+            this.setPrivateValue("materialId", this.materialId[0]);
+        }
+        this.setPrivateValue("faceMaterialPair", []);
+
+        this.updateVisual(oldMaterial, oldFacePair);
     }
 
-    private readonly updateVisual = () => {
+    private readonly updateVisual = (oldMaterisl: string | string[], oldFacePair: FaceMaterialPair[]) => {
         if (!this._originFaceMesh) return;
-
         if (this.faceMaterialPair.length === 0) {
             this._mesh!.faces = this._originFaceMesh;
         } else {
@@ -148,9 +164,21 @@ export abstract class GeometryNode extends VisualNode {
                 this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex] as [number, number]),
             );
             if (this._mesh!.faces.groups.length === 1) {
-                this.materialId = this.materialId[this.faceMaterialPair[0].materialIndex];
+                this.setPrivateValue("materialId", this.materialId[this.faceMaterialPair[0].materialIndex]);
             }
         }
+
+        this.emitPropertyChanged("materialId", oldMaterisl);
+        this.emitPropertyChanged("faceMaterialPair", oldFacePair);
+        const newMaterisl = Array.isArray(this.materialId) ? [...this.materialId] : this.materialId;
+        Transaction.add(
+            this.document,
+            new PropertyHistoryRecord(this, "materialId", oldMaterisl, newMaterisl),
+        );
+        Transaction.add(
+            this.document,
+            new PropertyHistoryRecord(this, "faceMaterialPair", oldFacePair, [...this.faceMaterialPair]),
+        );
 
         this.document.visual.context.redrawNode([this]);
     };
