@@ -36,11 +36,19 @@ import {
     VisualConfig,
     XYZ,
 } from "chili-core";
-import { TopoDS_Edge, TopoDS_Face, TopoDS_Shape, TopoDS_Vertex, TopoDS_Wire } from "../lib/chili-wasm";
+import {
+    TopoDS_Edge,
+    TopoDS_Face,
+    TopoDS_Shape,
+    TopoDS_Solid,
+    TopoDS_Vertex,
+    TopoDS_Wire,
+} from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OccCurve, OccTrimmedCurve } from "./curve";
 import { OcctHelper } from "./helper";
 import { Mesher } from "./mesher";
+import { MeshUtils } from "chili-geo";
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShape implements IShape {
@@ -376,6 +384,11 @@ export class OccFace extends OccShape implements IFace {
     ) {
         super(face, id);
     }
+
+    area(): number {
+        return wasm.Face.area(this.face);
+    }
+
     normal(u: number, v: number): [point: XYZ, normal: XYZ] {
         return gc((c) => {
             let pnt = c(new wasm.gp_Pnt(0, 0, 0));
@@ -409,7 +422,18 @@ export class OccFace extends OccShape implements IFace {
 export class OccShell extends OccShape implements IShell {}
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
-export class OccSolid extends OccShape implements ISolid {}
+export class OccSolid extends OccShape implements ISolid {
+    constructor(
+        readonly solid: TopoDS_Solid,
+        id?: string,
+    ) {
+        super(solid, id);
+    }
+
+    volume(): number {
+        return wasm.Solid.volume(this.solid);
+    }
+}
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccCompSolid extends OccShape implements ICompoundSolid {}
@@ -419,7 +443,7 @@ export class OccCompound extends OccShape implements ICompound {}
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
     override get mesh(): IShapeMeshData {
-        throw new Error("SubShape can not be meshed");
+        throw new Error("Method not implemented.");
     }
 
     constructor(
@@ -434,7 +458,7 @@ export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
 
 export class OccSubFaceShape extends OccFace implements ISubFaceShape {
     override get mesh(): IShapeMeshData {
-        throw new Error("SubShape can not be meshed");
+        throw new Error("Method not implemented.");
     }
 
     constructor(

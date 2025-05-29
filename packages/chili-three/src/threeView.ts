@@ -75,6 +75,10 @@ export class ThreeView extends Observable implements IView {
         this.setProperty("name", value);
     }
 
+    get dom() {
+        return this._dom;
+    }
+
     private _isClosed: boolean = false;
     get isClosed(): boolean {
         return this._isClosed;
@@ -532,6 +536,10 @@ export class ThreeView extends Observable implements IView {
         let { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
         if (!subShape || !shape) return { shape: undefined, indexes: [] };
 
+        if (ShapeType.hasSolid(shapeType) && subShape.shapeType === ShapeType.Face) {
+            let solid = this.getAncestorAndIndex(ShapeType.Solid, subShape, shape, groups);
+            if (solid.shape) return solid;
+        }
         if (ShapeType.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
             let shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, shape, groups);
             if (shell.shape) return shell;

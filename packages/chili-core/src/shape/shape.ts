@@ -80,6 +80,7 @@ export interface IWire extends IShape {
 }
 
 export interface IFace extends IShape {
+    area(): number;
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
     outerWire(): IWire;
     surface(): ISurface;
@@ -93,7 +94,9 @@ export interface IFace extends IShape {
 
 export interface IShell extends IShape {}
 
-export interface ISolid extends IShape {}
+export interface ISolid extends IShape {
+    volume(): number;
+}
 
 export interface ICompound extends IShape {}
 

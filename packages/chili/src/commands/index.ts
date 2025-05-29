@@ -8,6 +8,7 @@ export * from "./createCommand";
 export * from "./delete";
 export * from "./folder";
 export * from "./importExport";
+export * from "./measure";
 export * from "./modify";
 export * from "./multistepCommand";
 export * from "./redo";

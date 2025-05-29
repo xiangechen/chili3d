@@ -12,6 +12,7 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepExtrema_ExtCC.hxx>
 #include <BRepFeat_SplitShape.hxx>
+#include <BRepGProp.hxx>
 #include <BRepGProp_Face.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepTools.hxx>
@@ -23,6 +24,7 @@
 #include <Geom_OffsetCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <GeomAbs_JoinType.hxx>
+#include <GProp_GProps.hxx>
 #include <ShapeAnalysis.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <TopExp.hxx>
@@ -214,8 +216,9 @@ public:
     }
 
     static double curveLength(const TopoDS_Edge& edge) {
-        BRepAdaptor_Curve curve(edge);
-        return GCPnts_AbscissaPoint::Length(curve);
+        GProp_GProps props;
+        BRepGProp::LinearProperties(edge, props);
+        return props.Mass();
     }
 
     static Handle_Geom_TrimmedCurve curve(const TopoDS_Edge& edge) {
@@ -292,7 +295,15 @@ public:
 
 class Face {
 public:
-    static TopoDS_Shape offset(const TopoDS_Face& face , double distance, const GeomAbs_JoinType& joinType) {
+    static double area(const TopoDS_Face &face)
+    {
+        GProp_GProps props;
+        BRepGProp::SurfaceProperties(face, props);
+        return props.Mass();
+    }
+
+    static TopoDS_Shape offset(const TopoDS_Face &face, double distance, const GeomAbs_JoinType &joinType)
+    {
         BRepOffsetAPI_MakeOffset offsetter(face, joinType);
         offsetter.Perform(distance);
         if (offsetter.IsDone()) {
@@ -334,6 +345,15 @@ public:
 
 };
 
+class Solid {
+public:
+    static double volume(const TopoDS_Solid& solid) {
+        GProp_GProps props;
+        BRepGProp::VolumeProperties(solid, props);
+        return props.Mass();
+    }
+};
+
 EMSCRIPTEN_BINDINGS(Shape) {
 
     class_<Shape>("Shape")
@@ -360,8 +380,7 @@ EMSCRIPTEN_BINDINGS(Shape) {
         .class_function("curveLength", &Edge::curveLength)
         .class_function("trim", &Edge::trim)
         .class_function("intersect", &Edge::intersect)
-        .class_function("offset", &Edge::offset)
-    ;
+        .class_function("offset", &Edge::offset);
 
     class_<Wire>("Wire")
         .class_function("offset", &Wire::offset)
@@ -370,11 +389,16 @@ EMSCRIPTEN_BINDINGS(Shape) {
     ;
 
     class_<Face>("Face")
+        .class_function("area", &Face::area)
         .class_function("offset", &Face::offset)
         .class_function("outerWire", &Face::outerWire)
         .class_function("surface", &Face::surface)
         .class_function("normal", &Face::normal)
         .class_function("curveOnSurface", &Face::curveOnSurface)
+    ;
+
+    class_<Solid>("Solid")
+       .class_function("volume", &Solid::volume)
     ;
 
 }

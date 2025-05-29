@@ -75,8 +75,12 @@ export abstract class MultistepCommand extends CancelableCommand {
         return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
     }
 
-    protected meshLine(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
+    protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
+        const data = EdgeMeshData.from(start, end, color, LineType.Solid);
+        if (lineWith !== undefined) {
+            data.lineWidth = lineWith;
+        }
+        return data;
     }
 
     protected meshCreatedShape<K extends keyof IShapeFactory>(

@@ -6,7 +6,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    key: "create.copySubShape",
+    key: "create.copyShape",
     icon: "icon-subShape",
 })
 export class CopySubShapeCommand extends MultistepCommand {

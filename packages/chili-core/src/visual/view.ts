@@ -27,6 +27,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     get isClosed(): boolean;
     get width(): number;
     get height(): number;
+    get dom(): HTMLElement | undefined;
     mode: ViewMode;
     name: string;
     workplane: Plane;

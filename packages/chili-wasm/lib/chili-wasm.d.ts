@@ -509,6 +509,8 @@ export interface Wire extends ClassHandle {}
 
 export interface Face extends ClassHandle {}
 
+export interface Solid extends ClassHandle {}
+
 export type Domain = {
     start: number;
     end: number;
@@ -800,11 +802,15 @@ interface EmbindModule {
         edgeLoop(_0: TopoDS_Wire): Array<TopoDS_Edge>;
     };
     Face: {
+        area(_0: TopoDS_Face): number;
         offset(_0: TopoDS_Face, _1: number, _2: GeomAbs_JoinType): TopoDS_Shape;
         outerWire(_0: TopoDS_Face): TopoDS_Wire;
         surface(_0: TopoDS_Face): Handle_Geom_Surface;
         normal(_0: TopoDS_Face, _1: number, _2: number, _3: gp_Pnt, _4: gp_Vec): void;
         curveOnSurface(_0: TopoDS_Face, _1: TopoDS_Edge): Domain;
+    };
+    Solid: {
+        volume(_0: TopoDS_Solid): number;
     };
     Transient: {
         isKind(_0: Standard_Transient | null, _1: EmbindString): boolean;
