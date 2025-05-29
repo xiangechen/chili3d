@@ -3,4 +3,10 @@
 
 export class Constants {
     static readonly RaycasterThreshold = 10;
+    static readonly Layers = Object.freeze({
+        Default: 0,
+        Wireframe: 1,
+        Solid: 2,
+        Isolation: 30,
+    });
 }

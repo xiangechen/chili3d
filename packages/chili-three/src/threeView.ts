@@ -1,7 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { div, span, svg } from "chili-controls";
 import {
+    HtmlTextOptions,
+    IDisposable,
     IDocument,
     INodeFilter,
     IShape,
@@ -18,10 +21,12 @@ import {
     ShapeMeshRange,
     ShapeNode,
     ShapeType,
+    ViewMode,
     VisualNode,
     VisualShapeData,
     XY,
     XYZ,
+    XYZLike,
     debounce,
 } from "chili-core";
 import {
@@ -39,11 +44,13 @@ import {
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeHighlighter } from "./threeHighlighter";
+import style from "./threeView.module.css";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
@@ -54,6 +61,7 @@ export class ThreeView extends Observable implements IView {
 
     private readonly _scene: Scene;
     private readonly _renderer: WebGLRenderer;
+    private readonly _cssRenderer: CSS2DRenderer;
     private readonly _workplane: Plane;
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
@@ -76,6 +84,23 @@ export class ThreeView extends Observable implements IView {
         return this.cameraController.camera;
     }
 
+    get mode(): ViewMode {
+        return this.getPrivateValue("mode");
+    }
+    set mode(value: ViewMode) {
+        this.setProperty("mode", value, () => {
+            if (value === ViewMode.wireframe) {
+                this.camera.layers.enable(Constants.Layers.Wireframe);
+                this.camera.layers.disable(Constants.Layers.Solid);
+            } else if (value === ViewMode.solid) {
+                this.camera.layers.enable(Constants.Layers.Solid);
+                this.camera.layers.disable(Constants.Layers.Wireframe);
+            } else {
+                this.camera.layers.enableAll();
+            }
+        });
+    }
+
     constructor(
         readonly document: IDocument,
         name: string,
@@ -91,10 +116,13 @@ export class ThreeView extends Observable implements IView {
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
+        this._cssRenderer = this.initCssRenderer();
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
-        this.animate();
+        this.setPrivateValue("mode", ViewMode.solidAndWireframe);
+        this.camera.layers.enableAll();
         this.document.application.views.push(this);
+        this.animate();
     }
 
     override disposeInternal(): void {
@@ -139,6 +167,11 @@ export class ThreeView extends Observable implements IView {
         return renderer;
     }
 
+    private initCssRenderer() {
+        let renderer = new CSS2DRenderer();
+        return renderer;
+    }
+
     setDom(element: HTMLElement) {
         if (this._dom) {
             this._resizeObserver.unobserve(this._dom);
@@ -146,13 +179,48 @@ export class ThreeView extends Observable implements IView {
         this._dom = element;
         this._gizmo?.remove();
         element.appendChild(this._gizmo);
+
         this._renderer.domElement.remove();
         this._renderer.domElement.style.userSelect = "none";
         this._renderer.domElement.style.webkitUserSelect = "none";
         element.appendChild(this._renderer.domElement);
+
+        this._cssRenderer.domElement.remove();
+        this._cssRenderer.domElement.style.position = "absolute";
+        this._cssRenderer.domElement.style.top = "0px";
+        this._cssRenderer.domElement.style.userSelect = "none";
+        this._cssRenderer.domElement.style.webkitUserSelect = "none";
+        element.appendChild(this._cssRenderer.domElement);
+
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);
         this.cameraController.updateCameraPosionTarget();
+    }
+
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable {
+        const dispose = () => {
+            options?.onDispose?.();
+            this.content.cssObjects.remove(cssObject);
+            cssObject.element.remove();
+        };
+        let cssObject = new CSS2DObject(
+            div(
+                { className: style.htmlText },
+                span({ textContent: text }),
+                svg({
+                    className: style.delete,
+                    icon: "icon-times",
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        dispose();
+                    },
+                }),
+            ),
+        );
+        cssObject.position.set(point.x, point.y, point.z);
+        if (options?.center) cssObject.center.set(options.center.x, options.center.y);
+        this.content.cssObjects.add(cssObject);
+        return { dispose };
     }
 
     toImage(): string {
@@ -184,6 +252,7 @@ export class ThreeView extends Observable implements IView {
         let dir = this.camera.position.clone().sub(this.cameraController.target);
         this.dynamicLight.position.copy(dir);
         this._renderer.render(this._scene, this.camera);
+        this._cssRenderer.render(this._scene, this.camera);
         this._gizmo?.update();
 
         this._needsUpdate = false;
@@ -200,6 +269,7 @@ export class ThreeView extends Observable implements IView {
             this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, height);
+        this._cssRenderer.setSize(width, height);
         this.cameraController.setSize(width, height);
         this.update();
     }
@@ -545,10 +615,20 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initRaycaster(mx: number, my: number) {
-        let raycaster = new Raycaster();
         let threshold = Constants.RaycasterThreshold;
         let { x, y } = this.screenToCameraRect(mx, my);
         let mousePos = new Vector2(x, y);
+
+        let raycaster = new Raycaster();
+        if (this.mode === ViewMode.wireframe) {
+            raycaster.layers.disableAll();
+            raycaster.layers.enable(Constants.Layers.Wireframe);
+        } else if (this.mode === ViewMode.solid) {
+            raycaster.layers.disableAll();
+            raycaster.layers.enable(Constants.Layers.Solid);
+        } else {
+            raycaster.layers.enableAll();
+        }
         raycaster.setFromCamera(mousePos, this.camera);
         raycaster.params = {
             ...raycaster.params,

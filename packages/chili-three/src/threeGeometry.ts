@@ -24,6 +24,7 @@ import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
+import { Constants } from "./constants";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
@@ -112,6 +113,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     private initEdges(data: EdgeMeshData) {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
         this._edges = new LineSegments2(buff, this._edgeMaterial);
+        this._edges.layers.set(Constants.Layers.Wireframe);
         this.add(this._edges);
     }
 
@@ -119,6 +121,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         if (data.groups.length > 1) buff.groups = data.groups;
         this._faces = new Mesh(buff, this._faceMaterial);
+        this._faces.layers.set(Constants.Layers.Solid);
         this.add(this._faces);
     }
 

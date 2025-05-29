@@ -49,6 +49,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     readonly visualShapes: Group;
     readonly tempShapes: Group;
+    readonly cssObjects: Group;
 
     constructor(
         readonly visual: IVisual,
@@ -56,7 +57,8 @@ export class ThreeVisualContext implements IVisualContext {
     ) {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
-        scene.add(this.visualShapes, this.tempShapes);
+        this.cssObjects = new Group();
+        scene.add(this.visualShapes, this.tempShapes, this.cssObjects);
         visual.document.addNodeObserver(this);
         visual.document.materials.onCollectionChanged(this.onMaterialCollectionChanged);
     }

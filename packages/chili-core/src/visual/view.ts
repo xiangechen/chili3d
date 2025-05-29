@@ -3,12 +3,23 @@
 
 import { IDocument } from "../document";
 import { IDisposable, IPropertyChanged } from "../foundation";
-import { Plane, Ray, XY, XYZ } from "../math";
+import { Plane, Ray, XY, XYLike, XYZ, XYZLike } from "../math";
 import { INodeFilter, IShapeFilter } from "../selectionFilter";
 import { ShapeType } from "../shape";
 import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
 import { IVisualObject } from "./visualObject";
+
+export enum ViewMode {
+    solid,
+    wireframe,
+    solidAndWireframe,
+}
+
+export type HtmlTextOptions = {
+    center?: XYLike;
+    onDispose?: () => void;
+};
 
 export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
@@ -16,6 +27,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     get isClosed(): boolean;
     get width(): number;
     get height(): number;
+    mode: ViewMode;
     name: string;
     workplane: Plane;
     update(): void;
@@ -27,6 +39,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     worldToScreen(point: XYZ): XY;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable;
     close(): void;
     detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[];
     detectVisualRect(
