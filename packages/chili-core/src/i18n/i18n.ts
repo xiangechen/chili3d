@@ -63,6 +63,10 @@ export namespace I18n {
         return text;
     }
 
+    export function isI18nKey(key: string): key is I18nKeys {
+        return key in languages.get("zh-CN")!.translation;
+    }
+
     const LINK_KEY = "_:_";
 
     export function set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {

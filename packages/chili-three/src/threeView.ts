@@ -211,14 +211,16 @@ export class ThreeView extends Observable implements IView {
             div(
                 { className: style.htmlText },
                 span({ textContent: text }),
-                svg({
-                    className: style.delete,
-                    icon: "icon-times",
-                    onclick: (e) => {
-                        e.stopPropagation();
-                        dispose();
-                    },
-                }),
+                options?.hideDelete === true
+                    ? ""
+                    : svg({
+                          className: style.delete,
+                          icon: "icon-times",
+                          onclick: (e) => {
+                              e.stopPropagation();
+                              dispose();
+                          },
+                      }),
             ),
         );
         cssObject.position.set(point.x, point.y, point.z);

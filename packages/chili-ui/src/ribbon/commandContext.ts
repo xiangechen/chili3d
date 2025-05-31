@@ -18,6 +18,7 @@ import {
     CancelableCommand,
     Combobox,
     Command,
+    I18n,
     I18nKeys,
     ICommand,
     IDisposable,
@@ -136,12 +137,14 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newCombobox(noType: any, g: Property) {
         let combobox = noType[g.name] as Combobox<any>;
-        let options = combobox.items.map((item, index) =>
-            option({
+        let options = combobox.items.map((item, index) => {
+            return option({
                 selected: index === combobox.selectedIndex,
-                textContent: combobox.converter?.convert(item).unchecked() ?? String(item),
-            }),
-        );
+                textContent: I18n.isI18nKey(item)
+                    ? new Localize(item)
+                    : (combobox.converter?.convert(item).unchecked() ?? String(item)),
+            });
+        });
 
         return div(
             label({ textContent: new Localize(g.display) }),

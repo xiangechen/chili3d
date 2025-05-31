@@ -17,6 +17,7 @@ export enum ViewMode {
 }
 
 export type HtmlTextOptions = {
+    hideDelete?: boolean;
     center?: XYLike;
     onDispose?: () => void;
 };

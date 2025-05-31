@@ -1,18 +1,19 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div } from "chili-controls";
+import { div, h1, h2, span, ul } from "chili-controls";
 import {
     AsyncController,
     BoundingBox,
     CancelableCommand,
     Combobox,
     command,
-    I18n,
     I18nKeys,
+    IDisposable,
     IEdge,
     IFace,
     ISolid,
+    Localize,
     Matrix4,
     Property,
     ShapeType,
@@ -21,6 +22,7 @@ import {
     XYZ,
 } from "chili-core";
 import { SelectShapeStep } from "../../step";
+import style from "./select.module.css";
 
 @command({
     key: "measure.select",
@@ -28,33 +30,32 @@ import { SelectShapeStep } from "../../step";
 })
 export class SelectMeasure extends CancelableCommand {
     #isChangedType = false;
-    #sumUI?: HTMLElement;
     #sum = 0;
-    get sum() {
-        return this.#sum;
-    }
-    set sum(value: number) {
-        this.#sum = value;
-        this.#sumUI!.textContent = this.sumText();
-    }
+    #sumUI?: {
+        container: HTMLDivElement;
+        header: HTMLHeadingElement;
+        list: HTMLUListElement;
+        value: HTMLSpanElement;
+    };
+    readonly #disposeSet: Set<IDisposable> = new Set();
 
+    #category?: Combobox<I18nKeys>;
     @Property.define("common.type")
-    public get category(): Combobox<string> {
-        return this.getPrivateValue("category", this.initCombobox());
+    public get category(): Combobox<I18nKeys> {
+        if (!this.#category) {
+            this.#category = this.initCombobox();
+        }
+        return this.#category;
     }
-    public set category(value: Combobox<string>) {
-        this.getPrivateValue("category")?.clearPropertyChanged();
-        value.onPropertyChanged(this.onTypeChange);
-        this.setProperty("category", value);
+    public set category(value: Combobox<I18nKeys>) {
+        this.#category?.clearPropertyChanged();
+        this.#category = value;
+        this.#category.onPropertyChanged(this.onTypeChange);
     }
 
     private initCombobox() {
-        const box = new Combobox<string>();
-        box.items.push(
-            I18n.translate("common.length"),
-            I18n.translate("common.area"),
-            I18n.translate("common.volume"),
-        );
+        const box = new Combobox<I18nKeys>();
+        box.items.push("common.length", "common.area", "common.volume");
         box.onPropertyChanged(this.onTypeChange);
         return box;
     }
@@ -62,36 +63,50 @@ export class SelectMeasure extends CancelableCommand {
     private readonly onTypeChange = () => {
         this.#isChangedType = true;
         this.controller?.cancel();
-        this.sum = 0;
+        this.#sumUI?.container.remove();
+        this.#sumUI = undefined;
+        this.#disposeSet.forEach((d) => d.dispose());
+        this.#disposeSet.clear();
+        this.#sum = 0;
     };
 
-    protected override beforeExecute(): void {
-        super.beforeExecute();
+    private initSumUI() {
+        if (this.#sumUI) {
+            this.#sumUI.container.remove();
+        }
+        this.#sumUI = {
+            container: div({
+                className: style.selectSum,
+            }),
+            header: h1({ textContent: new Localize(this.#category!.selectedItem!) }),
+            list: ul(),
+            value: span({
+                textContent: "0.00",
+            }),
+        };
+        this.#sumUI.container.append(this.#sumUI.header, this.#sumUI.list, h2(this.#sumUI.value));
 
-        this.#sumUI = div({
-            textContent: this.sumText(),
-            style: {
-                position: "absolute",
-                top: "10px",
-                left: "10px",
-                zIndex: "1000",
-                padding: "4px 8px",
-                backgroundColor: "var(--panel-background-color)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "8px",
-            },
-        });
-        this.application.activeView?.dom?.append(this.#sumUI);
+        this.application.activeView?.dom?.append(this.#sumUI.container);
     }
 
-    private sumText() {
-        return `Sum(${this.category.selectedItem}): ${this.#sum.toFixed(2)}`;
+    private addSumItem(item: number) {
+        this.#sum += item;
+        if (!this.#sumUI) {
+            this.initSumUI();
+        }
+
+        const li = document.createElement("li");
+        li.textContent = item.toFixed(2);
+        this.#sumUI!.list.append(li);
+        this.#sumUI!.value.textContent = this.#sum.toFixed(2);
     }
 
     protected override afterExecute(): void {
         super.afterExecute();
         this.category?.clearPropertyChanged();
-        this.#sumUI?.remove();
+        this.#disposeSet.forEach((d) => d.dispose());
+        this.#disposeSet.clear();
+        this.#sumUI?.container.remove();
     }
 
     protected override async executeAsync(): Promise<void> {
@@ -138,18 +153,21 @@ export class SelectMeasure extends CancelableCommand {
         const start = edge.curve.startPoint();
         const end = edge.curve.endPoint();
         const length = edge.length();
-        this.sum += length;
+        this.addSumItem(length);
         const mesh = edge.mesh.edges!;
         edge.dispose();
         mesh.lineWidth = 3;
         mesh.color = VisualConfig.highlightEdgeColor;
 
         const id = this.document.visual.context.displayMesh(mesh);
-        this.application.activeView!.htmlText(length.toFixed(2), start.add(end).multiply(0.5), {
-            onDispose: () => {
-                this.document.visual.context.removeMesh(id);
-            },
-        });
+        this.#disposeSet.add(
+            this.application.activeView!.htmlText(length.toFixed(2), start.add(end).multiply(0.5), {
+                hideDelete: true,
+                onDispose: () => {
+                    this.document.visual.context.removeMesh(id);
+                },
+            }),
+        );
     }
 
     private faceMeasure(face: IFace, transform: Matrix4) {
@@ -161,14 +179,17 @@ export class SelectMeasure extends CancelableCommand {
         mesh.position = new Float32Array(transform.ofPoints(mesh.position));
 
         const area = face.area();
-        this.sum += area;
+        this.addSumItem(area);
         const center = this.wireCenter(mesh.position);
         const id = this.document.visual.context.displayMesh(mesh);
-        this.application.activeView!.htmlText(area.toFixed(2), center, {
-            onDispose: () => {
-                this.document.visual.context.removeMesh(id);
-            },
-        });
+        this.#disposeSet.add(
+            this.application.activeView!.htmlText(area.toFixed(2), center, {
+                hideDelete: true,
+                onDispose: () => {
+                    this.document.visual.context.removeMesh(id);
+                },
+            }),
+        );
     }
 
     private wireCenter(points: ArrayLike<number>) {
@@ -193,12 +214,15 @@ export class SelectMeasure extends CancelableCommand {
         mesh.position = new Float32Array(transform.ofPoints(mesh.position));
 
         const volume = solid.volume();
-        this.sum += volume;
+        this.addSumItem(volume);
         const id = this.document.visual.context.displayMesh(mesh);
-        this.application.activeView!.htmlText(volume.toFixed(2), transform.ofPoint(center), {
-            onDispose: () => {
-                this.document.visual.context.removeMesh(id);
-            },
-        });
+        this.#disposeSet.add(
+            this.application.activeView!.htmlText(volume.toFixed(2), transform.ofPoint(center), {
+                hideDelete: true,
+                onDispose: () => {
+                    this.document.visual.context.removeMesh(id);
+                },
+            }),
+        );
     }
 }
