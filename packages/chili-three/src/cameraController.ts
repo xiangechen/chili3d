@@ -63,6 +63,14 @@ export class CameraController extends Observable implements ICameraController {
         return ThreeHelper.toXYZ(this._position);
     }
 
+    get cameraTarget() {
+        return ThreeHelper.toXYZ(this._target);
+    }
+
+    get cameraUp() {
+        return ThreeHelper.toXYZ(this._camera.up);
+    }
+
     get camera(): PerspectiveCamera | OrthographicCamera {
         return this._camera;
     }
@@ -296,6 +304,7 @@ export class CameraController extends Observable implements ICameraController {
     lookAt(eye: XYZLike, target: XYZLike, up: XYZLike): void {
         this._position.set(eye.x, eye.y, eye.z);
         this._target.set(target.x, target.y, target.z);
+        this.camera.up.set(up.x, up.y, up.z);
         this.updateCameraPosionTarget();
     }
 

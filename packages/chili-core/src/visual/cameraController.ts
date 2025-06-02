@@ -8,6 +8,9 @@ export type CameraType = "perspective" | "orthographic";
 
 export interface ICameraController extends IPropertyChanged, IDisposable {
     readonly cameraPosition: XYZ;
+    readonly cameraTarget: XYZ;
+    readonly cameraUp: XYZ;
+
     cameraType: CameraType;
     fitContent(): void;
     lookAt(eye: XYZLike, target: XYZLike, up: XYZLike): void;

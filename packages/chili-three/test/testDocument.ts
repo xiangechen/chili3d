@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Act,
     History,
     IApplication,
     IDocument,
@@ -32,6 +33,7 @@ export class TestDocument implements IDocument, ISerialize {
     rootNode: INodeLinkedList;
     activeView: IView | undefined;
     materials: ObservableCollection<Material> = new ObservableCollection<Material>();
+    acts: ObservableCollection<Act> = new ObservableCollection<Act>();
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }

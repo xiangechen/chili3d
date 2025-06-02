@@ -72,7 +72,6 @@ export class LayoutViewport extends HTMLElement {
         viewport.classList.add(style.viewport, style.hidden);
         this.appendChild(viewport);
         this._viewports.set(view, viewport);
-        view.setDom(viewport);
         return viewport;
     }
 

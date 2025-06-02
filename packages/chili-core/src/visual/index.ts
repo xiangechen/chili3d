@@ -6,6 +6,7 @@ export * from "./cursorType";
 export * from "./detectedData";
 export * from "./eventHandler";
 export * from "./highlighter";
+export * from "./act";
 export * from "./textGenerator";
 export * from "./view";
 export * from "./viewport";

@@ -43,7 +43,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.boolean",
-                items: ["boolean.common", "boolean.cut", "boolean.fuse"],
+                items: [["boolean.common", "boolean.cut", "boolean.fuse"]],
             },
             {
                 groupName: "ribbon.group.workingPlane",
@@ -59,6 +59,10 @@ export const DefaultRibbon: RibbonTab[] = [
             {
                 groupName: "ribbon.group.measure",
                 items: [["measure.length", "measure.angle", "measure.select"]],
+            },
+            {
+                groupName: "ribbon.group.act",
+                items: ["act.alignCamera"],
             },
             {
                 groupName: "ribbon.group.importExport",
@@ -114,6 +118,10 @@ export const DefaultRibbon: RibbonTab[] = [
             {
                 groupName: "ribbon.group.tools",
                 items: ["create.section", "modify.split", "convert.toWire", "convert.toFace"],
+            },
+            {
+                groupName: "ribbon.group.act",
+                items: ["act.alignCamera"],
             },
             {
                 groupName: "ribbon.group.other",

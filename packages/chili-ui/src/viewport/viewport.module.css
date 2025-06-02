@@ -2,6 +2,119 @@
     position: relative;
 }
 
+.actsContainer {
+    position: absolute;
+    bottom: 12px;
+    z-index: 99999;
+    width: 100%;
+    pointer-events: all;
+
+    .border {
+        display: inline-block;
+        position: relative;
+        margin: auto;
+        width: fit-content;
+        max-width: 75%;
+
+        &::before {
+            position: absolute;
+            bottom: 0;
+            left: 1px;
+            height: 50px;
+            width: calc(100% - 2px);
+            margin-top: 40px;
+            content: "";
+            border-radius: 16px;
+            border: 1px solid rgba(100, 100, 100, 0.3);
+            background-color: rgba(128, 128, 128, 0.25);
+            backdrop-filter: blur(10px);
+        }
+
+        .acts {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            gap: 6px;
+            cursor: pointer;
+            height: 96px;
+            margin: 0px 8px;
+            overflow-y: hidden;
+            overflow-x: auto;
+            pointer-events: all;
+            --floatControlVisible: none;
+
+            &::-webkit-scrollbar {
+                height: 6px;
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background-color: rgba(100, 100, 100, 0.5);
+                border-radius: 3px;
+            }
+
+            &::-webkit-scrollbar-track {
+                background-color: transparent;
+            }
+
+            div {
+                position: relative;
+                flex: 0 0 auto;
+                padding: 8px;
+                margin-top: 43px;
+                width: 72px;
+                border-radius: 8px;
+                user-select: none;
+                background-color: var(--panel-background-color);
+                border: 1px solid var(--border-color);
+                color: var(--foreground-color);
+                font-size: 14px;
+                justify-content: center;
+                opacity: 0.75;
+                height: 18px;
+
+                span {
+                    display: block;
+                    max-width: 64px;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-align: center;
+                }
+
+                &:hover {
+                    opacity: 1;
+                    --floatControlVisible: flex;
+                }
+
+                .tools {
+                    display: var(--floatControlVisible);
+                    background-color: transparent;
+                    border: none;
+                    position: absolute;
+                    margin: 0;
+                    padding: 8px;
+                    top: -34px;
+                    left: 0px;
+                    gap: 4px;
+
+                    svg {
+                        width: 14px;
+                        height: 14px;
+                        padding: 4px;
+                        border-radius: 100%;
+                        background-color: var(--panel-background-color);
+                        opacity: 0.75;
+
+                        &:hover {
+                            opacity: 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 .viewControls {
     position: absolute;
     height: 100%;

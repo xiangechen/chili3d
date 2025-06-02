@@ -14,7 +14,7 @@ import { Material } from "./material";
 import { Component, INode, INodeLinkedList } from "./model";
 import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";
-import { IVisual } from "./visual";
+import { Act, IVisual } from "./visual";
 
 export const DOCUMENT_FILE_EXTENSION = ".cd";
 
@@ -29,6 +29,7 @@ export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     readonly application: IApplication;
     readonly components: Array<Component>;
     materials: ObservableCollection<Material>;
+    acts: ObservableCollection<Act>;
     addNode(...nodes: INode[]): void;
     addNodeObserver(observer: INodeChangedObserver): void;
     removeNodeObserver(observer: INodeChangedObserver): void;
