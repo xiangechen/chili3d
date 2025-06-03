@@ -93,15 +93,7 @@ export class ThreeView extends Observable implements IView {
     }
     set mode(value: ViewMode) {
         this.setProperty("mode", value, () => {
-            if (value === ViewMode.wireframe) {
-                this.camera.layers.enable(Constants.Layers.Wireframe);
-                this.camera.layers.disable(Constants.Layers.Solid);
-            } else if (value === ViewMode.solid) {
-                this.camera.layers.enable(Constants.Layers.Solid);
-                this.camera.layers.disable(Constants.Layers.Wireframe);
-            } else {
-                this.camera.layers.enableAll();
-            }
+            this.cameraController.setCameraLayer(this.camera, this.mode);
         });
     }
 
