@@ -3,9 +3,14 @@
 
 export function download(data: BlobPart[], name: string) {
     let blob = new Blob(data);
-    let a = document.createElement("a");
-    a.style.visibility = "hidden";
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
+    const url = URL.createObjectURL(blob);
+    try {
+        let a = document.createElement("a");
+        a.style.visibility = "hidden";
+        a.href = url;
+        a.download = name;
+        a.click();
+    } finally {
+        URL.revokeObjectURL(url);
+    }
 }
