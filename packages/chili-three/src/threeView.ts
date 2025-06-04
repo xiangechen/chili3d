@@ -89,7 +89,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     get mode(): ViewMode {
-        return this.getPrivateValue("mode");
+        return this.getPrivateValue("mode", ViewMode.solidAndWireframe);
     }
     set mode(value: ViewMode) {
         this.setProperty("mode", value, () => {
