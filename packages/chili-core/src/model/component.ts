@@ -9,6 +9,8 @@ import { BoundingBox, Matrix4, XYZ } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, LineType, Mesh } from "../shape";
+import { MeshNode } from "./meshNode";
+import { INode } from "./node";
 import { ShapeNode } from "./shapeNode";
 import { VisualNode } from "./visualNode";
 
@@ -16,18 +18,52 @@ export type ComponentMesh = {
     faceMaterials: string[];
     edge: EdgeMeshData;
     face: FaceMeshData;
-    line: Mesh;
+    linesegments: Mesh;
     surfaceMaterials: string[];
     surface: Mesh;
 };
+
+export function createComponentMesh(size: ComponentSize): ComponentMesh {
+    return {
+        faceMaterials: [],
+        edge: {
+            lineType: LineType.Solid,
+            position: new Float32Array(size.edge * 3),
+            range: [],
+        },
+        face: {
+            index: new Uint32Array(size.faceIndex),
+            normal: new Float32Array(size.facePosition * 3),
+            position: new Float32Array(size.facePosition * 3),
+            uv: new Float32Array(size.facePosition * 2),
+            range: [],
+            groups: [],
+        },
+        linesegments: Mesh.createLineSegments(size.lineSegment),
+        surfaceMaterials: [],
+        surface: Mesh.createSurface(size.meshPosition, size.meshIndex > 0 ? size.meshIndex : size.meshPosition * 3),
+    };
+}
 
 export type ComponentSize = {
     facePosition: number;
     faceIndex: number;
     edge: number;
-    line: number;
-    surf: number;
+    lineSegment: number;
+    meshPosition: number;
+    meshIndex: number;
 };
+
+export function createComponentSize(): ComponentSize {
+    return {
+        facePosition: 0,
+        faceIndex: 0,
+        edge: 0,
+        lineSegment: 0,
+        meshIndex: 0,
+        meshPosition: 0,
+    };
+}
 
 @Serializer.register(["name", "nodes", "origin", "id"])
 export class Component {
@@ -81,29 +117,11 @@ export class Component {
     }
 
     private mergeMesh() {
-        const size: ComponentSize = { facePosition: 0, edge: 0, line: 0, surf: 0, faceIndex: 0 };
-        const offset: ComponentSize = { facePosition: 0, edge: 0, line: 0, surf: 0, faceIndex: 0 };
-
+        const size: ComponentSize = createComponentSize();
         this.getSize(this._nodes, size);
-        const mesh: ComponentMesh = {
-            faceMaterials: [],
-            edge: {
-                lineType: LineType.Solid,
-                position: new Float32Array(size.edge * 3),
-                range: [],
-            },
-            face: {
-                index: new Uint32Array(size.faceIndex),
-                normal: new Float32Array(size.facePosition * 3),
-                position: new Float32Array(size.facePosition * 3),
-                uv: new Float32Array(size.facePosition * 2),
-                range: [],
-                groups: [],
-            },
-            line: Mesh.createLine(),
-            surfaceMaterials: [],
-            surface: Mesh.createSurface(),
-        };
+        const mesh = createComponentMesh(size);
+
+        const offset: ComponentSize = createComponentSize();
         const faceMaterialPair: [number, number][] = [];
         this.mergeNodesMesh(mesh, faceMaterialPair, this._nodes, Matrix4.identity(), offset);
         mesh.face = MeshUtils.mergeFaceMesh(mesh.face, faceMaterialPair);
@@ -111,7 +129,7 @@ export class Component {
         return mesh;
     }
 
-    private getSize(nodes: Iterable<VisualNode>, size: ComponentSize) {
+    private getSize(nodes: Iterable<INode>, size: ComponentSize) {
         for (const node of nodes) {
             if (node instanceof ShapeNode && node.shape.isOk) {
                 const mesh = node.shape.value.mesh;
@@ -120,6 +138,11 @@ export class Component {
                     size.faceIndex += mesh.faces.index.length;
                 }
                 if (mesh.edges) size.edge += mesh.edges.position.length / 3;
+            } else if (node instanceof MeshNode) {
+                size.meshPosition += node.mesh.position!.length / 3;
+                if (node.mesh.meshType === "surface") {
+                    size.meshIndex += node.mesh.index?.length ?? 0;
+                }
             } else if (node instanceof ComponentNode) {
                 this.getSize(node.component.nodes, size);
             }
@@ -134,22 +157,13 @@ export class Component {
         offset: ComponentSize,
     ) => {
         for (const node of nodes) {
+            const totleTransform = node.transform.multiply(transform);
             if (node instanceof ShapeNode && node.shape.isOk) {
-                this.mergeShapeNode(
-                    visual,
-                    faceMaterialPair,
-                    node,
-                    node.transform.multiply(transform),
-                    offset,
-                );
+                this.mergeShapeNode(visual, faceMaterialPair, node, totleTransform, offset);
             } else if (node instanceof ComponentNode) {
-                this.mergeNodesMesh(
-                    visual,
-                    faceMaterialPair,
-                    node.component.nodes,
-                    node.transform.multiply(transform),
-                    offset,
-                );
+                this.mergeNodesMesh(visual, faceMaterialPair, node.component.nodes, totleTransform, offset);
+            } else if (node instanceof MeshNode) {
+                this.mergeMeshNode(visual, node, totleTransform, offset);
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
             }
@@ -169,25 +183,15 @@ export class Component {
             offset.edge += mesh.edges.position.length / 3;
         }
         if (mesh.faces) {
-            this.mergeMaterial(node, visual, faceMaterialPair);
+            this.mergeFaceMaterial(node, visual, faceMaterialPair);
             MeshUtils.setFaceMeshData(visual.face, mesh.faces, transform, offset);
             offset.facePosition += mesh.faces.position.length / 3;
             offset.faceIndex += mesh.faces.index.length;
         }
     }
 
-    private mergeMaterial(node: ShapeNode, visual: ComponentMesh, faceMaterialPair: [number, number][]) {
-        const materialIndexMap = new Map<number, number>();
-        const materials = Array.isArray(node.materialId) ? node.materialId : [node.materialId];
-        for (let i = 0; i < materials.length; i++) {
-            const index = visual.faceMaterials.indexOf(materials[i]);
-            if (index === -1) {
-                visual.faceMaterials.push(materials[i]);
-                materialIndexMap.set(i, visual.faceMaterials.length - 1);
-            } else {
-                materialIndexMap.set(i, index);
-            }
-        }
+    private mergeFaceMaterial(node: ShapeNode, visual: ComponentMesh, faceMaterialPair: [number, number][]) {
+        const materialIndexMap = this.mapOldNewMaterialIndex(node.materialId, visual.faceMaterials);
 
         const map = new Map<number, number>(
             node.faceMaterialPair.map((pair) => [pair.faceIndex, pair.materialIndex]),
@@ -203,6 +207,41 @@ export class Component {
                 materialIndexMap.get(pair.materialIndex)!,
             ]);
         });
+    }
+
+    private mergeMeshNode(
+        visual: ComponentMesh,
+        node: MeshNode,
+        transform: Matrix4,
+        offset: ComponentSize
+    ) {
+        if (node.mesh.meshType === "surface") {
+            const materialONMap = this.mapOldNewMaterialIndex(node.materialId, visual.surfaceMaterials);
+            MeshUtils.setSurfaceMeshData(visual.surface, node.mesh, transform, offset, materialONMap);
+            offset.meshPosition += node.mesh.position!.length / 3;
+            if (node.mesh.index?.length) {
+                offset.meshIndex += node.mesh.index.length;
+            }
+        } else if (node.mesh.meshType === "linesegments") {
+            visual.linesegments.position?.set(transform.ofPoints(node.mesh.position!), offset.lineSegment * 3);
+            offset.lineSegment += node.mesh.position!.length / 3;
+        }
+    }
+
+    private mapOldNewMaterialIndex(materialId: string | string[], materialIds: string[]) {
+        const materialIndexMap = new Map<number, number>();
+        const materials = Array.isArray(materialId) ? materialId : [materialId];
+        for (let i = 0; i < materials.length; i++) {
+            const index = materialIds.indexOf(materials[i]);
+            if (index === -1) {
+                materialIds.push(materials[i]);
+                materialIndexMap.set(i, materialIds.length - 1);
+            } else {
+                materialIndexMap.set(i, index);
+            }
+        }
+
+        return materialIndexMap;
     }
 
     private computeBoundingBox() {

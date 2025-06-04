@@ -24,8 +24,25 @@ interface RefelectData {
     deserialize?: (...args: any[]) => any;
 }
 
+export function serializeTypeArray(TypeArray: new (array: number[]) => Float32Array | Uint32Array): RefelectData {
+    return {
+        ctor: TypeArray,
+        ctorParamNames: ["buffer"],
+        serialize: (target: Float16Array | Uint32Array) => {
+            return {
+                buffer: Array.from(target),
+            };
+        },
+        deserialize: (buffer) => {
+            return new TypeArray(buffer);
+        },
+    }
+}
+
 const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
 const reflectMap = new Map<string, RefelectData>();
+reflectMap.set("Float32Array", serializeTypeArray(Float32Array));
+reflectMap.set("Uint32Array", serializeTypeArray(Uint32Array));
 
 export namespace Serializer {
     export function serialze() {

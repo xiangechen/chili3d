@@ -23,47 +23,44 @@ export class MeshGroup {
     }
 }
 
-export type MeshType = "line" | "surface" | "linesegments";
+export type MeshType = "surface" | "linesegments";
 
 @Serializer.register([])
 export class Mesh {
-    static createSurface() {
+    static createSurface(positionSize: number, indexSize: number) {
         let mesh = new Mesh();
         mesh.meshType = "surface";
-        mesh.normal = [];
-        mesh.uv = [];
+        mesh.normal = new Float32Array(positionSize * 3);
+        mesh.uv = new Float32Array(positionSize * 2);
+        mesh.position = new Float32Array(positionSize * 3);
+        mesh.index = new Uint32Array(indexSize);
         return mesh;
     }
 
-    static createLine() {
-        let mesh = new Mesh();
-        mesh.meshType = "line";
-        return mesh;
-    }
-
-    static createLineSegments() {
+    static createLineSegments(size: number) {
         let mesh = new Mesh();
         mesh.meshType = "linesegments";
+        mesh.position = new Float32Array(size * 3);
         return mesh;
     }
 
     @Serializer.serialze()
-    meshType: MeshType = "line";
+    meshType: MeshType = "linesegments";
 
     @Serializer.serialze()
-    position: number[] = [];
+    position: Float32Array | undefined;
 
     @Serializer.serialze()
-    normal: number[] | undefined = undefined;
+    normal: Float32Array | undefined = undefined;
 
     @Serializer.serialze()
-    index: number[] | undefined = undefined;
+    index: Uint32Array | undefined = undefined;
 
     @Serializer.serialze()
     color: number | number[] = 0xfff;
 
     @Serializer.serialze()
-    uv: number[] | undefined = undefined;
+    uv: Float32Array | undefined = undefined;
 
     @Serializer.serialze()
     groups: MeshGroup[] = [];

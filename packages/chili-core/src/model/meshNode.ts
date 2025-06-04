@@ -4,7 +4,7 @@
 import { IDocument } from "../document";
 import { Id } from "../foundation";
 import { I18nKeys } from "../i18n";
-import { BoundingBox, Matrix4 } from "../math";
+import { BoundingBox } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
 import { Mesh } from "../shape";
@@ -47,7 +47,7 @@ export class MeshNode extends VisualNode {
     }
 
     override boundingBox(): BoundingBox | undefined {
-        let points = this.transform.ofPoints(this.mesh.position);
+        let points = this.transform.ofPoints(this.mesh.position!);
         return BoundingBox.fromNumbers(points);
     }
 }

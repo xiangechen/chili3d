@@ -10,21 +10,20 @@ import {
     IVisualObject,
     Matrix4,
     MeshNode,
-    Mesh as OccMesh,
     ShapeMeshRange,
     ShapeType,
     VisualConfig,
-    VisualNode,
+    VisualNode
 } from "chili-core";
 import {
+    BufferAttribute,
     BufferGeometry,
     DoubleSide,
-    Float32BufferAttribute,
     Group,
     Material,
     Mesh,
     MeshLambertMaterial,
-    Object3D,
+    Object3D
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
@@ -32,11 +31,11 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { hilightEdgeMaterial } from "./common";
+import { Constants } from "./constants";
 import { IHighlightable } from "./highlightable";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
-import { Constants } from "./constants";
 
 const HighlightFaceMaterial = new MeshLambertMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
@@ -163,8 +162,6 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
 
     private createMesh() {
         switch (this.meshNode.mesh.meshType) {
-            case "line":
-                return this.newLine();
             case "linesegments":
                 return this.newLineSegments();
             case "surface":
@@ -187,12 +184,12 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
 
     private newMesh() {
         const buff = new BufferGeometry();
-        buff.setAttribute("position", new Float32BufferAttribute(this.meshNode.mesh.position, 3));
+        buff.setAttribute("position", new BufferAttribute(this.meshNode.mesh.position!, 3));
         if (this.meshNode.mesh.normal)
-            buff.setAttribute("normal", new Float32BufferAttribute(this.meshNode.mesh.normal, 3));
+            buff.setAttribute("normal", new BufferAttribute(this.meshNode.mesh.normal, 3));
         if (this.meshNode.mesh.uv)
-            buff.setAttribute("uv", new Float32BufferAttribute(this.meshNode.mesh.uv, 2));
-        if (this.meshNode.mesh.index) buff.setIndex(this.meshNode.mesh.index);
+            buff.setAttribute("uv", new BufferAttribute(this.meshNode.mesh.uv, 2));
+        if (this.meshNode.mesh.index) buff.setIndex(new BufferAttribute(this.meshNode.mesh.index, 1));
         if (this.meshNode.mesh.groups.length > 1) buff.groups = this.meshNode.mesh.groups;
         buff.computeBoundingBox();
         const mesh = new Mesh(buff, this.context.getMaterial(this.meshNode.materialId));
@@ -207,7 +204,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
             side: DoubleSide,
         });
         const buff = new LineSegmentsGeometry();
-        buff.setPositions(this.meshNode.mesh.position);
+        buff.setPositions(this.meshNode.mesh.position!);
         buff.computeBoundingBox();
         const line = new LineSegments2(buff, material);
         line.layers.set(Constants.Layers.Wireframe);
@@ -221,7 +218,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
             side: DoubleSide,
         });
         const geometry = new LineGeometry();
-        geometry.setPositions(this.meshNode.mesh.position);
+        geometry.setPositions(this.meshNode.mesh.position!);
         geometry.computeBoundingBox();
         const line = new Line2(geometry, material);
         line.layers.set(Constants.Layers.Wireframe);
@@ -284,8 +281,8 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
     private _boundbox?: LineSegments2;
     private _edges?: LineSegments2;
     private _faces?: Mesh;
-    private _lines?: LineSegments2;
-    private _meshes?: Mesh;
+    private _linesegments?: LineSegments2;
+    private _surfaces?: Mesh;
 
     get edges() {
         return this._edges;
@@ -295,15 +292,15 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         return this._faces;
     }
 
-    get lines() {
-        return this._lines;
+    get linesegments() {
+        return this._linesegments;
     }
 
-    get meshes() {
-        return this._meshes;
+    get surfaces() {
+        return this._surfaces;
     }
 
-    private _edgeMaterial = new LineMaterial({
+    private readonly _edgeMaterial = new LineMaterial({
         linewidth: 1,
         color: VisualConfig.defaultEdgeColor,
         side: DoubleSide,
@@ -319,11 +316,13 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         super(componentNode);
         this.initEdges();
         this.initFaces();
+        this.initLinesegments();
+        this.initSurfaces();
     }
 
     private initEdges() {
         const data = this.componentNode.component.mesh.edge;
-        if (!data) {
+        if (!data || data.position.length === 0) {
             return;
         }
 
@@ -335,7 +334,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
 
     private initFaces() {
         const data = this.componentNode.component.mesh.face;
-        if (!data) {
+        if (!data || data.position.length === 0) {
             return;
         }
 
@@ -347,7 +346,33 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         this.add(this._faces);
     }
 
-    private initMesh(mesh: OccMesh) {}
+    initSurfaces() {
+        const data = this.componentNode.component.mesh.surface;
+        if (!data || data.position?.length === 0) {
+            return;
+        }
+
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry(data as any);
+        if (data.groups.length > 1) buff.groups = data.groups;
+        const materials = this.context.getMaterial(this.componentNode.component.mesh.surfaceMaterials);
+        this._surfaces = new Mesh(buff, materials);
+        this._surfaces.layers.set(Constants.Layers.Solid);
+        this.add(this._surfaces);
+    }
+
+    initLinesegments() {
+        const data = this.componentNode.component.mesh.linesegments;
+        if (!data || data.position?.length === 0) {
+            return;
+        }
+
+        let buff = new LineSegmentsGeometry();
+        buff.setPositions(data.position!);
+        buff.computeBoundingBox();
+        this._linesegments = new LineSegments2(buff, this._edgeMaterial);
+        this._linesegments.layers.set(Constants.Layers.Wireframe);
+        this.add(this._linesegments);
+    }
 
     override boundingBox(): BoundingBox | undefined {
         return this.componentNode.component.boundingBox;
@@ -421,6 +446,6 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
     }
 
     override wholeVisual(): (Mesh | LineSegments2)[] {
-        return [this.edges, this.faces, this.lines, this.meshes].filter((x) => x !== undefined);
+        return [this.edges, this.faces, this.linesegments, this.surfaces].filter((x) => x !== undefined);
     }
 }

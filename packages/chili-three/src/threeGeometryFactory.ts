@@ -57,7 +57,7 @@ export class ThreeGeometryFactory {
         buff.setAttribute("position", new BufferAttribute(data.position, 3));
         buff.setAttribute("normal", new BufferAttribute(data.normal, 3));
         buff.setAttribute("uv", new BufferAttribute(data.uv, 2));
-        buff.setIndex(new BufferAttribute(data.index, 1));
+        if (data.index && data.index.length > 0) buff.setIndex(new BufferAttribute(data.index, 1));
         buff.computeBoundingBox();
         return buff;
     }

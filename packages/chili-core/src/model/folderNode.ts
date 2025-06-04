@@ -66,6 +66,16 @@ export class FolderNode extends Node implements INodeLinkedList {
         this._lastChild = item;
     }
 
+    children(): INode[] {
+        const result: INode[] = [];
+        let node = this._firstChild;
+        while (node) {
+            result.push(node);
+            node = node.nextSibling;
+        }
+        return result;
+    }
+
     remove(...items: INode[]): void {
         const records = items
             .filter((item) => this.validateChild(item))

@@ -16,6 +16,7 @@ import {
     Observable,
     PubSub,
     Transaction,
+    VisualNode,
     XYZ,
 } from "chili-core";
 import { GetOrSelectNodeStep, IStep, PointStep } from "../../step";
@@ -54,7 +55,8 @@ export class GroupCommand extends MultistepCommand {
     }
 
     protected override executeMainTask(): void {
-        if (!this.stepDatas[0].nodes) {
+        const nodes = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode);
+        if (!nodes || nodes.length === 0) {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
@@ -62,13 +64,13 @@ export class GroupCommand extends MultistepCommand {
         let definition = new GroupDefinition();
 
         PubSub.default.pub("showDialog", "command.create.group", this.dialog(definition), (r) => {
-            if (r === DialogResult.ok) this.createGroup(definition);
+            if (r === DialogResult.ok) this.createGroup(definition, nodes);
         });
     }
 
-    private createGroup(definition: GroupDefinition) {
+    private createGroup(definition: GroupDefinition, nodes: VisualNode[]) {
         Transaction.execute(this.document, "create group", () => {
-            for (const node of this.stepDatas[0].nodes!) {
+            for (const node of nodes) {
                 node.parent?.transfer(node);
             }
 
