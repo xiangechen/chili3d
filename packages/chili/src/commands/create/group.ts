@@ -71,7 +71,9 @@ export class GroupCommand extends MultistepCommand {
     private createGroup(definition: GroupDefinition, nodes: VisualNode[]) {
         Transaction.execute(this.document, "create group", () => {
             for (const node of nodes) {
+                const worldTransform = node.worldTransform();
                 node.parent?.transfer(node);
+                node.transform = worldTransform;
             }
 
             const component = new Component(definition.name, this.stepDatas[0].nodes!, definition.insert);
@@ -84,7 +86,7 @@ export class GroupCommand extends MultistepCommand {
                     component.id,
                     component.origin,
                 );
-                this.document.addNode(group);
+                this.document.rootNode.add(group);
             }
         });
     }
