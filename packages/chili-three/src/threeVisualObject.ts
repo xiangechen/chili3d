@@ -13,7 +13,7 @@ import {
     ShapeMeshRange,
     ShapeType,
     VisualConfig,
-    VisualNode
+    VisualNode,
 } from "chili-core";
 import {
     BufferAttribute,
@@ -23,7 +23,7 @@ import {
     Material,
     Mesh,
     MeshLambertMaterial,
-    Object3D
+    Object3D,
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
@@ -65,6 +65,7 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         super();
         this._node = node;
         this.matrixAutoUpdate = false;
+        this.visible = node.visible && node.parentVisible;
         this.transform = node.transform;
         node.onPropertyChanged(this.handlePropertyChanged);
     }
@@ -187,8 +188,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         buff.setAttribute("position", new BufferAttribute(this.meshNode.mesh.position!, 3));
         if (this.meshNode.mesh.normal)
             buff.setAttribute("normal", new BufferAttribute(this.meshNode.mesh.normal, 3));
-        if (this.meshNode.mesh.uv)
-            buff.setAttribute("uv", new BufferAttribute(this.meshNode.mesh.uv, 2));
+        if (this.meshNode.mesh.uv) buff.setAttribute("uv", new BufferAttribute(this.meshNode.mesh.uv, 2));
         if (this.meshNode.mesh.index) buff.setIndex(new BufferAttribute(this.meshNode.mesh.index, 1));
         if (this.meshNode.mesh.groups.length > 1) buff.groups = this.meshNode.mesh.groups;
         buff.computeBoundingBox();
