@@ -15,7 +15,7 @@ export class Rotate extends TransformedCommand {
         const normal = this.stepDatas[1].plane!.normal;
         const center = this.stepDatas[0].point!;
         const angle = this.getAngle(point);
-        return Matrix4.createRotationAt(center, normal, angle);
+        return Matrix4.fromAxisRad(center, normal, angle);
     }
 
     getSteps(): IStep[] {

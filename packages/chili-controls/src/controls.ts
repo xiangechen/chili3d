@@ -57,6 +57,7 @@ export const img = createControl("img");
 export const dialog = createControl("dialog");
 export const canvas = createControl("canvas");
 export const sup = createControl("sup");
+export const form = createControl("form");
 
 export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const ns = "http://www.w3.org/2000/svg";

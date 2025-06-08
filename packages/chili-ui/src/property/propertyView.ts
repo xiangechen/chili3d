@@ -5,8 +5,6 @@ import { div, Expander, label } from "chili-controls";
 import {
     FolderNode,
     GroupNode,
-    I18nKeys,
-    IConverter,
     IDocument,
     INode,
     IView,
@@ -16,7 +14,7 @@ import {
     PubSub,
     VisualNode,
 } from "chili-core";
-import { MatrixConverter } from "./matrixConverter";
+import { MatrixProperty } from "./matrixProperty";
 import style from "./propertyView.module.css";
 import { findPropertyControl } from "./utils";
 
@@ -71,7 +69,7 @@ export class PropertyView extends HTMLElement {
             );
         }
 
-        this.panel.append(div({ className: style.rootProperties }, ...controls));
+        this.panel.append(div({ className: style.properties }, ...controls));
     }
 
     private addGeometry(nodes: INode[], document: IDocument) {
@@ -83,18 +81,9 @@ export class PropertyView extends HTMLElement {
 
     private addTransform(document: IDocument, geometries: (VisualNode | GroupNode)[]) {
         const matrix = new Expander("common.matrix");
-        const converters = MatrixConverter.init();
         this.panel.append(matrix);
 
-        const addMatrix = (display: I18nKeys, converter: IConverter) => {
-            matrix.contenxtPanel.append(
-                findPropertyControl(document, geometries, { name: "transform", display }, converter),
-            );
-        };
-
-        addMatrix("transform.translation", converters.translation);
-        addMatrix("transform.scale", converters.scale);
-        addMatrix("transform.rotation", converters.rotate);
+        matrix.contenxtPanel.append(new MatrixProperty(document, geometries, style.properties));
     }
 
     private addParameters(geometries: (VisualNode | GroupNode)[], document: IDocument) {

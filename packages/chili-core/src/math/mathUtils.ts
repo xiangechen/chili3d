@@ -20,16 +20,12 @@ export class MathUtils {
         return values.every((value) => Math.abs(value) < Precision.Float);
     }
 
-    static almostEqual(a: number, b: number, tolerance = 1e-8) {
+    static almostEqual(a: number, b: number, tolerance = 1e-6) {
         return Math.abs(a - b) < tolerance;
     }
 
     static clamp(value: number, min: number, max: number) {
-        if (min > max) throw new Error("min must be less than max");
-
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
+        return Math.max(min, Math.min(max, value));
     }
 
     static minMax(values: ArrayLike<number>) {
