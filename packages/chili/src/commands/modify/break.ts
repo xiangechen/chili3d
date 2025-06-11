@@ -54,7 +54,7 @@ export class Break extends MultistepCommand {
             new SelectShapeStep(ShapeType.Shape, "prompt.select.edges", {
                 shapeFilter: { allow: (s) => s.shapeType === ShapeType.Edge },
             }),
-            new PointOnCurveStep("operate.pickFistPoint", this.handlePointData, true),
+            new PointOnCurveStep("prompt.pickFistPoint", this.handlePointData, true),
         ];
     }
 

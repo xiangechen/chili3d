@@ -22,7 +22,7 @@ export abstract class BooleanOperate extends MultistepCommand {
             this.document.rootNode.add(node);
             this.stepDatas.forEach((x) => x.nodes?.[0]?.parent?.remove(x.nodes[0]));
             this.document.visual.update();
-        })
+        });
     }
 
     private getBooleanShape(
@@ -86,7 +86,7 @@ export class BooleanCut extends BooleanOperate {
 }
 
 @command({
-    key: "boolean.fuse",
+    key: "boolean.join",
     icon: "icon-booleanFuse",
 })
 export class BooleanFuse extends BooleanOperate {

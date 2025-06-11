@@ -19,10 +19,10 @@ export class Rotate extends TransformedCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint", undefined, true);
-        let secondStep = new LengthAtPlaneStep("operate.pickNextPoint", this.getSecondPointData, true);
+        let firstStep = new PointStep("prompt.pickFistPoint", undefined, true);
+        let secondStep = new LengthAtPlaneStep("prompt.pickNextPoint", this.getSecondPointData, true);
         let thirdStep = new AngleStep(
-            "operate.pickNextPoint",
+            "prompt.pickNextPoint",
             () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
             this.getThirdPointData,

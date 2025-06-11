@@ -29,8 +29,8 @@ export namespace RectData {
 export abstract class RectCommandBase extends CreateCommand {
     protected getSteps(): IStep[] {
         return [
-            new PointStep("operate.pickFistPoint"),
-            new LengthAtPlaneStep("operate.pickNextPoint", this.nextSnapData),
+            new PointStep("prompt.pickFistPoint"),
+            new LengthAtPlaneStep("prompt.pickNextPoint", this.nextSnapData),
         ];
     }
 

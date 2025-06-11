@@ -14,9 +14,9 @@ const ARC_POSITION = 0.5;
 })
 export class AngleMeasure extends MultistepCommand {
     protected override getSteps(): IStep[] {
-        const firstStep = new PointStep("operate.pickFistPoint");
-        const secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
-        const thirdStep = new PointStep("operate.pickNextPoint", this.getThirdPointData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
+        const thirdStep = new PointStep("prompt.pickNextPoint", this.getThirdPointData);
         return [firstStep, secondStep, thirdStep];
     }
 

@@ -27,8 +27,8 @@ export class Line extends CreateCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("operate.pickFistPoint");
-        let secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
+        let firstStep = new PointStep("prompt.pickFistPoint");
+        let secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
         return [firstStep, secondStep];
     }
 

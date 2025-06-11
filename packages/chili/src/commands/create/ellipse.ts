@@ -13,9 +13,9 @@ import { CreateFaceableCommand } from "../createCommand";
 })
 export class Ellipse extends CreateFaceableCommand {
     getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter");
-        let radiusStepX = new LengthAtPlaneStep("operate.pickRadius", this.getRadius1Data);
-        let radiusStepY = new LengthAtAxisStep("operate.pickRadius", this.getRadius2Data);
+        let centerStep = new PointStep("prompt.pickCircleCenter");
+        let radiusStepX = new LengthAtPlaneStep("prompt.pickRadius", this.getRadius1Data);
+        let radiusStepY = new LengthAtAxisStep("prompt.pickRadius", this.getRadius2Data);
         return [centerStep, radiusStepX, radiusStepY];
     }
 
