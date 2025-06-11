@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, span, svg } from "chili-controls";
-import { AsyncController, I18n } from "chili-core";
+import { AsyncController, I18nKeys, Localize } from "chili-core";
 import style from "./okCancel.module.css";
 
 export class OKCancel extends HTMLElement {
@@ -17,7 +17,7 @@ export class OKCancel extends HTMLElement {
     private container() {
         return div(
             { className: style.container },
-            span({ textContent: I18n.translate("ribbon.group.selection") }),
+            span({ textContent: new Localize("ribbon.group.selection") }),
             div({ className: style.spacer }),
             this.buttons(),
         );
@@ -26,13 +26,20 @@ export class OKCancel extends HTMLElement {
     private buttons() {
         return div(
             { className: style.panel },
-            this._createIcon("icon-confirm", I18n.translate("common.confirm"), this._onConfirm),
-            this._createIcon("icon-cancel", I18n.translate("common.cancel"), this._onCancel),
+            this._createIcon("icon-confirm", "common.confirm", this._onConfirm),
+            this._createIcon("icon-cancel", "common.cancel", this._onCancel),
         );
     }
 
-    private _createIcon(icon: string, text: string, onClick: () => void) {
-        return div({ className: style.icon, onclick: onClick }, svg({ icon }), span({ textContent: text }));
+    private _createIcon(icon: string, text: I18nKeys, onClick: () => void) {
+        return div(
+            {
+                className: style.icon,
+                onclick: onClick,
+            },
+            svg({ icon }),
+            span({ textContent: new Localize(text) }),
+        );
     }
 
     setControl(control: AsyncController | undefined) {
