@@ -102,32 +102,37 @@ For Chinese users, you can also browse the [media](https://space.bilibili.com/53
     npm install
     ```
 
-3. Set up WebAssembly dependencies
-    ```bash
-    npm run setup:wasm
-    ```
-
 ### Development
 
 Start the development server:
 
 ```bash
-npm run dev
+npm run dev # Launches at http://localhost:8080
 ```
 
 ### Building
-
-Build the WebAssembly module:
-
-```bash
-npm run build:wasm
-```
 
 Build the application:
 
 ```bash
 npm run build
 ```
+
+### Building wasm
+
+if you want to build wasm by yourself, you can use the following commands:
+
+1. Set up WebAssembly dependencies(if you have not installed them yet)
+
+    ```bash
+    npm run setup:wasm
+    ```
+
+2. Build the WebAssembly module:
+
+    ```bash
+    npm run build:wasm
+    ```
 
 ## Development Status
 
