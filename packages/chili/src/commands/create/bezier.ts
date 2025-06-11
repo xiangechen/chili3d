@@ -8,12 +8,13 @@ import {
     GeometryNode,
     I18n,
     LineType,
+    Precision,
     ShapeMeshData,
     VisualConfig,
     XYZ,
     command,
 } from "chili-core";
-import { Dimension, PointSnapData } from "../../snap";
+import { Dimension, PointSnapData, SnapResult } from "../../snap";
 import { IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
@@ -39,7 +40,18 @@ export class BezierCommand extends CreateCommand {
                 return this.controller.result?.status === "success";
             }
             this.stepDatas.push(data);
+            if (this.isClose(data)) {
+                return true;
+            }
         }
+    }
+
+    private isClose(data: SnapResult) {
+        console.log(this.stepDatas[0].point!.distanceTo(data.point!));
+        return (
+            this.stepDatas.length > 1 &&
+            this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Distance
+        );
     }
 
     protected override getSteps(): IStep[] {
@@ -54,6 +66,13 @@ export class BezierCommand extends CreateCommand {
             dimension: Dimension.D1D2D3,
             validator: this.validator,
             preview: this.preview,
+            featurePoints: [
+                {
+                    point: this.stepDatas.at(0)!.point!,
+                    prompt: I18n.translate("prompt.polygon.close"),
+                    when: () => this.stepDatas.length > 2,
+                },
+            ],
         };
     };
 
