@@ -1,6 +1,7 @@
-FROM node:alpine
-WORKDIR /chili3d
+FROM node:alpine AS builder
+WORKDIR '/app'
 COPY . .
-RUN npm install
-EXPOSE 8080
-CMD ["npm","run","dev"]
+RUN npm install && npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
