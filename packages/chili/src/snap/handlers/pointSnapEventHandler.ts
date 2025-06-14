@@ -8,12 +8,11 @@ import {
     ICurve,
     IDocument,
     IView,
-    Matrix4,
     Plane,
-    XYZ,
+    XYZ
 } from "chili-core";
 import { Dimension } from "../dimension";
-import { SnapData, SnapResult } from "../snap";
+import { ISnap, SnapData, SnapResult } from "../snap";
 import { ObjectSnap, PlaneSnap, PointOnCurveSnap, WorkplaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
@@ -30,12 +29,17 @@ export interface SnapPointOnCurveData extends PointSnapData {
 
 export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     constructor(document: IDocument, controller: AsyncController, pointData: PointSnapData) {
+        super(document, controller, [], pointData);
+        this.snaps.push(...this.getInitSnaps(pointData));
+    }
+
+    protected getInitSnaps(pointData: PointSnapData): ISnap[] {
         const objectSnap = new ObjectSnap(Config.instance.snapType, pointData.refPoint);
         const workplaneSnap = pointData.plane
             ? new PlaneSnap(pointData.plane, pointData.refPoint)
             : new WorkplaneSnap(pointData.refPoint);
         const trackingSnap = new TrackingSnap(pointData.refPoint, true);
-        super(document, controller, [objectSnap, trackingSnap, workplaneSnap], pointData);
+        return [objectSnap, trackingSnap, workplaneSnap]
     }
 
     protected getPointFromInput(view: IView, text: string): SnapResult {

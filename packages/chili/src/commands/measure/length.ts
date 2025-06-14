@@ -39,11 +39,11 @@ export class LengthMeasure extends MultistepCommand {
         const firstPoint = this.stepDatas[0].point!;
         const secondPoint = this.stepDatas[1].point!;
         const distance = firstPoint.distanceTo(secondPoint);
-        const visualId = this.document.visual.context.displayMesh(
+        const visualId = this.document.visual.context.displayMesh([
             this.meshPoint(firstPoint),
             this.meshLine(firstPoint, secondPoint, VisualConfig.highlightEdgeColor, 3),
             this.meshPoint(secondPoint),
-        );
+        ]);
         this.application.activeView?.htmlText(
             distance.toFixed(2),
             firstPoint.add(secondPoint).multiply(0.5),

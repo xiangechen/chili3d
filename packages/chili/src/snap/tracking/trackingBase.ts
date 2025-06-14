@@ -33,7 +33,7 @@ export abstract class TrackingBase {
 
     protected displayPoint(document: IDocument, point: SnapResult, size: number, color: number): number {
         const data = VertexMeshData.from(point.point!, size, color);
-        const id = document.visual.context.displayMesh(data);
+        const id = document.visual.context.displayMesh([data]);
         this.addTempMesh(document, id);
         return id;
     }

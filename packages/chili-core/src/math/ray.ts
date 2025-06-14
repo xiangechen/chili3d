@@ -31,6 +31,12 @@ export class Ray {
         return vec.isParallelTo(right.direction) ? result : undefined;
     }
 
+    distanceTo(right: Ray): number {
+        const neareast1 = this.nearestTo(right);
+        const neareast2 = this.nearestToPoint(neareast1);
+        return neareast1.distanceTo(neareast2);
+    }
+
     nearestTo(right: Ray): XYZ {
         const n = right.direction.cross(this.direction).normalize();
         if (n === undefined) return this.nearestToPoint(right.location);

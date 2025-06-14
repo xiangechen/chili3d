@@ -189,12 +189,12 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,
             );
-            this._tempPoint = this.document.visual.context.displayMesh(data);
+            this._tempPoint = this.document.visual.context.displayMesh([data]);
         }
 
         this._tempShapes = this.data
             .preview?.(point)
-            ?.map((shape) => this.document.visual.context.displayMesh(shape));
+            ?.map((shape) => this.document.visual.context.displayMesh([shape]));
     }
 
     private removeTempShapes() {

@@ -31,9 +31,13 @@ export class ThreeGeometryFactory {
         return new Points(buff, material);
     }
 
-    static createFaceGeometry(data: FaceMeshData) {
+    static createFaceGeometry(data: FaceMeshData, opacity?: number) {
         let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         let material = new MeshLambertMaterial({ side: DoubleSide });
+        if (opacity !== undefined) {
+            material.transparent = true;
+            material.opacity = opacity;
+        }
         this.setColor(buff, data, material);
 
         return new Mesh(buff, material);

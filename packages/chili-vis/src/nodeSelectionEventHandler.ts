@@ -18,6 +18,7 @@ export class NodeSelectionHandler extends SelectionHandler {
     private _highlights: IVisualObject[] | undefined;
     private _detectAtMouse: IVisualObject[] | undefined;
     private _lockDetected: IVisualObject | undefined; // 用于切换捕获的对象
+    protected highlighState = VisualState.edgeHighlight;
 
     nodes(): VisualNode[] {
         return this.document.selection.getSelectedNodes() as VisualNode[];
@@ -87,7 +88,7 @@ export class NodeSelectionHandler extends SelectionHandler {
     private highlightDetecteds(view: IView, detecteds: IVisualObject[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
-            view.document.visual.highlighter.addState(x, VisualState.edgeHighlight, ShapeType.Shape);
+            view.document.visual.highlighter.addState(x, this.highlighState, ShapeType.Shape);
         });
         this._highlights = detecteds;
         view.update();
@@ -95,7 +96,7 @@ export class NodeSelectionHandler extends SelectionHandler {
 
     protected override cleanHighlights(): void {
         this._highlights?.forEach((x) => {
-            this.document.visual.highlighter.removeState(x, VisualState.edgeHighlight, ShapeType.Shape);
+            this.document.visual.highlighter.removeState(x, this.highlighState, ShapeType.Shape);
         });
         this._highlights = undefined;
     }

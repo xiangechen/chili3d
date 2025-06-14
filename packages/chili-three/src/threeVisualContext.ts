@@ -238,7 +238,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    displayMesh(...datas: ShapeMeshData[]): number {
+    displayMesh(datas: ShapeMeshData[], opacity?: number): number {
         let group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
@@ -246,7 +246,7 @@ export class ThreeVisualContext implements IVisualContext {
             } else if (ShapeMeshData.isEdge(data)) {
                 group.add(ThreeGeometryFactory.createEdgeGeometry(data));
             } else if (ShapeMeshData.isFace(data)) {
-                group.add(ThreeGeometryFactory.createFaceGeometry(data));
+                group.add(ThreeGeometryFactory.createFaceGeometry(data, opacity));
             }
         });
         this.tempShapes.add(group);

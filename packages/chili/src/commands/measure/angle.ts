@@ -117,10 +117,10 @@ export class AngleMeasure extends MultistepCommand {
             .rotate(normal, rad * 0.5)!
             .multiply(this.lineLength(this.stepDatas[2].point) * ARC_POSITION)
             .add(this.stepDatas[0].point!);
-        const visualId = this.document.visual.context.displayMesh(
+        const visualId = this.document.visual.context.displayMesh([
             this.meshPoint(this.stepDatas[2].point!),
             ...this.arcPreview(this.stepDatas[2].point),
-        );
+       ]);
         this.application.activeView?.htmlText(((rad * 180) / Math.PI).toFixed(2) + "°", arcMid, {
             onDispose: () => {
                 this.document.visual.context.removeMesh(visualId);

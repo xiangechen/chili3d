@@ -20,6 +20,6 @@ export interface IVisualContext extends IDisposable, INodeChangedObserver {
     redrawNode(nodes: INode[]): void;
     setVisible(node: INode, visible: boolean): void;
     visuals(): IVisualObject[];
-    displayMesh(...datas: ShapeMeshData[]): number;
+    displayMesh(datas: ShapeMeshData[], opacity?: number): number;
     removeMesh(id: number): void;
 }

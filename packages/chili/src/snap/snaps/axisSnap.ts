@@ -43,7 +43,7 @@ export class AxisSnap implements ISnap {
             VisualConfig.temporaryEdgeColor,
             LineType.Dash,
         );
-        const id = view.document.visual.context.displayMesh(lineDats);
+        const id = view.document.visual.context.displayMesh([lineDats]);
         this._tempLines = [view, id];
     }
 

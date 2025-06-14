@@ -98,7 +98,7 @@ export class TrackingSnap implements ISnap {
         const distance = Math.min(vector.length() * 1e10, 1e20);
         const newEnd = start.add(normal.multiply(distance));
         const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
-        return view.document.visual.context.displayMesh(lineDats);
+        return view.document.visual.context.displayMesh([lineDats]);
     }
 
     private shapeIntersectTracking(
