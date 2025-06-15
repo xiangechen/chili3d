@@ -2,9 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import { IConverter, XYZ } from "chili-core";
-import { XYZConverter } from "../src/converters/xyzConverter";
+import { ColorConverter } from "../src/converters/colorConverter";
 import { NumberConverter } from "../src/converters/numberConverter";
 import { StringConverter } from "../src/converters/stringConverter";
+import { XYZConverter } from "../src/converters/xyzConverter";
 
 describe("converter test", () => {
     test("test type", () => {
@@ -39,5 +40,31 @@ describe("converter test", () => {
         let converter = new StringConverter();
         expect(converter.convert("").value).toBe("");
         expect(converter.convertBack("").value).toBe("");
+    });
+
+    test("test ColorConverter", () => {
+        let converter = new ColorConverter();
+
+        // Test normal number conversion
+        expect(converter.convert(0xff0000).value).toBe("#ff0000");
+        expect(converter.convert(255).value).toBe("#0000ff");
+        expect(converter.convert(0).value).toBe("#000000");
+
+        // Test string conversion
+        expect(converter.convert("#ff0000").value).toBe("#ff0000");
+        expect(converter.convert("ff0000").value).toBe("#ff0000");
+        expect(converter.convert("#FF0000").value).toBe("#FF0000");
+
+        // Test undefined and null handling (NEW)
+        expect(converter.convert(undefined as any).value).toBe("#808080");
+        expect(converter.convert(null as any).value).toBe("#808080");
+        expect(converter.convert("" as any).value).toBe("#808080");
+        expect(converter.convert("invalid" as any).value).toBe("#808080");
+        expect(converter.convert(NaN as any).value).toBe("#808080");
+
+        // Test convertBack
+        expect(converter.convertBack("#ff0000").value).toBe(0xff0000);
+        expect(converter.convertBack("ff0000").value).toBe(0xff0000);
+        expect(converter.convertBack("invalid").isOk).toBe(false);
     });
 });
