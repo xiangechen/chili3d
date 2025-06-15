@@ -21,7 +21,7 @@ set (OcctToolkits
     # ApplicationFramework
     TKCDF TKLCAF TKCAF TKStdL TKStd TKVCAF TKBin TKBinL TKBinXCAF
     # DataExchange
-    TKDE TKXSBase TKXCAF TKDESTEP TKDEIGES
+    TKDE TKXSBase TKXCAF TKDESTEP TKDEIGES TKDESTL
 )
 
 set (OcctUsedPackages)

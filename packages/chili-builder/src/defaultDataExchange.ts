@@ -3,6 +3,7 @@
 
 import {
     EditableShapeNode,
+    FolderNode,
     I18n,
     IDataExchange,
     IDocument,
@@ -29,13 +30,17 @@ async function exportBrep(document: IDocument, shapes: IShape[]) {
     return document.application.shapeFactory.converter.convertToBrep(comp.value);
 }
 
+async function exportStl(document: IDocument, shapes: IShape[]) {
+    return document.application.shapeFactory.converter.convertToSTL(...shapes);
+}
+
 export class DefaultDataExchange implements IDataExchange {
     importFormats(): string[] {
-        return [".step", ".stp", ".iges", ".igs", ".brep"];
+        return [".step", ".stp", ".iges", ".igs", ".brep", ".stl"];
     }
 
     exportFormats(): string[] {
-        return [".step", ".iges", ".brep"];
+        return [".step", ".iges", ".brep", ".stl"];
     }
 
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
@@ -45,9 +50,15 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private async handleSingleFileImport(document: IDocument, file: File) {
-        const nodeResult = file.name.endsWith(".brep")
-            ? await importBrep(document, file)
-            : await this.handleStepIgesImport(document, file);
+        let nodeResult: Result<EditableShapeNode | FolderNode> | undefined;
+
+        if (file.name.endsWith(".brep")) {
+            nodeResult = await importBrep(document, file);
+        } else if (this.isStlFile(file.name)) {
+            nodeResult = await this.handleStlImport(document, file);
+        } else {
+            nodeResult = await this.handleStepIgesImport(document, file);
+        }
 
         if (!nodeResult?.isOk) return;
 
@@ -102,6 +113,7 @@ export class DefaultDataExchange implements IDataExchange {
     private async convertShapes(type: string, doc: IDocument, shapes: IShape[]) {
         if (type === ".step") return this.handleStepExport(doc, shapes);
         if (type === ".iges") return this.handleIgesExport(doc, shapes);
+        if (type === ".stl") return this.handleStlExport(doc, shapes);
         return exportBrep(doc, shapes);
     }
 
@@ -111,6 +123,10 @@ export class DefaultDataExchange implements IDataExchange {
 
     private handleIgesExport(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToIGES(...shapes);
+    }
+
+    private handleStlExport(doc: IDocument, shapes: IShape[]) {
+        return doc.application.shapeFactory.converter.convertToSTL(...shapes);
     }
 
     private handleExportResult(result: Result<string> | undefined) {
@@ -127,5 +143,14 @@ export class DefaultDataExchange implements IDataExchange {
 
     private isIgesFile(filename: string) {
         return filename.endsWith(".iges") || filename.endsWith(".igs");
+    }
+
+    private isStlFile(filename: string) {
+        return filename.endsWith(".stl");
+    }
+
+    private async handleStlImport(document: IDocument, file: File) {
+        const content = new Uint8Array(await file.arrayBuffer());
+        return document.application.shapeFactory.converter.convertFromSTL(document, content);
     }
 }

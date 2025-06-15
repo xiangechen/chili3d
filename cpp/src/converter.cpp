@@ -20,6 +20,10 @@
 #include <XCAFDoc_ShapeTool.hxx>
 #include <STEPControl_Writer.hxx>
 #include <IGESControl_Writer.hxx>
+#include <StlAPI_Reader.hxx>
+#include <StlAPI_Writer.hxx>
+#include <BRepBuilderAPI_MakeSolid.hxx>
+#include <BRepBuilderAPI_Sewing.hxx>
 
 using namespace emscripten;
 
@@ -375,6 +379,94 @@ public:
         igesWriter.Write(oss);
         return oss.str();
     }
+
+    static std::optional<ShapeNode> convertFromStl(const Uint8Array &buffer)
+    {
+        std::vector<uint8_t> input = convertJSArrayToNumberVector<uint8_t>(buffer);
+        std::string dummyFileName = "temp.stl";
+        std::ofstream dummyFile;
+        dummyFile.open(dummyFileName, std::ios::binary);
+        dummyFile.write((char *)input.data(), input.size());
+        dummyFile.close();
+
+        StlAPI_Reader stlReader;
+        TopoDS_Shape shape;
+        if (!stlReader.Read(shape, dummyFileName.c_str()))
+        {
+            std::remove(dummyFileName.c_str());
+            return std::nullopt;
+        }
+        std::remove(dummyFileName.c_str());
+
+        // STL通常包含多个三角面，我们需要将其缝合成实体
+        BRepBuilderAPI_Sewing sewing;
+        sewing.Add(shape);
+        sewing.Perform();
+        TopoDS_Shape sewedShape = sewing.SewedShape();
+
+        ShapeNode node = {
+            .shape = sewedShape,
+            .color = std::nullopt,
+            .children = {},
+            .name = "STL Shape"
+        };
+
+        return node;
+    }
+
+    static std::string convertToStl(const ShapeArray &input)
+    {
+        auto shapes = vecFromJSArray<TopoDS_Shape>(input);
+        if (shapes.empty())
+        {
+            return std::string();
+        }
+
+        // 对于STL导出，我们取第一个shape
+        // 如果有多个shapes，可以考虑组合它们
+        TopoDS_Shape shapeToExport = shapes[0];
+        if (shapes.size() > 1)
+        {
+            // 组合多个shapes
+            BRepBuilderAPI_Sewing sewing;
+            for (const auto &shape : shapes)
+            {
+                sewing.Add(shape);
+            }
+            sewing.Perform();
+            shapeToExport = sewing.SewedShape();
+        }
+
+        std::string dummyFileName = "temp_export.stl";
+        StlAPI_Writer stlWriter;
+        if (!stlWriter.Write(shapeToExport, dummyFileName.c_str()))
+        {
+            std::remove(dummyFileName.c_str());
+            return std::string();
+        }
+
+        // 读取生成的文件内容
+        std::ifstream file(dummyFileName, std::ios::binary | std::ios::ate);
+        if (!file.is_open())
+        {
+            std::remove(dummyFileName.c_str());
+            return std::string();
+        }
+        
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        
+        std::string content(size, '\0');
+        if (!file.read(content.data(), size))
+        {
+            std::remove(dummyFileName.c_str());
+            return std::string();
+        }
+        
+        file.close();
+        std::remove(dummyFileName.c_str());
+        return content;
+    }
 };
 
 EMSCRIPTEN_BINDINGS(Converter)
@@ -395,5 +487,7 @@ EMSCRIPTEN_BINDINGS(Converter)
         .class_function("convertFromStep", &Converter::convertFromStep)
         .class_function("convertFromIges", &Converter::convertFromIges)
         .class_function("convertToStep", &Converter::convertToStep)
-        .class_function("convertToIges", &Converter::convertToIges);
+        .class_function("convertToIges", &Converter::convertToIges)
+        .class_function("convertFromStl", &Converter::convertFromStl)
+        .class_function("convertToStl", &Converter::convertToStl);
 }

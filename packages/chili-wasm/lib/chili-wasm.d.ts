@@ -579,8 +579,10 @@ interface EmbindModule {
         convertFromBrep(_0: EmbindString): TopoDS_Shape;
         convertFromStep(_0: Uint8Array): ShapeNode | undefined;
         convertFromIges(_0: Uint8Array): ShapeNode | undefined;
+        convertFromStl(_0: Uint8Array): ShapeNode | undefined;
         convertToStep(_0: Array<TopoDS_Shape>): string;
         convertToIges(_0: Array<TopoDS_Shape>): string;
+        convertToStl(_0: Array<TopoDS_Shape>): string;
     };
     ShapeResult: {};
     ShapeFactory: {
