@@ -283,6 +283,18 @@ static ShapeNode parseNodeFromDocument(Handle(TDocStd_Document) document)
 
 class Converter
 {
+private:
+    static TopoDS_Shape sewShapes(const std::vector<TopoDS_Shape> &shapes)
+    {
+        BRepBuilderAPI_Sewing sewing;
+        for (const auto &shape : shapes)
+        {
+            sewing.Add(shape);
+        }
+        sewing.Perform();
+        return sewing.SewedShape();
+    }
+
 public:
     static std::string convertToBrep(const TopoDS_Shape &input)
     {
@@ -398,11 +410,7 @@ public:
         }
         std::remove(dummyFileName.c_str());
 
-        // STL通常包含多个三角面，我们需要将其缝合成实体
-        BRepBuilderAPI_Sewing sewing;
-        sewing.Add(shape);
-        sewing.Perform();
-        TopoDS_Shape sewedShape = sewing.SewedShape();
+        TopoDS_Shape sewedShape = sewShapes({shape});
 
         ShapeNode node = {
             .shape = sewedShape,
@@ -422,20 +430,7 @@ public:
             return std::string();
         }
 
-        // 对于STL导出，我们取第一个shape
-        // 如果有多个shapes，可以考虑组合它们
-        TopoDS_Shape shapeToExport = shapes[0];
-        if (shapes.size() > 1)
-        {
-            // 组合多个shapes
-            BRepBuilderAPI_Sewing sewing;
-            for (const auto &shape : shapes)
-            {
-                sewing.Add(shape);
-            }
-            sewing.Perform();
-            shapeToExport = sewing.SewedShape();
-        }
+        TopoDS_Shape shapeToExport = shapes.size() == 1 ? shapes[0] : sewShapes(shapes);
 
         std::string dummyFileName = "temp_export.stl";
         StlAPI_Writer stlWriter;
@@ -445,7 +440,7 @@ public:
             return std::string();
         }
 
-        // 读取生成的文件内容
+        // Read the generated file content
         std::ifstream file(dummyFileName, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
