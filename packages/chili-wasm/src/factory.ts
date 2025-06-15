@@ -236,9 +236,9 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.booleanFuse(ensureOccShape(bottom), ensureOccShape(top)),
         );
     }
-    sweep(profile: IShape, path: IWire): Result<IShape> {
+    sweep(profile: IShape[], path: IWire, isRound: boolean): Result<IShape> {
         return convertShapeResult(
-            wasm.ShapeFactory.sweep(ensureOccShape(profile)[0], ensureOccShape(path)[0]),
+            wasm.ShapeFactory.sweep(ensureOccShape(profile), ensureOccShape(path)[0], true, isRound),
         );
     }
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {

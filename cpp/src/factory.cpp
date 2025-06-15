@@ -10,6 +10,7 @@
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
+#include <BRepOffsetAPI_MakePipeShell.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
@@ -200,9 +201,29 @@ public:
         return ShapeResult{cylinder.Solid(), true, ""};
     }
 
-    static ShapeResult sweep(const TopoDS_Shape &profile, const TopoDS_Wire &wire)
+    static ShapeResult sweep(const ShapeArray &sections, const TopoDS_Wire &path, bool isFrenet, bool isForceC1)
     {
-        BRepOffsetAPI_MakePipe pipe(wire, profile);
+        BRepOffsetAPI_MakePipeShell pipe(path);
+        if (isFrenet) {
+            pipe.SetMode(isFrenet);
+        }
+        
+        if (isForceC1) {
+            pipe.SetTransitionMode(BRepBuilderAPI_RoundCorner);
+            pipe.SetForceApproxC1(isForceC1);
+        } else {
+            pipe.SetTransitionMode(BRepBuilderAPI_RightCorner);
+        }
+
+        std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(sections);
+        for (const auto &shape : shapesVec)
+        {
+            pipe.Add(shape);
+        }
+
+        pipe.Build();
+        pipe.MakeSolid();
+
         if (!pipe.IsDone())
         {
             return ShapeResult{TopoDS_Shape(), false, "Failed to sweep profile"};
@@ -445,6 +466,9 @@ public:
     }
 
     static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater, const ShapeArray &args, const ShapeArray& tools) {
+        boolOperater.SetRunParallel(true);
+        boolOperater.SetFuzzyValue(1e-6);
+        boolOperater.SetToFillHistory(false);
         std::vector<TopoDS_Shape> argsVec = vecFromJSArray<TopoDS_Shape>(args);
         TopTools_ListOfShape argsList;
         for (auto shape : argsVec) {
@@ -463,24 +487,22 @@ public:
         if (!boolOperater.IsDone()) {
             return ShapeResult{TopoDS_Shape(), false, "Failed to build boolean operation"};
         }
+        boolOperater.SimplifyResult();
         return ShapeResult{boolOperater.Shape(), true, ""};
     }
 
     static ShapeResult booleanCommon(const ShapeArray &args, const ShapeArray& tools) {
         BRepAlgoAPI_Common api;
-        api.SetRunParallel(true);
         return booleanOperate(api, args, tools);
     }
 
     static ShapeResult booleanCut(const ShapeArray &args, const ShapeArray& tools) {
         BRepAlgoAPI_Cut api;
-        api.SetRunParallel(true);
         return booleanOperate(api, args, tools);
     }
 
     static ShapeResult booleanFuse(const ShapeArray &args, const ShapeArray& tools) {
         BRepAlgoAPI_Fuse api;
-        api.SetRunParallel(true);
         return booleanOperate(api, args, tools);
     }
 

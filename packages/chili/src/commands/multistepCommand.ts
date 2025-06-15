@@ -119,6 +119,14 @@ export abstract class MultistepCommand extends CancelableCommand {
         return shape;
     }
 
+    protected transformdShapes(step: SnapResult, shouldDispose = true) {
+        return step.shapes.map((s) => {
+            const shape = s.shape.transformedMul(s.transform);
+            if (shouldDispose) this.disposeStack.add(shape);
+            return shape;
+        });
+    }
+
     protected abstract getSteps(): IStep[];
 
     protected abstract executeMainTask(): void;

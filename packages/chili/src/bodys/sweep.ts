@@ -13,7 +13,7 @@ import {
     ShapeType,
 } from "chili-core";
 
-@Serializer.register(["document", "profile", "path"])
+@Serializer.register(["document", "profile", "path", "round"])
 export class SweepedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sweep";
@@ -23,7 +23,7 @@ export class SweepedNode extends ParameterShapeNode {
     get profile() {
         return this.getPrivateValue("profile");
     }
-    set profile(value: IShape) {
+    set profile(value: IShape[]) {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
@@ -35,10 +35,22 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("path", value);
     }
 
-    constructor(document: IDocument, profile: IShape, path: IWire | IEdge) {
+    @Serializer.serialze()
+    get round() {
+        return this.getPrivateValue("round");
+    }
+    set round(value: boolean) {
+        this.setPropertyEmitShapeChanged("round", value);
+    }
+
+    constructor(document: IDocument, profile: (IWire | IEdge)[], path: IWire | IEdge, round: boolean) {
         super(document);
-        this.setPrivateValue("profile", profile);
+        this.setPrivateValue(
+            "profile",
+            profile.map((p) => this.ensureWire(p)),
+        );
         this.setPrivateValue("path", this.ensureWire(path));
+        this.setPrivateValue("round", round);
     }
 
     private ensureWire(path: IEdge | IWire) {
@@ -50,6 +62,6 @@ export class SweepedNode extends ParameterShapeNode {
     }
 
     override generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.sweep(this.profile, this.path);
+        return this.document.application.shapeFactory.sweep(this.profile, this.path, this.round);
     }
 }
