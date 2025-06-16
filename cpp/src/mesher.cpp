@@ -24,31 +24,12 @@
 #include <TopoDS_Shape.hxx>
 #include <TopoDS.hxx>
 #include <UnitsMethods.hxx>
+#include "utils.hpp"
 
 using namespace emscripten;
 using namespace std;
 
 const double ANGLE_DEFLECTION = 0.2;
-
-double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
-{
-    Bnd_Box boundingBox;
-    BRepBndLib::Add(shape, boundingBox, false);
-    if (boundingBox.IsVoid())
-    {
-        return linearDeflection;
-    }
-    Standard_Real xMin, yMin, zMin, xMax, yMax, zMax;
-    boundingBox.Get(xMin, yMin, zMin, xMax, yMax, zMax);
-
-    Standard_Real avgSize = ((xMax - xMin) + (yMax - yMin) + (zMax - zMin)) / 3.0;
-    double linDeflection = avgSize * linearDeflection;
-    if (linDeflection < Precision::Confusion())
-    {
-        linDeflection = 1.0;
-    }
-    return linDeflection;
-}
 
 void addPointToPosition(const gp_Pnt &pnt, std::optional<gp_Pnt> &prePnt, std::vector<float> &position)
 {

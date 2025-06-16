@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <GeomAPI_ExtremaCurveCurve.hxx>
 #include "utils.hpp"
@@ -76,4 +78,24 @@ ProjectPointResult projectOrNearestCP(const Geom_Curve* curve, const gp_Pnt& pnt
     }
 
     return nearestEnd(curve, pnt);
+}
+
+double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection)
+{
+    Bnd_Box boundingBox;
+    BRepBndLib::Add(shape, boundingBox, false);
+    if (boundingBox.IsVoid())
+    {
+        return linearDeflection;
+    }
+    Standard_Real xMin, yMin, zMin, xMax, yMax, zMax;
+    boundingBox.Get(xMin, yMin, zMin, xMax, yMax, zMax);
+
+    Standard_Real avgSize = ((xMax - xMin) + (yMax - yMin) + (zMax - zMin)) / 3.0;
+    double linDeflection = avgSize * linearDeflection;
+    if (linDeflection < Precision::Confusion())
+    {
+        linDeflection = 1.0;
+    }
+    return linDeflection;
 }

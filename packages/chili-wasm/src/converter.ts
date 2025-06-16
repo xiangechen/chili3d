@@ -118,14 +118,11 @@ export class OccShapeConverter implements IShapeConverter {
         return Result.ok(OcctHelper.wrapShape(shape));
     }
 
-    convertToSTL(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
-            if (shape instanceof OccShape) {
-                return shape.shape;
-            }
-            throw new Error("Shape is not an OccShape");
-        });
-        return Result.ok(wasm.Converter.convertToStl(occShapes));
+    convertToSTL(shape: IShape): Result<string> {
+        if (shape instanceof OccShape) {
+            return Result.ok(wasm.Converter.convertToStl(shape.shape));
+        }
+        return Result.err("Shape is not an OccShape");
     }
 
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {

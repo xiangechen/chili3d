@@ -4,6 +4,7 @@
 #include "shared.hpp"
 #include <BRep_Builder.hxx>
 #include <BRepTools.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <IGESCAFControl_Reader.hxx>
@@ -24,6 +25,7 @@
 #include <StlAPI_Writer.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
+#include "utils.hpp"
 
 using namespace emscripten;
 
@@ -295,6 +297,15 @@ private:
         return sewing.SewedShape();
     }
 
+    static void writeBufferToFile(const std::string &fileName, const Uint8Array &buffer)
+    {
+        std::vector<uint8_t> input = convertJSArrayToNumberVector<uint8_t>(buffer);
+        std::ofstream dummyFile;
+        dummyFile.open(fileName, std::ios::binary);
+        dummyFile.write((char *)input.data(), input.size());
+        dummyFile.close();
+    }
+
 public:
     static std::string convertToBrep(const TopoDS_Shape &input)
     {
@@ -339,12 +350,8 @@ public:
 
     static std::optional<ShapeNode> convertFromIges(const Uint8Array &buffer)
     {
-        std::vector<uint8_t> input = convertJSArrayToNumberVector<uint8_t>(buffer);
         std::string dummyFileName = "temp.igs";
-        std::ofstream dummyFile;
-        dummyFile.open(dummyFileName, std::ios::binary);
-        dummyFile.write((char *)input.data(), input.size());
-        dummyFile.close();
+        writeBufferToFile(dummyFileName, buffer);
 
         IGESCAFControl_Reader igesCafReader;
         igesCafReader.SetColorMode(true);
@@ -394,73 +401,44 @@ public:
 
     static std::optional<ShapeNode> convertFromStl(const Uint8Array &buffer)
     {
-        std::vector<uint8_t> input = convertJSArrayToNumberVector<uint8_t>(buffer);
         std::string dummyFileName = "temp.stl";
-        std::ofstream dummyFile;
-        dummyFile.open(dummyFileName, std::ios::binary);
-        dummyFile.write((char *)input.data(), input.size());
-        dummyFile.close();
+        writeBufferToFile(dummyFileName, buffer);
 
         StlAPI_Reader stlReader;
         TopoDS_Shape shape;
         if (!stlReader.Read(shape, dummyFileName.c_str()))
         {
-            std::remove(dummyFileName.c_str());
             return std::nullopt;
         }
-        std::remove(dummyFileName.c_str());
-
-        TopoDS_Shape sewedShape = sewShapes({shape});
 
         ShapeNode node = {
-            .shape = sewedShape,
+            .shape = shape,
             .color = std::nullopt,
             .children = {},
-            .name = "STL Shape"
-        };
+            .name = "STL Shape"};
 
         return node;
     }
 
-    static std::string convertToStl(const ShapeArray &input)
+    static std::string convertToStl(const TopoDS_Shape &shapeToExport)
     {
-        auto shapes = vecFromJSArray<TopoDS_Shape>(input);
-        if (shapes.empty())
-        {
-            return std::string();
-        }
-
-        TopoDS_Shape shapeToExport = shapes.size() == 1 ? shapes[0] : sewShapes(shapes);
-
         std::string dummyFileName = "temp_export.stl";
+        auto lineDeflection = boundingBoxRatio(shapeToExport, 0.05);
+        BRepMesh_IncrementalMesh mesh(shapeToExport, lineDeflection, true, 0.2, true);
         StlAPI_Writer stlWriter;
         if (!stlWriter.Write(shapeToExport, dummyFileName.c_str()))
         {
-            std::remove(dummyFileName.c_str());
+            BRepTools::Clean(shapeToExport, true);
             return std::string();
         }
+        BRepTools::Clean(shapeToExport, true);
 
-        // Read the generated file content
-        std::ifstream file(dummyFileName, std::ios::binary | std::ios::ate);
-        if (!file.is_open())
-        {
-            std::remove(dummyFileName.c_str());
-            return std::string();
-        }
-        
-        std::streamsize size = file.tellg();
-        file.seekg(0, std::ios::beg);
-        
-        std::string content(size, '\0');
-        if (!file.read(content.data(), size))
-        {
-            std::remove(dummyFileName.c_str());
-            return std::string();
-        }
-        
-        file.close();
-        std::remove(dummyFileName.c_str());
-        return content;
+        std::ifstream in(dummyFileName);
+        std::istreambuf_iterator<char> beg(in), end;
+        std::string str(beg, end);
+        in.close();
+
+        return str;
     }
 };
 

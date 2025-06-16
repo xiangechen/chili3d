@@ -27,11 +27,21 @@ async function exportBrep(document: IDocument, shapes: IShape[]) {
     if (!comp.isOk) {
         return Result.err(comp.error);
     }
-    return document.application.shapeFactory.converter.convertToBrep(comp.value);
+
+    const result = document.application.shapeFactory.converter.convertToBrep(comp.value);
+    comp.value.dispose();
+    return result;
 }
 
 async function exportStl(document: IDocument, shapes: IShape[]) {
-    return document.application.shapeFactory.converter.convertToSTL(...shapes);
+    const comp = document.application.shapeFactory.combine(shapes);
+    if (!comp.isOk) {
+        return Result.err(comp.error);
+    }
+
+    const result = document.application.shapeFactory.converter.convertToSTL(comp.value);
+    comp.value.dispose();
+    return result;
 }
 
 export class DefaultDataExchange implements IDataExchange {
@@ -113,7 +123,7 @@ export class DefaultDataExchange implements IDataExchange {
     private async convertShapes(type: string, doc: IDocument, shapes: IShape[]) {
         if (type === ".step") return this.handleStepExport(doc, shapes);
         if (type === ".iges") return this.handleIgesExport(doc, shapes);
-        if (type === ".stl") return this.handleStlExport(doc, shapes);
+        if (type === ".stl") return exportStl(doc, shapes);
         return exportBrep(doc, shapes);
     }
 
@@ -123,10 +133,6 @@ export class DefaultDataExchange implements IDataExchange {
 
     private handleIgesExport(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToIGES(...shapes);
-    }
-
-    private handleStlExport(doc: IDocument, shapes: IShape[]) {
-        return doc.application.shapeFactory.converter.convertToSTL(...shapes);
     }
 
     private handleExportResult(result: Result<string> | undefined) {
