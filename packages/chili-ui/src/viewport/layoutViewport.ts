@@ -23,7 +23,7 @@ export class LayoutViewport extends HTMLElement {
     private readonly _selectionController: OKCancel;
     private readonly _viewports: Map<IView, Viewport> = new Map();
 
-    constructor(readonly app: IApplication) {
+    constructor(readonly app: IApplication, readonly showViewControls: boolean = true) {
         super();
         this.className = style.root;
         this._selectionController = new OKCancel();
@@ -68,7 +68,7 @@ export class LayoutViewport extends HTMLElement {
     };
 
     private createViewport(view: IView) {
-        let viewport = new Viewport(view);
+        let viewport = new Viewport(view, this.showViewControls);
         viewport.classList.add(style.viewport, style.hidden);
         this.appendChild(viewport);
         this._viewports.set(view, viewport);
