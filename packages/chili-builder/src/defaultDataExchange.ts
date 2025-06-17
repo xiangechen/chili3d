@@ -144,11 +144,13 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private isStepFile(filename: string) {
-        return filename.endsWith(".step") || filename.endsWith(".stp");
+        const lowerFilename = filename.toLocaleLowerCase();
+        return lowerFilename.endsWith(".step") || lowerFilename.endsWith(".stp");
     }
 
     private isIgesFile(filename: string) {
-        return filename.endsWith(".iges") || filename.endsWith(".igs");
+        const lowerFilename = filename.toLocaleLowerCase();
+        return lowerFilename.endsWith(".iges") || lowerFilename.endsWith(".igs");
     }
 
     private isStlFile(filename: string) {
