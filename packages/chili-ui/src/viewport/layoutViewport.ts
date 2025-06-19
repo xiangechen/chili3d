@@ -2,33 +2,23 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
     CollectionAction,
     CollectionChangedArgs,
     CursorType,
     IApplication,
-    IDocument,
     IView,
-    Material,
-    PubSub,
+    PubSub
 } from "chili-core";
 import { Cursor } from "../cursor";
-import { MaterialEditor } from "../property/material";
-import { MaterialDataContent } from "../property/material/materialDataContent";
 import style from "./layoutViewport.module.css";
-import { OKCancel } from "./okCancel";
 import { Viewport } from "./viewport";
 
 export class LayoutViewport extends HTMLElement {
-    private readonly _selectionController: OKCancel;
     private readonly _viewports: Map<IView, Viewport> = new Map();
 
     constructor(readonly app: IApplication, readonly showViewControls: boolean = true) {
         super();
         this.className = style.root;
-        this._selectionController = new OKCancel();
-        this.append(this._selectionController);
-        this.clearSelectionControl();
         app.views.onCollectionChanged(this._handleViewCollectionChanged);
     }
 
@@ -49,17 +39,11 @@ export class LayoutViewport extends HTMLElement {
 
     connectedCallback(): void {
         PubSub.default.sub("activeViewChanged", this._handleActiveViewChanged);
-        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
-        PubSub.default.sub("editMaterial", this._handleMaterialEdit);
-        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.sub("viewCursor", this._handleCursor);
     }
 
     disconnectedCallback(): void {
         PubSub.default.remove("activeViewChanged", this._handleActiveViewChanged);
-        PubSub.default.remove("showSelectionControl", this.showSelectionControl);
-        PubSub.default.remove("editMaterial", this._handleMaterialEdit);
-        PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.remove("viewCursor", this._handleCursor);
     }
 
@@ -83,26 +67,6 @@ export class LayoutViewport extends HTMLElement {
                 v.classList.add(style.hidden);
             }
         });
-    };
-
-    private readonly showSelectionControl = (controller: AsyncController) => {
-        this._selectionController.setControl(controller);
-        this._selectionController.style.visibility = "visible";
-        this._selectionController.style.zIndex = "1000";
-    };
-
-    private readonly clearSelectionControl = () => {
-        this._selectionController.setControl(undefined);
-        this._selectionController.style.visibility = "hidden";
-    };
-
-    private readonly _handleMaterialEdit = (
-        document: IDocument,
-        editingMaterial: Material,
-        callback: (material: Material) => void,
-    ) => {
-        let context = new MaterialDataContent(document, callback, editingMaterial);
-        this.append(new MaterialEditor(context));
     };
 }
 

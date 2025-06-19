@@ -29,9 +29,16 @@
         }
     }
 
-    & .viewport {
+    & .viewportContainer {
+        position: relative;
+        background-color: rebeccapurple;
         flex: 1 1 auto;
         width: 0;
+
+        .viewport {
+            height: 100%;
+            position: relative;
+        }
     }
 }
 
