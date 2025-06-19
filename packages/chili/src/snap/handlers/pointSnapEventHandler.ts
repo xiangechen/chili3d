@@ -43,11 +43,13 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     }
 
     protected getPointFromInput(view: IView, text: string): SnapResult {
-        const dims = this.parseInputDimensions(text);
+        const [dims, isAbsolute] = this.parseInputDimensions(text);
         const refPoint = this.getRefPoint() ?? XYZ.zero;
         const result = { point: refPoint, view, shapes: [] };
 
-        if (dims.length === 1 && this._snaped?.point) {
+        if (isAbsolute) {
+            result.point = new XYZ(dims[0], dims[1], dims[2]);
+        } else if (dims.length === 1 && this._snaped?.point) {
             result.point = this.calculatePointFromDistance(refPoint, dims[0]);
         } else if (dims.length > 1) {
             result.point = this.calculatePointFromCoordinates(refPoint, dims);
@@ -56,8 +58,12 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
         return result;
     }
 
-    private parseInputDimensions(text: string): number[] {
-        return text.split(",").map(Number);
+    private parseInputDimensions(text: string): [number[], boolean] {
+        const isAbsolute = text.startsWith("#");
+        if (isAbsolute) {
+            text = text.slice(1);
+        }
+        return [text.split(",").map(Number), isAbsolute];
     }
 
     private calculatePointFromDistance(refPoint: XYZ, distance: number): XYZ {
@@ -75,9 +81,10 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        const dims = this.parseInputDimensions(text);
+        const [dims, isAbsolute] = this.parseInputDimensions(text);
         const dimension = Dimension.from(dims.length);
 
+        if (isAbsolute && dims.length !== 3) return "error.input.threeNumberCanBeInput";
         if (!this.isValidDimension(dimension)) return "error.input.unsupportedInputs";
         if (this.hasInvalidNumbers(dims)) return "error.input.invalidNumber";
         if (this.requiresThreeNumbers(dims)) return "error.input.threeNumberCanBeInput";
