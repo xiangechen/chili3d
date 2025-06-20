@@ -207,7 +207,7 @@ export class ThreeVisualContext implements IVisualContext {
         ]);
         return this.visuals().filter((x) => {
             const node = (x as ThreeGeometry)?.geometryNode;
-            const shape = (node as ShapeNode)?.shape.unchecked();
+            const shape = (node as ShapeNode)?.shape?.unchecked();
             if (filter && shape && !filter.allow(shape)) {
                 return false;
             }
