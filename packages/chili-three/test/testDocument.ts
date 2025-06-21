@@ -1,6 +1,8 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
+    Act,
     History,
     IApplication,
     IDocument,
@@ -17,9 +19,11 @@ import {
     Serialized,
 } from "chili-core";
 import { ThreeVisual } from "../src/threeVisual";
+import { Component } from "chili-core/src/model/component";
 
 export class TestDocument implements IDocument, ISerialize {
     application: IApplication;
+    components: Component[] = [];
     name: string;
     currentNode: INodeLinkedList | undefined;
     id: string;
@@ -29,6 +33,7 @@ export class TestDocument implements IDocument, ISerialize {
     rootNode: INodeLinkedList;
     activeView: IView | undefined;
     materials: ObservableCollection<Material> = new ObservableCollection<Material>();
+    acts: ObservableCollection<Act> = new ObservableCollection<Act>();
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }

@@ -1,7 +1,8 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { div } from "chili-controls";
 import { Button, CommandKeys, I18nKeys, IApplication, RibbonTab } from "chili-core";
-import { div } from "./components";
 import style from "./editor.module.css";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";

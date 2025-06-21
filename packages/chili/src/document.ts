@@ -1,8 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
+    Act,
     CollectionAction,
     CollectionChangedArgs,
+    Component,
     Constants,
     FolderNode,
     History,
@@ -30,9 +33,11 @@ import {
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
+    readonly components: Component[] = [];
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
+    readonly acts = new ObservableCollection<Act>();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
     private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
@@ -108,8 +113,10 @@ export class Document extends Observable implements IDocument {
             properties: {
                 id: this.id,
                 name: this.name,
+                components: this.components.map((x) => Serializer.serializeObject(x)),
                 nodes: NodeSerializer.serialize(this.rootNode),
                 materials: this.materials.map((x) => Serializer.serializeObject(x)),
+                acts: this.acts.map((x) => Serializer.serializeObject(x)),
             },
         };
         return serialized;
@@ -125,6 +132,8 @@ export class Document extends Observable implements IDocument {
         this.selection.dispose();
         this.materials.forEach((x) => x.dispose());
         this.materials.clear();
+        this.acts.forEach((x) => x.dispose());
+        this.acts.clear();
 
         this._rootNode = undefined;
         this._currentNode = undefined;
@@ -186,6 +195,14 @@ export class Document extends Observable implements IDocument {
         document.history.disabled = true;
         document.materials.push(
             ...data.properties["materials"].map((x: Serialized) =>
+                Serializer.deserializeObject(document, x),
+            ),
+        );
+        document.acts.push(
+            ...data.properties["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)),
+        );
+        document.components.push(
+            ...data.properties["components"].map((x: Serialized) =>
                 Serializer.deserializeObject(document, x),
             ),
         );

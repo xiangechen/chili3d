@@ -1,5 +1,7 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { div, Expander, label } from "chili-controls";
 import {
     FolderNode,
     GroupNode,
@@ -8,12 +10,12 @@ import {
     IDocument,
     INode,
     IView,
+    Localize,
     Node,
     Property,
     PubSub,
     VisualNode,
 } from "chili-core";
-import { Expander, div, label, localize } from "../components";
 import { MatrixConverter } from "./matrixConverter";
 import style from "./propertyView.module.css";
 import { findPropertyControl } from "./utils";
@@ -27,7 +29,7 @@ export class PropertyView extends HTMLElement {
         this.append(
             label({
                 className: style.header,
-                textContent: localize("properties.header"),
+                textContent: new Localize("properties.header"),
             }),
             this.panel,
         );

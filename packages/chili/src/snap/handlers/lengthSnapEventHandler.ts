@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
 import { SnapData, SnapResult } from "../snap";
@@ -63,7 +64,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
         super(document, controller, [objectSnap, trackingSnap, planeSnap], lengthData);
     }
 
-    protected override setSnaped(view: IView, event: MouseEvent): void {
+    protected override setSnaped(view: IView, event: PointerEvent): void {
         super.setSnaped(view, event);
         this.updateWorkplane();
     }

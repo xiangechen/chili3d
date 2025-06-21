@@ -1,11 +1,18 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     BoundingBox,
+    ComponentNode,
     GroupNode,
+    IShape,
+    ISubShape,
     IVisualObject,
     Matrix4,
     MeshNode,
+    Mesh as OccMesh,
+    ShapeMeshRange,
+    ShapeType,
     VisualConfig,
     VisualNode,
 } from "chili-core";
@@ -25,8 +32,11 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { hilightEdgeMaterial } from "./common";
+import { IHighlightable } from "./highlightable";
+import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
+import { Constants } from "./constants";
 
 const HighlightFaceMaterial = new MeshLambertMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
@@ -35,7 +45,7 @@ const HighlightFaceMaterial = new MeshLambertMaterial({
     opacity: 0.56,
 });
 
-export class ThreeVisualObject extends Object3D implements IVisualObject {
+export abstract class ThreeVisualObject extends Object3D implements IVisualObject {
     get transform() {
         return ThreeHelper.toMatrix(this.matrix);
     }
@@ -43,30 +53,55 @@ export class ThreeVisualObject extends Object3D implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
-    constructor(private visualNode: VisualNode) {
+    private _node: VisualNode;
+    get node(): VisualNode {
+        return this._node;
+    }
+
+    worldTransform(): Matrix4 {
+        return ThreeHelper.toMatrix(this.matrixWorld);
+    }
+
+    constructor(node: VisualNode) {
         super();
+        this._node = node;
         this.matrixAutoUpdate = false;
-        this.transform = visualNode.transform;
-        visualNode.onPropertyChanged(this.handlePropertyChanged);
+        this.transform = node.transform;
+        node.onPropertyChanged(this.handlePropertyChanged);
     }
 
     private readonly handlePropertyChanged = (property: keyof VisualNode) => {
         if (property === "transform") {
-            this.transform = this.visualNode.transform;
+            this.transform = this.node.transform;
         }
     };
 
-    boundingBox(): BoundingBox {
+    boundingBox(): BoundingBox | undefined {
         return ThreeHelper.getBoundingBox(this);
     }
 
     dispose() {
-        this.visualNode.removePropertyChanged(this.handlePropertyChanged);
-        this.visualNode = null as any;
+        this.node.removePropertyChanged(this.handlePropertyChanged);
+        this._node = null as any;
     }
+
+    abstract getSubShapeAndIndex(
+        shapeType: "face" | "edge",
+        subVisualIndex: number,
+    ): {
+        shape: IShape | undefined;
+        subShape: ISubShape | undefined;
+        index: number;
+        transform?: Matrix4;
+        groups: ShapeMeshRange[];
+    };
+
+    abstract subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[];
+
+    abstract wholeVisual(): (Mesh | LineSegments2)[];
 }
 
-export class ThreeMeshObject extends ThreeVisualObject {
+export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable {
     private _mesh: LineSegments2 | Mesh | Line2;
     private material: Material | Material[];
 
@@ -85,22 +120,45 @@ export class ThreeMeshObject extends ThreeVisualObject {
         meshNode.onPropertyChanged(this.handleGeometryPropertyChanged);
     }
 
-    setHighlighted(highlighted: boolean) {
+    highlight() {
         if (this._mesh instanceof Mesh) {
-            if (highlighted) {
-                this._mesh.material = HighlightFaceMaterial;
-            } else {
-                this._mesh.material = this.material;
-            }
+            this._mesh.material = HighlightFaceMaterial;
         }
 
         if (this._mesh instanceof LineSegments2) {
-            if (highlighted) {
-                this._mesh.material = hilightEdgeMaterial;
-            } else {
-                this._mesh.material = this.material as LineMaterial;
-            }
+            this._mesh.material = hilightEdgeMaterial;
         }
+    }
+
+    unhighlight() {
+        if (this._mesh instanceof Mesh) {
+            this._mesh.material = this.material;
+        }
+
+        if (this._mesh instanceof LineSegments2) {
+            this._mesh.material = this.material as LineMaterial;
+        }
+    }
+
+    getSubShapeAndIndex(
+        shapeType: "face" | "edge",
+        subVisualIndex: number,
+    ): {
+        shape: IShape | undefined;
+        subShape: ISubShape | undefined;
+        index: number;
+        groups: ShapeMeshRange[];
+    } {
+        return {
+            shape: undefined,
+            subShape: undefined,
+            index: -1,
+            groups: [],
+        };
+    }
+
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
+        return [];
     }
 
     private createMesh() {
@@ -122,7 +180,7 @@ export class ThreeMeshObject extends ThreeVisualObject {
             this._mesh = this.createMesh();
             this.add(this._mesh);
         } else if (property === "materialId" && this._mesh instanceof Mesh) {
-            this.material = this.getMaterial();
+            this.material = this.context.getMaterial(this.meshNode.materialId);
             this._mesh.material = this.material;
         }
     };
@@ -135,23 +193,11 @@ export class ThreeMeshObject extends ThreeVisualObject {
         if (this.meshNode.mesh.uv)
             buff.setAttribute("uv", new Float32BufferAttribute(this.meshNode.mesh.uv, 2));
         if (this.meshNode.mesh.index) buff.setIndex(this.meshNode.mesh.index);
-        this.meshNode.mesh.groups.forEach((g) => {
-            const index = Array.isArray(this.meshNode.materialId)
-                ? this.meshNode.materialId.indexOf(g.materialId)
-                : 0;
-            buff.addGroup(g.start, g.count, index);
-        });
+        if (this.meshNode.mesh.groups.length > 1) buff.groups = this.meshNode.mesh.groups;
         buff.computeBoundingBox();
-        return new Mesh(buff, this.getMaterial());
-    }
-
-    private getMaterial() {
-        if (Array.isArray(this.meshNode.materialId)) {
-            return this.meshNode.materialId.map((id) => this.context.getMaterial(id));
-        } else if (typeof this.meshNode.materialId === "string") {
-            return this.context.getMaterial(this.meshNode.materialId);
-        }
-        return this.context.materialMap.values().next().value!;
+        const mesh = new Mesh(buff, this.context.getMaterial(this.meshNode.materialId));
+        mesh.layers.set(Constants.Layers.Solid);
+        return mesh;
     }
 
     private newLineSegments() {
@@ -163,7 +209,9 @@ export class ThreeMeshObject extends ThreeVisualObject {
         const buff = new LineSegmentsGeometry();
         buff.setPositions(this.meshNode.mesh.position);
         buff.computeBoundingBox();
-        return new LineSegments2(buff, material);
+        const line = new LineSegments2(buff, material);
+        line.layers.set(Constants.Layers.Wireframe);
+        return line;
     }
 
     private newLine() {
@@ -175,7 +223,13 @@ export class ThreeMeshObject extends ThreeVisualObject {
         const geometry = new LineGeometry();
         geometry.setPositions(this.meshNode.mesh.position);
         geometry.computeBoundingBox();
-        return new Line2(geometry, material);
+        const line = new Line2(geometry, material);
+        line.layers.set(Constants.Layers.Wireframe);
+        return line;
+    }
+
+    override wholeVisual() {
+        return [this.mesh];
     }
 
     private disposeMesh() {
@@ -200,6 +254,10 @@ export class GroupVisualObject extends Group implements IVisualObject {
         this.matrix.fromArray(value.toArray());
     }
 
+    worldTransform(): Matrix4 {
+        return ThreeHelper.toMatrix(this.matrixWorld);
+    }
+
     constructor(private readonly groupNode: GroupNode) {
         super();
         this.matrixAutoUpdate = false;
@@ -213,11 +271,156 @@ export class GroupVisualObject extends Group implements IVisualObject {
         }
     };
 
-    boundingBox(): BoundingBox {
+    boundingBox(): BoundingBox | undefined {
         return ThreeHelper.getBoundingBox(this);
     }
 
     dispose() {
         this.groupNode.removePropertyChanged(this.handlePropertyChanged);
+    }
+}
+
+export class ThreeComponentObject extends ThreeVisualObject implements IHighlightable {
+    private _boundbox?: LineSegments2;
+    private _edges?: LineSegments2;
+    private _faces?: Mesh;
+    private _lines?: LineSegments2;
+    private _meshes?: Mesh;
+
+    get edges() {
+        return this._edges;
+    }
+
+    get faces() {
+        return this._faces;
+    }
+
+    get lines() {
+        return this._lines;
+    }
+
+    get meshes() {
+        return this._meshes;
+    }
+
+    private _edgeMaterial = new LineMaterial({
+        linewidth: 1,
+        color: VisualConfig.defaultEdgeColor,
+        side: DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+    });
+
+    constructor(
+        readonly componentNode: ComponentNode,
+        readonly context: ThreeVisualContext,
+    ) {
+        super(componentNode);
+        this.initEdges();
+        this.initFaces();
+    }
+
+    private initEdges() {
+        const data = this.componentNode.component.mesh.edge;
+        if (!data) {
+            return;
+        }
+
+        const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
+        this._edges = new LineSegments2(buff, this._edgeMaterial);
+        this._edges.layers.set(Constants.Layers.Wireframe);
+        this.add(this._edges);
+    }
+
+    private initFaces() {
+        const data = this.componentNode.component.mesh.face;
+        if (!data) {
+            return;
+        }
+
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        if (data.groups.length > 1) buff.groups = data.groups;
+        const materials = this.context.getMaterial(this.componentNode.component.mesh.faceMaterials);
+        this._faces = new Mesh(buff, materials);
+        this._faces.layers.set(Constants.Layers.Solid);
+        this.add(this._faces);
+    }
+
+    private initMesh(mesh: OccMesh) {}
+
+    override boundingBox(): BoundingBox | undefined {
+        return this.componentNode.component.boundingBox;
+    }
+
+    highlight(): void {
+        if (!this._boundbox) {
+            const box = this.componentNode.component.boundingBox;
+            if (!box) {
+                return;
+            }
+
+            const geometry = new LineSegmentsGeometry();
+            geometry.setPositions(BoundingBox.wireframe(box).position);
+            this._boundbox = new LineSegments2(geometry, hilightEdgeMaterial);
+            this.add(this._boundbox);
+        }
+
+        this._boundbox.visible = true;
+    }
+
+    unhighlight(): void {
+        if (this._boundbox) {
+            this._boundbox.visible = false;
+        }
+    }
+
+    override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
+        const range =
+            shapeType === "face"
+                ? this.componentNode.component.mesh.face.range
+                : this.componentNode.component.mesh.edge.range;
+        const index = ThreeHelper.findGroupIndex(range, subVisualIndex);
+        if (index !== undefined) {
+            return {
+                shape: range[index].shape,
+                subShape: range[index].shape,
+                transform: range[index].transform,
+                index,
+                groups: range,
+            };
+        }
+
+        return {
+            shape: undefined,
+            subShape: undefined,
+            transform: undefined,
+            index: -1,
+            groups: [],
+        };
+    }
+
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
+        const shapes: (Mesh | LineSegments2 | undefined)[] = [];
+
+        const isWhole =
+            shapeType === ShapeType.Shape ||
+            ShapeType.hasCompound(shapeType) ||
+            ShapeType.hasCompoundSolid(shapeType) ||
+            ShapeType.hasSolid(shapeType);
+
+        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+            shapes.push(this.edges);
+        }
+
+        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+            shapes.push(this.faces);
+        }
+
+        return shapes.filter((x) => x !== undefined);
+    }
+
+    override wholeVisual(): (Mesh | LineSegments2)[] {
+        return [this.edges, this.faces, this.lines, this.meshes].filter((x) => x !== undefined);
     }
 }

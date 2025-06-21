@@ -1,0 +1,9 @@
+{
+    "name": "chili-controls",
+    "version": "0.6-beta",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-core": "*"
+    }
+}

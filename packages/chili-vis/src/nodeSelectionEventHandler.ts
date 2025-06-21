@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -43,20 +44,12 @@ export class NodeSelectionHandler extends SelectionHandler {
         return models.length;
     }
 
-    override pointerMove(view: IView, event: PointerEvent): void {
-        if (event.buttons === 4) {
-            return;
-        }
-        this._detectAtMouse = undefined;
-        if (this.rect) {
-            this.updateRect(this.rect, event);
-        }
-        let detecteds = this.getDetecteds(view, event);
-        this.setHighlight(view, detecteds);
-    }
-
     getDetecteds(view: IView, event: PointerEvent) {
-        if (this.rect && this.mouse.x !== event.offsetX && this.mouse.y !== event.offsetY) {
+        if (
+            this.rect &&
+            Math.abs(this.mouse.x - event.offsetX) > 3 &&
+            Math.abs(this.mouse.y - event.offsetY) > 3
+        ) {
             return view.detectVisualRect(
                 this.mouse.x,
                 this.mouse.y,
@@ -86,7 +79,12 @@ export class NodeSelectionHandler extends SelectionHandler {
         return -1;
     }
 
-    private setHighlight(view: IView, detecteds: IVisualObject[]) {
+    protected override setHighlight(view: IView, event: PointerEvent) {
+        let detecteds = this.getDetecteds(view, event);
+        this.highlightDetecteds(view, detecteds);
+    }
+
+    private highlightDetecteds(view: IView, detecteds: IVisualObject[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
             view.document.visual.highlighter.addState(x, VisualState.edgeHighlight, ShapeType.Shape);
@@ -109,7 +107,7 @@ export class NodeSelectionHandler extends SelectionHandler {
                 : 1;
             this._lockDetected = this._detectAtMouse[index];
             const detected = this.getDetecting();
-            if (detected) this.setHighlight(view, [detected]);
+            if (detected) this.highlightDetecteds(view, [detected]);
         }
     }
 

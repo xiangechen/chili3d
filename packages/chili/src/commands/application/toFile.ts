@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     command,
@@ -11,8 +12,7 @@ import {
 } from "chili-core";
 
 @command({
-    name: "doc.saveToFile",
-    display: "command.document.saveToFile",
+    key: "doc.saveToFile",
     icon: "icon-download",
 })
 export class SaveDocumentToFile implements ICommand {
@@ -29,7 +29,7 @@ export class SaveDocumentToFile implements ICommand {
                 download([JSON.stringify(s)], `${app.activeView?.document!.name}${DOCUMENT_FILE_EXTENSION}`);
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.saveToFile"),
+            I18n.translate("command.doc.saveToFile"),
         );
     }
 }

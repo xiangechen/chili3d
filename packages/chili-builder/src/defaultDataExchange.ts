@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     EditableShapeNode,
@@ -78,6 +79,8 @@ export class DefaultDataExchange implements IDataExchange {
         if (!shapes.length) return;
 
         const shapeResult = await this.convertShapes(type, nodes[0].document, shapes);
+        shapes.forEach((x) => x.dispose());
+
         return this.handleExportResult(shapeResult);
     }
 
@@ -88,7 +91,9 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private getExportShapes(nodes: VisualNode[]): IShape[] {
-        const shapes = nodes.filter((x): x is ShapeNode => x instanceof ShapeNode).map((x) => x.shape.value);
+        const shapes = nodes
+            .filter((x): x is ShapeNode => x instanceof ShapeNode)
+            .map((x) => x.shape.value.transformedMul(x.worldTransform()));
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");
         return shapes;

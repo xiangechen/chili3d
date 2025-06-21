@@ -1,13 +1,20 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { Result } from "..";
+
+const isIOS =
+    /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase()) ||
+    (navigator.maxTouchPoints > 0 && /(Macintosh)/.test(navigator.userAgent));
 
 export async function readFilesAsync(accept: string, multiple: boolean): Promise<Result<FileList>> {
     return new Promise((resolve) => {
         const input = document.createElement("input");
         input.type = "file";
         input.multiple = multiple;
-        input.accept = accept;
+        if (!isIOS) {
+            input.accept = accept;
+        }
         input.style.visibility = "hidden";
 
         const cleanup = () => document.body.removeChild(input);

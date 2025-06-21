@@ -1,5 +1,7 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { a, collection, div, label, span, svg } from "chili-controls";
 import {
     Binding,
     ButtonSize,
@@ -10,13 +12,13 @@ import {
     ICommand,
     IConverter,
     IView,
+    Localize,
     Logger,
     Observable,
     ObservableCollection,
     PubSub,
     Result,
 } from "chili-core";
-import { a, collection, div, label, localize, span, svg } from "../components";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
@@ -62,10 +64,11 @@ export const QuickButton = (command: ICommand) => {
         Logger.warn("commandData is undefined");
         return span({ textContent: "null" });
     }
+
     return svg({
         icon: data.icon,
-        title: I18n.translate(data.display),
-        onclick: () => PubSub.default.pub("executeCommand", command as any),
+        title: new Localize(`command.${data.key}`),
+        onclick: () => PubSub.default.pub("executeCommand", data.key),
     });
 };
 
@@ -148,7 +151,7 @@ export class Ribbon extends HTMLElement {
                 const converter = new ActivedRibbonTabConverter(tab, style.tabHeader, style.activedTab);
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
-                    textContent: localize(tab.tabName),
+                    textContent: new Localize(tab.tabName),
                     onclick: () => (this.dataContent.activeTab = tab),
                 });
             },
@@ -166,7 +169,7 @@ export class Ribbon extends HTMLElement {
             svg({
                 className: style.new,
                 icon: "icon-plus",
-                title: I18n.translate("command.document.new"),
+                title: I18n.translate("command.doc.new"),
                 onclick: () => PubSub.default.pub("executeCommand", "doc.new"),
             }),
         );
@@ -233,7 +236,7 @@ export class Ribbon extends HTMLElement {
                 className: style.content,
                 template: (item) => this.ribbonButton(item),
             }),
-            label({ className: style.header, textContent: localize(group.groupName) }),
+            label({ className: style.header, textContent: new Localize(group.groupName) }),
         );
     }
 

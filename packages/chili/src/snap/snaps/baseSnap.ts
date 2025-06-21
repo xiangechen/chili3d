@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IView, VisualShapeData, VisualState, XYZ } from "chili-core";
 import { ISnap, MouseAndDetected, SnapResult } from "../snap";
@@ -38,7 +39,7 @@ export abstract class BaseSnap implements ISnap {
 
     protected highlight(shapes: VisualShapeData[]): void {
         shapes.forEach((shape) => {
-            const highlighter = shape.owner.geometryNode.document.visual.highlighter;
+            const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.addState(
                 shape.owner,
                 VisualState.edgeHighlight,
@@ -51,7 +52,7 @@ export abstract class BaseSnap implements ISnap {
 
     protected unhighlight(): void {
         this._highlightedShapes.forEach((shape) => {
-            const highlighter = shape.owner.geometryNode.document.visual.highlighter;
+            const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.removeState(
                 shape.owner,
                 VisualState.edgeHighlight,

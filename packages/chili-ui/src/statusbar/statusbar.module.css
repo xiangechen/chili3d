@@ -20,3 +20,9 @@
 .right {
     flex: 0 1 auto;
 }
+
+@media (max-width: 680px) {
+    .right {
+        display: none;
+    }
+}

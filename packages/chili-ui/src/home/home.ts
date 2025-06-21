@@ -1,27 +1,19 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { a, button, collection, div, img, label, span, svg } from "chili-controls";
 import {
     Constants,
     I18n,
     I18nKeys,
     IApplication,
+    Localize,
     ObservableCollection,
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
-import {
-    LanguageSelector,
-    a,
-    button,
-    collection,
-    div,
-    img,
-    label,
-    localize,
-    span,
-    svg,
-} from "../components";
 import style from "./home.module.css";
+import { LanguageSelector } from "./languageSelector";
 
 interface ApplicationCommand {
     display: I18nKeys;
@@ -31,11 +23,11 @@ interface ApplicationCommand {
 
 const applicationCommands = new ObservableCollection<ApplicationCommand>(
     {
-        display: "command.document.new",
+        display: "command.doc.new",
         onclick: () => PubSub.default.pub("executeCommand", "doc.new"),
     },
     {
-        display: "command.document.open",
+        display: "command.doc.open",
         onclick: () => PubSub.default.pub("executeCommand", "doc.open"),
     },
 );
@@ -98,7 +90,7 @@ export class Home extends HTMLElement {
             template: (item) =>
                 button({
                     className: style.button,
-                    textContent: localize(item.display),
+                    textContent: new Localize(item.display),
                     onclick: item.onclick,
                 }),
         });
@@ -108,7 +100,7 @@ export class Home extends HTMLElement {
         return this.app.activeView?.document
             ? button({
                   className: `${style.button} ${style.back}`,
-                  textContent: localize("common.back"),
+                  textContent: new Localize("common.back"),
                   onclick: () => {
                       PubSub.default.pub("displayHome", false);
                   },
@@ -130,8 +122,8 @@ export class Home extends HTMLElement {
     private rightSection(documents: ObservableCollection<RecentDocumentDTO>) {
         return div(
             { className: style.right },
-            label({ className: style.welcome, textContent: localize("home.welcome") }),
-            div({ className: style.recent, textContent: localize("home.recent") }),
+            label({ className: style.welcome, textContent: new Localize("home.welcome") }),
+            div({ className: style.recent, textContent: new Localize("home.recent") }),
             this.documentCollection(documents),
         );
     }
@@ -192,10 +184,10 @@ export class Home extends HTMLElement {
                 "showPermanent",
                 async () => {
                     let document = await this.app.openDocument(item.id);
-                    await document?.application.activeView?.cameraController.fitContent();
+                    document?.application.activeView?.cameraController.fitContent();
                 },
                 "toast.excuting{0}",
-                I18n.translate("command.document.open"),
+                I18n.translate("command.doc.open"),
             );
         }
     }

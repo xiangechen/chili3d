@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     DOCUMENT_FILE_EXTENSION,
@@ -132,7 +133,7 @@ export class Application implements IApplication {
                 }
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.open"),
+            I18n.translate("command.doc.open"),
         );
     }
 

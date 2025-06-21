@@ -1,8 +1,9 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     EditableShapeNode,
-    IEdge,
+    ISubEdgeShape,
     Property,
     ShapeNode,
     ShapeType,
@@ -14,8 +15,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.chamfer",
-    display: "command.chamfer",
+    key: "modify.chamfer",
     icon: "icon-chamfer",
 })
 export class ChamferCommand extends MultistepCommand {
@@ -30,8 +30,8 @@ export class ChamferCommand extends MultistepCommand {
 
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            const node = this.stepDatas[0].shapes[0].owner.geometryNode as ShapeNode;
-            const edges = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IEdge);
+            const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
+            const edges = this.stepDatas.at(-1)!.shapes.map((x) => (x.shape as ISubEdgeShape).index);
             const filetShape = this.document.application.shapeFactory.chamfer(
                 node.shape.value,
                 edges,
@@ -50,7 +50,7 @@ export class ChamferCommand extends MultistepCommand {
     protected override getSteps() {
         return [
             new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
-                filter: {
+                shapeFilter: {
                     allow: (shape) => {
                         return (
                             shape.shapeType === ShapeType.Solid ||

@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     Continuity,
@@ -21,6 +22,7 @@ import {
     ISurfaceOfRevolution,
     ISweptSurface,
     IToroidalSurface,
+    Matrix4,
     Plane,
     XYZ,
     gc,
@@ -53,7 +55,17 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
 
     override copy(): IGeometry {
-        return OcctHelper.wrapSurface(this.surface);
+        return gc((c) => {
+            let s = c(this.surface.copy());
+            return OcctHelper.wrapSurface(s.get() as Geom_Surface);
+        });
+    }
+
+    override transformed(matrix: Matrix4): IGeometry {
+        return gc((c) => {
+            let s = c(this.surface.transformed(OcctHelper.convertFromMatrix(matrix)));
+            return OcctHelper.wrapSurface(s.get() as Geom_Surface);
+        });
     }
 
     projectCurve(curve: ICurve): ICurve | undefined {

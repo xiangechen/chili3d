@@ -5,6 +5,7 @@
     "main": "src/index.ts",
     "devDependencies": {
         "chili-core": "*",
+        "chili-controls": "*",
         "chili-geo": "*",
         "chili-vis": "*"
     }

@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { Command, CommandKeys, IApplication, ICommand, IService, IView, Logger, PubSub } from "chili-core";
 
@@ -81,7 +82,7 @@ export class CommandService implements IService {
         if (!this.app.executingCommand) {
             return true;
         }
-        if (Command.getData(this.app.executingCommand)?.name === commandName) {
+        if (Command.getData(this.app.executingCommand)?.key === commandName) {
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
             return false;
         }

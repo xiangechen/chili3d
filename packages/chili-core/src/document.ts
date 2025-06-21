@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IApplication } from "./application";
 import {
@@ -10,10 +11,10 @@ import {
     ObservableCollection,
 } from "./foundation";
 import { Material } from "./material";
-import { INode, INodeLinkedList } from "./model/node";
+import { Component, INode, INodeLinkedList } from "./model";
 import { ISelection } from "./selection";
 import { ISerialize, Serialized } from "./serialize";
-import { IVisual } from "./visual";
+import { Act, IVisual } from "./visual";
 
 export const DOCUMENT_FILE_EXTENSION = ".cd";
 
@@ -26,7 +27,9 @@ export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     readonly history: History;
     readonly visual: IVisual;
     readonly application: IApplication;
+    readonly components: Array<Component>;
     materials: ObservableCollection<Material>;
+    acts: ObservableCollection<Act>;
     addNode(...nodes: INode[]): void;
     addNodeObserver(observer: INodeChangedObserver): void;
     removeNodeObserver(observer: INodeChangedObserver): void;

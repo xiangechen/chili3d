@@ -1,10 +1,10 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { Binding, Config, IApplication, ICommand, command } from "chili-core";
 
 @command({
-    name: "workingPlane.toggleDynamic",
-    display: "workingPlane.dynamic",
+    key: "workingPlane.toggleDynamic",
     toggle: new Binding(Config.instance, "dynamicWorkplane"),
     icon: "icon-dynamicPlane",
 })

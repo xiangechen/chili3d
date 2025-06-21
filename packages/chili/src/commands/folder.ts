@@ -1,12 +1,12 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { command, FolderNode, IApplication, ICommand } from "chili-core";
 
 let index = 1;
 
 @command({
-    name: "create.folder",
-    display: "command.newFolder",
+    key: "create.folder",
     icon: "icon-folder-plus",
 })
 export class NewFolder implements ICommand {

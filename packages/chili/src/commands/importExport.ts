@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -17,8 +18,7 @@ import { SelectNodeStep } from "../step";
 import { importFiles } from "../utils";
 
 @command({
-    name: "file.import",
-    display: "command.import",
+    key: "file.import",
     icon: "icon-import",
 })
 export class Import implements ICommand {
@@ -34,8 +34,7 @@ export class Import implements ICommand {
 }
 
 @command({
-    name: "file.export",
-    display: "command.export",
+    key: "file.export",
     icon: "icon-export",
 })
 export class Export extends CancelableCommand {
@@ -73,13 +72,13 @@ export class Export extends CancelableCommand {
                 download(data, `${nodes[0].name}${format}`);
             },
             "toast.excuting{0}",
-            I18n.translate("command.export"),
+            I18n.translate("command.file.export"),
         );
     }
 
     private async selectNodesAsync() {
         this.controller = new AsyncController();
-        const step = new SelectNodeStep("prompt.select.models", true);
+        const step = new SelectNodeStep("prompt.select.models", { multiple: true, keepSelection: true });
         const data = await step.execute(this.application.activeView?.document!, this.controller);
         if (!data?.nodes) {
             PubSub.default.pub("showToast", "prompt.select.noModelSelected");

@@ -1,8 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     CollectionAction,
     CollectionChangedArgs,
+    ComponentNode,
     DeepObserver,
     GeometryNode,
     GroupNode,
@@ -37,7 +40,7 @@ import {
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { GroupVisualObject, ThreeMeshObject } from "./threeVisualObject";
+import { GroupVisualObject, ThreeComponentObject, ThreeMeshObject } from "./threeVisualObject";
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new Map<IVisualObject, INode>();
@@ -46,6 +49,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     readonly visualShapes: Group;
     readonly tempShapes: Group;
+    readonly cssObjects: Group;
 
     constructor(
         readonly visual: IVisual,
@@ -53,7 +57,8 @@ export class ThreeVisualContext implements IVisualContext {
     ) {
         this.visualShapes = new Group();
         this.tempShapes = new Group();
-        scene.add(this.visualShapes, this.tempShapes);
+        this.cssObjects = new Group();
+        scene.add(this.visualShapes, this.tempShapes, this.cssObjects);
         visual.document.addNodeObserver(this);
         visual.document.materials.onCollectionChanged(this.onMaterialCollectionChanged);
     }
@@ -119,9 +124,13 @@ export class ThreeVisualContext implements IVisualContext {
         const adds: INode[] = [];
         const rms: INode[] = [];
         records.forEach((x) => {
-            if (x.action === NodeAction.add) {
+            if (
+                x.action === NodeAction.add ||
+                x.action === NodeAction.insertBefore ||
+                x.action === NodeAction.insertAfter
+            ) {
                 INode.nodeOrChildrenAppendToNodes(adds, x.node);
-            } else if (x.action === NodeAction.remove) {
+            } else if (x.action === NodeAction.remove || x.action === NodeAction.transfer) {
                 INode.nodeOrChildrenAppendToNodes(rms, x.node);
             } else if (x.action === NodeAction.move && x.newParent) {
                 this.moveNode(x.node, x.oldParent!);
@@ -197,11 +206,13 @@ export class ThreeVisualContext implements IVisualContext {
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
         return this.visuals().filter((x) => {
-            if (filter && x instanceof ShapeNode && x.shape.isOk && !filter.allow(x.shape.value)) {
+            const node = (x as ThreeGeometry)?.geometryNode;
+            const shape = (node as ShapeNode)?.shape.unchecked();
+            if (filter && shape && !filter.allow(shape)) {
                 return false;
             }
 
-            let boundingBox = x.boundingBox();
+            let boundingBox = BoundingBox.transformed(x.boundingBox()!, node.worldTransform());
             if (boundingBox === undefined) {
                 return false;
             }
@@ -218,7 +229,11 @@ export class ThreeVisualContext implements IVisualContext {
         let group = obj as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getVisualObject(visuals, x));
-        } else if (obj instanceof ThreeGeometry || obj instanceof ThreeMeshObject) {
+        } else if (
+            obj instanceof ThreeGeometry ||
+            obj instanceof ThreeMeshObject ||
+            obj instanceof ThreeComponentObject
+        ) {
             visuals.push(obj);
         }
     }
@@ -294,6 +309,8 @@ export class ThreeVisualContext implements IVisualContext {
             visualObject = new ThreeGeometry(node, this);
         } else if (node instanceof GroupNode) {
             visualObject = new GroupVisualObject(node);
+        } else if (node instanceof ComponentNode) {
+            visualObject = new ThreeComponentObject(node, this);
         }
 
         if (visualObject) {
@@ -345,7 +362,19 @@ export class ThreeVisualContext implements IVisualContext {
         return shapes;
     }
 
-    getMaterial(id: string): ThreeMaterial {
+    getMaterial(id: string | string[]): ThreeMaterial | ThreeMaterial[] {
+        if (Array.isArray(id)) {
+            const materials = [];
+            for (const i of id) {
+                const material = this.materialMap.get(i);
+                if (!material) {
+                    throw new Error(`Material not found: ${i}`);
+                }
+                materials.push(material);
+            }
+            return materials.length === 1 ? materials[0] : materials;
+        }
+
         const material = this.materialMap.get(id);
         if (!material) {
             throw new Error(`Material not found: ${id}`);

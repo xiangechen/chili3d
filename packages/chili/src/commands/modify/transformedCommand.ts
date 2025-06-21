@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -30,14 +31,14 @@ export abstract class TransformedCommand extends MultistepCommand {
 
     protected abstract transfrom(p2: XYZ): Matrix4;
 
-    protected transformPreview = (point: XYZ) => {
+    protected transformPreview = (point: XYZ): EdgeMeshData => {
         const transform = this.transfrom(point);
         const positions = transform.ofPoints(this.positions!);
         return {
-            positions: new Float32Array(positions),
+            position: new Float32Array(positions),
             lineType: LineType.Solid,
             color: VisualConfig.defaultEdgeColor,
-            groups: [],
+            range: [],
         };
     };
 
@@ -62,9 +63,7 @@ export abstract class TransformedCommand extends MultistepCommand {
             if (model instanceof MeshNode) {
                 return model.mesh.position ? model.transform.ofPoints(model.mesh.position) : [];
             } else if (model instanceof GeometryNode) {
-                return model.mesh.edges?.positions
-                    ? model.transform.ofPoints(model.mesh.edges.positions)
-                    : [];
+                return model.mesh.edges?.position ? model.transform.ofPoints(model.mesh.edges.position) : [];
             }
             return [];
         });

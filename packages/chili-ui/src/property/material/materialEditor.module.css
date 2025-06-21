@@ -11,6 +11,7 @@
     max-width: 480px;
     max-height: 75%;
     overflow: hidden;
+    z-index: 99999;
 }
 
 .title {

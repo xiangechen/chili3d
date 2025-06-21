@@ -1,16 +1,34 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { MultistepCommand } from "chili";
+import {
+    button,
+    ColorConverter,
+    div,
+    input,
+    label,
+    option,
+    select,
+    svg,
+    UrlStringConverter,
+} from "chili-controls";
 import {
     Binding,
+    CancelableCommand,
     Combobox,
     Command,
+    I18n,
     I18nKeys,
     ICommand,
     IDisposable,
+    Localize,
+    Material,
     Observable,
+    PathBinding,
     Property,
+    PubSub,
 } from "chili-core";
-import { button, div, input, label, localize, option, select, svg } from "../components";
 import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {
@@ -22,7 +40,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         let data = Command.getData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
-            label({ className: style.title, textContent: localize(data!.display) }, `: `),
+            label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
         );
         this.initContext();
     }
@@ -96,6 +114,10 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const noType = command as any;
         const type = typeof noType[g.name];
 
+        if (g.type === "materialId") {
+            return this.materialEditor(g, noType);
+        }
+
         switch (type) {
             case "function":
                 return this.newButton(g, noType);
@@ -115,15 +137,17 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newCombobox(noType: any, g: Property) {
         let combobox = noType[g.name] as Combobox<any>;
-        let options = combobox.items.map((item, index) =>
-            option({
+        let options = combobox.items.map((item, index) => {
+            return option({
                 selected: index === combobox.selectedIndex,
-                textContent: combobox.converter?.convert(item).unchecked() ?? String(item),
-            }),
-        );
+                textContent: I18n.isI18nKey(item)
+                    ? new Localize(item)
+                    : (combobox.converter?.convert(item).unchecked() ?? String(item)),
+            });
+        });
 
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             select(
                 {
                     className: style.select,
@@ -138,7 +162,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newInput(g: Property, noType: any, converter?: (v: string) => any) {
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             input({
                 type: "text",
                 className: style.input,
@@ -157,7 +181,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private newCheckbox(g: Property, noType: any) {
         return div(
-            label({ textContent: localize(g.display) }),
+            label({ textContent: new Localize(g.display) }),
             input({
                 type: "checkbox",
                 checked: new Binding(noType, g.name),
@@ -171,8 +195,38 @@ export class CommandContext extends HTMLElement implements IDisposable {
     private newButton(g: Property, noType: any) {
         return button({
             className: style.button,
-            textContent: localize(g.display),
+            textContent: new Localize(g.display),
             onclick: () => noType[g.name](),
+        });
+    }
+
+    private materialEditor(g: Property, noType: any) {
+        if (!(this.command instanceof CancelableCommand)) {
+            throw new Error("MaterialEditor only support CancelableCommand");
+        }
+
+        const material = this.command.document.materials.find((x) => x.id === noType[g.name])!;
+        const display = material.clone();
+
+        return button({
+            className: style.materialButton,
+            style: {
+                backgroundColor: new Binding(display, "color", new ColorConverter()),
+                backgroundImage: new PathBinding(display, "map.image", new UrlStringConverter()),
+                backgroundBlendMode: "multiply",
+                backgroundSize: "cover",
+                cursor: "pointer",
+            },
+            textContent: new Localize(g.display),
+            onclick: () => {
+                if (this.command instanceof MultistepCommand) {
+                    PubSub.default.pub("editMaterial", this.command.document, material, (newMaterial) => {
+                        noType[g.name] = newMaterial.id;
+                        display.color = newMaterial.color;
+                        display.map = newMaterial.map;
+                    });
+                }
+            },
         });
     }
 }

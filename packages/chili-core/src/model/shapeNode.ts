@@ -1,5 +1,7 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { MeshUtils } from "chili-geo";
 import { VisualConfig } from "../config";
 import { IDocument } from "../document";
 import { Id, IEqualityComparer, PubSub, Result } from "../foundation";
@@ -7,7 +9,7 @@ import { I18n, I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
 import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
-import { GeometryNode } from "./node";
+import { GeometryNode } from "./geometryNode";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
@@ -28,22 +30,24 @@ export abstract class ShapeNode extends GeometryNode {
         let oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
-        this._boundingBox = undefined;
-        this._shape.value.matrix = this.transform;
+
         this.emitPropertyChanged("shape", oldShape);
 
         oldShape.unchecked()?.dispose();
-    }
-
-    protected override onTransformChanged(newMatrix: Matrix4): void {
-        if (this.shape.isOk) this.shape.value.matrix = newMatrix;
     }
 
     protected override createMesh(): IShapeMeshData {
         if (!this.shape.isOk) {
             throw new Error(this.shape.error);
         }
-        return this.shape.value.mesh;
+        const mesh = this.shape.value.mesh;
+        this._originFaceMesh = mesh.faces;
+        if (mesh.faces)
+            mesh.faces = MeshUtils.mergeFaceMesh(
+                mesh.faces,
+                this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex]),
+            );
+        return mesh;
     }
 
     override disposeInternal(): void {
@@ -53,115 +57,47 @@ export abstract class ShapeNode extends GeometryNode {
     }
 }
 
-export class ManyMesh implements IShapeMeshData {
+export class MultiShapeMesh implements IShapeMeshData {
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
 
     get edges() {
-        return this._edges.positions.length > 0 ? this._edges : undefined;
+        return this._edges.position.length > 0 ? this._edges : undefined;
     }
 
     get faces() {
-        return this._faces.positions.length > 0 ? this._faces : undefined;
+        return this._faces.position.length > 0 ? this._faces : undefined;
     }
 
-    constructor(readonly shapes: IShape[]) {
+    constructor() {
         this._edges = {
             lineType: LineType.Solid,
-            positions: new Float32Array(),
-            groups: [],
+            position: new Float32Array(),
+            range: [],
             color: VisualConfig.defaultEdgeColor,
         };
 
         this._faces = {
-            indices: new Uint16Array(),
-            normals: new Float32Array(),
-            positions: new Float32Array(),
-            uvs: new Float32Array(),
+            index: new Uint32Array(),
+            normal: new Float32Array(),
+            position: new Float32Array(),
+            uv: new Float32Array(),
+            range: [],
             groups: [],
             color: VisualConfig.defaultFaceColor,
         };
-
-        for (const shape of shapes) {
-            this.combineShape(shape);
-        }
     }
 
-    private combineShape(shape: IShape) {
-        const { mesh, matrix } = shape;
+    public addShape(shape: IShape, matrix: Matrix4) {
+        const mesh = shape.mesh;
+        const totleMatrix = shape.matrix.multiply(matrix);
         if (mesh.faces) {
-            this.combineFace(mesh.faces, matrix);
+            MeshUtils.combineFaceMeshData(this._faces, mesh.faces, totleMatrix);
         }
         if (mesh.edges) {
-            this.combineEdge(mesh.edges, matrix);
+            MeshUtils.combineEdgeMeshData(this._edges, mesh.edges, totleMatrix);
         }
     }
-
-    private combineFace(faceMeshData: FaceMeshData | undefined, matrix: Matrix4) {
-        if (!faceMeshData) {
-            return;
-        }
-
-        let start = this._faces.positions.length / 3;
-        this._faces.indices = this.combineUintArray(this._faces.indices, faceMeshData.indices);
-        this._faces.normals = this.combineFloat32Array(
-            this._faces.normals,
-            matrix.ofVectors(faceMeshData.normals),
-        );
-        this._faces.uvs = this.combineFloat32Array(this._faces.uvs, faceMeshData.uvs);
-        this._faces.positions = this.combineFloat32Array(
-            this._faces.positions,
-            matrix.ofPoints(faceMeshData.positions),
-        );
-        this._faces.groups = this._faces.groups.concat(
-            faceMeshData.groups.map((g) => {
-                return {
-                    start: g.start + start,
-                    shape: g.shape,
-                    count: g.count,
-                };
-            }),
-        );
-    }
-
-    private combineFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
-        let arr = new Float32Array(arr1.length + arr2.length);
-        arr.set(arr1);
-        arr.set(arr2, arr1.length);
-        return arr;
-    }
-
-    private combineUintArray(arr1: Uint16Array | Uint32Array, arr2: Uint16Array | Uint32Array) {
-        let array: Uint16Array | Uint32Array;
-        if (arr1 instanceof Uint16Array && arr2 instanceof Uint16Array) {
-            array = new Uint16Array(arr1.length + arr2.length);
-        } else {
-            array = new Uint32Array(arr1.length + arr2.length);
-        }
-        array.set(arr1);
-        array.set(arr2, arr1.length);
-        return array;
-    }
-
-    private combineEdge(edgeMeshData: EdgeMeshData | undefined, matrix: Matrix4) {
-        if (!edgeMeshData) {
-            return;
-        }
-
-        let start = this._edges.positions.length / 3;
-        this._edges.positions = this.combineFloat32Array(this._edges.positions, edgeMeshData.positions);
-        this._edges.groups = this._edges.groups.concat(
-            edgeMeshData.groups.map((g) => {
-                return {
-                    start: g.start + start,
-                    shape: g.shape,
-                    count: g.count,
-                };
-            }),
-        );
-    }
-
-    updateMeshShape() {}
 }
 
 @Serializer.register(["document", "name", "shapes", "materialId", "id"])
@@ -184,7 +120,13 @@ export class MultiShapeNode extends GeometryNode {
     }
 
     protected override createMesh(): IShapeMeshData {
-        return new ManyMesh(this._shapes);
+        const meshes = new MultiShapeMesh();
+
+        this._shapes.forEach((shape) => {
+            meshes.addShape(shape, Matrix4.identity());
+        });
+
+        return meshes;
     }
 
     override display(): I18nKeys {
@@ -242,11 +184,10 @@ export class EditableShapeNode extends ShapeNode {
         document: IDocument,
         name: string,
         shape: IShape | Result<IShape>,
-        materialId?: string,
+        materialId?: string | string[],
         id?: string,
     ) {
         super(document, name, materialId, id);
         this._shape = shape instanceof Result ? shape : Result.ok(shape);
-        this.setPrivateValue("transform", this._shape.value.matrix);
     }
 }

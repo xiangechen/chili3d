@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
 import { CylinderNode } from "../../bodys";
@@ -7,8 +8,7 @@ import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../ste
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.cylinder",
-    display: "command.cylinder",
+    key: "create.cylinder",
     icon: "icon-cylinder",
 })
 export class Cylinder extends CreateCommand {

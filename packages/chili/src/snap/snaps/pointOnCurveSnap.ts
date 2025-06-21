@@ -1,5 +1,7 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { ICurve } from "chili-core";
 import { SnapPointOnCurveData } from "../handlers";
 import { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
@@ -8,7 +10,8 @@ export class PointOnCurveSnap implements ISnap {
 
     snap(data: MouseAndDetected): SnapResult | undefined {
         const ray = data.view.rayAt(data.mx, data.my);
-        const nearest = this.pointData.curve.nearestExtrema(ray);
+        const curve = this.pointData.curve;
+        const nearest = curve.nearestExtrema(ray);
         if (!nearest) return undefined;
         return {
             view: data.view,

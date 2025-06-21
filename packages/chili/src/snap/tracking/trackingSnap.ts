@@ -1,11 +1,12 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     Config,
     EdgeMeshData,
     I18n,
     IDocument,
-    IEdge,
+    ISubEdgeShape,
     IView,
     LineType,
     Precision,
@@ -119,7 +120,7 @@ export class TrackingSnap implements ISnap {
     }
 
     private findIntersection(data: MouseAndDetected, trackingDatas: TrackingData[]) {
-        const edge = data.shapes[0].shape as IEdge;
+        const edge = data.shapes[0].shape as ISubEdgeShape;
         const points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {

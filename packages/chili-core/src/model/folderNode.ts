@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
 import { Id, Logger, NodeAction } from "../foundation";
@@ -70,6 +71,22 @@ export class FolderNode extends Node implements INodeLinkedList {
             .filter((item) => this.validateChild(item))
             .map((item) => ({
                 action: NodeAction.remove,
+                node: item,
+                newParent: undefined,
+                newPrevious: undefined,
+                oldParent: this,
+                oldPrevious: item.previousSibling,
+            }));
+
+        records.forEach((record) => this.removeNode(record.node, true));
+        this.document.notifyNodeChanged(records);
+    }
+
+    transfer(...items: INode[]): void {
+        const records = items
+            .filter((item) => this.validateChild(item))
+            .map((item) => ({
+                action: NodeAction.transfer,
                 node: item,
                 newParent: undefined,
                 newPrevious: undefined,

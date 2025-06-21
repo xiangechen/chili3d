@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { ICurve, IEdge, IFace, IWire, Precision, Result, ShapeType, XYZ } from "chili-core";
 
@@ -8,7 +9,7 @@ export class GeoUtils {
         let nearest: { edge: IEdge; point: XYZ } | undefined;
 
         for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
-            const tempPoint = edge.curve().nearestFromPoint(point);
+            const tempPoint = edge.curve.nearestFromPoint(point);
             if (tempPoint.distance < minDistance) {
                 nearest = { edge, point: tempPoint.point };
                 minDistance = tempPoint.distance;
@@ -19,7 +20,7 @@ export class GeoUtils {
 
     static curveNormal(curve: ICurve) {
         if (ICurve.isTrimmed(curve)) {
-            curve = curve.basisCurve();
+            curve = curve.basisCurve;
         }
 
         if (ICurve.isConic(curve)) {
@@ -39,16 +40,16 @@ export class GeoUtils {
             firstEdge = edge as IEdge;
             break;
         }
-        return this.curveNormal(firstEdge!.curve());
+        return this.curveNormal(firstEdge!.curve);
     }
 
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
-        const curve = edge.curve();
+        const curve = edge.curve;
         const point = curve.value(curve.lastParameter());
 
         for (const e of wire.findSubShapes(ShapeType.Edge)) {
             if (e.isEqual(edge)) continue;
-            const testCurve = (e as IEdge).curve();
+            const testCurve = (e as IEdge).curve;
             if (
                 point.distanceTo(testCurve.value(testCurve.firstParameter())) < Precision.Distance ||
                 point.distanceTo(testCurve.value(testCurve.lastParameter())) < Precision.Distance
@@ -65,7 +66,7 @@ export class GeoUtils {
         }
 
         if (shape.shapeType === ShapeType.Edge) {
-            let curve = (shape as IEdge).curve();
+            let curve = (shape as IEdge).curve;
             return this.curveNormal(curve);
         }
 

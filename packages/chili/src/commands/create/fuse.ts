@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { GeometryNode, IFace, Precision, ShapeType, command } from "chili-core";
 import { PrismNode } from "../../bodys";
@@ -8,8 +9,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "convert.fuse",
-    display: "command.fuse",
+    key: "convert.fuse",
     icon: "icon-circle",
 })
 export class Fuse extends CreateCommand {

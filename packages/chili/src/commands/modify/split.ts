@@ -1,11 +1,10 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     EditableShapeNode,
-    GeometryNode,
     IEdge,
-    IVisualGeometry,
-    Result,
+    IVisualObject,
     ShapeType,
     Transaction,
     VisualState,
@@ -16,39 +15,41 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "modify.split",
-    display: "command.split",
+    key: "modify.split",
     icon: "icon-split",
 })
 export class Split extends MultistepCommand {
     private splitedShape() {
         const shape1 = this.stepDatas[0].shapes[0].shape;
-        const edges = this.stepDatas[1].shapes.map((x) => x.shape) as IEdge[];
-        return shape1.split(edges);
+        const invertTransform = this.stepDatas[0].shapes[0].transform.invert()!;
+        const edges = this.stepDatas[1].shapes.map((x) =>
+            x.shape.transformedMul(x.transform.multiply(invertTransform)),
+        ) as IEdge[];
+        const result = shape1.split(edges);
+
+        edges.forEach((x) => x.dispose());
+
+        return result;
     }
 
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            const old = this.document.visual.context.getNode(this.stepDatas[0].shapes[0].owner)!;
+            const old = this.stepDatas[0].nodes![0];
             const shape = this.splitedShape();
 
-            if (old instanceof EditableShapeNode) {
-                old.shape = Result.ok(shape);
-            } else if (old instanceof GeometryNode) {
-                const model = new EditableShapeNode(this.document, old.name, shape);
-                model.transform = old.transform;
-                this.removeModels(
-                    this.stepDatas[0].shapes[0].owner,
-                    ...this.stepDatas[1].shapes.map((x) => x.owner),
-                );
-                this.document.addNode(model);
-            }
+            const model = new EditableShapeNode(this.document, old.name, shape);
+            model.transform = old.transform;
+            old.parent?.add(model);
 
+            this.removeModels(
+                this.stepDatas[0].shapes[0].owner,
+                ...this.stepDatas[1].shapes.map((x) => x.owner),
+            );
             this.document.visual.update();
         });
     }
 
-    private removeModels(...shapes: IVisualGeometry[]) {
+    private removeModels(...shapes: IVisualObject[]) {
         shapes.forEach((x) => {
             const model = this.document.visual.context.getNode(x);
             model?.parent?.remove(model);

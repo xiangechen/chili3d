@@ -1,13 +1,26 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
 import { IDisposable, IPropertyChanged } from "../foundation";
-import { Plane, Ray, XY, XYZ } from "../math";
+import { Plane, Ray, XY, XYLike, XYZ, XYZLike } from "../math";
 import { INodeFilter, IShapeFilter } from "../selectionFilter";
 import { ShapeType } from "../shape";
 import { ICameraController } from "./cameraController";
 import { VisualShapeData } from "./detectedData";
 import { IVisualObject } from "./visualObject";
+
+export enum ViewMode {
+    solid,
+    wireframe,
+    solidAndWireframe,
+}
+
+export type HtmlTextOptions = {
+    hideDelete?: boolean;
+    center?: XYLike;
+    onDispose?: () => void;
+};
 
 export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
@@ -15,6 +28,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     get isClosed(): boolean;
     get width(): number;
     get height(): number;
+    get dom(): HTMLElement | undefined;
+    mode: ViewMode;
     name: string;
     workplane: Plane;
     update(): void;
@@ -26,6 +41,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     worldToScreen(point: XYZ): XY;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable;
     close(): void;
     detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[];
     detectVisualRect(

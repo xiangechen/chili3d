@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { GeometryNode, Precision, XYZ, command } from "chili-core";
 import { SphereNode } from "../../bodys";
@@ -7,8 +8,7 @@ import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.sphere",
-    display: "command.sphere",
+    key: "create.sphere",
     icon: "icon-sphere",
 })
 export class Sphere extends CreateCommand {

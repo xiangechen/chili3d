@@ -1,17 +1,20 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { label, svg } from "chili-controls";
 import {
     ButtonSize,
     Command,
     CommandData,
     CommandKeys,
+    I18n,
     I18nKeys,
     IConverter,
+    Localize,
     Logger,
     PubSub,
     Result,
 } from "chili-core";
-import { label, localize, svg } from "../components";
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {
@@ -35,7 +38,7 @@ export class RibbonButton extends HTMLElement {
         if (data.toggle) {
             return new RibbonToggleButton(data, size);
         }
-        return new RibbonButton(data.display, data.icon, size, () => {
+        return new RibbonButton(`command.${data.key}`, data.icon, size, () => {
             PubSub.default.pub("executeCommand", commandName);
         });
     }
@@ -50,8 +53,9 @@ export class RibbonButton extends HTMLElement {
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
         const text = label({
             className: style.buttonText,
-            textContent: localize(display),
+            textContent: new Localize(display),
         });
+        I18n.set(this, "title", display);
         this.append(image, text);
     }
 }
@@ -70,8 +74,8 @@ class ToggleConverter implements IConverter {
 
 export class RibbonToggleButton extends RibbonButton {
     constructor(data: CommandData, size: ButtonSize) {
-        super(data.display, data.icon, size, () => {
-            PubSub.default.pub("executeCommand", data.name);
+        super(`command.${data.key}`, data.icon, size, () => {
+            PubSub.default.pub("executeCommand", data.key);
         });
 
         if (data.toggle) {

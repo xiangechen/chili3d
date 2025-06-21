@@ -1,6 +1,7 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { CameraType, IView, Plane, Ray, XYZ } from "chili-core";
+import { IView, Plane, Precision, Ray, XYZ } from "chili-core";
 
 export class ViewUtils {
     static rayFromEye(view: IView, point: XYZ) {
@@ -25,7 +26,22 @@ export class ViewUtils {
         }
     }
 
+    static ensurePlane(view: IView, plane: Plane) {
+        const direction = view.direction();
+        if (Math.abs(direction.dot(plane.normal)) < Precision.Float) {
+            const left = direction.cross(view.up());
+            return new Plane(plane.origin, direction, left);
+        }
+        return plane;
+    }
+
     static raycastClosestPlane(view: IView, start: XYZ, end: XYZ): Plane {
+        const direction = view.direction();
+        if (Math.abs(direction.dot(view.workplane.normal)) < Precision.Float) {
+            const left = direction.cross(view.up());
+            return new Plane(start, direction, left);
+        }
+
         const ray = ViewUtils.rayFromEye(view, end);
         const planes = [
             new Plane(start, XYZ.unitZ, XYZ.unitX),

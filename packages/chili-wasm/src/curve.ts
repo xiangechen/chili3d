@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     Continuity,
@@ -18,6 +19,7 @@ import {
     IOffsetCurve,
     IParabola,
     ITrimmedCurve,
+    Matrix4,
     Ray,
     XYZ,
     gc,
@@ -55,21 +57,36 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         });
     }
 
+    override transformed(matrix: Matrix4): IGeometry {
+        return gc((c) => {
+            let newCurve = c(this.curve.transformed(OcctHelper.convertFromMatrix(matrix)));
+            return OcctHelper.wrapCurve(newCurve.get() as Geom_Curve);
+        });
+    }
+
     makeEdge(): IEdge {
         return new OccEdge(wasm.Edge.fromCurve(this.curve));
     }
 
     nearestExtrema(curve: ICurve | Ray) {
         return gc((c) => {
-            let result: any;
+            let result;
             if (curve instanceof OccCurve) {
                 result = wasm.Curve.nearestExtremaCC(this.curve, curve.curve);
-            }
-            if (curve instanceof Ray) {
+            } else if (curve instanceof Ray) {
                 let line = c(wasm.Curve.makeLine(curve.location, curve.direction));
                 result = wasm.Curve.nearestExtremaCC(this.curve, line.get());
             }
-            return result;
+
+            if (!result) {
+                return undefined;
+            }
+
+            return {
+                ...result,
+                p1: OcctHelper.toXYZ(result.p1),
+                p2: OcctHelper.toXYZ(result.p2),
+            };
         });
     }
 
@@ -412,11 +429,20 @@ export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
         this.trimmedCurve.setTrim(u1, u2, true, true);
     }
 
-    basisCurve(): ICurve {
-        return gc((c) => {
+    private _basisCurve: ICurve | undefined;
+    get basisCurve(): ICurve {
+        this._basisCurve ??= gc((c) => {
             let curve = c(this.trimmedCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
+        return this._basisCurve;
+    }
+
+    protected override disposeInternal(): void {
+        super.disposeInternal();
+        if (this._basisCurve) {
+            this._basisCurve.dispose();
+        }
     }
 }
 
@@ -425,11 +451,13 @@ export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
         super(offsetCurve);
     }
 
-    basisCurve(): ICurve {
-        return gc((c) => {
+    private _basisCurve: ICurve | undefined;
+    get basisCurve(): ICurve {
+        this._basisCurve ??= gc((c) => {
             let curve = c(this.offsetCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
+        return this._basisCurve;
     }
 
     offset(): number {
@@ -438,6 +466,13 @@ export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
 
     direction(): XYZ {
         return gc((c) => OcctHelper.toXYZ(c(this.offsetCurve.direction())));
+    }
+
+    protected override disposeInternal(): void {
+        super.disposeInternal();
+        if (this._basisCurve) {
+            this._basisCurve.dispose();
+        }
     }
 }
 

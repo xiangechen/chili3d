@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import { RibbonTab } from "chili-core";
 
 export const DefaultRibbon: RibbonTab[] = [
@@ -22,36 +25,52 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.move",
                     "modify.rotate",
                     "modify.mirror",
-                    "modify.delete",
-                    ["create.offset", "modify.break", "modify.trim"],
-                    ["modify.fillet", "modify.chamfer", "modify.removeFaces"],
+                    ["modify.split", "modify.break", "modify.trim"],
+                    ["modify.fillet", "modify.chamfer", "modify.explode"],
+                    ["modify.deleteNode", "modify.removeShapes", "modify.removeFeature"],
+                    ["modify.brushAdd", "modify.brushRemove", "modify.brushClear"],
                 ],
             },
             {
                 groupName: "ribbon.group.converter",
                 items: [
-                    "convert.toWire",
-                    "convert.toFace",
                     "convert.prism",
                     "convert.sweep",
                     "convert.revol",
+                    "convert.toWire",
+                    ["convert.toFace", "convert.toShell", "convert.toSolid"],
                 ],
             },
             {
                 groupName: "ribbon.group.boolean",
-                items: ["boolean.common", "boolean.cut", "boolean.fuse"],
+                items: [["boolean.common", "boolean.cut", "boolean.fuse"]],
             },
             {
                 groupName: "ribbon.group.workingPlane",
-                items: ["workingPlane.toggleDynamic", "workingPlane.set", "workingPlane.alignToPlane"],
+                items: [
+                    "workingPlane.toggleDynamic",
+                    ["workingPlane.set", "workingPlane.alignToPlane", "workingPlane.fromSection"],
+                ],
             },
             {
                 groupName: "ribbon.group.tools",
-                items: ["create.section", "modify.split"],
+                items: ["create.group", ["create.section", "create.offset", "create.copyShape"]],
+            },
+            {
+                groupName: "ribbon.group.measure",
+                items: [["measure.length", "measure.angle", "measure.select"]],
+            },
+            {
+                groupName: "ribbon.group.act",
+                items: ["act.alignCamera"],
             },
             {
                 groupName: "ribbon.group.importExport",
                 items: ["file.import", "file.export"],
+            },
+            {
+                groupName: "ribbon.group.other",
+                items: ["wechat.group"],
             },
         ],
     },
@@ -93,12 +112,16 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.trim",
                     "modify.fillet",
                     "modify.chamfer",
-                    "modify.removeFaces",
+                    "modify.removeFeature",
                 ],
             },
             {
                 groupName: "ribbon.group.tools",
                 items: ["create.section", "modify.split", "convert.toWire", "convert.toFace"],
+            },
+            {
+                groupName: "ribbon.group.act",
+                items: ["act.alignCamera"],
             },
             {
                 groupName: "ribbon.group.other",

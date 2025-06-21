@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDocument } from "./document";
 import { HistoryObservable, Id } from "./foundation";
@@ -129,7 +130,7 @@ export class Material extends HistoryObservable {
 @Serializer.register(["document", "name", "color", "id"])
 export class PhongMaterial extends Material {
     @Serializer.serialze()
-    @Property.define("material.specular", {type: "color"})
+    @Property.define("material.specular", { type: "color" })
     get specular(): number | string {
         return this.getPrivateValue("specular", 0x111111);
     }
@@ -147,7 +148,7 @@ export class PhongMaterial extends Material {
     }
 
     @Serializer.serialze()
-    @Property.define("material.emissive", {type: "color"})
+    @Property.define("material.emissive", { type: "color" })
     get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }
@@ -231,7 +232,7 @@ export class PhysicalMaterial extends Material {
     }
 
     @Serializer.serialze()
-    @Property.define("material.emissive", {type: "color"})
+    @Property.define("material.emissive", { type: "color" })
     get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }

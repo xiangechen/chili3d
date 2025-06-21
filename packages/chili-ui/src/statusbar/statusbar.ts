@@ -1,13 +1,14 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { I18n, I18nKeys, PubSub } from "chili-core";
-import { div, label, localize } from "../components";
+import { div, label } from "chili-controls";
+import { I18n, I18nKeys, Localize, PubSub } from "chili-core";
 import { SnapConfig } from "./snapConfig";
 import style from "./statusbar.module.css";
 
 export class Statusbar extends HTMLElement {
     readonly tip = label({
-        textContent: localize("prompt.default"),
+        textContent: new Localize("prompt.default"),
         className: style.tip,
     });
 
@@ -29,11 +30,11 @@ export class Statusbar extends HTMLElement {
     }
 
     private readonly statusBarTip = (tip: I18nKeys) => {
-        I18n.set(this.tip, tip);
+        I18n.set(this.tip, "textContent", tip);
     };
 
     private readonly clearStatusBarTip = () => {
-        I18n.set(this.tip, "prompt.default");
+        I18n.set(this.tip, "textContent", "prompt.default");
     };
 }
 

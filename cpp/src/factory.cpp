@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 #include "shared.hpp"
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
@@ -183,12 +186,6 @@ public:
         }
 
         return ShapeResult{solidBuilder.Solid(), true, ""};
-    }
-
-    static ShapeResult facesToSolid(const FaceArray &faces)
-    {
-        auto facesVec = vecFromJSArray<TopoDS_Face>(faces);
-        return facesToSolid(facesVec);
     }
 
     static ShapeResult cylinder(const Vector3 &normal, const Vector3 &center, double radius, double height)
@@ -397,6 +394,33 @@ public:
         return ShapeResult{makeFace.Face(), true, ""};
     }
 
+    static ShapeResult shell(const FaceArray& faces) {
+        std::vector<TopoDS_Face> facesVec = vecFromJSArray<TopoDS_Face>(faces);
+        
+        TopoDS_Shell shell;
+        BRep_Builder shellBuilder;
+        shellBuilder.MakeShell(shell);
+        for (const auto &face : facesVec)
+        {
+            shellBuilder.Add(shell, face);
+        }
+
+        return ShapeResult{shell, true, ""};
+    }
+
+    static ShapeResult solid(const ShellArray& shells) {
+        std::vector<TopoDS_Shell> shellsVec = vecFromJSArray<TopoDS_Shell>(shells);
+
+        BRepBuilderAPI_MakeSolid makeSolid;
+        for (auto shell : shellsVec) {
+            makeSolid.Add(shell);
+        }
+        if (!makeSolid.IsDone()) {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create solid"};
+        }
+        return ShapeResult{makeSolid.Solid(), true, ""};
+    }
+
     static ShapeResult makeThickSolidBySimple(const TopoDS_Shape &shape, double thickness) {
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
         makeThickSolid.MakeThickSolidBySimple(shape, thickness);
@@ -471,11 +495,15 @@ public:
         return ShapeResult{compound, true, ""};
     }
 
-    static ShapeResult fillet(const TopoDS_Shape &shape, const EdgeArray& edges, double radius) {
-        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+    static ShapeResult fillet(const TopoDS_Shape &shape, const NumberArray& edges, double radius) {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
         BRepFilletAPI_MakeFillet makeFillet(shape);
         for(auto edge : edgeVec) {
-            makeFillet.Add(radius, edge);
+            makeFillet.Add(radius, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
         }
         makeFillet.Build();
         if (!makeFillet.IsDone()) {
@@ -485,11 +513,15 @@ public:
         return ShapeResult{makeFillet.Shape(), true, ""};
     }
 
-    static ShapeResult chamfer(const TopoDS_Shape &shape, const EdgeArray& edges, double distance) {
-        std::vector<TopoDS_Edge> edgeVec = vecFromJSArray<TopoDS_Edge>(edges);
+    static ShapeResult chamfer(const TopoDS_Shape &shape, const NumberArray& edges, double distance) {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        TopTools_IndexedMapOfShape edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
         BRepFilletAPI_MakeChamfer makeChamfer(shape);
         for(auto edge : edgeVec) {
-            makeChamfer.Add(distance, edge);
+            makeChamfer.Add(distance, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
         }
         makeChamfer.Build();
         if (!makeChamfer.IsDone()) {
@@ -527,6 +559,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("line", &ShapeFactory::line)
         .class_function("wire", &ShapeFactory::wire)
         .class_function("face", &ShapeFactory::face)
+        .class_function("shell", &ShapeFactory::shell)
+        .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)

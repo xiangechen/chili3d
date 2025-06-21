@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 #pragma once
 
 #include <emscripten/bind.h>
@@ -182,6 +185,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(NumberArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(EdgeArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(WireArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(FaceArray)
+EMSCRIPTEN_DECLARE_VAL_TYPE(ShellArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(ShapeArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(PointAndParameterArray)
 EMSCRIPTEN_DECLARE_VAL_TYPE(PntArray)

@@ -1,7 +1,19 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { Binding, CameraType, IConverter, IView, Result } from "chili-core";
-import { div, Flyout, svg } from "../components";
+import { collection, div, input, label, span, svg } from "chili-controls";
+import {
+    Act,
+    Binding,
+    CameraType,
+    DialogResult,
+    IConverter,
+    IView,
+    Localize,
+    PubSub,
+    Result,
+} from "chili-core";
+import { Flyout } from "./flyout";
 import style from "./viewport.module.css";
 
 class CameraConverter implements IConverter<CameraType> {
@@ -18,16 +30,28 @@ class CameraConverter implements IConverter<CameraType> {
 export class Viewport extends HTMLElement {
     private readonly _flyout: Flyout;
     private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
+    private readonly _acts: HTMLElement;
 
     constructor(readonly view: IView) {
         super();
         this.className = style.root;
         this._flyout = new Flyout();
+        this._acts = this.createActs();
         this.render();
+        view.setDom(this);
     }
+
+    private readonly onActCollectionChanged = () => {
+        if (this.view.document.acts.length === 0) {
+            this._acts.style.display = "none";
+        } else {
+            this._acts.style.display = "flex";
+        }
+    };
 
     private render() {
         this.append(
+            this._acts,
             div(
                 {
                     className: style.viewControls,
@@ -76,6 +100,79 @@ export class Viewport extends HTMLElement {
         );
     }
 
+    private createActs() {
+        return div(
+            { className: style.actsContainer },
+            div(
+                {
+                    className: style.border,
+                    onpointerdown: (ev) => ev.stopPropagation(),
+                    onclick: (e) => e.stopPropagation(),
+                },
+                collection({
+                    className: style.acts,
+                    sources: this.view.document.acts,
+                    template: (v) => {
+                        return div(
+                            {
+                                onclick: () => {
+                                    this.view.cameraController.lookAt(
+                                        v.cameraPosition,
+                                        v.cameraTarget,
+                                        v.cameraUp,
+                                    );
+                                    this.view.update();
+                                },
+                            },
+                            span({
+                                textContent: new Binding(v, "name"),
+                            }),
+                            div(
+                                {
+                                    className: style.tools,
+                                },
+                                svg({
+                                    icon: "icon-cog",
+                                    onclick: () => this.setActName(v),
+                                }),
+                                svg({
+                                    icon: "icon-times",
+                                    onclick: () => {
+                                        this.view.document.acts.remove(v);
+                                    },
+                                }),
+                            ),
+                        );
+                    },
+                    onwheel: (e) => {
+                        e.preventDefault();
+                        const container = e.currentTarget as HTMLElement;
+                        container.scrollLeft += e.deltaY;
+                    },
+                }),
+            ),
+        );
+    }
+
+    private readonly setActName = (act: Act) => {
+        const inputBox = input({
+            value: act.name,
+            onkeydown: (e) => {
+                e.stopPropagation();
+            },
+        });
+        PubSub.default.pub(
+            "showDialog",
+            "ribbon.group.act",
+            div(label({ textContent: new Localize("common.name") }), ": ", inputBox),
+            (result) => {
+                if (result === DialogResult.ok) {
+                    act.name = inputBox.value;
+                }
+            },
+        );
+    };
+
     private createCameraControl(cameraType: CameraType, icon: string) {
         return div(
             {
@@ -99,11 +196,14 @@ export class Viewport extends HTMLElement {
     connectedCallback() {
         this.initEvent();
         this.appendChild(this._flyout);
+        this.view.document.acts.onCollectionChanged(this.onActCollectionChanged);
+        this.onActCollectionChanged();
     }
 
     disconnectedCallback() {
         this.removeEvents();
         this._flyout.remove();
+        this.view.document.acts.removeCollectionChanged(this.onActCollectionChanged);
     }
 
     dispose() {

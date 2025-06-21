@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDisposable, IHighlighter, ShapeMeshData, ShapeType, VisualState } from "chili-core";
 import { MeshUtils } from "chili-geo";
@@ -10,6 +11,7 @@ import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
+import { IHighlightable } from "./highlightable";
 
 export class GeometryState {
     private readonly _states: Map<string, [VisualState, LineSegments2 | undefined]> = new Map();
@@ -58,8 +60,12 @@ export class GeometryState {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
             }
-        } else if (this.visual instanceof ThreeMeshObject) {
-            this.visual.setHighlighted(newState !== VisualState.normal);
+        } else if (IHighlightable.is(this.visual)) {
+            if (newState !== VisualState.normal) {
+                this.visual.highlight();
+            } else {
+                this.visual.unhighlight();
+            }
         }
 
         this._states.set(key, [newState, undefined]);
@@ -90,7 +96,7 @@ export class GeometryState {
         if (this.visual instanceof ThreeGeometry) {
             this.visual.removeTemperaryMaterial();
         } else if (this.visual instanceof ThreeMeshObject) {
-            this.visual.setHighlighted(false);
+            this.visual.unhighlight();
         }
         this._states.clear();
     }

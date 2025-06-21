@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import {
     Continuity,
     CurveType,
@@ -185,7 +188,7 @@ export class OcctHelper {
     }
 
     static getOrientation(shape: TopoDS_Shape): Orientation {
-        switch (shape.orientation()) {
+        switch (shape.getOrientation()) {
             case wasm.TopAbs_Orientation.TopAbs_FORWARD:
                 return Orientation.FORWARD;
             case wasm.TopAbs_Orientation.TopAbs_REVERSED:
@@ -200,6 +203,10 @@ export class OcctHelper {
     }
 
     static getShapeType(shape: TopoDS_Shape): ShapeType {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return ShapeType.Compound;
@@ -248,6 +255,10 @@ export class OcctHelper {
     }
 
     static getActualShape(shape: TopoDS_Shape): TopoDS_Shape {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return wasm.TopoDS.compound(shape);
@@ -284,6 +295,10 @@ export class OcctHelper {
     }
 
     static wrapShape(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
                 return new OccCompound(wasm.TopoDS.compound(shape), id);

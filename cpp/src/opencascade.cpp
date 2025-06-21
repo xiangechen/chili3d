@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 #include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <emscripten/bind.h>
@@ -93,6 +96,8 @@ EMSCRIPTEN_BINDINGS(opencascade) {
 
     class_<Geom_Geometry, base<Standard_Transient>>("Geom_Geometry")
         .function("copy", &Geom_Geometry::Copy)
+        .function("transform", &Geom_Geometry::Transform)
+        .function("transformed", &Geom_Geometry::Transformed)
     ;
 
     class_<Geom_Curve, base<Geom_Geometry>>("Geom_Curve")
@@ -388,16 +393,16 @@ EMSCRIPTEN_BINDINGS(opencascade) {
         .function("inverted", &TopLoc_Location::Inverted)
     ;
 
-    class_<TopoDS>("TopoDS")
-        .class_function("vertex", select_overload<TopoDS_Vertex&(TopoDS_Shape&)>(&TopoDS::Vertex), return_value_policy::take_ownership())
-        .class_function("edge", select_overload<TopoDS_Edge&(TopoDS_Shape&)>(&TopoDS::Edge), return_value_policy::take_ownership())
-        .class_function("wire", select_overload<TopoDS_Wire&(TopoDS_Shape&)>(&TopoDS::Wire), return_value_policy::take_ownership())
-        .class_function("face", select_overload<TopoDS_Face&(TopoDS_Shape&)>(&TopoDS::Face), return_value_policy::take_ownership())
-        .class_function("shell", select_overload<TopoDS_Shell&(TopoDS_Shape&)>(&TopoDS::Shell), return_value_policy::take_ownership())
-        .class_function("solid", select_overload<TopoDS_Solid&(TopoDS_Shape&)>(&TopoDS::Solid), return_value_policy::take_ownership())
-        .class_function("compound", select_overload<TopoDS_Compound&(TopoDS_Shape&)>(&TopoDS::Compound), return_value_policy::take_ownership())
-        .class_function("compsolid", select_overload<TopoDS_CompSolid&(TopoDS_Shape&)>(&TopoDS::CompSolid), return_value_policy::take_ownership())
-    ;
+    class TopoDSUtils {};
+    class_<TopoDSUtils>("TopoDS")
+        .class_function("vertex", select_overload<TopoDS_Vertex &(TopoDS_Shape &)>(&TopoDS::Vertex), return_value_policy::take_ownership())
+        .class_function("edge", select_overload<TopoDS_Edge &(TopoDS_Shape &)>(&TopoDS::Edge), return_value_policy::take_ownership())
+        .class_function("wire", select_overload<TopoDS_Wire &(TopoDS_Shape &)>(&TopoDS::Wire), return_value_policy::take_ownership())
+        .class_function("face", select_overload<TopoDS_Face &(TopoDS_Shape &)>(&TopoDS::Face), return_value_policy::take_ownership())
+        .class_function("shell", select_overload<TopoDS_Shell &(TopoDS_Shape &)>(&TopoDS::Shell), return_value_policy::take_ownership())
+        .class_function("solid", select_overload<TopoDS_Solid &(TopoDS_Shape &)>(&TopoDS::Solid), return_value_policy::take_ownership())
+        .class_function("compound", select_overload<TopoDS_Compound &(TopoDS_Shape &)>(&TopoDS::Compound), return_value_policy::take_ownership())
+        .class_function("compsolid", select_overload<TopoDS_CompSolid &(TopoDS_Shape &)>(&TopoDS::CompSolid), return_value_policy::take_ownership());
 
     class_<TopoDS_Shape>("TopoDS_Shape")
         .function("infinite", select_overload<bool() const>(&TopoDS_Shape::Infinite))
@@ -405,15 +410,18 @@ EMSCRIPTEN_BINDINGS(opencascade) {
         .function("isNull", &TopoDS_Shape::IsNull)
         .function("isPartner", &TopoDS_Shape::IsPartner)
         .function("isSame", &TopoDS_Shape::IsSame)
-        .function("getLocation", select_overload<const TopLoc_Location& () const>(&TopoDS_Shape::Location))
-        .function("setLocation", select_overload<void(const TopLoc_Location&, bool)>(&TopoDS_Shape::Location))
+        .function("getLocation", select_overload<const TopLoc_Location &() const>(&TopoDS_Shape::Location))
+        .function("setLocation", select_overload<void(const TopLoc_Location &, bool)>(&TopoDS_Shape::Location))
         .function("nbChildren", &TopoDS_Shape::NbChildren)
         .function("nullify", &TopoDS_Shape::Nullify)
-        .function("orientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
+        .function("getOrientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
+        .function("setOrientation", select_overload<void(TopAbs_Orientation)>(&TopoDS_Shape::Orientation))
         .function("reverse", &TopoDS_Shape::Reverse)
         .function("reversed", &TopoDS_Shape::Reversed)
         .function("shapeType", &TopoDS_Shape::ShapeType)
-    ;
+        .function("located", &TopoDS_Shape::Located)
+        .function("move", &TopoDS_Shape::Move)
+        .function("moved", &TopoDS_Shape::Moved);
 
     class_<TColgp_Array1OfPnt>("TColgp_Array1OfPnt")
         .constructor<int, int>()

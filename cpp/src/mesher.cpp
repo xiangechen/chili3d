@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 #include "shared.hpp"
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
@@ -64,7 +67,7 @@ void addPointToPosition(const gp_Pnt &pnt, std::optional<gp_Pnt> &prePnt, std::v
 }
 
 
-void pointByGCTangential(const TopoDS_Edge &edge, const gp_Trsf &transform, double lineDeflection, std::vector<float> &position)
+void pointByGCTangential(const TopoDS_Edge &edge, double lineDeflection, std::vector<float> &position)
 {
     BRepAdaptor_Curve curve(edge);
     GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, lineDeflection);
@@ -72,7 +75,7 @@ void pointByGCTangential(const TopoDS_Edge &edge, const gp_Trsf &transform, doub
     std::optional<gp_Pnt> prePnt = std::nullopt;
     for (int i = 0; i < pnts.NbPoints(); i++)
     {
-        addPointToPosition(pnts.Value(i + 1).Transformed(transform), prePnt, position);
+        addPointToPosition(pnts.Value(i + 1), prePnt, position);
     }
 }
 
@@ -114,13 +117,13 @@ public:
     {
     }
 
-    void generateEdgeMesh(const TopoDS_Edge &edge, const Handle(Poly_Triangulation) & triangulation, const gp_Trsf &transform)
+    void generateEdgeMesh(const TopoDS_Edge &edge, const Handle(Poly_Triangulation) & triangulation)
     {
         auto start = this->position.size() / 3;
 
         if (triangulation.IsNull())
         {
-            pointByGCTangential(edge, transform, this->lineDeflection, this->position);
+            pointByGCTangential(edge, this->lineDeflection, this->position);
         }
         else
         {
@@ -128,11 +131,11 @@ public:
             Handle(Poly_PolygonOnTriangulation) polygon = BRep_Tool::PolygonOnTriangulation(edge, triangulation, location);
             if (polygon.IsNull())
             {
-                pointByGCTangential(edge, transform, this->lineDeflection, this->position);
+                pointByGCTangential(edge, this->lineDeflection, this->position);
             }
             else
             {
-                auto trsf = transform.Multiplied(location.Transformation());
+                auto trsf = location.Transformation();
                 pointByFaceTriangulation(polygon, triangulation, trsf);
             }
         }
@@ -262,15 +265,13 @@ public:
 
     NumberArray edgesMeshPosition()
     {
-        auto transform = shape.Location().Transformation().Inverted();
-
         std::vector<float> position;
         TopTools_IndexedMapOfShape edgeMap;
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
         for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next())
         {
             TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
-            pointByGCTangential(edge, transform, this->lineDeflection, position);
+            pointByGCTangential(edge, this->lineDeflection, position);
         }
 
         return NumberArray(val::array(position));
@@ -279,18 +280,17 @@ public:
     MeshData mesh()
     {
         BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, ANGLE_DEFLECTION, true);
-        auto inverted = shape.Location().Transformation().Inverted();
 
         std::unordered_map<TopoDS_Face, Handle(Poly_Triangulation)> facePolyMap;
-        auto faceMeshData = meshFaces(inverted, facePolyMap);
-        auto edgeMeshData = meshEdges(inverted, facePolyMap);
+        auto faceMeshData = meshFaces(facePolyMap);
+        auto edgeMeshData = meshEdges(facePolyMap);
 
         return MeshData{
             edgeMeshData,
             faceMeshData};
     }
 
-    EdgeMeshData meshEdges(gp_Trsf &inverted, std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
+    EdgeMeshData meshEdges(std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
     {
         EdgeMesher mesher(lineDeflection);
         TopTools_IndexedDataMapOfShapeListOfShape mapEF;
@@ -303,7 +303,7 @@ public:
             const TopTools_ListOfShape &aFaces = mapEF(ie);
             if (aFaces.Extent() < 1)
             {
-                mesher.generateEdgeMesh(aEdge, nullptr, inverted);
+                mesher.generateEdgeMesh(aEdge, nullptr);
             }
             else
             {
@@ -311,11 +311,11 @@ public:
                 auto it = facePolyMap.find(face);
                 if (it != facePolyMap.end())
                 {
-                    mesher.generateEdgeMesh(aEdge, it->second, inverted);
+                    mesher.generateEdgeMesh(aEdge, it->second);
                 }
                 else
                 {
-                    mesher.generateEdgeMesh(aEdge, nullptr, inverted);
+                    mesher.generateEdgeMesh(aEdge, nullptr);
                 }
             }
         }
@@ -326,7 +326,7 @@ public:
             EdgeArray(val::array(mesher.edges))};
     }
 
-    FaceMeshData meshFaces(gp_Trsf &inverted, std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
+    FaceMeshData meshFaces(std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation> &facePolyMap)
     {
         FaceMesher mesher;
         TopTools_IndexedMapOfShape faceMap;
@@ -339,7 +339,7 @@ public:
             auto handlePoly = BRep_Tool::Triangulation(face, location);
             if (!handlePoly.IsNull())
             {
-                auto trsf = inverted.Multiplied(location.Transformation());
+                auto trsf = location.Transformation();
                 mesher.generateFaceMesh(face, handlePoly, trsf);
                 facePolyMap[face] = handlePoly;
             }

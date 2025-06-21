@@ -1,10 +1,22 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import {
+    div,
+    input,
+    NumberConverter,
+    QuaternionConverter,
+    span,
+    StringConverter,
+    XYConverter,
+    XYZConverter,
+} from "chili-controls";
 import {
     Binding,
     IConverter,
     IDocument,
     isPropertyChanged,
+    Localize,
     Property,
     PubSub,
     Quaternion,
@@ -13,14 +25,6 @@ import {
     XY,
     XYZ,
 } from "chili-core";
-import { div, input, localize, span } from "../components";
-import {
-    NumberConverter,
-    QuaternionConverter,
-    StringConverter,
-    XYConverter,
-    XYZConverter,
-} from "../converters";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";
@@ -68,7 +72,7 @@ export class InputProperty extends PropertyBase {
         this.append(
             div(
                 { className: commonStyle.panel },
-                span({ className: commonStyle.propertyName, textContent: localize(property.display) }),
+                span({ className: commonStyle.propertyName, textContent: new Localize(property.display) }),
                 input({
                     className: style.box,
                     value: new Binding(objects[0], property.name, arrayConverter),
@@ -108,6 +112,8 @@ export class InputProperty extends PropertyBase {
     };
 
     private readonly setValue = (input: HTMLInputElement) => {
+        if (this.isReadOnly()) return;
+
         const newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", newValue?.error);

@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 #include "shared.hpp"
 #include <TopoDS_Shape.hxx>
 
@@ -23,6 +26,7 @@ EMSCRIPTEN_BINDINGS(Shared) {
     register_type<EdgeArray>("Array<TopoDS_Edge>");
     register_type<FaceArray>("Array<TopoDS_Face>");
     register_type<WireArray>("Array<TopoDS_Wire>");
+    register_type<ShellArray>("Array<TopoDS_Shell>");
     register_type<PntArray>("Array<gp_Pnt>");
 
     register_optional<double>();

@@ -1,10 +1,10 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { command, I18n, IApplication, ICommand, PubSub } from "chili-core";
 
 @command({
-    name: "doc.save",
-    display: "command.document.save",
+    key: "doc.save",
     icon: "icon-save",
 })
 export class SaveDocument implements ICommand {
@@ -17,7 +17,7 @@ export class SaveDocument implements ICommand {
                 PubSub.default.pub("showToast", "toast.document.saved");
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.save"),
+            I18n.translate("command.doc.save"),
         );
     }
 }

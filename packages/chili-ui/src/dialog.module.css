@@ -1,41 +1,63 @@
 dialog {
     border: none;
-    box-shadow: 0px 1px 2px #999;
-    border-radius: 8px;
+    box-shadow: 0px 5px 10px #646464;
     padding: 0px;
+    background-color: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(5px);
 }
 
 dialog::backdrop {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.75);
 }
 
 .root {
     display: flex;
     flex-direction: column;
-    width: 240px;
     margin: 0px;
     padding: 0px;
 }
 
 .title {
-    padding: 16px;
-    font-size: medium;
+    padding-top: 16px;
+    padding-bottom: 8px;
+    font-size: 1.5em;
+    font-weight: bold;
     margin: 0px auto;
+    flex-shrink: 0;
 }
 
 .content {
-    padding: 0px 16px;
-    opacity: 0.56;
+    padding: 16px;
+    max-width: 1080px;
+    max-height: 680px;
+    flex: 1 1 auto;
+    overflow: auto;
 }
 
 .buttons {
     display: flex;
     flex-direction: row;
+    flex-shrink: 0;
     justify-content: flex-end;
-    padding: 8px 4px;
+    padding: 8px;
+    background-color: rgba(255, 255, 255, 0.56);
 
     & button {
         width: 64px;
-        margin: 4px;
+        margin: 6px;
+        padding: 4px;
+        font-size: 1em;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background-color: var(--panel-background-color);
+        color: var(--foreground-color);
+
+        &:hover {
+            background-color: var(--hover-background-color);
+        }
+        &:active {
+            background-color: var(--primary-color);
+            color: var(--title-checked);
+        }
     }
 }

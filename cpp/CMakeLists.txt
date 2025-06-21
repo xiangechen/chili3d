@@ -40,6 +40,10 @@ foreach(package ${OcctUsedPackages})
     endif()
 endforeach()
 
+include(build/occt/adm/cmake/version.cmake)
+configure_file("build/occt/adm/templates/Standard_Version.hxx.in" "include/Standard_Version.hxx" @ONLY)
+list (APPEND OcctIncludeDirs ${CMAKE_CURRENT_BINARY_DIR}/include)
+
 file (GLOB OcctSourceFiles ${OcctSourceFolders})
 
 set (ChiliWasmSourcesFolder src)
@@ -56,7 +60,7 @@ if (${EMSCRIPTEN})
     add_library(occt STATIC ${OcctSourceFiles})
     target_include_directories (occt PUBLIC ${OcctIncludeDirs})
     target_compile_options (occt PUBLIC
-        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-Os>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -DOCCT_NO_PLUGINS
@@ -65,17 +69,19 @@ if (${EMSCRIPTEN})
     add_executable (${TARGET} ${ChiliWasmSourceFiles})
     target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
     target_compile_options (${TARGET} PUBLIC
-        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-Os>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
     )
     target_link_libraries(${TARGET} PUBLIC occt)
     target_link_options (${TARGET} PUBLIC
-        $<IF:$<CONFIG:Release>,-O3,-O0>
+        $<IF:$<CONFIG:Release>,-Os,-O0>
         $<IF:$<CONFIG:Release>,-flto,-fno-lto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
         -sEXPORT_ES6=1
+        -sSTACK_SIZE=8MB
+        -sINITIAL_HEAP=64MB
         -sALLOW_MEMORY_GROWTH=1
         -sMAXIMUM_MEMORY=4GB
         -sENVIRONMENT="web"

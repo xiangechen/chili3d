@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import {
     EdgeMeshData,
     I18nKeys,
@@ -26,10 +29,16 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    transformed(matrix: Matrix4): IShape {
+        throw new Error("Method not implemented.");
+    }
+    transformedMul(matrix: Matrix4): IShape {
+        throw new Error("Method not implemented.");
+    }
     edgesMeshPosition(): EdgeMeshData {
         throw new Error("Method not implemented.");
     }
-    copy(): IShape {
+    clone(): IShape {
         throw new Error("Method not implemented.");
     }
 
@@ -78,7 +87,7 @@ export class TestEdge implements IEdge {
     length(): number {
         return this.start.distanceTo(this.end);
     }
-    curve(): ITrimmedCurve {
+    get curve(): ITrimmedCurve {
         throw new Error("Method not implemented.");
     }
     get id(): string {
@@ -89,7 +98,7 @@ export class TestEdge implements IEdge {
     get mesh(): IShapeMeshData {
         return {
             edges: {
-                positions: new Float32Array([
+                position: new Float32Array([
                     this.start.x,
                     this.start.y,
                     this.start.z,
@@ -99,10 +108,9 @@ export class TestEdge implements IEdge {
                 ]),
                 color: 0xff0000,
                 lineType: LineType.Solid,
-                groups: [],
+                range: [],
             },
             faces: undefined,
-            updateMeshShape() {},
         };
     }
     serialize(): Serialized {

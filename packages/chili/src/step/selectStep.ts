@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -6,7 +7,7 @@ import {
     IDocument,
     INodeFilter,
     IShapeFilter,
-    ShapeNodeFilter,
+    ShapeNode,
     ShapeType,
     VisualState,
 } from "chili-core";
@@ -15,8 +16,15 @@ import { IStep } from "./step";
 
 export interface SelectShapeOptions {
     multiple?: boolean;
-    filter?: IShapeFilter;
+    nodeFilter?: INodeFilter;
+    shapeFilter?: IShapeFilter;
     selectedState?: VisualState;
+    keepSelection?: boolean;
+}
+
+export interface SelectNodeOptions {
+    multiple?: boolean;
+    filter?: INodeFilter;
     keepSelection?: boolean;
 }
 
@@ -28,9 +36,9 @@ export abstract class SelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const { shapeType, shapeFilter, nodeFilter } = document.selection;
+        const { shapeType, shapeFilter } = document.selection;
         document.selection.shapeType = this.snapeType;
-        document.selection.shapeFilter = this.options?.filter;
+        document.selection.shapeFilter = this.options?.shapeFilter;
         if (!this.options?.keepSelection) {
             document.selection.clearSelection();
             document.visual.highlighter.clear();
@@ -40,7 +48,6 @@ export abstract class SelectStep implements IStep {
         } finally {
             document.selection.shapeType = shapeType;
             document.selection.shapeFilter = shapeFilter;
-            document.selection.nodeFilter = nodeFilter;
         }
     }
 
@@ -62,30 +69,7 @@ export class SelectShapeStep extends SelectStep {
         return {
             view: document.application.activeView!,
             shapes,
-        };
-    }
-}
-
-export class SelectShapeNodeStep extends SelectStep {
-    constructor(prompt: I18nKeys, options?: SelectShapeOptions) {
-        super(ShapeType.Shape, prompt, options);
-    }
-
-    override async select(
-        document: IDocument,
-        controller: AsyncController,
-    ): Promise<SnapResult | undefined> {
-        document.selection.nodeFilter = new ShapeNodeFilter();
-        const nodes = await document.selection.pickNode(
-            this.prompt,
-            controller,
-            this.options?.multiple === true,
-        );
-        if (nodes.length === 0) return undefined;
-        return {
-            view: document.application.activeView!,
-            shapes: [],
-            nodes,
+            nodes: shapes.map((x) => x.owner.node),
         };
     }
 }
@@ -93,16 +77,22 @@ export class SelectShapeNodeStep extends SelectStep {
 export class SelectNodeStep implements IStep {
     constructor(
         readonly prompt: I18nKeys,
-        readonly multiple: boolean = false,
-        readonly filter?: INodeFilter,
+        readonly options?: SelectNodeOptions,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const oldFilter = document.selection.nodeFilter;
-        document.selection.nodeFilter = this.filter;
+        const { nodeFilter } = document.selection;
+        document.selection.nodeFilter = this.options?.filter;
+        if (!this.options?.keepSelection) {
+            document.selection.clearSelection();
+            document.visual.highlighter.clear();
+        }
         try {
-            document.selection.nodeFilter = this.filter;
-            const nodes = await document.selection.pickNode(this.prompt, controller, this.multiple);
+            const nodes = await document.selection.pickNode(
+                this.prompt,
+                controller,
+                this.options?.multiple === true,
+            );
             if (nodes.length === 0) return undefined;
             return {
                 view: document.application.activeView!,
@@ -110,7 +100,30 @@ export class SelectNodeStep implements IStep {
                 nodes,
             };
         } finally {
-            document.selection.nodeFilter = oldFilter;
+            document.selection.nodeFilter = nodeFilter;
         }
+    }
+}
+
+export class GetOrSelectNodeStep extends SelectNodeStep {
+    override execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const selected = document.selection.getSelectedNodes().filter((x) => {
+            if (this.options?.filter?.allow) {
+                return this.options.filter.allow(x);
+            }
+
+            return true;
+        });
+
+        if (selected.length > 0) {
+            controller.success();
+            return Promise.resolve({
+                view: document.application.activeView!,
+                shapes: [],
+                nodes: selected as ShapeNode[],
+            });
+        }
+
+        return super.execute(document, controller);
     }
 }

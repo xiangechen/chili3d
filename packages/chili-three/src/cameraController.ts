@@ -1,6 +1,15 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { CameraType, ICameraController, Observable, Precision, VisualNode, XYZLike } from "chili-core";
+import {
+    CameraType,
+    ICameraController,
+    Observable,
+    Precision,
+    ViewMode,
+    VisualNode,
+    XYZLike,
+} from "chili-core";
 import {
     Box3,
     Camera,
@@ -11,6 +20,7 @@ import {
     Sphere,
     Vector3,
 } from "three";
+import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeView } from "./threeView";
@@ -62,6 +72,14 @@ export class CameraController extends Observable implements ICameraController {
         return ThreeHelper.toXYZ(this._position);
     }
 
+    get cameraTarget() {
+        return ThreeHelper.toXYZ(this._target);
+    }
+
+    get cameraUp() {
+        return ThreeHelper.toXYZ(this._camera.up);
+    }
+
     get camera(): PerspectiveCamera | OrthographicCamera {
         return this._camera;
     }
@@ -72,10 +90,11 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     private createCamera(near: number, far: number) {
+        let camera: PerspectiveCamera | OrthographicCamera;
         if (this.cameraType === "perspective") {
-            return new PerspectiveCamera(CAMERA_FOV, this._width / this._height, near, far);
+            camera = new PerspectiveCamera(CAMERA_FOV, this._width / this._height, near, far);
         } else {
-            return new OrthographicCamera(
+            camera = new OrthographicCamera(
                 -this._width / 2,
                 this._width / 2,
                 this._height / 2,
@@ -83,6 +102,20 @@ export class CameraController extends Observable implements ICameraController {
                 near,
                 far,
             );
+        }
+        this.setCameraLayer(camera, this.view.mode);
+        return camera;
+    }
+
+    setCameraLayer(camera: Camera, mode: ViewMode) {
+        if (mode === ViewMode.wireframe) {
+            camera.layers.enable(Constants.Layers.Wireframe);
+            camera.layers.disable(Constants.Layers.Solid);
+        } else if (mode === ViewMode.solid) {
+            camera.layers.enable(Constants.Layers.Solid);
+            camera.layers.disable(Constants.Layers.Wireframe);
+        } else {
+            camera.layers.enableAll();
         }
     }
 
@@ -295,6 +328,7 @@ export class CameraController extends Observable implements ICameraController {
     lookAt(eye: XYZLike, target: XYZLike, up: XYZLike): void {
         this._position.set(eye.x, eye.y, eye.z);
         this._target.set(target.x, target.y, target.z);
+        this.camera.up.set(up.x, up.y, up.z);
         this.updateCameraPosionTarget();
     }
 

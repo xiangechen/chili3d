@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     GeometryNode,
@@ -18,8 +19,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "convert.revol",
-    display: "command.revol",
+    key: "convert.revol",
     icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {
@@ -32,9 +32,10 @@ export class Revolve extends CreateCommand {
     }
 
     protected override geometryNode(): GeometryNode {
-        const shape = this.stepDatas[0].shapes[0].shape;
-        const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve().basisCurve() as ILine;
-        const axis = new Ray(edge.value(0), edge.direction);
+        const shape = this.transformdFirstShape(this.stepDatas[0], false);
+        const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
+        const transform = this.stepDatas[1].shapes[0].transform;
+        const axis = new Ray(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
         return new RevolvedNode(this.document, shape, axis, this.angle);
     }
 
@@ -42,7 +43,7 @@ export class Revolve extends CreateCommand {
         return [
             new SelectShapeStep(ShapeType.Edge | ShapeType.Face | ShapeType.Wire, "prompt.select.shape"),
             new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", {
-                filter: new LineFilter(),
+                shapeFilter: new LineFilter(),
                 keepSelection: true,
             }),
         ];
@@ -53,7 +54,7 @@ class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
             let edge = shape as IEdge;
-            let curve = edge.curve().basisCurve();
+            let curve = edge.curve.basisCurve;
             return ICurve.isLine(curve);
         }
         return false;

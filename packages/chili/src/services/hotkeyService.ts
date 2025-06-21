@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { CommandKeys, IApplication, IService, Logger, PubSub } from "chili-core";
 
@@ -14,8 +15,8 @@ export interface HotkeyMap {
 }
 
 const DefaultKeyMap: HotkeyMap = {
-    Delete: "modify.delete",
-    Backspace: "modify.delete",
+    Delete: "modify.deleteNode",
+    Backspace: "modify.deleteNode",
     " ": "special.last",
     Enter: "special.last",
     "ctrl+z": "edit.undo",

@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { I18n, IEdge, IView, ObjectSnapType, ShapeType, VisualShapeData, XYZ } from "chili-core";
 import { SnapResult } from "../snap";
@@ -22,11 +23,17 @@ export class FeaturePointStrategy {
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
-        const curve = (shape.shape as IEdge).curve();
+        const curve = (shape.shape as IEdge).curve;
         const start = curve.value(curve.firstParameter());
         const end = curve.value(curve.lastParameter());
 
-        const addPoint = (point: XYZ, info: string) => infos.push({ view, point, info, shapes: [shape] });
+        const addPoint = (point: XYZ, info: string) =>
+            infos.push({
+                view,
+                point: shape.transform.ofPoint(point),
+                info,
+                shapes: [shape],
+            });
 
         if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));

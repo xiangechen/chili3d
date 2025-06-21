@@ -1,14 +1,17 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { Result } from "../foundation";
 import { Plane, Ray, XYZ, XYZLike } from "../math";
-import { ICompound, IEdge, IFace, IShape, ISolid, IVertex, IWire } from "./shape";
+import { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly kernelName: string;
     readonly converter: IShapeConverter;
     face(wire: IWire[]): Result<IFace>;
+    shell(faces: IFace[]): Result<IShell>;
+    solid(shells: IShell[]): Result<ISolid>;
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
     point(point: XYZLike): Result<IVertex>;
     line(start: XYZLike, end: XYZLike): Result<IEdge>;
@@ -39,7 +42,9 @@ export interface IShapeFactory {
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
-    fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape>;
-    chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape>;
-    removeFaces(shape: IShape, faces: IFace[]): Result<IShape>;
+    fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
+    chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
+    removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
+    removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
+    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;
 }

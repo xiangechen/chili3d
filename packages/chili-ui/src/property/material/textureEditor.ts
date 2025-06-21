@@ -1,10 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { div, Expander, img, svg } from "chili-controls";
+import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
 import { I18nKeys, IDocument, PathBinding, Property, readFileAsync, Texture } from "chili-core";
-import { div, Expander, img, svg } from "../../components";
 import { findPropertyControl } from "../utils";
 import style from "./textureEditor.module.css";
-import { UrlStringConverter } from "./urlConverter";
 
 export class TextureProperty extends Expander {
     constructor(

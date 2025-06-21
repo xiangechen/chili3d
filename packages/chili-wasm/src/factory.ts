@@ -1,11 +1,14 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import {
-    gc,
     ICompound,
     IEdge,
     IFace,
     IShape,
     IShapeConverter,
     IShapeFactory,
+    IShell,
     ISolid,
     IVertex,
     IWire,
@@ -20,7 +23,7 @@ import {
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
-import { OccEdge, OccShape } from "./shape";
+import { OccShape } from "./shape";
 
 function ensureOccShape(shapes: IShape | IShape[]): TopoDS_Shape[] {
     if (Array.isArray(shapes)) {
@@ -43,8 +46,12 @@ function convertShapeResult(result: ShapeResult): Result<IShape, string> {
     let res: Result<IShape, string>;
     if (!result.isOk) {
         res = Result.err(result.error);
+    } else if (result.shape.isNull()) {
+        res = Result.err("The shape is null.");
+    } else {
+        res = Result.ok(OcctHelper.wrapShape(result.shape));
     }
-    res = Result.ok(OcctHelper.wrapShape(result.shape));
+
     result.delete();
     return res;
 }
@@ -57,7 +64,7 @@ export class ShapeFactory implements IShapeFactory {
         this.converter = new OccShapeConverter();
     }
 
-    fillet(shape: IShape, edges: IEdge[], radius: number): Result<IShape> {
+    fillet(shape: IShape, edges: number[], radius: number): Result<IShape> {
         if (radius < Precision.Distance) {
             return Result.err("The radius is too small.");
         }
@@ -67,13 +74,12 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
-            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
-            return convertShapeResult(wasm.ShapeFactory.fillet(shape.shape, occEdges, radius));
+            return convertShapeResult(wasm.ShapeFactory.fillet(shape.shape, edges, radius));
         }
         return Result.err("Not OccShape");
     }
 
-    chamfer(shape: IShape, edges: IEdge[], distance: number): Result<IShape> {
+    chamfer(shape: IShape, edges: number[], distance: number): Result<IShape> {
         if (distance < Precision.Distance) {
             return Result.err("The distance is too small.");
         }
@@ -83,13 +89,12 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
-            const occEdges = edges.map((x) => OcctHelper.getActualShape((x as OccEdge).edge));
-            return convertShapeResult(wasm.ShapeFactory.chamfer(shape.shape, occEdges, distance));
+            return convertShapeResult(wasm.ShapeFactory.chamfer(shape.shape, edges, distance));
         }
         return Result.err("Not OccShape");
     }
 
-    removeFaces(shape: IShape, faces: IFace[]): Result<IShape> {
+    removeFeature(shape: IShape, faces: IFace[]): Result<IShape> {
         if (!(shape instanceof OccShape)) {
             return Result.err("Not OccShape");
         }
@@ -97,9 +102,27 @@ export class ShapeFactory implements IShapeFactory {
             if (!(x instanceof OccShape)) {
                 throw new Error("The OCC kernel only supports OCC geometries.");
             }
+            if (x.shape.isNull()) {
+                throw new Error("The shape is null.");
+            }
             return x.shape;
         });
-        return Result.ok(OcctHelper.wrapShape(wasm.Shape.removeFaces(shape.shape, occFaces)));
+        const removed = wasm.Shape.removeFeature(shape.shape, occFaces);
+        if (removed.isNull()) {
+            return Result.err("Can not remove");
+        }
+        return Result.ok(OcctHelper.wrapShape(removed));
+    }
+
+    removeSubShape(shape: IShape, subShapes: IShape[]): IShape {
+        const occShape = ensureOccShape(shape);
+        const occSubShapes = ensureOccShape(subShapes);
+        return OcctHelper.wrapShape(wasm.Shape.removeSubShape(occShape[0], occSubShapes));
+    }
+
+    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape {
+        const [occShape, occSubShape, occNewSubShape] = ensureOccShape([shape, subShape, newSubShape]);
+        return OcctHelper.wrapShape(wasm.Shape.replaceSubShape(occShape, occSubShape, occNewSubShape));
     }
 
     face(wire: IWire[]): Result<IFace> {
@@ -195,6 +218,12 @@ export class ShapeFactory implements IShapeFactory {
     }
     wire(edges: IEdge[]): Result<IWire> {
         return convertShapeResult(wasm.ShapeFactory.wire(ensureOccShape(edges))) as Result<IWire>;
+    }
+    shell(faces: IFace[]): Result<IShell> {
+        return convertShapeResult(wasm.ShapeFactory.shell(ensureOccShape(faces))) as Result<IShell>;
+    }
+    solid(shells: IShell[]): Result<ISolid> {
+        return convertShapeResult(wasm.ShapeFactory.solid(ensureOccShape(shells))) as Result<ISolid>;
     }
     prism(shape: IShape, vec: XYZ): Result<IShape> {
         if (vec.length() === 0) {

@@ -1,8 +1,11 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { button, collection, ColorConverter, div, span, UrlStringConverter } from "chili-controls";
 import {
     Binding,
     IDocument,
+    Localize,
     Material,
     ObservableCollection,
     PathBinding,
@@ -10,9 +13,6 @@ import {
     PubSub,
     Transaction,
 } from "chili-core";
-import { button, collection, div, localize, span } from "../components";
-import { ColorConverter } from "../converters";
-import { UrlStringConverter } from "./material/urlConverter";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
 
@@ -38,7 +38,7 @@ export class MaterialProperty extends PropertyBase {
         return div(
             { className: style.material },
             div(
-                span({ textContent: localize("common.material") }),
+                span({ textContent: new Localize("common.material") }),
                 this.materials.length > 1 ? span({ textContent: ` ${index + 1}` }) : "",
             ),
             button({

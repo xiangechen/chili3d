@@ -1,6 +1,8 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import {
     EditableShapeNode,
-    GeometryNode,
     I18n,
     IEdge,
     IFace,
@@ -14,18 +16,23 @@ import {
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
-import { CreateCommand } from "../createCommand";
+import { MultistepCommand } from "../multistepCommand";
 
 @command({
-    name: "create.offset",
-    display: "command.offset",
+    key: "create.offset",
     icon: "icon-offset",
 })
-export class OffsetCommand extends CreateCommand {
-    protected override geometryNode(): GeometryNode {
-        let normal = this.getAxis().normal;
-        let shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        return new EditableShapeNode(this.document, I18n.translate("command.offset"), shape.value);
+export class OffsetCommand extends MultistepCommand {
+    protected override executeMainTask() {
+        const normal = this.getAxis().normal;
+        const shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
+        const node = new EditableShapeNode(
+            this.document,
+            I18n.translate("command.create.offset"),
+            shape.value,
+        );
+        this.document.rootNode.add(node);
+        this.document.visual.update();
     }
 
     protected override getSteps(): IStep[] {
@@ -60,7 +67,7 @@ export class OffsetCommand extends CreateCommand {
 
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
         let start = this.stepDatas[0].shapes[0].point!;
-        let shape = this.stepDatas[0].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return this.getEdgeAxis(shape as IEdge, start);
         }
@@ -83,7 +90,7 @@ export class OffsetCommand extends CreateCommand {
     }
 
     private getEdgeAxis(edge: IEdge, start: XYZ) {
-        const curve = edge.curve();
+        const curve = edge.curve;
         const direction = curve.dn(curve.parameter(start, 1e-3)!, 1);
         const normal = GeoUtils.normal(edge);
         return {
@@ -100,9 +107,9 @@ export class OffsetCommand extends CreateCommand {
         }
         const nearest = GeoUtils.nearestPoint(wire, start);
         const nextEdge = GeoUtils.findNextEdge(wire, nearest.edge).value;
-        let direction = nearest.edge.curve().dn(0, 1);
+        let direction = nearest.edge.curve.dn(0, 1);
         const scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
-        const nextDirection = nextEdge.curve().dn(0, 1).multiply(scale);
+        const nextDirection = nextEdge.curve.dn(0, 1).multiply(scale);
         if (direction.cross(nextDirection).normalize()?.isOppositeTo(normal)) {
             direction = direction.multiply(-1);
         }
@@ -110,7 +117,7 @@ export class OffsetCommand extends CreateCommand {
     }
 
     private createOffsetShape(normal: XYZ, distance: number) {
-        let shape = this.stepDatas[0].shapes[0].shape;
+        let shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return (shape as IEdge).offset(distance, normal);
         }

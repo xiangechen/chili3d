@@ -29,3 +29,9 @@
     flex: 1;
     margin: 2px 6px;
 }
+
+@media (max-width: 680px) {
+    .root {
+        display: none;
+    }
+}

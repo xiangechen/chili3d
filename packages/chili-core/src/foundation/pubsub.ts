@@ -1,16 +1,16 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { CommandKeys, ICommand } from "../command";
 import { IDocument } from "../document";
 import { I18nKeys } from "../i18n";
 import { Material } from "../material";
 import { INode } from "../model";
-import { ObjectSnapType } from "../snapType";
+import { DialogResult } from "../ui";
 import { CursorType, IView } from "../visual";
 import { AsyncController } from "./asyncController";
 import { IDisposable } from "./disposable";
 import { MessageType } from "./messageType";
-import { IPropertyChanged } from "./observer";
 import { Result } from "./result";
 
 export interface PubSubEventMap {
@@ -29,7 +29,7 @@ export interface PubSubEventMap {
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
-    showDialog: (title: I18nKeys, context: IPropertyChanged, callback: () => void) => void;
+    showDialog: (title: I18nKeys, content: HTMLElement, callback?: (result: DialogResult) => void) => void;
     showFloatTip: (level: MessageType, msg: string) => void;
     showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;

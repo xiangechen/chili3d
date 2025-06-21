@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -22,7 +23,7 @@ import { IStep } from "../step";
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
 
-    @Property.define("command.mode.repeat")
+    @Property.define("option.command.repeat")
     get repeatOperation() {
         return this.getPrivateValue("repeatOperation", false);
     }
@@ -74,8 +75,12 @@ export abstract class MultistepCommand extends CancelableCommand {
         return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
     }
 
-    protected meshLine(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
+    protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
+        const data = EdgeMeshData.from(start, end, color, LineType.Solid);
+        if (lineWith !== undefined) {
+            data.lineWidth = lineWith;
+        }
+        return data;
     }
 
     protected meshCreatedShape<K extends keyof IShapeFactory>(
@@ -103,10 +108,16 @@ export abstract class MultistepCommand extends CancelableCommand {
     protected readonly findPlane = (view: IView, origin: XYZ, point: XYZ | undefined) => {
         if (point === undefined || !Config.instance.dynamicWorkplane) {
             return view.workplane.translateTo(origin);
-        } else {
-            return ViewUtils.raycastClosestPlane(view, origin, point);
         }
+
+        return ViewUtils.raycastClosestPlane(view, origin, point);
     };
+
+    protected transformdFirstShape(step: SnapResult, shouldDispose = true) {
+        const shape = step.shapes[0].shape.transformedMul(step.shapes[0].transform);
+        if (shouldDispose) this.disposeStack.add(shape);
+        return shape;
+    }
 
     protected abstract getSteps(): IStep[];
 

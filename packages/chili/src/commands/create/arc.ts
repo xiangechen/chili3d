@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { GeometryNode, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
 import { ArcNode } from "../../bodys/arc";
@@ -7,8 +8,7 @@ import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    name: "create.arc",
-    display: "command.arc",
+    key: "create.arc",
     icon: "icon-arc",
 })
 export class Arc extends CreateCommand {

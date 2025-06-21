@@ -1,12 +1,10 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
 import { HistoryObservable, IDisposable, IPropertyChanged, Id } from "../foundation";
-import { I18nKeys } from "../i18n";
-import { BoundingBox, Matrix4 } from "../math";
 import { Property } from "../property";
 import { Serialized, Serializer } from "../serialize";
-import { IShapeMeshData, Mesh } from "../shape";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -24,6 +22,7 @@ export interface INodeLinkedList extends INode {
     get lastChild(): INode | undefined;
     add(...items: INode[]): void;
     remove(...items: INode[]): void;
+    transfer(...items: INode[]): void;
     size(): number;
     insertAfter(target: INode | undefined, node: INode): void;
     insertBefore(target: INode | undefined, node: INode): void;
@@ -215,122 +214,6 @@ export namespace INode {
         }
         return path;
     }
-}
-
-export abstract class VisualNode extends Node {
-    abstract display(): I18nKeys;
-
-    @Serializer.serialze()
-    get transform(): Matrix4 {
-        return this.getPrivateValue("transform", Matrix4.identity());
-    }
-    set transform(value: Matrix4) {
-        this.setProperty(
-            "transform",
-            value,
-            (_p, oldMatrix) => {
-                this.onTransformChanged(value, oldMatrix);
-            },
-            {
-                equals: (left, right) => left.equals(right),
-            },
-        );
-    }
-
-    protected onVisibleChanged(): void {
-        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
-    }
-
-    protected onParentVisibleChanged(): void {
-        this.document.visual.context.setVisible(this, this.visible && this.parentVisible);
-    }
-
-    abstract boundingBox(): BoundingBox;
-
-    protected onTransformChanged(newMatrix: Matrix4, oldMatrix: Matrix4): void {}
-}
-
-@Serializer.register(["document", "mesh", "name", "id"])
-export class MeshNode extends VisualNode {
-    override display(): I18nKeys {
-        return "body.meshNode";
-    }
-
-    @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
-    get materialId(): string | string[] {
-        return this.getPrivateValue("materialId");
-    }
-    set materialId(value: string | string[]) {
-        this.setProperty("materialId", value);
-    }
-
-    protected _mesh: Mesh;
-    @Serializer.serialze()
-    get mesh(): Mesh {
-        return this._mesh;
-    }
-    set mesh(value: Mesh) {
-        this.setProperty("mesh", value);
-    }
-
-    constructor(
-        document: IDocument,
-        mesh: Mesh,
-        name: string,
-        materialId?: string | string[],
-        id: string = Id.generate(),
-    ) {
-        super(document, name, id);
-        this._mesh = mesh;
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
-    }
-
-    override boundingBox(): BoundingBox {
-        let points = this.transform.ofPoints(this.mesh.position);
-        return BoundingBox.fromNumbers(points);
-    }
-}
-
-export abstract class GeometryNode extends VisualNode {
-    @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
-    get materialId(): string {
-        return this.getPrivateValue("materialId");
-    }
-    set materialId(value: string) {
-        this.setProperty("materialId", value);
-    }
-
-    constructor(document: IDocument, name: string, materialId?: string, id: string = Id.generate()) {
-        super(document, name, id);
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
-    }
-
-    protected _mesh: IShapeMeshData | undefined;
-    get mesh(): IShapeMeshData {
-        if (this._mesh === undefined) {
-            this._mesh = this.createMesh();
-        }
-        return this._mesh as any;
-    }
-
-    protected _boundingBox: BoundingBox | undefined;
-    override boundingBox(): BoundingBox {
-        if (this._boundingBox === undefined) {
-            let points: ArrayLike<number> = this.mesh.faces?.positions ?? this.mesh.edges?.positions ?? [];
-            points = this.transform.ofPoints(points);
-            return BoundingBox.fromNumbers(points);
-        }
-        return this._boundingBox;
-    }
-
-    override disposeInternal(): void {
-        super.disposeInternal();
-        this._mesh = undefined;
-    }
-
-    protected abstract createMesh(): IShapeMeshData;
 }
 
 export namespace NodeSerializer {

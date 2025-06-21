@@ -1,3 +1,6 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import {
     Deletable,
     EditableShapeNode,
@@ -23,17 +26,16 @@ export class OccShapeConverter implements IShapeConverter {
         children: ShapeNode[],
         getMaterialId: (document: IDocument, color: string) => string,
     ) => {
-        if (node.shape) {
+        if (node.shape && !node.shape.isNull()) {
             const shape = OcctHelper.wrapShape(node.shape);
             const material = getMaterialId(folder.document, node.color as string);
-            folder.add(new EditableShapeNode(folder.document, node.name as string, shape, material));
+            folder.add(new EditableShapeNode(folder.document, node.name, shape, material));
         }
 
         children.forEach((child) => {
             collector(child);
             const subChildren = child.getChildren();
-            const childFolder =
-                subChildren.length > 1 ? new GroupNode(folder.document, child.name as string) : folder;
+            const childFolder = subChildren.length > 1 ? new GroupNode(folder.document, child.name) : folder;
 
             if (subChildren.length > 1) {
                 folder.add(childFolder);
@@ -106,6 +108,9 @@ export class OccShapeConverter implements IShapeConverter {
 
     convertFromBrep(brep: string): Result<IShape> {
         let shape = wasm.Converter.convertFromBrep(brep);
+        if (shape.isNull()) {
+            return Result.err("can not convert");
+        }
         return Result.ok(OcctHelper.wrapShape(shape));
     }
 }

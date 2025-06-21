@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 export enum ShapeType {
     Shape = 0b0,
@@ -20,6 +21,31 @@ export namespace ShapeType {
             type === ShapeType.CompoundSolid ||
             type === ShapeType.Solid
         );
+    }
+
+    export function stringValue(type: ShapeType) {
+        switch (type) {
+            case ShapeType.Shape:
+                return "Shape";
+            case ShapeType.Compound:
+                return "Compound";
+            case ShapeType.CompoundSolid:
+                return "CompoundSolid";
+            case ShapeType.Solid:
+                return "Solid";
+            case ShapeType.Shell:
+                return "Shell";
+            case ShapeType.Face:
+                return "Face";
+            case ShapeType.Wire:
+                return "Wire";
+            case ShapeType.Edge:
+                return "Edge";
+            case ShapeType.Vertex:
+                return "Vertex";
+            default:
+                return "Unknown";
+        }
     }
 
     export function hasCompound(type: ShapeType): boolean {

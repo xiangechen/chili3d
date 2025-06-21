@@ -1,10 +1,10 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { I18n, IApplication, ICommand, PubSub, Serialized, command, readFileAsync } from "chili-core";
 
 @command({
-    name: "doc.open",
-    display: "command.document.open",
+    key: "doc.open",
     icon: "icon-open",
 })
 export class OpenDocument implements ICommand {
@@ -20,7 +20,7 @@ export class OpenDocument implements ICommand {
                 }
             },
             "toast.excuting{0}",
-            I18n.translate("command.document.open"),
+            I18n.translate("command.doc.open"),
         );
     }
 }

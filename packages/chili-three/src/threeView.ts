@@ -1,24 +1,32 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
+import { div, span, svg } from "chili-controls";
 import {
+    HtmlTextOptions,
+    IDisposable,
     IDocument,
     INodeFilter,
     IShape,
     IShapeFilter,
+    ISubShape,
     IView,
     IVisualObject,
+    Matrix4,
     MultiShapeNode,
     Observable,
     Plane,
     PubSub,
     Ray,
-    ShapeMeshGroup,
+    ShapeMeshRange,
     ShapeNode,
     ShapeType,
+    ViewMode,
     VisualNode,
     VisualShapeData,
     XY,
     XYZ,
+    XYZLike,
     debounce,
 } from "chili-core";
 import {
@@ -36,13 +44,15 @@ import {
 } from "three";
 import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeHighlighter } from "./threeHighlighter";
+import style from "./threeView.module.css";
 import { ThreeVisualContext } from "./threeVisualContext";
-import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
+import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
@@ -51,6 +61,7 @@ export class ThreeView extends Observable implements IView {
 
     private readonly _scene: Scene;
     private readonly _renderer: WebGLRenderer;
+    private readonly _cssRenderer: CSS2DRenderer;
     private readonly _workplane: Plane;
     private _needsUpdate: boolean = false;
     private readonly _gizmo: ViewGizmo;
@@ -64,6 +75,10 @@ export class ThreeView extends Observable implements IView {
         this.setProperty("name", value);
     }
 
+    get dom() {
+        return this._dom;
+    }
+
     private _isClosed: boolean = false;
     get isClosed(): boolean {
         return this._isClosed;
@@ -71,6 +86,15 @@ export class ThreeView extends Observable implements IView {
 
     get camera(): PerspectiveCamera | OrthographicCamera {
         return this.cameraController.camera;
+    }
+
+    get mode(): ViewMode {
+        return this.getPrivateValue("mode");
+    }
+    set mode(value: ViewMode) {
+        this.setProperty("mode", value, () => {
+            this.cameraController.setCameraLayer(this.camera, this.mode);
+        });
     }
 
     constructor(
@@ -88,10 +112,13 @@ export class ThreeView extends Observable implements IView {
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
+        this._cssRenderer = this.initCssRenderer();
         this._scene.add(this.dynamicLight);
         this._gizmo = new ViewGizmo(this);
-        this.animate();
+        this.setPrivateValue("mode", ViewMode.solidAndWireframe);
+        this.camera.layers.enableAll();
         this.document.application.views.push(this);
+        this.animate();
     }
 
     override disposeInternal(): void {
@@ -136,6 +163,11 @@ export class ThreeView extends Observable implements IView {
         return renderer;
     }
 
+    private initCssRenderer() {
+        let renderer = new CSS2DRenderer();
+        return renderer;
+    }
+
     setDom(element: HTMLElement) {
         if (this._dom) {
             this._resizeObserver.unobserve(this._dom);
@@ -143,11 +175,50 @@ export class ThreeView extends Observable implements IView {
         this._dom = element;
         this._gizmo?.remove();
         element.appendChild(this._gizmo);
+
         this._renderer.domElement.remove();
+        this._renderer.domElement.style.userSelect = "none";
+        this._renderer.domElement.style.webkitUserSelect = "none";
         element.appendChild(this._renderer.domElement);
+
+        this._cssRenderer.domElement.remove();
+        this._cssRenderer.domElement.style.position = "absolute";
+        this._cssRenderer.domElement.style.top = "0px";
+        this._cssRenderer.domElement.style.userSelect = "none";
+        this._cssRenderer.domElement.style.webkitUserSelect = "none";
+        element.appendChild(this._cssRenderer.domElement);
+
         this.resize(element.clientWidth, element.clientHeight);
         this._resizeObserver.observe(element);
         this.cameraController.updateCameraPosionTarget();
+    }
+
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable {
+        const dispose = () => {
+            options?.onDispose?.();
+            this.content.cssObjects.remove(cssObject);
+            cssObject.element.remove();
+        };
+        let cssObject = new CSS2DObject(
+            div(
+                { className: style.htmlText },
+                span({ textContent: text }),
+                options?.hideDelete === true
+                    ? ""
+                    : svg({
+                          className: style.delete,
+                          icon: "icon-times",
+                          onclick: (e) => {
+                              e.stopPropagation();
+                              dispose();
+                          },
+                      }),
+            ),
+        );
+        cssObject.position.set(point.x, point.y, point.z);
+        if (options?.center) cssObject.center.set(options.center.x, options.center.y);
+        this.content.cssObjects.add(cssObject);
+        return { dispose };
     }
 
     toImage(): string {
@@ -179,6 +250,7 @@ export class ThreeView extends Observable implements IView {
         let dir = this.camera.position.clone().sub(this.cameraController.target);
         this.dynamicLight.position.copy(dir);
         this._renderer.render(this._scene, this.camera);
+        this._cssRenderer.render(this._scene, this.camera);
         this._gizmo?.update();
 
         this._needsUpdate = false;
@@ -195,6 +267,7 @@ export class ThreeView extends Observable implements IView {
             this.camera.updateProjectionMatrix();
         }
         this._renderer.setSize(width, height);
+        this._cssRenderer.setSize(width, height);
         this.cameraController.setSize(width, height);
         this.update();
     }
@@ -303,6 +376,8 @@ export class ThreeView extends Observable implements IView {
             node = threeObject.meshNode;
         } else if (threeObject instanceof ThreeGeometry) {
             node = threeObject.geometryNode;
+        } else if (threeObject instanceof ThreeComponentObject) {
+            node = threeObject.componentNode;
         }
 
         return node;
@@ -347,6 +422,7 @@ export class ThreeView extends Observable implements IView {
         const addShape = (indexes: number[]) => {
             detecteds.push({
                 shape,
+                transform: ThreeHelper.toMatrix(obj.parent!.matrixWorld),
                 owner: obj.parent as any,
                 indexes,
             });
@@ -360,7 +436,7 @@ export class ThreeView extends Observable implements IView {
         if ((shape.shapeType & shapeType) === 0) return;
         if (shapeFilter && !shapeFilter.allow(shape)) return;
 
-        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.groups : shape.mesh.faces?.groups;
+        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
         addShape([...Array(groups?.length).keys()]);
     }
 
@@ -403,6 +479,7 @@ export class ThreeView extends Observable implements IView {
                 {
                     owner: parent,
                     shape,
+                    transform: parent.worldTransform(),
                     point: ThreeHelper.toXYZ(element.pointOnLine ?? element.point),
                     indexes: [],
                 },
@@ -419,71 +496,79 @@ export class ThreeView extends Observable implements IView {
         let result: VisualShapeData[] = [];
         for (const intersected of intersections) {
             const visualShape = intersected.object.parent;
-            if (!(visualShape instanceof ThreeGeometry)) continue;
-            let { shape, directShape, indexes } = this.getShape(shapeType, visualShape, intersected);
-            if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
-                continue;
+            if (visualShape instanceof ThreeVisualObject) {
+                let { shape, indexes, transform } = this.getSubShapeFromInsection(
+                    shapeType,
+                    visualShape,
+                    intersected,
+                );
+                if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
+                    continue;
+                }
+                const nodeWorldTransform = visualShape.worldTransform();
+                result.push({
+                    owner: visualShape,
+                    shape,
+                    transform: transform ? nodeWorldTransform.multiply(transform) : nodeWorldTransform,
+                    point: ThreeHelper.toXYZ(intersected.pointOnLine ?? intersected.point),
+                    indexes,
+                });
             }
-            result.push({
-                owner: visualShape,
-                shape: shape,
-                directShape,
-                point: ThreeHelper.toXYZ(intersected.pointOnLine ?? intersected.point),
-                indexes,
-            });
         }
         return result;
     }
 
-    private getShape(
+    private getSubShapeFromInsection(
         shapeType: ShapeType,
-        parent: ThreeGeometry,
-        element: Intersection,
+        parent: ThreeVisualObject,
+        intersection: Intersection,
     ): {
         shape: IShape | undefined;
-        directShape: IShape | undefined;
+        transform?: Matrix4;
         indexes: number[];
     } {
-        let { shape, index, groups } = this.findShapeAndIndex(parent, element);
-        if (parent.geometryNode instanceof MultiShapeNode) {
-            return { shape, directShape: shape, indexes: [index!] };
+        let { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
+        if (!subShape || !shape) return { shape: undefined, indexes: [] };
+
+        if (ShapeType.hasSolid(shapeType) && subShape.shapeType === ShapeType.Face) {
+            let solid = this.getAncestorAndIndex(ShapeType.Solid, subShape, shape, groups);
+            if (solid.shape) return solid;
         }
-        if (!shape) return { shape: undefined, directShape: undefined, indexes: [] };
-        if (ShapeType.hasShell(shapeType) && shape.shapeType === ShapeType.Face) {
-            let shell = this.getAncestor(ShapeType.Shell, shape, groups!, parent);
+        if (ShapeType.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
+            let shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, shape, groups);
             if (shell.shape) return shell;
         }
-        if (ShapeType.hasWire(shapeType) && shape.shapeType === ShapeType.Edge) {
-            let wire = this.getAncestor(ShapeType.Wire, shape, groups!, parent);
+        if (ShapeType.hasWire(shapeType) && subShape.shapeType === ShapeType.Edge) {
+            let wire = this.getAncestorAndIndex(ShapeType.Wire, subShape, shape, groups);
             if (wire.shape) return wire;
         }
-        if (!ShapeType.hasFace(shapeType) && shape.shapeType === ShapeType.Face) {
-            return { shape: undefined, directShape: undefined, indexes: [index!] };
+        if (!ShapeType.hasFace(shapeType) && subShape.shapeType === ShapeType.Face) {
+            return { shape: undefined, indexes: [index] };
         }
-        if (!ShapeType.hasEdge(shapeType) && shape.shapeType === ShapeType.Edge) {
-            return { shape: undefined, directShape: undefined, indexes: [index!] };
+        if (!ShapeType.hasEdge(shapeType) && subShape.shapeType === ShapeType.Edge) {
+            return { shape: undefined, indexes: [index] };
         }
 
-        return { shape, directShape: shape, indexes: [index!] };
+        return { shape: subShape, indexes: [index], transform };
     }
 
-    private getAncestor(
+    private getAncestorAndIndex(
         type: ShapeType,
-        directShape: IShape,
-        groups: ShapeMeshGroup[],
-        parent: ThreeGeometry,
+        subShape: ISubShape,
+        shape: IShape,
+        groups: ShapeMeshRange[],
     ) {
-        let ancestor = directShape.findAncestor(type, (parent.geometryNode as ShapeNode).shape.value).at(0);
+        let ancestor = subShape.findAncestor(type, shape).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 
         let indexes: number[] = [];
-        for (const subShape of ancestor.findSubShapes(directShape.shapeType)) {
-            this.findIndex(groups, subShape, indexes);
+        for (const sub of ancestor.findSubShapes(subShape.shapeType)) {
+            this.findIndex(groups, sub, indexes);
         }
-        return { shape: ancestor, indexes, directShape };
+        return { shape: ancestor, indexes, subShape, transform: groups.at(0)?.transform };
     }
 
-    private findIndex(groups: ShapeMeshGroup[], shape: IShape, indexes: number[]) {
+    private findIndex(groups: ShapeMeshRange[], shape: IShape, indexes: number[]) {
         for (let i = 0; i < groups.length; i++) {
             if (shape.isEqual(groups[i].shape)) {
                 indexes.push(i);
@@ -491,41 +576,24 @@ export class ThreeView extends Observable implements IView {
         }
     }
 
-    private findShapeAndIndex(parent: ThreeGeometry, element: Intersection) {
-        let shape: IShape | undefined = undefined;
-        let index: number | undefined = undefined;
-        let groups: ShapeMeshGroup[] | undefined = undefined;
-        if (element.pointOnLine !== undefined) {
-            groups = parent.geometryNode.mesh.edges?.groups;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 2)!;
-                shape = groups[index].shape;
-            }
-        } else {
-            groups = parent.geometryNode.mesh.faces?.groups;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, element.faceIndex! * 3)!;
-                shape = groups[index].shape;
-            }
+    private findShapeAndIndex(parent: ThreeVisualObject, element: Intersection) {
+        let type: "edge" | "face" = "edge";
+        let subVisualIndex = element.faceIndex! * 2;
+        if (!element.pointOnLine) {
+            type = "face";
+            subVisualIndex = element.faceIndex! * 3;
         }
-        return { shape, index, groups };
+
+        return parent.getSubShapeAndIndex(type, subVisualIndex);
     }
 
     private findIntersectedNodes(mx: number, my: number) {
         let visuals: Object3D[] = [];
-        const addObject = (obj: Object3D | undefined) => {
-            if (obj !== undefined) visuals.push(obj);
-        };
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
 
-            if (x instanceof ThreeGeometry) {
-                addObject(x.edges());
-                addObject(x.faces());
-            }
-
-            if (x instanceof ThreeMeshObject) {
-                addObject(x.mesh);
+            if (x instanceof ThreeVisualObject) {
+                visuals.push(...x.wholeVisual());
             }
         });
 
@@ -540,37 +608,29 @@ export class ThreeView extends Observable implements IView {
 
     private initIntersectableShapes(shapeType: ShapeType) {
         let shapes = new Array<Object3D>();
-        const addObject = (obj: Object3D | undefined) => {
-            if (obj !== undefined) shapes.push(obj);
-        };
         this.document.visual.context.visuals().forEach((x) => {
-            if (!(x instanceof ThreeGeometry) || !x.visible) return;
-            if (
-                shapeType === ShapeType.Shape ||
-                ShapeType.hasCompound(shapeType) ||
-                ShapeType.hasCompoundSolid(shapeType) ||
-                ShapeType.hasSolid(shapeType)
-            ) {
-                addObject(x.edges());
-                addObject(x.faces());
-                return;
-            }
-            if (ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
-                addObject(x.edges());
-            }
-            if (ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
-                addObject(x.faces());
-            }
+            if (!x.visible) return;
+            if (x instanceof ThreeVisualObject) shapes.push(...x.subShapeVisual(shapeType));
             // TODO: vertex
         });
         return shapes;
     }
 
     private initRaycaster(mx: number, my: number) {
-        let raycaster = new Raycaster();
         let threshold = Constants.RaycasterThreshold;
         let { x, y } = this.screenToCameraRect(mx, my);
         let mousePos = new Vector2(x, y);
+
+        let raycaster = new Raycaster();
+        if (this.mode === ViewMode.wireframe) {
+            raycaster.layers.disableAll();
+            raycaster.layers.enable(Constants.Layers.Wireframe);
+        } else if (this.mode === ViewMode.solid) {
+            raycaster.layers.disableAll();
+            raycaster.layers.enable(Constants.Layers.Solid);
+        } else {
+            raycaster.layers.enableAll();
+        }
         raycaster.setFromCamera(mousePos, this.camera);
         raycaster.params = {
             ...raycaster.params,

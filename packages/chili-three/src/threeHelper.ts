@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { Material, MathUtils, Matrix4, PhongMaterial, PhysicalMaterial, Texture, XYZ } from "chili-core";
 import {
@@ -68,6 +69,9 @@ export class ThreeHelper {
     static getBoundingBox(object: Object3D) {
         const box = new Box3();
         box.setFromObject(object);
+        if (box.isEmpty()) {
+            return undefined;
+        }
         return { min: ThreeHelper.toXYZ(box.min), max: ThreeHelper.toXYZ(box.max) };
     }
 

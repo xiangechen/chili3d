@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     Config,
@@ -159,8 +160,8 @@ export class ObjectSnap extends BaseSnap {
     private showInvisibleSnaps(view: IView, shape: VisualShapeData) {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape.shape as IEdge).curve();
-            let basisCurve = curve.basisCurve();
+            let curve = (shape.shape as IEdge).curve;
+            let basisCurve = curve.basisCurve;
             if (ICurve.isCircle(basisCurve)) {
                 this.showCircleCenter(basisCurve, view, shape);
             }
@@ -168,8 +169,9 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private showCircleCenter(curve: ICircle, view: IView, shape: VisualShapeData) {
+        const center = shape.transform.ofPoint(curve.center);
         let temporary = VertexMeshData.from(
-            curve.center,
+            center,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
         );
@@ -179,7 +181,7 @@ export class ObjectSnap extends BaseSnap {
             snaps: [
                 {
                     view,
-                    point: curve.center,
+                    point: center,
                     info: I18n.translate("snap.center"),
                     shapes: [shape],
                 },
@@ -205,12 +207,13 @@ export class ObjectSnap extends BaseSnap {
             return result;
         }
 
-        let curve = (shape.shape as IEdge).curve();
-        let point = curve.project(this.referencePoint()).at(0);
+        let curve = (shape.shape as IEdge).curve;
+        const transform = shape.transform;
+        let point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
         if (point === undefined) return result;
         result.push({
             view,
-            point,
+            point: transform.ofPoint(point),
             info: I18n.translate("snap.perpendicular"),
             shapes: [shape],
         });
@@ -244,7 +247,11 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapResult[] {
-        let intersections = (s1.shape as IEdge).intersect(s2.shape as IEdge);
+        const e1 = s1.shape.transformedMul(s1.transform) as IEdge;
+        const e2 = s2.shape.transformedMul(s2.transform) as IEdge;
+        let intersections = e1.intersect(e2);
+        e1.dispose();
+        e2.dispose();
         return intersections.map((point) => {
             return {
                 view,

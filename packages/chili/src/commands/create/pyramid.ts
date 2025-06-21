@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { GeometryNode, Plane, XYZ, command } from "chili-core";
 import { PyramidNode } from "../../bodys";
@@ -7,8 +8,7 @@ import { IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
 @command({
-    name: "create.pyramid",
-    display: "command.pyramid",
+    key: "create.pyramid",
     icon: "icon-pyramid",
 })
 export class Pyramid extends RectCommandBase {

@@ -1,12 +1,22 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { Binding, IConverter, Material, PathBinding, Property, PubSub, Result, Texture } from "chili-core";
-import { button, collection, div, Localize, localize, span, svg } from "../../components";
-import { ColorConverter } from "../../converters";
+import { button, collection, ColorConverter, div, span, svg } from "chili-controls";
+import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
+import {
+    Binding,
+    IConverter,
+    Localize,
+    Material,
+    PathBinding,
+    Property,
+    PubSub,
+    Result,
+    Texture,
+} from "chili-core";
 import { findPropertyControl } from "../utils";
 import { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
-import { UrlStringConverter } from "./urlConverter";
 
 class ActiveStyleConverter implements IConverter<Material> {
     constructor(readonly material: Material) {}
@@ -40,7 +50,7 @@ export class MaterialEditor extends HTMLElement {
     private titleSection() {
         return div(
             { className: style.title },
-            span({ textContent: localize("common.material") }),
+            span({ textContent: new Localize("common.material") }),
             this.iconButton("icon-plus", () => this.dataContent.addMaterial()),
             this.iconButton("icon-clone", () => this.dataContent.copyMaterial()),
             this.iconButton("icon-trash", () => this.dataContent.deleteMaterial()),
@@ -83,14 +93,14 @@ export class MaterialEditor extends HTMLElement {
         return div(
             { className: style.bottom },
             button({
-                textContent: localize("common.confirm"),
+                textContent: new Localize("common.confirm"),
                 onclick: () => {
                     this.dataContent.callback(this.dataContent.editingMaterial);
                     this.remove();
                 },
             }),
             button({
-                textContent: localize("common.cancel"),
+                textContent: new Localize("common.cancel"),
                 onclick: () => this.remove(),
             }),
         );

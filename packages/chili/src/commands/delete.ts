@@ -1,25 +1,35 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
-import { command, IApplication, ICommand, PubSub } from "chili-core";
+import { command, INode, PubSub, Transaction } from "chili-core";
+import { GetOrSelectNodeStep, IStep } from "../step";
+import { MultistepCommand } from "./multistepCommand";
 
 @command({
-    name: "modify.delete",
-    display: "command.delete",
+    key: "modify.deleteNode",
     icon: "icon-delete",
 })
-export class Delete implements ICommand {
-    async execute(app: IApplication): Promise<void> {
-        const document = app.activeView?.document;
-        if (!document) return;
-
-        const nodes = document.selection.getSelectedNodes();
-        if (document.currentNode && nodes.includes(document.currentNode)) {
-            document.currentNode = document.rootNode;
+export class Delete extends MultistepCommand {
+    protected override executeMainTask(): void {
+        const nodes: INode[] | undefined = this.stepDatas[0].nodes;
+        if (!nodes || nodes.length === 0) {
+            PubSub.default.pub("showToast", "toast.select.noSelected");
+            return;
         }
 
-        document.selection.clearSelection();
-        nodes.forEach((model) => model.parent?.remove(model));
-        document.visual.update();
+        if (this.document.currentNode && nodes.includes(this.document.currentNode)) {
+            this.document.currentNode = this.document.rootNode;
+        }
+
+        this.document.selection.clearSelection();
+        Transaction.execute(this.document, "delete", () => {
+            nodes.forEach((model) => model.parent?.remove(model));
+        });
+        this.document.visual.update();
         PubSub.default.pub("showToast", "toast.delete{0}Objects", nodes.length);
+    }
+
+    protected override getSteps(): IStep[] {
+        return [new GetOrSelectNodeStep("prompt.select.models", { multiple: true })];
     }
 }

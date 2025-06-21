@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import {
     AsyncController,
@@ -76,14 +77,14 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         PubSub.default.pub("clearInput");
     }
 
-    pointerMove(view: IView, event: MouseEvent): void {
+    pointerMove(view: IView, event: PointerEvent): void {
         this._state = SnapState.Snapping;
         this.removeTempVisuals();
         this.updateSnapPoint(view, event);
         this.updateVisualFeedback(view);
     }
 
-    private updateSnapPoint(view: IView, event: MouseEvent) {
+    private updateSnapPoint(view: IView, event: PointerEvent) {
         this.setSnaped(view, event);
         if (this._snaped) {
             this.showSnapPrompt(this.formatPrompt(this._snaped));
@@ -109,14 +110,14 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         return [snaped.info, prompt].filter((x) => x !== undefined).join(" -> ");
     }
 
-    protected setSnaped(view: IView, event: MouseEvent) {
+    protected setSnaped(view: IView, event: PointerEvent) {
         if (this.trySnapToFeaturePoint(view, event)) return;
 
         this._snaped = this.findSnapPoint(ShapeType.Edge, view, event);
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
     }
 
-    private trySnapToFeaturePoint(view: IView, event: MouseEvent) {
+    private trySnapToFeaturePoint(view: IView, event: PointerEvent) {
         const featurePoint = this.findNearestFeaturePoint(view, event);
         if (!featurePoint) return false;
 
@@ -129,7 +130,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         return true;
     }
 
-    private findNearestFeaturePoint(view: IView, event: MouseEvent) {
+    private findNearestFeaturePoint(view: IView, event: PointerEvent) {
         let minDist = Number.MAX_VALUE;
         let nearest;
 
@@ -208,13 +209,21 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         this._tempShapes = undefined;
     }
 
-    pointerDown(view: IView, event: MouseEvent): void {
-        if (event.button === 0) {
-            this.handleSuccess();
+    pointerDown(view: IView, event: PointerEvent): void {
+        if (event.pointerType === "mouse" && event.button === 0) {
+            if (this._snaped) {
+                this.handleSuccess();
+            } else {
+                PubSub.default.pub("showToast", "toast.snap.notFoundValidPoint");
+            }
         }
     }
 
-    pointerUp(view: IView, event: MouseEvent): void {}
+    pointerUp(view: IView, event: PointerEvent): void {
+        if (event.pointerType !== "mouse" && event.isPrimary && this._snaped) {
+            this.handleSuccess();
+        }
+    }
 
     mouseWheel(view: IView, event: WheelEvent): void {
         view.update();

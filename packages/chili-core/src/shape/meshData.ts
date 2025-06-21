@@ -1,26 +1,29 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { VisualConfig } from "../config";
-import { XYZ } from "../math";
+import { Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
-import { IShape } from "./shape";
+import { ISubShape } from "./shape";
 
-@Serializer.register(["start", "count", "materialId"])
+@Serializer.register(["start", "count", "materialIndex"])
 export class MeshGroup {
     @Serializer.serialze()
     start: number;
     @Serializer.serialze()
     count: number;
     @Serializer.serialze()
-    materialId: string;
+    materialIndex: number;
 
-    constructor(start: number, count: number, materialId: string) {
+    constructor(start: number, count: number, materialIndex: number) {
         this.start = start;
         this.count = count;
-        this.materialId = materialId;
+        this.materialIndex = materialIndex;
     }
 }
+
+export type MeshType = "line" | "surface" | "linesegments";
 
 @Serializer.register([])
 export class Mesh {
@@ -32,8 +35,20 @@ export class Mesh {
         return mesh;
     }
 
+    static createLine() {
+        let mesh = new Mesh();
+        mesh.meshType = "line";
+        return mesh;
+    }
+
+    static createLineSegments() {
+        let mesh = new Mesh();
+        mesh.meshType = "linesegments";
+        return mesh;
+    }
+
     @Serializer.serialze()
-    meshType: "line" | "surface" | "linesegments" = "line";
+    meshType: MeshType = "line";
 
     @Serializer.serialze()
     position: number[] = [];
@@ -55,20 +70,20 @@ export class Mesh {
 }
 
 export interface IShapeMeshData {
-    get edges(): EdgeMeshData | undefined;
-    get faces(): FaceMeshData | undefined;
-    updateMeshShape(): void;
+    edges: EdgeMeshData | undefined;
+    faces: FaceMeshData | undefined;
 }
 
-export interface ShapeMeshGroup {
+export interface ShapeMeshRange {
     start: number;
     count: number;
-    shape: IShape;
+    shape: ISubShape;
+    transform?: Matrix4;
 }
 
 export interface ShapeMeshData {
-    positions: Float32Array;
-    groups: ShapeMeshGroup[];
+    position: Float32Array;
+    range: ShapeMeshRange[];
     color?: number | number[];
 }
 
@@ -82,7 +97,7 @@ export namespace ShapeMeshData {
     }
 
     export function isFace(data: ShapeMeshData): data is FaceMeshData {
-        return (data as FaceMeshData)?.indices !== undefined;
+        return (data as FaceMeshData)?.index !== undefined;
     }
 }
 
@@ -93,8 +108,8 @@ export interface VertexMeshData extends ShapeMeshData {
 export namespace VertexMeshData {
     export function from(point: XYZ, size: number, color: number): VertexMeshData {
         return {
-            positions: new Float32Array([point.x, point.y, point.z]),
-            groups: [],
+            position: new Float32Array([point.x, point.y, point.z]),
+            range: [],
             color,
             size,
         };
@@ -106,33 +121,85 @@ export interface EdgeMeshData extends ShapeMeshData {
     lineWidth?: number;
 }
 
+export function concatTypedArrays<T extends Float32Array | Uint32Array>(arrays: T[]): T {
+    const totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0);
+    const result = new (arrays[0].constructor as new (length: number) => T)(totalLength);
+    let offset = 0;
+    for (const arr of arrays) {
+        result.set(arr, offset);
+        offset += arr.length;
+    }
+    return result;
+}
+
 export namespace EdgeMeshData {
     export function from(start: XYZ, end: XYZ, color: number, lineType: LineType): EdgeMeshData {
         return {
-            positions: new Float32Array([start.x, start.y, start.z, end.x, end.y, end.z]),
+            position: new Float32Array([start.x, start.y, start.z, end.x, end.y, end.z]),
             color,
             lineType,
-            groups: [],
+            range: [],
+        };
+    }
+
+    export function merge(data: EdgeMeshData, other: EdgeMeshData): EdgeMeshData {
+        const otherRange = other.range.map((range) => {
+            return {
+                start: range.start + data.position.length / 3,
+                count: range.count,
+                shape: range.shape,
+                transform: range.transform,
+            };
+        });
+        return {
+            position: concatTypedArrays([data.position, other.position]),
+            range: data.range.concat(otherRange),
+            color: data.color,
+            lineType: data.lineType,
+            lineWidth: data.lineWidth,
         };
     }
 }
 
 export interface FaceMeshData extends ShapeMeshData {
-    indices: Uint16Array | Uint32Array;
-    normals: Float32Array;
-    uvs: Float32Array;
+    index: Uint32Array;
+    normal: Float32Array;
+    uv: Float32Array;
+    groups: MeshGroup[];
 }
 
-export function arrayNeedsUint32(array: number[]) {
-    for (let i = array.length - 1; i >= 0; --i) {
-        if (array[i] >= 65535) return true; // account for PRIMITIVE_RESTART_FIXED_INDEX, #24565
+export namespace FaceMeshData {
+    export function merge(data: FaceMeshData, other: FaceMeshData): FaceMeshData {
+        const otherRange = other.range.map((range) => {
+            return {
+                start: range.start + data.position.length / 3,
+                count: range.count,
+                shape: range.shape,
+                transform: range.transform,
+            };
+        });
+        const groups = other.groups.map((group) => {
+            return {
+                start: group.start + data.index.length,
+                count: group.count,
+                materialIndex: group.materialIndex,
+            };
+        });
+        return {
+            position: concatTypedArrays([data.position, other.position]),
+            range: data.range.concat(otherRange),
+            index: concatTypedArrays([data.index, other.index]),
+            normal: concatTypedArrays([data.normal, other.normal]),
+            uv: concatTypedArrays([data.uv, other.uv]),
+            color: data.color,
+            groups,
+        };
     }
-    return false;
 }
 
 export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     protected readonly _positions: number[] = [];
-    protected readonly _groups: ShapeMeshGroup[] = [];
+    protected readonly _groups: ShapeMeshRange[] = [];
     protected _color: number | undefined;
     protected _vertexColor: number[] | undefined;
 
@@ -141,7 +208,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
     }
 
     addColor(r: number, g: number, b: number) {
-        if (this._vertexColor === undefined) this._vertexColor = [];
+        this._vertexColor ??= [];
         this._vertexColor.push(r, g, b);
         return this;
     }
@@ -156,7 +223,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
 
     abstract newGroup(): this;
 
-    abstract endGroup(shape: IShape): this;
+    abstract endGroup(shape: ISubShape): this;
 
     abstract addPosition(x: number, y: number, z: number): this;
 
@@ -186,7 +253,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
         return this;
     }
 
-    override endGroup(shape: IShape) {
+    override endGroup(shape: ISubShape) {
         this._groups.push({
             start: this._positionStart / 3,
             count: (this._positions.length - this._positionStart) / 3,
@@ -206,8 +273,8 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     override build(): EdgeMeshData {
         let color = this.getColor()!;
         return {
-            positions: new Float32Array(this._positions),
-            groups: this._groups,
+            position: new Float32Array(this._positions),
+            range: this._groups,
             lineType: this._lineType,
             color,
         };
@@ -232,7 +299,7 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
         return this;
     }
 
-    override endGroup(shape: IShape) {
+    override endGroup(shape: ISubShape) {
         this._groups.push({
             start: this._groupStart,
             count: this._indices.length - this._groupStart,
@@ -262,16 +329,14 @@ export class FaceMeshDataBuilder extends MeshDataBuilder<FaceMeshData> {
     }
 
     build(): FaceMeshData {
-        let color = this.getColor()!;
         return {
-            positions: new Float32Array(this._positions),
-            color,
-            normals: new Float32Array(this._normals),
-            indices: arrayNeedsUint32(this._indices)
-                ? new Uint32Array(this._indices)
-                : new Uint16Array(this._indices),
-            uvs: new Float32Array(this._uvs),
-            groups: this._groups,
+            position: new Float32Array(this._positions),
+            color: this.getColor()!,
+            normal: new Float32Array(this._normals),
+            index: new Uint32Array(this._indices),
+            uv: new Float32Array(this._uvs),
+            range: this._groups,
+            groups: [],
         };
     }
 }

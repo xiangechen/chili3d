@@ -1,4 +1,5 @@
-// Copyright 2022-2023 the Chili authors. All rights reserved. AGPL-3.0 license.
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
 
 import { IDisposable, Result } from "../foundation";
 import { Matrix4, Plane, Ray, XYZ } from "../math";
@@ -18,6 +19,8 @@ export interface IShape extends IDisposable {
     readonly shapeType: ShapeType;
     get id(): string;
     get mesh(): IShapeMeshData;
+    transformed(matrix: Matrix4): IShape;
+    transformedMul(matrix: Matrix4): IShape;
     edgesMeshPosition(): EdgeMeshData;
     matrix: Matrix4;
     isClosed(): boolean;
@@ -41,8 +44,17 @@ export interface IShape extends IDisposable {
     section(shape: IShape | Plane): IShape;
     split(edges: (IEdge | IWire)[]): IShape;
     reserve(): void;
-    copy(): IShape;
+    clone(): IShape;
 }
+
+export interface ISubShape extends IShape {
+    index: number;
+    parent: IShape;
+}
+
+export interface ISubEdgeShape extends ISubShape, IEdge {}
+
+export interface ISubFaceShape extends ISubShape, IFace {}
 
 export interface IVertex extends IShape {}
 
@@ -50,7 +62,7 @@ export interface IEdge extends IShape {
     update(curve: ICurve): void;
     intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[];
     length(): number;
-    curve(): ITrimmedCurve;
+    get curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
     trim(start: number, end: number): IEdge;
 }
@@ -68,6 +80,7 @@ export interface IWire extends IShape {
 }
 
 export interface IFace extends IShape {
+    area(): number;
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
     outerWire(): IWire;
     surface(): ISurface;
@@ -81,7 +94,9 @@ export interface IFace extends IShape {
 
 export interface IShell extends IShape {}
 
-export interface ISolid extends IShape {}
+export interface ISolid extends IShape {
+    volume(): number;
+}
 
 export interface ICompound extends IShape {}
 
