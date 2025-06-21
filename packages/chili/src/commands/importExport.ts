@@ -68,8 +68,16 @@ export class Export extends CancelableCommand {
                 const data = await this.application.dataExchange.export(format, nodes);
                 if (!data) return;
 
+                let suffix = format;
+
+                if (suffix == ".stl binary") {
+                    suffix = ".stl";
+                } else if (suffix == ".ply binary") {
+                    suffix = ".ply";
+                }
+
                 PubSub.default.pub("showToast", "toast.downloading");
-                download(data, `${nodes[0].name}${format}`);
+                download(data, `${nodes[0].name}${suffix}`);
             },
             "toast.excuting{0}",
             I18n.translate("command.file.export"),

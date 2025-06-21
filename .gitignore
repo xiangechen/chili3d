@@ -4,4 +4,5 @@ dist
 coverage
 .VSCodeCounter
 .DS_Store
+.clang-format
 CMakeUserPresets.json

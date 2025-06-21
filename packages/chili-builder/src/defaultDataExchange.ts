@@ -20,7 +20,7 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     exportFormats(): string[] {
-        return [".step", ".iges", ".brep", ".stl"];
+        return [".step", ".iges", ".brep", ".stl", ".stl binary", ".obj", ".ply", ".ply binary"];
     }
 
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
@@ -116,6 +116,10 @@ export class DefaultDataExchange implements IDataExchange {
         if (type === ".step") return this.exportStep(doc, shapes);
         if (type === ".iges") return this.exportIges(doc, shapes);
         if (type === ".stl") return this.exportStl(doc, shapes);
+        if (type == ".stl binary") return this.exportStlBinary(doc, shapes);
+        if (type == ".obj") return this.exportObj(doc, shapes);
+        if (type == ".ply") return this.exportPly(doc, shapes);
+        if (type == ".ply binary") return this.exportPlyBinary(doc, shapes);
         return this.exportBrep(doc, shapes);
     }
 
@@ -125,6 +129,10 @@ export class DefaultDataExchange implements IDataExchange {
 
     private exportIges(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToIGES(...shapes);
+    }
+
+    private exportObj(doc: IDocument, shapes: IShape[]) {
+        return doc.application.shapeFactory.converter.convertToOBJ(...shapes);
     }
 
     async exportBrep(document: IDocument, shapes: IShape[]) {
@@ -145,6 +153,38 @@ export class DefaultDataExchange implements IDataExchange {
         }
 
         const result = document.application.shapeFactory.converter.convertToSTL(comp.value);
+        comp.value.dispose();
+        return result;
+    }
+
+    async exportStlBinary(document: IDocument, shapes: IShape[]) {
+        const comp = document.application.shapeFactory.combine(shapes);
+        if (!comp.isOk) {
+            return Result.err(comp.error);
+        }
+
+        const result = document.application.shapeFactory.converter.convertToSTLBinary(comp.value);
+        comp.value.dispose();
+        return result;
+    }
+
+    async exportPly(document: IDocument, shapes: IShape[]) {
+        const comp = document.application.shapeFactory.combine(shapes);
+        if (!comp.isOk) {
+            return Result.err(comp.error);
+        }
+
+        const result = document.application.shapeFactory.converter.convertToPLY(comp.value);
+        comp.value.dispose();
+        return result;
+    }
+    async exportPlyBinary(document: IDocument, shapes: IShape[]) {
+        const comp = document.application.shapeFactory.combine(shapes);
+        if (!comp.isOk) {
+            return Result.err(comp.error);
+        }
+
+        const result = document.application.shapeFactory.converter.convertToPLYBinary(comp.value);
         comp.value.dispose();
         return result;
     }
