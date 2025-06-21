@@ -577,19 +577,21 @@ interface EmbindModule {
     Converter: {
         convertToBrep(_0: TopoDS_Shape): string;
         convertFromBrep(_0: EmbindString): TopoDS_Shape;
+        convertToStl(_0: TopoDS_Shape): string;
         convertFromStep(_0: Uint8Array): ShapeNode | undefined;
         convertFromIges(_0: Uint8Array): ShapeNode | undefined;
+        convertFromStl(_0: Uint8Array): ShapeNode | undefined;
         convertToStep(_0: Array<TopoDS_Shape>): string;
         convertToIges(_0: Array<TopoDS_Shape>): string;
     };
     ShapeResult: {};
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
-        sweep(_0: TopoDS_Shape, _1: TopoDS_Wire): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
         fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
         chamfer(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
+        sweep(_0: Array<TopoDS_Shape>, _1: TopoDS_Wire, _2: boolean, _3: boolean): ShapeResult;
         makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number): ShapeResult;
         booleanCommon(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
         booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;

@@ -38,7 +38,7 @@ export namespace I18n {
         ["zh-CN", zh],
     ]);
 
-    let _currentLanguage: LanguageCode = "zh-CN";
+    let _currentLanguage: LanguageCode = navigator.language.toLowerCase() === "zh-cn" ? "zh-CN" : "en";
 
     export function currentLanguage() {
         return _currentLanguage;

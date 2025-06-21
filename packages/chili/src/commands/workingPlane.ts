@@ -123,7 +123,7 @@ export class FromSection extends MultistepCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Edge, "prompt.select.edges"),
-            new PointOnCurveStep("operate.pickFistPoint", this.handlePointData, true),
+            new PointOnCurveStep("prompt.pickFistPoint", this.handlePointData, true),
         ];
     }
 

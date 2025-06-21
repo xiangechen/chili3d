@@ -31,11 +31,15 @@ export class ThreeVisual implements IVisual {
 
     constructor(readonly document: IDocument) {
         this.scene = this.initScene();
-        this.defaultEventHandler = new NodeSelectionHandler(document, true);
+        this.defaultEventHandler = this.createDefaultSelectionHandler(document);
         this.viewHandler = new ThreeViewHandler();
         this.context = new ThreeVisualContext(this, this.scene);
         this.highlighter = new ThreeHighlighter(this.context);
         this._eventHandler = this.defaultEventHandler;
+    }
+
+    protected createDefaultSelectionHandler(document: IDocument) {
+        return new NodeSelectionHandler(document, true);
     }
 
     initScene() {

@@ -3,6 +3,8 @@
 
 import {
     AsyncController,
+    BoundingBox,
+    ComponentNode,
     EdgeMeshData,
     GeometryNode,
     LineType,
@@ -64,6 +66,8 @@ export abstract class TransformedCommand extends MultistepCommand {
                 return model.mesh.position ? model.transform.ofPoints(model.mesh.position) : [];
             } else if (model instanceof GeometryNode) {
                 return model.mesh.edges?.position ? model.transform.ofPoints(model.mesh.edges.position) : [];
+            } else if (model instanceof ComponentNode) {
+                return Array.from(BoundingBox.wireframe(model.boundingBox()!).position);
             }
             return [];
         });

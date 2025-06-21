@@ -51,6 +51,7 @@ export class FolderNode extends Node implements INodeLinkedList {
 
     private initNode(node: INode): boolean {
         node.parent = this;
+        node.parentVisible = this.visible && this.parentVisible;
         if (!this._firstChild) {
             this._firstChild = this._lastChild = node;
             node.previousSibling = node.nextSibling = undefined;
@@ -64,6 +65,16 @@ export class FolderNode extends Node implements INodeLinkedList {
         item.previousSibling = this._lastChild;
         item.nextSibling = undefined;
         this._lastChild = item;
+    }
+
+    children(): INode[] {
+        const result: INode[] = [];
+        let node = this._firstChild;
+        while (node) {
+            result.push(node);
+            node = node.nextSibling;
+        }
+        return result;
     }
 
     remove(...items: INode[]): void {
@@ -109,6 +120,7 @@ export class FolderNode extends Node implements INodeLinkedList {
     private removeNode(node: INode, nullifyParent: boolean) {
         if (nullifyParent) {
             node.parent = undefined;
+            node.parentVisible = true;
         }
 
         if (node === this._firstChild) {

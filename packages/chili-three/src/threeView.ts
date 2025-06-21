@@ -89,7 +89,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     get mode(): ViewMode {
-        return this.getPrivateValue("mode");
+        return this.getPrivateValue("mode", ViewMode.solidAndWireframe);
     }
     set mode(value: ViewMode) {
         this.setProperty("mode", value, () => {
@@ -199,26 +199,30 @@ export class ThreeView extends Observable implements IView {
             this.content.cssObjects.remove(cssObject);
             cssObject.element.remove();
         };
-        let cssObject = new CSS2DObject(
-            div(
-                { className: style.htmlText },
-                span({ textContent: text }),
-                options?.hideDelete === true
-                    ? ""
-                    : svg({
-                          className: style.delete,
-                          icon: "icon-times",
-                          onclick: (e) => {
-                              e.stopPropagation();
-                              dispose();
-                          },
-                      }),
-            ),
-        );
+        let cssObject = new CSS2DObject(this.htmlElement(text, dispose, options));
         cssObject.position.set(point.x, point.y, point.z);
         if (options?.center) cssObject.center.set(options.center.x, options.center.y);
         this.content.cssObjects.add(cssObject);
         return { dispose };
+    }
+
+    private htmlElement(text: string, dispose: () => void, options?: HtmlTextOptions): HTMLElement {
+        return div(
+            {
+                className: options?.hideDelete ? `${style.htmlText} ${style.noEvent}` : style.htmlText,
+            },
+            span({ textContent: text }),
+            options?.hideDelete === true
+                ? ""
+                : svg({
+                    className: style.delete,
+                    icon: "icon-times",
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        dispose();
+                    },
+                }),
+        );
     }
 
     toImage(): string {

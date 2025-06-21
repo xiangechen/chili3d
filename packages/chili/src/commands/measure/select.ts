@@ -159,7 +159,7 @@ export class SelectMeasure extends CancelableCommand {
         mesh.lineWidth = 3;
         mesh.color = VisualConfig.highlightEdgeColor;
 
-        const id = this.document.visual.context.displayMesh(mesh);
+        const id = this.document.visual.context.displayMesh([mesh]);
         this.#disposeSet.add(
             this.application.activeView!.htmlText(length.toFixed(2), start.add(end).multiply(0.5), {
                 hideDelete: true,
@@ -181,7 +181,7 @@ export class SelectMeasure extends CancelableCommand {
         const area = face.area();
         this.addSumItem(area);
         const center = this.wireCenter(mesh.position);
-        const id = this.document.visual.context.displayMesh(mesh);
+        const id = this.document.visual.context.displayMesh([mesh]);
         this.#disposeSet.add(
             this.application.activeView!.htmlText(area.toFixed(2), center, {
                 hideDelete: true,
@@ -215,7 +215,7 @@ export class SelectMeasure extends CancelableCommand {
 
         const volume = solid.volume();
         this.addSumItem(volume);
-        const id = this.document.visual.context.displayMesh(mesh);
+        const id = this.document.visual.context.displayMesh([mesh]);
         this.#disposeSet.add(
             this.application.activeView!.htmlText(volume.toFixed(2), transform.ofPoint(center), {
                 hideDelete: true,

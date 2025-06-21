@@ -13,8 +13,8 @@ import { CreateFaceableCommand } from "../createCommand";
 })
 export class Circle extends CreateFaceableCommand {
     getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
+        let centerStep = new PointStep("prompt.pickCircleCenter");
+        let radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
         return [centerStep, radiusStep];
     }
 

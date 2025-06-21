@@ -13,9 +13,9 @@ import { CreateCommand } from "../createCommand";
 })
 export class Cylinder extends CreateCommand {
     protected override getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
-        let third = new LengthAtAxisStep("operate.pickNextPoint", this.getHeightStepData);
+        let centerStep = new PointStep("prompt.pickCircleCenter");
+        let radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
+        let third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
         return [centerStep, radiusStep, third];
     }
 

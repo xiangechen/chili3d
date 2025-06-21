@@ -34,7 +34,7 @@ export interface IShapeFactory {
     wire(edges: IEdge[]): Result<IWire>;
     prism(shape: IShape, vec: XYZ): Result<IShape>;
     fuse(bottom: IShape, top: IShape): Result<IShape>;
-    sweep(profile: IShape, path: IWire): Result<IShape>;
+    sweep(profile: IShape[], path: IWire, isRoundCorner: boolean): Result<IShape>;
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape>;
     booleanCommon(shape1: IShape, shape2: IShape): Result<IShape>;
     booleanCut(shape1: IShape, shape2: IShape): Result<IShape>;

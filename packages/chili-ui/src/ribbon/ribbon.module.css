@@ -199,7 +199,7 @@
         padding: 5px 15px;
 
         &:hover {
-            font-weight: bold;
+            -webkit-text-stroke: 0.65px black;
             background-color: var(--hover-background-color);
         }
     }

@@ -13,8 +13,8 @@ import { TransformedCommand } from "./transformedCommand";
 export class Move extends TransformedCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("operate.pickFistPoint", undefined, true),
-            new PointStep("operate.pickNextPoint", this.getSecondPointData, true),
+            new PointStep("prompt.pickFistPoint", undefined, true),
+            new PointStep("prompt.pickNextPoint", this.getSecondPointData, true),
         ];
     }
 
@@ -34,6 +34,6 @@ export class Move extends TransformedCommand {
 
     protected override transfrom(point: XYZ): Matrix4 {
         const { x, y, z } = point.sub(this.stepDatas[0].point!);
-        return Matrix4.createTranslation(x, y, z);
+        return Matrix4.fromTranslation(x, y, z);
     }
 }

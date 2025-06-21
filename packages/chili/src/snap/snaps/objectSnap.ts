@@ -125,7 +125,7 @@ export class ObjectSnap extends BaseSnap {
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
         );
-        this._hintVertex = [view.document.visual.context, view.document.visual.context.displayMesh(data)];
+        this._hintVertex = [view.document.visual.context, view.document.visual.context.displayMesh([data])];
     }
 
     private snapeInvisible(view: IView, x: number, y: number): SnapResult | undefined {
@@ -175,7 +175,7 @@ export class ObjectSnap extends BaseSnap {
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
         );
-        let id = view.document.visual.context.displayMesh(temporary);
+        let id = view.document.visual.context.displayMesh([temporary]);
         this._invisibleInfos.set(shape, {
             view,
             snaps: [

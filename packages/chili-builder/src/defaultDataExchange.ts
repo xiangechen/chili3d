@@ -6,6 +6,7 @@ import {
     I18n,
     IDataExchange,
     IDocument,
+    INode,
     IShape,
     PubSub,
     Result,
@@ -13,29 +14,13 @@ import {
     VisualNode,
 } from "chili-core";
 
-async function importBrep(document: IDocument, file: File) {
-    const shape = document.application.shapeFactory.converter.convertFromBrep(await file.text());
-    if (!shape.isOk) {
-        return Result.err(shape.error);
-    }
-    return Result.ok(new EditableShapeNode(document, file.name, shape.value));
-}
-
-async function exportBrep(document: IDocument, shapes: IShape[]) {
-    const comp = document.application.shapeFactory.combine(shapes);
-    if (!comp.isOk) {
-        return Result.err(comp.error);
-    }
-    return document.application.shapeFactory.converter.convertToBrep(comp.value);
-}
-
 export class DefaultDataExchange implements IDataExchange {
     importFormats(): string[] {
-        return [".step", ".stp", ".iges", ".igs", ".brep"];
+        return [".step", ".stp", ".iges", ".igs", ".brep", ".stl"];
     }
 
     exportFormats(): string[] {
-        return [".step", ".iges", ".brep"];
+        return [".step", ".iges", ".brep", ".stl"];
     }
 
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
@@ -45,31 +30,59 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private async handleSingleFileImport(document: IDocument, file: File) {
-        const nodeResult = file.name.endsWith(".brep")
-            ? await importBrep(document, file)
-            : await this.handleStepIgesImport(document, file);
+        let importResult: Result<INode> | undefined;
 
-        if (!nodeResult?.isOk) return;
+        const fileName = file.name.toLocaleLowerCase();
+        if (this.extensionIs(fileName, ".brep")) {
+            importResult = await this.importBrep(document, file);
+        } else if (this.extensionIs(fileName, ".stl")) {
+            importResult = await this.importStl(document, file);
+        } else if (this.extensionIs(fileName, ".step", ".stp")) {
+            importResult = await this.importStep(document, file);
+        } else if (this.extensionIs(fileName, ".iges", ".igs")) {
+            importResult = await this.importIges(document, file);
+        }
+
+        this.handleImportResult(document, fileName, importResult);
+    }
+
+    private extensionIs(fileName: string, ...extensions: string[]): boolean {
+        return extensions.some((ext) => fileName.endsWith(ext));
+    }
+
+    private handleImportResult(document: IDocument, name: string, nodeResult: Result<INode> | undefined) {
+        if (!nodeResult?.isOk) {
+            alert(I18n.translate("error.import.unsupportedFileType:{0}", name));
+            return;
+        }
 
         const node = nodeResult.value;
-        node.name = file.name;
+        node.name = name;
         document.addNode(node);
         document.visual.update();
     }
 
-    private async handleStepIgesImport(document: IDocument, file: File) {
+    async importBrep(document: IDocument, file: File) {
+        const shape = document.application.shapeFactory.converter.convertFromBrep(await file.text());
+        if (!shape.isOk) {
+            return Result.err(shape.error);
+        }
+        return Result.ok(new EditableShapeNode(document, file.name, shape.value));
+    }
+
+    private async importStl(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
+        return document.application.shapeFactory.converter.convertFromSTL(document, content);
+    }
 
-        if (this.isStepFile(file.name)) {
-            return document.application.shapeFactory.converter.convertFromSTEP(document, content);
-        }
+    private async importIges(document: IDocument, file: File) {
+        const content = new Uint8Array(await file.arrayBuffer());
+        return document.application.shapeFactory.converter.convertFromIGES(document, content);
+    }
 
-        if (this.isIgesFile(file.name)) {
-            return document.application.shapeFactory.converter.convertFromIGES(document, content);
-        }
-
-        alert(I18n.translate("error.import.unsupportedFileType:{0}", file.name));
-        return undefined;
+    private async importStep(document: IDocument, file: File) {
+        const content = new Uint8Array(await file.arrayBuffer());
+        return document.application.shapeFactory.converter.convertFromSTEP(document, content);
     }
 
     async export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
@@ -100,17 +113,40 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private async convertShapes(type: string, doc: IDocument, shapes: IShape[]) {
-        if (type === ".step") return this.handleStepExport(doc, shapes);
-        if (type === ".iges") return this.handleIgesExport(doc, shapes);
-        return exportBrep(doc, shapes);
+        if (type === ".step") return this.exportStep(doc, shapes);
+        if (type === ".iges") return this.exportIges(doc, shapes);
+        if (type === ".stl") return this.exportStl(doc, shapes);
+        return this.exportBrep(doc, shapes);
     }
 
-    private handleStepExport(doc: IDocument, shapes: IShape[]) {
+    private exportStep(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToSTEP(...shapes);
     }
 
-    private handleIgesExport(doc: IDocument, shapes: IShape[]) {
+    private exportIges(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToIGES(...shapes);
+    }
+
+    async exportBrep(document: IDocument, shapes: IShape[]) {
+        const comp = document.application.shapeFactory.combine(shapes);
+        if (!comp.isOk) {
+            return Result.err(comp.error);
+        }
+
+        const result = document.application.shapeFactory.converter.convertToBrep(comp.value);
+        comp.value.dispose();
+        return result;
+    }
+
+    async exportStl(document: IDocument, shapes: IShape[]) {
+        const comp = document.application.shapeFactory.combine(shapes);
+        if (!comp.isOk) {
+            return Result.err(comp.error);
+        }
+
+        const result = document.application.shapeFactory.converter.convertToSTL(comp.value);
+        comp.value.dispose();
+        return result;
     }
 
     private handleExportResult(result: Result<string> | undefined) {
@@ -119,13 +155,5 @@ export class DefaultDataExchange implements IDataExchange {
             return undefined;
         }
         return [result.value];
-    }
-
-    private isStepFile(filename: string) {
-        return filename.endsWith(".step") || filename.endsWith(".stp");
-    }
-
-    private isIgesFile(filename: string) {
-        return filename.endsWith(".iges") || filename.endsWith(".igs");
     }
 }

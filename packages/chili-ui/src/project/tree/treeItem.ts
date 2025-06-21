@@ -30,6 +30,7 @@ export abstract class TreeItem extends HTMLElement {
             icon: this.getVisibleIcon(),
             onclick: this.onVisibleIconClick,
         });
+        this.setVisibleStyle(node.parentVisible);
     }
 
     connectedCallback(): void {
@@ -44,9 +45,17 @@ export abstract class TreeItem extends HTMLElement {
         if (property === "visible") {
             setSVGIcon(this.visibleIcon, this.getVisibleIcon());
         } else if (property === "parentVisible") {
-            this.visibleIcon.classList.toggle(style["parent-visible"], !model[property]);
+            this.setVisibleStyle(model[property]);
         }
     };
+
+    private setVisibleStyle(parentVisible?: boolean) {
+        if (parentVisible === true) {
+            this.visibleIcon.classList.remove(style["parent-hidden"]);
+        } else {
+            this.visibleIcon.classList.add(style["parent-hidden"]);
+        }
+    }
 
     addSelectedStyle(style: string) {
         this.getSelectedHandler().classList.add(style);

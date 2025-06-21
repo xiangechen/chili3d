@@ -207,7 +207,7 @@ export class ThreeVisualContext implements IVisualContext {
         ]);
         return this.visuals().filter((x) => {
             const node = (x as ThreeGeometry)?.geometryNode;
-            const shape = (node as ShapeNode)?.shape.unchecked();
+            const shape = (node as ShapeNode)?.shape?.unchecked();
             if (filter && shape && !filter.allow(shape)) {
                 return false;
             }
@@ -238,7 +238,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    displayMesh(...datas: ShapeMeshData[]): number {
+    displayMesh(datas: ShapeMeshData[], opacity?: number): number {
         let group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
@@ -246,7 +246,7 @@ export class ThreeVisualContext implements IVisualContext {
             } else if (ShapeMeshData.isEdge(data)) {
                 group.add(ThreeGeometryFactory.createEdgeGeometry(data));
             } else if (ShapeMeshData.isFace(data)) {
-                group.add(ThreeGeometryFactory.createFaceGeometry(data));
+                group.add(ThreeGeometryFactory.createFaceGeometry(data, opacity));
             }
         });
         this.tempShapes.add(group);

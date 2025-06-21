@@ -13,4 +13,6 @@ export interface IShapeConverter {
     convertFromSTEP(document: IDocument, step: Uint8Array): Result<FolderNode>;
     convertToBrep(shape: IShape): Result<string>;
     convertFromBrep(brep: string): Result<IShape>;
+    convertToSTL(shape: IShape): Result<string>;
+    convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode>;
 }

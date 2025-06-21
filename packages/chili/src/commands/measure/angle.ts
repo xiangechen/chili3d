@@ -14,9 +14,9 @@ const ARC_POSITION = 0.5;
 })
 export class AngleMeasure extends MultistepCommand {
     protected override getSteps(): IStep[] {
-        const firstStep = new PointStep("operate.pickFistPoint");
-        const secondStep = new PointStep("operate.pickNextPoint", this.getSecondPointData);
-        const thirdStep = new PointStep("operate.pickNextPoint", this.getThirdPointData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
+        const thirdStep = new PointStep("prompt.pickNextPoint", this.getThirdPointData);
         return [firstStep, secondStep, thirdStep];
     }
 
@@ -117,10 +117,10 @@ export class AngleMeasure extends MultistepCommand {
             .rotate(normal, rad * 0.5)!
             .multiply(this.lineLength(this.stepDatas[2].point) * ARC_POSITION)
             .add(this.stepDatas[0].point!);
-        const visualId = this.document.visual.context.displayMesh(
+        const visualId = this.document.visual.context.displayMesh([
             this.meshPoint(this.stepDatas[2].point!),
             ...this.arcPreview(this.stepDatas[2].point),
-        );
+       ]);
         this.application.activeView?.htmlText(((rad * 180) / Math.PI).toFixed(2) + "°", arcMid, {
             onDispose: () => {
                 this.document.visual.context.removeMesh(visualId);

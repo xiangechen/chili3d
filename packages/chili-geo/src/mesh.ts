@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { concatTypedArrays, EdgeMeshData, FaceMeshData, MathUtils, Matrix4 } from "chili-core";
+import { concatTypedArrays, EdgeMeshData, FaceMeshData, MathUtils, Matrix4, Mesh } from "chili-core";
 
 export class MeshUtils {
     static setFaceMeshData(
@@ -31,6 +31,34 @@ export class MeshUtils {
         data.position.set(matrix.ofPoints(other.position), offset.facePosition * 3);
         data.normal.set(matrix.ofVectors(other.normal), offset.facePosition * 3);
         data.uv.set(other.uv, offset.facePosition * 2);
+    }
+
+    static setSurfaceMeshData(
+        data: Mesh, 
+        other: Mesh, 
+        matrix: Matrix4,
+        offset: { meshPosition: number; meshIndex: number },
+        materialMap: Map<number, number>,
+    ) {
+        other.groups.forEach((g) => {
+            data.groups.push({
+                start: g.start + offset.meshIndex,
+                count: g.count,
+                materialIndex: materialMap.get(g.materialIndex)!,
+            })
+        })
+        if (data.index && other.index) {
+            data.index.set(other.index.map((x) => x + offset.meshPosition), offset.meshIndex);
+        }
+        if (data.position && other.position) {
+            data.position.set(matrix.ofPoints(other.position), offset.meshPosition * 3);
+        }
+        if (data.normal && other.normal) {
+            data.normal.set(matrix.ofVectors(other.normal), offset.meshPosition * 3);
+        }
+        if (data.uv && other.uv) {
+            data.uv.set(other.uv, offset.meshPosition * 2);
+        }
     }
 
     static combineFaceMeshData(data: FaceMeshData, other: FaceMeshData | undefined, matrix: Matrix4) {

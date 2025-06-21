@@ -65,12 +65,16 @@ export class OccShapeConverter implements IShapeConverter {
     ) => {
         const materialMap: Map<string, string> = new Map();
         const getMaterialId = (document: IDocument, color: string) => {
-            if (!materialMap.has(color)) {
-                const material = new Material(document, color, color);
+            // Provide default color for undefined, null, or empty color values
+            const materialColor = color || "#808080"; // Default gray color
+            const materialKey = materialColor;
+
+            if (!materialMap.has(materialKey)) {
+                const material = new Material(document, materialKey, materialColor);
                 document.materials.push(material);
-                materialMap.set(color, material.id);
+                materialMap.set(materialKey, material.id);
             }
-            return materialMap.get(color)!;
+            return materialMap.get(materialKey)!;
         };
 
         return gc((c) => {
@@ -112,5 +116,16 @@ export class OccShapeConverter implements IShapeConverter {
             return Result.err("can not convert");
         }
         return Result.ok(OcctHelper.wrapShape(shape));
+    }
+
+    convertToSTL(shape: IShape): Result<string> {
+        if (shape instanceof OccShape) {
+            return Result.ok(wasm.Converter.convertToStl(shape.shape));
+        }
+        return Result.err("Shape is not an OccShape");
+    }
+
+    convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {
+        return this.converterFromData(document, stl, wasm.Converter.convertFromStl);
     }
 }

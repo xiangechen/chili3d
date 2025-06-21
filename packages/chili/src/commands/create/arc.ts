@@ -16,10 +16,10 @@ export class Arc extends CreateCommand {
 
     getSteps(): IStep[] {
         return [
-            new PointStep("operate.pickCircleCenter"),
-            new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData),
+            new PointStep("prompt.pickCircleCenter"),
+            new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData),
             new AngleStep(
-                "operate.pickNextPoint",
+                "prompt.pickNextPoint",
                 () => this.stepDatas[0].point!,
                 () => this.stepDatas[1].point!,
                 this.getAngleData,

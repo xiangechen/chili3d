@@ -6,6 +6,7 @@ import {
     EditableShapeNode,
     GroupNode,
     IShape,
+    MultiShapeNode,
     ShapeNode,
     ShapeType,
     Transaction,
@@ -33,6 +34,8 @@ export class Explode extends MultistepCommand {
                     this.explodeShapeNode(x);
                 } else if (x instanceof ComponentNode) {
                     this.explodeComponentNode(x);
+                } else if (x instanceof MultiShapeNode) {
+                    this.explodeMultiShapeNode(x);
                 }
             });
         });
@@ -74,5 +77,15 @@ export class Explode extends MultistepCommand {
         }
 
         x.parent?.remove(x);
+    }
+
+    private explodeMultiShapeNode(x: MultiShapeNode) {
+        for (const shape of x.shapes) {
+            const node = new EditableShapeNode(this.document, x.name, shape.transformed(x.transform));
+            x.parent?.insertAfter(x.previousSibling, node);
+        }
+
+        x.parent?.remove(x);
+        x.shapes.forEach((x) => x.dispose());
     }
 }

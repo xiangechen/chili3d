@@ -31,63 +31,61 @@ export class Quaternion {
             w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
         );
     }
-    conjugate(): Quaternion {
-        return new Quaternion(this.w, -this.x, -this.y, -this.z);
-    }
-    magnitude(): number {
-        return Math.sqrt(this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z);
-    }
-    normalize(): Quaternion {
-        const magnitude = this.magnitude();
-        if (magnitude === 0) {
-            return new Quaternion();
-        }
-        const invMagnitude = 1 / magnitude;
-        return new Quaternion(
-            this.w * invMagnitude,
-            this.x * invMagnitude,
-            this.y * invMagnitude,
-            this.z * invMagnitude,
-        );
-    }
     toEuler(): { x: number; y: number; z: number } {
-        const sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
-        const cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
-        const roll = Math.atan2(sinr_cosp, cosr_cosp);
-        const sinp = 2 * (this.w * this.y - this.z * this.x);
-        const pitch = Math.abs(sinp) >= 1 ? (Math.PI / 2) * Math.sign(sinp) : Math.asin(sinp);
-        const siny_cosp = 2 * (this.w * this.z + this.x * this.y);
-        const cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
-        const yaw = Math.atan2(siny_cosp, cosy_cosp);
-        return {
-            x: roll,
-            y: pitch,
-            z: yaw,
-        };
+        let sig = 0.499;
+        let [qw, qx, qy, qz] = [this.w, this.x, this.y, this.z];
+        let [sqw, sqx, sqy, sqz] = [qw * qw, qx * qx, qy * qy, qz * qz];
+        let unit = sqx + sqz + sqy + sqw;
+        let test = qx * qz + qy * qw;
+        if (test > sig * unit) {
+            return {
+                x: 0,
+                y: Math.PI / 4,
+                z: Math.atan2(qx, qw) * 2,
+            };
+        } else if (test < -sig * unit) {
+            return {
+                x: 0,
+                y: -Math.PI / 4,
+                z: Math.atan2(qx, qw) * 2,
+            };
+        } else {
+            return {
+                x: Math.atan2(2 * (-qy * qz + qx * qw), 1 - 2 * (sqx + sqy)),
+                y: Math.asin(2 * (qx * qz + qy * qw)),
+                z: Math.atan2(2 * (-qx * qy + qz * qw), 1 - 2 * (sqy + sqz)),
+            };
+        }
     }
     toMatrix4(): Matrix4 {
-        const xx = this.x * this.x;
-        const yy = this.y * this.y;
-        const zz = this.z * this.z;
-        const xy = this.x * this.y;
-        const xz = this.x * this.z;
-        const yz = this.y * this.z;
-        const xw = this.x * this.w;
-        const yw = this.y * this.w;
-        const zw = this.z * this.w;
+        const x2 = this.x * this.x;
+        const y2 = this.y * this.y;
+        const z2 = this.z * this.z;
+
+        const xx2 = x2 * this.x;
+        const xy2 = x2 * this.y;
+        const xz2 = x2 * this.z;
+
+        const yy2 = y2 * this.y;
+        const yz2 = y2 * this.z;
+        const zz2 = z2 * this.z;
+
+        const sy2 = y2 * this.w;
+        const sz2 = z2 * this.w;
+        const sx2 = x2 * this.w;
 
         return Matrix4.fromArray([
-            1 - 2 * (yy + zz),
-            2 * (xy - zw),
-            2 * (xz + yw),
+            1 - yy2 - zz2,
+            xy2 + sz2,
+            xz2 - sy2,
             0,
-            2 * (xy + zw),
-            1 - 2 * (xx + zz),
-            2 * (yz - xw),
+            xy2 - sz2,
+            1 - xx2 - zz2,
+            yz2 + sx2,
             0,
-            2 * (xz - yw),
-            2 * (yz + xw),
-            1 - 2 * (xx + yy),
+            xz2 + sy2,
+            yz2 - sx2,
+            1 - xx2 - yy2,
             0,
             0,
             0,
@@ -108,10 +106,10 @@ export class Quaternion {
         const sy = Math.sin(halfYaw);
 
         return new Quaternion(
-            cr * cp * cy + sr * sp * sy,
-            sr * cp * cy - cr * sp * sy,
-            cr * sp * cy + sr * cp * sy,
-            cr * cp * sy - sr * sp * cy,
+            -sr * sp * sy + cr * cp * cy,
+            sr * cp * cy + cr * sp * sy,
+            -sr * cp * sy + cr * sp * cy,
+            cr * cp * sy + sr * sp * cy,
         );
     }
 }

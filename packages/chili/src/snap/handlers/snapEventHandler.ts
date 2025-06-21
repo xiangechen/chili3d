@@ -189,12 +189,12 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,
             );
-            this._tempPoint = this.document.visual.context.displayMesh(data);
+            this._tempPoint = this.document.visual.context.displayMesh([data]);
         }
 
         this._tempShapes = this.data
             .preview?.(point)
-            ?.map((shape) => this.document.visual.context.displayMesh(shape));
+            ?.map((shape) => this.document.visual.context.displayMesh([shape]));
     }
 
     private removeTempShapes() {
@@ -245,7 +245,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private handleNumericInput(view: IView, event: KeyboardEvent) {
-        if (!["-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
+        if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
 
         this._state = SnapState.InputMode;
         PubSub.default.pub("showInput", event.key, (text: string) => {

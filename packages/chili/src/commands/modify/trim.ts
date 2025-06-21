@@ -154,8 +154,8 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
             .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
             .map((x) => {
                 const node = (x as IVisualGeometry)?.geometryNode;
-                const shape = (node as ShapeNode)?.shape.value;
-                if (shape.id === currentId) return undefined;
+                const shape = (node as ShapeNode)?.shape?.value;
+                if (!shape || shape?.id === currentId) return undefined;
                 const edge = shape.transformedMul(node.worldTransform()) as IEdge;
                 this.releaseStack.add(edge);
                 return edge;

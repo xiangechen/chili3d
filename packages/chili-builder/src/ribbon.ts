@@ -34,7 +34,7 @@ export const DefaultRibbon: RibbonTab[] = [
             {
                 groupName: "ribbon.group.converter",
                 items: [
-                    "convert.prism",
+                    "create.extrude",
                     "convert.sweep",
                     "convert.revol",
                     "convert.toWire",
@@ -43,7 +43,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.boolean",
-                items: [["boolean.common", "boolean.cut", "boolean.fuse"]],
+                items: [["boolean.common", "boolean.cut", "boolean.join"]],
             },
             {
                 groupName: "ribbon.group.workingPlane",

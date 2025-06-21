@@ -10,7 +10,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    key: "convert.prism",
+    key: "create.extrude",
     icon: "icon-prism",
 })
 export class Prism extends CreateCommand {
@@ -24,7 +24,7 @@ export class Prism extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Face | ShapeType.Edge | ShapeType.Wire, "prompt.select.shape"),
-            new LengthAtAxisStep("operate.pickNextPoint", this.getLengthStepData, true),
+            new LengthAtAxisStep("prompt.pickNextPoint", this.getLengthStepData, true),
         ];
     }
 

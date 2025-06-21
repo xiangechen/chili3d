@@ -94,122 +94,6 @@ export class Matrix4 {
         ]);
     }
 
-    position(x: number, y: number, z: number): Matrix4 {
-        let transform = this.clone();
-        transform._array[12] = x;
-        transform._array[13] = y;
-        transform._array[14] = z;
-        return transform;
-    }
-
-    getPosition(): XYZ {
-        return new XYZ(this._array[12], this._array[13], this._array[14]);
-    }
-
-    scale(x: number, y: number, z: number) {
-        let matrix = this.clone();
-        matrix._array[0] = x;
-        matrix._array[5] = y;
-        matrix._array[10] = z;
-        return matrix;
-    }
-
-    getScale(): XYZ {
-        let m11 = this._array[0];
-        let m12 = this._array[1];
-        let m13 = this._array[2];
-        let m21 = this._array[4];
-        let m22 = this._array[5];
-        let m23 = this._array[6];
-        let m31 = this._array[8];
-        let m32 = this._array[9];
-        let m33 = this._array[10];
-
-        let sx = Math.sqrt(m11 * m11 + m12 * m12 + m13 * m13);
-        const det = this.determinant();
-        if (det < 0) {
-            sx = -sx;
-        }
-
-        return new XYZ(
-            sx,
-            Math.sqrt(m21 * m21 + m22 * m22 + m23 * m23),
-            Math.sqrt(m31 * m31 + m32 * m32 + m33 * m33),
-        );
-    }
-
-    eulerAngles(pitch: number, yaw: number, roll: number) {
-        let matrix = this.clone();
-        const sp = Math.sin(pitch);
-        const cp = Math.cos(pitch);
-        const sy = Math.sin(yaw);
-        const cy = Math.cos(yaw);
-        const sr = Math.sin(roll);
-        const cr = Math.cos(roll);
-        matrix._array[0] = cy * cr + sy * sp * sr;
-        matrix._array[1] = cp * sr;
-        matrix._array[2] = -sy * cr + cy * sp * sr;
-        matrix._array[4] = cy * sr - sy * sp * cr;
-        matrix._array[5] = cp * cr;
-        matrix._array[6] = sy * sr + cy * sp * cr;
-        matrix._array[8] = sy * cp;
-        matrix._array[9] = -sp;
-        matrix._array[10] = cy * cp;
-        return matrix;
-    }
-
-    getEulerAngles(): { pitch: number; yaw: number; roll: number } {
-        const pitch = -Math.asin(this._array[9]);
-        let yaw = 0.0,
-            roll = 0.0;
-        if (this._array[9] < 1.0) {
-            if (this._array[9] > -1.0) {
-                yaw = Math.atan2(this._array[8], this._array[10]);
-                roll = Math.atan2(this._array[1], this._array[5]);
-            } else {
-                yaw = -Math.atan2(-this._array[2], this._array[0]);
-            }
-        } else {
-            yaw = Math.atan2(-this._array[2], this._array[0]);
-        }
-        return { pitch, yaw, roll };
-    }
-
-    getRotation() {
-        const [m11, m12, m13] = [this._array[0], this._array[4], this._array[8]];
-        const [m21, m22, m23] = [this._array[1], this._array[5], this._array[9]];
-        const [m31, m32, m33] = [this._array[2], this._array[6], this._array[10]];
-        const trace = m11 + m22 + m33;
-        let s, x, y, z, w;
-        if (trace > 0) {
-            s = 0.5 / Math.sqrt(trace + 1.0);
-            w = 0.25 / s;
-            x = (m32 - m23) * s;
-            y = (m13 - m31) * s;
-            z = (m21 - m12) * s;
-        } else if (m11 > m22 && m11 > m33) {
-            s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33);
-            w = (m32 - m23) / s;
-            x = 0.25 * s;
-            y = (m12 + m21) / s;
-            z = (m13 + m31) / s;
-        } else if (m22 > m33) {
-            s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33);
-            w = (m13 - m31) / s;
-            x = (m12 + m21) / s;
-            y = 0.25 * s;
-            z = (m23 + m32) / s;
-        } else {
-            s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
-            w = (m21 - m12) / s;
-            x = (m13 + m31) / s;
-            y = (m23 + m32) / s;
-            z = 0.25 * s;
-        }
-
-        return new Quaternion(x, y, z, w);
-    }
-
     public multiply(other: Matrix4): Matrix4 {
         const array = new Array(16).fill(0);
         for (let i = 0; i < 4; i++) {
@@ -251,47 +135,35 @@ export class Matrix4 {
         return Matrix4.fromArray(new Array(16).fill(0));
     }
 
-    static compose(translation: XYZ, rotation: Quaternion, scale: XYZ): Matrix4 {
-        let matrix = new Matrix4();
-        const { x, y, z, w } = rotation;
-        const x2 = x + x,
-            y2 = y + y,
-            z2 = z + z;
-        const xx = x * x2,
-            xy = x * y2,
-            xz = x * z2;
-        const yy = y * y2,
-            yz = y * z2,
-            zz = z * z2;
-        const wx = w * x2,
-            wy = w * y2,
-            wz = w * z2;
-        const sx = scale.x,
-            sy = scale.y,
-            sz = scale.z;
-
-        matrix._array[0] = (1 - (yy + zz)) * sx;
-        matrix._array[1] = (xy + wz) * sx;
-        matrix._array[2] = (xz - wy) * sx;
-
-        matrix._array[4] = (xy - wz) * sy;
-        matrix._array[5] = (1 - (xx + zz)) * sy;
-        matrix._array[6] = (yz + wx) * sy;
-
-        matrix._array[8] = (xz + wy) * sz;
-        matrix._array[9] = (yz - wx) * sz;
-        matrix._array[10] = (1 - (xx + yy)) * sz;
-
-        matrix._array[12] = translation.x;
-        matrix._array[13] = translation.y;
-        matrix._array[14] = translation.z;
-        matrix._array[15] = 1;
-
-        return matrix;
+    public static fromEuler(x: number, y: number, z: number): Matrix4 {
+        let cx = Math.cos(x);
+        let sx = Math.sin(x);
+        let cy = Math.cos(y);
+        let sy = Math.sin(y);
+        let cz = Math.cos(z);
+        let sz = Math.sin(z);
+        return Matrix4.fromArray([
+            cy * cz,
+            cx * sz + sx * sy * cz,
+            sx * sz - cx * sy * cz,
+            0,
+            -cy * sz,
+            cx * cz - sx * sy * sz,
+            sx * cz + cx * sy * sz,
+            0,
+            sy,
+            -sx * cy,
+            cx * cy,
+            0,
+            0,
+            0,
+            0,
+            1,
+        ]);
     }
 
-    public static createRotationAt(center: XYZLike, normal: XYZ, radians: number): Matrix4 {
-        let unit = normal.normalize();
+    public static fromAxisRad(position: XYZLike, normal: XYZLike, radians: number): Matrix4 {
+        let unit = new XYZ(normal.x, normal.y, normal.z).normalize();
         if (unit === undefined) throw new TypeError("invalid vector");
 
         let { x, y, z } = unit;
@@ -318,18 +190,18 @@ export class Matrix4 {
             1,
         ];
 
-        array[12] = center.x - center.x * array[0] - center.y * array[4] - center.z * array[8];
-        array[13] = center.y - center.x * array[1] - center.y * array[5] - center.z * array[9];
-        array[14] = center.z - center.x * array[2] - center.y * array[6] - center.z * array[10];
+        array[12] = position.x - position.x * array[0] - position.y * array[4] - position.z * array[8];
+        array[13] = position.y - position.x * array[1] - position.y * array[5] - position.z * array[9];
+        array[14] = position.z - position.x * array[2] - position.y * array[6] - position.z * array[10];
 
         return Matrix4.fromArray(array);
     }
 
-    public static createScale(x: number, y: number, z: number): Matrix4 {
-        return Matrix4.fromArray([x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0]);
+    public static fromScale(x: number, y: number, z: number): Matrix4 {
+        return Matrix4.fromArray([x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1]);
     }
 
-    public static createTranslation(x: number, y: number, z: number): Matrix4 {
+    public static fromTranslation(x: number, y: number, z: number): Matrix4 {
         return Matrix4.fromArray([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0]);
     }
 
@@ -442,5 +314,92 @@ export class Matrix4 {
             result.push(x, y, z);
         }
         return result;
+    }
+
+    public translationPart(): XYZ {
+        return new XYZ(this._array[12], this._array[13], this._array[14]);
+    }
+
+    public getScale(): XYZ {
+        const x = Math.hypot(this._array[0], this._array[1], this._array[2]);
+        const y = Math.hypot(this._array[4], this._array[5], this._array[6]);
+        const z = Math.hypot(this._array[8], this._array[9], this._array[10]);
+        return new XYZ(x, y, z);
+    }
+
+    public getEulerAngles(): { pitch: number; yaw: number; roll: number } {
+        const m = this._array;
+        const m11 = m[0],
+            m12 = m[4],
+            m13 = m[8];
+        const m22 = m[5],
+            m23 = m[9];
+        const m32 = m[6],
+            m33 = m[10];
+
+        let pitch = 0;
+        let yaw = Math.asin(MathUtils.clamp(m13, -1, 1));
+        let roll = 0;
+
+        if (Math.abs(m13) < 0.9999999) {
+            pitch = Math.atan2(-m23, m33);
+            roll = Math.atan2(-m12, m11);
+        } else {
+            pitch = Math.atan2(m32, m22);
+        }
+
+        return { pitch, yaw, roll };
+    }
+
+    public static createFromTRS(
+        position: XYZLike,
+        rotation: { pitch: number; yaw: number; roll: number },
+        scale: XYZLike,
+    ): Matrix4 {
+        const quaternion = Quaternion.fromEuler(rotation.pitch, rotation.yaw, rotation.roll);
+        const te = new Array(16).fill(0);
+
+        const x = quaternion.x,
+            y = quaternion.y,
+            z = quaternion.z,
+            w = quaternion.w;
+        const x2 = x + x,
+            y2 = y + y,
+            z2 = z + z;
+        const xx = x * x2,
+            xy = x * y2,
+            xz = x * z2;
+        const yy = y * y2,
+            yz = y * z2,
+            zz = z * z2;
+        const wx = w * x2,
+            wy = w * y2,
+            wz = w * z2;
+
+        const sx = scale.x,
+            sy = scale.y,
+            sz = scale.z;
+
+        te[0] = (1 - (yy + zz)) * sx;
+        te[1] = (xy + wz) * sx;
+        te[2] = (xz - wy) * sx;
+        te[3] = 0;
+
+        te[4] = (xy - wz) * sy;
+        te[5] = (1 - (xx + zz)) * sy;
+        te[6] = (yz + wx) * sy;
+        te[7] = 0;
+
+        te[8] = (xz + wy) * sz;
+        te[9] = (yz - wx) * sz;
+        te[10] = (1 - (xx + yy)) * sz;
+        te[11] = 0;
+
+        te[12] = position.x;
+        te[13] = position.y;
+        te[14] = position.z;
+        te[15] = 1;
+
+        return Matrix4.fromArray(te);
     }
 }

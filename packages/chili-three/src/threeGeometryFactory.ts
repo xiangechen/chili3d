@@ -31,9 +31,13 @@ export class ThreeGeometryFactory {
         return new Points(buff, material);
     }
 
-    static createFaceGeometry(data: FaceMeshData) {
+    static createFaceGeometry(data: FaceMeshData, opacity?: number) {
         let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
         let material = new MeshLambertMaterial({ side: DoubleSide });
+        if (opacity !== undefined) {
+            material.transparent = true;
+            material.opacity = opacity;
+        }
         this.setColor(buff, data, material);
 
         return new Mesh(buff, material);
@@ -57,7 +61,7 @@ export class ThreeGeometryFactory {
         buff.setAttribute("position", new BufferAttribute(data.position, 3));
         buff.setAttribute("normal", new BufferAttribute(data.normal, 3));
         buff.setAttribute("uv", new BufferAttribute(data.uv, 2));
-        buff.setIndex(new BufferAttribute(data.index, 1));
+        if (data.index && data.index.length > 0) buff.setIndex(new BufferAttribute(data.index, 1));
         buff.computeBoundingBox();
         return buff;
     }

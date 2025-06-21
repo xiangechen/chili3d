@@ -13,8 +13,8 @@ import { CreateCommand } from "../createCommand";
 })
 export class Sphere extends CreateCommand {
     protected override getSteps(): IStep[] {
-        let centerStep = new PointStep("operate.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("operate.pickRadius", this.getRadiusData);
+        let centerStep = new PointStep("prompt.pickCircleCenter");
+        let radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
         return [centerStep, radiusStep];
     }
 

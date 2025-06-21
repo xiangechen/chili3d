@@ -5,7 +5,6 @@ import {
     div,
     input,
     NumberConverter,
-    QuaternionConverter,
     span,
     StringConverter,
     XYConverter,
@@ -19,7 +18,6 @@ import {
     Localize,
     Property,
     PubSub,
-    Quaternion,
     Result,
     Transaction,
     XY,
@@ -132,7 +130,6 @@ export class InputProperty extends PropertyBase {
         const converters: { [key: string]: () => IConverter } = {
             [XYZ.name]: () => new XYZConverter(),
             [XY.name]: () => new XYConverter(),
-            [Quaternion.name]: () => new QuaternionConverter(),
             [String.name]: () => new StringConverter(),
             [Number.name]: () => new NumberConverter(),
         };

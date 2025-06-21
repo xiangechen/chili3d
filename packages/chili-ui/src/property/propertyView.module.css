@@ -22,10 +22,10 @@
     background-color: var(--panel-background-color);
 }
 
-.rootProperties {
+.properties {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
 }
 
 .name {

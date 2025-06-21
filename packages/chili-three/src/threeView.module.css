@@ -11,6 +11,7 @@
 
     span {
         padding: 5px;
+        pointer-events: none;
     }
 
     &:hover {
@@ -31,4 +32,8 @@
             background-color: red;
         }
     }
+}
+
+.noEvent {
+    pointer-events: none;
 }

@@ -14,7 +14,7 @@ import { RectCommandBase } from "./rect";
 export class Box extends RectCommandBase {
     protected override getSteps(): IStep[] {
         let steps = super.getSteps();
-        let third = new LengthAtAxisStep("operate.pickNextPoint", this.getHeightStepData);
+        let third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
         return [...steps, third];
     }
 
