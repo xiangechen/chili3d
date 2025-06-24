@@ -13,10 +13,5 @@ export interface IShapeConverter {
     convertFromSTEP(document: IDocument, step: Uint8Array): Result<FolderNode>;
     convertToBrep(shape: IShape): Result<string>;
     convertFromBrep(brep: string): Result<IShape>;
-    convertToSTL(shape: IShape): Result<string>;
-    convertToSTLBinary(shape: IShape): Result<Uint8Array>;
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode>;
-    convertToOBJ(...shapes: IShape[]): Result<string>;
-    convertToPLY(shape: IShape): Result<string>;
-    convertToPLYBinary(shape: IShape): Result<Uint8Array>;
 }

@@ -99,16 +99,6 @@ export class OccShapeConverter implements IShapeConverter {
         return Result.ok(wasm.Converter.convertToStep(occShapes));
     }
 
-    convertToOBJ(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
-            if (shape instanceof OccShape) {
-                return shape.shape;
-            }
-            throw new Error("Shape is not an OccShape");
-        });
-        return Result.ok(wasm.Converter.convertToObj(occShapes));
-    }
-
     convertFromSTEP(document: IDocument, step: Uint8Array): Result<FolderNode> {
         return this.converterFromData(document, step, wasm.Converter.convertFromStep);
     }
@@ -128,37 +118,7 @@ export class OccShapeConverter implements IShapeConverter {
         return Result.ok(OcctHelper.wrapShape(shape));
     }
 
-    convertToSTL(shape: IShape): Result<string> {
-        if (shape instanceof OccShape) {
-            return Result.ok(wasm.Converter.convertToStl(shape.shape));
-        }
-        return Result.err("Shape is not an OccShape");
-    }
-
-    convertToSTLBinary(shape: IShape): Result<Uint8Array> {
-        if (shape instanceof OccShape) {
-            const binData: Uint8Array = new Uint8Array(wasm.Converter.convertToStlBinary(shape.shape));
-            return Result.ok(binData);
-        }
-        return Result.err("Shape is not an OccShape");
-    }
-
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {
         return this.converterFromData(document, stl, wasm.Converter.convertFromStl);
-    }
-
-    convertToPLY(shape: IShape): Result<string> {
-        if (shape instanceof OccShape) {
-            return Result.ok(wasm.Converter.convertToPly(shape.shape));
-        }
-        return Result.err("Shape is not an OccShape");
-    }
-
-    convertToPLYBinary(shape: IShape): Result<Uint8Array> {
-        if (shape instanceof OccShape) {
-            const binData: Uint8Array = new Uint8Array(wasm.Converter.convertToPlyBinary(shape.shape));
-            return Result.ok(binData);
-        }
-        return Result.err("Shape is not an OccShape");
     }
 }
