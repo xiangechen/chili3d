@@ -22,18 +22,17 @@ export class Sweep extends CreateCommand {
     }
 
     protected override geometryNode(): GeometryNode {
-        const shape = this.transformdShapes(this.stepDatas[0], false) as IWire[];
-        const path = this.transformdFirstShape(this.stepDatas[1], false) as IWire;
-        return new SweepedNode(this.document, shape, path, this.round);
+        const path = this.transformdFirstShape(this.stepDatas[0], false) as IWire;
+        const shapes = this.transformdShapes(this.stepDatas[1], false) as IWire[];
+        return new SweepedNode(this.document, shapes, path, this.round);
     }
 
     protected override getSteps(): IStep[] {
         return [
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.path"),
             new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.section", {
-                multiple: true,
-            }),
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.path", {
                 keepSelection: true,
+                multiple: true,
             }),
         ];
     }
