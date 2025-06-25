@@ -1,14 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-#include "shared.hpp"
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRepTools.hxx>
-#include <BRep_Builder.hxx>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
-#include "utils.hpp"
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
@@ -25,17 +20,14 @@
 #include <TDF_Label.hxx>
 #include <TDataStd_Name.hxx>
 #include <TDocStd_Document.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
-#include <algorithm>
-#include <unordered_map>
-#include <vector>
+
+#include "shared.hpp"
+#include "utils.hpp"
 
 using namespace emscripten;
 

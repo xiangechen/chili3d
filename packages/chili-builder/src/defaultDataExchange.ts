@@ -16,11 +16,11 @@ import {
 
 export class DefaultDataExchange implements IDataExchange {
     importFormats(): string[] {
-        return [".step", ".stp", ".iges", ".igs", ".brep", ".stl", ".ply"];
+        return [".step", ".stp", ".iges", ".igs", ".brep", ".stl"];
     }
 
     exportFormats(): string[] {
-        return [".step", ".iges", ".brep", ".stl", ".stl binary", ".ply", ".ply binary"];
+        return [".step", ".iges", ".brep", ".stl", ".stl binary", ".ply", ".ply binary", ".obj"];
     }
 
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
@@ -98,6 +98,8 @@ export class DefaultDataExchange implements IDataExchange {
             shapeResult = document.visual.meshExporter.exportToPly(nodes, true);
         } else if (type === ".ply binary") {
             shapeResult = document.visual.meshExporter.exportToPly(nodes, false);
+        } else if (type === ".obj") {
+            shapeResult = document.visual.meshExporter.exportToObj(nodes);
         } else {
             const shapes = this.getExportShapes(nodes);
             if (!shapes.length) return undefined;
