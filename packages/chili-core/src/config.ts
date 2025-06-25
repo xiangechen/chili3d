@@ -8,7 +8,7 @@ export const VisualConfig = {
     defaultEdgeColor: 0x111111,
     defaultFaceColor: 0xdedede,
     highlightEdgeColor: 0x3333ff,
-    highlightFaceColor: 0x3333ff,
+    highlightFaceColor: 0xff9900,
     selectedEdgeColor: 0x0000ff,
     selectedFaceColor: 0x0000ff,
     editVertexSize: 7,

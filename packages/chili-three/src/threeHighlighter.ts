@@ -6,7 +6,12 @@ import { MeshUtils } from "chili-geo";
 import { Group, Mesh, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
-import { faceTransparentMaterial, hilightEdgeMaterial, selectedEdgeMaterial } from "./common";
+import {
+    faceColoredMaterial,
+    faceTransparentMaterial,
+    hilightEdgeMaterial,
+    selectedEdgeMaterial,
+} from "./common";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeVisualContext } from "./threeVisualContext";
@@ -59,6 +64,9 @@ export class GeometryState {
             } else if (VisualState.hasState(newState, VisualState.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
+            } else if (VisualState.hasState(newState, VisualState.faceColored)) {
+                this.visual.removeTemperaryMaterial();
+                this.visual.setFacesMateiralTemperary(faceColoredMaterial);
             }
         } else if (IHighlightable.is(this.visual)) {
             if (newState !== VisualState.normal) {

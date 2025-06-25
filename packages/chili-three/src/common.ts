@@ -43,3 +43,8 @@ export const faceTransparentMaterial = new MeshLambertMaterial({
     color: ThreeHelper.fromColor(VisualConfig.selectedFaceColor),
     opacity: 0.1,
 });
+
+export const faceColoredMaterial = new MeshLambertMaterial({
+    side: DoubleSide,
+    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
+});

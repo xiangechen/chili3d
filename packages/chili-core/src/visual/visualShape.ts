@@ -6,6 +6,7 @@ export enum VisualState {
     edgeHighlight = 1,
     edgeSelected = 1 << 1,
     faceTransparent = 1 << 2,
+    faceColored = 1 << 3,
 }
 
 export namespace VisualState {
