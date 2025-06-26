@@ -28,6 +28,7 @@ enum SnapState {
 export abstract class SnapEventHandler<D extends SnapData = SnapData> implements IEventHandler {
     private _tempPoint?: number;
     private _tempShapes?: number[];
+    protected showTempPoint: boolean = true;
     protected _snaped?: SnapResult;
     private _state: SnapState = SnapState.Idle;
 
@@ -183,7 +184,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private showTempShape(point: XYZ | undefined) {
-        if (point) {
+        if (point && this.showTempPoint) {
             const data = VertexMeshData.from(
                 point,
                 VisualConfig.temporaryVertexSize,
