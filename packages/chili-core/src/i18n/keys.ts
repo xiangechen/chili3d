@@ -108,6 +108,8 @@ const I18N_KEYS = [
     "common.angle",
     "common.area",
     "common.back",
+    "common.language",
+    "common.3DNavigation",
     "common.cancel",
     "common.clone",
     "common.color",

@@ -12,8 +12,10 @@ import {
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
+
 import style from "./home.module.css";
 import { LanguageSelector } from "./languageSelector";
+import { Navigation3DSelector } from "./navigation3DSelector";
 
 interface ApplicationCommand {
     display: I18nKeys;
@@ -53,11 +55,7 @@ export class Home extends HTMLElement {
 
     async render() {
         const documents = await this.getDocuments();
-        this.append(
-            this.leftSection(),
-            this.rightSection(documents),
-            LanguageSelector({ className: style.language }),
-        );
+        this.append(this.leftSection(), this.rightSection(documents));
         document.body.appendChild(this);
     }
 
@@ -70,7 +68,27 @@ export class Home extends HTMLElement {
                 this.applicationCommands(),
                 this.currentDocument(),
             ),
-            this.links(),
+
+            div(
+                { className: style.settingsPanel },
+                div(
+                    { className: style.settingItem },
+                    span({
+                        className: style.settingLabel,
+                        textContent: new Localize("common.language"),
+                    }),
+                    div({ className: style.settingControl }, LanguageSelector({})),
+                ),
+                div(
+                    { className: style.settingItem },
+                    span({
+                        className: style.settingLabel,
+                        textContent: new Localize("common.3DNavigation"),
+                    }),
+                    div({ className: style.settingControl }, Navigation3DSelector({})),
+                ),
+                this.links(),
+            ),
         );
     }
 
@@ -110,12 +128,25 @@ export class Home extends HTMLElement {
 
     private links() {
         return div(
-            { className: style.bottom },
-            a({
-                textContent: "Github",
-                href: "https://github.com/xiangechen/chili3d",
-                target: "_blank",
-            }),
+            { className: style.socialIcons },
+            a(
+                {
+                    className: style.socialIcon,
+                    href: "https://github.com/xiangechen/chili3d",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                },
+                svg({ icon: "icon-github" }),
+            ),
+            a(
+                { className: style.socialIcon },
+                svg({
+                    icon: "icon-qrcode",
+                    onclick: () => {
+                        PubSub.default.pub("executeCommand", "wechat.group");
+                    },
+                }),
+            ),
         );
     }
 
