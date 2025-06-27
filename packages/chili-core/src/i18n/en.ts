@@ -113,6 +113,8 @@ export default {
         "common.angle": "Angle",
         "common.area": "Area",
         "common.back": "Back",
+        "common.language": "Language",
+        "common.3DNavigation": "3D Navigation",
         "common.cancel": "Cancel",
         "common.clone": "Clone",
         "common.color": "Color",

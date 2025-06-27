@@ -7,6 +7,7 @@ import {
     I18nKeys,
     IApplication,
     IWindow,
+    Navigation3D,
     PubSub,
     RibbonTab,
     debounce,
@@ -16,7 +17,6 @@ import { Editor } from "./editor";
 import { Home } from "./home";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
-
 document.oncontextmenu = (e) => e.preventDefault();
 document.body.addEventListener("scroll", (e) => {
     document.body.scrollTop = 0;
@@ -29,6 +29,7 @@ export class MainWindow implements IWindow {
 
     constructor(readonly tabs: RibbonTab[]) {
         this.setTheme("light");
+        Navigation3D.syncTypeFromSettings();
     }
 
     init(app: IApplication) {

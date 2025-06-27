@@ -17,6 +17,7 @@
     background-color: var(--background-color);
     padding-bottom: 64px;
     justify-content: space-between;
+    position: relative;
 
     & .top {
         display: flex;
@@ -77,20 +78,66 @@
         }
     }
 
-    & .bottom {
-        display: flex;
-        flex-direction: column;
-        color: var(--foreground-color);
+    & .settingsPanel {
+        position: absolute;
+        bottom: 20px;
+        left: 10px;
+        right: 10px;
+        border: 1px solid #ccc;
+        padding: 20px;
+        border-radius: 10px;
+        background-color: var(--panel-background-color);
 
-        & a {
-            display: inline-block;
+        & .settingItem {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        & .settingLabel {
             font-size: 16px;
-            margin: 0px 32px;
-            padding: 8px 32px;
-            text-decoration: none;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
 
-            &:hover {
-                background-color: var(--hover-background-color);
+        & .settingControl {
+            margin-left: auto;
+            min-width: 0;
+        }
+
+        & .settingControl select {
+            width: 130px;
+            min-width: 130px;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--background-color);
+            font-size: 16px;
+        }
+
+        .socialIcons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .socialIcon {
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            & svg {
+                left: 20px;
+                width: 24px;
+                height: 24px;
+                padding: 4px;
+                border-radius: 100%;
+                opacity: 0.75;
+
+                &:hover {
+                    opacity: 1;
+                }
             }
         }
     }
@@ -180,10 +227,4 @@
             }
         }
     }
-}
-
-.language {
-    position: fixed;
-    right: 16px;
-    top: 16px;
 }

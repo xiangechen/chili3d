@@ -113,6 +113,8 @@ export default {
         "common.angle": "角度",
         "common.area": "面积",
         "common.back": "返回",
+        "common.3DNavigation": "3D导航",
+        "common.language": "语言",
         "common.cancel": "取消",
         "common.clone": "复制对象",
         "common.color": "颜色",

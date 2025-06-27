@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IEventHandler, IView } from "chili-core";
+import { IEventHandler, IView, Navigation3D } from "chili-core";
 
 interface MouseDownData {
     time: number;
@@ -26,7 +26,17 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
+        const currentNav3D = Navigation3D.currentIndex();
+
+        if (
+            currentNav3D === Navigation3D.Nav3DType.Solidworks ||
+            currentNav3D === Navigation3D.Nav3DType.Creo
+        ) {
+            view.cameraController.zoom(event.offsetX, event.offsetY, -event.deltaY);
+        } else {
+            view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
+        }
+
         view.update();
     }
 
@@ -53,11 +63,31 @@ export class ThreeViewHandler implements IEventHandler {
             this._offsetPoint = { x: event.offsetX, y: event.offsetY };
         }
 
-        if (event.shiftKey && this.canRotate) {
-            view.cameraController.rotate(dx, dy);
-        } else if (!event.shiftKey) {
-            view.cameraController.pan(dx, dy);
+        const currentNav3D = Navigation3D.currentIndex();
+
+        if (
+            currentNav3D === Navigation3D.Nav3DType.Blender ||
+            currentNav3D === Navigation3D.Nav3DType.Creo
+        ) {
+            if (event.shiftKey) {
+                view.cameraController.pan(dx, dy);
+            } else if (!event.shiftKey && !event.ctrlKey && this.canRotate) {
+                view.cameraController.rotate(dx, dy);
+            }
+        } else if (currentNav3D === Navigation3D.Nav3DType.Solidworks) {
+            if (event.ctrlKey) {
+                view.cameraController.pan(dx, dy);
+            } else if (!event.shiftKey && !event.ctrlKey && this.canRotate) {
+                view.cameraController.rotate(dx, dy);
+            }
+        } else {
+            if (event.shiftKey && this.canRotate) {
+                view.cameraController.rotate(dx, dy);
+            } else if (!event.shiftKey) {
+                view.cameraController.pan(dx, dy);
+            }
         }
+
         if (dx !== 0 && dy !== 0) this._lastDown = undefined;
     }
 
