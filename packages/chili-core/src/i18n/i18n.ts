@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { appSettings } from "../foundation";
 import en from "./en";
 import { I18nKeys } from "./keys";
 import zh from "./zh-cn";
@@ -38,10 +39,19 @@ export namespace I18n {
         ["zh-CN", zh],
     ]);
 
+    const languageKey: string = "language";
     let _currentLanguage: LanguageCode = navigator.language.toLowerCase() === "zh-cn" ? "zh-CN" : "en";
 
     export function currentLanguage() {
         return _currentLanguage;
+    }
+
+    export function syncLanguageFromSettings() {
+        const index = appSettings().value<number>(languageKey, -1);
+        if (index < 0 || index >= languages.size) {
+            return;
+        }
+        changeLanguage(index, false);
     }
 
     export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
@@ -77,7 +87,7 @@ export namespace I18n {
         }
     }
 
-    export function changeLanguage(index: number) {
+    export function changeLanguage(index: number, needSaveToAppSettings = true) {
         if (index < 0 || index >= languages.size) return;
 
         let newLanguage = Array.from(languages.keys())[index];
@@ -91,5 +101,9 @@ export namespace I18n {
             let args = I18nArgs.get(html) ?? [];
             html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
         });
+
+        if (needSaveToAppSettings) {
+            appSettings().setValue(languageKey, index);
+        }
     }
 }
