@@ -18,7 +18,7 @@ import { CreateFaceableCommand } from "../createCommand";
 
 @command({
     key: "create.polygon",
-    icon: "icon-polygon",
+    icon: "icon-toPoly",
 })
 export class Polygon extends CreateFaceableCommand {
     protected override geometryNode(): GeometryNode {
