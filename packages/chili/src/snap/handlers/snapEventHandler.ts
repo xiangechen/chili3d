@@ -112,23 +112,9 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
-        if (this.trySnapToFeaturePoint(view, event)) return;
-
-        this._snaped = this.findSnapPoint(ShapeType.Edge, view, event);
+        this.findSnapPoint(ShapeType.Edge, view, event);
+        
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
-    }
-
-    private trySnapToFeaturePoint(view: IView, event: PointerEvent) {
-        const featurePoint = this.findNearestFeaturePoint(view, event);
-        if (!featurePoint) return false;
-
-        this._snaped = {
-            view,
-            point: featurePoint.point,
-            info: featurePoint.prompt,
-            shapes: [],
-        };
-        return true;
     }
 
     private findNearestFeaturePoint(view: IView, event: PointerEvent) {
@@ -148,13 +134,25 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         return minDist < Config.instance.SnapDistance ? nearest : undefined;
     }
 
-    private findSnapPoint(shapeType: ShapeType, view: IView, event: MouseEvent) {
-        const detected = this.detectShapes(shapeType, view, event);
-        for (const snap of this.snaps) {
-            const snaped = snap.snap(detected);
-            if (snaped && this.validateSnapPoint(snaped)) return snaped;
+    protected findSnapPoint(shapeType: ShapeType, view: IView, event: PointerEvent) {
+        const featurePoint = this.findNearestFeaturePoint(view, event);
+        if (featurePoint) {
+            this._snaped = {
+                view,
+                point: featurePoint.point,
+                info: featurePoint.prompt,
+                shapes: [],
+            };
+        } else {
+            const detected = this.detectShapes(shapeType, view, event);
+            for (const snap of this.snaps) {
+                const snaped = snap.snap(detected);
+                if (snaped && this.validateSnapPoint(snaped)) {
+                    this._snaped = snaped
+                    return;
+                };
+            }
         }
-        return undefined;
     }
 
     private validateSnapPoint(snaped: SnapResult) {

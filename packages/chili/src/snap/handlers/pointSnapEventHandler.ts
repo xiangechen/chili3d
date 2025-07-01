@@ -9,6 +9,7 @@ import {
     IDocument,
     IView,
     Plane,
+    ShapeType,
     XYZ
 } from "chili-core";
 import { Dimension } from "../dimension";
@@ -132,5 +133,24 @@ export class SnapPointOnCurveEventHandler extends SnapEventHandler<SnapPointOnCu
 
     protected override inputError(text: string) {
         return Number.isNaN(Number(text)) ? "error.input.invalidNumber" : undefined;
+    }
+}
+
+export class SnapPointPlaneEventHandler extends PointSnapEventHandler {
+    protected override getInitSnaps(pointData: PointSnapData): ISnap[] {
+        if (!pointData.plane) throw new Error("plane is required");
+
+        return [
+            new ObjectSnap(Config.instance.snapType),
+            new PlaneSnap(pointData.plane)
+        ]
+    }
+
+    protected override findSnapPoint(shapeType: ShapeType, view: IView, event: PointerEvent): void {
+        super.findSnapPoint(shapeType, view, event);
+        
+        if (this._snaped?.point) {
+            this._snaped.point = this.data.plane!().project(this._snaped.point)
+        }
     }
 }
