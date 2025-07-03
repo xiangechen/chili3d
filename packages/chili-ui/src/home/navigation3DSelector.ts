@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { HTMLProps, option, select } from "chili-controls";
-import { Navigation3D } from "chili-core";
+import { Config, Navigation3D } from "chili-core";
 
 export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
     let nav3DTypes: HTMLOptionElement[] = [];
@@ -18,11 +18,10 @@ export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
         {
             onchange: (e) => {
                 let nav3DType = (e.target as HTMLSelectElement).selectedIndex;
-                Navigation3D.changeType(nav3DType);
+                Config.instance.navigation3DIndex = nav3DType;
             },
             ...props,
         },
         ...nav3DTypes,
     );
 };
-``;

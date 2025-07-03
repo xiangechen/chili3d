@@ -1,8 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { appSettings } from "chili-core";
-import { Observable } from "./foundation";
+import { IEqualityComparer, ObjectStorage, Observable } from "./foundation";
+import { I18n } from "./i18n";
+import { Navigation3D } from "./navigation";
+import { SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
 export const VisualConfig = {
@@ -23,12 +25,16 @@ export const VisualConfig = {
     temporaryEdgeColor: 0x0000ff,
 };
 
+const CONFIG_STORAGE_KEY = "config";
+
 export class Config extends Observable {
     static readonly #instance = new Config();
 
     static get instance() {
         return this.#instance;
     }
+
+    readonly SnapDistance: number = 5;
 
     get snapType() {
         return this.getPrivateValue(
@@ -66,47 +72,57 @@ export class Config extends Observable {
         this.setProperty("dynamicWorkplane", value);
     }
 
-    readonly SnapDistance: number = 5;
+    @Serializer.serialze()
+    get languageIndex() {
+        return this.getPrivateValue("languageIndex", 0);
+    }
+    set languageIndex(value: number) {
+        this.setProperty("languageIndex", value);
+    }
+
+    @Serializer.serialze()
+    get navigation3DIndex() {
+        return this.getPrivateValue("navigation3DIndex", 0);
+    }
+    set navigation3DIndex(value: number) {
+        this.setProperty("navigation3DIndex", value);
+    }
+
+    protected override setProperty<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
+        equals?: IEqualityComparer<this[K]>,
+    ): boolean {
+        if (super.setProperty(property, newValue, onPropertyChanged, equals)) {
+            if (property === "languageIndex") {
+                I18n.changeLanguage(newValue as number);
+            } else if (property === "navigation3DIndex") {
+                Navigation3D.changeType(newValue as number);
+            }
+
+            const json = Serializer.serializeProperties(this);
+            ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
+            return true;
+        }
+
+        return false;
+    }
 
     private constructor() {
         super();
     }
-}
 
-export namespace Navigation3D {
-    export enum Nav3DType {
-        Chili3d = 0,
-        Revit,
-        Blender,
-        Creo,
-        Solidworks,
-    }
-    export const types: string[] = [Nav3DType[0], Nav3DType[1], Nav3DType[2], Nav3DType[3], Nav3DType[4]];
-
-    const nav3DKey: string = "nav3D";
-    let _currentIndex: number = 0;
-
-    export function currentType() {
-        return types[_currentIndex];
-    }
-
-    export function currentIndex() {
-        return _currentIndex;
-    }
-
-    export function syncTypeFromSettings() {
-        const index = appSettings().value<number>(nav3DKey, 0);
-        if (index < 0 || index >= types.length) {
-            return;
+    init() {
+        const properties = ObjectStorage.default.value<SerializedProperties<Config>>(CONFIG_STORAGE_KEY);
+        if (properties) {
+            for (const key in properties) {
+                const thisKey = key as keyof Config;
+                this.setProperty(thisKey, properties[thisKey]);
+            }
+        } else {
+            this.setPrivateValue("languageIndex", I18n.defaultLanguageIndex());
+            this.setPrivateValue("navigation3DIndex", Navigation3D.currentIndex());
         }
-        _currentIndex = index;
-    }
-
-    export function changeType(index: number) {
-        if (index < 0 || index >= types.length) {
-            return;
-        }
-        _currentIndex = index;
-        appSettings().setValue(nav3DKey, _currentIndex);
     }
 }

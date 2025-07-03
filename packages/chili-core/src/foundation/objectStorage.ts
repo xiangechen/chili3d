@@ -1,38 +1,37 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-class BrowserSettings {
-    private readonly organization: string;
-    private readonly application: string;
+export class ObjectStorage {
+    static readonly default = new ObjectStorage("chili3d", "app");
+
     private readonly prefix: string;
 
     constructor(organization: string, application: string) {
-        this.organization = organization;
-        this.application = application;
         this.prefix = `${organization}.${application}.`;
     }
 
-    setValue(key: string, value: any): void {
+    setValue(key: string, value: object): void {
         const storageKey = this.prefix + key;
         try {
-            const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+            const stringValue = JSON.stringify(value);
             localStorage.setItem(storageKey, stringValue);
         } catch (error) {
             console.error(`Failed to set setting ${key}:`, error);
         }
     }
 
-    value<T>(key: string, defaultValue: T): T {
+    value<T>(key: string, defaultValue?: T): T | undefined {
         const storageKey = this.prefix + key;
         const item = localStorage.getItem(storageKey);
-        if (item === null) {
+        if (!item) {
             return defaultValue;
         }
 
         try {
             return JSON.parse(item) as T;
         } catch (error) {
-            return item as unknown as T;
+            console.error(`Failed to get setting ${key}:`, error);
+            return defaultValue;
         }
     }
 
@@ -49,22 +48,3 @@ class BrowserSettings {
         });
     }
 }
-
-function initializeSettings(organization: string, application: string): BrowserSettings {
-    return new BrowserSettings(organization, application);
-}
-
-const appSettings = (() => {
-    const organization = "Chili3d";
-    const application = "DefaultApp";
-    let instance: BrowserSettings | null = null;
-
-    return () => {
-        if (!instance) {
-            instance = initializeSettings(organization, application);
-        }
-        return instance;
-    };
-})();
-
-export { appSettings };

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { appSettings } from "../foundation";
+import { Config } from "../config";
 import en from "./en";
 import { I18nKeys } from "./keys";
 import zh from "./zh-cn";
@@ -39,19 +39,14 @@ export namespace I18n {
         ["zh-CN", zh],
     ]);
 
-    const languageKey: string = "language";
-    let _currentLanguage: LanguageCode = navigator.language.toLowerCase() === "zh-cn" ? "zh-CN" : "en";
-
+    let _currentLanguage: LanguageCode | undefined = undefined;
     export function currentLanguage() {
+        _currentLanguage ??= Array.from(languages.keys())[Config.instance.languageIndex];
         return _currentLanguage;
     }
 
-    export function syncLanguageFromSettings() {
-        const index = appSettings().value<number>(languageKey, -1);
-        if (index < 0 || index >= languages.size) {
-            return;
-        }
-        changeLanguage(index, false);
+    export function defaultLanguageIndex() {
+        return navigator.language.toLowerCase() === "zh-cn" ? 1 : 0;
     }
 
     export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
@@ -65,7 +60,7 @@ export namespace I18n {
     }
 
     export function translate(key: I18nKeys, ...args: any[]) {
-        let language = languages.get(_currentLanguage)!;
+        let language = languages.get(currentLanguage())!;
         let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
@@ -87,7 +82,7 @@ export namespace I18n {
         }
     }
 
-    export function changeLanguage(index: number, needSaveToAppSettings = true) {
+    export function changeLanguage(index: number) {
         if (index < 0 || index >= languages.size) return;
 
         let newLanguage = Array.from(languages.keys())[index];
@@ -102,8 +97,6 @@ export namespace I18n {
             html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
         });
 
-        if (needSaveToAppSettings) {
-            appSettings().setValue(languageKey, index);
-        }
+        Config.instance.languageIndex = index;
     }
 }

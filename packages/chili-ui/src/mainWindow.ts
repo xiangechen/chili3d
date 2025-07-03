@@ -4,11 +4,9 @@
 import {
     Button,
     CommandKeys,
-    I18n,
     I18nKeys,
     IApplication,
     IWindow,
-    Navigation3D,
     PubSub,
     RibbonTab,
     debounce,
@@ -30,8 +28,6 @@ export class MainWindow implements IWindow {
 
     constructor(readonly tabs: RibbonTab[]) {
         this.setTheme("light");
-        Navigation3D.syncTypeFromSettings();
-        I18n.syncLanguageFromSettings();
     }
 
     init(app: IApplication) {

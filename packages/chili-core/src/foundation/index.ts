@@ -16,6 +16,7 @@ export * from "./lazy";
 export * from "./linkedList";
 export * from "./logger";
 export * from "./messageType";
+export * from "./objectStorage";
 export * from "./observer";
 export * from "./precision";
 export * from "./pubsub";
