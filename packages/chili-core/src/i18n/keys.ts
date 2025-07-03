@@ -177,7 +177,7 @@ const I18N_KEYS = [
     "option.command.isConvertInstance",
     "option.command.insertPoint",
     "polygon.points",
-    "prompt.default",
+    "prompt.default{0}{1}",
     "prompt.deleteDocument{0}",
     "prompt.polygon.close",
     "prompt.saveDocument{0}",

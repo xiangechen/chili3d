@@ -2,13 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, label } from "chili-controls";
-import { I18n, I18nKeys, Localize, PubSub } from "chili-core";
+import { Config, I18n, I18nKeys, Navigation3D, PubSub } from "chili-core";
 import { SnapConfig } from "./snapConfig";
 import style from "./statusbar.module.css";
 
 export class Statusbar extends HTMLElement {
+    private _isDefaultTip = true;
+
     readonly tip = label({
-        textContent: new Localize("prompt.default"),
+        textContent: "",
         className: style.tip,
     });
 
@@ -16,11 +18,19 @@ export class Statusbar extends HTMLElement {
         super();
         this.className = `${style.panel} ${className}`;
 
-        PubSub.default.sub("statusBarTip", this.statusBarTip);
-        PubSub.default.sub("clearStatusBarTip", this.clearStatusBarTip);
-
+        this.setDefaultTip();
         this.render();
+
+        PubSub.default.sub("statusBarTip", this.statusBarTip);
+        PubSub.default.sub("clearStatusBarTip", this.setDefaultTip);
+        Config.instance.onPropertyChanged(this.handleConfigChanged);
     }
+
+    private readonly handleConfigChanged = (prop: keyof Config) => {
+        if (prop === "navigation3DIndex" && this._isDefaultTip) {
+            this.setDefaultTip();
+        }
+    };
 
     private render() {
         this.append(
@@ -30,11 +40,14 @@ export class Statusbar extends HTMLElement {
     }
 
     private readonly statusBarTip = (tip: I18nKeys) => {
+        this._isDefaultTip = false;
         I18n.set(this.tip, "textContent", tip);
     };
 
-    private readonly clearStatusBarTip = () => {
-        I18n.set(this.tip, "textContent", "prompt.default");
+    private readonly setDefaultTip = () => {
+        this._isDefaultTip = true;
+        const { pan, rotate } = Navigation3D.navigationKeyMap();
+        I18n.set(this.tip, "textContent", "prompt.default{0}{1}", pan, rotate);
     };
 }
 

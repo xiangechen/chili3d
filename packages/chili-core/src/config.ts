@@ -74,39 +74,28 @@ export class Config extends Observable {
 
     @Serializer.serialze()
     get languageIndex() {
-        return this.getPrivateValue("languageIndex", 0);
+        return this.getPrivateValue("languageIndex");
     }
     set languageIndex(value: number) {
-        this.setProperty("languageIndex", value);
+        this.setProperty("languageIndex", value, () => {
+            I18n.changeLanguage(value);
+            this.saveToStorage();
+        });
     }
 
     @Serializer.serialze()
     get navigation3DIndex() {
-        return this.getPrivateValue("navigation3DIndex", 0);
+        return this.getPrivateValue("navigation3DIndex");
     }
     set navigation3DIndex(value: number) {
-        this.setProperty("navigation3DIndex", value);
+        this.setProperty("navigation3DIndex", value, () => {
+            this.saveToStorage();
+        });
     }
 
-    protected override setProperty<K extends keyof this>(
-        property: K,
-        newValue: this[K],
-        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
-        equals?: IEqualityComparer<this[K]>,
-    ): boolean {
-        if (super.setProperty(property, newValue, onPropertyChanged, equals)) {
-            if (property === "languageIndex") {
-                I18n.changeLanguage(newValue as number);
-            } else if (property === "navigation3DIndex") {
-                Navigation3D.changeType(newValue as number);
-            }
-
-            const json = Serializer.serializeProperties(this);
-            ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
-            return true;
-        }
-
-        return false;
+    private saveToStorage() {
+        const json = Serializer.serializeProperties(this);
+        ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
     }
 
     private constructor() {
@@ -118,11 +107,11 @@ export class Config extends Observable {
         if (properties) {
             for (const key in properties) {
                 const thisKey = key as keyof Config;
-                this.setProperty(thisKey, properties[thisKey]);
+                this.setPrivateValue(thisKey, properties[thisKey]);
             }
         } else {
             this.setPrivateValue("languageIndex", I18n.defaultLanguageIndex());
-            this.setPrivateValue("navigation3DIndex", Navigation3D.currentIndex());
+            this.setPrivateValue("navigation3DIndex", 0);
         }
     }
 }

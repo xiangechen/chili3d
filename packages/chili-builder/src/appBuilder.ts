@@ -80,12 +80,12 @@ export class AppBuilder {
     }
 
     async build(): Promise<void> {
+        Config.instance.init();
         for (const init of this._inits) {
             await init();
         }
         this.ensureNecessary();
 
-        Config.instance.init();
         let app = this.createApp();
         this._window?.init(app);
 

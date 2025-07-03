@@ -9,7 +9,7 @@ export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
     Navigation3D.types.forEach((nav3DType, index) =>
         nav3DTypes.push(
             option({
-                selected: index === Navigation3D.currentIndex(),
+                selected: index === Config.instance.navigation3DIndex,
                 textContent: nav3DType,
             }),
         ),
