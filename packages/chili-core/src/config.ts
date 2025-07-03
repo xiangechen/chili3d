@@ -1,9 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IEqualityComparer, ObjectStorage, Observable } from "./foundation";
+import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
-import { Navigation3D } from "./navigation";
 import { SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
@@ -100,9 +99,10 @@ export class Config extends Observable {
 
     private constructor() {
         super();
+        this.init();
     }
 
-    init() {
+    private init() {
         const properties = ObjectStorage.default.value<SerializedProperties<Config>>(CONFIG_STORAGE_KEY);
         if (properties) {
             for (const key in properties) {
