@@ -178,7 +178,7 @@ export default {
         "option.command.isConvertInstance": "转为实例",
         "option.command.insertPoint": "插入点",
         "polygon.points": "点",
-        "prompt.default": "鼠标中键平移视图，Shift + 中键旋转视图，中键滚动缩放视图",
+        "prompt.default{0}{1}": "{0} 平移视图，{1} 旋转视图，滚轮缩放视图",
         "prompt.deleteDocument{0}": "是否删除 {0} ？",
         "prompt.pickCircleCenter": "请选择圆心  按 ESC 键取消",
         "prompt.pickFistPoint": "请选择第一个点, 按 ESC 键取消",

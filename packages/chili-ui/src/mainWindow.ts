@@ -7,7 +7,6 @@ import {
     I18nKeys,
     IApplication,
     IWindow,
-    Navigation3D,
     PubSub,
     RibbonTab,
     debounce,
@@ -29,7 +28,6 @@ export class MainWindow implements IWindow {
 
     constructor(readonly tabs: RibbonTab[]) {
         this.setTheme("light");
-        Navigation3D.syncTypeFromSettings();
     }
 
     init(app: IApplication) {

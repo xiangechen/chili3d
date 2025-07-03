@@ -3,6 +3,7 @@
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
+    Config,
     I18n,
     IDataExchange,
     IDocument,
@@ -79,6 +80,7 @@ export class AppBuilder {
     }
 
     async build(): Promise<void> {
+        Config.instance.init();
         for (const init of this._inits) {
             await init();
         }

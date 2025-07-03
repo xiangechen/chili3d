@@ -178,8 +178,8 @@ export default {
         "option.command.isConvertInstance": "Convert Instance",
         "option.command.insertPoint": "Insert Point",
         "polygon.points": "Points",
-        "prompt.default":
-            "Middle mouse button to pan the view, Shift + Middle button to rotate the view, Middle button to scroll the zoom view",
+        "prompt.default{0}{1}":
+            "{0} to pan the view, {1} to rotate the view, Mouse wheel to scroll the zoom view",
         "prompt.deleteDocument{0}": "Do you want to delete {0}?",
         "prompt.pickCircleCenter": "pick center, ESC key to cancel",
         "prompt.pickFistPoint": "Pick first point, ESC key to cancel",

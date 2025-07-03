@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { HTMLProps, option, select } from "chili-controls";
-import { I18n } from "chili-core";
+import { Config, I18n } from "chili-core";
 
 export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
     let languages: HTMLOptionElement[] = [];
@@ -18,7 +18,7 @@ export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
         {
             onchange: (e) => {
                 let language = (e.target as HTMLSelectElement).selectedIndex;
-                I18n.changeLanguage(language);
+                Config.instance.languageIndex = language;
             },
             ...props,
         },
