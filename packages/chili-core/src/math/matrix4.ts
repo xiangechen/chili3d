@@ -163,38 +163,10 @@ export class Matrix4 {
     }
 
     public static fromAxisRad(position: XYZLike, normal: XYZLike, radians: number): Matrix4 {
-        let unit = new XYZ(normal.x, normal.y, normal.z).normalize();
-        if (unit === undefined) throw new TypeError("invalid vector");
+        const axes = Quaternion.fromAxisAngle(normal, radians).toAxes();
 
-        let { x, y, z } = unit;
-        let s = Math.sin(-radians);
-        let c = Math.cos(-radians);
-        let t = 1 - c;
-
-        const array = [
-            t * x * x + c,
-            t * x * y - z * s,
-            t * x * z + y * s,
-            0,
-            t * x * y + z * s,
-            t * y * y + c,
-            t * y * z - x * s,
-            0,
-            t * x * z - y * s,
-            t * y * z + x * s,
-            t * z * z + c,
-            0,
-            0,
-            0,
-            0,
-            1,
-        ];
-
-        array[12] = position.x - position.x * array[0] - position.y * array[4] - position.z * array[8];
-        array[13] = position.y - position.x * array[1] - position.y * array[5] - position.z * array[9];
-        array[14] = position.z - position.x * array[2] - position.y * array[6] - position.z * array[10];
-
-        return Matrix4.fromArray(array);
+        const { x, y, z } = position;
+        return Matrix4.fromTranslation(-x, -y, -z).multiply(Matrix4.fromArray([...axes, x, y, z, 1]));
     }
 
     public static fromScale(x: number, y: number, z: number): Matrix4 {
