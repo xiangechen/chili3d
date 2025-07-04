@@ -285,4 +285,14 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
+
+    curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.curveProjection(
+                ensureOccShape(curve)[0],
+                ensureOccShape(targetFace)[0],
+                new wasm.gp_Dir(vec.x, vec.y, vec.z),
+            ),
+        );
+    }
 }
