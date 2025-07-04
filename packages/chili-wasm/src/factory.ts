@@ -285,4 +285,14 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
+
+    brepproject_wire(wire: IEdge | IWire, face: IFace, vec: XYZ): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.brepproject_wire(
+                ensureOccShape(wire)[0],
+                ensureOccShape(face)[0],
+                new wasm.gp_Dir(vec.x, vec.y, vec.z),
+            ),
+        );
+    }
 }

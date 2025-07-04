@@ -4,6 +4,7 @@
 export * from "./arc";
 export * from "./bezier";
 export * from "./box";
+export * from "./brepprojectWire";
 export * from "./circle";
 export * from "./cone";
 export * from "./converter";

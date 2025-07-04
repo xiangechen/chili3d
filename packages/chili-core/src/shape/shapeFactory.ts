@@ -47,4 +47,5 @@ export interface IShapeFactory {
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
     replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;
+    brepproject_wire(wire: IEdge | IWire, face: IFace, vec: XYZ): Result<IShape>;
 }
