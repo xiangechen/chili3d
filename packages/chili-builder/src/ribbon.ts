@@ -38,7 +38,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "convert.sweep",
                     "convert.revol",
                     "convert.toWire",
-                    "convert.brepprojectWire",
+                    "convert.curveProjection",
                     ["convert.toFace", "convert.toShell", "convert.toSolid"],
                 ],
             },

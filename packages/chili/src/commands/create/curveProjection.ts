@@ -6,10 +6,10 @@ import { IStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    key: "convert.brepprojectWire",
-    icon: "icon-brepprojectWire",
+    key: "convert.curveProjection",
+    icon: "icon-curveProjection",
 })
-export class BrepprojectWireCommand extends CreateCommand {
+export class CurveProjectionCommand extends CreateCommand {
     @Property.define("common.dir")
     get dir() {
         return this.getPrivateValue("dir", "0,0,-1");
@@ -25,11 +25,11 @@ export class BrepprojectWireCommand extends CreateCommand {
         const [x, y, z] = this.dir.split(",").map(Number);
         let dir = new XYZ(x, y, z).normalize() as XYZ;
 
-        let brepprojectWire = this.application.shapeFactory.brepproject_wire(shape, face, dir);
+        let curveProjection = this.application.shapeFactory.curveProjection(shape, face, dir);
         return new EditableShapeNode(
             this.document,
-            I18n.translate("command.convert.brepprojectWire"),
-            brepprojectWire.value,
+            I18n.translate("command.convert.curveProjection"),
+            curveProjection.value,
         );
     }
 

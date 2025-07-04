@@ -56,7 +56,7 @@ export default {
         "command.convert.toShell": "ToShell",
         "command.convert.toSolid": "ToSolid",
         "command.convert.toWire": "ToWire",
-        "command.convert.brepprojectWire": "BrepprojectWire",
+        "command.convert.curveProjection": "CurveProjection",
         "command.create.arc": "Arc",
         "command.create.bezier": "Bezier",
         "command.create.box": "Box",

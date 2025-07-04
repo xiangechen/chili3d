@@ -51,7 +51,7 @@ const I18N_KEYS = [
     "command.convert.toShell",
     "command.convert.toSolid",
     "command.convert.toWire",
-    "command.convert.brepprojectWire",
+    "command.convert.curveProjection",
     "command.create.arc",
     "command.create.bezier",
     "command.create.box",

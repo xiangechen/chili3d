@@ -571,32 +571,13 @@ public:
         return ShapeResult { makeChamfer.Shape(), true, "" };
     }
 
-    /**
-     * @brief 线框拓扑投影-将wire投影到拓扑对象（曲面）上，返回投影后的结果（可能是Edge或Wire）
-     *
-     * @param sourceWire 要投影的对象
-     * @param targetFace 生成的拓扑所在的曲面
-     * @param dir 投影方向
-     * @return ShapeResult
-     */
-    static ShapeResult brepproject_wire(const TopoDS_Shape& sourceWire, const TopoDS_Shape& targetFace, const gp_Dir& dir)
+    static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
     {
-        try {
-            TopoDS_Shape result;
-            BRepProj_Projection projection(sourceWire, targetFace, dir);
-            if (projection.IsDone()) {
-                std::cout << "(projection is done" << std::endl;
-                result = projection.Shape();
-                return ShapeResult { result, true, "" };
-            } else {
-                std::cout << "(projection is not done" << std::endl;
-                return ShapeResult { result, false, "preoject error" };
-            }
-        } catch (...) {
-            std::cout << "exception occur" << std::endl;
-            TopoDS_Shape result;
-            return ShapeResult { result, false, "exception occur" };
+        BRepProj_Projection curveProjection(curve, targetFace, dir);
+        if (!curveProjection.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create curve projection" };
         }
+        return ShapeResult { curveProjection.shape(), true, "" };
     }
 };
 
@@ -639,5 +620,5 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
         .class_function("chamfer", &ShapeFactory::chamfer)
-        .class_function("brepproject_wire", &ShapeFactory::brepproject_wire);
+        .class_function("curveProjection", &ShapeFactory::curveProjection);
 }
