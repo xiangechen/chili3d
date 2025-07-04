@@ -36,6 +36,8 @@
 
 #include "shared.hpp"
 
+#include <BRepProj_Projection.hxx>
+
 using namespace emscripten;
 
 struct ShapeResult {
@@ -568,6 +570,15 @@ public:
         }
         return ShapeResult { makeChamfer.Shape(), true, "" };
     }
+
+    static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
+    {
+        BRepProj_Projection curveProjection(curve, targetFace, dir);
+        if (!curveProjection.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create curve projection" };
+        }
+        return ShapeResult { curveProjection.Shape(), true, "" };
+    }
 };
 
 EMSCRIPTEN_BINDINGS(ShapeFactory)
@@ -608,5 +619,6 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("booleanFuse", &ShapeFactory::booleanFuse)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
-        .class_function("chamfer", &ShapeFactory::chamfer);
+        .class_function("chamfer", &ShapeFactory::chamfer)
+        .class_function("curveProjection", &ShapeFactory::curveProjection);
 }

@@ -8,6 +8,7 @@ export * from "./circle";
 export * from "./cone";
 export * from "./converter";
 export * from "./copySubShape";
+export * from "./curveProjection";
 export * from "./cylinder";
 export * from "./ellipse";
 export * from "./fuse";
