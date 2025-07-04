@@ -577,7 +577,7 @@ public:
         if (!curveProjection.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to create curve projection" };
         }
-        return ShapeResult { curveProjection.shape(), true, "" };
+        return ShapeResult { curveProjection.Shape(), true, "" };
     }
 };
 
