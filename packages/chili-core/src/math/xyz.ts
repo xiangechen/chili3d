@@ -134,7 +134,7 @@ export class XYZ {
             .add(n.cross(this).multiply(Math.sin(angle)));
     }
 
-    isEqualTo(right: XYZLike, tolerance: number = 1e-8) {
+    isEqualTo(right: XYZLike, tolerance: number = 1e-6) {
         return (
             MathUtils.almostEqual(this.x, right.x, tolerance) &&
             MathUtils.almostEqual(this.y, right.y, tolerance) &&
@@ -142,13 +142,17 @@ export class XYZ {
         );
     }
 
-    isParallelTo(right: XYZLike, tolerance: number = 1e-8): boolean | undefined {
+    isParallelTo(right: XYZLike, tolerance: number = 1e-6): boolean {
         const angle = this.angleTo(right);
-        return angle === undefined ? undefined : angle <= tolerance || Math.PI - angle <= tolerance;
+        if (angle === undefined) return false;
+
+        return Math.abs(angle) < tolerance || Math.abs(Math.PI - angle) < tolerance;
     }
 
-    isOppositeTo(right: XYZLike, tolerance: number = 1e-8): boolean | undefined {
+    isOppositeTo(right: XYZLike, tolerance: number = 1e-6): boolean {
         const angle = this.angleTo(right);
-        return angle === undefined ? undefined : Math.PI - angle <= tolerance;
+        if (angle === undefined) return false;
+
+        return Math.abs(Math.PI - angle) < tolerance;
     }
 }
