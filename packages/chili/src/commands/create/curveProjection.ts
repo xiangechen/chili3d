@@ -16,16 +16,25 @@ export class CurveProjectionCommand extends CreateCommand {
     }
 
     set dir(value: string) {
+        const nums = this.dir
+            .split(",")
+            .map(Number)
+            .filter((n) => !isNaN(n));
+        if (nums.length !== 3) {
+            alert(I18n.translate("error.input.threeNumberCanBeInput"));
+
+            return;
+        }
         this.setProperty("dir", value);
     }
 
     protected override geometryNode() {
-        let shape = this.stepDatas[0].shapes[0].shape as IEdge | IWire;
-        let face = this.stepDatas[1].shapes[0].shape as IFace;
+        const shape = this.transformdFirstShape(this.stepDatas[0]) as IEdge | IWire;
+        const face = this.transformdFirstShape(this.stepDatas[1]) as IFace;
         const [x, y, z] = this.dir.split(",").map(Number);
-        let dir = new XYZ(x, y, z).normalize() as XYZ;
+        const dir = new XYZ(x, y, z).normalize() as XYZ;
 
-        let curveProjection = this.application.shapeFactory.curveProjection(shape, face, dir);
+        const curveProjection = this.application.shapeFactory.curveProjection(shape, face, dir);
         return new EditableShapeNode(
             this.document,
             I18n.translate("command.convert.curveProjection"),
@@ -36,7 +45,7 @@ export class CurveProjectionCommand extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.shape"),
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces"),
+            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { keepSelection: true }),
         ];
     }
 }
