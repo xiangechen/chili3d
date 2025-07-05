@@ -37,26 +37,19 @@ EMSCRIPTEN_BINDINGS(Shared)
     register_optional<ProjectPointResult>();
     register_optional<std::string>();
 
-    value_object<Domain>("Domain")
-        .field("start", &Domain::start)
-        .field("end", &Domain::end);
+    value_object<Domain>("Domain").field("start", &Domain::start).field("end", &Domain::end);
     ;
 
     value_object<UV>("UV").field("u", &UV::u).field("v", &UV::v);
     ;
 
-    value_object<Vector3>("Vector3")
-        .field("x", &Vector3::x)
-        .field("y", &Vector3::y)
-        .field("z", &Vector3::z);
+    value_object<Vector3>("Vector3").field("x", &Vector3::x).field("y", &Vector3::y).field("z", &Vector3::z);
 
     value_object<PointAndParameter>("PointAndParameter")
         .field("point", &PointAndParameter::point)
         .field("parameter", &PointAndParameter::parameter);
 
-    value_object<Ax1>("Ax1")
-        .field("location", &Ax1::location)
-        .field("direction", &Ax1::direction);
+    value_object<Ax1>("Ax1").field("location", &Ax1::location).field("direction", &Ax1::direction);
 
     value_object<Ax2>("Ax2")
         .field("location", &Ax2::location)

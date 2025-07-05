@@ -25,6 +25,5 @@ EMSCRIPTEN_BINDINGS(Transient)
 {
     class_<Transient>("Transient")
         .class_function("isKind", &Transient::isKind, allow_raw_pointers())
-        .class_function("isInstance", &Transient::isInstance,
-            allow_raw_pointers());
+        .class_function("isInstance", &Transient::isInstance, allow_raw_pointers());
 }

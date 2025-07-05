@@ -43,23 +43,35 @@ struct Vector3 {
     double y;
     double z;
 
-    static gp_XYZ toXYZ(const Vector3& p) { return gp_XYZ(p.x, p.y, p.z); }
+    static gp_XYZ toXYZ(const Vector3& p)
+    {
+        return gp_XYZ(p.x, p.y, p.z);
+    }
 
-    static gp_Pnt toPnt(const Vector3& p) { return gp_Pnt(p.x, p.y, p.z); }
+    static gp_Pnt toPnt(const Vector3& p)
+    {
+        return gp_Pnt(p.x, p.y, p.z);
+    }
 
     static Vector3 fromPnt(const gp_Pnt& p)
     {
         return Vector3 { p.X(), p.Y(), p.Z() };
     }
 
-    static gp_Dir toDir(const Vector3& p) { return gp_Dir(p.x, p.y, p.z); }
+    static gp_Dir toDir(const Vector3& p)
+    {
+        return gp_Dir(p.x, p.y, p.z);
+    }
 
     static Vector3 fromDir(const gp_Dir& p)
     {
         return Vector3 { p.X(), p.Y(), p.Z() };
     }
 
-    static gp_Vec toVec(const Vector3& p) { return gp_Vec(p.x, p.y, p.z); }
+    static gp_Vec toVec(const Vector3& p)
+    {
+        return gp_Vec(p.x, p.y, p.z);
+    }
 
     static Vector3 fromVec(const gp_Vec& p)
     {
@@ -94,14 +106,12 @@ struct Ax2 {
 
     static gp_Ax2 toAx2(const Ax2& a)
     {
-        return gp_Ax2(Vector3::toPnt(a.location), Vector3::toDir(a.direction),
-            Vector3::toDir(a.xDirection));
+        return gp_Ax2(Vector3::toPnt(a.location), Vector3::toDir(a.direction), Vector3::toDir(a.xDirection));
     }
 
     static Ax2 fromAx2(const gp_Ax2& a)
     {
-        return Ax2 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()),
-            Vector3::fromDir(a.XDirection()) };
+        return Ax2 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()), Vector3::fromDir(a.XDirection()) };
     }
 };
 
@@ -112,29 +122,28 @@ struct Ax3 {
 
     static gp_Ax2 toAx2(const Ax3& a)
     {
-        return gp_Ax2(Vector3::toPnt(a.location), Vector3::toDir(a.direction),
-            Vector3::toDir(a.xDirection));
+        return gp_Ax2(Vector3::toPnt(a.location), Vector3::toDir(a.direction), Vector3::toDir(a.xDirection));
     }
 
     static Ax3 fromAx2(const gp_Ax2& a)
     {
-        return Ax3 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()),
-            Vector3::fromDir(a.XDirection()) };
+        return Ax3 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()), Vector3::fromDir(a.XDirection()) };
     }
 
     static gp_Ax3 toAx3(const Ax3& a)
     {
-        return gp_Ax3(Vector3::toPnt(a.location), Vector3::toDir(a.direction),
-            Vector3::toDir(a.xDirection));
+        return gp_Ax3(Vector3::toPnt(a.location), Vector3::toDir(a.direction), Vector3::toDir(a.xDirection));
     }
 
     static Ax3 fromAx3(const gp_Ax3& a)
     {
-        return Ax3 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()),
-            Vector3::fromDir(a.XDirection()) };
+        return Ax3 { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()), Vector3::fromDir(a.XDirection()) };
     }
 
-    static gp_Pln toPln(const Ax3& a) { return gp_Pln(toAx3(a)); }
+    static gp_Pln toPln(const Ax3& a)
+    {
+        return gp_Pln(toAx3(a));
+    }
 };
 
 struct Pln {
@@ -142,24 +151,24 @@ struct Pln {
     Vector3 direction;
     Vector3 xDirection;
 
-    static gp_Pln toPln(const Pln& a) { return gp_Pln(toAx3(a)); }
+    static gp_Pln toPln(const Pln& a)
+    {
+        return gp_Pln(toAx3(a));
+    }
 
     static gp_Ax3 toAx3(const Pln& a)
     {
-        return gp_Ax3(Vector3::toPnt(a.location), Vector3::toDir(a.direction),
-            Vector3::toDir(a.xDirection));
+        return gp_Ax3(Vector3::toPnt(a.location), Vector3::toDir(a.direction), Vector3::toDir(a.xDirection));
     }
 
     static Pln fromAx3(const gp_Ax3& a)
     {
-        return Pln { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()),
-            Vector3::fromDir(a.XDirection()) };
+        return Pln { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Direction()), Vector3::fromDir(a.XDirection()) };
     }
 
     static Pln fromPln(const gp_Pln& a)
     {
-        return Pln { Vector3::fromPnt(a.Location()),
-            Vector3::fromDir(a.Axis().Direction()),
+        return Pln { Vector3::fromPnt(a.Location()), Vector3::fromDir(a.Axis().Direction()),
             Vector3::fromDir(a.XAxis().Direction()) };
     }
 };

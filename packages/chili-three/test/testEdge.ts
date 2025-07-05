@@ -63,7 +63,10 @@ export class TestEdge implements IEdge {
     section(shape: IShape | Plane): IShape {
         throw new Error("Method not implemented.");
     }
-    split(edges: (IEdge | IWire)[]): IShape {
+    splitByWire(edges: (IEdge | IWire)[]): IShape {
+        throw new Error("Method not implemented.");
+    }
+    split(shapes: IShape[]): IShape {
         throw new Error("Method not implemented.");
     }
 

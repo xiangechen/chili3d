@@ -7,12 +7,12 @@
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
+#include <BRepAlgoAPI_Splitter.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepExtrema_ExtCC.hxx>
-#include <BRepFeat_SplitShape.hxx>
 #include <BRepGProp.hxx>
 #include <BRepGProp_Face.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
@@ -45,6 +45,7 @@
 #include <TopoDS_Wire.hxx>
 
 #include "shared.hpp"
+#include "utils.hpp"
 
 using namespace emscripten;
 
@@ -61,21 +62,18 @@ public:
         return BRep_Tool::IsClosed(shape);
     }
 
-    static ShapeArray findAncestor(const TopoDS_Shape& from,
-        const TopoDS_Shape& subShape,
+    static ShapeArray findAncestor(const TopoDS_Shape& from, const TopoDS_Shape& subShape,
         const TopAbs_ShapeEnum& ancestorType)
     {
         TopTools_IndexedDataMapOfShapeListOfShape map;
-        TopExp::MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType,
-            map);
+        TopExp::MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
         auto index = map.FindIndex(subShape);
         auto shapes = map.FindFromIndex(index);
 
         return ShapeArray(val::array(shapes.begin(), shapes.end()));
     }
 
-    static ShapeArray findSubShapes(const TopoDS_Shape& shape,
-        const TopAbs_ShapeEnum& shapeType)
+    static ShapeArray findSubShapes(const TopoDS_Shape& shape, const TopAbs_ShapeEnum& shapeType)
     {
         TopTools_IndexedMapOfShape indexShape;
         TopExp::MapShapes(shape, shapeType, indexShape);
@@ -92,8 +90,7 @@ public:
         return ShapeArray(new_array);
     }
 
-    static TopoDS_Shape sectionSS(const TopoDS_Shape& shape,
-        const TopoDS_Shape& otherShape)
+    static TopoDS_Shape sectionSS(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
     {
         BRepAlgoAPI_Section section(shape, otherShape);
         return section.Shape();
@@ -106,23 +103,21 @@ public:
         return section.Shape();
     }
 
-    static TopoDS_Shape splitByEdgeOrWires(const TopoDS_Shape& shape,
-        const ShapeArray& splitters)
+    static TopoDS_Shape splitShapes(const ShapeArray& arguments, const ShapeArray& tools)
     {
-        std::vector<TopoDS_Shape> shapeVector = vecFromJSArray<TopoDS_Shape>(splitters);
-        TopTools_SequenceOfShape shapes;
-        for (auto& s : shapeVector) {
-            shapes.Append(s);
-        }
-
-        BRepFeat_SplitShape splitter(shape);
-        splitter.Add(shapes);
+        TopTools_ListOfShape argumentsList = shapeArrayToListOfShape(arguments);
+        TopTools_ListOfShape toolsList = shapeArrayToListOfShape(tools);
+        BRepAlgoAPI_Splitter splitter;
+        splitter.SetToFillHistory(false);
+        splitter.SetArguments(argumentsList);
+        splitter.SetTools(toolsList);
+        splitter.SimplifyResult();
         splitter.Build();
+
         return splitter.Shape();
     }
 
-    static TopoDS_Shape removeFeature(const TopoDS_Shape& shape,
-        const ShapeArray& faces)
+    static TopoDS_Shape removeFeature(const TopoDS_Shape& shape, const ShapeArray& faces)
     {
         std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
         BRepAlgoAPI_Defeaturing defea;
@@ -149,8 +144,7 @@ public:
         return compound;
     }
 
-    static size_t countShape(const TopoDS_Shape& shape,
-        TopAbs_ShapeEnum shapeType)
+    static size_t countShape(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType)
     {
         size_t size = 0;
         TopExp_Explorer explorer;
@@ -160,8 +154,7 @@ public:
         return size;
     }
 
-    static bool hasOnlyOneSub(const TopoDS_Shape& shape,
-        TopAbs_ShapeEnum shapeType)
+    static bool hasOnlyOneSub(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType)
     {
         size_t size = 0;
         TopExp_Explorer explorer;
@@ -174,8 +167,7 @@ public:
         return size == 1;
     }
 
-    static TopoDS_Shape removeSubShape(TopoDS_Shape& shape,
-        const ShapeArray& subShapes)
+    static TopoDS_Shape removeSubShape(TopoDS_Shape& shape, const ShapeArray& subShapes)
     {
         std::vector<TopoDS_Shape> subShapesVector = vecFromJSArray<TopoDS_Shape>(subShapes);
 
@@ -200,8 +192,7 @@ public:
         return fixer.Shape();
     }
 
-    static TopoDS_Shape replaceSubShape(const TopoDS_Shape& shape,
-        const TopoDS_Shape& subShape,
+    static TopoDS_Shape replaceSubShape(const TopoDS_Shape& shape, const TopoDS_Shape& subShape,
         const TopoDS_Shape& newShape)
     {
         BRepTools_ReShape reShape;
@@ -213,8 +204,7 @@ public:
         return fixer.Shape();
     }
 
-    static TopoDS_Shape sewing(const TopoDS_Shape& shape1,
-        const TopoDS_Shape& shape2)
+    static TopoDS_Shape sewing(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2)
     {
         BRepBuilderAPI_Sewing sewing;
         sewing.Add(shape1);
@@ -265,9 +255,7 @@ public:
         return builder.Edge();
     }
 
-    static TopoDS_Edge offset(const TopoDS_Edge& edge,
-        const gp_Dir& dir,
-        double offset)
+    static TopoDS_Edge offset(const TopoDS_Edge& edge, const gp_Dir& dir, double offset)
     {
         double start(0.0), end(0.0);
         auto curve = BRep_Tool::Curve(edge, start, end);
@@ -277,8 +265,7 @@ public:
         return builder.Edge();
     }
 
-    static PointAndParameterArray intersect(const TopoDS_Edge& edge,
-        const TopoDS_Edge& otherEdge)
+    static PointAndParameterArray intersect(const TopoDS_Edge& edge, const TopoDS_Edge& otherEdge)
     {
         std::vector<PointAndParameter> points;
         BRepExtrema_ExtCC cc(edge, otherEdge);
@@ -301,9 +288,7 @@ public:
 
 class Wire {
 public:
-    static TopoDS_Shape offset(const TopoDS_Wire& wire,
-        double distance,
-        const GeomAbs_JoinType& joinType)
+    static TopoDS_Shape offset(const TopoDS_Wire& wire, double distance, const GeomAbs_JoinType& joinType)
     {
         BRepOffsetAPI_MakeOffset offsetter(wire, joinType);
         offsetter.Perform(distance);
@@ -339,9 +324,7 @@ public:
         return props.Mass();
     }
 
-    static TopoDS_Shape offset(const TopoDS_Face& face,
-        double distance,
-        const GeomAbs_JoinType& joinType)
+    static TopoDS_Shape offset(const TopoDS_Face& face, double distance, const GeomAbs_JoinType& joinType)
     {
         BRepOffsetAPI_MakeOffset offsetter(face, joinType);
         offsetter.Perform(distance);
@@ -351,8 +334,7 @@ public:
         return TopoDS_Shape();
     }
 
-    static Domain curveOnSurface(const TopoDS_Face& face,
-        const TopoDS_Edge& edge)
+    static Domain curveOnSurface(const TopoDS_Face& face, const TopoDS_Edge& edge)
     {
         double start(0.0), end(0.0);
         if (BRep_Tool::CurveOnSurface(edge, face, start, end).IsNull()) {
@@ -362,11 +344,7 @@ public:
         return domain;
     }
 
-    static void normal(const TopoDS_Face& face,
-        double u,
-        double v,
-        gp_Pnt& point,
-        gp_Vec& normal)
+    static void normal(const TopoDS_Face& face, double u, double v, gp_Pnt& point, gp_Vec& normal)
     {
         BRepGProp_Face gpProp(face);
         gpProp.Normal(u, v, point, normal);
@@ -413,7 +391,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
-        .class_function("splitByEdgeOrWires", &Shape::splitByEdgeOrWires)
+        .class_function("splitShapes", &Shape::splitShapes)
         .class_function("removeFeature", &Shape::removeFeature)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)

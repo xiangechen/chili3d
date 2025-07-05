@@ -48,7 +48,6 @@ import { OccShapeConverter } from "./converter";
 import { OccCurve, OccTrimmedCurve } from "./curve";
 import { OcctHelper } from "./helper";
 import { Mesher } from "./mesher";
-import { MeshUtils } from "chili-geo";
 
 @Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
 export class OccShape implements IShape {
@@ -216,14 +215,14 @@ export class OccShape implements IShape {
         throw new Error("Unsupported type");
     }
 
-    split(edges: (IEdge | IWire)[]): IShape {
-        let shapes = edges.map((x) => {
+    split(shapes: IShape[]): IShape {
+        let occShapes = shapes.map((x) => {
             if (x instanceof OccShape) {
                 return x.shape;
             }
             throw new Error("Unsupported type");
         });
-        return OcctHelper.wrapShape(wasm.Shape.splitByEdgeOrWires(this.shape, shapes));
+        return OcctHelper.wrapShape(wasm.Shape.splitShapes([this.shape], occShapes));
     }
 
     reserve(): void {

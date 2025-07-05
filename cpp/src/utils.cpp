@@ -8,9 +8,7 @@
 #include <GeomAPI_ExtremaCurveCurve.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 
-std::vector<ExtremaCCResult> extremaCCs(const Geom_Curve* curve1,
-    const Geom_Curve* curve2,
-    double maxDistance)
+std::vector<ExtremaCCResult> extremaCCs(const Geom_Curve* curve1, const Geom_Curve* curve2, double maxDistance)
 {
     std::vector<ExtremaCCResult> result;
     GeomAPI_ExtremaCurveCurve extrema(curve1, curve2);
@@ -38,16 +36,13 @@ std::vector<ExtremaCCResult> extremaCCs(const Geom_Curve* curve1,
     return result;
 }
 
-std::optional<ProjectPointResult> projectToCurve(const Geom_Curve* curve,
-    gp_Pnt pnt)
+std::optional<ProjectPointResult> projectToCurve(const Geom_Curve* curve, gp_Pnt pnt)
 {
     GeomAPI_ProjectPointOnCurve projector(pnt, curve);
     if (projector.NbPoints() > 0) {
-        return ProjectPointResult {
-            .point = Vector3::fromPnt(projector.NearestPoint()),
+        return ProjectPointResult { .point = Vector3::fromPnt(projector.NearestPoint()),
             .distance = projector.LowerDistance(),
-            .parameter = projector.LowerDistanceParameter()
-        };
+            .parameter = projector.LowerDistanceParameter() };
     }
 
     return std::nullopt;
@@ -60,18 +55,17 @@ ProjectPointResult nearestEnd(const Geom_Curve* curve, gp_Pnt pnt)
     double distanceToStart = pnt.Distance(start);
     double distanceToEnd = pnt.Distance(end);
     if (distanceToStart < distanceToEnd) {
-        return ProjectPointResult { .point = Vector3::fromPnt(start),
-            .distance = distanceToStart,
-            .parameter = curve->FirstParameter() };
+        return ProjectPointResult {
+            .point = Vector3::fromPnt(start), .distance = distanceToStart, .parameter = curve->FirstParameter()
+        };
     } else {
-        return ProjectPointResult { .point = Vector3::fromPnt(end),
-            .distance = distanceToEnd,
-            .parameter = curve->LastParameter() };
+        return ProjectPointResult {
+            .point = Vector3::fromPnt(end), .distance = distanceToEnd, .parameter = curve->LastParameter()
+        };
     }
 }
 
-ProjectPointResult projectOrNearestCP(const Geom_Curve* curve,
-    const gp_Pnt& pnt)
+ProjectPointResult projectOrNearestCP(const Geom_Curve* curve, const gp_Pnt& pnt)
 {
     auto project = projectToCurve(curve, pnt);
     if (project.has_value()) {
@@ -97,4 +91,24 @@ double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection)
         linDeflection = 1.0;
     }
     return linDeflection;
+}
+
+TopTools_SequenceOfShape shapeArrayToSequenceOfShape(const ShapeArray& shapes)
+{
+    std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
+    TopTools_SequenceOfShape result;
+    for (auto& s : shapeVector) {
+        result.Append(s);
+    }
+    return result;
+}
+
+TopTools_ListOfShape shapeArrayToListOfShape(const ShapeArray& shapes)
+{
+    std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
+    TopTools_ListOfShape result;
+    for (auto& s : shapeVector) {
+        result.Append(s);
+    }
+    return result;
 }
