@@ -7,7 +7,7 @@ import { CreateCommand } from "../createCommand";
 
 @command({
     key: "convert.curveProjection",
-    icon: "icon-curveProjection",
+    icon: "icon-curveProject",
 })
 export class CurveProjectionCommand extends CreateCommand {
     @Property.define("common.dir")
