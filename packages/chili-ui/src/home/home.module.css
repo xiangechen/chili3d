@@ -22,6 +22,7 @@
     & .top {
         display: flex;
         flex-direction: column;
+        margin-bottom: auto;
 
         .buttons {
             display: flex;
@@ -79,20 +80,18 @@
     }
 
     & .settingsPanel {
-        position: absolute;
-        bottom: 20px;
-        left: 10px;
-        right: 10px;
-        border: 1px solid #ccc;
-        padding: 20px;
-        border-radius: 10px;
-        background-color: var(--panel-background-color);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
 
         & .settingItem {
             display: flex;
-            margin-bottom: 10px;
             align-items: center;
+            margin: 0px 32px;
+            padding: 10px 16px;
             justify-content: space-between;
+            border-radius: 10px;
+            background-color: var(--panel-background-color);
         }
 
         & .settingLabel {
@@ -107,37 +106,47 @@
         }
 
         & .settingControl select {
-            width: 130px;
-            min-width: 130px;
+            width: 96px;
+            min-width: 96px;
             padding: 8px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
-            background-color: var(--background-color);
+            background-color: white;
             font-size: 16px;
         }
+    }
 
-        .socialIcons {
-            display: flex;
-            gap: 10px;
-        }
+    .socialPanel {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+        justify-content: center;
+        margin-top: 10px;
+        padding: 0px 32px;
 
-        .socialIcon {
-            border-radius: 50%;
+        .socialItem {
+            flex: 1;
+            color: var(--foreground-color);
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 4px;
+            border-radius: 8px;
+            border: none;
+            background-color: var(--panel-background-color);
             display: flex;
             align-items: center;
             justify-content: center;
 
-            & svg {
-                left: 20px;
+            &:hover {
+                background-color: var(--hover-background-color);
+            }
+
+            svg {
                 width: 24px;
                 height: 24px;
                 padding: 4px;
-                border-radius: 100%;
                 opacity: 0.75;
-
-                &:hover {
-                    opacity: 1;
-                }
             }
         }
     }
