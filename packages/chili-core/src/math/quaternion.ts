@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Matrix4 } from "./matrix4";
-import { XYZLike } from "./xyz";
+import { XYZ, XYZLike } from "./xyz";
 
 export class Quaternion {
     readonly w: number;
@@ -20,6 +20,20 @@ export class Quaternion {
         const sin = Math.sin(rad * 0.5);
         const cos = Math.cos(rad * 0.5);
         return new Quaternion(cos, axis.x * sin, axis.y * sin, axis.z * sin);
+    }
+
+    conjugate(): Quaternion {
+        return new Quaternion(this.w, -this.x, -this.y, -this.z);
+    }
+
+    invert(): Quaternion {
+        return this.conjugate();
+    }
+
+    rotateVector(vec3: XYZLike): XYZ {
+        const q = new Quaternion(0, vec3.x, vec3.y, vec3.z);
+        const r = this.multiply(q).multiply(this.conjugate());
+        return new XYZ(r.x, r.y, r.z);
     }
 
     toAxes() {
