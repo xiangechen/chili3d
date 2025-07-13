@@ -4,6 +4,7 @@
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
     I18n,
+    IApplication,
     IDataExchange,
     IDocument,
     INode,
@@ -78,7 +79,7 @@ export class AppBuilder {
         return defaultRibbon.DefaultRibbon;
     }
 
-    async build(): Promise<void> {
+    async build(): Promise<IApplication> {
         for (const init of this._inits) {
             await init();
         }
@@ -90,6 +91,8 @@ export class AppBuilder {
         this.loadAdditionalCommands();
 
         Logger.info("Application build completed");
+
+        return app;
     }
 
     createApp() {
