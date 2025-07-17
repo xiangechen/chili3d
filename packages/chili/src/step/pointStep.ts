@@ -6,6 +6,8 @@ import {
     Dimension,
     PointSnapData,
     PointSnapEventHandler,
+    SnapPointOnAxisData,
+    SnapPointOnAxisEventHandler,
     SnapPointOnCurveData,
     SnapPointOnCurveEventHandler,
     SnapPointPlaneEventHandler,
@@ -45,6 +47,24 @@ export class PointOnCurveStep extends SnapStep<SnapPointOnCurveData> {
         data: SnapPointOnCurveData,
     ) {
         return new SnapPointOnCurveEventHandler(document, controller, data);
+    }
+}
+
+export class PointOnAxisStep extends SnapStep<SnapPointOnAxisData> {
+    constructor(tip: I18nKeys, handleData: () => SnapPointOnAxisData, keepSelected = false) {
+        super(tip, handleData, keepSelected);
+    }
+
+    protected override validator(data: SnapPointOnAxisData, point: XYZ): boolean {
+        return true;
+    }
+
+    protected override getEventHandler(
+        document: IDocument,
+        controller: AsyncController,
+        data: SnapPointOnAxisData,
+    ) {
+        return new SnapPointOnAxisEventHandler(document, controller, data);
     }
 }
 
