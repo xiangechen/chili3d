@@ -13,6 +13,7 @@ import {
     PubSub,
     RibbonTab,
 } from "chili-core";
+import { CommandContextPanel } from "./CommandContextPanel";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";
@@ -41,6 +42,7 @@ export class Editor extends HTMLElement {
         this._selectionController = new OKCancel();
         this._viewportContainer = div(
             { className: style.viewportContainer },
+            new CommandContextPanel(),
             this._selectionController,
             viewport,
         );
