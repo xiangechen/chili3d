@@ -2,23 +2,34 @@
 // See LICENSE file in the project root for full license information.
 
 import { div } from "chili-controls";
-import { AsyncController, Button, CommandKeys, I18nKeys, IApplication, IDocument, Material, PubSub, RibbonTab } from "chili-core";
+import {
+    AsyncController,
+    Button,
+    CommandKeys,
+    I18nKeys,
+    IApplication,
+    IDocument,
+    Material,
+    PubSub,
+    RibbonTab,
+} from "chili-core";
+import { CommandContextPanel } from "./CommandContextPanel";
 import style from "./editor.module.css";
+import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
+import { MaterialDataContent, MaterialEditor } from "./property/material";
 import { Ribbon, RibbonDataContent } from "./ribbon";
 import { RibbonTabData } from "./ribbon/ribbonData";
 import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
-import { MaterialDataContent, MaterialEditor } from "./property/material";
-import { OKCancel } from "./okCancel";
 
 let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 
 export class Editor extends HTMLElement {
     readonly ribbonContent: RibbonDataContent;
     private readonly _selectionController: OKCancel;
-    private readonly _viewportContainer: HTMLDivElement
+    private readonly _viewportContainer: HTMLDivElement;
 
     constructor(app: IApplication, tabs: RibbonTab[]) {
         super();
@@ -28,9 +39,10 @@ export class Editor extends HTMLElement {
         this._selectionController = new OKCancel();
         this._viewportContainer = div(
             { className: style.viewportContainer },
+            new CommandContextPanel(),
             this._selectionController,
-            viewport
-        )
+            viewport,
+        );
         this.clearSelectionControl();
         this.render();
         document.body.appendChild(this);
@@ -48,7 +60,7 @@ export class Editor extends HTMLElement {
                         new ProjectView({ className: style.sidebarItem }),
                         new PropertyView({ className: style.sidebarItem }),
                     ),
-                    this._viewportContainer
+                    this._viewportContainer,
                 ),
                 new Statusbar(style.statusbar),
             ),
@@ -56,11 +68,11 @@ export class Editor extends HTMLElement {
     }
 
     connectedCallback(): void {
-            PubSub.default.sub("showSelectionControl", this.showSelectionControl);
-            PubSub.default.sub("editMaterial", this._handleMaterialEdit);
-            PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
-        }
-    
+        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
+        PubSub.default.sub("editMaterial", this._handleMaterialEdit);
+        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
+    }
+
     disconnectedCallback(): void {
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("editMaterial", this._handleMaterialEdit);
