@@ -5,7 +5,11 @@
     padding: 4px;
     margin: 4px;
     border-radius: 4px;
-    max-width: 42px;
+    min-width: 42px;
+    max-width: 100px;
+    width: auto;
+    min-height: 48px;
+    height: auto;
 }
 
 .normal:hover {
@@ -41,9 +45,12 @@
 .buttonText {
     color: var(--foreground-color);
     font-size: 12px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    text-wrap: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    overflow: visible;
+    width: 100%;
+    display: block;
 }
 
 .icon {
