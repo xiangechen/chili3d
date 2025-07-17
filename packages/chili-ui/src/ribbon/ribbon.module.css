@@ -225,15 +225,8 @@
     background-color: var(--panel-background-color);
     border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
-
-    &::-webkit-scrollbar {
-        height: 6px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 5px;
-    }
+    scrollbar-gutter: stable;
+    padding-bottom: 16px;
 
     & .groupPanel {
         display: flex;
