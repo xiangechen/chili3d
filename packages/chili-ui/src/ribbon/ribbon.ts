@@ -19,7 +19,6 @@ import {
     PubSub,
     Result,
 } from "chili-core";
-import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
 import { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
@@ -105,13 +104,10 @@ class DisplayConverter implements IConverter<RibbonTabData> {
 }
 
 export class Ribbon extends HTMLElement {
-    private readonly _commandContext = div({ className: style.commandContextPanel });
-    private commandContext?: CommandContext;
-
     constructor(readonly dataContent: RibbonDataContent) {
         super();
         this.className = style.root;
-        this.append(this.header(), this.ribbonTabs(), this._commandContext);
+        this.append(this.header(), this.ribbonTabs());
     }
 
     private header() {
@@ -254,31 +250,6 @@ export class Ribbon extends HTMLElement {
             return new RibbonButton(item.display, item.icon, ButtonSize.large, item.onClick);
         }
     }
-
-    connectedCallback(): void {
-        PubSub.default.sub("openCommandContext", this.openContext);
-        PubSub.default.sub("closeCommandContext", this.closeContext);
-    }
-
-    disconnectedCallback(): void {
-        PubSub.default.remove("openCommandContext", this.openContext);
-        PubSub.default.remove("closeCommandContext", this.closeContext);
-    }
-
-    private readonly openContext = (command: ICommand) => {
-        if (this.commandContext) {
-            this.closeContext();
-        }
-        this.commandContext = new CommandContext(command);
-        this._commandContext.append(this.commandContext);
-    };
-
-    private readonly closeContext = () => {
-        this.commandContext?.remove();
-        this.commandContext?.dispose();
-        this.commandContext = undefined;
-        this._commandContext.innerHTML = "";
-    };
 }
 
 customElements.define("chili-ribbon", Ribbon);
