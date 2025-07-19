@@ -245,5 +245,10 @@ export default {
         "transform.scale": "缩放",
         "transform.translation": "位移",
         "vertex.point": "点",
+        "viewport.orthographic": "正交视图",
+        "viewport.perspective": "透视视图",
+        "viewport.fitContent": "适应内容",
+        "viewport.zoomIn": "放大",
+        "viewport.zoomOut": "缩小",
     },
 } satisfies Locale;

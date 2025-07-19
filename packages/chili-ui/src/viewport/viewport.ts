@@ -32,7 +32,10 @@ export class Viewport extends HTMLElement {
     private readonly _eventCaches: [keyof HTMLElementEventMap, (e: any) => void][] = [];
     private readonly _acts: HTMLElement;
 
-    constructor(readonly view: IView, readonly showViewControls: boolean) {
+    constructor(
+        readonly view: IView,
+        readonly showViewControls: boolean,
+    ) {
         super();
         this.className = style.root;
         this._flyout = new Flyout();
@@ -52,15 +55,17 @@ export class Viewport extends HTMLElement {
     private render() {
         this.append(
             this._acts,
-            this.showViewControls ? div(
-                {
-                    className: style.viewControls,
-                    onpointerdown: (ev) => ev.stopPropagation(),
-                    onclick: (e) => e.stopPropagation(),
-                },
-                this.createCameraControls(),
-                this.createActionControls(),
-            ) : "",
+            this.showViewControls
+                ? div(
+                      {
+                          className: style.viewControls,
+                          onpointerdown: (ev) => ev.stopPropagation(),
+                          onclick: (e) => e.stopPropagation(),
+                      },
+                      this.createCameraControls(),
+                      this.createActionControls(),
+                  )
+                : "",
         );
     }
 
@@ -77,6 +82,7 @@ export class Viewport extends HTMLElement {
             { className: style.border },
             svg({
                 icon: "icon-fitcontent",
+                title: new Localize("viewport.fitContent"),
                 onclick: async (e) => {
                     e.stopPropagation();
                     this.view.cameraController.fitContent();
@@ -85,6 +91,7 @@ export class Viewport extends HTMLElement {
             }),
             svg({
                 icon: "icon-zoomin",
+                title: new Localize("viewport.zoomIn"),
                 onclick: () => {
                     this.view.cameraController.zoom(this.view.width / 2, this.view.height / 2, -5);
                     this.view.update();
@@ -92,6 +99,7 @@ export class Viewport extends HTMLElement {
             }),
             svg({
                 icon: "icon-zoomout",
+                title: new Localize("viewport.zoomOut"),
                 onclick: () => {
                     this.view.cameraController.zoom(this.view.width / 2, this.view.height / 2, 5);
                     this.view.update();
@@ -184,6 +192,7 @@ export class Viewport extends HTMLElement {
             },
             svg({
                 icon: icon,
+                title: new Localize(`viewport.${cameraType}`),
                 onclick: (e) => {
                     e.stopPropagation();
                     this.view.cameraController.cameraType = cameraType;
