@@ -42,15 +42,23 @@
     background-color: var(--active-background-color);
 }
 
-.buttonText {
+.largeButtonText .smallButtonText {
     color: var(--foreground-color);
-    font-size: 12px;
     white-space: normal;
     word-break: break-word;
-    text-align: center;
     overflow: visible;
     width: 100%;
     display: block;
+}
+
+.largeButtonText {
+    font-size: 12px;
+    text-align: center;
+}
+
+.smallButtonText {
+    font-size: 12px;
+    text-align: left;
 }
 
 .icon {
