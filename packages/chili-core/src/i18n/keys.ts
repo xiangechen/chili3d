@@ -240,6 +240,11 @@ const I18N_KEYS = [
     "transform.scale",
     "transform.translation",
     "vertex.point",
+    "viewport.orthographic",
+    "viewport.perspective",
+    "viewport.fitContent",
+    "viewport.zoomIn",
+    "viewport.zoomOut",
 ] as const;
 
 export type I18nKeys = (typeof I18N_KEYS)[number];

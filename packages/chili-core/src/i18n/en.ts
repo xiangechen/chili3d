@@ -246,5 +246,10 @@ export default {
         "transform.scale": "Scale",
         "transform.translation": "Translation",
         "vertex.point": "Point",
+        "viewport.orthographic": "Orthographic",
+        "viewport.perspective": "Perspective",
+        "viewport.fitContent": "Fit Content",
+        "viewport.zoomIn": "Zoom In",
+        "viewport.zoomOut": "Zoom Out",
     },
 } satisfies Locale;
