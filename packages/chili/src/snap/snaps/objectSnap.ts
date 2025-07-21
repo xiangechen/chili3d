@@ -224,7 +224,7 @@ export class ObjectSnap extends BaseSnap {
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
         let result = new Array<SnapResult>();
         if (
-            !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) &&
+            !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) ||
             current.shape.shapeType !== ShapeType.Edge
         ) {
             return result;
