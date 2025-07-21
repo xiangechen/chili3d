@@ -82,13 +82,13 @@
     & .settingsPanel {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
 
         & .settingItem {
             display: flex;
             align-items: center;
             margin: 0px 32px;
-            padding: 10px 16px;
+            padding: 8px 16px;
             justify-content: space-between;
             border-radius: 10px;
             background-color: var(--panel-background-color);
@@ -103,25 +103,26 @@
         & .settingControl {
             margin-left: auto;
             min-width: 0;
-        }
+            padding: 4px;
 
-        & .settingControl select {
-            width: 96px;
-            min-width: 96px;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            background-color: white;
-            font-size: 16px;
+            select {
+                width: 108px;
+                height: 28px;
+                padding: 0px 6px;
+                border-radius: 6px;
+                background: none;
+                backdrop-filter: blur(10px);
+                border: 1px solid var(--border-color);
+            }
         }
     }
 
     .socialPanel {
         display: flex;
-        gap: 10px;
+        gap: 8px;
         align-items: stretch;
         justify-content: center;
-        margin-top: 10px;
+        margin-top: 8px;
         padding: 0px 32px;
 
         .socialItem {
