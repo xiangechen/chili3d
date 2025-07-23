@@ -5,10 +5,13 @@
     transform: translate(-50%, 0%);
     z-index: 10000;
     border-radius: 0.8em;
-    background-color: var(--backdrop-color);
+    background-color: var(--background-color);
+    backdrop-filter: blur(10px);
     font-size: 1.2em;
     padding: 1em;
+    opacity: 0.85;
     color: var(--foreground-color);
+    border: 1px solid var(--border-color);
 }
 
 .info {
