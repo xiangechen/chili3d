@@ -4,8 +4,11 @@ import { CommandContext } from "./ribbon/commandContext";
 import style from "./ribbon/ribbon.module.css";
 
 export class CommandContextPanel extends HTMLElement {
-    private readonly _panel = div({ className: style.commandContextPanel });
+    private readonly _panel = div({
+        className: style.commandContextOverlay + " " + style.commandContextOverlayHidden,
+    });
     private commandContext?: CommandContext;
+    private _visible = false;
 
     constructor() {
         super();
@@ -28,6 +31,7 @@ export class CommandContextPanel extends HTMLElement {
         }
         this.commandContext = new CommandContext(command);
         this._panel.append(this.commandContext);
+        this.setVisible(true);
     };
 
     private readonly closeContext = () => {
@@ -35,7 +39,17 @@ export class CommandContextPanel extends HTMLElement {
         this.commandContext?.dispose();
         this.commandContext = undefined;
         this._panel.innerHTML = "";
+        this.setVisible(false);
     };
+
+    private setVisible(visible: boolean) {
+        this._visible = visible;
+        if (visible) {
+            this._panel.className = style.commandContextOverlay;
+        } else {
+            this._panel.className = style.commandContextOverlay + " " + style.commandContextOverlayHidden;
+        }
+    }
 }
 
 customElements.define("command-context-panel", CommandContextPanel);
