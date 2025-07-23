@@ -16,6 +16,7 @@ import {
 import style from "./home.module.css";
 import { LanguageSelector } from "./languageSelector";
 import { Navigation3DSelector } from "./navigation3DSelector";
+import { ThemeSelector } from "./themeSelector";
 
 interface ApplicationCommand {
     display: I18nKeys;
@@ -118,6 +119,14 @@ export class Home extends HTMLElement {
                     textContent: new Localize("common.language"),
                 }),
                 div({ className: style.settingControl }, LanguageSelector({})),
+            ),
+            div(
+                { className: style.settingItem },
+                span({
+                    className: style.settingLabel,
+                    textContent: new Localize("common.theme"),
+                }),
+                div({ className: style.settingControl }, ThemeSelector({})),
             ),
             div(
                 { className: style.settingItem },

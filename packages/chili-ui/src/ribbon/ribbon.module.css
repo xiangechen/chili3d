@@ -199,7 +199,7 @@
         padding: 5px 15px;
 
         &:hover {
-            -webkit-text-stroke: 0.65px black;
+            -webkit-text-stroke: 0.65px var(--foreground-color);
             background-color: var(--hover-background-color);
         }
     }
@@ -231,7 +231,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #888;
+        background: var(--foreground-muted-color);
         border-radius: 5px;
     }
 

@@ -92,6 +92,30 @@ export class Config extends Observable {
         });
     }
 
+    @Serializer.serialze()
+    get themeMode() {
+        return this.getPrivateValue("themeMode", "system");
+    }
+    set themeMode(value: "light" | "dark" | "system") {
+        this.setProperty("themeMode", value, () => {
+            this.applyTheme();
+            this.saveToStorage();
+        });
+    }
+
+    private applyTheme() {
+        const themeMode = this.themeMode;
+        let theme: "light" | "dark";
+
+        if (themeMode === "system") {
+            theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        } else {
+            theme = themeMode;
+        }
+
+        document.documentElement.setAttribute("theme", theme);
+    }
+
     private saveToStorage() {
         const json = Serializer.serializeProperties(this);
         ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
@@ -112,6 +136,17 @@ export class Config extends Observable {
         } else {
             this.setPrivateValue("languageIndex", I18n.defaultLanguageIndex());
             this.setPrivateValue("navigation3DIndex", 0);
+            this.setPrivateValue("themeMode", "system");
         }
+
+        // Apply theme on startup
+        this.applyTheme();
+
+        // Listen for system theme changes
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            if (this.themeMode === "system") {
+                this.applyTheme();
+            }
+        });
     }
 }

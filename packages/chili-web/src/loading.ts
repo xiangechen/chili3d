@@ -29,8 +29,8 @@ export class Loading extends HTMLElement {
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            border: 5px solid #fff;
-            border-top-color: #000;
+            border: 5px solid var(--foreground-color);
+            border-top-color: var(--background-color);
             animation: spin 1s infinite linear;
         `;
         this.appendChild(text);
@@ -51,7 +51,7 @@ export class Loading extends HTMLElement {
         let text = document.createElement("div");
         text.innerText = "Loading...";
         text.style.cssText = `
-        color: white;
+        color: var(--foreground-color);
         font-size: 16px;
         position: relative;
         top: calc(40% + 100px);

@@ -1,22 +1,22 @@
 dialog {
     border: none;
-    box-shadow: 0px 1px 2px #999;
+    box-shadow: 0px 1px 2px var(--foreground-muted-color);
     border-radius: 16px;
     padding: 0px;
 }
 
 dialog::backdrop {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--backdrop-color);
 }
 
 .loading {
     position: relative;
     width: 48px;
     height: 48px;
-    border: 2px solid #000;
-    border-top-color: rgba(0, 0, 0, 0.2);
-    border-right-color: rgba(0, 0, 0, 0.2);
-    border-bottom-color: rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--foreground-color);
+    border-top-color: var(--loading-border-color);
+    border-right-color: var(--loading-border-color);
+    border-bottom-color: var(--loading-border-color);
     border-radius: 100%;
 }
 

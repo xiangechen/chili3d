@@ -27,7 +27,7 @@ export class MainWindow implements IWindow {
     private _editor?: Editor;
 
     constructor(readonly tabs: RibbonTab[]) {
-        this.setTheme("light");
+        // Theme will be set by Config.instance.applyTheme() on initialization
     }
 
     init(app: IApplication) {
