@@ -108,7 +108,7 @@ export class Config extends Observable {
         let theme: "light" | "dark";
 
         if (themeMode === "system") {
-            theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         } else {
             theme = themeMode;
         }
@@ -143,7 +143,7 @@ export class Config extends Observable {
         this.applyTheme();
 
         // Listen for system theme changes
-        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
             if (this.themeMode === "system") {
                 this.applyTheme();
             }
