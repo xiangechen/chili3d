@@ -27,11 +27,11 @@ export interface IApplication {
     loadDocument(data: Serialized): Promise<IDocument | undefined>;
 }
 
-let currentApplication: IApplication;
-export function getApplication(): IApplication {
+let currentApplication: IApplication | undefined;
+export function getCurrentApplication() {
     return currentApplication;
 }
 
-export function setApplication(app: IApplication): void {
+export function setCurrentApplication(app: IApplication): void {
     currentApplication = app;
 }
