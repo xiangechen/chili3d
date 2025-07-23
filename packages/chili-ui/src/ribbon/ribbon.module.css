@@ -251,6 +251,30 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+.commandContextOverlay {
+    position: absolute;
+    top: 0px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 600px;
+    min-width: 320px;
+    width: 60%;
+    z-index: 10;
+    background: var(--panel-background-color);
+    /* Subtle, soft shadow only on bottom and sides */
+    box-shadow:
+        0 6px 24px -6px rgba(0, 0, 0, 0.1),
+        0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    border-radius: 0 0 12px 12px;
+    opacity: 1;
+    transition: opacity 0.2s;
+    pointer-events: auto;
+}
+.commandContextOverlayHidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
 .ribbonGroup {
     position: relative;
     display: grid;
