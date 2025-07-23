@@ -39,6 +39,9 @@
 
 .input {
     margin-left: 8px;
+    background-color: var(--input-background-color);
+    border: 1px solid var(--input-border-color);
+    color: var(--input-text-color);
 }
 
 .select {
