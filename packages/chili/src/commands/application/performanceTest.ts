@@ -43,8 +43,8 @@ export abstract class PerformanceTestCommand implements ICommand {
 }
 
 @command({
-    key: "test.performace",
-    icon: "",
+    key: "test.performance",
+    icon: "icon-performance",
 })
 export class OccPerformanceTestCommand extends PerformanceTestCommand {
     private index = 1;

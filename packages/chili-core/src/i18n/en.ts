@@ -105,7 +105,7 @@ export default {
         "command.modify.split": "Split",
         "command.modify.trim": "Trim",
         "command.special.last": "__Last_COMMAND__",
-        "command.test.performace": "Performance Test",
+        "command.test.performance": "Performance Test",
         "command.wechat.group": "Wechat",
         "command.workingPlane.alignToPlane": "Align",
         "command.workingPlane.fromSection": "Section",

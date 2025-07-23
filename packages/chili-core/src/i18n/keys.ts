@@ -100,7 +100,7 @@ const I18N_KEYS = [
     "command.modify.split",
     "command.modify.trim",
     "command.special.last",
-    "command.test.performace",
+    "command.test.performance",
     "command.wechat.group",
     "command.workingPlane.alignToPlane",
     "command.workingPlane.fromSection",

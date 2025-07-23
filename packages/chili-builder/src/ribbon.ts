@@ -126,7 +126,7 @@ export const DefaultRibbon: RibbonTab[] = [
             },
             {
                 groupName: "ribbon.group.other",
-                items: ["test.performace"],
+                items: ["test.performance"],
             },
         ],
     },
