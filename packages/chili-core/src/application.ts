@@ -26,3 +26,12 @@ export interface IApplication {
     openDocument(id: string): Promise<IDocument | undefined>;
     loadDocument(data: Serialized): Promise<IDocument | undefined>;
 }
+
+let currentApplication: IApplication;
+export function getApplication(): IApplication {
+    return currentApplication;
+}
+
+export function setApplication(app: IApplication): void {
+    currentApplication = app;
+}

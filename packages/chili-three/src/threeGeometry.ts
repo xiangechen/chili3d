@@ -13,29 +13,21 @@ import {
     ShapeMeshRange,
     ShapeNode,
     ShapeType,
-    VisualConfig,
 } from "chili-core";
 import { MeshUtils } from "chili-geo";
-import { DoubleSide, Material, Mesh, MeshLambertMaterial } from "three";
+import { Material, Mesh, MeshLambertMaterial } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import { defaultEdgeMaterial } from "./common";
+import { Constants } from "./constants";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
-import { Constants } from "./constants";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
-    private _edgeMaterial = new LineMaterial({
-        linewidth: 1,
-        color: VisualConfig.defaultEdgeColor,
-        side: DoubleSide,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
-    });
     private _edges?: LineSegments2;
     private _faces?: Mesh;
 
@@ -47,10 +39,6 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         this._faceMaterial = context.getMaterial(geometryNode.materialId);
         this.generateShape();
         geometryNode.onPropertyChanged(this.handleGeometryPropertyChanged);
-    }
-
-    getMainMaterial() {
-        return this._faces ? this._faceMaterial : this._edgeMaterial;
     }
 
     changeFaceMaterial(material: Material | Material[]) {
@@ -91,8 +79,6 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     override dispose() {
         super.dispose();
-        this._edges?.material.dispose();
-        this._edgeMaterial = null as any;
         this.geometryNode.removePropertyChanged(this.handleGeometryPropertyChanged);
         this.removeMeshes();
     }
@@ -112,7 +98,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private initEdges(data: EdgeMeshData) {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        this._edges = new LineSegments2(buff, this._edgeMaterial);
+        this._edges = new LineSegments2(buff, defaultEdgeMaterial);
         this._edges.layers.set(Constants.Layers.Wireframe);
         this.add(this._edges);
     }
@@ -134,7 +120,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     removeTemperaryMaterial(): void {
-        if (this._edges) this._edges.material = this._edgeMaterial;
+        if (this._edges) this._edges.material = defaultEdgeMaterial;
         if (this._faces) this._faces.material = this._faceMaterial;
     }
 
@@ -146,7 +132,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         buff.setPositions(positions);
         buff.applyMatrix4(this.matrixWorld);
 
-        return new LineSegments2(buff, this._edgeMaterial);
+        return new LineSegments2(buff, defaultEdgeMaterial);
     }
 
     cloneSubFace(index: number) {

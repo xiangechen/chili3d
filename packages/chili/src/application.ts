@@ -3,6 +3,7 @@
 
 import {
     DOCUMENT_FILE_EXTENSION,
+    getApplication,
     I18n,
     IApplication,
     ICommand,
@@ -19,11 +20,10 @@ import {
     Plane,
     PubSub,
     Serialized,
+    setApplication,
 } from "chili-core";
 import { Document } from "./document";
 import { importFiles } from "./utils";
-
-let app: Application | undefined;
 
 export interface ApplicationOptions {
     visualFactory: IVisualFactory;
@@ -58,10 +58,10 @@ export class Application implements IApplication {
     }
 
     constructor(option: ApplicationOptions) {
-        if (app !== undefined) {
+        if (getApplication() !== undefined) {
             throw new Error("Only one application can be created");
         }
-        app = this;
+        setApplication(this);
         this.visualFactory = option.visualFactory;
         this.shapeFactory = option.shapeFactory;
         this.services = option.services;

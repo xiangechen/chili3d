@@ -6,23 +6,35 @@ import { I18n } from "./i18n";
 import { SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
-export const VisualConfig = {
-    defaultEdgeColor: 0x111111,
-    defaultFaceColor: 0xdedede,
-    highlightEdgeColor: 0x3333ff,
-    highlightFaceColor: 0xff9900,
-    selectedEdgeColor: 0x0000ff,
-    selectedFaceColor: 0x0000ff,
-    editVertexSize: 7,
-    editVertexColor: 0x0000ff,
-    hintVertexSize: 5,
-    hintVertexColor: 0x0000ff,
-    trackingVertexSize: 7,
-    trackingVertexColor: 0x0000ff,
-    temporaryVertexSize: 5,
-    temporaryVertexColor: 0x0000ff,
-    temporaryEdgeColor: 0x0000ff,
-};
+export class VisualItemConfig extends Observable {
+    defaultFaceColor = 0xdedede;
+    highlightEdgeColor = 0x33ff33;
+    highlightFaceColor = 0x99ff00;
+    selectedEdgeColor = 0x33ff33;
+    selectedFaceColor = 0x33ff33;
+    editVertexSize = 7;
+    editVertexColor = 0x33ff33;
+    hintVertexSize = 5;
+    hintVertexColor = 0x33ff33;
+    trackingVertexSize = 7;
+    trackingVertexColor = 0x33ff33;
+    temporaryVertexSize = 5;
+    temporaryVertexColor = 0x33ff33;
+    temporaryEdgeColor = 0x33ff33;
+
+    get defaultEdgeColor() {
+        return this.getPrivateValue("defaultEdgeColor", 0x333333);
+    }
+    set defaultEdgeColor(value: number) {
+        this.setProperty("defaultEdgeColor", value);
+    }
+
+    setTheme(theme: "light" | "dark") {
+        this.defaultEdgeColor = theme === "light" ? 0x333333 : 0xeeeeee;
+    }
+}
+
+export const VisualConfig = new VisualItemConfig();
 
 const CONFIG_STORAGE_KEY = "config";
 
@@ -114,6 +126,7 @@ export class Config extends Observable {
         }
 
         document.documentElement.setAttribute("theme", theme);
+        VisualConfig.setTheme(theme);
     }
 
     private saveToStorage() {

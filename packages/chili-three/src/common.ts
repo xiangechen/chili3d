@@ -1,10 +1,25 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { getApplication, VisualConfig, VisualItemConfig } from "chili-core";
+import { DoubleSide, MeshLambertMaterial } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { ThreeHelper } from "./threeHelper";
-import { VisualConfig } from "chili-core";
-import { DoubleSide, MeshLambertMaterial } from "three";
+
+export const defaultEdgeMaterial = new LineMaterial({
+    linewidth: 1,
+    color: VisualConfig.defaultEdgeColor,
+    side: DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+});
+VisualConfig.onPropertyChanged((property: keyof VisualItemConfig) => {
+    if (property === "defaultEdgeColor") {
+        defaultEdgeMaterial.color.set(VisualConfig.defaultEdgeColor);
+        getApplication().views.forEach((x) => x.update());
+    }
+});
 
 export const hilightEdgeMaterial = new LineMaterial({
     linewidth: 3,

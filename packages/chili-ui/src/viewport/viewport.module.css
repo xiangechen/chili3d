@@ -145,7 +145,7 @@
     }
 
     .actived {
-        background: var(--panel-hover-background-color);
+        background: var(--checked-color);
     }
 
     .border {
