@@ -1,13 +1,13 @@
 dialog {
     border: none;
-    box-shadow: 0px 5px 10px #646464;
+    box-shadow: 0px 5px 10px var(--foreground-muted-color);
     padding: 0px;
-    background-color: rgba(255, 255, 255, 0.65);
+    background-color: var(--panel-background-color);
     backdrop-filter: blur(5px);
 }
 
 dialog::backdrop {
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: var(--backdrop-color);
 }
 
 .root {
@@ -40,7 +40,7 @@ dialog::backdrop {
     flex-shrink: 0;
     justify-content: flex-end;
     padding: 8px;
-    background-color: rgba(255, 255, 255, 0.56);
+    background-color: var(--panel-background-color);
 
     & button {
         width: 64px;

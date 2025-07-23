@@ -6,8 +6,8 @@ import { AsyncController, IDocument, IEventHandler, IView } from "chili-core";
 const MOUSE_MIDDLE = 4;
 
 const SelectionRectStyle = `
-    border: 1px solid #55aaff;
-    background-color: rgba(75, 160, 255, 0.3);
+    border: 1px solid var(--primary-color);
+    background-color: rgba(74, 158, 255, 0.3);
     position: absolute;
     pointer-events: none;
     display: none;

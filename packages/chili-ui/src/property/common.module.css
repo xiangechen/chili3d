@@ -8,7 +8,7 @@
 .propertyName {
     font-size: 14px;
     opacity: 0.75;
-    color: var(--color);
+    color: var(--foreground-color);
     min-width: 72px;
     flex: 0 1 auto;
 }
