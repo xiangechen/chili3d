@@ -9,6 +9,7 @@ body {
     font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
     touch-action: none;
     color: var(--foreground-color);
+    background-color: var(--background-color);
 }
 
 /* Ensure SVG elements inherit the current color when they should */
@@ -30,12 +31,16 @@ input,
 textarea,
 select {
     color: var(--input-text-color);
+    background-color: var(--input-background-color);
+    border: 1px solid var(--input-border-color);
 }
 
 /* Ensure buttons and interactive elements use theme colors */
 button,
 .button {
     color: var(--foreground-color);
+    background-color: var(--control-background-color);
+    border: 1px solid var(--border-color);
 }
 
 /* Ensure links use theme colors */

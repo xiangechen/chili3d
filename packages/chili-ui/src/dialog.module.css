@@ -40,7 +40,7 @@ dialog::backdrop {
     flex-shrink: 0;
     justify-content: flex-end;
     padding: 8px;
-    background-color: var(--panel-background-color);
+    background-color: rgba(128, 128, 128, 0.25);
 
     & button {
         width: 64px;
