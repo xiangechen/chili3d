@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { HTMLProps, option, select } from "chili-controls";
-import { Config, I18n } from "chili-core";
+import { Config, I18nKeys, Localize } from "chili-core";
 
 export const ThemeSelector = (props: HTMLProps<HTMLElement>) => {
     const themes = [
@@ -16,7 +16,7 @@ export const ThemeSelector = (props: HTMLProps<HTMLElement>) => {
         themeOptions.push(
             option({
                 selected: theme.value === Config.instance.themeMode,
-                textContent: I18n.translate(theme.key as any),
+                textContent: new Localize(theme.key as I18nKeys),
                 value: theme.value,
             }),
         ),
