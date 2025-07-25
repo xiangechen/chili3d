@@ -50,8 +50,7 @@ export class Editor extends HTMLElement {
     }
 
     private render() {
-        // Sidebar element with resizer
-        const sidebar = div(
+        this._sidebarEl = div(
             {
                 className: style.sidebar,
                 style: `width: ${this._sidebarWidth}px;`,
@@ -62,13 +61,12 @@ export class Editor extends HTMLElement {
                 className: style.sidebarResizer,
                 onmousedown: (e: MouseEvent) => this._startSidebarResize(e),
             }),
-        ) as HTMLDivElement;
-        this._sidebarEl = sidebar;
+        );
         this.append(
             div(
                 { className: style.root },
                 new Ribbon(this.ribbonContent),
-                div({ className: style.content }, sidebar, this._viewportContainer),
+                div({ className: style.content }, this._sidebarEl, this._viewportContainer),
                 new Statusbar(style.statusbar),
             ),
         );
