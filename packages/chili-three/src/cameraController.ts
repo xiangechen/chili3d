@@ -23,7 +23,6 @@ import { ThreeVisualObject } from "./threeVisualObject";
 const DEG_TO_RAD = Math.PI / 180.0;
 const ZOOM_SPEED_FACTOR = 0.1;
 const ROTATE_SPEED_FACTOR = 0.5;
-const PAN_SPEED_FACTOR = 0.002;
 const CAMERA_FOV = 50;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
@@ -113,13 +112,23 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     pan(dx: number, dy: number): void {
-        const ratio = PAN_SPEED_FACTOR * this._target.distanceTo(this._position);
-        const direction = this._target.clone().sub(this._position).normalize();
-        const hor = direction.clone().cross(this.camera.up).normalize();
-        const ver = hor.clone().cross(direction).normalize();
-        const vector = hor.multiplyScalar(-dx).add(ver.multiplyScalar(dy)).multiplyScalar(ratio);
-        this._target.add(vector);
-        this._position.add(vector);
+        let center = new XYZ(this._target.x, this._target.y, this._target.z);
+        let position = new XYZ(this._position.x, this._position.y, this._position.z);
+        const rotation = new Quaternion(
+            this._camera.quaternion.w,
+            this._camera.quaternion.x,
+            this._camera.quaternion.y,
+            this._camera.quaternion.z,
+        );
+        const distance = position.sub(center).length();
+
+        const panFactor = this._camera instanceof PerspectiveCamera ? 0.001 : 0.0085;
+        const mouseDt = new XYZ(-dx * distance * panFactor, dy * distance * panFactor, 0);
+        const moveDt = rotation.rotateVector(mouseDt);
+        center = center.add(moveDt);
+        position = position.add(moveDt);
+        this._target.set(center.x, center.y, center.z);
+        this._position.set(position.x, position.y, position.z);
 
         this.updateCameraPosionTarget();
     }
