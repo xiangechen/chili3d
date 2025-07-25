@@ -5,7 +5,11 @@
     padding: 4px;
     margin: 4px;
     border-radius: 4px;
-    max-width: 42px;
+    min-width: 42px;
+    max-width: 100px;
+    width: auto;
+    min-height: 48px;
+    height: auto;
 }
 
 .normal:hover {
@@ -38,12 +42,23 @@
     background-color: var(--active-background-color);
 }
 
-.buttonText {
+.largeButtonText .smallButtonText {
     color: var(--foreground-color);
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    width: 100%;
+    display: block;
+}
+
+.largeButtonText {
     font-size: 12px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    text-wrap: nowrap;
+    text-align: center;
+}
+
+.smallButtonText {
+    font-size: 12px;
+    text-align: left;
 }
 
 .icon {
@@ -56,4 +71,5 @@
     width: 16px;
     height: 16px;
     margin-right: 8px;
+    flex-shrink: 0;
 }

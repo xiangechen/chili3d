@@ -3,8 +3,6 @@
 
 import { Command, CommandKeys, IApplication, ICommand, IService, IView, Logger, PubSub } from "chili-core";
 
-const ApplicationCommands: CommandKeys[] = ["doc.new", "doc.open", "doc.save"];
-
 export class CommandService implements IService {
     private _lastCommand: CommandKeys | undefined;
     private _checking: boolean = false;
@@ -48,6 +46,11 @@ export class CommandService implements IService {
 
     private async executeAsync(commandName: CommandKeys) {
         const commandCtor = Command.get(commandName)!;
+        if (!commandCtor) {
+            Logger.error(`Can not find ${commandName} command`);
+            return;
+        }
+
         const command = new commandCtor();
         this.app.executingCommand = command;
         PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
@@ -71,11 +74,8 @@ export class CommandService implements IService {
     }
 
     private async checking(commandName: CommandKeys) {
-        if (!Command.get(commandName)) {
-            Logger.error(`Can not find ${commandName} command`);
-            return false;
-        }
-        if (!ApplicationCommands.includes(commandName) && this.app.activeView === undefined) {
+        const commandData = Command.getData(commandName);
+        if (!commandData?.isApplicationCommand && this.app.activeView === undefined) {
             Logger.error("No active document");
             return false;
         }

@@ -5,19 +5,23 @@
     transform: translate(-50%, 0%);
     z-index: 10000;
     border-radius: 0.8em;
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: var(--background-color);
+    backdrop-filter: blur(10px);
     font-size: 1.2em;
     padding: 1em;
+    opacity: 0.85;
+    color: var(--foreground-color);
+    border: 1px solid var(--border-color);
 }
 
 .info {
-    color: #fff;
+    color: var(--foreground-color);
 }
 
 .error {
-    color: #ff0000;
+    color: var(--error-color);
 }
 
 .warning {
-    color: #ffc107;
+    color: var(--warning-color);
 }

@@ -3,6 +3,7 @@
     flex-direction: row;
     align-items: center;
     gap: 8px;
+    color: var(--foreground-color);
 
     div {
         display: flex;
@@ -14,6 +15,11 @@
         input {
             width: 12px;
             height: 12px;
+        }
+
+        label {
+            color: var(--foreground-color);
+            font-size: 12px;
         }
     }
 }

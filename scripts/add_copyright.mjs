@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const COPYRIGHT = `// Part of the Chili3d Project, under the AGPL-3.0 License.\n`;
+const COPYRIGHT = `// Part of the Chili3d Project, under the AGPL-3.0 License.\n// See LICENSE file in the project root for full license information.\n\n`;
 
 const ROOT_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -26,10 +26,7 @@ function addCopyrightToFile(filePath) {
 
     const hasExistingCopyright = lines[0].startsWith("// Part");
 
-    if (hasExistingCopyright) {
-        const newContent = COPYRIGHT + lines.slice(1).join("\n");
-        fs.writeFileSync(filePath, newContent);
-    } else if (!content.startsWith(COPYRIGHT)) {
+    if (!hasExistingCopyright) {
         fs.writeFileSync(filePath, COPYRIGHT + content);
     }
 }

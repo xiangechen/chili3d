@@ -6,6 +6,7 @@ module.exports = {
     moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
     moduleNameMapper: {
         threeRenderBuilder: "<rootDir>/packages/chili-three/test/threeRenderBuilder.ts",
+        viewGizmo: "<rootDir>/packages/chili-three/test/viewGizmo.ts",
         "\\.(css|less)$": "<rootDir>/packages/chili-controls/test/styleMock.js",
     },
 };

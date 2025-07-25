@@ -253,17 +253,17 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
-    booleanCommon(shape1: IShape, shape2: IShape): Result<IShape> {
+    booleanCommon(shape1: IShape[], shape2: IShape[]): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.booleanCommon(ensureOccShape(shape1), ensureOccShape(shape2)),
         );
     }
-    booleanCut(shape1: IShape, shape2: IShape): Result<IShape> {
+    booleanCut(shape1: IShape[], shape2: IShape[]): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.booleanCut(ensureOccShape(shape1), ensureOccShape(shape2)),
         );
     }
-    booleanFuse(shape1: IShape, shape2: IShape): Result<IShape> {
+    booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.booleanFuse(ensureOccShape(shape1), ensureOccShape(shape2)),
         );
@@ -282,6 +282,15 @@ export class ShapeFactory implements IShapeFactory {
                 ensureOccShape(shape)[0],
                 ensureOccShape(closingFaces),
                 thickness,
+            ),
+        );
+    }
+    curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.curveProjection(
+                ensureOccShape(curve)[0],
+                ensureOccShape(targetFace)[0],
+                new wasm.gp_Dir(vec.x, vec.y, vec.z),
             ),
         );
     }

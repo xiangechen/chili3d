@@ -52,7 +52,7 @@ export class RibbonButton extends HTMLElement {
         this.className = size === ButtonSize.large ? style.normal : style.small;
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
         const text = label({
-            className: style.buttonText,
+            className: size === ButtonSize.large ? style.largeButtonText : style.smallButtonText,
             textContent: new Localize(display),
         });
         I18n.set(this, "title", display);

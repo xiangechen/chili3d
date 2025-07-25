@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Matrix4 } from "./matrix4";
+import { XYZ, XYZLike } from "./xyz";
 
 export class Quaternion {
     readonly w: number;
@@ -14,6 +15,57 @@ export class Quaternion {
         this.y = y;
         this.z = z;
     }
+
+    static fromAxisAngle(axis: XYZLike, rad: number): Quaternion {
+        const sin = Math.sin(rad * 0.5);
+        const cos = Math.cos(rad * 0.5);
+        return new Quaternion(cos, axis.x * sin, axis.y * sin, axis.z * sin);
+    }
+
+    conjugate(): Quaternion {
+        return new Quaternion(this.w, -this.x, -this.y, -this.z);
+    }
+
+    invert(): Quaternion {
+        return this.conjugate();
+    }
+
+    rotateVector(vec3: XYZLike): XYZ {
+        const q = new Quaternion(0, vec3.x, vec3.y, vec3.z);
+        const r = this.multiply(q).multiply(this.conjugate());
+        return new XYZ(r.x, r.y, r.z);
+    }
+
+    toAxes() {
+        let { x, y, z, w } = this;
+        let x2 = x + x;
+        let y2 = y + y;
+        let z2 = z + z;
+        let xx = x * x2;
+        let xy = x * y2;
+        let xz = x * z2;
+        let yy = y * y2;
+        let yz = y * z2;
+        let zz = z * z2;
+        let wx = w * x2;
+        let wy = w * y2;
+        let wz = w * z2;
+        return [
+            1.0 - (yy + zz),
+            xy + wz,
+            xz - wy,
+            0.0,
+            xy - wz,
+            1.0 - (xx + zz),
+            yz + wx,
+            0.0,
+            xz + wy,
+            yz - wx,
+            1.0 - (xx + yy),
+            0.0,
+        ];
+    }
+
     add(q: Quaternion): Quaternion {
         return new Quaternion(this.w + q.w, this.x + q.x, this.y + q.y, this.z + q.z);
     }

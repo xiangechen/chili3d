@@ -88,8 +88,7 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .value("TopAbs_INTERNAL", TopAbs_INTERNAL)
         .value("TopAbs_EXTERNAL", TopAbs_EXTERNAL);
 
-    class_<Standard_Transient>("Standard_Transient")
-        .function("getRefCount", &Standard_Transient::GetRefCount);
+    class_<Standard_Transient>("Standard_Transient").function("getRefCount", &Standard_Transient::GetRefCount);
 
     class_<Geom_Geometry, base<Standard_Transient>>("Geom_Geometry")
         .function("copy", &Geom_Geometry::Copy)
@@ -173,17 +172,13 @@ EMSCRIPTEN_BINDINGS(opencascade)
 
     class_<Geom_BezierCurve, base<Geom_BoundedCurve>>("Geom_BezierCurve")
         .function("insertPoleAfter",
-            select_overload<void(const int, const gp_Pnt&)>(
-                &Geom_BezierCurve::InsertPoleAfter))
+            select_overload<void(const int, const gp_Pnt&)>(&Geom_BezierCurve::InsertPoleAfter))
         .function("insertPoleAfterWithWeight",
-            select_overload<void(const int, const gp_Pnt&, const double)>(
-                &Geom_BezierCurve::InsertPoleAfter))
+            select_overload<void(const int, const gp_Pnt&, const double)>(&Geom_BezierCurve::InsertPoleAfter))
         .function("insertPoleBefore",
-            select_overload<void(const int, const gp_Pnt&)>(
-                &Geom_BezierCurve::InsertPoleBefore))
+            select_overload<void(const int, const gp_Pnt&)>(&Geom_BezierCurve::InsertPoleBefore))
         .function("insertPoleBeforeWithWeight",
-            select_overload<void(const int, const gp_Pnt&, const double)>(
-                &Geom_BezierCurve::InsertPoleBefore))
+            select_overload<void(const int, const gp_Pnt&, const double)>(&Geom_BezierCurve::InsertPoleBefore))
         .function("degree", &Geom_BezierCurve::Degree)
         .function("weight", &Geom_BezierCurve::Weight)
         .function("setWeight", &Geom_BezierCurve::SetWeight)
@@ -192,9 +187,7 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("setPoles", select_overload<void(TColgp_Array1OfPnt&) const>(&Geom_BezierCurve::Poles))
         .function("pole", &Geom_BezierCurve::Pole)
         .function("setPole", select_overload<void(int, const gp_Pnt&)>(&Geom_BezierCurve::SetPole))
-        .function("setPoleWithWeight",
-            select_overload<void(int, const gp_Pnt&, double)>(
-                &Geom_BezierCurve::SetPole))
+        .function("setPoleWithWeight", select_overload<void(int, const gp_Pnt&, double)>(&Geom_BezierCurve::SetPole))
         .function("removePole", &Geom_BezierCurve::RemovePole);
 
     class_<Geom_BSplineCurve, base<Geom_BoundedCurve>>("Geom_BSplineCurve")
@@ -210,9 +203,7 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("setPoles", select_overload<void(TColgp_Array1OfPnt&) const>(&Geom_BSplineCurve::Poles))
         .function("pole", &Geom_BSplineCurve::Pole)
         .function("setPole", select_overload<void(int, const gp_Pnt&)>(&Geom_BSplineCurve::SetPole))
-        .function("setPoleWithWeight",
-            select_overload<void(int, const gp_Pnt&, double)>(
-                &Geom_BSplineCurve::SetPole));
+        .function("setPoleWithWeight", select_overload<void(int, const gp_Pnt&, double)>(&Geom_BSplineCurve::SetPole));
 
     class_<Geom_Surface, base<Geom_Geometry>>("Geom_Surface")
         .function("continuity", &Geom_Surface::Continuity)
@@ -254,42 +245,34 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("basisCurve", &Geom_SweptSurface::BasisCurve)
         .function("direction", &Geom_SweptSurface::Direction);
 
-    class_<ShapeExtend_CompositeSurface, base<Geom_Surface>>(
-        "ShapeExtend_CompositeSurface");
+    class_<ShapeExtend_CompositeSurface, base<Geom_Surface>>("ShapeExtend_CompositeSurface");
 
     class_<Geom_BSplineSurface, base<Geom_Surface>>("Geom_BSplineSurface");
     class_<Geom_BezierSurface, base<Geom_Surface>>("Geom_BezierSurface");
     class_<Geom_BoundedSurface, base<Geom_Surface>>("Geom_BoundedSurface");
-    class_<Geom_RectangularTrimmedSurface, base<Geom_BoundedSurface>>(
-        "Geom_RectangularTrimmedSurface")
-        .function(
-            "setTrim",
-            select_overload<void(double, double, double, double, bool, bool)>(
-                &Geom_RectangularTrimmedSurface::SetTrim))
-        .function("setTrim2", select_overload<void(double, double, bool, bool)>(&Geom_RectangularTrimmedSurface::SetTrim))
+    class_<Geom_RectangularTrimmedSurface, base<Geom_BoundedSurface>>("Geom_RectangularTrimmedSurface")
+        .function("setTrim", select_overload<void(double, double, double, double, bool, bool)>(&Geom_RectangularTrimmedSurface::SetTrim))
+        .function("setTrim2",
+            select_overload<void(double, double, bool, bool)>(&Geom_RectangularTrimmedSurface::SetTrim))
         .function("basisSurface", &Geom_RectangularTrimmedSurface::BasisSurface);
-    class_<Geom_ConicalSurface, base<Geom_ElementarySurface>>(
-        "Geom_ConicalSurface")
+    class_<Geom_ConicalSurface, base<Geom_ElementarySurface>>("Geom_ConicalSurface")
         .function("semiAngle", &Geom_ConicalSurface::SemiAngle)
         .function("setSemiAngle", &Geom_ConicalSurface::SetSemiAngle)
         .function("setRadius", &Geom_ConicalSurface::SetRadius)
         .function("apex", &Geom_ConicalSurface::Apex)
         .function("refRadius", &Geom_ConicalSurface::RefRadius);
-    class_<Geom_CylindricalSurface, base<Geom_ElementarySurface>>(
-        "Geom_CylindricalSurface")
+    class_<Geom_CylindricalSurface, base<Geom_ElementarySurface>>("Geom_CylindricalSurface")
         .function("radius", &Geom_CylindricalSurface::Radius)
         .function("setRadius", &Geom_CylindricalSurface::SetRadius);
     class_<Geom_Plane, base<Geom_ElementarySurface>>("Geom_Plane")
         .function("pln", &Geom_Plane::Pln)
         .function("setPln", &Geom_Plane::SetPln);
-    class_<Geom_SphericalSurface, base<Geom_ElementarySurface>>(
-        "Geom_SphericalSurface")
+    class_<Geom_SphericalSurface, base<Geom_ElementarySurface>>("Geom_SphericalSurface")
         .function("radius", &Geom_SphericalSurface::Radius)
         .function("setRadius", &Geom_SphericalSurface::SetRadius)
         .function("area", &Geom_SphericalSurface::Area)
         .function("volume", &Geom_SphericalSurface::Volume);
-    class_<Geom_ToroidalSurface, base<Geom_ElementarySurface>>(
-        "Geom_ToroidalSurface")
+    class_<Geom_ToroidalSurface, base<Geom_ElementarySurface>>("Geom_ToroidalSurface")
         .function("majorRadius", &Geom_ToroidalSurface::MajorRadius)
         .function("minorRadius", &Geom_ToroidalSurface::MinorRadius)
         .function("setMajorRadius", &Geom_ToroidalSurface::SetMajorRadius)
@@ -297,13 +280,11 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("area", &Geom_ToroidalSurface::Area)
         .function("volume", &Geom_ToroidalSurface::Volume);
 
-    class_<Geom_SurfaceOfLinearExtrusion, base<Geom_SweptSurface>>(
-        "Geom_SurfaceOfLinearExtrusion")
+    class_<Geom_SurfaceOfLinearExtrusion, base<Geom_SweptSurface>>("Geom_SurfaceOfLinearExtrusion")
         .function("direction", &Geom_SurfaceOfLinearExtrusion::Direction)
         .function("setDirection", &Geom_SurfaceOfLinearExtrusion::SetDirection)
         .function("setBasisCurve", &Geom_SurfaceOfLinearExtrusion::SetBasisCurve);
-    class_<Geom_SurfaceOfRevolution, base<Geom_SweptSurface>>(
-        "Geom_SurfaceOfRevolution")
+    class_<Geom_SurfaceOfRevolution, base<Geom_SweptSurface>>("Geom_SurfaceOfRevolution")
         .function("location", &Geom_SurfaceOfRevolution::Location)
         .function("setLocation", &Geom_SurfaceOfRevolution::SetLocation)
         .function("setBasisCurve", &Geom_SurfaceOfRevolution::SetBasisCurve)
@@ -377,49 +358,34 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("transformation", &TopLoc_Location::Transformation)
         .function("inverted", &TopLoc_Location::Inverted);
 
-    class TopoDSUtils { };
+    class TopoDSUtils {
+    };
     class_<TopoDSUtils>("TopoDS")
-        .class_function(
-            "vertex",
-            select_overload<TopoDS_Vertex&(TopoDS_Shape&)>(&TopoDS::Vertex),
+        .class_function("vertex", select_overload<TopoDS_Vertex&(TopoDS_Shape&)>(&TopoDS::Vertex),
             return_value_policy::take_ownership())
-        .class_function(
-            "edge", select_overload<TopoDS_Edge&(TopoDS_Shape&)>(&TopoDS::Edge),
+        .class_function("edge", select_overload<TopoDS_Edge&(TopoDS_Shape&)>(&TopoDS::Edge),
             return_value_policy::take_ownership())
-        .class_function(
-            "wire", select_overload<TopoDS_Wire&(TopoDS_Shape&)>(&TopoDS::Wire),
+        .class_function("wire", select_overload<TopoDS_Wire&(TopoDS_Shape&)>(&TopoDS::Wire),
             return_value_policy::take_ownership())
-        .class_function(
-            "face", select_overload<TopoDS_Face&(TopoDS_Shape&)>(&TopoDS::Face),
+        .class_function("face", select_overload<TopoDS_Face&(TopoDS_Shape&)>(&TopoDS::Face),
             return_value_policy::take_ownership())
-        .class_function(
-            "shell",
-            select_overload<TopoDS_Shell&(TopoDS_Shape&)>(&TopoDS::Shell),
+        .class_function("shell", select_overload<TopoDS_Shell&(TopoDS_Shape&)>(&TopoDS::Shell),
             return_value_policy::take_ownership())
-        .class_function(
-            "solid",
-            select_overload<TopoDS_Solid&(TopoDS_Shape&)>(&TopoDS::Solid),
+        .class_function("solid", select_overload<TopoDS_Solid&(TopoDS_Shape&)>(&TopoDS::Solid),
             return_value_policy::take_ownership())
-        .class_function(
-            "compound",
-            select_overload<TopoDS_Compound&(TopoDS_Shape&)>(&TopoDS::Compound),
+        .class_function("compound", select_overload<TopoDS_Compound&(TopoDS_Shape&)>(&TopoDS::Compound),
             return_value_policy::take_ownership())
-        .class_function(
-            "compsolid",
-            select_overload<TopoDS_CompSolid&(TopoDS_Shape&)>(&TopoDS::CompSolid),
+        .class_function("compsolid", select_overload<TopoDS_CompSolid&(TopoDS_Shape&)>(&TopoDS::CompSolid),
             return_value_policy::take_ownership());
 
     class_<TopoDS_Shape>("TopoDS_Shape")
-        .function("infinite",
-            select_overload<bool() const>(&TopoDS_Shape::Infinite))
+        .function("infinite", select_overload<bool() const>(&TopoDS_Shape::Infinite))
         .function("isEqual", &TopoDS_Shape::IsEqual)
         .function("isNull", &TopoDS_Shape::IsNull)
         .function("isPartner", &TopoDS_Shape::IsPartner)
         .function("isSame", &TopoDS_Shape::IsSame)
         .function("getLocation", select_overload<const TopLoc_Location&() const>(&TopoDS_Shape::Location))
-        .function("setLocation",
-            select_overload<void(const TopLoc_Location&, bool)>(
-                &TopoDS_Shape::Location))
+        .function("setLocation", select_overload<void(const TopLoc_Location&, bool)>(&TopoDS_Shape::Location))
         .function("nbChildren", &TopoDS_Shape::NbChildren)
         .function("nullify", &TopoDS_Shape::Nullify)
         .function("getOrientation", select_overload<TopAbs_Orientation() const>(&TopoDS_Shape::Orientation))
@@ -434,9 +400,7 @@ EMSCRIPTEN_BINDINGS(opencascade)
     class_<TColgp_Array1OfPnt>("TColgp_Array1OfPnt")
         .constructor<int, int>()
         .function("value", select_overload<const gp_Pnt&(Standard_Integer) const>(&TColgp_Array1OfPnt::Value))
-        .function("setValue",
-            select_overload<void(Standard_Integer, const gp_Pnt&)>(
-                &TColgp_Array1OfPnt::SetValue))
+        .function("setValue", select_overload<void(Standard_Integer, const gp_Pnt&)>(&TColgp_Array1OfPnt::SetValue))
         .function("length", &TColgp_Array1OfPnt::Length);
 
     class_<TopoDS_Vertex, base<TopoDS_Shape>>("TopoDS_Vertex");

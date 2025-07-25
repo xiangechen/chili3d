@@ -68,8 +68,7 @@ std::string getLabelNameNoRef(const TDF_Label& label)
     return name;
 }
 
-std::string getLabelName(const TDF_Label& label,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool)
+std::string getLabelName(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     if (XCAFDoc_ShapeTool::IsReference(label)) {
         TDF_Label referredShapeLabel;
@@ -79,8 +78,7 @@ std::string getLabelName(const TDF_Label& label,
     return getLabelNameNoRef(label);
 }
 
-std::string getShapeName(const TopoDS_Shape& shape,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool)
+std::string getShapeName(const TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     TDF_Label shapeLabel;
     if (!shapeTool->Search(shape, shapeLabel)) {
@@ -89,13 +87,9 @@ std::string getShapeName(const TopoDS_Shape& shape,
     return getLabelName(shapeLabel, shapeTool);
 }
 
-bool getLabelColorNoRef(const TDF_Label& label,
-    const Handle(XCAFDoc_ColorTool) & colorTool,
-    std::string& color)
+bool getLabelColorNoRef(const TDF_Label& label, const Handle(XCAFDoc_ColorTool) & colorTool, std::string& color)
 {
-    static const std::vector<XCAFDoc_ColorType> colorTypes = {
-        XCAFDoc_ColorSurf, XCAFDoc_ColorCurv, XCAFDoc_ColorGen
-    };
+    static const std::vector<XCAFDoc_ColorType> colorTypes = { XCAFDoc_ColorSurf, XCAFDoc_ColorCurv, XCAFDoc_ColorGen };
 
     Quantity_Color qColor;
     for (XCAFDoc_ColorType colorType : colorTypes) {
@@ -108,10 +102,8 @@ bool getLabelColorNoRef(const TDF_Label& label,
     return false;
 }
 
-bool getLabelColor(const TDF_Label& label,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool,
-    const Handle(XCAFDoc_ColorTool) & colorTool,
-    std::string& color)
+bool getLabelColor(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool, std::string& color)
 {
     if (getLabelColorNoRef(label, colorTool, color)) {
         return true;
@@ -126,10 +118,8 @@ bool getLabelColor(const TDF_Label& label,
     return false;
 }
 
-bool getShapeColor(const TopoDS_Shape& shape,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool,
-    const Handle(XCAFDoc_ColorTool) & colorTool,
-    std::string& color)
+bool getShapeColor(const TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool, std::string& color)
 {
     TDF_Label shapeLabel;
     if (!shapeTool->Search(shape, shapeLabel)) {
@@ -138,15 +128,13 @@ bool getShapeColor(const TopoDS_Shape& shape,
     return getLabelColor(shapeLabel, shapeTool, colorTool, color);
 }
 
-bool isFreeShape(const TDF_Label& label,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool)
+bool isFreeShape(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     TopoDS_Shape tmpShape;
     return shapeTool->GetShape(label, tmpShape) && shapeTool->IsFree(label);
 }
 
-bool isMeshNode(const TDF_Label& label,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool)
+bool isMeshNode(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     // if there are no children, it is a mesh node
     if (!label.HasChild()) {
@@ -170,8 +158,7 @@ bool isMeshNode(const TDF_Label& label,
     return false;
 }
 
-ShapeNode initLabelNode(const TDF_Label label,
-    const Handle(XCAFDoc_ShapeTool) shapeTool,
+ShapeNode initLabelNode(const TDF_Label label, const Handle(XCAFDoc_ShapeTool) shapeTool,
     const Handle(XCAFDoc_ColorTool) colorTool)
 {
     std::string color;
@@ -187,32 +174,25 @@ ShapeNode initLabelNode(const TDF_Label label,
     return node;
 }
 
-ShapeNode initShapeNode(const TopoDS_Shape& shape,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool,
+ShapeNode initShapeNode(const TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeTool) & shapeTool,
     const Handle(XCAFDoc_ColorTool) & colorTool)
 {
     std::string color;
     getShapeColor(shape, shapeTool, colorTool, color);
-    ShapeNode childShapeNode = { .shape = shape,
-        .color = color,
-        .children = {},
-        .name = getShapeName(shape, shapeTool) };
+    ShapeNode childShapeNode = { .shape = shape, .color = color, .children = {}, .name = getShapeName(shape, shapeTool) };
     return childShapeNode;
 }
 
-ShapeNode initGroupNode(const TopoDS_Shape& shape,
-    const Handle_XCAFDoc_ShapeTool& shapeTool)
+ShapeNode initGroupNode(const TopoDS_Shape& shape, const Handle_XCAFDoc_ShapeTool& shapeTool)
 {
-    ShapeNode groupNode = { .shape = std::nullopt,
-        .color = std::nullopt,
-        .children = {},
-        .name = getShapeName(shape, shapeTool) };
+    ShapeNode groupNode = {
+        .shape = std::nullopt, .color = std::nullopt, .children = {}, .name = getShapeName(shape, shapeTool)
+    };
 
     return groupNode;
 }
 
-ShapeNode parseShape(TopoDS_Shape& shape,
-    const Handle_XCAFDoc_ShapeTool& shapeTool,
+ShapeNode parseShape(TopoDS_Shape& shape, const Handle_XCAFDoc_ShapeTool& shapeTool,
     const Handle_XCAFDoc_ColorTool& colorTool)
 {
     if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
@@ -228,8 +208,7 @@ ShapeNode parseShape(TopoDS_Shape& shape,
     return initShapeNode(shape, shapeTool, colorTool);
 }
 
-ShapeNode parseLabelToNode(const TDF_Label& label,
-    const Handle(XCAFDoc_ShapeTool) & shapeTool,
+ShapeNode parseLabelToNode(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeTool,
     const Handle(XCAFDoc_ColorTool) & colorTool)
 {
     if (isMeshNode(label, shapeTool)) {
@@ -248,8 +227,7 @@ ShapeNode parseLabelToNode(const TDF_Label& label,
     return node;
 }
 
-ShapeNode parseRootLabelToNode(const Handle(XCAFDoc_ShapeTool) & shapeTool,
-    const Handle(XCAFDoc_ColorTool) & colorTool)
+ShapeNode parseRootLabelToNode(const Handle(XCAFDoc_ShapeTool) & shapeTool, const Handle(XCAFDoc_ColorTool) & colorTool)
 {
     auto label = shapeTool->Label();
 
@@ -286,8 +264,7 @@ private:
         return sewing.SewedShape();
     }
 
-    static void writeBufferToFile(const std::string& fileName,
-        const Uint8Array& buffer)
+    static void writeBufferToFile(const std::string& fileName, const Uint8Array& buffer)
     {
         std::vector<uint8_t> input = convertJSArrayToNumberVector<uint8_t>(buffer);
         std::ofstream dummyFile;
@@ -394,33 +371,9 @@ public:
             return std::nullopt;
         }
 
-        ShapeNode node = { .shape = shape,
-            .color = std::nullopt,
-            .children = {},
-            .name = "STL Shape" };
+        ShapeNode node = { .shape = shape, .color = std::nullopt, .children = {}, .name = "STL Shape" };
 
         return node;
-    }
-
-    static std::string convertToStl(const TopoDS_Shape& shapeToExport)
-    {
-        std::string dummyFileName = "temp_export.stl";
-        auto lineDeflection = boundingBoxRatio(shapeToExport, 0.05);
-        BRepMesh_IncrementalMesh mesh(shapeToExport, lineDeflection, true, 0.2,
-            true);
-        StlAPI_Writer stlWriter;
-        if (!stlWriter.Write(shapeToExport, dummyFileName.c_str())) {
-            BRepTools::Clean(shapeToExport, true);
-            return std::string();
-        }
-        BRepTools::Clean(shapeToExport, true);
-
-        std::ifstream in(dummyFileName);
-        std::istreambuf_iterator<char> beg(in), end;
-        std::string str(beg, end);
-        in.close();
-
-        return str;
     }
 };
 
@@ -443,6 +396,5 @@ EMSCRIPTEN_BINDINGS(Converter)
         .class_function("convertFromIges", &Converter::convertFromIges)
         .class_function("convertToStep", &Converter::convertToStep)
         .class_function("convertToIges", &Converter::convertToIges)
-        .class_function("convertFromStl", &Converter::convertFromStl)
-        .class_function("convertToStl", &Converter::convertToStl);
+        .class_function("convertFromStl", &Converter::convertFromStl);
 }

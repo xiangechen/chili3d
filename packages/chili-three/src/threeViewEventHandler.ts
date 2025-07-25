@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IEventHandler, IView } from "chili-core";
+import { Config, IEventHandler, IView, Navigation3D } from "chili-core";
 
 interface MouseDownData {
     time: number;
@@ -26,7 +26,17 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
+        const currentNav3D = Config.instance.navigation3DIndex;
+
+        if (
+            currentNav3D === Navigation3D.Nav3DType.Solidworks ||
+            currentNav3D === Navigation3D.Nav3DType.Creo
+        ) {
+            view.cameraController.zoom(event.offsetX, event.offsetY, -event.deltaY);
+        } else {
+            view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
+        }
+
         view.update();
     }
 
@@ -53,11 +63,14 @@ export class ThreeViewHandler implements IEventHandler {
             this._offsetPoint = { x: event.offsetX, y: event.offsetY };
         }
 
-        if (event.shiftKey && this.canRotate) {
-            view.cameraController.rotate(dx, dy);
-        } else if (!event.shiftKey) {
+        let key = Navigation3D.getKey(event);
+        const navigatioMap = Navigation3D.navigationKeyMap();
+        if (navigatioMap.pan === key) {
             view.cameraController.pan(dx, dy);
+        } else if (navigatioMap.rotate === key && this.canRotate) {
+            view.cameraController.rotate(dx, dy);
         }
+
         if (dx !== 0 && dy !== 0) this._lastDown = undefined;
     }
 

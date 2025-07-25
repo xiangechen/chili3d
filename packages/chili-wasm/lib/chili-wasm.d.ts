@@ -577,7 +577,6 @@ interface EmbindModule {
     Converter: {
         convertToBrep(_0: TopoDS_Shape): string;
         convertFromBrep(_0: EmbindString): TopoDS_Shape;
-        convertToStl(_0: TopoDS_Shape): string;
         convertFromStep(_0: Uint8Array): ShapeNode | undefined;
         convertFromIges(_0: Uint8Array): ShapeNode | undefined;
         convertFromStl(_0: Uint8Array): ShapeNode | undefined;
@@ -587,6 +586,7 @@ interface EmbindModule {
     ShapeResult: {};
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
+        curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
         fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
@@ -782,7 +782,7 @@ interface EmbindModule {
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         iterShape(_0: TopoDS_Shape): Array<TopoDS_Shape>;
-        splitByEdgeOrWires(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+        splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
         sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;

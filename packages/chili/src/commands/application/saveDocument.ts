@@ -6,6 +6,7 @@ import { command, I18n, IApplication, ICommand, PubSub } from "chili-core";
 @command({
     key: "doc.save",
     icon: "icon-save",
+    isApplicationCommand: true,
 })
 export class SaveDocument implements ICommand {
     async execute(app: IApplication): Promise<void> {

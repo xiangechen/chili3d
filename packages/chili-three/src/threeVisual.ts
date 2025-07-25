@@ -1,13 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, IDocument, IEventHandler, IVisual, Logger, Plane } from "chili-core";
+import { IDisposable, IDocument, IEventHandler, IMeshExporter, IVisual, Logger, Plane } from "chili-core";
 import { NodeSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeView } from "./threeView";
 import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeViewHandler } from "./threeViewEventHandler";
+import { ThreeMeshExporter } from "./meshExporter";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -17,6 +18,7 @@ export class ThreeVisual implements IVisual {
     readonly scene: Scene;
     readonly highlighter: ThreeHighlighter;
     readonly viewHandler: IEventHandler;
+    readonly meshExporter: IMeshExporter;
     private _eventHandler: IEventHandler;
 
     get eventHandler() {
@@ -35,6 +37,7 @@ export class ThreeVisual implements IVisual {
         this.viewHandler = new ThreeViewHandler();
         this.context = new ThreeVisualContext(this, this.scene);
         this.highlighter = new ThreeHighlighter(this.context);
+        this.meshExporter = new ThreeMeshExporter(this.context);
         this._eventHandler = this.defaultEventHandler;
     }
 

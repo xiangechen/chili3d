@@ -16,7 +16,6 @@ import { Editor } from "./editor";
 import { Home } from "./home";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
-
 document.oncontextmenu = (e) => e.preventDefault();
 document.body.addEventListener("scroll", (e) => {
     document.body.scrollTop = 0;
@@ -28,7 +27,7 @@ export class MainWindow implements IWindow {
     private _editor?: Editor;
 
     constructor(readonly tabs: RibbonTab[]) {
-        this.setTheme("light");
+        // Theme will be set by Config.instance.applyTheme() on initialization
     }
 
     init(app: IApplication) {

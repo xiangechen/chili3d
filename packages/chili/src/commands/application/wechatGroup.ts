@@ -7,6 +7,7 @@ import { IApplication, ICommand, PubSub, command } from "chili-core";
 @command({
     key: "wechat.group",
     icon: "icon-qrcode",
+    isApplicationCommand: true,
 })
 export class WeChatGroup implements ICommand {
     async execute(app: IApplication): Promise<void> {

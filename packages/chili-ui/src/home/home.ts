@@ -12,8 +12,11 @@ import {
     PubSub,
     RecentDocumentDTO,
 } from "chili-core";
+
 import style from "./home.module.css";
 import { LanguageSelector } from "./languageSelector";
+import { Navigation3DSelector } from "./navigation3DSelector";
+import { ThemeSelector } from "./themeSelector";
 
 interface ApplicationCommand {
     display: I18nKeys;
@@ -53,11 +56,7 @@ export class Home extends HTMLElement {
 
     async render() {
         const documents = await this.getDocuments();
-        this.append(
-            this.leftSection(),
-            this.rightSection(documents),
-            LanguageSelector({ className: style.language }),
-        );
+        this.append(this.leftSection(), this.rightSection(documents));
         document.body.appendChild(this);
     }
 
@@ -70,6 +69,8 @@ export class Home extends HTMLElement {
                 this.applicationCommands(),
                 this.currentDocument(),
             ),
+
+            this.settings(),
             this.links(),
         );
     }
@@ -108,14 +109,61 @@ export class Home extends HTMLElement {
             : "";
     }
 
+    private settings() {
+        return div(
+            { className: style.settingsPanel },
+            div(
+                { className: style.settingItem },
+                span({
+                    className: style.settingLabel,
+                    textContent: new Localize("common.language"),
+                }),
+                div({ className: style.settingControl }, LanguageSelector({})),
+            ),
+            div(
+                { className: style.settingItem },
+                span({
+                    className: style.settingLabel,
+                    textContent: new Localize("common.theme"),
+                }),
+                div({ className: style.settingControl }, ThemeSelector({})),
+            ),
+            div(
+                { className: style.settingItem },
+                span({
+                    className: style.settingLabel,
+                    textContent: new Localize("common.3DNavigation"),
+                }),
+                div({ className: style.settingControl }, Navigation3DSelector({})),
+            ),
+        );
+    }
+
     private links() {
         return div(
-            { className: style.bottom },
-            a({
-                textContent: "Github",
-                href: "https://github.com/xiangechen/chili3d",
-                target: "_blank",
-            }),
+            { className: style.socialPanel },
+            a(
+                {
+                    className: style.socialItem,
+                    href: "https://github.com/xiangechen/chili3d",
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                },
+                svg({ icon: "icon-github" }),
+                label({ textContent: "GitHub" }),
+            ),
+            button(
+                {
+                    className: style.socialItem,
+                    onclick: () => {
+                        PubSub.default.pub("executeCommand", "wechat.group");
+                    },
+                },
+                svg({
+                    icon: "icon-wechatGroup",
+                }),
+                label({ textContent: new Localize("command.wechat.group") }),
+            ),
         );
     }
 

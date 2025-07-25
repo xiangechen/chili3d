@@ -15,6 +15,7 @@ export interface CommandData {
     toggle?: Binding;
     helpText?: string;
     helpUrl?: string;
+    isApplicationCommand?: boolean;
 }
 
 export function command<T extends CommandConstructor>(metadata: CommandData) {

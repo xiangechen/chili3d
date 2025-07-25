@@ -36,9 +36,9 @@ export interface IShapeFactory {
     fuse(bottom: IShape, top: IShape): Result<IShape>;
     sweep(profile: IShape[], path: IWire, isRoundCorner: boolean): Result<IShape>;
     revolve(profile: IShape, axis: Ray, angle: number): Result<IShape>;
-    booleanCommon(shape1: IShape, shape2: IShape): Result<IShape>;
-    booleanCut(shape1: IShape, shape2: IShape): Result<IShape>;
-    booleanFuse(shape1: IShape, shape2: IShape): Result<IShape>;
+    booleanCommon(shape1: IShape[], shape2: IShape[]): Result<IShape>;
+    booleanCut(shape1: IShape[], shape2: IShape[]): Result<IShape>;
+    booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
@@ -47,4 +47,5 @@ export interface IShapeFactory {
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
     replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;
+    curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape>;
 }

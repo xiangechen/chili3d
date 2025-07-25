@@ -20,7 +20,7 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     exportFormats(): string[] {
-        return [".step", ".iges", ".brep", ".stl"];
+        return [".step", ".iges", ".brep", ".stl", ".stl binary", ".ply", ".ply binary", ".obj"];
     }
 
     async import(document: IDocument, files: FileList | File[]): Promise<void> {
@@ -86,21 +86,32 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     async export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
-        if (!this.validateExportType(type)) return;
+        if (nodes.length === 0) return undefined;
 
-        const shapes = this.getExportShapes(nodes);
-        if (!shapes.length) return;
+        const document = nodes[0].document;
+        let shapeResult: Result<BlobPart> | undefined;
+        if (type === ".stl") {
+            shapeResult = document.visual.meshExporter.exportToStl(nodes, true);
+        } else if (type === ".stl binary") {
+            shapeResult = document.visual.meshExporter.exportToStl(nodes, false);
+        } else if (type === ".ply") {
+            shapeResult = document.visual.meshExporter.exportToPly(nodes, true);
+        } else if (type === ".ply binary") {
+            shapeResult = document.visual.meshExporter.exportToPly(nodes, false);
+        } else if (type === ".obj") {
+            shapeResult = document.visual.meshExporter.exportToObj(nodes);
+        } else {
+            const shapes = this.getExportShapes(nodes);
+            if (!shapes.length) return undefined;
+            if (type === ".step") shapeResult = this.exportStep(document, shapes);
+            if (type === ".iges") shapeResult = this.exportIges(document, shapes);
+            if (type === ".brep") shapeResult = this.exportBrep(document, shapes);
+        }
 
-        const shapeResult = await this.convertShapes(type, nodes[0].document, shapes);
-        shapes.forEach((x) => x.dispose());
-
-        return this.handleExportResult(shapeResult);
-    }
-
-    private validateExportType(type: string): boolean {
-        const isValid = this.exportFormats().includes(type);
-        !isValid && PubSub.default.pub("showToast", "error.import.unsupportedFileType:{0}", type);
-        return isValid;
+        if (shapeResult) {
+            return this.handleExportResult(shapeResult);
+        }
+        return undefined;
     }
 
     private getExportShapes(nodes: VisualNode[]): IShape[] {
@@ -112,13 +123,6 @@ export class DefaultDataExchange implements IDataExchange {
         return shapes;
     }
 
-    private async convertShapes(type: string, doc: IDocument, shapes: IShape[]) {
-        if (type === ".step") return this.exportStep(doc, shapes);
-        if (type === ".iges") return this.exportIges(doc, shapes);
-        if (type === ".stl") return this.exportStl(doc, shapes);
-        return this.exportBrep(doc, shapes);
-    }
-
     private exportStep(doc: IDocument, shapes: IShape[]) {
         return doc.application.shapeFactory.converter.convertToSTEP(...shapes);
     }
@@ -127,7 +131,7 @@ export class DefaultDataExchange implements IDataExchange {
         return doc.application.shapeFactory.converter.convertToIGES(...shapes);
     }
 
-    async exportBrep(document: IDocument, shapes: IShape[]) {
+    private exportBrep(document: IDocument, shapes: IShape[]) {
         const comp = document.application.shapeFactory.combine(shapes);
         if (!comp.isOk) {
             return Result.err(comp.error);
@@ -138,18 +142,7 @@ export class DefaultDataExchange implements IDataExchange {
         return result;
     }
 
-    async exportStl(document: IDocument, shapes: IShape[]) {
-        const comp = document.application.shapeFactory.combine(shapes);
-        if (!comp.isOk) {
-            return Result.err(comp.error);
-        }
-
-        const result = document.application.shapeFactory.converter.convertToSTL(comp.value);
-        comp.value.dispose();
-        return result;
-    }
-
-    private handleExportResult(result: Result<string> | undefined) {
+    private handleExportResult(result: Result<BlobPart> | undefined) {
         if (!result?.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", result?.error);
             return undefined;

@@ -30,7 +30,7 @@ import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
-import { hilightEdgeMaterial } from "./common";
+import { defaultEdgeMaterial, hilightEdgeMaterial } from "./common";
 import { Constants } from "./constants";
 import { IHighlightable } from "./highlightable";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
@@ -300,15 +300,6 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         return this._surfaces;
     }
 
-    private readonly _edgeMaterial = new LineMaterial({
-        linewidth: 1,
-        color: VisualConfig.defaultEdgeColor,
-        side: DoubleSide,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
-    });
-
     constructor(
         readonly componentNode: ComponentNode,
         readonly context: ThreeVisualContext,
@@ -327,7 +318,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         }
 
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        this._edges = new LineSegments2(buff, this._edgeMaterial);
+        this._edges = new LineSegments2(buff, defaultEdgeMaterial);
         this._edges.layers.set(Constants.Layers.Wireframe);
         this.add(this._edges);
     }
@@ -369,7 +360,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         let buff = new LineSegmentsGeometry();
         buff.setPositions(data.position!);
         buff.computeBoundingBox();
-        this._linesegments = new LineSegments2(buff, this._edgeMaterial);
+        this._linesegments = new LineSegments2(buff, defaultEdgeMaterial);
         this._linesegments.layers.set(Constants.Layers.Wireframe);
         this.add(this._linesegments);
     }

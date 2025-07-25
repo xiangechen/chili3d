@@ -26,6 +26,7 @@
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepProj_Projection.hxx>
 #include <Geom_BezierCurve.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
@@ -63,11 +64,7 @@ public:
         return ShapeResult { box.Shape(), true, "" };
     }
 
-    static ShapeResult cone(const Vector3& normal,
-        const Vector3& center,
-        double radius,
-        double radiusUp,
-        double height)
+    static ShapeResult cone(const Vector3& normal, const Vector3& center, double radius, double radiusUp, double height)
     {
         gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
         TopoDS_Shape cone = BRepPrimAPI_MakeCone(ax2, radius, radiusUp, height).Shape();
@@ -80,14 +77,10 @@ public:
         return ShapeResult { sphere, true, "" };
     }
 
-    static ShapeResult ellipse(const Vector3& normal,
-        const Vector3& center,
-        const Vector3& xvec,
-        double majorRadius,
+    static ShapeResult ellipse(const Vector3& normal, const Vector3& center, const Vector3& xvec, double majorRadius,
         double minorRadius)
     {
-        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal),
-            Vector3::toDir(xvec));
+        gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal), Vector3::toDir(xvec));
         gp_Elips ellipse(ax2, majorRadius, minorRadius);
         BRepBuilderAPI_MakeEdge edge(ellipse);
         if (!edge.IsDone()) {
@@ -99,12 +92,8 @@ public:
     /**
      * TODO
      */
-    static ShapeResult ellipsoid(const Vector3& normal,
-        const Vector3& center,
-        const Vector3& xvec,
-        double xRadius,
-        double yRadius,
-        double zRadius)
+    static ShapeResult ellipsoid(const Vector3& normal, const Vector3& center, const Vector3& xvec, double xRadius,
+        double yRadius, double zRadius)
     {
         TopoDS_Shape sphere = BRepPrimAPI_MakeSphere(1).Solid();
 
@@ -139,10 +128,8 @@ public:
         auto top = pln.Location().Translated((xvec + yvec) * 0.5 + zvec);
 
         std::vector<TopoDS_Face> faces = {
-            TopoDS::Face(pointsToFace({ p1, p2, p3, p4, p1 }).shape),
-            TopoDS::Face(pointsToFace({ p1, p2, top, p1 }).shape),
-            TopoDS::Face(pointsToFace({ p2, p3, top, p2 }).shape),
-            TopoDS::Face(pointsToFace({ p3, p4, top, p3 }).shape),
+            TopoDS::Face(pointsToFace({ p1, p2, p3, p4, p1 }).shape), TopoDS::Face(pointsToFace({ p1, p2, top, p1 }).shape),
+            TopoDS::Face(pointsToFace({ p2, p3, top, p2 }).shape), TopoDS::Face(pointsToFace({ p3, p4, top, p3 }).shape),
             TopoDS::Face(pointsToFace({ p4, p1, top, p4 }).shape)
         };
 
@@ -192,10 +179,7 @@ public:
         return ShapeResult { solidBuilder.Solid(), true, "" };
     }
 
-    static ShapeResult cylinder(const Vector3& normal,
-        const Vector3& center,
-        double radius,
-        double height)
+    static ShapeResult cylinder(const Vector3& normal, const Vector3& center, double radius, double height)
     {
         gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
         BRepPrimAPI_MakeCylinder cylinder(ax2, radius, height);
@@ -206,10 +190,7 @@ public:
         return ShapeResult { cylinder.Solid(), true, "" };
     }
 
-    static ShapeResult sweep(const ShapeArray& sections,
-        const TopoDS_Wire& path,
-        bool isFrenet,
-        bool isForceC1)
+    static ShapeResult sweep(const ShapeArray& sections, const TopoDS_Wire& path, bool isFrenet, bool isForceC1)
     {
         BRepOffsetAPI_MakePipeShell pipe(path);
         if (isFrenet) {
@@ -237,9 +218,7 @@ public:
         return ShapeResult { pipe.Shape(), true, "" };
     }
 
-    static ShapeResult revolve(const TopoDS_Shape& profile,
-        const Ax1& axis,
-        double rad)
+    static ShapeResult revolve(const TopoDS_Shape& profile, const Ax1& axis, double rad)
     {
         BRepPrimAPI_MakeRevol revol(profile, Ax1::toAx1(axis), rad);
         if (!revol.IsDone()) {
@@ -268,10 +247,7 @@ public:
         return pointsToWire(pnts);
     }
 
-    static ShapeResult arc(const Vector3& normal,
-        const Vector3& center,
-        const Vector3& start,
-        double rad)
+    static ShapeResult arc(const Vector3& normal, const Vector3& center, const Vector3& start, double rad)
     {
         gp_Pnt centerPnt = Vector3::toPnt(center);
         gp_Pnt startPnt = Vector3::toPnt(start);
@@ -290,9 +266,7 @@ public:
         return ShapeResult { edge.Edge(), true, "" };
     }
 
-    static ShapeResult circle(const Vector3& normal,
-        const Vector3& center,
-        double radius)
+    static ShapeResult circle(const Vector3& normal, const Vector3& center, double radius)
     {
         gp_Ax2 ax2(Vector3::toPnt(center), Vector3::toDir(normal));
         gp_Circ circ(ax2, radius);
@@ -312,8 +286,7 @@ public:
         return ShapeResult { makeFace.Face(), true, "" };
     }
 
-    static ShapeResult bezier(const Vector3Array& points,
-        const NumberArray& weights)
+    static ShapeResult bezier(const Vector3Array& points, const NumberArray& weights)
     {
         std::vector<Vector3> pts = vecFromJSArray<Vector3>(points);
         TColgp_Array1OfPnt arrayofPnt(1, pts.size());
@@ -327,8 +300,7 @@ public:
             arrayOfWeight.SetValue(i + 1, wts[i]);
         }
 
-        Handle_Geom_Curve curve = wts.size() > 0 ? new Geom_BezierCurve(arrayofPnt, arrayOfWeight)
-                                                 : new Geom_BezierCurve(arrayofPnt);
+        Handle_Geom_Curve curve = wts.size() > 0 ? new Geom_BezierCurve(arrayofPnt, arrayOfWeight) : new Geom_BezierCurve(arrayofPnt);
         BRepBuilderAPI_MakeEdge edge(curve);
         if (!edge.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to create bezier" };
@@ -347,16 +319,14 @@ public:
 
     static ShapeResult line(const Vector3& start, const Vector3& end)
     {
-        BRepBuilderAPI_MakeEdge makeEdge(Vector3::toPnt(start),
-            Vector3::toPnt(end));
+        BRepBuilderAPI_MakeEdge makeEdge(Vector3::toPnt(start), Vector3::toPnt(end));
         if (!makeEdge.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to create line" };
         }
         return ShapeResult { makeEdge.Edge(), true, "" };
     }
 
-    static void orderEdge(BRepBuilderAPI_MakeWire& wire,
-        const std::vector<TopoDS_Edge>& edges)
+    static void orderEdge(BRepBuilderAPI_MakeWire& wire, const std::vector<TopoDS_Edge>& edges)
     {
         ShapeAnalysis_WireOrder order;
         ShapeAnalysis_Edge analysis;
@@ -437,8 +407,7 @@ public:
         return ShapeResult { makeSolid.Solid(), true, "" };
     }
 
-    static ShapeResult makeThickSolidBySimple(const TopoDS_Shape& shape,
-        double thickness)
+    static ShapeResult makeThickSolidBySimple(const TopoDS_Shape& shape, double thickness)
     {
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
         makeThickSolid.MakeThickSolidBySimple(shape, thickness);
@@ -448,9 +417,7 @@ public:
         return ShapeResult { makeThickSolid.Shape(), true, "" };
     }
 
-    static ShapeResult makeThickSolidByJoin(const TopoDS_Shape& shape,
-        const ShapeArray& shapes,
-        double thickness)
+    static ShapeResult makeThickSolidByJoin(const TopoDS_Shape& shape, const ShapeArray& shapes, double thickness)
     {
         std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(shapes);
         TopTools_ListOfShape shapesList;
@@ -465,8 +432,7 @@ public:
         return ShapeResult { makeThickSolid.Shape(), true, "" };
     }
 
-    static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater,
-        const ShapeArray& args,
+    static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater, const ShapeArray& args,
         const ShapeArray& tools)
     {
         boolOperater.SetRunParallel(true);
@@ -488,29 +454,25 @@ public:
         boolOperater.SetTools(toolsList);
         boolOperater.Build();
         if (!boolOperater.IsDone()) {
-            return ShapeResult { TopoDS_Shape(), false,
-                "Failed to build boolean operation" };
+            return ShapeResult { TopoDS_Shape(), false, "Failed to build boolean operation" };
         }
         boolOperater.SimplifyResult();
         return ShapeResult { boolOperater.Shape(), true, "" };
     }
 
-    static ShapeResult booleanCommon(const ShapeArray& args,
-        const ShapeArray& tools)
+    static ShapeResult booleanCommon(const ShapeArray& args, const ShapeArray& tools)
     {
         BRepAlgoAPI_Common api;
         return booleanOperate(api, args, tools);
     }
 
-    static ShapeResult booleanCut(const ShapeArray& args,
-        const ShapeArray& tools)
+    static ShapeResult booleanCut(const ShapeArray& args, const ShapeArray& tools)
     {
         BRepAlgoAPI_Cut api;
         return booleanOperate(api, args, tools);
     }
 
-    static ShapeResult booleanFuse(const ShapeArray& args,
-        const ShapeArray& tools)
+    static ShapeResult booleanFuse(const ShapeArray& args, const ShapeArray& tools)
     {
         BRepAlgoAPI_Fuse api;
         return booleanOperate(api, args, tools);
@@ -528,9 +490,7 @@ public:
         return ShapeResult { compound, true, "" };
     }
 
-    static ShapeResult fillet(const TopoDS_Shape& shape,
-        const NumberArray& edges,
-        double radius)
+    static ShapeResult fillet(const TopoDS_Shape& shape, const NumberArray& edges, double radius)
     {
         std::vector<int> edgeVec = vecFromJSArray<int>(edges);
 
@@ -549,9 +509,7 @@ public:
         return ShapeResult { makeFillet.Shape(), true, "" };
     }
 
-    static ShapeResult chamfer(const TopoDS_Shape& shape,
-        const NumberArray& edges,
-        double distance)
+    static ShapeResult chamfer(const TopoDS_Shape& shape, const NumberArray& edges, double distance)
     {
         std::vector<int> edgeVec = vecFromJSArray<int>(edges);
 
@@ -567,6 +525,15 @@ public:
             return ShapeResult { TopoDS_Shape(), false, "Failed to chamfer" };
         }
         return ShapeResult { makeChamfer.Shape(), true, "" };
+    }
+
+    static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
+    {
+        BRepProj_Projection curveProjection(curve, targetFace, dir);
+        if (!curveProjection.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create curve projection" };
+        }
+        return ShapeResult { curveProjection.Shape(), true, "" };
     }
 };
 
@@ -599,14 +566,13 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("face", &ShapeFactory::face)
         .class_function("shell", &ShapeFactory::shell)
         .class_function("solid", &ShapeFactory::solid)
-        .class_function("makeThickSolidBySimple",
-            &ShapeFactory::makeThickSolidBySimple)
-        .class_function("makeThickSolidByJoin",
-            &ShapeFactory::makeThickSolidByJoin)
+        .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
+        .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)
         .class_function("booleanCut", &ShapeFactory::booleanCut)
         .class_function("booleanFuse", &ShapeFactory::booleanFuse)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
-        .class_function("chamfer", &ShapeFactory::chamfer);
+        .class_function("chamfer", &ShapeFactory::chamfer)
+        .class_function("curveProjection", &ShapeFactory::curveProjection);
 }

@@ -36,10 +36,21 @@ export class Split extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const old = this.stepDatas[0].nodes![0];
             const shape = this.splitedShape();
-
-            const model = new EditableShapeNode(this.document, old.name, shape);
-            model.transform = old.transform;
-            old.parent?.add(model);
+            let subShapes = shape.iterShape();
+            if (subShapes.length > 1) {
+                let i = 1;
+                old.parent?.add(
+                    ...subShapes.map((x) => {
+                        const model = new EditableShapeNode(this.document, old.name + i++, x);
+                        model.transform = old.transform;
+                        return model;
+                    }),
+                );
+            } else {
+                const model = new EditableShapeNode(this.document, old.name, shape);
+                model.transform = old.transform;
+                old.parent?.add(model);
+            }
 
             this.removeModels(
                 this.stepDatas[0].shapes[0].owner,
@@ -61,7 +72,7 @@ export class Split extends MultistepCommand {
             new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
                 selectedState: VisualState.faceTransparent,
             }),
-            new SelectShapeStep(ShapeType.Wire | ShapeType.Edge, "prompt.select.shape", {
+            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire | ShapeType.Face, "prompt.select.shape", {
                 multiple: true,
                 keepSelection: true,
             }),
