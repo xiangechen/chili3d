@@ -17,8 +17,6 @@
     & .sidebar {
         display: flex;
         flex-direction: column;
-        /* Remove fixed flex-basis, allow inline style for width */
-        /* flex: 0 0 360px; */
         min-width: 150px;
         max-width: 85%;
         background-color: var(--background-color);
@@ -69,14 +67,15 @@
 @media (max-width: 680px) {
     .content {
         flex-direction: column-reverse;
-        height: 0;
+        min-height: 0;
 
-        & .viewport {
+        & .viewportContainer {
             height: 100px;
             width: 100%;
         }
 
         & .sidebar {
+            display: none;
             flex: 1 1 auto;
             width: 100%;
         }
