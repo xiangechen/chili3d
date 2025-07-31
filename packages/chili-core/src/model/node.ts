@@ -81,12 +81,16 @@ export abstract class Node extends HistoryObservable implements INode {
     }
 
     clone(): this {
-        let serialized = Serializer.serializeObject(this);
-        serialized.properties["id"] = Id.generate();
-        serialized.properties["name"] = `${this.name}_copy`;
-        let cloned: this = Serializer.deserializeObject(this.document, serialized);
-        this.parent?.add(cloned);
-        return cloned;
+        const oldValue = this.document.history.disabled;
+        try {
+            this.document.history.disabled = true;
+            let serialized = Serializer.serializeObject(this);
+            serialized.properties["id"] = Id.generate();
+            serialized.properties["name"] = `${this.name}_copy`;
+            return Serializer.deserializeObject(this.document, serialized) as this;
+        } finally {
+            this.document.history.disabled = oldValue;
+        }
     }
 
     protected abstract onParentVisibleChanged(): void;
