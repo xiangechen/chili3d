@@ -159,3 +159,7 @@ We welcome contributions in the form of code, bug reports, or feedback. Please f
 Distributed under the GNU Affero General Public License v3.0 (AGPL-3.0). For commercial licensing options, contact xiangetg@msn.cn
 
 Full license details: [LICENSE](LICENSE)
+
+## Warning
+
+Chili3d uses [Clarity](https://clarity.microsoft.com) to anonymously collect user data to support its growth. If you have information security concerns, please delete lines 11 to 17 in public/index.html.
