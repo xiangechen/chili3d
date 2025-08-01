@@ -162,4 +162,23 @@ Full license details: [LICENSE](LICENSE)
 
 ## Warning
 
-Chili3d uses [Clarity](https://clarity.microsoft.com) to anonymously collect user data to support its growth. If you have information security concerns, please delete lines 11 to 17 in public/index.html.
+Chili3d uses [Microsoft Clarity](https://clarity.microsoft.com) for growth analytics. To disable data collection:
+
+1. Open public/index.html
+2. Delete lines 11-17 containing this code:
+
+```
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "***");
+</script>
+```
+
+This software is provided "AS IS," and the authors and contributors hereby disclaim all express and implied warranties. The user shall bear full responsibility for any and all risks and potential consequences arising from the use of this software. Such risks and consequences include, but are not limited to:
+
+1. Data loss, system failures, or any direct or indirect damages;
+2. Conduct violating applicable laws or regulations resulting from software usage and its consequences;
+3. All liabilities arising from the software’s use for illegal purposes or activities.
