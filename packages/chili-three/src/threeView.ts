@@ -403,12 +403,13 @@ export class ThreeView extends Observable implements IView {
         mx2: number,
         my2: number,
         shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ) {
         const selectionBox = this.initSelectionBox(mx1, my1, mx2, my2);
         let detecteds: VisualShapeData[] = [];
         let containsCache = new Set<IShape>();
         for (const obj of selectionBox.select()) {
-            this.addDetectedShape(detecteds, containsCache, shapeType, obj, shapeFilter);
+            this.addDetectedShape(detecteds, containsCache, shapeType, obj, shapeFilter, nodeFilter);
         }
         return detecteds;
     }
@@ -419,8 +420,10 @@ export class ThreeView extends Observable implements IView {
         shapeType: ShapeType,
         obj: Mesh | LineSegments2,
         shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ) {
-        let shape = this.getParentShape(obj);
+        const node = this.getParentNode(obj);
+        const shape = node?.shape.unchecked();
         if (shape === undefined || cache.has(shape)) return;
 
         const addShape = (indexes: number[]) => {
@@ -438,16 +441,16 @@ export class ThreeView extends Observable implements IView {
             return;
         }
         if ((shape.shapeType & shapeType) === 0) return;
-        if (shapeFilter && !shapeFilter.allow(shape)) return;
+        if ((shapeFilter && !shapeFilter.allow(shape)) || (nodeFilter && !nodeFilter.allow(node!))) return;
 
         let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
         addShape([...Array(groups?.length).keys()]);
     }
 
-    private getParentShape(obj: Object3D): IShape | undefined {
+    private getParentNode(obj: Object3D) {
         if (!obj.parent?.visible || !(obj.parent instanceof ThreeGeometry)) return undefined;
 
-        return (obj.parent.geometryNode as ShapeNode).shape.unchecked();
+        return obj.parent.geometryNode as ShapeNode;
     }
 
     detectShapes(
@@ -455,14 +458,15 @@ export class ThreeView extends Observable implements IView {
         mx: number,
         my: number,
         shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ): VisualShapeData[] {
         let intersections = this.findIntersectedShapes(shapeType, mx, my);
         return ShapeType.isWhole(shapeType)
-            ? this.detectThreeShapes(intersections, shapeFilter)
-            : this.detectSubShapes(shapeType, intersections, shapeFilter);
+            ? this.detectThreeShapes(intersections, shapeFilter, nodeFilter)
+            : this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
     }
 
-    private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter): VisualShapeData[] {
+    private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter, nodeFilter?: INodeFilter): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
             if (!(parent instanceof ThreeGeometry)) continue;
@@ -473,9 +477,11 @@ export class ThreeView extends Observable implements IView {
             } else if (parent.geometryNode instanceof MultiShapeNode) {
                 shape = this.findShapeAndIndex(parent, element).shape;
             }
-            if (!shape) continue;
 
-            if (shapeFilter && !shapeFilter.allow(shape)) {
+            if (!shape 
+                || (shapeFilter && !shapeFilter.allow(shape)) 
+                || (nodeFilter && !nodeFilter.allow(parent.geometryNode))
+            ) {
                 continue;
             }
 
@@ -496,6 +502,7 @@ export class ThreeView extends Observable implements IView {
         shapeType: ShapeType,
         intersections: Intersection<Object3D>[],
         shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ) {
         let result: VisualShapeData[] = [];
         for (const intersected of intersections) {
@@ -506,7 +513,11 @@ export class ThreeView extends Observable implements IView {
                     visualShape,
                     intersected,
                 );
-                if (!shape || (shapeFilter && !shapeFilter.allow(shape))) {
+                if (
+                    !shape 
+                    || (shapeFilter && !shapeFilter.allow(shape)) 
+                    || (nodeFilter && !nodeFilter.allow(visualShape.node))
+                ) {
                     continue;
                 }
                 const nodeWorldTransform = visualShape.worldTransform();

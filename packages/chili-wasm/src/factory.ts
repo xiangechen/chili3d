@@ -20,6 +20,7 @@ import {
     XYZ,
     XYZLike,
 } from "chili-core";
+import { GeoUtils } from "chili-geo";
 import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
@@ -126,7 +127,16 @@ export class ShapeFactory implements IShapeFactory {
     }
 
     face(wire: IWire[]): Result<IFace> {
-        let shapes = ensureOccShape(wire);
+        if (wire.length === 0) {
+            return Result.err("The wire is empty.");
+        }
+        const normal = GeoUtils.normal(wire[0]);
+        for (let i = 1; i < wire.length; i++) {
+            if (GeoUtils.isCCW(normal, wire[i])) {
+                wire[i].reserve();
+            }
+        }
+        const shapes = ensureOccShape(wire);
         return convertShapeResult(wasm.ShapeFactory.face(shapes)) as Result<IFace>;
     }
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge> {

@@ -80,12 +80,20 @@ export abstract class TransformedCommand extends MultistepCommand {
 
     protected executeMainTask(): void {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            const models = this.isClone ? this.models?.map((x) => x.clone()) : this.models;
             const transform = this.transfrom(this.stepDatas.at(-1)!.point!);
 
-            models?.forEach((x) => {
-                x.transform = x.transform.multiply(transform);
-            });
+            if (this.isClone) {
+                this.models?.forEach((x) => {
+                    const clone = x.clone();
+                    clone.transform = x.transform.multiply(transform);
+                    x.parent?.insertAfter(x, clone);
+                });
+            } else {
+                this.models?.forEach((x) => {
+                    x.transform = x.transform.multiply(transform);
+                });
+            }
+
             this.document.visual.update();
         });
     }

@@ -4,6 +4,7 @@
 import {
     AsyncController,
     IDocument,
+    INodeFilter,
     IShape,
     IShapeFilter,
     IView,
@@ -18,12 +19,15 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     private _detectAtMouse: VisualShapeData[] | undefined;
     private _lockDetected: IShape | undefined;
 
+    highlightState = VisualState.edgeHighlight
+
     constructor(
         document: IDocument,
         readonly shapeType: ShapeType,
         multiMode: boolean,
         controller?: AsyncController,
-        readonly filter?: IShapeFilter,
+        readonly shapefilter?: IShapeFilter,
+        readonly nodeFilter?: INodeFilter,
     ) {
         super(document, multiMode, controller);
     }
@@ -40,10 +44,11 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
                 this.mouse.y,
                 event.offsetX,
                 event.offsetY,
-                this.filter,
+                this.shapefilter,
+                this.nodeFilter,
             );
         }
-        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.filter);
+        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.shapefilter, this.nodeFilter);
         const detected = this.getDetecting();
         return detected ? [detected] : [];
     }
@@ -58,7 +63,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         detecteds.forEach((x) => {
             view.document.visual.highlighter.addState(
                 x.owner,
-                VisualState.edgeHighlight,
+                this.highlightState,
                 this.shapeType,
                 ...x.indexes,
             );
@@ -71,7 +76,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         this._highlights?.forEach((x) => {
             x.owner.node.document.visual.highlighter.removeState(
                 x.owner,
-                VisualState.edgeHighlight,
+                this.highlightState,
                 this.shapeType,
                 ...x.indexes,
             );
@@ -113,8 +118,9 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
         multiMode: boolean,
         controller?: AsyncController,
         filter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ) {
-        super(document, shapeType, multiMode, controller, filter);
+        super(document, shapeType, multiMode, controller, filter, nodeFilter);
         this.showRect = false;
     }
 

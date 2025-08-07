@@ -14,6 +14,7 @@ export interface ISelection extends IDisposable {
         controller: AsyncController,
         multiMode: boolean,
         selectedState?: VisualState,
+        highlightState?: VisualState,
     ): Promise<VisualShapeData[]>;
     pickNode(prompt: I18nKeys, controller: AsyncController, multiMode: boolean): Promise<VisualNode[]>;
     pickAsync(

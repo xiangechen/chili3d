@@ -51,7 +51,7 @@ export interface IView extends IPropertyChanged, IDisposable {
         y2: number,
         nodeFilter?: INodeFilter,
     ): IVisualObject[];
-    detectShapes(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter): VisualShapeData[];
+    detectShapes(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter, nodeFilter?: INodeFilter): VisualShapeData[];
     detectShapesRect(
         shapeType: ShapeType,
         x1: number,
@@ -59,6 +59,7 @@ export interface IView extends IPropertyChanged, IDisposable {
         x2: number,
         y2: number,
         shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
     ): VisualShapeData[];
 }
 

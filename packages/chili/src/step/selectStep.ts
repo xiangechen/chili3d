@@ -19,6 +19,7 @@ export interface SelectShapeOptions {
     nodeFilter?: INodeFilter;
     shapeFilter?: IShapeFilter;
     selectedState?: VisualState;
+    highlightState?: VisualState;
     keepSelection?: boolean;
 }
 
@@ -36,9 +37,10 @@ export abstract class SelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const { shapeType, shapeFilter } = document.selection;
+        const { shapeType, shapeFilter, nodeFilter } = document.selection;
         document.selection.shapeType = this.snapeType;
         document.selection.shapeFilter = this.options?.shapeFilter;
+        document.selection.nodeFilter = this.options?.nodeFilter;
         if (!this.options?.keepSelection) {
             document.selection.clearSelection();
             document.visual.highlighter.clear();
@@ -48,6 +50,7 @@ export abstract class SelectStep implements IStep {
         } finally {
             document.selection.shapeType = shapeType;
             document.selection.shapeFilter = shapeFilter;
+            document.selection.nodeFilter = nodeFilter;
         }
     }
 
@@ -64,6 +67,7 @@ export class SelectShapeStep extends SelectStep {
             controller,
             this.options?.multiple === true,
             this.options?.selectedState,
+            this.options?.highlightState,
         );
         if (shapes.length === 0) return undefined;
         return {

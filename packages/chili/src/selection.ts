@@ -36,6 +36,7 @@ export class Selection implements ISelection, IDisposable {
         controller: AsyncController,
         multiMode: boolean,
         selectedState: VisualState = VisualState.edgeSelected,
+        highlightState: VisualState = VisualState.edgeHighlight,
     ) {
         const handler = new SubshapeSelectionHandler(
             this.document,
@@ -43,8 +44,10 @@ export class Selection implements ISelection, IDisposable {
             multiMode,
             controller,
             this.shapeFilter,
+            this.nodeFilter,
         );
         handler.selectedState = selectedState;
+        handler.highlightState = highlightState;
         await this.pickAsync(handler, prompt, controller, multiMode);
         return handler.shapes();
     }

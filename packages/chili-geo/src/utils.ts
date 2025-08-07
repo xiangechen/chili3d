@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { ICurve, IEdge, IFace, IWire, Precision, Result, ShapeType, XYZ } from "chili-core";
+import { ICurve, IEdge, IFace, IWire, Orientation, Precision, Result, ShapeType, XYZ } from "chili-core";
 
 export class GeoUtils {
     static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ } {
@@ -32,15 +32,32 @@ export class GeoUtils {
     }
 
     private static wireNormal(wire: IWire): XYZ {
-        const face = wire.toFace();
-        if (face.isOk) return face.value.normal(0, 0)[1];
-
-        let firstEdge: IEdge | undefined = undefined;
-        for (const edge of wire.findSubShapes(ShapeType.Edge)) {
-            firstEdge = edge as IEdge;
-            break;
+        const edges = wire.findSubShapes(ShapeType.Edge) as IEdge[];
+        if (edges.length === 0) {
+            console.warn("Empty wire");
+            return XYZ.unitZ;
+        } else if (edges.length === 1) {
+            return this.curveNormal(edges[0].curve);
+        } else {
+            const curve1 = edges[0].curve;
+            const curve2 = edges[1].curve;
+            const p1 = curve1.value(curve1.firstParameter());
+            const p2 = curve1.value(curve1.lastParameter());
+            const p3 = curve2.value(curve2.firstParameter());
+            const p4 = curve2.value(curve2.lastParameter());
+            const v1 = p2.sub(p1);
+            const v2 = p4.sub(p3);
+            const normal = v1.cross(v2).normalize()!;
+            if (wire.orientation() === Orientation.REVERSED) {
+                return normal.reverse();
+            }
+            return normal;
         }
-        return this.curveNormal(firstEdge!.curve);
+    }
+
+    static isCCW(normal: XYZ, wire: IWire): boolean {
+        const testNormal = this.wireNormal(wire);
+        return testNormal.dot(normal) > 0.001;
     }
 
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {

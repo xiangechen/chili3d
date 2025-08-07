@@ -44,10 +44,6 @@ export class FaceNode extends ParameterShapeNode {
             this.addUnclosedEdges(wires, this.shapes as IEdge[]);
         }
 
-        for (let i = 1; i < wires.length; i++) {
-            wires[i].reserve();
-        }
-
         return wires;
     }
 

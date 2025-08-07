@@ -53,6 +53,7 @@ struct ShapeNode {
     }
 };
 
+// copy from https://github.com/kovacsv/occt-import-js/blob/main/occt-import-js/src/importer-xcaf.cpp
 std::string getLabelNameNoRef(const TDF_Label& label)
 {
     Handle(TDataStd_Name) nameAttribute = new TDataStd_Name();
@@ -142,17 +143,29 @@ bool isMeshNode(const TDF_Label& label, const Handle(XCAFDoc_ShapeTool) & shapeT
     }
 
     // if it has a subshape child, treat it as mesh node
+    bool hasSubShapeChild = false;
     for (TDF_ChildIterator it(label); it.More(); it.Next()) {
-        if (shapeTool->IsSubShape(it.Value())) {
-            return true;
+        TDF_Label childLabel = it.Value();
+        if (shapeTool->IsSubShape(childLabel)) {
+            hasSubShapeChild = true;
+            break;
         }
+    }
+    if (hasSubShapeChild) {
+        return true;
     }
 
     // if it doesn't have a freeshape child, treat it as a mesh node
+    bool hasFreeShapeChild = false;
     for (TDF_ChildIterator it(label); it.More(); it.Next()) {
-        if (isFreeShape(it.Value(), shapeTool)) {
-            return false;
+        TDF_Label childLabel = it.Value();
+        if (isFreeShape(childLabel, shapeTool)) {
+            hasFreeShapeChild = true;
+            break;
         }
+    }
+    if (!hasFreeShapeChild) {
+        return true;
     }
 
     return false;
