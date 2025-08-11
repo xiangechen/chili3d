@@ -34,7 +34,7 @@ const PAN_SPEED_FACTOR = 0.002;
 const CAMERA_FOV = 50;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
-const MIN_CARME_TO_TARGET = 1;
+const MIN_CARME_TO_TARGET = 50;
 
 Camera.DEFAULT_UP = new Vector3(0, 0, 1);
 
