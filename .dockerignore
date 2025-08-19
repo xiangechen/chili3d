@@ -1,0 +1,9 @@
+# Ignore build directories
+/build
+/cpp/build
+/dist
+
+/.github
+/.vscode
+/screenshots
+/*.md
