@@ -435,8 +435,6 @@ public:
         TopTools_ListOfShape argsList = shapeArrayToListOfShape(args);
         TopTools_ListOfShape toolsList = shapeArrayToListOfShape(tools);
 
-        boolOperater.SetRunParallel(false);
-        boolOperater.SetFuzzyValue(1e-3);
         boolOperater.SetToFillHistory(false);
         boolOperater.SetArguments(argsList);
         boolOperater.SetTools(toolsList);
@@ -444,7 +442,7 @@ public:
         if (!boolOperater.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to build boolean operation" };
         }
-        // boolOperater.SimplifyResult(true, true, 1e-4); // mabe crash
+        boolOperater.SimplifyResult();
 
         return ShapeResult { boolOperater.Shape(), true, "" };
     }
