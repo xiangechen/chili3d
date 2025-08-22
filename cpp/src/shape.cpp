@@ -27,6 +27,9 @@
 #include <GeomAbs_JoinType.hxx>
 #include <Geom_OffsetCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
+#include <HLRAlgo_Projector.hxx>
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
 #include <ShapeAnalysis.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <TopExp.hxx>
@@ -43,6 +46,9 @@
 #include <TopoDS_Solid.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Wire.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
 
 #include "shared.hpp"
 #include "utils.hpp"
@@ -212,6 +218,22 @@ public:
 
         sewing.Perform();
         return sewing.SewedShape();
+    }
+
+    static TopoDS_Shape hlr(const TopoDS_Shape& shape, const gp_Pnt& point, const gp_Dir& direction, const gp_Dir& xDirection)
+    {
+        gp_Ax3 ax3(point, direction, xDirection);
+        gp_Trsf trsf;
+        trsf.SetTransformation(ax3);
+
+        HLRAlgo_Projector projector(trsf, false, false);
+        Handle_HLRBRep_Algo algo = new HLRBRep_Algo();
+        algo->Add(shape);
+        algo->Projector(projector);
+        algo->Update();
+
+        HLRBRep_HLRToShape hlrToShape(algo);
+        return hlrToShape.VCompound();
     }
 };
 
@@ -395,6 +417,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("removeFeature", &Shape::removeFeature)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)
+        .class_function("hlr", &Shape::hlr)
         .class_function("sewing", &Shape::sewing);
 
     class_<Vertex>("Vertex").class_function("point", &Vertex::point);

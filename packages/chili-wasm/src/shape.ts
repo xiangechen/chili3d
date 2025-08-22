@@ -35,6 +35,7 @@ import {
     ShapeType,
     VisualConfig,
     XYZ,
+    XYZLike,
 } from "chili-core";
 import {
     TopoDS_Edge,
@@ -227,6 +228,18 @@ export class OccShape implements IShape {
 
     reserve(): void {
         this.shape.reverse();
+    }
+
+    hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
+        return gc((c) => {
+            const shape = wasm.Shape.hlr(
+                this.shape,
+                c(OcctHelper.toPnt(position)),
+                c(OcctHelper.toDir(direction)),
+                c(OcctHelper.toDir(xDir)),
+            );
+            return OcctHelper.wrapShape(shape);
+        });
     }
 
     #isDisposed = false;

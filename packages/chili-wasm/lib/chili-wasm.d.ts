@@ -778,6 +778,7 @@ interface EmbindModule {
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
         replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
+        hlr(_0: TopoDS_Shape, _1: gp_Pnt, _2: gp_Dir, _3: gp_Dir): TopoDS_Shape;
         sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;

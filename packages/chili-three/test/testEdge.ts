@@ -22,6 +22,7 @@ import {
     Serialized,
     ShapeType,
     XYZ,
+    XYZLike,
 } from "chili-core";
 
 export class TestEdge implements IEdge {
@@ -81,6 +82,9 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
     offset(distance: number, dir: XYZ): Result<IEdge> {
+        throw new Error("Method not implemented.");
+    }
+    hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         throw new Error("Method not implemented.");
     }
 
