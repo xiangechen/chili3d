@@ -5,11 +5,12 @@ import { Config } from "../config";
 import en from "./en";
 import { I18nKeys } from "./keys";
 import zh from "./zh-cn";
+import ptBr from "./pt-br";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
 
-export type LanguageCode = "zh-CN" | "en";
+export type LanguageCode = "zh-CN" | "en" | "pt-BR";
 
 export type Locale = {
     display: string;
@@ -37,6 +38,7 @@ export namespace I18n {
     export const languages = new Map<LanguageCode, Locale>([
         ["en", en],
         ["zh-CN", zh],
+        ["pt-BR", ptBr],
     ]);
 
     let _currentLanguage: LanguageCode | undefined = undefined;
