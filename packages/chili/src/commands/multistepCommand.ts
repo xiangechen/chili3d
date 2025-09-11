@@ -23,17 +23,12 @@ import { IStep } from "../step";
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
 
-    @Property.define("option.command.repeat")
-    get repeatOperation() {
-        return this.getPrivateValue("repeatOperation", false);
-    }
-
-    set repeatOperation(value: boolean) {
-        this.setProperty("repeatOperation", value);
-    }
-
     protected canExcute(): Promise<boolean> {
         return Promise.resolve(true);
+    }
+
+    protected override onRestarting(): void {
+        this.resetStepDatas();
     }
 
     protected async executeAsync(): Promise<void> {
@@ -42,11 +37,6 @@ export abstract class MultistepCommand extends CancelableCommand {
         }
 
         this.executeMainTask();
-
-        if (this.repeatOperation) {
-            this.resetSteps();
-            await this.executeAsync();
-        }
     }
 
     protected async executeSteps(): Promise<boolean> {
@@ -67,7 +57,7 @@ export abstract class MultistepCommand extends CancelableCommand {
         }
     }
 
-    protected resetSteps() {
+    protected resetStepDatas() {
         this.stepDatas.length = 0;
     }
 
