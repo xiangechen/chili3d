@@ -7,6 +7,7 @@ import {
     CollectionChangedArgs,
     ComponentNode,
     DeepObserver,
+    EdgeMeshData,
     GeometryNode,
     GroupNode,
     IDisposable,
@@ -30,8 +31,11 @@ import {
 } from "chili-core";
 import {
     Box3,
+    BufferAttribute,
+    BufferGeometry,
     Group,
     InstancedMesh,
+    LineBasicMaterial,
     LineSegments,
     Mesh,
     Object3D,
@@ -268,6 +272,27 @@ export class ThreeVisualContext implements IVisualContext {
 
         this.tempShapes.add(instancedMesh);
         return instancedMesh.id;
+    }
+
+    displayLineSegments(data: EdgeMeshData): number {
+        const bufferGeometry = new BufferGeometry();
+        bufferGeometry.setAttribute("position", new BufferAttribute(data.position, 3));
+        const material = new LineBasicMaterial();
+        const lineSegments = new LineSegments(bufferGeometry, material);
+        ThreeGeometryFactory.setColor(bufferGeometry, data, material);
+
+        this.tempShapes.add(lineSegments);
+        return lineSegments.id;
+    }
+
+    setPosition(id: number, position: Float32Array): void {
+        let shape = this.tempShapes.getObjectById(id);
+        if (shape === undefined) return;
+
+        if ("geometry" in shape && shape.geometry instanceof BufferGeometry) {
+            shape.geometry.setAttribute("position", new BufferAttribute(position, 3));
+            shape.geometry.attributes["position"].needsUpdate = true;
+        }
     }
 
     setInstanceMatrix(id: number, matrixs: Matrix4[]) {

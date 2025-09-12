@@ -5,7 +5,7 @@ import { IDisposable, INodeChangedObserver } from "../foundation";
 import { BoundingBox, Matrix4 } from "../math";
 import { INode } from "../model";
 import { IShapeFilter } from "../selectionFilter";
-import { MeshLike, ShapeMeshData } from "../shape";
+import { EdgeMeshData, MeshLike, ShapeMeshData } from "../shape";
 import { IVisualObject } from "./visualObject";
 
 export interface IVisualContext extends IDisposable, INodeChangedObserver {
@@ -23,5 +23,7 @@ export interface IVisualContext extends IDisposable, INodeChangedObserver {
     displayMesh(datas: ShapeMeshData[], opacity?: number): number;
     removeMesh(id: number): void;
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number;
+    displayLineSegments(data: EdgeMeshData): number;
+    setPosition(id: number, position: Float32Array): void;
     setInstanceMatrix(id: number, matrixs: Matrix4[]): void;
 }

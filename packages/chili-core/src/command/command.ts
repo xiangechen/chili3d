@@ -74,9 +74,9 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.setProperty("repeatOperation", value);
     }
 
-    #isRestarting: boolean = false;
+    protected _isRestarting: boolean = false;
     protected async restart() {
-        this.#isRestarting = true;
+        this._isRestarting = true;
         await this.cancel();
     }
 
@@ -90,8 +90,8 @@ export abstract class CancelableCommand extends Observable implements ICanclable
 
             await this.executeAsync();
 
-            while (this.#isRestarting || (!this.checkCanceled() && this.repeatOperation)) {
-                this.#isRestarting = false;
+            while (this._isRestarting || (!this.checkCanceled() && this.repeatOperation)) {
+                this._isRestarting = false;
 
                 this.onRestarting();
                 await this.executeAsync();

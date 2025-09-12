@@ -8,6 +8,7 @@ import {
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
+    LineBasicMaterial,
     Mesh,
     MeshLambertMaterial,
     Points,
@@ -54,7 +55,7 @@ export class ThreeGeometryFactory {
     static setColor(
         buffer: BufferGeometry,
         data: { color?: number | number[] },
-        material: MeshLambertMaterial | PointsMaterial | LineMaterial,
+        material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
     ) {
         if (typeof data.color === "number") {
             material.color.set(data.color);

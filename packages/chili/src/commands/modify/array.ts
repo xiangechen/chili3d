@@ -3,13 +3,14 @@
 
 import {
     AsyncController,
+    BoundingBox,
     command,
     Component,
     ComponentNode,
     GeometryNode,
+    LineType,
     MathUtils,
     Matrix4,
-    MeshLike,
     MeshNode,
     Plane,
     PlaneAngle,
@@ -34,7 +35,7 @@ export class ArrayCommand extends MultistepCommand {
     private _planeAngle: PlaneAngle | undefined;
     private _meshId: number | undefined = undefined;
     protected models?: VisualNode[];
-    protected meshData?: MeshLike;
+    protected positions?: number[];
 
     @Property.define("common.isGroup")
     get isGroup() {
@@ -130,71 +131,26 @@ export class ArrayCommand extends MultistepCommand {
     }
 
     protected override async canExcute(): Promise<boolean> {
+        if (this.positions) return true;
+
         if (!(await this.ensureSelectedModels())) return false;
 
-        const meshes = this.collectFaceMeshes();
-        this.meshData = this.concatFaceMeshData(meshes);
+        this.collectionPosition();
 
         return true;
     }
 
-    private collectFaceMeshes(): MeshLike[] {
-        return (
-            this.models?.map((model) => {
-                let mesh: MeshLike | undefined;
-                if (model instanceof MeshNode) {
-                    mesh = model.mesh as MeshLike;
-                } else if (model instanceof GeometryNode) {
-                    mesh = model.mesh.faces!;
-                } else if (model instanceof ComponentNode) {
-                    mesh = this.concatFaceMeshData([
-                        model.component.mesh.face,
-                        model.component.mesh.surface as MeshLike,
-                    ]);
-                }
-                if (!mesh) {
-                    throw new Error("model not support array");
-                }
-
-                return {
-                    position: new Float32Array(model.transform.ofPoints(mesh.position)),
-                    normal: new Float32Array(model.transform.ofVectors(mesh.normal)),
-                    index: mesh.index,
-                    uv: mesh.uv,
-                };
-            }) ?? []
-        );
-    }
-
-    private concatFaceMeshData(datas: MeshLike[]) {
-        const positionLength = datas.reduce((prev, cur) => prev + cur.position.length, 0);
-        const position = new Float32Array(positionLength);
-        const normal = new Float32Array(positionLength);
-        const uv = new Float32Array(datas.reduce((prev, cur) => prev + cur.uv.length, 0));
-        const index = new Uint32Array(datas.reduce((prev, cur) => prev + cur.index.length, 0));
-
-        let uvOffset = 0;
-        let positionOffset = 0;
-        let indexOffset = 0;
-        for (const data of datas) {
-            position.set(data.position, positionOffset);
-            normal.set(data.normal, positionOffset);
-            index.set(
-                data.index.map((x) => x + positionOffset / 3),
-                indexOffset,
-            );
-            uv.set(data.uv, uvOffset);
-
-            uvOffset += data.uv.length;
-            positionOffset += data.position.length;
-            indexOffset += data.index.length;
-        }
-        return {
-            position,
-            normal,
-            index,
-            uv,
-        };
+    private collectionPosition() {
+        this.positions = this.models!.flatMap((model) => {
+            if (model instanceof MeshNode) {
+                return model.mesh.position ? model.transform.ofPoints(model.mesh.position) : [];
+            } else if (model instanceof GeometryNode) {
+                return model.mesh.edges?.position ? model.transform.ofPoints(model.mesh.edges.position) : [];
+            } else if (model instanceof ComponentNode) {
+                return Array.from(BoundingBox.wireframe(model.boundingBox()!).position);
+            }
+            return [];
+        });
     }
 
     override afterExecute() {
@@ -217,9 +173,27 @@ export class ArrayCommand extends MultistepCommand {
         if (!this.circularPattern) {
             count = this.numberX * this.numberY * this.numberZ;
         }
-        const matrixs = new Array<Matrix4>(count).fill(new Matrix4());
-        this._meshId = this.document.visual.context.displayInstancedMesh(this.meshData!, matrixs, 0.2);
+
+        const positions = new Float32Array(this.positions!.length * count);
+        for (let i = 0; i < count; i++) {
+            positions.set(this.positions!, i * this.positions!.length);
+        }
+
+        this._meshId = this.document.visual.context.displayLineSegments({
+            position: positions,
+            lineType: LineType.Solid,
+            range: [],
+        });
     }
+
+    private readonly updatePosition = (matrixs: Matrix4[]) => {
+        const positions = new Float32Array(this.positions!.length * matrixs.length);
+        for (let i = 0; i < matrixs.length; i++) {
+            positions.set(matrixs[i].ofPoints(this.positions!), i * this.positions!.length);
+        }
+
+        this.document.visual.context.setPosition(this._meshId!, positions);
+    };
 
     private getBoxTransforms(xvec: XYZ, yvec: XYZ, zvec: XYZ) {
         const count = this.numberX * this.numberY * this.numberZ;
@@ -323,7 +297,7 @@ export class ArrayCommand extends MultistepCommand {
                 this._planeAngle!.plane.normal,
                 MathUtils.degToRad(this._planeAngle!.angle),
             );
-            this.document.visual.context.setInstanceMatrix(this._meshId!, transforms);
+            this.updatePosition(transforms);
 
             result.push(
                 this.meshCreatedShape(
@@ -354,7 +328,7 @@ export class ArrayCommand extends MultistepCommand {
                 }
                 const vector = p.sub(this.stepDatas[0].point!);
                 const matrixs = this.getBoxTransforms(vector, XYZ.zero, XYZ.zero);
-                this.document.visual.context.setInstanceMatrix(this._meshId!, matrixs);
+                this.updatePosition(matrixs);
 
                 return [
                     this.meshPoint(this.stepDatas[0].point!),
@@ -379,7 +353,7 @@ export class ArrayCommand extends MultistepCommand {
                 }
 
                 const matrixs = this.boxArrayMatrixs(index, xvec, yvec, normal, p);
-                this.document.visual.context.setInstanceMatrix(this._meshId!, matrixs);
+                this.updatePosition(matrixs);
                 return [
                     this.meshLine(this.stepDatas[1].point!, p),
                     this.meshPoint(p),
@@ -389,25 +363,33 @@ export class ArrayCommand extends MultistepCommand {
         };
     };
 
-    private boxArrayMatrixs(index: number, xvec: XYZ, yvec: XYZ, normal: XYZ, end: XYZ) {
+    private boxArrayMatrixs(index: 2 | 3, xvec: XYZ, yvec: XYZ, normal: XYZ, end: XYZ) {
+        const x = xvec.multiply(this.stepDatas[1].point!.sub(this.stepDatas[0].point!).dot(xvec));
         let y: XYZ, z: XYZ;
         if (index === 2) {
-            y = yvec.multiply(end.sub(this.stepDatas[1].point!).dot(yvec));
+            y = yvec.multiply(end.sub(this.stepDatas[0].point!).dot(yvec));
             z = XYZ.zero;
         } else {
-            y = yvec.multiply(this.stepDatas[2].point!.sub(this.stepDatas[1].point!).dot(yvec));
-            z = normal.multiply(end.sub(this.stepDatas[1].point!).dot(normal));
+            y = yvec.multiply(this.stepDatas[2].point!.sub(this.stepDatas[0].point!).dot(yvec));
+            z = normal.multiply(end.sub(this.stepDatas[0].point!).dot(normal));
         }
-        return this.getBoxTransforms(xvec, y, z);
+        return this.getBoxTransforms(x, y, z);
     }
 
     private boxPlaneInfo(index: number) {
         const plane =
             this.stepDatas[1].plane ??
             this.findPlane(this.stepDatas[1].view, this.stepDatas[0].point!, this.stepDatas[1].point);
-        const xvec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
-        const yvec = plane.normal.isParallelTo(xvec) ? XYZ.unitY : plane.normal.cross(xvec).normalize()!;
-        const normal = xvec.cross(yvec).normalize()!;
+
+        const xvec = this.stepDatas[1].point!.sub(this.stepDatas[0].point!).normalize()!;
+        let normal = plane.normal;
+        if (normal.isEqualTo(xvec)) {
+            normal = XYZ.unitZ;
+        } else if (normal.isEqualTo(xvec.reverse())) {
+            normal = XYZ.unitZ.reverse();
+        }
+        const yvec = normal.cross(xvec).normalize()!;
+
         const ray =
             index === 2
                 ? new Ray(this.stepDatas[1].point!, yvec)

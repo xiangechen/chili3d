@@ -10,7 +10,6 @@ import {
     IShapeFactory,
     IView,
     LineType,
-    Property,
     Result,
     VertexMeshData,
     VisualConfig,
@@ -52,8 +51,10 @@ export abstract class MultistepCommand extends CancelableCommand {
             }
             return true;
         } finally {
-            this.document.selection.clearSelection();
-            this.document.visual.highlighter.clear();
+            if (!this._isRestarting) {
+                this.document.selection.clearSelection();
+                this.document.visual.highlighter.clear();
+            }
         }
     }
 
