@@ -25,6 +25,10 @@ export class ThreeHelper {
         return Matrix4.fromArray(matrix.toArray());
     }
 
+    static fromMatrix(matrix: Matrix4) {
+        return new ThreeMatrix4().fromArray(matrix.toArray());
+    }
+
     static toXYZ(vector: Vector3): XYZ {
         return new XYZ(vector.x, vector.y, vector.z);
     }

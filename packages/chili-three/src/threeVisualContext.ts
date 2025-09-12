@@ -16,6 +16,8 @@ import {
     IVisualContext,
     IVisualObject,
     Material,
+    Matrix4,
+    MeshLike,
     MeshNode,
     NodeAction,
     NodeRecord,
@@ -29,6 +31,7 @@ import {
 import {
     Box3,
     Group,
+    InstancedMesh,
     LineSegments,
     Mesh,
     Object3D,
@@ -251,6 +254,29 @@ export class ThreeVisualContext implements IVisualContext {
         });
         this.tempShapes.add(group);
         return group.id;
+    }
+
+    displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number {
+        let geometry = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        let material = ThreeGeometryFactory.createMeshMaterial(opacity);
+
+        ThreeGeometryFactory.setColor(geometry, data, material);
+        const instancedMesh = new InstancedMesh(geometry, material, matrixs.length);
+        matrixs.forEach((matrix, index) => {
+            instancedMesh.setMatrixAt(index, ThreeHelper.fromMatrix(matrix));
+        });
+
+        this.tempShapes.add(instancedMesh);
+        return instancedMesh.id;
+    }
+
+    setInstanceMatrix(id: number, matrixs: Matrix4[]) {
+        let shape = this.tempShapes.getObjectById(id) as InstancedMesh;
+        if (shape === undefined) return;
+        matrixs.forEach((matrix, index) => {
+            shape.setMatrixAt(index, ThreeHelper.fromMatrix(matrix));
+        });
+        shape.instanceMatrix.needsUpdate = true;
     }
 
     removeMesh(id: number) {

@@ -25,6 +25,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "modify.move",
                     "modify.rotate",
                     "modify.mirror",
+                    "modify.array",
                     ["modify.split", "modify.break", "modify.trim"],
                     ["modify.fillet", "modify.chamfer", "modify.explode"],
                     ["modify.deleteNode", "modify.removeShapes", "modify.removeFeature"],
