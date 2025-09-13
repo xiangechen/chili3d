@@ -169,11 +169,14 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 type: "text",
                 className: style.input,
                 value: new Binding(noType, g.name),
+                onblur: (e) => {
+                    const input = e.target as HTMLInputElement;
+                    noType[g.name] = converter ? converter(input.value) : input.value;
+                },
                 onkeydown: (e) => {
                     e.stopPropagation();
                     if (e.key === "Enter") {
                         const input = e.target as HTMLInputElement;
-                        noType[g.name] = converter ? converter(input.value) : input.value;
                         input.blur();
                     }
                 },
