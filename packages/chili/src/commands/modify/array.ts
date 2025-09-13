@@ -169,14 +169,16 @@ export class ArrayCommand extends MultistepCommand {
     private resetMesh() {
         this.removeMesh();
 
+        if (!this.positions) return;
+
         let count = this.count;
         if (!this.circularPattern) {
             count = this.numberX * this.numberY * this.numberZ;
         }
 
-        const positions = new Float32Array(this.positions!.length * count);
+        const positions = new Float32Array(this.positions.length * count);
         for (let i = 0; i < count; i++) {
-            positions.set(this.positions!, i * this.positions!.length);
+            positions.set(this.positions, i * this.positions.length);
         }
 
         this._meshId = this.document.visual.context.displayLineSegments({
