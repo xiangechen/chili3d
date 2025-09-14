@@ -586,6 +586,7 @@ interface EmbindModule {
     ShapeResult: {};
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
+        simplifyShape(_0: TopoDS_Shape, _1: boolean, _2: boolean): ShapeResult;
         curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;

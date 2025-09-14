@@ -32,6 +32,7 @@
 #include <Geom_BezierCurve.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
@@ -429,6 +430,21 @@ public:
         return ShapeResult { makeThickSolid.Shape(), true, "" };
     }
 
+    static ShapeResult simplifyShape(
+        const TopoDS_Shape& shape,
+        const Standard_Boolean theUnifyEdges,
+        const Standard_Boolean theUnifyFaces)
+    {
+        if (!theUnifyEdges && !theUnifyFaces) {
+            return ShapeResult { shape, true, "" };
+        }
+
+        ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, Standard_True);
+        anUnifier.Build();
+
+        return ShapeResult { anUnifier.Shape(), true, "" };
+    }
+
     static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater, const ShapeArray& args,
         const ShapeArray& tools)
     {
@@ -442,7 +458,6 @@ public:
         if (!boolOperater.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to build boolean operation" };
         }
-        boolOperater.SimplifyResult();
 
         return ShapeResult { boolOperater.Shape(), true, "" };
     }
@@ -555,6 +570,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
+        .class_function("simplifyShape", &ShapeFactory::simplifyShape)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)
         .class_function("booleanCut", &ShapeFactory::booleanCut)
         .class_function("booleanFuse", &ShapeFactory::booleanFuse)
