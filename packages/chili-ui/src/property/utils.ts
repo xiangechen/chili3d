@@ -34,7 +34,7 @@ export function findPropertyControl(
     }
 
     if (typeof value === "boolean") {
-        return new CheckProperty(objs, prop);
+        return new CheckProperty(document, objs, prop);
     }
 
     Logger.warn(`Property ${prop.name} not found in ${Object.getPrototypeOf(objs[0]).constructor.name}`);
