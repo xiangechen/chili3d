@@ -321,6 +321,7 @@ export class ArrayCommand extends MultistepCommand {
 
     private readonly vectorArrayStepData = () => {
         return {
+            dimension: Dimension.D1,
             refPoint: () => this.stepDatas[0].point!,
             validator: (p: XYZ | undefined) =>
                 p !== undefined && p.distanceTo(this.stepDatas[0].point!) > Precision.Distance,
