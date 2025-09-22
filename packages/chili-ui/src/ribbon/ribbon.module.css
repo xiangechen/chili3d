@@ -223,7 +223,6 @@
     display: flex;
     flex-direction: row;
     background-color: var(--panel-background-color);
-    border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
 
     &::-webkit-scrollbar {
@@ -238,34 +237,29 @@
     & .groupPanel {
         display: flex;
         flex-direction: row;
+        padding: 2px;
     }
 }
 
-.commandContextPanel {
-    display: flex;
-    flex-direction: row;
-    justify-content: stretch;
-    flex: 1 1 auto;
-    height: 32px;
-    background-color: var(--panel-background-color);
-    border-bottom: 1px solid var(--border-color);
-}
-
 .commandContextOverlay {
+    display: flex;
     position: absolute;
     top: 0px;
     left: 50%;
     transform: translateX(-50%);
-    max-width: 600px;
+    max-width: 90%;
     min-width: 320px;
-    width: 60%;
+    height: 32px;
+    padding: 4px;
+    width: fit-content;
     z-index: 10;
     background: var(--panel-background-color);
     /* Subtle, soft shadow only on bottom and sides */
     box-shadow:
         0 6px 24px -6px rgba(0, 0, 0, 0.1),
         0 2px 8px -2px rgba(0, 0, 0, 0.08);
-    border-radius: 0 0 12px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
     opacity: 1;
     transition: opacity 0.2s;
     pointer-events: auto;
