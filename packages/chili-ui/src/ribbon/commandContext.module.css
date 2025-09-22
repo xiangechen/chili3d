@@ -5,6 +5,9 @@
     align-items: center;
     margin: 2px 8px;
     gap: 12px;
+    text-wrap: nowrap;
+    overflow: hidden;
+    overflow-x: auto;
 }
 
 .title {
