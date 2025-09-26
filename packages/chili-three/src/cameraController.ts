@@ -301,19 +301,12 @@ export class CameraController extends Observable implements ICameraController {
 
     private updateCameraNearFar() {
         const distance = this._position.distanceTo(this._target);
-        if (distance < 1000.0) {
-            this.camera.near = 0.1;
-            this.camera.far = 10000.0;
-        } else if (distance < 100000.0) {
-            this.camera.near = 10;
-            this.camera.far = 1000000.0;
-        } else if (distance < 1000000.0) {
-            this.camera.near = 1000.0;
-            this.camera.far = 10000000.0;
-        } else {
-            this.camera.near = 10000.0;
-            this.camera.far = 100000000.0;
-        }
+
+        const nearPlane = Math.max(0.01, Math.min(distance / 1000, distance / 10));
+        const farPlane = Math.max(1000, distance * 100);
+
+        this.camera.near = nearPlane;
+        this.camera.far = farPlane;
     }
 
     private caculePerspectiveCameraMouse(direction: Vector3, mouse: Vector3) {
