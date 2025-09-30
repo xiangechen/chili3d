@@ -274,9 +274,12 @@ export class ShapeFactory implements IShapeFactory {
         );
     }
     booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape> {
-        return convertShapeResult(
-            wasm.ShapeFactory.booleanFuse(ensureOccShape(shape1), ensureOccShape(shape2)),
-        );
+        const fused = wasm.ShapeFactory.booleanFuse(ensureOccShape(shape1), ensureOccShape(shape2));
+        if (!fused.isOk) {
+            return Result.err(fused.error);
+        }
+
+        return convertShapeResult(wasm.ShapeFactory.simplifyShape(fused.shape, true, true));
     }
     combine(shapes: IShape[]): Result<ICompound> {
         return convertShapeResult(wasm.ShapeFactory.combine(ensureOccShape(shapes))) as Result<ICompound>;

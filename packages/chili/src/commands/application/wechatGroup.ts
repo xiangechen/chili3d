@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, img, label } from "chili-controls";
+import { br, div, img, label } from "chili-controls";
 import { IApplication, ICommand, PubSub, command } from "chili-core";
 
 @command({
@@ -16,18 +16,23 @@ export class WeChatGroup implements ICommand {
 
     private ui() {
         return div(
-            label({
-                textContent: "chili3d交流群",
-                style: {
-                    fontSize: "16px",
-                    display: "block",
-                    textAlign: "center",
-                    marginBottom: "10px",
+            label(
+                {
+                    style: {
+                        fontSize: "14px",
+                        display: "block",
+                        textAlign: "center",
+                        marginBottom: "10px",
+                        opacity: "0.75",
+                    },
                 },
-            }),
+                "群聊人数已超过200人，只可通过邀请进入群聊",
+                br(),
+                "入群请先添加个人微信：oOxianOo",
+            ),
             img({
                 width: 360,
-                src: "images/wechat-group.jpg",
+                src: "images/wechat.jpg",
                 style: {
                     borderRadius: "10px",
                 },

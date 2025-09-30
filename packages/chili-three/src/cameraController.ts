@@ -6,13 +6,20 @@ import {
     ICameraController,
     MathUtils,
     Observable,
-    Quaternion,
     ViewMode,
     VisualNode,
-    XYZ,
     XYZLike,
 } from "chili-core";
-import { Box3, Camera, OrthographicCamera, PerspectiveCamera, Raycaster, Sphere, Vector3 } from "three";
+import {
+    Box3,
+    Camera,
+    OrthographicCamera,
+    PerspectiveCamera,
+    Quaternion,
+    Raycaster,
+    Sphere,
+    Vector3,
+} from "three";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -27,8 +34,7 @@ const PAN_SPEED_FACTOR = 0.002;
 const CAMERA_FOV = 50;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
-const MAX_PITCH_ANGLE = 88 * DEG_TO_RAD;
-const MIN_CARME_TO_TARGET = 100;
+const MIN_CARME_TO_TARGET = 50;
 
 Camera.DEFAULT_UP = new Vector3(0, 0, 1);
 
@@ -174,58 +180,44 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     rotate(dx: number, dy: number): void {
-        dx = dx * ROTATE_SPEED_FACTOR;
-        dy = dy * ROTATE_SPEED_FACTOR;
+        const newRotation = this.getRotation(dx * ROTATE_SPEED_FACTOR, dy * ROTATE_SPEED_FACTOR);
 
-        const lastPosition = new XYZ(this._position.x, this._position.y, this._position.z);
-        const lastRotation = new Quaternion(
-            this._camera.quaternion.w,
-            this._camera.quaternion.x,
-            this._camera.quaternion.y,
-            this._camera.quaternion.z,
-        );
-        const center = new XYZ(this._target.x, this._target.y, this._target.z);
+        this._camera.up.copy(new Vector3(0, 1, 0).applyQuaternion(newRotation));
 
-        const rotationDy = Quaternion.fromAxisAngle(new XYZ(1, 0, 0), MathUtils.degToRad(-dy));
-        const tmpRotation = lastRotation.multiply(rotationDy);
-        const tmpRotationInv = tmpRotation.invert();
-        const rotationDx = Quaternion.fromAxisAngle(
-            tmpRotationInv.rotateVector(new XYZ(0, 0, 1)),
-            MathUtils.degToRad(-dx),
-        );
-        const currentRotation = tmpRotation.multiply(rotationDx);
-
-        const distance = lastPosition.sub(center).length();
-        const eyeToCenter = currentRotation.rotateVector(new XYZ(0, 0, distance));
-        const currentPosition = center.add(eyeToCenter);
-
-        const up = currentRotation.rotateVector(new XYZ(0, 1, 0));
-        this._camera.up.set(up.x, up.y, up.z);
+        const distance = this._position.distanceTo(this._target);
+        const eyeToCenter = new Vector3(0, 0, distance).applyQuaternion(newRotation);
+        let currentPosition = this._target.clone().add(eyeToCenter);
 
         if (this._rotateCenter) {
-            const target = new XYZ(this._rotateCenter.x, this._rotateCenter.y, this._rotateCenter.z);
-
-            const diffPosition = currentPosition.sub(lastPosition);
-            const diffRotation = currentRotation.multiply(lastRotation.invert());
-
-            const targetInLast = target.sub(lastPosition);
-            const targetAfterTrans = diffRotation
-                .rotateVector(targetInLast)
+            const diffPosition = currentPosition.clone().sub(this._position);
+            const diffRotation = newRotation.clone().multiply(this._camera.quaternion.clone().invert());
+            const targetAfterTrans = this._rotateCenter
+                .clone()
+                .sub(this._position)
+                .applyQuaternion(diffRotation)
                 .add(diffPosition)
-                .add(lastPosition)
-                .sub(target);
+                .add(this._position)
+                .sub(this._rotateCenter);
 
-            const currentCenter = center.sub(targetAfterTrans);
+            const currentCenter = this._target.clone().sub(targetAfterTrans);
+            currentPosition = currentCenter.clone().add(eyeToCenter);
 
-            this._target.set(currentCenter.x, currentCenter.y, currentCenter.z);
-
-            const finalPosition = currentCenter.add(eyeToCenter);
-            this._position.set(finalPosition.x, finalPosition.y, finalPosition.z);
-        } else {
-            this._position.set(currentPosition.x, currentPosition.y, currentPosition.z);
+            this._target.copy(currentCenter);
         }
 
+        this._position.copy(currentPosition);
         this.updateCameraPosionTarget();
+    }
+
+    private getRotation(dx: number, dy: number) {
+        const rotationDy = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), MathUtils.degToRad(-dy));
+        const tmpRotation = this._camera.quaternion.clone().multiply(rotationDy);
+        const tmpRotationInv = tmpRotation.clone().invert();
+        const rotationDx = new Quaternion().setFromAxisAngle(
+            new Vector3(0, 0, 1).applyQuaternion(tmpRotationInv),
+            MathUtils.degToRad(-dx),
+        );
+        return tmpRotation.clone().multiply(rotationDx);
     }
 
     fitContent(): void {
@@ -236,7 +228,7 @@ export class CameraController extends Observable implements ICameraController {
             fieldOfView = (fieldOfView * this._width) / this._height;
         }
 
-        const distance = sphere.radius / Math.sin(fieldOfView * DEG_TO_RAD);
+        const distance = Math.abs(sphere.radius / Math.sin(fieldOfView * DEG_TO_RAD));
         const direction = this._target.clone().sub(this._position).normalize();
         this._target.copy(sphere.center);
         this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(distance)));

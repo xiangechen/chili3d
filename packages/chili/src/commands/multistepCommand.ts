@@ -10,7 +10,6 @@ import {
     IShapeFactory,
     IView,
     LineType,
-    Property,
     Result,
     VertexMeshData,
     VisualConfig,
@@ -23,17 +22,12 @@ import { IStep } from "../step";
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
 
-    @Property.define("option.command.repeat")
-    get repeatOperation() {
-        return this.getPrivateValue("repeatOperation", false);
-    }
-
-    set repeatOperation(value: boolean) {
-        this.setProperty("repeatOperation", value);
-    }
-
     protected canExcute(): Promise<boolean> {
         return Promise.resolve(true);
+    }
+
+    protected override onRestarting(): void {
+        this.resetStepDatas();
     }
 
     protected async executeAsync(): Promise<void> {
@@ -42,11 +36,6 @@ export abstract class MultistepCommand extends CancelableCommand {
         }
 
         this.executeMainTask();
-
-        if (this.repeatOperation) {
-            this.resetSteps();
-            await this.executeAsync();
-        }
     }
 
     protected async executeSteps(): Promise<boolean> {
@@ -62,12 +51,14 @@ export abstract class MultistepCommand extends CancelableCommand {
             }
             return true;
         } finally {
-            this.document.selection.clearSelection();
-            this.document.visual.highlighter.clear();
+            if (!this._isRestarting) {
+                this.document.selection.clearSelection();
+                this.document.visual.highlighter.clear();
+            }
         }
     }
 
-    protected resetSteps() {
+    protected resetStepDatas() {
         this.stepDatas.length = 0;
     }
 

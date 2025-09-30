@@ -28,6 +28,11 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         return this._isCompleted;
     }
 
+    private _isCanceled: boolean = false;
+    get isCanceled() {
+        return this._isCanceled;
+    }
+
     private _application: IApplication | undefined;
     get application() {
         if (!this._application) {
@@ -52,21 +57,60 @@ export abstract class CancelableCommand extends Observable implements ICanclable
 
     @Property.define("common.cancel")
     async cancel() {
+        this._isCanceled = true;
+
         this.controller?.cancel();
         while (!this._isCompleted) {
             await new Promise((r) => setTimeout(r, 30));
         }
     }
 
+    @Property.define("option.command.repeat")
+    get repeatOperation() {
+        return this.getPrivateValue("repeatOperation", false);
+    }
+
+    set repeatOperation(value: boolean) {
+        this.setProperty("repeatOperation", value);
+    }
+
+    protected _isRestarting: boolean = false;
+    protected async restart() {
+        this._isRestarting = true;
+        await this.cancel();
+    }
+
+    protected onRestarting() {}
+
     async execute(application: IApplication): Promise<void> {
         if (!application.activeView?.document) return;
         this._application = application;
         try {
             this.beforeExecute();
+
             await this.executeAsync();
+
+            while (this._isRestarting || (!this.checkCanceled() && this.repeatOperation)) {
+                this._isRestarting = false;
+
+                this.onRestarting();
+                await this.executeAsync();
+            }
         } finally {
             this.afterExecute();
         }
+    }
+
+    protected checkCanceled() {
+        if (this.isCanceled) {
+            return true;
+        }
+
+        if (this.controller?.result?.status === "cancel") {
+            return true;
+        }
+
+        return false;
     }
 
     protected abstract executeAsync(): Promise<void>;
@@ -89,7 +133,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         Property.getProperties(this).forEach((x) => {
             let key = this.cacheKeyOfProperty(x);
             if (CancelableCommand._propertiesCache.has(key)) {
-                (this as any)[key] = CancelableCommand._propertiesCache.get(key);
+                this.setPrivateValue(key as keyof this, CancelableCommand._propertiesCache.get(key));
             }
         });
     }

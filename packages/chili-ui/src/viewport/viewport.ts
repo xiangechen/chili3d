@@ -258,6 +258,10 @@ export class Viewport extends HTMLElement {
     };
 
     private readonly pointerDown = (view: IView, event: PointerEvent) => {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         view.document.application.activeView = view;
         view.document.visual.eventHandler.pointerDown(view, event);
         view.document.visual.viewHandler.pointerDown(view, event);

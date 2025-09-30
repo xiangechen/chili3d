@@ -4,6 +4,8 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
+#include "shared.hpp"
+#include "utils.hpp"
 #include <BRepAlgoAPI_BooleanOperation.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -30,12 +32,11 @@
 #include <Geom_BezierCurve.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
-
-#include "shared.hpp"
 
 using namespace emscripten;
 
@@ -419,11 +420,8 @@ public:
 
     static ShapeResult makeThickSolidByJoin(const TopoDS_Shape& shape, const ShapeArray& shapes, double thickness)
     {
-        std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(shapes);
-        TopTools_ListOfShape shapesList;
-        for (auto shape : shapesVec) {
-            shapesList.Append(shape);
-        }
+        TopTools_ListOfShape shapesList = shapeArrayToListOfShape(shapes);
+
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
         makeThickSolid.MakeThickSolidByJoin(shape, shapesList, thickness, 1e-6);
         if (!makeThickSolid.IsDone()) {
@@ -432,31 +430,35 @@ public:
         return ShapeResult { makeThickSolid.Shape(), true, "" };
     }
 
+    static ShapeResult simplifyShape(
+        const TopoDS_Shape& shape,
+        const Standard_Boolean theUnifyEdges,
+        const Standard_Boolean theUnifyFaces)
+    {
+        if (!theUnifyEdges && !theUnifyFaces) {
+            return ShapeResult { shape, true, "" };
+        }
+
+        ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, Standard_True);
+        anUnifier.Build();
+
+        return ShapeResult { anUnifier.Shape(), true, "" };
+    }
+
     static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater, const ShapeArray& args,
         const ShapeArray& tools)
     {
-        boolOperater.SetRunParallel(true);
-        boolOperater.SetFuzzyValue(1e-6);
+        TopTools_ListOfShape argsList = shapeArrayToListOfShape(args);
+        TopTools_ListOfShape toolsList = shapeArrayToListOfShape(tools);
+
         boolOperater.SetToFillHistory(false);
-        std::vector<TopoDS_Shape> argsVec = vecFromJSArray<TopoDS_Shape>(args);
-        TopTools_ListOfShape argsList;
-        for (auto shape : argsVec) {
-            argsList.Append(shape);
-        }
-
-        std::vector<TopoDS_Shape> toolsVec = vecFromJSArray<TopoDS_Shape>(tools);
-        TopTools_ListOfShape toolsList;
-        for (auto shape : toolsVec) {
-            toolsList.Append(shape);
-        }
-
         boolOperater.SetArguments(argsList);
         boolOperater.SetTools(toolsList);
         boolOperater.Build();
         if (!boolOperater.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to build boolean operation" };
         }
-        boolOperater.SimplifyResult();
+
         return ShapeResult { boolOperater.Shape(), true, "" };
     }
 
@@ -568,6 +570,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
+        .class_function("simplifyShape", &ShapeFactory::simplifyShape)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)
         .class_function("booleanCut", &ShapeFactory::booleanCut)
         .class_function("booleanFuse", &ShapeFactory::booleanFuse)

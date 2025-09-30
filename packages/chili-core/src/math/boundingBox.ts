@@ -136,6 +136,17 @@ export class BoundingBox {
         return box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z;
     }
 
+    static isIntersect(box1: BoundingBox, box2: BoundingBox, tolerance = 0.001) {
+        return (
+            box1.min.x < box2.max.x + tolerance &&
+            box1.max.x > box2.min.x - tolerance &&
+            box1.min.y < box2.max.y + tolerance &&
+            box1.max.y > box2.min.y - tolerance &&
+            box1.min.z < box2.max.z + tolerance &&
+            box1.max.z > box2.min.z - tolerance
+        );
+    }
+
     static expandByPoint(box: BoundingBox, point: PointLike) {
         const { min, max } = box;
         min.x = Math.min(min.x, point.x);

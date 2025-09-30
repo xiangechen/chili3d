@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDisposable, Result } from "../foundation";
-import { Matrix4, Plane, Ray, XYZ } from "../math";
+import { Matrix4, Plane, Ray, XYZ, XYZLike } from "../math";
 import { ICurve, ITrimmedCurve } from "./curve";
 import { EdgeMeshData, IShapeMeshData } from "./meshData";
 import { ShapeType } from "./shapeType";
@@ -45,6 +45,7 @@ export interface IShape extends IDisposable {
     split(shapes: IShape[]): IShape;
     reserve(): void;
     clone(): IShape;
+    hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape;
 }
 
 export interface ISubShape extends IShape {

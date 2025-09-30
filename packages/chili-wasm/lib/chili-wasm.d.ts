@@ -586,6 +586,7 @@ interface EmbindModule {
     ShapeResult: {};
     ShapeFactory: {
         makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
+        simplifyShape(_0: TopoDS_Shape, _1: boolean, _2: boolean): ShapeResult;
         curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
         polygon(_0: Array<Vector3>): ShapeResult;
         bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
@@ -778,6 +779,7 @@ interface EmbindModule {
         sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         isClosed(_0: TopoDS_Shape): boolean;
         replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
+        hlr(_0: TopoDS_Shape, _1: gp_Pnt, _2: gp_Dir, _3: gp_Dir): TopoDS_Shape;
         sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
         findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
         findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;

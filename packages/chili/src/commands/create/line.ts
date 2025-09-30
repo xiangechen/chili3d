@@ -32,7 +32,7 @@ export class Line extends CreateCommand {
         return [firstStep, secondStep];
     }
 
-    protected override resetSteps() {
+    protected override resetStepDatas() {
         if (this.isContinue) {
             this.stepDatas[0] = this.stepDatas[1];
             this.stepDatas.length = 1;

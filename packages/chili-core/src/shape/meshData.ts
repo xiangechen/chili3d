@@ -84,6 +84,14 @@ export interface ShapeMeshData {
     color?: number | number[];
 }
 
+export interface MeshLike {
+    position: Float32Array;
+    index: Uint32Array;
+    normal: Float32Array;
+    uv: Float32Array;
+    color?: number | number[];
+}
+
 export namespace ShapeMeshData {
     export function isVertex(data: ShapeMeshData): data is VertexMeshData {
         return (data as VertexMeshData)?.size !== undefined;
