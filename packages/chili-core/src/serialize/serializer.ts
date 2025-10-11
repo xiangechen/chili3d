@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
+import { Observable } from "../foundation";
 
 export interface ISerialize {
     serialize(): Serialized;
@@ -165,7 +166,14 @@ export namespace Serializer {
         };
         let keys = Object.keys(data.properties).filter(filter);
         for (const key of keys) {
-            instance[key] = deserialValue(document, data.properties[key]);
+            if (instance instanceof Observable) {
+                instance.setPrivateValue(
+                    key as keyof Observable,
+                    deserialValue(document, data.properties[key]),
+                );
+            } else {
+                instance[key] = deserialValue(document, data.properties[key]);
+            }
         }
     }
 }

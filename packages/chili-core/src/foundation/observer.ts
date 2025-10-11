@@ -52,7 +52,7 @@ export class Observable implements IPropertyChanged {
         return defaultValue;
     }
 
-    protected setPrivateValue<K extends keyof this>(pubKey: K, newValue: this[K]): void {
+    setPrivateValue<K extends keyof this>(pubKey: K, newValue: this[K]): void {
         (this as any)[this.getPrivateKey(pubKey)] = newValue;
     }
 
