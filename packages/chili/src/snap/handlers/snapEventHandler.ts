@@ -104,16 +104,20 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         if (!prompt) {
             let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
             if (distance) {
-                prompt = `${distance.toFixed(2)}`;
+                prompt = this.formatDistance(distance);
             }
         }
 
         return [snaped.info, prompt].filter((x) => x !== undefined).join(" -> ");
     }
 
+    protected formatDistance(num: number) {
+        return num.toFixed(2);
+    }
+
     protected setSnaped(view: IView, event: PointerEvent) {
         this.findSnapPoint(ShapeType.Edge, view, event);
-        
+
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
     }
 
@@ -148,9 +152,9 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
             for (const snap of this.snaps) {
                 const snaped = snap.snap(detected);
                 if (snaped && this.validateSnapPoint(snaped)) {
-                    this._snaped = snaped
+                    this._snaped = snaped;
                     return;
-                };
+                }
             }
         }
     }
