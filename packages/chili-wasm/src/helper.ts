@@ -391,7 +391,7 @@ export class OcctHelper {
         throw new Error("Unknown surface type");
     }
 
-    static convertContinuity(cni: GeomAbs_Shape) {
+    static convertToContinuity(cni: GeomAbs_Shape) {
         switch (cni) {
             case wasm.GeomAbs_Shape.GeomAbs_C0:
                 return Continuity.C0;
@@ -407,6 +407,27 @@ export class OcctHelper {
                 return Continuity.C3;
             case wasm.GeomAbs_Shape.GeomAbs_CN:
                 return Continuity.CN;
+            default:
+                throw new Error("unknown continuity");
+        }
+    }
+
+    static convertFromContinuity(continuity: Continuity) {
+        switch (continuity) {
+            case Continuity.C0:
+                return wasm.GeomAbs_Shape.GeomAbs_C0;
+            case Continuity.G1:
+                return wasm.GeomAbs_Shape.GeomAbs_G1;
+            case Continuity.C1:
+                return wasm.GeomAbs_Shape.GeomAbs_C1;
+            case Continuity.G2:
+                return wasm.GeomAbs_Shape.GeomAbs_G2;
+            case Continuity.C2:
+                return wasm.GeomAbs_Shape.GeomAbs_C2;
+            case Continuity.C3:
+                return wasm.GeomAbs_Shape.GeomAbs_C3;
+            case Continuity.CN:
+                return wasm.GeomAbs_Shape.GeomAbs_CN;
             default:
                 throw new Error("unknown continuity");
         }

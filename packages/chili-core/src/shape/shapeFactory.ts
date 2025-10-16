@@ -3,6 +3,7 @@
 
 import { Result } from "../foundation";
 import { Plane, Ray, XYZ, XYZLike } from "../math";
+import { Continuity } from "./curve";
 import { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
 import { IShapeConverter } from "./shapeConverter";
 
@@ -44,6 +45,12 @@ export interface IShapeFactory {
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
+    loft(
+        sections: (IVertex | IEdge | IWire)[],
+        isSolid: boolean,
+        isRuled: boolean,
+        continuity: Continuity,
+    ): Result<IShape>;
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
     replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;

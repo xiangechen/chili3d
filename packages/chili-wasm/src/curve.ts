@@ -136,7 +136,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     continutity(): Continuity {
         let cni = this.curve.continutity();
-        return OcctHelper.convertContinuity(cni);
+        return OcctHelper.convertToContinuity(cni);
     }
 
     nearestFromPoint(point: XYZ) {
