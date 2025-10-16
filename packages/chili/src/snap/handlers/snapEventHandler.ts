@@ -21,8 +21,9 @@ import { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 enum SnapState {
     Idle,
     Snapping,
-    InputMode,
+    Inputing,
     Cancelled,
+    Completed,
 }
 
 export abstract class SnapEventHandler<D extends SnapData = SnapData> implements IEventHandler {
@@ -40,6 +41,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     ) {
         this.showTempShape(undefined);
         controller.onCancelled(() => this.handleCancel());
+        controller.onCompleted(() => this.handleSuccess());
     }
 
     get snaped() {
@@ -51,17 +53,20 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
     dispose() {
         this._snaped = undefined;
-        this._state = SnapState.Idle;
+        this._state = SnapState.Completed;
     }
 
     private handleSuccess() {
-        this._state = SnapState.Idle;
+        if (this._state === SnapState.Completed) return;
+
+        this._state = SnapState.Completed;
         this.controller.success();
         this.cleanupResources();
     }
 
     private handleCancel() {
         if (this._state === SnapState.Cancelled) return;
+
         this._state = SnapState.Cancelled;
         this.controller.cancel();
         this.cleanupResources();
@@ -228,6 +233,10 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         }
     }
 
+    pointerOut(view: IView, event: PointerEvent) {
+        this._snaped = undefined;
+    }
+
     mouseWheel(view: IView, event: WheelEvent): void {
         view.update();
     }
@@ -250,7 +259,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private handleNumericInput(view: IView, event: KeyboardEvent) {
         if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
 
-        this._state = SnapState.InputMode;
+        this._state = SnapState.Inputing;
         PubSub.default.pub("showInput", event.key, (text: string) => {
             const error = this.inputError(text);
             if (error) return Result.err(error);
