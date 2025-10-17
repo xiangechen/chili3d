@@ -207,21 +207,22 @@ export class ThreeView extends Observable implements IView {
     }
 
     private htmlElement(text: string, dispose: () => void, options?: HtmlTextOptions): HTMLElement {
+        const className = options?.className || style.htmlText;
         return div(
             {
-                className: options?.hideDelete ? `${style.htmlText} ${style.noEvent}` : style.htmlText,
+                className: options?.hideDelete ? `${className} ${style.noEvent}` : className,
             },
-            span({ textContent: text }),
+            span({ textContent: text, style: { color: "inherit" } }),
             options?.hideDelete === true
                 ? ""
                 : svg({
-                    className: style.delete,
-                    icon: "icon-times",
-                    onclick: (e) => {
-                        e.stopPropagation();
-                        dispose();
-                    },
-                }),
+                      className: style.delete,
+                      icon: "icon-times",
+                      onclick: (e) => {
+                          e.stopPropagation();
+                          dispose();
+                      },
+                  }),
         );
     }
 
@@ -466,7 +467,11 @@ export class ThreeView extends Observable implements IView {
             : this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
     }
 
-    private detectThreeShapes(intersections: Intersection[], shapeFilter?: IShapeFilter, nodeFilter?: INodeFilter): VisualShapeData[] {
+    private detectThreeShapes(
+        intersections: Intersection[],
+        shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
+    ): VisualShapeData[] {
         for (const element of intersections) {
             const parent = element.object.parent;
             if (!(parent instanceof ThreeGeometry)) continue;
@@ -478,9 +483,10 @@ export class ThreeView extends Observable implements IView {
                 shape = this.findShapeAndIndex(parent, element).shape;
             }
 
-            if (!shape 
-                || (shapeFilter && !shapeFilter.allow(shape)) 
-                || (nodeFilter && !nodeFilter.allow(parent.geometryNode))
+            if (
+                !shape ||
+                (shapeFilter && !shapeFilter.allow(shape)) ||
+                (nodeFilter && !nodeFilter.allow(parent.geometryNode))
             ) {
                 continue;
             }
@@ -514,9 +520,9 @@ export class ThreeView extends Observable implements IView {
                     intersected,
                 );
                 if (
-                    !shape 
-                    || (shapeFilter && !shapeFilter.allow(shape)) 
-                    || (nodeFilter && !nodeFilter.allow(visualShape.node))
+                    !shape ||
+                    (shapeFilter && !shapeFilter.allow(shape)) ||
+                    (nodeFilter && !nodeFilter.allow(visualShape.node))
                 ) {
                     continue;
                 }
