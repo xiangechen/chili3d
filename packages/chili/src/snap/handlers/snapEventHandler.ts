@@ -73,7 +73,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private cleanupResources() {
-        this.clearSnapTip();
+        this.clearSnapPrompt();
         this.clearInput();
         this.removeTempVisuals();
         this.snaps.forEach((snap) => snap.clear());
@@ -93,31 +93,15 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private updateSnapPoint(view: IView, event: PointerEvent) {
         this.setSnaped(view, event);
         if (this._snaped) {
-            this.showSnapPrompt(this.formatPrompt(this._snaped));
+            this.showSnapPrompt(this._snaped);
         } else {
-            this.clearSnapTip();
+            this.clearSnapPrompt();
         }
     }
 
     private updateVisualFeedback(view: IView) {
         this.showTempShape(this._snaped?.point);
         view.document.visual.update();
-    }
-
-    private formatPrompt(snaped: SnapResult) {
-        let prompt = this.data.prompt?.(snaped);
-        if (!prompt) {
-            let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
-            if (distance) {
-                prompt = this.formatDistance(distance);
-            }
-        }
-
-        return [snaped.info, prompt].filter((x) => x !== undefined).join(" -> ");
-    }
-
-    protected formatDistance(num: number) {
-        return num.toFixed(2);
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
@@ -173,16 +157,42 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         return { shapes, view, mx: event.offsetX, my: event.offsetY };
     }
 
-    private clearSnapTip() {
+    protected clearSnapPrompt() {
         PubSub.default.pub("clearFloatTip");
     }
 
-    private showSnapPrompt(msg: string | undefined) {
-        if (!msg) {
-            this.clearSnapTip();
+    protected showSnapPrompt(snaped: SnapResult) {
+        const prompt = this.formatSnapPrompt(snaped);
+        if (!prompt) {
+            this.clearSnapPrompt();
             return;
         }
-        PubSub.default.pub("showFloatTip", MessageType.info, msg);
+        PubSub.default.pub("showFloatTip", prompt);
+    }
+
+    protected formatSnapPrompt(
+        snaped: SnapResult,
+    ): HTMLElement | { level: MessageType; msg: string } | undefined {
+        let prompt = this.data.prompt?.(snaped);
+        if (!prompt) {
+            let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
+            if (distance) {
+                prompt = this.formatSnapDistance(distance);
+            }
+        }
+
+        if (!prompt && !snaped.info) {
+            return undefined;
+        }
+
+        return {
+            level: MessageType.info,
+            msg: [snaped.info, prompt].filter((x) => x !== undefined).join(" -> "),
+        };
+    }
+
+    protected formatSnapDistance(num: number) {
+        return num.toFixed(2);
     }
 
     private removeTempVisuals() {

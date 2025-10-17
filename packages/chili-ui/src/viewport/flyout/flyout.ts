@@ -7,7 +7,7 @@ import { Input } from "./input";
 import { Tip } from "./tip";
 
 export class Flyout extends HTMLElement {
-    private _tip: Tip | undefined;
+    private _tip: HTMLElement | undefined;
     private _input: Input | undefined;
     private lastFocus: HTMLElement | null = null;
 
@@ -30,12 +30,16 @@ export class Flyout extends HTMLElement {
         PubSub.default.remove("clearInput", this.clearInput);
     }
 
-    private readonly showTip = (level: MessageType, msg: string) => {
-        if (this._tip === undefined) {
-            this._tip = new Tip(msg, level);
+    private readonly showTip = (dom: HTMLElement | { level: MessageType; msg: string }) => {
+        if (dom instanceof HTMLElement) {
+            this._tip?.remove();
+            this._tip = dom;
             this.append(this._tip);
-        } else {
-            this._tip.set(msg, level);
+        } else if (this._tip === undefined) {
+            this._tip = new Tip(dom.msg, dom.level);
+            this.append(this._tip);
+        } else if (this._tip instanceof Tip) {
+            this._tip.set(dom.msg, dom.level);
         }
     };
 
