@@ -33,13 +33,16 @@ export class Flyout extends HTMLElement {
     private readonly showTip = (dom: HTMLElement | { level: MessageType; msg: string }) => {
         if (dom instanceof HTMLElement) {
             this._tip?.remove();
+
             this._tip = dom;
-            this.append(this._tip);
-        } else if (this._tip === undefined) {
-            this._tip = new Tip(dom.msg, dom.level);
             this.append(this._tip);
         } else if (this._tip instanceof Tip) {
             this._tip.set(dom.msg, dom.level);
+        } else {
+            this._tip?.remove();
+
+            this._tip = new Tip(dom.msg, dom.level);
+            this.append(this._tip);
         }
     };
 
