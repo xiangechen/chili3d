@@ -87,7 +87,7 @@ export class LoftCommand extends CancelableCommand {
                     }
                 }
 
-                this.shapes.push(data.shapes[0].shape.transformed(data.nodes![0].worldTransform()));
+                this.shapes.push(data.shapes[0].shape.transformedMul(data.nodes![0].worldTransform()));
                 this.displayVisual();
             }
 
