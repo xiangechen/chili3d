@@ -416,6 +416,9 @@ export class ArrayCommand extends MultistepCommand {
             this.models?.forEach((model) => {
                 model.parent?.remove(model);
             });
+
+            this.positions = undefined;
+            this.models = undefined;
         });
     }
 

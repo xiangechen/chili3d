@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Continuity,
     ICompound,
     IEdge,
     IFace,
@@ -17,6 +18,7 @@ import {
     Precision,
     Ray,
     Result,
+    ShapeType,
     XYZ,
     XYZLike,
 } from "chili-core";
@@ -295,6 +297,27 @@ export class ShapeFactory implements IShapeFactory {
                 ensureOccShape(shape)[0],
                 ensureOccShape(closingFaces),
                 thickness,
+            ),
+        );
+    }
+    loft(
+        sections: (IVertex | IEdge | IWire)[],
+        isSolid: boolean,
+        isRuled: boolean,
+        continuity: Continuity,
+    ): Result<IShape> {
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            if (section.shapeType === ShapeType.Edge) {
+                sections[i] = this.wire([section as IEdge]).value;
+            }
+        }
+        return convertShapeResult(
+            wasm.ShapeFactory.loft(
+                ensureOccShape(sections),
+                isSolid,
+                isRuled,
+                OcctHelper.convertFromContinuity(continuity),
             ),
         );
     }

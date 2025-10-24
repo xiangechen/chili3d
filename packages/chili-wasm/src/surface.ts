@@ -99,7 +99,7 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
 
     continuity(): Continuity {
-        return OcctHelper.convertContinuity(this.surface.continuity());
+        return OcctHelper.convertToContinuity(this.surface.continuity());
     }
 
     uIso(u: number): ICurve {

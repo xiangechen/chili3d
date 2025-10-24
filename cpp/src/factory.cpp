@@ -22,6 +22,7 @@
 #include <BRepOffsetAPI_MakePipe.hxx>
 #include <BRepOffsetAPI_MakePipeShell.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
+#include <BRepOffsetAPI_ThruSections.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -529,6 +530,35 @@ public:
         return ShapeResult { makeChamfer.Shape(), true, "" };
     }
 
+    static ShapeResult loft(const ShapeArray& sections, bool isSolid, bool isRuled, GeomAbs_Shape continuity)
+    {
+        std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(sections);
+        if (shapeVector.size() < 2) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to loft: at least 2 sections are required" };
+        }
+        if (shapeVector.size() == 2 && shapeVector[0].ShapeType() == TopAbs_VERTEX && shapeVector[1].ShapeType() == TopAbs_VERTEX) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to loft: must have at least 1 wires" };
+        }
+
+        BRepOffsetAPI_ThruSections loftBuilder(isSolid, isRuled);
+        if (!isRuled) {
+            loftBuilder.SetContinuity(continuity);
+        }
+
+        for (auto& profile : shapeVector) {
+            if (profile.ShapeType() == TopAbs_WIRE) {
+                loftBuilder.AddWire(TopoDS::Wire(profile));
+            } else if (profile.ShapeType() == TopAbs_VERTEX) {
+                loftBuilder.AddVertex(TopoDS::Vertex(profile));
+            }
+        }
+        loftBuilder.Build();
+        if (!loftBuilder.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to loft" };
+        }
+        return ShapeResult { loftBuilder.Shape(), true, "" };
+    }
+
     static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
     {
         BRepProj_Projection curveProjection(curve, targetFace, dir);
@@ -577,5 +607,6 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
         .class_function("chamfer", &ShapeFactory::chamfer)
+        .class_function("loft", &ShapeFactory::loft)
         .class_function("curveProjection", &ShapeFactory::curveProjection);
 }

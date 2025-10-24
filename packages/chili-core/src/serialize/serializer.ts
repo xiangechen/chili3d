@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { IDocument } from "../document";
-import { ClassMap } from "./classMap";
+import { Observable } from "../foundation";
 
 export interface ISerialize {
     serialize(): Serialized;
@@ -17,14 +17,26 @@ export type SerializedProperties<T> = {
     [P in keyof T]?: any;
 };
 
-interface RefelectData {
+export interface RefelectData {
     ctor: new (...args: any[]) => any;
     ctorParamNames: string[];
     serialize?: (target: any) => SerializedProperties<any>;
     deserialize?: (...args: any[]) => any;
 }
 
-export function serializeTypeArray(TypeArray: new (array: number[]) => Float32Array | Uint32Array): RefelectData {
+export function registerReflect(data: RefelectData, name?: string) {
+    const actualName = name ?? data.ctor.name;
+    if (reflectMap.has(actualName)) {
+        console.warn(`Class ${actualName} already registered, skip.`);
+        return;
+    }
+
+    reflectMap.set(actualName, data);
+}
+
+export function registerTypeArray(
+    TypeArray: new (array: number[]) => Float32Array | Uint32Array,
+): RefelectData {
     return {
         ctor: TypeArray,
         ctorParamNames: ["buffer"],
@@ -36,13 +48,13 @@ export function serializeTypeArray(TypeArray: new (array: number[]) => Float32Ar
         deserialize: (buffer) => {
             return new TypeArray(buffer);
         },
-    }
+    };
 }
 
 const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
 const reflectMap = new Map<string, RefelectData>();
-reflectMap.set("Float32Array", serializeTypeArray(Float32Array));
-reflectMap.set("Uint32Array", serializeTypeArray(Uint32Array));
+reflectMap.set("Float32Array", registerTypeArray(Float32Array));
+reflectMap.set("Uint32Array", registerTypeArray(Uint32Array));
 
 export namespace Serializer {
     export function serialze() {
@@ -62,8 +74,7 @@ export namespace Serializer {
         serialize?: (target: T) => SerializedProperties<T>,
     ) {
         return (target: new (...args: any[]) => T) => {
-            ClassMap.save(target.name, target);
-            reflectMap.set(target.name, {
+            registerReflect({
                 ctor: target,
                 ctorParamNames,
                 serialize,
@@ -155,7 +166,14 @@ export namespace Serializer {
         };
         let keys = Object.keys(data.properties).filter(filter);
         for (const key of keys) {
-            instance[key] = deserialValue(document, data.properties[key]);
+            if (instance instanceof Observable) {
+                instance.setPrivateValue(
+                    key as keyof Observable,
+                    deserialValue(document, data.properties[key]),
+                );
+            } else {
+                instance[key] = deserialValue(document, data.properties[key]);
+            }
         }
     }
 }

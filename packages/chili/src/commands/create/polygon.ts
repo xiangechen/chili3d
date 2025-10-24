@@ -7,6 +7,7 @@ import {
     GeometryNode,
     I18n,
     Precision,
+    Property,
     ShapeMeshData,
     XYZ,
     command,
@@ -21,6 +22,11 @@ import { CreateFaceableCommand } from "../createCommand";
     icon: "icon-toPoly",
 })
 export class Polygon extends CreateFaceableCommand {
+    @Property.define("common.confirm")
+    readonly confirm = () => {
+        this.controller?.success();
+    };
+
     protected override geometryNode(): GeometryNode {
         let node = new PolygonNode(
             this.document,

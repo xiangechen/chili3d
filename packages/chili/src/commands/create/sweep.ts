@@ -8,7 +8,7 @@ import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({
-    key: "convert.sweep",
+    key: "create.sweep",
     icon: "icon-sweep",
 })
 export class Sweep extends CreateCommand {

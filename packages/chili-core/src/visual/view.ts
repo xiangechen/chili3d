@@ -18,6 +18,7 @@ export enum ViewMode {
 
 export type HtmlTextOptions = {
     hideDelete?: boolean;
+    className?: string;
     center?: XYLike;
     onDispose?: () => void;
 };
@@ -51,7 +52,13 @@ export interface IView extends IPropertyChanged, IDisposable {
         y2: number,
         nodeFilter?: INodeFilter,
     ): IVisualObject[];
-    detectShapes(shapeType: ShapeType, x: number, y: number, shapeFilter?: IShapeFilter, nodeFilter?: INodeFilter): VisualShapeData[];
+    detectShapes(
+        shapeType: ShapeType,
+        x: number,
+        y: number,
+        shapeFilter?: IShapeFilter,
+        nodeFilter?: INodeFilter,
+    ): VisualShapeData[];
     detectShapesRect(
         shapeType: ShapeType,
         x1: number,
