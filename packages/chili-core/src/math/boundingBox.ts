@@ -147,6 +147,17 @@ export class BoundingBox {
         );
     }
 
+    static isInside(box: BoundingBox, point: PointLike, tolerance = 0.001) {
+        return (
+            box.min.x + tolerance <= point.x &&
+            point.x <= box.max.x - tolerance &&
+            box.min.y + tolerance <= point.y &&
+            point.y <= box.max.y - tolerance &&
+            box.min.z + tolerance <= point.z &&
+            point.z <= box.max.z - tolerance
+        );
+    }
+
     static expandByPoint(box: BoundingBox, point: PointLike) {
         const { min, max } = box;
         min.x = Math.min(min.x, point.x);
