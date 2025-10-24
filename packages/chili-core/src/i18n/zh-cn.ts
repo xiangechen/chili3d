@@ -118,6 +118,7 @@ export default {
         "common.3DNavigation": "3D导航",
         "common.isGroup": "组",
         "common.language": "语言",
+        "common.location": "位置",
         "common.theme": "主题",
         "common.theme.light": "浅色",
         "common.theme.dark": "深色",
