@@ -5,6 +5,7 @@ import { XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
+import { IViewGizmo } from "chili-core/src/visual/viewGizmo";
 
 const MOUSE_LEFT = 1;
 
@@ -36,7 +37,7 @@ export interface Axis {
     label?: string;
 }
 
-export class ViewGizmo extends HTMLElement {
+export class ViewGizmo extends HTMLElement implements IViewGizmo {
     private readonly _axes: Axis[];
     private readonly _center: Vector3;
     private readonly _canvas: HTMLCanvasElement;
@@ -54,6 +55,14 @@ export class ViewGizmo extends HTMLElement {
         this._canvas = this._initCanvas();
         this._context = this._canvas.getContext("2d")!;
         this._initStyle();
+    }
+    setDom(dom: HTMLElement): void {
+        this.remove();
+        dom.appendChild(this);
+    }
+
+    dispose(): void {
+        this.remove();
     }
 
     private _initStyle() {

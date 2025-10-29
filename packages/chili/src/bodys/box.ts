@@ -10,12 +10,26 @@ import {
     Property,
     Result,
     Serializer,
+    XYZ,
 } from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy", "dz"])
 export class BoxNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.box";
+    }
+
+    @Serializer.serialze()
+    get plane(): Plane {
+        return this.getPrivateValue("plane");
+    }
+
+    @Property.define("common.location")
+    get location() {
+        return this.plane.origin;
+    }
+    set location(value: XYZ) {
+        this.setPropertyEmitShapeChanged("plane", this.plane.translateTo(value));
     }
 
     @Serializer.serialze()
@@ -43,11 +57,6 @@ export class BoxNode extends ParameterShapeNode {
     }
     set dz(dz: number) {
         this.setPropertyEmitShapeChanged("dz", dz);
-    }
-
-    @Serializer.serialze()
-    get plane(): Plane {
-        return this.getPrivateValue("plane");
     }
 
     constructor(document: IDocument, plane: Plane, dx: number, dy: number, dz: number) {

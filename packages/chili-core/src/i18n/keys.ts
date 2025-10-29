@@ -111,6 +111,7 @@ const I18N_KEYS = [
     "common.area",
     "common.back",
     "common.language",
+    "common.location",
     "common.3DNavigation",
     "common.isGroup",
     "common.theme",

@@ -117,6 +117,7 @@ export default {
         "common.back": "Back",
         "common.isGroup": "Group",
         "common.language": "Language",
+        "common.location": "Location",
         "common.3DNavigation": "3D Navigation",
         "common.theme": "Theme",
         "common.theme.light": "Light",
