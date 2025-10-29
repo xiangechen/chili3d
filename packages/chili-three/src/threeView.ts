@@ -11,6 +11,7 @@ import {
     IShapeFilter,
     ISubShape,
     IView,
+    IViewGizmo,
     IVisualObject,
     Matrix4,
     MultiShapeNode,
@@ -57,14 +58,15 @@ import { ViewGizmo } from "./viewGizmo";
 
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
-    private readonly _resizeObserver: ResizeObserver;
+    private _needsUpdate: boolean = false;
 
     private readonly _scene: Scene;
     private readonly _renderer: WebGLRenderer;
     private readonly _cssRenderer: CSS2DRenderer;
     private readonly _workplane: Plane;
-    private _needsUpdate: boolean = false;
-    private readonly _gizmo: ViewGizmo;
+    private readonly _gizmo: IViewGizmo;
+    private readonly _resizeObserver: ResizeObserver;
+
     readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 2);
 
@@ -114,7 +116,7 @@ export class ThreeView extends Observable implements IView {
         this._renderer = this.initRenderer();
         this._cssRenderer = this.initCssRenderer();
         this._scene.add(this.dynamicLight);
-        this._gizmo = new ViewGizmo(this);
+        this._gizmo = this.initGizmo();
         this.setPrivateValue("mode", ViewMode.solidAndWireframe);
         this.camera.layers.enableAll();
         this.document.application.views.push(this);
@@ -123,6 +125,7 @@ export class ThreeView extends Observable implements IView {
 
     override disposeInternal(): void {
         super.disposeInternal();
+        this._gizmo.dispose();
         this._resizeObserver.disconnect();
     }
 
@@ -163,9 +166,13 @@ export class ThreeView extends Observable implements IView {
         return renderer;
     }
 
-    private initCssRenderer() {
+    protected initCssRenderer() {
         let renderer = new CSS2DRenderer();
         return renderer;
+    }
+
+    protected initGizmo(): IViewGizmo {
+        return new ViewGizmo(this);
     }
 
     setDom(element: HTMLElement) {
@@ -173,8 +180,7 @@ export class ThreeView extends Observable implements IView {
             this._resizeObserver.unobserve(this._dom);
         }
         this._dom = element;
-        this._gizmo?.remove();
-        element.appendChild(this._gizmo);
+        this._gizmo.setDom(element);
 
         this._renderer.domElement.remove();
         this._renderer.domElement.style.userSelect = "none";

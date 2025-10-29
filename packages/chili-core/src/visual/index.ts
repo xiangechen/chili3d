@@ -11,6 +11,7 @@ export * from "./meshExporter";
 export * from "./textGenerator";
 export * from "./view";
 export * from "./viewport";
+export * from "./viewGizmo";
 export * from "./visual";
 export * from "./visualContext";
 export * from "./visualFactory";
