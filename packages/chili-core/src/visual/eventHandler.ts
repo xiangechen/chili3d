@@ -5,6 +5,7 @@ import { IDisposable } from "../foundation";
 import { IView } from "./view";
 
 export interface IEventHandler extends IDisposable {
+    isEnabled: boolean;
     pointerMove(view: IView, event: PointerEvent): void;
     pointerDown(view: IView, event: PointerEvent): void;
     pointerUp(view: IView, event: PointerEvent): void;

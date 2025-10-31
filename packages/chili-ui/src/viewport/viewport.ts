@@ -253,8 +253,10 @@ export class Viewport extends HTMLElement {
             this._flyout.style.top = event.offsetY + "px";
             this._flyout.style.left = event.offsetX + "px";
         }
-        view.document.visual.eventHandler.pointerMove(view, event);
-        view.document.visual.viewHandler.pointerMove(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerMove(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerMove(view, event);
     };
 
     private readonly pointerDown = (view: IView, event: PointerEvent) => {
@@ -263,23 +265,31 @@ export class Viewport extends HTMLElement {
         }
 
         view.document.application.activeView = view;
-        view.document.visual.eventHandler.pointerDown(view, event);
-        view.document.visual.viewHandler.pointerDown(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerDown(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerDown(view, event);
     };
 
     private readonly pointerUp = (view: IView, event: PointerEvent) => {
-        view.document.visual.eventHandler.pointerUp(view, event);
-        view.document.visual.viewHandler.pointerUp(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerUp(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerUp(view, event);
     };
 
     private readonly pointerOut = (view: IView, event: PointerEvent) => {
-        view.document.visual.eventHandler.pointerOut?.(view, event);
-        view.document.visual.viewHandler.pointerOut?.(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerOut?.(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerOut?.(view, event);
     };
 
     private readonly mouseWheel = (view: IView, event: WheelEvent) => {
-        view.document.visual.eventHandler.mouseWheel?.(view, event);
-        view.document.visual.viewHandler.mouseWheel?.(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.mouseWheel?.(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.mouseWheel?.(view, event);
     };
 }
 

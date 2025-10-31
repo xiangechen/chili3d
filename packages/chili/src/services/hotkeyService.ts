@@ -53,8 +53,8 @@ export class HotkeyService implements IService {
         let visual = this.app?.activeView?.document?.visual;
         let view = this.app?.activeView;
         if (view && visual) {
-            visual.eventHandler.keyDown(view, e);
-            visual.viewHandler.keyDown(view, e);
+            if (visual.eventHandler.isEnabled) visual.eventHandler.keyDown(view, e);
+            if (visual.viewHandler.isEnabled) visual.viewHandler.keyDown(view, e);
             if (this.app!.executingCommand) e.stopImmediatePropagation();
         }
     };

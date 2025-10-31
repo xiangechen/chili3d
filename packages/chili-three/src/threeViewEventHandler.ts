@@ -18,6 +18,7 @@ export class ThreeViewHandler implements IEventHandler {
     protected currentPointerEventMap: Map<number, PointerEvent> = new Map();
 
     canRotate: boolean = true;
+    isEnabled = true;
 
     dispose() {
         this.clearTimeout();

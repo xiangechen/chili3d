@@ -29,6 +29,8 @@ export abstract class SelectionHandler implements IEventHandler {
     protected mouse = { isDown: false, x: 0, y: 0 };
     protected readonly pointerEventMap: Map<number, PointerEvent> = new Map();
 
+    isEnabled = true;
+
     constructor(
         readonly document: IDocument,
         readonly multiMode: boolean,
