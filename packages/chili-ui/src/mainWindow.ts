@@ -16,18 +16,44 @@ import { Editor } from "./editor";
 import { Home } from "./home";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
-document.oncontextmenu = (e) => e.preventDefault();
-document.body.addEventListener("scroll", (e) => {
-    document.body.scrollTop = 0;
-});
 
 export class MainWindow implements IWindow {
     private _inited: boolean = false;
     private _home?: Home;
     private _editor?: Editor;
 
-    constructor(readonly tabs: RibbonTab[]) {
-        // Theme will be set by Config.instance.applyTheme() on initialization
+    readonly dom: HTMLElement;
+
+    constructor(
+        readonly tabs: RibbonTab[],
+        dom?: HTMLElement,
+    ) {
+        this.dom = this.ensureDom(dom);
+    }
+
+    protected ensureDom(dom?: HTMLElement) {
+        if (!dom) {
+            dom = document.createElement("div");
+            dom.id = "chili3d-main-window";
+            dom.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                tab-index: 0;
+            `;
+            document.body.appendChild(dom);
+        }
+
+        dom.oncontextmenu = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        dom.addEventListener("scroll", (e) => {
+            dom.scrollTop = 0;
+        });
+        return dom;
     }
 
     init(app: IApplication) {

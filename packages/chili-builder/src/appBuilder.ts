@@ -64,7 +64,8 @@ export class AppBuilder {
             this.loadAdditionalI18n();
 
             let ui = await import("chili-ui");
-            this._window = new ui.MainWindow(await this.getRibbonTabs());
+            const app = document.getElementById("app") as HTMLElement;
+            this._window = new ui.MainWindow(await this.getRibbonTabs(), app);
         });
         return this;
     }

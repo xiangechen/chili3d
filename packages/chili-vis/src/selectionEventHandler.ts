@@ -86,7 +86,7 @@ export abstract class SelectionHandler implements IEventHandler {
     private initRect(event: PointerEvent): SelectionRect {
         const rect = document.createElement("div");
         rect.style.cssText = SelectionRectStyle;
-        document.body.appendChild(rect);
+        this.document.application.mainWindow?.dom.appendChild(rect);
         return { element: rect, clientX: event.clientX, clientY: event.clientY };
     }
 

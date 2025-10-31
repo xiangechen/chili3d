@@ -48,7 +48,13 @@ export class HotkeyService implements IService {
         Logger.info(`${HotkeyService.name} stoped`);
     }
 
+    protected canHandleKey(e: KeyboardEvent): boolean {
+        return true;
+    }
+
     private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
+        if (!this.canHandleKey(e)) return;
+
         e.preventDefault();
         let visual = this.app?.activeView?.document?.visual;
         let view = this.app?.activeView;
@@ -60,6 +66,8 @@ export class HotkeyService implements IService {
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
+        if (!this.canHandleKey(e)) return;
+
         e.preventDefault();
         let command = this.getCommand(e);
         if (command !== undefined) {

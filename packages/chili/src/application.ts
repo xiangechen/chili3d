@@ -77,14 +77,14 @@ export class Application implements IApplication {
 
     private initWindowEvents() {
         window.onbeforeunload = this.handleWindowUnload;
-        window.addEventListener(
+        this.mainWindow?.dom.addEventListener(
             "dragstart",
             (ev) => {
                 ev.preventDefault();
             },
             false,
         );
-        window.addEventListener(
+        this.mainWindow?.dom.addEventListener(
             "dragover",
             (ev) => {
                 ev.stopPropagation();
@@ -93,7 +93,7 @@ export class Application implements IApplication {
             },
             false,
         );
-        window.addEventListener(
+        this.mainWindow?.dom.addEventListener(
             "drop",
             (ev) => {
                 ev.stopPropagation();
