@@ -33,6 +33,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     protected _snaped?: SnapResult;
     private _state: SnapState = SnapState.Idle;
 
+    facePreviewOpacity: number = 1;
     isEnabled: boolean = true;
 
     constructor(
@@ -214,7 +215,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
         this._tempShapes = this.data
             .preview?.(point)
-            ?.map((shape) => this.document.visual.context.displayMesh([shape]));
+            ?.map((shape) => this.document.visual.context.displayMesh([shape], this.facePreviewOpacity));
     }
 
     private removeTempShapes() {
