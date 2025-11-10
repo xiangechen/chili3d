@@ -29,17 +29,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         dom?: HTMLElement,
     ) {
         super();
-        this.id = "chili3d-main-window";
         this.tabIndex = 0;
-        this.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        `;
-
         this.ensureDom(dom);
     }
 

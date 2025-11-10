@@ -37,6 +37,15 @@ div {
     color: var(--foreground-color);
 }
 
+chili3d-main-window {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
