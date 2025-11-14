@@ -1,11 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { XYZ } from "chili-core";
+import { IViewGizmo, XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
 import { CameraController } from "./cameraController";
 import { ThreeView } from "./threeView";
-import { IViewGizmo } from "chili-core/src/visual/viewGizmo";
 
 const MOUSE_LEFT = 1;
 
