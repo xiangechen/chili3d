@@ -1,20 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { expect, jest, test } from "@jest/globals";
 import { IVisualGeometry, Material, ShapeNode, ShapeType, XY, XYZ } from "chili-core";
 import { TestDocument } from "./testDocument";
 import { TestNode } from "./testEdge";
 import { TestView } from "./testView";
 
-jest.mock("../src/threeRenderBuilder", () => ({
-    ThreeRenderBuilder: jest.fn(),
-}));
-
-(global as any).ResizeObserver = jest.fn().mockImplementation(() => ({
-    observe: jest.fn(),
-    unobserve: jest.fn(),
-    disconnect: jest.fn(),
+(global as any).ResizeObserver = rs.fn().mockImplementation(() => ({
+    observe: rs.fn(),
+    unobserve: rs.fn(),
+    disconnect: rs.fn(),
 }));
 
 describe("three test", () => {

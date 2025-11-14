@@ -2,20 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug(Test)",
             "type": "node",
             "request": "launch",
-            "name": "vscode-jest-tests.v2",
-            "program": "${workspaceFolder}/node_modules/.bin/jest",
-            "env": { "NODE_OPTIONS": "--experimental-vm-modules" },
-            "args": ["${fileBasenameNoExtension}", "--config", "jest.config.js"],
+            "program": "${workspaceFolder}/node_modules/@rstest/core/bin/rstest.js",
+            "args": ["run", "${file}"],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "windows": {
-                "program": "${workspaceFolder}/node_modules/jest/bin/jest"
-            }
+            "skipFiles": ["<node_internals>/**"]
         },
         {
-            "name": "debug",
+            "name": "Debug",
             "type": "msedge",
             "request": "launch",
             "url": "http://localhost:8080/"

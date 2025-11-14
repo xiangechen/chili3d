@@ -18,7 +18,7 @@ export class ThreeMeshExporter implements IMeshExporter {
         const group = this.parseNodeToGroup(nodes);
         const blob = exporter.parse(group, { binary: !asciiMode });
         this.disposeObject(group);
-        return Result.ok(blob);
+        return Result.ok(blob as BlobPart);
     }
 
     exportToPly(nodes: VisualNode[], asciiMode: boolean): Result<BlobPart> {
