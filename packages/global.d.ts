@@ -28,3 +28,4 @@ declare module "*.jpg" {
 
 declare var __APP_VERSION__: string;
 declare var __DOCUMENT_VERSION__: string;
+declare var __IS_PRODUCTION__: boolean;
