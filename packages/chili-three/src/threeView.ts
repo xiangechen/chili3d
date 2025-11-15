@@ -425,7 +425,7 @@ export class ThreeView extends Observable implements IView {
         detecteds: VisualShapeData[],
         cache: Set<IShape>,
         shapeType: ShapeType,
-        obj: Mesh | LineSegments2,
+        obj: Object3D,
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
     ) {
