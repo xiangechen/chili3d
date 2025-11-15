@@ -1,9 +1,10 @@
-const rspack = require("@rspack/core");
-const { defineConfig } = require("@rspack/cli");
-const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
-const packages = require("./package.json");
+import { defineConfig } from "@rspack/cli";
+import rspack, { experiments } from "@rspack/core";
+import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
+import packages from "./package.json";
 
-const config = defineConfig({
+export default defineConfig({
+    devtool: process.env.NODE_ENV === "production" ? false : "source-map",
     entry: {
         main: "./packages/chili-web/src/index.ts",
     },
@@ -45,15 +46,7 @@ const config = defineConfig({
         ],
     },
     resolve: {
-        extensions: [".ts", ".js"],
-        fallback: {
-            fs: false,
-            perf_hooks: false,
-            os: false,
-            crypto: false,
-            stream: false,
-            path: false,
-        },
+        extensions: [".ts", ".js", ".json", ".wasm"],
     },
     plugins: [
         new ForkTsCheckerWebpackPlugin(),
@@ -89,6 +82,7 @@ const config = defineConfig({
             new rspack.LightningCssMinimizerRspackPlugin(),
         ],
     },
+    output: {
+        clean: true,
+    },
 });
-
-module.exports = config;
