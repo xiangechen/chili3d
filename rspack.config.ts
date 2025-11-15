@@ -1,5 +1,5 @@
 import { defineConfig } from "@rspack/cli";
-import rspack, { experiments } from "@rspack/core";
+import rspack from "@rspack/core";
 import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 import packages from "./package.json";
 
@@ -63,6 +63,7 @@ export default defineConfig({
         new rspack.DefinePlugin({
             __APP_VERSION__: JSON.stringify(packages.version),
             __DOCUMENT_VERSION__: JSON.stringify(packages.documentVersion),
+            __IS_PRODUCTION__: JSON.stringify(process.env.NODE_ENV === "production"),
         }),
         new rspack.HtmlRspackPlugin({
             template: "./public/index.html",
