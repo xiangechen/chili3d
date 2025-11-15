@@ -5,10 +5,10 @@
     "documentVersion": "0.6",
     "author": "仙阁",
     "scripts": {
-        "dev": "npx rspack dev",
-        "build": "npx rspack build",
+        "dev": "rspack dev",
+        "build": "rspack build",
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
-        "test": "rstest ",
+        "test": "rstest",
         "testc": "rstest --coverage",
         "format": "npx prettier --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
         "release": "node scripts/release.mjs",
