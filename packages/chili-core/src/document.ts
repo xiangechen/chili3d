@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IApplication } from "./application";
-import {
+import type { IApplication } from "./application";
+import type {
     History,
     IDisposable,
     INodeChangedObserver,
@@ -10,11 +10,11 @@ import {
     NodeRecord,
     ObservableCollection,
 } from "./foundation";
-import { Material } from "./material";
-import { Component, INode, INodeLinkedList } from "./model";
-import { ISelection } from "./selection";
-import { ISerialize, Serialized } from "./serialize";
-import { Act, IVisual } from "./visual";
+import type { Material } from "./material";
+import type { Component, INode, INodeLinkedList } from "./model";
+import type { ISelection } from "./selection";
+import type { ISerialize, Serialized } from "./serialize";
+import type { Act, IVisual } from "./visual";
 
 export const DOCUMENT_FILE_EXTENSION = ".cd";
 

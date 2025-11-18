@@ -2,32 +2,32 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Continuity,
-    CurveType,
-    IBSplineCurve,
-    IBezierCurve,
-    IBoundedCurve,
-    ICircle,
-    IConic,
-    ICurve,
-    IDisposable,
-    IEdge,
-    IEllipse,
-    IGeometry,
-    IHyperbola,
-    ILine,
-    IOffsetCurve,
-    IParabola,
-    ITrimmedCurve,
-    Matrix4,
+    type Continuity,
+    type CurveType,
+    gc,
+    type IBezierCurve,
+    type IBoundedCurve,
+    type IBSplineCurve,
+    type ICircle,
+    type IConic,
+    type ICurve,
+    type IDisposable,
+    type IEdge,
+    type IEllipse,
+    type IGeometry,
+    type IHyperbola,
+    type ILine,
+    type IOffsetCurve,
+    type IParabola,
+    type ITrimmedCurve,
+    type Matrix4,
     Ray,
     XYZ,
-    gc,
 } from "chili-core";
-import {
-    Geom_BSplineCurve,
+import type {
     Geom_BezierCurve,
     Geom_BoundedCurve,
+    Geom_BSplineCurve,
     Geom_Circle,
     Geom_Conic,
     Geom_Curve,
@@ -52,14 +52,14 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     override copy(): IGeometry {
         return gc((c) => {
-            let newCurve = c(this.curve.copy());
+            const newCurve = c(this.curve.copy());
             return OcctHelper.wrapCurve(newCurve.get() as Geom_Curve);
         });
     }
 
     override transformed(matrix: Matrix4): IGeometry {
         return gc((c) => {
-            let newCurve = c(this.curve.transformed(OcctHelper.convertFromMatrix(matrix)));
+            const newCurve = c(this.curve.transformed(OcctHelper.convertFromMatrix(matrix)));
             return OcctHelper.wrapCurve(newCurve.get() as Geom_Curve);
         });
     }
@@ -74,7 +74,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
             if (curve instanceof OccCurve) {
                 result = wasm.Curve.nearestExtremaCC(this.curve, curve.curve);
             } else if (curve instanceof Ray) {
-                let line = c(wasm.Curve.makeLine(curve.location, curve.direction));
+                const line = c(wasm.Curve.makeLine(curve.location, curve.direction));
                 result = wasm.Curve.nearestExtremaCC(this.curve, line.get());
             }
 
@@ -106,7 +106,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     trim(u1: number, u2: number): ITrimmedCurve {
         return gc((c) => {
-            let trimCurve = c(wasm.Curve.trim(this.curve, u1, u2));
+            const trimCurve = c(wasm.Curve.trim(this.curve, u1, u2));
             return new OccTrimmedCurve(trimCurve.get()!);
         });
     }
@@ -117,7 +117,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     reversed(): ICurve {
         return gc((c) => {
-            let newCurve = c(this.curve.reversed());
+            const newCurve = c(this.curve.reversed());
             return OcctHelper.wrapCurve(newCurve.get()!);
         });
     }
@@ -135,12 +135,12 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
     }
 
     continutity(): Continuity {
-        let cni = this.curve.continutity();
+        const cni = this.curve.continutity();
         return OcctHelper.convertToContinuity(cni);
     }
 
     nearestFromPoint(point: XYZ) {
-        let res = wasm.Curve.projectOrNearest(this.curve, point);
+        const res = wasm.Curve.projectOrNearest(this.curve, point);
         return {
             ...res,
             point: OcctHelper.toXYZ(res.point),
@@ -175,7 +175,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     d0(u: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
             this.curve.d0(u, pnt);
             return OcctHelper.toXYZ(pnt);
         });
@@ -183,8 +183,8 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     d1(u: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let vec = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const vec = c(new wasm.gp_Vec(0, 0, 0));
             this.curve.d1(u, pnt, vec);
             return {
                 point: OcctHelper.toXYZ(pnt),
@@ -195,9 +195,9 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     d2(u: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let vec1 = c(new wasm.gp_Vec(0, 0, 0));
-            let vec2 = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const vec1 = c(new wasm.gp_Vec(0, 0, 0));
+            const vec2 = c(new wasm.gp_Vec(0, 0, 0));
             this.curve.d2(u, pnt, vec1, vec2);
             return {
                 point: OcctHelper.toXYZ(pnt),
@@ -209,10 +209,10 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     d3(u: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let vec1 = c(new wasm.gp_Vec(0, 0, 0));
-            let vec2 = c(new wasm.gp_Vec(0, 0, 0));
-            let vec3 = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const vec1 = c(new wasm.gp_Vec(0, 0, 0));
+            const vec2 = c(new wasm.gp_Vec(0, 0, 0));
+            const vec3 = c(new wasm.gp_Vec(0, 0, 0));
             this.curve.d3(u, pnt, vec1, vec2, vec3);
             return {
                 point: OcctHelper.toXYZ(pnt),
@@ -237,7 +237,7 @@ export class OccLine extends OccCurve implements ILine {
 
     get direction(): XYZ {
         return gc((c) => {
-            let ax = c(this.line.position());
+            const ax = c(this.line.position());
             return OcctHelper.toXYZ(c(ax.direction()));
         });
     }
@@ -250,7 +250,7 @@ export class OccLine extends OccCurve implements ILine {
 
     get location(): XYZ {
         return gc((c) => {
-            let ax = c(this.line.position());
+            const ax = c(this.line.position());
             return OcctHelper.toXYZ(c(ax.location()));
         });
     }
@@ -432,7 +432,7 @@ export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
     private _basisCurve: ICurve | undefined;
     get basisCurve(): ICurve {
         this._basisCurve ??= gc((c) => {
-            let curve = c(this.trimmedCurve.basisCurve());
+            const curve = c(this.trimmedCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
         return this._basisCurve;
@@ -454,7 +454,7 @@ export class OccOffsetCurve extends OccCurve implements IOffsetCurve {
     private _basisCurve: ICurve | undefined;
     get basisCurve(): ICurve {
         this._basisCurve ??= gc((c) => {
-            let curve = c(this.offsetCurve.basisCurve());
+            const curve = c(this.offsetCurve.basisCurve());
             return OcctHelper.wrapCurve(curve.get()!);
         });
         return this._basisCurve;
@@ -537,8 +537,8 @@ export class OccBezierCurve extends OccBoundedCurve implements IBezierCurve {
 
     poles(): XYZ[] {
         return gc((c) => {
-            let result: XYZ[] = [];
-            let pls = c(this.bezier.getPoles());
+            const result: XYZ[] = [];
+            const pls = c(this.bezier.getPoles());
             for (let i = 1; i <= pls.length(); i++) {
                 result.push(OcctHelper.toXYZ(c(pls.value(i))));
             }
@@ -568,8 +568,8 @@ export class OccBSplineCurve extends OccBoundedCurve implements IBSplineCurve {
     }
     poles(): XYZ[] {
         return gc((c) => {
-            let result: XYZ[] = [];
-            let pls = c(this.bspline.getPoles());
+            const result: XYZ[] = [];
+            const pls = c(this.bspline.getPoles());
             for (let i = 1; i <= pls.length(); i++) {
                 result.push(OcctHelper.toXYZ(c(pls.value(i))));
             }

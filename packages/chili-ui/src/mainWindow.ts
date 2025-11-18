@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Button,
-    CommandKeys,
-    I18nKeys,
-    IApplication,
-    IWindow,
-    PubSub,
-    RibbonTab,
+    type Button,
+    type CommandKeys,
     debounce,
+    type I18nKeys,
+    type IApplication,
+    type IWindow,
+    PubSub,
+    type RibbonTab,
 } from "chili-core";
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";

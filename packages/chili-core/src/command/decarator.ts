@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Binding } from "../foundation";
-import { ICommand } from "./command";
-import { CommandKeys } from "./commandKeys";
+import type { Binding } from "../foundation";
+import type { ICommand } from "./command";
+import type { CommandKeys } from "./commandKeys";
 
 const commandRegistry = new Map<string, CommandConstructor>();
 
@@ -19,17 +19,17 @@ export interface CommandData {
 }
 
 export function command<T extends CommandConstructor>(metadata: CommandData) {
-    return (constructor: T) => {
-        commandRegistry.set(metadata.key, constructor);
-        constructor.prototype.data = metadata;
+    return (ctor: T) => {
+        commandRegistry.set(metadata.key, ctor);
+        ctor.prototype.data = metadata;
     };
 }
 
 export namespace Command {
     export function getData(target: string | ICommand | CommandConstructor): CommandData | undefined {
         if (typeof target === "string") {
-            const constructor = commandRegistry.get(target);
-            return constructor?.prototype.data;
+            const ctor = commandRegistry.get(target);
+            return ctor?.prototype.data;
         }
 
         const prototype = typeof target === "function" ? target.prototype : Object.getPrototypeOf(target);

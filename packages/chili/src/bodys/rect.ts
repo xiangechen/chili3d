@@ -3,14 +3,14 @@
 
 import {
     FacebaseNode,
-    I18nKeys,
-    IDocument,
-    IShape,
-    Plane,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    type Plane,
     Property,
-    Result,
+    type Result,
     Serializer,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy"])
@@ -50,14 +50,14 @@ export class RectNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        let points = RectNode.points(this.plane, this.dx, this.dy);
-        let wire = this.document.application.shapeFactory.polygon(points);
+        const points = RectNode.points(this.plane, this.dx, this.dy);
+        const wire = this.document.application.shapeFactory.polygon(points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }
 
     static points(plane: Plane, dx: number, dy: number): XYZ[] {
-        let start = plane.origin;
+        const start = plane.origin;
         return [
             start,
             start.add(plane.xvec.multiply(dx)),

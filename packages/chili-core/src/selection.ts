@@ -1,12 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, IDisposable } from "./foundation";
-import { I18nKeys } from "./i18n";
-import { INode, VisualNode } from "./model";
-import { INodeFilter, IShapeFilter } from "./selectionFilter";
-import { ShapeType } from "./shape";
-import { CursorType, IEventHandler, VisualShapeData, VisualState } from "./visual";
+import type { AsyncController, IDisposable } from "./foundation";
+import type { I18nKeys } from "./i18n";
+import type { INode, VisualNode } from "./model";
+import type { INodeFilter, IShapeFilter } from "./selectionFilter";
+import type { ShapeType } from "./shape";
+import type { CursorType, IEventHandler, VisualShapeData, VisualState } from "./visual";
 
 export interface ISelection extends IDisposable {
     pickShape(

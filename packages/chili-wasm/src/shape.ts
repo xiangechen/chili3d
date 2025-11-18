@@ -2,42 +2,42 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    EdgeMeshData,
+    type EdgeMeshData,
     gc,
-    ICompound,
-    ICompoundSolid,
-    ICurve,
-    Id,
+    type ICompound,
+    type ICompoundSolid,
+    type ICurve,
     IDisposable,
-    IEdge,
-    IFace,
-    IShape,
-    IShapeMeshData,
-    IShell,
-    ISolid,
-    ISubEdgeShape,
-    ISubFaceShape,
-    ISurface,
-    ITrimmedCurve,
-    IVertex,
-    IWire,
-    JoinType,
+    Id,
+    type IEdge,
+    type IFace,
+    type IShape,
+    type IShapeMeshData,
+    type IShell,
+    type ISolid,
+    type ISubEdgeShape,
+    type ISubFaceShape,
+    type ISurface,
+    type ITrimmedCurve,
+    type IVertex,
+    type IWire,
+    type JoinType,
     LineType,
     Logger,
     MathUtils,
-    Matrix4,
-    Orientation,
+    type Matrix4,
+    type Orientation,
     Plane,
     Ray,
     Result,
-    SerializedProperties,
+    type SerializedProperties,
     Serializer,
-    ShapeType,
+    type ShapeType,
     VisualConfig,
-    XYZ,
-    XYZLike,
+    type XYZ,
+    type XYZLike,
 } from "chili-core";
-import {
+import type {
     TopoDS_Edge,
     TopoDS_Face,
     TopoDS_Shape,
@@ -50,21 +50,21 @@ import { OccCurve, OccTrimmedCurve } from "./curve";
 import { OcctHelper } from "./helper";
 import { Mesher } from "./mesher";
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+function occShapeSerialize(target: OccShape): SerializedProperties<OccShape> {
+    return {
+        shape: new OccShapeConverter().convertToBrep(target).value,
+        id: target.id,
+    };
+}
+
+function occShapeDeserialize(shape: string, id: string) {
+    const tshape = new OccShapeConverter().convertFromBrep(shape).value as OccShape;
+    tshape.id = id;
+    return tshape;
+}
+
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShape implements IShape {
-    static serialize(target: OccShape): SerializedProperties<OccShape> {
-        return {
-            shape: new OccShapeConverter().convertToBrep(target).value,
-            id: target.id,
-        };
-    }
-
-    static deserialize(shape: string, id: string) {
-        let tshape = new OccShapeConverter().convertFromBrep(shape).value as OccShape;
-        tshape._id = id;
-        return tshape;
-    }
-
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
@@ -77,10 +77,7 @@ export class OccShape implements IShape {
         return this._shape;
     }
 
-    protected _id: string;
-    get id(): string {
-        return this._id;
-    }
+    id: string;
 
     get matrix(): Matrix4 {
         return gc((c) => {
@@ -90,14 +87,14 @@ export class OccShape implements IShape {
 
     set matrix(matrix: Matrix4) {
         gc((c) => {
-            let location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
             this._shape.setLocation(location, false);
             this.onTransformChanged();
         });
     }
 
     constructor(shape: TopoDS_Shape, id?: string) {
-        this._id = id ?? Id.generate();
+        this.id = id ?? Id.generate();
         this._shape = shape;
         this.shapeType = OcctHelper.getShapeType(shape);
     }
@@ -201,11 +198,11 @@ export class OccShape implements IShape {
 
     section(shape: IShape | Plane): IShape {
         if (shape instanceof OccShape) {
-            let section = wasm.Shape.sectionSS(this.shape, shape.shape);
+            const section = wasm.Shape.sectionSS(this.shape, shape.shape);
             return OcctHelper.wrapShape(section);
         }
         if (shape instanceof Plane) {
-            let section = wasm.Shape.sectionSP(this.shape, {
+            const section = wasm.Shape.sectionSP(this.shape, {
                 location: shape.origin,
                 direction: shape.normal,
                 xDirection: shape.xvec,
@@ -217,7 +214,7 @@ export class OccShape implements IShape {
     }
 
     split(shapes: IShape[]): IShape {
-        let occShapes = shapes.map((x) => {
+        const occShapes = shapes.map((x) => {
             if (x instanceof OccShape) {
                 return x.shape;
             }
@@ -262,7 +259,7 @@ export class OccShape implements IShape {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccVertex extends OccShape implements IVertex {
     readonly vertex: TopoDS_Vertex;
 
@@ -272,7 +269,7 @@ export class OccVertex extends OccShape implements IVertex {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccEdge extends OccShape implements IEdge {
     private _edge: TopoDS_Edge;
     get edge(): TopoDS_Edge {
@@ -294,12 +291,12 @@ export class OccEdge extends OccShape implements IEdge {
 
     intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[] {
         return gc((c) => {
-            let edge: TopoDS_Edge | undefined = undefined;
+            let edge: TopoDS_Edge | undefined;
             if (other instanceof OccEdge) {
                 edge = other.edge;
             }
             if (other instanceof Ray) {
-                let line = c(wasm.Curve.makeLine(other.location, other.direction));
+                const line = c(wasm.Curve.makeLine(other.location, other.direction));
                 edge = c(wasm.Edge.fromCurve(line.get()));
             }
             if (edge === undefined) {
@@ -319,7 +316,7 @@ export class OccEdge extends OccShape implements IEdge {
     private _curve: ITrimmedCurve | undefined;
     get curve(): ITrimmedCurve {
         this._curve ??= gc((c) => {
-            let curve = c(wasm.Edge.curve(this.edge));
+            const curve = c(wasm.Edge.curve(this.edge));
             return new OccTrimmedCurve(curve.get()!);
         });
         return this._curve;
@@ -335,8 +332,8 @@ export class OccEdge extends OccShape implements IEdge {
 
     offset(distance: number, dir: XYZ): Result<IEdge> {
         return gc((c) => {
-            let occDir = c(OcctHelper.toDir(dir));
-            let edge = wasm.Edge.offset(this.edge, occDir, distance);
+            const occDir = c(OcctHelper.toDir(dir));
+            const edge = wasm.Edge.offset(this.edge, occDir, distance);
             if (edge.isNull()) {
                 return Result.err("Offset failed");
             }
@@ -345,7 +342,7 @@ export class OccEdge extends OccShape implements IEdge {
     }
 
     trim(start: number, end: number): IEdge {
-        let newEdge = wasm.Edge.trim(this.edge, start, end);
+        const newEdge = wasm.Edge.trim(this.edge, start, end);
         return new OccEdge(newEdge);
     }
 
@@ -358,7 +355,7 @@ export class OccEdge extends OccShape implements IEdge {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccWire extends OccShape implements IWire {
     constructor(
         readonly wire: TopoDS_Wire,
@@ -372,7 +369,7 @@ export class OccWire extends OccShape implements IWire {
     }
 
     toFace(): Result<IFace> {
-        let face = wasm.Wire.makeFace(this.wire);
+        const face = wasm.Wire.makeFace(this.wire);
         if (face.isNull()) {
             return Result.err("To face failed");
         }
@@ -380,7 +377,7 @@ export class OccWire extends OccShape implements IWire {
     }
 
     offset(distance: number, joinType: JoinType): Result<IShape> {
-        let offseted = wasm.Wire.offset(this.wire, distance, OcctHelper.getJoinType(joinType));
+        const offseted = wasm.Wire.offset(this.wire, distance, OcctHelper.getJoinType(joinType));
         if (offseted.isNull()) {
             return Result.err("Offset failed");
         }
@@ -388,7 +385,7 @@ export class OccWire extends OccShape implements IWire {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccFace extends OccShape implements IFace {
     constructor(
         readonly face: TopoDS_Face,
@@ -403,8 +400,8 @@ export class OccFace extends OccShape implements IFace {
 
     normal(u: number, v: number): [point: XYZ, normal: XYZ] {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let normal = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const normal = c(new wasm.gp_Vec(0, 0, 0));
             wasm.Face.normal(this.shape, u, v, pnt, normal);
             return [OcctHelper.toXYZ(pnt), OcctHelper.toXYZ(normal)];
         });
@@ -414,13 +411,13 @@ export class OccFace extends OccShape implements IFace {
     }
     surface(): ISurface {
         return gc((c) => {
-            let handleSurface = c(wasm.Face.surface(this.face));
+            const handleSurface = c(wasm.Face.surface(this.face));
             return OcctHelper.wrapSurface(handleSurface.get()!);
         });
     }
     segmentsOfEdgeOnFace(edge: IEdge): undefined | { start: number; end: number } {
         if (edge instanceof OccEdge) {
-            let domain = wasm.Face.curveOnSurface(this.face, edge.edge);
+            const domain = wasm.Face.curveOnSurface(this.face, edge.edge);
             if (MathUtils.allEqualZero(domain.start, domain.end)) {
                 return undefined;
             }
@@ -430,10 +427,10 @@ export class OccFace extends OccShape implements IFace {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShell extends OccShape implements IShell {}
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccSolid extends OccShape implements ISolid {
     constructor(
         readonly solid: TopoDS_Solid,
@@ -447,10 +444,10 @@ export class OccSolid extends OccShape implements ISolid {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompSolid extends OccShape implements ICompoundSolid {}
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompound extends OccShape implements ICompound {}
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {

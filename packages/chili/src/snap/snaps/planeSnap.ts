@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Plane, XYZ } from "chili-core";
+import type { Plane, XYZ } from "chili-core";
 import { ViewUtils } from "chili-vis";
-import { ISnap, MouseAndDetected, SnapResult } from "../snap";
+import type { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export abstract class PlaneSnapBase implements ISnap {
     removeDynamicObject(): void {}
@@ -44,7 +44,7 @@ export class PlaneSnap extends PlaneSnapBase {
     }
 
     snap(data: MouseAndDetected): SnapResult | undefined {
-        let point = data.view.screenToWorld(data.mx, data.my);
+        const point = data.view.screenToWorld(data.mx, data.my);
         const plane = this.plane(point);
         const result = this.snapAtPlane(plane, data);
         if (result) {

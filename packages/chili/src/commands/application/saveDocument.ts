@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, I18n, IApplication, ICommand, PubSub } from "chili-core";
+import { command, I18n, type IApplication, type ICommand, PubSub } from "chili-core";
 
 @command({
     key: "doc.save",
@@ -14,7 +14,7 @@ export class SaveDocument implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                await app.activeView?.document!.save();
+                await app.activeView?.document.save();
                 PubSub.default.pub("showToast", "toast.document.saved");
             },
             "toast.excuting{0}",

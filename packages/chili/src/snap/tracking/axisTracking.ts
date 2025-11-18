@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, IView, Plane, XYZ } from "chili-core";
+import { I18n, type IView, type Plane, type XYZ } from "chili-core";
 import { Axis } from "./axis";
 import { TrackingBase } from "./trackingBase";
 
@@ -27,7 +27,7 @@ export class AxisTracking extends TrackingBase {
         const result: Axis[] = [];
         let testAngle = 0;
         while (testAngle < 360) {
-            let direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
+            const direction = plane.xvec.rotate(plane.normal, (testAngle / 180) * Math.PI)!;
             result.push(new Axis(referencePoint, direction, `${testAngle} °`));
             testAngle += angle;
         }

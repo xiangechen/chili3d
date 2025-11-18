@@ -2,13 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IEdge,
-    IShape,
-    IWire,
+    type I18nKeys,
+    type IDocument,
+    type IEdge,
+    type IShape,
+    type IWire,
     ParameterShapeNode,
-    Result,
+    type Result,
     Serializer,
     ShapeType,
 } from "chili-core";

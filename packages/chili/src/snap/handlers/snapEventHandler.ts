@@ -2,11 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
+    type AsyncController,
     Config,
-    I18nKeys,
-    IDocument,
-    IEventHandler,
+    type I18nKeys,
+    type IDocument,
+    type IEventHandler,
     IView,
     MessageType,
     PubSub,
@@ -14,9 +14,9 @@ import {
     ShapeType,
     VertexMeshData,
     VisualConfig,
-    XYZ,
+    type XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
+import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
 enum SnapState {
     Idle,
@@ -178,7 +178,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     ): HTMLElement | { level: MessageType; msg: string } | undefined {
         let prompt = this.data.prompt?.(snaped);
         if (!prompt) {
-            let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
+            const distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
             if (distance) {
                 prompt = this.formatSnapDistance(distance);
             }

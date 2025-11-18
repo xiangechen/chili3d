@@ -1,17 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CommandKeys, ICommand } from "../command";
-import { IDocument } from "../document";
-import { I18nKeys } from "../i18n";
-import { Material } from "../material";
-import { INode } from "../model";
-import { DialogResult } from "../ui";
-import { CursorType, IView } from "../visual";
-import { AsyncController } from "./asyncController";
-import { IDisposable } from "./disposable";
-import { MessageType } from "./messageType";
-import { Result } from "./result";
+import type { CommandKeys, ICommand } from "../command";
+import type { IDocument } from "../document";
+import type { I18nKeys } from "../i18n";
+import type { Material } from "../material";
+import type { INode } from "../model";
+import type { DialogResult } from "../ui";
+import type { CursorType, IView } from "../visual";
+import type { AsyncController } from "./asyncController";
+import type { IDisposable } from "./disposable";
+import type { MessageType } from "./messageType";
+import type { Result } from "./result";
 
 export interface PubSubEventMap {
     activeViewChanged: (view: IView | undefined) => void;

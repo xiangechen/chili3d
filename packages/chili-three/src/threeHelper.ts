@@ -1,14 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Material, MathUtils, Matrix4, PhongMaterial, PhysicalMaterial, Texture, XYZ } from "chili-core";
+import {
+    type Material,
+    MathUtils,
+    Matrix4,
+    PhongMaterial,
+    PhysicalMaterial,
+    type Texture,
+    XYZ,
+} from "chili-core";
 import {
     Box3,
-    Camera,
+    type Camera,
     DoubleSide,
-    Object3D,
-    OrthographicCamera,
-    PerspectiveCamera,
+    type Object3D,
+    type OrthographicCamera,
+    type PerspectiveCamera,
     RepeatWrapping,
     TextureLoader,
     Color as ThreeColor,
@@ -17,7 +25,7 @@ import {
     MeshPhongMaterial as ThreePhoneMaterial,
     MeshPhysicalMaterial as ThreePhysicalMaterial,
     Vector3,
-    Vector3Like,
+    type Vector3Like,
 } from "three";
 
 export class ThreeHelper {
@@ -63,10 +71,10 @@ export class ThreeHelper {
     }
 
     static transformVector(matrix: ThreeMatrix4, vector: Vector3) {
-        let array = matrix.elements;
-        let x = vector.x * array[0] + vector.y * array[4] + vector.z * array[8];
-        let y = vector.x * array[1] + vector.y * array[5] + vector.z * array[9];
-        let z = vector.x * array[2] + vector.y * array[6] + vector.z * array[10];
+        const array = matrix.elements;
+        const x = vector.x * array[0] + vector.y * array[4] + vector.z * array[8];
+        const y = vector.x * array[1] + vector.y * array[5] + vector.z * array[9];
+        const z = vector.x * array[2] + vector.y * array[6] + vector.z * array[10];
         return new Vector3(x, y, z);
     }
 
@@ -80,8 +88,8 @@ export class ThreeHelper {
     }
 
     static boxCorners(box: Box3) {
-        let min = box.min;
-        let max = box.max;
+        const min = box.min;
+        const max = box.max;
         return [
             new Vector3(min.x, min.y, min.z),
             new Vector3(max.x, min.y, min.z),
@@ -99,7 +107,7 @@ export class ThreeHelper {
             return null;
         }
 
-        let map = new TextureLoader().load(item.image);
+        const map = new TextureLoader().load(item.image);
         map.wrapS = RepeatWrapping;
         map.wrapT = RepeatWrapping;
         map.center.set(0.5, 0.5);
@@ -115,14 +123,14 @@ export class ThreeHelper {
             transparent: true,
             name: material.name,
             opacity: material.opacity,
-            map: this.loadTexture(material.map),
+            map: ThreeHelper.loadTexture(material.map),
             roughness: material.roughness,
             metalness: material.metalness,
-            bumpMap: this.loadTexture(material.bumpMap),
-            normalMap: this.loadTexture(material.normalMap),
-            emissiveMap: this.loadTexture(material.emissiveMap),
-            roughnessMap: this.loadTexture(material.roughnessMap),
-            metalnessMap: this.loadTexture(material.metalnessMap),
+            bumpMap: ThreeHelper.loadTexture(material.bumpMap),
+            normalMap: ThreeHelper.loadTexture(material.normalMap),
+            emissiveMap: ThreeHelper.loadTexture(material.emissiveMap),
+            roughnessMap: ThreeHelper.loadTexture(material.roughnessMap),
+            metalnessMap: ThreeHelper.loadTexture(material.metalnessMap),
         });
     }
 
@@ -133,11 +141,11 @@ export class ThreeHelper {
             transparent: true,
             name: material.name,
             opacity: material.opacity,
-            map: this.loadTexture(material.map),
-            specularMap: this.loadTexture(material.specularMap),
+            map: ThreeHelper.loadTexture(material.map),
+            specularMap: ThreeHelper.loadTexture(material.specularMap),
             shininess: material.shininess,
             emissive: ThreeHelper.fromColor(material.emissive),
-            emissiveMap: this.loadTexture(material.emissiveMap),
+            emissiveMap: ThreeHelper.loadTexture(material.emissiveMap),
         });
     }
 
@@ -148,19 +156,19 @@ export class ThreeHelper {
             transparent: true,
             name: material.name,
             opacity: material.opacity,
-            map: this.loadTexture(material.map),
+            map: ThreeHelper.loadTexture(material.map),
         });
     }
 
     static parseToThreeMaterial(material: Material) {
         if (material instanceof PhysicalMaterial) {
-            return this.parsePhysicalMaterial(material);
+            return ThreeHelper.parsePhysicalMaterial(material);
         }
 
         if (material instanceof PhongMaterial) {
-            return this.parsePhongMaterial(material);
+            return ThreeHelper.parsePhongMaterial(material);
         }
 
-        return this.parseBasicMaterial(material);
+        return ThreeHelper.parseBasicMaterial(material);
     }
 }

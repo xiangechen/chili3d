@@ -3,15 +3,15 @@
 
 import { div } from "chili-controls";
 import {
-    AsyncController,
-    Button,
-    CommandKeys,
-    I18nKeys,
-    IApplication,
-    IDocument,
-    Material,
+    type AsyncController,
+    type Button,
+    type CommandKeys,
+    type I18nKeys,
+    type IApplication,
+    type IDocument,
+    type Material,
     PubSub,
-    RibbonTab,
+    type RibbonTab,
 } from "chili-core";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
@@ -23,7 +23,7 @@ import { RibbonTabData } from "./ribbon/ribbonData";
 import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
 
-let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
+const quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 
 export class Editor extends HTMLElement {
     readonly ribbonContent: RibbonDataContent;
@@ -128,7 +128,7 @@ export class Editor extends HTMLElement {
         editingMaterial: Material,
         callback: (material: Material) => void,
     ) => {
-        let context = new MaterialDataContent(document, callback, editingMaterial);
+        const context = new MaterialDataContent(document, callback, editingMaterial);
         this._viewportContainer.append(new MaterialEditor(context));
     };
 

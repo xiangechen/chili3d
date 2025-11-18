@@ -2,19 +2,19 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    GeometryNode,
+    command,
+    type GeometryNode,
     ICurve,
-    IEdge,
-    ILine,
-    IShape,
-    IShapeFilter,
+    type IEdge,
+    type ILine,
+    type IShape,
+    type IShapeFilter,
     Property,
     Ray,
     ShapeType,
-    command,
 } from "chili-core";
 import { RevolvedNode } from "../../bodys";
-import { IStep } from "../../step";
+import type { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
@@ -53,8 +53,8 @@ export class Revolve extends CreateCommand {
 class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
-            let edge = shape as IEdge;
-            let curve = edge.curve.basisCurve;
+            const edge = shape as IEdge;
+            const curve = edge.curve.basisCurve;
             return ICurve.isLine(curve);
         }
         return false;

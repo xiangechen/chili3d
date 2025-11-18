@@ -5,7 +5,7 @@ import { AppBuilder } from "chili-builder";
 import { Logger } from "chili-core";
 import { Loading } from "./loading";
 
-let loading = new Loading();
+const loading = new Loading();
 document.body.appendChild(loading);
 
 // prettier-ignore
@@ -15,8 +15,8 @@ new AppBuilder()
     .useThree()
     .useUI()
     .build()
-    .then(x => {
-        document.body.removeChild(loading)
+    .then((x) => {
+        document.body.removeChild(loading);
     })
     .catch((err) => {
         Logger.error(err);

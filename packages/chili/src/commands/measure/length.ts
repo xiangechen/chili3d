@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, Precision, VisualConfig, XYZ } from "chili-core";
-import { Dimension, PointSnapData } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { command, Precision, VisualConfig, type XYZ } from "chili-core";
+import { Dimension, type PointSnapData } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
@@ -12,8 +12,8 @@ import { MultistepCommand } from "../multistepCommand";
 })
 export class LengthMeasure extends MultistepCommand {
     protected override getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint");
-        let secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
         return [firstStep, secondStep];
     }
 

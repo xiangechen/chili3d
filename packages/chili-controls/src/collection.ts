@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CollectionAction, CollectionChangedArgs, ObservableCollection } from "chili-core";
+import { CollectionAction, type CollectionChangedArgs, ObservableCollection } from "chili-core";
 import { setProperties } from "./controls";
-import { HTMLProps } from "./htmlProps";
+import type { HTMLProps } from "./htmlProps";
 
 export type CollectionProps<T> = HTMLProps<Collection<T>> & {
     sources: ObservableCollection<T> | Array<T>;

@@ -3,16 +3,16 @@
 
 import {
     ComponentNode,
+    command,
     EditableShapeNode,
     GroupNode,
-    IShape,
+    type IShape,
     MultiShapeNode,
     ShapeNode,
     ShapeType,
     Transaction,
-    command,
 } from "chili-core";
-import { IStep } from "../../step";
+import type { IStep } from "../../step";
 import { GetOrSelectNodeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -44,7 +44,7 @@ export class Explode extends MultistepCommand {
     }
 
     private explodeShapeNode(x: ShapeNode) {
-        let subShapes = x.shape.value.iterShape();
+        const subShapes = x.shape.value.iterShape();
         if (subShapes.length === 1) {
             const subShapeNode = new EditableShapeNode(this.document, x.name, subShapes[0], x.materialId);
             subShapeNode.transform = x.transform;
@@ -64,7 +64,7 @@ export class Explode extends MultistepCommand {
         let i = 1;
         for (const subShape of subShapes) {
             const name = `${ShapeType.stringValue(subShape.shapeType)} ${i++}`;
-            let subShapeNode = new EditableShapeNode(this.document, name, subShape);
+            const subShapeNode = new EditableShapeNode(this.document, name, subShape);
             folder.add(subShapeNode);
         }
     }

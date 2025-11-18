@@ -5,32 +5,32 @@ import { MathUtils, Matrix4, Plane, XYZ } from "../src";
 
 describe("test Transform", () => {
     test("test constructor", () => {
-        let transform = new Matrix4();
+        const transform = new Matrix4();
         expect(transform.toArray().length).toBe(16);
         expect(transform.toArray()).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     });
 
     test("test operation", () => {
-        let t1 = Matrix4.fromTranslation(10, 0, 0);
-        let p1 = XYZ.zero;
-        let v1 = XYZ.unitY;
-        let p2 = t1.ofPoint(p1);
-        let v2 = t1.ofVector(v1);
+        const t1 = Matrix4.fromTranslation(10, 0, 0);
+        const p1 = XYZ.zero;
+        const v1 = XYZ.unitY;
+        const p2 = t1.ofPoint(p1);
+        const v2 = t1.ofVector(v1);
         expect(p2).toStrictEqual(new XYZ(10, 0, 0));
         expect(v2).toStrictEqual(v1);
-        let t2 = t1.invert();
+        const t2 = t1.invert();
         expect(t2!.ofPoint(p2)).toStrictEqual(p1);
 
-        let t3 = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI * 0.5);
+        const t3 = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI * 0.5);
         expect(t3.ofVector(v1).isEqualTo(new XYZ(-1, 0, 0))).toBeTruthy();
 
-        let t4 = Matrix4.fromScale(0.5, 1.5, 0);
-        let p3 = new XYZ(1, 1, 0);
+        const t4 = Matrix4.fromScale(0.5, 1.5, 0);
+        const p3 = new XYZ(1, 1, 0);
         expect(t4.ofPoint(p3)).toStrictEqual(new XYZ(0.5, 1.5, 0));
 
-        let t5 = t1.multiply(t3);
+        const t5 = t1.multiply(t3);
         expect(t5.ofPoint(XYZ.unitY).isEqualTo(new XYZ(-1, 10, 0))).toBeTruthy();
-        let t6 = t5.invert();
+        const t6 = t5.invert();
         expect(t6!.ofPoint(new XYZ(-1, 10, 0)).isEqualTo(XYZ.unitY)).toBeTruthy();
     });
 
@@ -59,33 +59,33 @@ describe("test Transform", () => {
     });
 
     test("test getEulerAngles", () => {
-        let xRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitX, Math.PI / 4);
+        const xRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitX, Math.PI / 4);
         let angles = xRot.getEulerAngles();
 
         expect(MathUtils.almostEqual(angles.pitch, Math.PI / 4)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.yaw, 0)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.roll, 0)).toBeTruthy();
 
-        let yRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitY, Math.PI / 3);
+        const yRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitY, Math.PI / 3);
         angles = yRot.getEulerAngles();
         expect(MathUtils.almostEqual(angles.yaw, Math.PI / 3)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.pitch, 0)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.roll, 0)).toBeTruthy();
 
-        let zRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 2);
+        const zRot = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 2);
         angles = zRot.getEulerAngles();
         expect(MathUtils.almostEqual(angles.roll, Math.PI / 2)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.pitch, 0)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.yaw, 0)).toBeTruthy();
 
-        let combined = Matrix4.fromEuler(Math.PI / 4, Math.PI / 3, Math.PI / 2);
+        const combined = Matrix4.fromEuler(Math.PI / 4, Math.PI / 3, Math.PI / 2);
         angles = combined.getEulerAngles();
 
         expect(MathUtils.almostEqual(angles.pitch, Math.PI / 4)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.yaw, Math.PI / 3)).toBeTruthy();
         expect(MathUtils.almostEqual(angles.roll, Math.PI / 2)).toBeTruthy();
 
-        let edgeCase = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitX, Math.PI);
+        const edgeCase = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitX, Math.PI);
         angles = edgeCase.getEulerAngles();
         expect(MathUtils.almostEqual(angles.pitch, Math.PI)).toBeTruthy();
     });

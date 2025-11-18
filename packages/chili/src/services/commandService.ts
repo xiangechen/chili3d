@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Command, CommandKeys, IApplication, ICommand, IService, IView, Logger, PubSub } from "chili-core";
+import {
+    Command,
+    type CommandKeys,
+    type IApplication,
+    ICommand,
+    type IService,
+    type IView,
+    Logger,
+    PubSub,
+} from "chili-core";
 
 export class CommandService implements IService {
     private _lastCommand: CommandKeys | undefined;

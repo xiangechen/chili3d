@@ -4,20 +4,20 @@
 import {
     Config,
     I18n,
-    ICircle,
+    type ICircle,
     ICurve,
-    IDocument,
-    IEdge,
+    type IDocument,
+    type IEdge,
     IView,
-    IVisualContext,
+    type IVisualContext,
     ObjectSnapType,
     ShapeType,
     VertexMeshData,
     VisualConfig,
-    VisualShapeData,
-    XYZ,
+    type VisualShapeData,
+    type XYZ,
 } from "chili-core";
-import { MouseAndDetected, SnapResult } from "../snap";
+import type { MouseAndDetected, SnapResult } from "../snap";
 import { BaseSnap } from "./baseSnap";
 import { FeaturePointStrategy } from "./featurePointStrategy";
 
@@ -120,7 +120,7 @@ export class ObjectSnap extends BaseSnap {
 
     private displayHint(view: IView, shape: SnapResult) {
         this.hilighted(view, shape.shapes);
-        let data = VertexMeshData.from(
+        const data = VertexMeshData.from(
             shape.point!,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
@@ -160,8 +160,8 @@ export class ObjectSnap extends BaseSnap {
     private showInvisibleSnaps(view: IView, shape: VisualShapeData) {
         if (shape.shape.shapeType === ShapeType.Edge) {
             if (this._invisibleInfos.has(shape)) return;
-            let curve = (shape.shape as IEdge).curve;
-            let basisCurve = curve.basisCurve;
+            const curve = (shape.shape as IEdge).curve;
+            const basisCurve = curve.basisCurve;
             if (ICurve.isCircle(basisCurve)) {
                 this.showCircleCenter(basisCurve, view, shape);
             }
@@ -170,12 +170,12 @@ export class ObjectSnap extends BaseSnap {
 
     private showCircleCenter(curve: ICircle, view: IView, shape: VisualShapeData) {
         const center = shape.transform.ofPoint(curve.center);
-        let temporary = VertexMeshData.from(
+        const temporary = VertexMeshData.from(
             center,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
         );
-        let id = view.document.visual.context.displayMesh([temporary]);
+        const id = view.document.visual.context.displayMesh([temporary]);
         this._invisibleInfos.set(shape, {
             view,
             snaps: [
@@ -199,7 +199,7 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private findPerpendicular(view: IView, shape: VisualShapeData): SnapResult[] {
-        let result: SnapResult[] = [];
+        const result: SnapResult[] = [];
         if (
             !ObjectSnapType.has(this._snapType, ObjectSnapType.perpendicular) ||
             this.referencePoint === undefined
@@ -207,9 +207,9 @@ export class ObjectSnap extends BaseSnap {
             return result;
         }
 
-        let curve = (shape.shape as IEdge).curve;
+        const curve = (shape.shape as IEdge).curve;
         const transform = shape.transform;
-        let point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
+        const point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
         if (point === undefined) return result;
         result.push({
             view,
@@ -222,7 +222,7 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
-        let result = new Array<SnapResult>();
+        const result: SnapResult[] = [];
         if (
             !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) ||
             current.shape.shapeType !== ShapeType.Edge
@@ -231,7 +231,7 @@ export class ObjectSnap extends BaseSnap {
         }
         shapes.forEach((x) => {
             if (x === current || x.shape.shapeType !== ShapeType.Edge) return;
-            let key = this.getIntersectionKey(current, x);
+            const key = this.getIntersectionKey(current, x);
             let arr = this._intersectionInfos.get(key);
             if (arr === undefined) {
                 arr = this.findIntersections(view, current, x);
@@ -249,7 +249,7 @@ export class ObjectSnap extends BaseSnap {
     private findIntersections(view: IView, s1: VisualShapeData, s2: VisualShapeData): SnapResult[] {
         const e1 = s1.shape.transformedMul(s1.transform) as IEdge;
         const e2 = s2.shape.transformedMul(s2.transform) as IEdge;
-        let intersections = e1.intersect(e2);
+        const intersections = e1.intersect(e2);
         e1.dispose();
         e2.dispose();
         return intersections.map((point) => {

@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Plane, Precision, XYZ, command } from "chili-core";
+import { command, type GeometryNode, type Plane, Precision, type XYZ } from "chili-core";
 import { CylinderNode } from "../../bodys";
-import { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
+import type { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
+import { type IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
@@ -13,9 +13,9 @@ import { CreateCommand } from "../createCommand";
 })
 export class Cylinder extends CreateCommand {
     protected override getSteps(): IStep[] {
-        let centerStep = new PointStep("prompt.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
-        let third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
+        const centerStep = new PointStep("prompt.pickCircleCenter");
+        const radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
+        const third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
         return [centerStep, radiusStep, third];
     }
 

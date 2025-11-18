@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, span, svg } from "chili-controls";
-import { AsyncController, I18nKeys, Localize } from "chili-core";
+import { type AsyncController, type I18nKeys, Localize } from "chili-core";
 import style from "./okCancel.module.css";
 
 export class OKCancel extends HTMLElement {

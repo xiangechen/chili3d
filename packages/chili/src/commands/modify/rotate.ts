@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4, Precision, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, PointSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
+import { command, Matrix4, Precision, type ShapeMeshData, type XYZ } from "chili-core";
+import { Dimension, type PointSnapData, type SnapLengthAtPlaneData } from "../../snap";
+import { AngleStep, type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
@@ -19,9 +19,9 @@ export class Rotate extends TransformedCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint", undefined, true);
-        let secondStep = new LengthAtPlaneStep("prompt.pickNextPoint", this.getSecondPointData, true);
-        let thirdStep = new AngleStep(
+        const firstStep = new PointStep("prompt.pickFistPoint", undefined, true);
+        const secondStep = new LengthAtPlaneStep("prompt.pickNextPoint", this.getSecondPointData, true);
+        const thirdStep = new AngleStep(
             "prompt.pickNextPoint",
             () => this.stepDatas[0].point!,
             () => this.stepDatas[1].point!,
@@ -105,8 +105,8 @@ export class Rotate extends TransformedCommand {
     };
 
     private getRayData(end: XYZ) {
-        let center = this.stepDatas[0].point!;
-        let rayEnd = center.add(end.sub(center).normalize()!.multiply(1e6));
+        const center = this.stepDatas[0].point!;
+        const rayEnd = center.add(end.sub(center).normalize()!.multiply(1e6));
         return this.getTempLineData(center, rayEnd);
     }
 }

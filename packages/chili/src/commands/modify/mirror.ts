@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4, Plane, ShapeMeshData, XYZ, command } from "chili-core";
-import { Dimension, PointSnapData } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { command, Matrix4, Plane, type ShapeMeshData, type XYZ } from "chili-core";
+import { Dimension, type PointSnapData } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({
@@ -21,8 +21,8 @@ export class Mirror extends TransformedCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint", undefined, true);
-        let secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData, true);
+        const firstStep = new PointStep("prompt.pickFistPoint", undefined, true);
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData, true);
         return [firstStep, secondStep];
     }
 

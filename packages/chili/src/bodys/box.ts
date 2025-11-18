@@ -2,15 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
-    Plane,
+    type Plane,
     Property,
-    Result,
+    type Result,
     Serializer,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 
 @Serializer.register(["document", "plane", "dx", "dy", "dz"])

@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, IDocument, Precision, XYZ } from "chili-core";
+import { type AsyncController, type IDocument, Precision, type XYZ } from "chili-core";
 import {
-    LengthAtAxisSnapData,
+    type LengthAtAxisSnapData,
     SnapLengthAtAxisHandler,
-    SnapLengthAtPlaneData,
+    type SnapLengthAtPlaneData,
     SnapLengthAtPlaneHandler,
 } from "../snap";
 import { SnapStep } from "./step";
@@ -21,11 +21,7 @@ export class LengthAtAxisStep extends SnapStep<LengthAtAxisSnapData> {
 }
 
 export class LengthAtPlaneStep extends SnapStep<SnapLengthAtPlaneData> {
-    protected getEventHandler(
-        document: IDocument,
-        controller: AsyncController,
-        data: SnapLengthAtPlaneData,
-    ) {
+    protected getEventHandler(document: IDocument, controller: AsyncController, data: SnapLengthAtPlaneData) {
         return new SnapLengthAtPlaneHandler(document, controller, data);
     }
 

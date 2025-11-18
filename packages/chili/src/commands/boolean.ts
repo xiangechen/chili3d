@@ -1,9 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IShape, PubSub, Result, ShapeNode, ShapeType, Transaction, VisualState, command } from "chili-core";
+import {
+    command,
+    type IShape,
+    PubSub,
+    type Result,
+    ShapeNode,
+    ShapeType,
+    Transaction,
+    VisualState,
+} from "chili-core";
 import { BooleanNode } from "../bodys/boolean";
-import { IStep, SelectShapeStep } from "../step";
+import { type IStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export abstract class BooleanOperate extends MultistepCommand {

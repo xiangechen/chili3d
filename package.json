@@ -5,21 +5,23 @@
     "documentVersion": "0.6",
     "author": "仙阁",
     "scripts": {
-        "dev": "rspack dev",
         "build": "rspack build",
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
-        "test": "rstest",
-        "testc": "rstest --coverage",
-        "format": "npx prettier --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
+        "check": "biome check --write",
+        "dev": "rspack dev",
+        "format": "biome check --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
+        "preview": "rspack preview",
         "release": "node scripts/release.mjs",
-        "setup:wasm": "node scripts/setup_wasm_deps.mjs"
+        "setup:wasm": "node scripts/setup_wasm_deps.mjs",
+        "test": "rstest",
+        "testc": "rstest --coverage"
     },
     "simple-git-hooks": {
         "pre-commit": "npx lint-staged"
     },
     "lint-staged": {
-        "*.{ts,js,css,json,md}": [
-            "prettier --write"
+        "*.{ts,js,css,json,md,mjs}": [
+            "biome check --write"
         ],
         "*.{c,h,cxx,hxx,cpp,hpp}": [
             "clang-format --style=Webkit --sort-includes -i"
@@ -29,6 +31,7 @@
         "packages/*"
     ],
     "devDependencies": {
+        "@biomejs/biome": "2.3.6",
         "@rspack/cli": "1.6.3",
         "@rspack/core": "1.6.3",
         "@rstest/core": "^0.6.5",
@@ -37,7 +40,6 @@
         "fork-ts-checker-webpack-plugin": "9.1.0",
         "happy-dom": "^20.0.10",
         "lint-staged": "16.2.6",
-        "prettier": "3.6.2",
         "simple-git-hooks": "2.13.1",
         "typescript": "5.9.3",
         "typescript-plugin-css-modules": "^5.2.0"

@@ -2,13 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Button,
-    CommandKeys,
-    I18nKeys,
+    type Button,
+    type CommandKeys,
+    type I18nKeys,
     Observable,
     ObservableCollection,
-    RibbonGroup,
-    RibbonTab,
+    type RibbonGroup,
+    type RibbonTab,
 } from "chili-core";
 
 export type RibbonCommandData = CommandKeys | ObservableCollection<CommandKeys> | Button;

@@ -3,24 +3,24 @@
 
 import {
     BoundingBox,
-    ComponentNode,
-    GroupNode,
-    IShape,
-    ISubShape,
-    IVisualObject,
-    Matrix4,
-    MeshNode,
-    ShapeMeshRange,
+    type ComponentNode,
+    type GroupNode,
+    type IShape,
+    type ISubShape,
+    type IVisualObject,
+    type Matrix4,
+    type MeshNode,
+    type ShapeMeshRange,
     ShapeType,
     VisualConfig,
-    VisualNode,
+    type VisualNode,
 } from "chili-core";
 import {
     BufferAttribute,
     BufferGeometry,
     DoubleSide,
     Group,
-    Material,
+    type Material,
     Mesh,
     MeshLambertMaterial,
     Object3D,
@@ -32,10 +32,10 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { defaultEdgeMaterial, hilightEdgeMaterial } from "./common";
 import { Constants } from "./constants";
-import { IHighlightable } from "./highlightable";
+import type { IHighlightable } from "./highlightable";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeVisualContext } from "./threeVisualContext";
 
 const HighlightFaceMaterial = new MeshLambertMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
@@ -357,7 +357,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
             return;
         }
 
-        let buff = new LineSegmentsGeometry();
+        const buff = new LineSegmentsGeometry();
         buff.setPositions(data.position!);
         buff.computeBoundingBox();
         this._linesegments = new LineSegments2(buff, defaultEdgeMaterial);

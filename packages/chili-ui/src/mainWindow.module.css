@@ -138,11 +138,7 @@ chili3d-main-window {
     --loading-border-color: rgba(255, 255, 255, 0.2);
     --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     --resizer-gradient: linear-gradient(to right, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12));
-    --resizer-gradient-hover: linear-gradient(
-        to right,
-        rgba(255, 255, 255, 0.12),
-        rgba(255, 255, 255, 0.18)
-    );
+    --resizer-gradient-hover: linear-gradient(to right, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.18));
     --error-color: #ff6b6b;
     --warning-color: #ffd93d;
 }

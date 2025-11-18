@@ -3,9 +3,9 @@
 
 import { Config } from "../config";
 import en from "./en";
-import { I18nKeys } from "./keys";
-import zh from "./zh-cn";
+import type { I18nKeys } from "./keys";
 import ptBr from "./pt-br";
+import zh from "./zh-cn";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
@@ -41,7 +41,7 @@ export namespace I18n {
         ["pt-BR", ptBr],
     ]);
 
-    let _currentLanguage: LanguageCode | undefined = undefined;
+    let _currentLanguage: LanguageCode | undefined;
     export function currentLanguage() {
         _currentLanguage ??= Array.from(languages.keys())[Config.instance.languageIndex];
         return _currentLanguage;
@@ -52,7 +52,7 @@ export namespace I18n {
     }
 
     export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
-        let local = languages.get(language);
+        const local = languages.get(language);
         if (local) {
             local.translation = {
                 ...local.translation,
@@ -62,7 +62,7 @@ export namespace I18n {
     }
 
     export function translate(key: I18nKeys, ...args: any[]) {
-        let language = languages.get(currentLanguage())!;
+        const language = languages.get(currentLanguage())!;
         let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
@@ -87,15 +87,15 @@ export namespace I18n {
     export function changeLanguage(index: number) {
         if (index < 0 || index >= languages.size) return;
 
-        let newLanguage = Array.from(languages.keys())[index];
+        const newLanguage = Array.from(languages.keys())[index];
         if (newLanguage === _currentLanguage) return;
         _currentLanguage = newLanguage;
 
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
-            let html = e as HTMLElement;
-            let data = html?.dataset[I18nId]?.split(LINK_KEY);
+            const html = e as HTMLElement;
+            const data = html?.dataset[I18nId]?.split(LINK_KEY);
             if (data?.length !== 2) return;
-            let args = I18nArgs.get(html) ?? [];
+            const args = I18nArgs.get(html) ?? [];
             html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
         });
 
