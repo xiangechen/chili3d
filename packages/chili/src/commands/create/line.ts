@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Precision, Property, XYZ, command } from "chili-core";
+import { command, type GeometryNode, Precision, Property, type XYZ } from "chili-core";
 import { LineNode } from "../../bodys";
-import { Dimension, PointSnapData } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { Dimension, type PointSnapData } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
@@ -27,8 +27,8 @@ export class Line extends CreateCommand {
     }
 
     getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint");
-        let secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getSecondPointData);
         return [firstStep, secondStep];
     }
 

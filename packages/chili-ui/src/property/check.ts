@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, input, span } from "chili-controls";
-import { Binding, IDocument, Localize, Property, Transaction } from "chili-core";
+import { Binding, type IDocument, Localize, type Property, Transaction } from "chili-core";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
 

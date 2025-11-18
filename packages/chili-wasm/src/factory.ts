@@ -2,28 +2,28 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Continuity,
-    ICompound,
-    IEdge,
-    IFace,
-    IShape,
-    IShapeConverter,
-    IShapeFactory,
-    IShell,
-    ISolid,
-    IVertex,
-    IWire,
+    type Continuity,
+    type ICompound,
+    type IEdge,
+    type IFace,
+    type IShape,
+    type IShapeConverter,
+    type IShapeFactory,
+    type IShell,
+    type ISolid,
+    type IVertex,
+    type IWire,
     MathUtils,
-    Plane,
+    type Plane,
     Precision,
-    Ray,
+    type Ray,
     Result,
     ShapeType,
-    XYZ,
-    XYZLike,
+    type XYZ,
+    type XYZLike,
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
-import { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
+import type { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
 import { OccShapeConverter } from "./converter";
 import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
@@ -101,7 +101,7 @@ export class ShapeFactory implements IShapeFactory {
         if (!(shape instanceof OccShape)) {
             return Result.err("Not OccShape");
         }
-        let occFaces = faces.map((x) => {
+        const occFaces = faces.map((x) => {
             if (!(x instanceof OccShape)) {
                 throw new Error("The OCC kernel only supports OCC geometries.");
             }
@@ -244,9 +244,7 @@ export class ShapeFactory implements IShapeFactory {
         return convertShapeResult(wasm.ShapeFactory.prism(ensureOccShape(shape)[0], vec));
     }
     fuse(bottom: IShape, top: IShape): Result<IShape> {
-        return convertShapeResult(
-            wasm.ShapeFactory.booleanFuse(ensureOccShape(bottom), ensureOccShape(top)),
-        );
+        return convertShapeResult(wasm.ShapeFactory.booleanFuse(ensureOccShape(bottom), ensureOccShape(top)));
     }
     sweep(profile: IShape[], path: IWire, isRound: boolean): Result<IShape> {
         return convertShapeResult(

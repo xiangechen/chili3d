@@ -1,24 +1,24 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, IDocument, INode } from "../src";
+import { FolderNode, type IDocument, INode } from "../src";
 import { TestDocument } from "./testDocument";
 
 describe("test node", () => {
-    let doc: IDocument = new TestDocument() as any;
+    const doc: IDocument = new TestDocument() as any;
 
     test("test get all nodes between two nodes", () => {
-        let n1 = new FolderNode(doc, "n1");
-        let n2 = new FolderNode(doc, "n2");
-        let n3 = new FolderNode(doc, "n3");
-        let n4 = new FolderNode(doc, "n4");
-        let n5 = new FolderNode(doc, "n5");
-        let n6 = new FolderNode(doc, "n6");
-        let n7 = new FolderNode(doc, "n7");
-        let n8 = new FolderNode(doc, "n8");
-        let n9 = new FolderNode(doc, "n9");
-        let n10 = new FolderNode(doc, "n10");
-        let n11: INode = {
+        const n1 = new FolderNode(doc, "n1");
+        const n2 = new FolderNode(doc, "n2");
+        const n3 = new FolderNode(doc, "n3");
+        const n4 = new FolderNode(doc, "n4");
+        const n5 = new FolderNode(doc, "n5");
+        const n6 = new FolderNode(doc, "n6");
+        const n7 = new FolderNode(doc, "n7");
+        const n8 = new FolderNode(doc, "n8");
+        const n9 = new FolderNode(doc, "n9");
+        const n10 = new FolderNode(doc, "n10");
+        const n11: INode = {
             id: "n11",
             name: "n11",
             visible: true,

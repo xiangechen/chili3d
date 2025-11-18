@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IApplication } from "../application";
-import { CommandKeys } from "../command";
-import { I18nKeys } from "../i18n";
-import { Button } from "./button";
+import type { IApplication } from "../application";
+import type { CommandKeys } from "../command";
+import type { I18nKeys } from "../i18n";
+import type { Button } from "./button";
 
 export interface IWindow extends HTMLElement {
     init(app: IApplication): Promise<void>;

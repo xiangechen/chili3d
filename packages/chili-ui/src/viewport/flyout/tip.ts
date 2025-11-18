@@ -18,7 +18,7 @@ export class Tip extends HTMLElement {
             this.textContent = msg;
         }
 
-        let newStyle = this.getStyle(type);
+        const newStyle = this.getStyle(type);
         this.setStyle(newStyle);
     }
 

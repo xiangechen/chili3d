@@ -11,7 +11,7 @@ describe("test plane", () => {
     });
 
     test("test intersect", () => {
-        let plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
+        const plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
         expect(plane.intersect(new Ray(XYZ.unitZ, XYZ.unitX))).toBeUndefined();
         expect(plane.intersect(new Ray(XYZ.unitZ, XYZ.unitZ.reverse()))).toStrictEqual(XYZ.zero);
         expect(plane.intersect(new Ray(XYZ.unitX, XYZ.unitZ.add(XYZ.unitX)))).toStrictEqual(XYZ.unitX);

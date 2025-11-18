@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Observable } from "../foundation";
 
 export interface ISerialize {
@@ -98,7 +98,7 @@ export namespace Serializer {
      * @returns Deserialized object
      */
     export function deserializeObject(document: IDocument, data: Serialized) {
-        let instance = deserializeInstance(document, data.classKey, data.properties);
+        const instance = deserializeInstance(document, data.classKey, data.properties);
         deserializeProperties(document, instance, data);
         return instance;
     }
@@ -156,17 +156,12 @@ export namespace Serializer {
         return (value as Serialized).classKey ? deserializeObject(document, value) : value;
     }
 
-    function deserializeProperties(
-        document: IDocument,
-        instance: any,
-        data: Serialized,
-        ignores?: string[],
-    ) {
-        let { ctorParamNames } = reflectMap.get(data.classKey)!;
+    function deserializeProperties(document: IDocument, instance: any, data: Serialized, ignores?: string[]) {
+        const { ctorParamNames } = reflectMap.get(data.classKey)!;
         const filter = (key: string) => {
             return !ctorParamNames.includes(key) && !ignores?.includes(key);
         };
-        let keys = Object.keys(data.properties).filter(filter);
+        const keys = Object.keys(data.properties).filter(filter);
         for (const key of keys) {
             if (instance instanceof Observable) {
                 instance.setPrivateValue(
@@ -182,7 +177,7 @@ export namespace Serializer {
 
 export namespace Serializer {
     export function serializeObject(target: Object) {
-        let classKey = target.constructor.name;
+        const classKey = target.constructor.name;
         if (!reflectMap.has(classKey)) {
             console.log(target);
 
@@ -190,8 +185,8 @@ export namespace Serializer {
                 `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );
         }
-        let data = reflectMap.get(classKey)!;
-        let properties = data.serialize?.(target) ?? serializeProperties(target);
+        const data = reflectMap.get(classKey)!;
+        const properties = data.serialize?.(target) ?? serializeProperties(target);
         return {
             classKey,
             properties,
@@ -199,10 +194,10 @@ export namespace Serializer {
     }
 
     export function serializeProperties(target: Object) {
-        let data: SerializedProperties<any> = {};
-        let keys = getAllKeysOfPrototypeChain(target, propertiesMap);
+        const data: SerializedProperties<any> = {};
+        const keys = getAllKeysOfPrototypeChain(target, propertiesMap);
         for (const key of keys) {
-            let value = (target as any)[key];
+            const value = (target as any)[key];
             if (Array.isArray(value)) {
                 data[key] = value.map((v) => serializePropertyValue(v));
             } else {
@@ -213,7 +208,7 @@ export namespace Serializer {
     }
 
     function serializePropertyValue(value: any) {
-        let type = typeof value;
+        const type = typeof value;
         if (type === "object") {
             return serializeObject(value);
         }
@@ -224,10 +219,10 @@ export namespace Serializer {
     }
 
     function getAllKeysOfPrototypeChain(target: Object, map: Map<new (...args: any[]) => any, Set<string>>) {
-        let keys: string[] = [];
+        const keys: string[] = [];
         let prototype = Object.getPrototypeOf(target);
         while (prototype !== null) {
-            let k = map.get(prototype);
+            const k = map.get(prototype);
             if (k) keys.push(...k.values());
             prototype = Object.getPrototypeOf(prototype); // prototype chain
         }

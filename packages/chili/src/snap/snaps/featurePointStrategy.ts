@@ -1,8 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, IEdge, IView, ObjectSnapType, ShapeType, VisualShapeData, XYZ } from "chili-core";
-import { SnapResult } from "../snap";
+import {
+    I18n,
+    type IEdge,
+    type IView,
+    ObjectSnapType,
+    ShapeType,
+    type VisualShapeData,
+    type XYZ,
+} from "chili-core";
+import type { SnapResult } from "../snap";
 
 export class FeaturePointStrategy {
     private readonly _featureInfos: Map<VisualShapeData, SnapResult[]> = new Map();

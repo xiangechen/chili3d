@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EdgeMeshData, LineType } from "../shape";
-import { Matrix4 } from "./matrix4";
+import { type EdgeMeshData, LineType } from "../shape";
+import type { Matrix4 } from "./matrix4";
 import { XYZ } from "./xyz";
 
 export type PointLike = { x: number; y: number; z: number };

@@ -3,8 +3,8 @@
 
 import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
-import { Matrix4 } from "./matrix4";
-import { Ray } from "./ray";
+import type { Matrix4 } from "./matrix4";
+import type { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
 @Serializer.register(["origin", "normal", "xvec"])
@@ -25,7 +25,7 @@ export class Plane {
     readonly yvec: XYZ;
     constructor(origin: XYZ, normal: XYZ, xvec: XYZ) {
         this.origin = origin;
-        let n = normal.normalize(),
+        const n = normal.normalize(),
             x = xvec.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("normal can not be zero");
@@ -70,8 +70,8 @@ export class Plane {
     }
 
     projectDistance(p1: XYZ, p2: XYZ) {
-        let dp1 = this.project(p1);
-        let dp2 = this.project(p2);
+        const dp1 = this.project(p1);
+        const dp2 = this.project(p2);
         return dp1.distanceTo(dp2);
     }
 }

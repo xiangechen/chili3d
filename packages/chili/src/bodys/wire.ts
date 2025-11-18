@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18nKeys, IDocument, IEdge, IShape, ParameterShapeNode, Result, Serializer } from "chili-core";
+import {
+    type I18nKeys,
+    type IDocument,
+    type IEdge,
+    type IShape,
+    ParameterShapeNode,
+    type Result,
+    Serializer,
+} from "chili-core";
 
 @Serializer.register(["document", "edges"])
 export class WireNode extends ParameterShapeNode {

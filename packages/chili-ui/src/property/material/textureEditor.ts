@@ -3,7 +3,14 @@
 
 import { div, Expander, img, svg } from "chili-controls";
 import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
-import { I18nKeys, IDocument, PathBinding, Property, readFileAsync, Texture } from "chili-core";
+import {
+    type I18nKeys,
+    type IDocument,
+    PathBinding,
+    Property,
+    readFileAsync,
+    type Texture,
+} from "chili-core";
 import { findPropertyControl } from "../utils";
 import style from "./textureEditor.module.css";
 
@@ -46,7 +53,7 @@ export class TextureProperty extends Expander {
     }
 
     private readonly selectTexture = async () => {
-        let file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
+        const file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
         this.texture.image = file.value[0].data;
     };
 }

@@ -5,8 +5,8 @@ import { XY, XYZ } from "../src";
 
 describe("test xyz", () => {
     test("test xyz", () => {
-        let a = new XYZ(10, 0, 0);
-        let b = new XYZ(0, 10, 0);
+        const a = new XYZ(10, 0, 0);
+        const b = new XYZ(0, 10, 0);
         expect(a.add(b)).toStrictEqual(new XYZ(10, 10, 0));
 
         expect(XYZ.center(a, b)).toStrictEqual(new XYZ(5, 5, 0));
@@ -20,8 +20,8 @@ describe("test xyz", () => {
     });
 
     test("test angle", () => {
-        let a = new XYZ(10, 0, 0);
-        let b = new XYZ(0, 10, 0);
+        const a = new XYZ(10, 0, 0);
+        const b = new XYZ(0, 10, 0);
         expect(XYZ.zero.angleTo(new XYZ(0, 0, 0))).toBe(undefined);
         expect(a.angleTo(b)).toBe(Math.PI / 2);
         expect(a.angleTo(new XYZ(10, 0, 0))).toBe(0);
@@ -47,13 +47,13 @@ describe("test xyz", () => {
     });
 
     test("test xy", () => {
-        let v1 = XY.unitX;
-        let v2 = XY.unitY;
+        const v1 = XY.unitX;
+        const v2 = XY.unitY;
         expect(v1.angleTo(v2)).toBe(Math.PI / 2);
     });
 
     test("test rotate", () => {
-        let v = XYZ.unitX.add(XYZ.unitZ);
+        const v = XYZ.unitX.add(XYZ.unitZ);
         expect(v.rotate(v, 90)?.isEqualTo(v)).toBeTruthy();
         expect(
             XYZ.unitX.rotate(XYZ.unitZ, Math.PI / 4)?.isEqualTo(new XYZ(1, 1, 0).normalize()!),

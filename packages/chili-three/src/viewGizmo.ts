@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IViewGizmo, XYZ } from "chili-core";
+import { type IViewGizmo, XYZ } from "chili-core";
 import { Matrix4, Vector3 } from "three";
-import { CameraController } from "./cameraController";
-import { ThreeView } from "./threeView";
+import type { CameraController } from "./cameraController";
+import type { ThreeView } from "./threeView";
 
 const MOUSE_LEFT = 1;
 
@@ -76,7 +76,7 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
     }
 
     private _initCanvas() {
-        let canvas = document.createElement("canvas");
+        const canvas = document.createElement("canvas");
         canvas.width = options.size;
         canvas.height = options.size;
         canvas.style.width = `${options.size * 0.5}px`;
@@ -219,13 +219,10 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
 
     update() {
         this.clear();
-        const invRotMat = new Matrix4()
-            .makeRotationFromEuler(this.cameraController.camera.rotation)
-            .invert();
-        this._axes.forEach(
-            (axis) =>
-                (axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat))),
-        );
+        const invRotMat = new Matrix4().makeRotationFromEuler(this.cameraController.camera.rotation).invert();
+        this._axes.forEach((axis) => {
+            axis.position = this.getBubblePosition(axis.direction.clone().applyMatrix4(invRotMat));
+        });
         this._axes.sort((a, b) => a.position.z - b.position.z);
         this.setSelectedAxis(this._axes);
         this.drawAxes(this._axes);
@@ -235,7 +232,7 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
         this._selectedAxis = undefined;
         if (this._mouse && this._canClick) {
             let closestDist = Infinity;
-            for (let axis of axes) {
+            for (const axis of axes) {
                 const distance = this._mouse.distanceTo(axis.position);
                 if (distance < closestDist && distance < axis.size) {
                     closestDist = distance;
@@ -246,7 +243,7 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
     }
 
     drawAxes(axes: Axis[]) {
-        for (let axis of axes) {
+        for (const axis of axes) {
             const color = this.getAxisColor(axis);
             this.drawCircle(axis.position, axis.size, color);
             this.drawLine(this._center, axis.position, color, axis.lineWidth);

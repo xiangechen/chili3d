@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, input, label } from "chili-controls";
-import { Config, I18nKeys, Localize, ObjectSnapType } from "chili-core";
+import { Config, type I18nKeys, Localize, ObjectSnapType } from "chili-core";
 import style from "./snapConfig.module.css";
 
 const SnapTypes: Array<{
@@ -76,8 +76,9 @@ export class SnapConfig extends HTMLElement {
                     type: "checkbox",
                     id: "snap-tracking",
                     checked: Config.instance.enableSnapTracking,
-                    onclick: () =>
-                        (Config.instance.enableSnapTracking = !Config.instance.enableSnapTracking),
+                    onclick: () => {
+                        Config.instance.enableSnapTracking = !Config.instance.enableSnapTracking;
+                    },
                 }),
                 label({
                     htmlFor: "snap-tracking",

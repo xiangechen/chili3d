@@ -2,15 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    IEdge,
-    IVisualObject,
+    type IEdge,
+    type IVisualObject,
     ShapeType,
     Transaction,
     VisualState,
-    command,
 } from "chili-core";
-import { IStep } from "../../step";
+import type { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -36,7 +36,7 @@ export class Split extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const old = this.stepDatas[0].nodes![0];
             const shape = this.splitedShape();
-            let subShapes = shape.iterShape();
+            const subShapes = shape.iterShape();
             if (subShapes.length > 1) {
                 let i = 1;
                 old.parent?.add(

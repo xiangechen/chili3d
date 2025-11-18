@@ -2,24 +2,24 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Act,
-    History,
-    IApplication,
-    IDocument,
-    INode,
-    INodeChangedObserver,
-    INodeLinkedList,
-    ISelection,
-    ISerialize,
-    IView,
-    Material,
-    NodeRecord,
+    type Act,
+    type History,
+    type IApplication,
+    type IDocument,
+    type INode,
+    type INodeChangedObserver,
+    type INodeLinkedList,
+    type ISelection,
+    type ISerialize,
+    type IView,
+    type Material,
+    type NodeRecord,
     ObservableCollection,
-    PropertyChangedHandler,
-    Serialized,
+    type PropertyChangedHandler,
+    type Serialized,
 } from "chili-core";
+import type { Component } from "chili-core/src/model/component";
 import { ThreeVisual } from "../src/threeVisual";
-import { Component } from "chili-core/src/model/component";
 
 export class TestDocument implements IDocument, ISerialize {
     application: IApplication;

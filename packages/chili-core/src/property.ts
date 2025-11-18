@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IConverter } from "./foundation";
-import { I18nKeys } from "./i18n";
+import type { IConverter } from "./foundation";
+import type { I18nKeys } from "./i18n";
 
 export type PropertyType = "color" | "materialId";
 
@@ -53,7 +53,7 @@ export namespace Property {
 
     export function getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
         if (!target) return undefined;
-        let map = PropertyKeyMap.get(target);
+        const map = PropertyKeyMap.get(target);
         if (map?.has(property)) return map.get(property);
         return getProperty(Object.getPrototypeOf(target), property);
     }

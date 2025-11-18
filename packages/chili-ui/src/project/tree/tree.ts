@@ -2,11 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    IDocument,
+    type IDocument,
     INode,
-    INodeChangedObserver,
-    INodeLinkedList,
-    NodeRecord,
+    type INodeChangedObserver,
+    type INodeLinkedList,
+    type NodeRecord,
     PubSub,
     ShapeType,
     Transaction,
@@ -68,7 +68,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
             ele?.remove();
             if (!ele || !record.newParent) return;
 
-            let parent = this.nodeMap.get(record.newParent) || this.createAndMapParent(record.newParent);
+            const parent = this.nodeMap.get(record.newParent) || this.createAndMapParent(record.newParent);
             if (parent instanceof TreeGroup) {
                 const pre = record.newPrevious ? this.nodeMap.get(record.newPrevious) : null;
                 parent.insertAfter(ele, pre ?? null);
@@ -225,7 +225,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     }
 
     private canDrop(event: DragEvent) {
-        let node = this.getTreeItem(event.target as HTMLElement)?.node;
+        const node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return false;
         if (this.dragging?.includes(node)) return false;
         let parent = node.parent;
@@ -240,12 +240,12 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         event.preventDefault();
         event.stopPropagation();
 
-        let node = this.getTreeItem(event.target as HTMLElement)?.node;
+        const node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
         Transaction.execute(this.document, "move node", () => {
-            let isLinkList = INode.isLinkedListNode(node);
-            let newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
-            let target = isLinkList ? undefined : node;
+            const isLinkList = INode.isLinkedListNode(node);
+            const newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
+            const target = isLinkList ? undefined : node;
             this.dragging?.forEach((x) => {
                 x.parent?.move(x, newParent!, target);
             });

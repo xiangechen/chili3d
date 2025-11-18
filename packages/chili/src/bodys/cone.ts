@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
     Property,
-    Result,
+    type Result,
     Serializer,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 
 @Serializer.register(["document", "normal", "center", "radius", "dz"])
@@ -59,12 +59,6 @@ export class ConeNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.cone(
-            this.normal,
-            this.center,
-            this.radius,
-            0,
-            this.dz,
-        );
+        return this.document.application.shapeFactory.cone(this.normal, this.center, this.radius, 0, this.dz);
     }
 }

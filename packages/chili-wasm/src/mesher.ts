@@ -2,17 +2,17 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    EdgeMeshData,
-    FaceMeshData,
+    type EdgeMeshData,
+    type FaceMeshData,
     gc,
-    IDisposable,
-    IShapeMeshData,
+    type IDisposable,
+    type IShapeMeshData,
     LineType,
-    ShapeMeshRange,
+    type ShapeMeshRange,
     VisualConfig,
 } from "chili-core";
-import { EdgeMeshData as OccEdgeMeshData, FaceMeshData as OccFaceMeshData } from "../lib/chili-wasm";
-import { OccShape, OccSubEdgeShape, OccSubFaceShape } from "./shape";
+import type { EdgeMeshData as OccEdgeMeshData, FaceMeshData as OccFaceMeshData } from "../lib/chili-wasm";
+import { type OccShape, OccSubEdgeShape, OccSubFaceShape } from "./shape";
 
 export class Mesher implements IShapeMeshData, IDisposable {
     private _isMeshed = false;
@@ -89,7 +89,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
 
     private getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {
-        let result: ShapeMeshRange[] = [];
+        const result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.edges.length; i++) {
             result.push({
                 start: data.group[2 * i],
@@ -101,7 +101,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
 
     private getFaceRanges(data: OccFaceMeshData): ShapeMeshRange[] {
-        let result: ShapeMeshRange[] = [];
+        const result: ShapeMeshRange[] = [];
         for (let i = 0; i < data.faces.length; i++) {
             result.push({
                 start: data.group[2 * i],

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import en from "./en";
-import { Locale } from "./i18n";
+import type { Locale } from "./i18n";
 
 export default {
     display: "Português - Brasil",

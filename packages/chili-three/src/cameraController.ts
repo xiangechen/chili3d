@@ -2,13 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    CameraType,
-    ICameraController,
+    type CameraType,
+    type ICameraController,
     MathUtils,
     Observable,
     ViewMode,
     VisualNode,
-    XYZLike,
+    type XYZLike,
 } from "chili-core";
 import {
     Box3,
@@ -21,10 +21,10 @@ import {
     Vector3,
 } from "three";
 import { Constants } from "./constants";
-import { ThreeGeometry } from "./threeGeometry";
+import type { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeView } from "./threeView";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeView } from "./threeView";
+import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 const DEG_TO_RAD = Math.PI / 180.0;
@@ -149,8 +149,8 @@ export class CameraController extends Observable implements ICameraController {
 
     private updateOrthographicCamera(camera: OrthographicCamera) {
         const aspect = this._width / this._height;
-        let length = this._position.distanceTo(this._target);
-        let frustumHalfHeight = length * Math.tan((CAMERA_FOV * DEG_TO_RAD) / 2);
+        const length = this._position.distanceTo(this._target);
+        const frustumHalfHeight = length * Math.tan((CAMERA_FOV * DEG_TO_RAD) / 2);
         camera.left = -frustumHalfHeight * aspect;
         camera.right = frustumHalfHeight * aspect;
         camera.top = frustumHalfHeight;
@@ -243,18 +243,16 @@ export class CameraController extends Observable implements ICameraController {
 
     private getBoundingSphere(context: ThreeVisualContext) {
         const sphere = new Sphere();
-        const shapes = this.view.document.selection
-            .getSelectedNodes()
-            .filter((x) => x instanceof VisualNode);
+        const shapes = this.view.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
         if (shapes.length === 0) {
             new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
             return sphere;
         }
 
         const box = new Box3();
-        for (let shape of shapes) {
-            let threeGeometry = context.getVisual(shape) as ThreeGeometry;
-            let boundingBox = new Box3().setFromObject(threeGeometry);
+        for (const shape of shapes) {
+            const threeGeometry = context.getVisual(shape) as ThreeGeometry;
+            const boundingBox = new Box3().setFromObject(threeGeometry);
             if (boundingBox) {
                 box.union(boundingBox);
             }
@@ -266,7 +264,7 @@ export class CameraController extends Observable implements ICameraController {
     zoom(x: number, y: number, delta: number): void {
         const vector = this._target.clone().sub(this._position);
 
-        let zoomFactor = this.caclueZoomFactor(x, y, vector);
+        const zoomFactor = this.caclueZoomFactor(x, y, vector);
         const scale = delta > 0 ? zoomFactor : -zoomFactor;
         let mouse = this.mouseToWorld(x, y);
         if (this._camera instanceof PerspectiveCamera) {

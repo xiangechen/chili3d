@@ -2,19 +2,19 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Deletable,
+    type Deletable,
     EditableShapeNode,
-    FolderNode,
+    type FolderNode,
     GroupNode,
-    IDisposable,
-    IDocument,
-    IShape,
-    IShapeConverter,
+    gc,
+    type IDisposable,
+    type IDocument,
+    type IShape,
+    type IShapeConverter,
     Material,
     Result,
-    gc,
 } from "chili-core";
-import { ShapeNode } from "../lib/chili-wasm";
+import type { ShapeNode } from "../lib/chili-wasm";
 import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
 
@@ -45,7 +45,7 @@ export class OccShapeConverter implements IShapeConverter {
     };
 
     convertToIGES(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
+        const occShapes = shapes.map((shape) => {
             if (shape instanceof OccShape) {
                 return shape.shape;
             }
@@ -90,7 +90,7 @@ export class OccShapeConverter implements IShapeConverter {
     };
 
     convertToSTEP(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
+        const occShapes = shapes.map((shape) => {
             if (shape instanceof OccShape) {
                 return shape.shape;
             }
@@ -111,7 +111,7 @@ export class OccShapeConverter implements IShapeConverter {
     }
 
     convertFromBrep(brep: string): Result<IShape> {
-        let shape = wasm.Converter.convertFromBrep(brep);
+        const shape = wasm.Converter.convertFromBrep(brep);
         if (shape.isNull()) {
             return Result.err("can not convert");
         }

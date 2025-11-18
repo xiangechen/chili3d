@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { INode, ShapeNode } from "./model";
-import { IShape } from "./shape";
+import { type INode, ShapeNode } from "./model";
+import type { IShape } from "./shape";
 
 export interface IShapeFilter {
     allow(shape: IShape): boolean;

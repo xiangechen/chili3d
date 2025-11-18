@@ -6,12 +6,12 @@ import {
     Binding,
     ButtonSize,
     Command,
-    CommandKeys,
+    type CommandKeys,
     I18n,
-    IApplication,
-    ICommand,
-    IConverter,
-    IView,
+    type IApplication,
+    type ICommand,
+    type IConverter,
+    type IView,
     Localize,
     Logger,
     Observable,
@@ -22,7 +22,7 @@ import {
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
-import { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
+import type { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonStack } from "./ribbonStack";
 
 export class RibbonDataContent extends Observable {
@@ -40,7 +40,9 @@ export class RibbonDataContent extends Observable {
         this.quickCommands.push(...quickCommands);
         this.ribbonTabs.push(...ribbonTabs);
         this._activeTab = ribbonTabs[0];
-        PubSub.default.sub("activeViewChanged", (v) => (this.activeView = v));
+        PubSub.default.sub("activeViewChanged", (v) => {
+            this.activeView = v;
+        });
     }
 
     get activeTab() {
@@ -152,7 +154,9 @@ export class Ribbon extends HTMLElement {
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
                     textContent: new Localize(tab.tabName),
-                    onclick: () => (this.dataContent.activeTab = tab),
+                    onclick: () => {
+                        this.dataContent.activeTab = tab;
+                    },
                 });
             },
         });

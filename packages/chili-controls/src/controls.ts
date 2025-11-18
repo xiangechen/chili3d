@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { Localize, PathBinding } from "chili-core";
-import { Collection, CollectionProps } from "./collection";
-import { HTMLProps } from "./htmlProps";
+import { Collection, type CollectionProps } from "./collection";
+import type { HTMLProps } from "./htmlProps";
 
 export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     return (

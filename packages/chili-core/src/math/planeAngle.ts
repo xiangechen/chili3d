@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation";
-import { Plane } from "./plane";
-import { XYZ } from "./xyz";
+import type { Plane } from "./plane";
+import type { XYZ } from "./xyz";
 
 export class PlaneAngle {
     private lastX: number = 1;

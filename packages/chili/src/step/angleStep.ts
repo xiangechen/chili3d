@@ -1,9 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, I18nKeys, IDocument, Precision, XYZ } from "chili-core";
-
-import { AngleSnapEventHandler, Dimension, PointSnapData } from "../snap";
+import { type AsyncController, type I18nKeys, type IDocument, Precision, type XYZ } from "chili-core";
+import { AngleSnapEventHandler, Dimension, type PointSnapData } from "../snap";
 import { SnapStep } from "./step";
 
 function defaultSnapedData(): PointSnapData {

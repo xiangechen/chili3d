@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, PointLike } from "../src/math/boundingBox";
+import { BoundingBox, type PointLike } from "../src/math/boundingBox";
 
 describe("BoundingBox.isIntersect", () => {
     function box(min: PointLike, max: PointLike) {

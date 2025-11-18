@@ -5,21 +5,21 @@ import {
     DOCUMENT_FILE_EXTENSION,
     getCurrentApplication,
     I18n,
-    IApplication,
-    ICommand,
-    IDataExchange,
-    IDocument,
-    IService,
-    IShapeFactory,
-    IStorage,
-    IView,
-    IVisualFactory,
-    IWindow,
+    type IApplication,
+    type ICommand,
+    type IDataExchange,
+    type IDocument,
+    type IService,
+    type IShapeFactory,
+    type IStorage,
+    type IView,
+    type IVisualFactory,
+    type IWindow,
     Material,
     ObservableCollection,
     Plane,
     PubSub,
-    Serialized,
+    type Serialized,
     setCurrentApplication,
 } from "chili-core";
 import { Document } from "./document";
@@ -127,7 +127,7 @@ export class Application implements IApplication {
             "showPermanent",
             async () => {
                 for (const file of opens) {
-                    let json: Serialized = JSON.parse(await file.text());
+                    const json: Serialized = JSON.parse(await file.text());
                     await this.loadDocument(json);
                     this.activeView?.cameraController.fitContent();
                 }

@@ -3,13 +3,15 @@
 
 import { MeshUtils } from "chili-geo";
 import { VisualConfig } from "../config";
-import { IDocument } from "../document";
-import { Id, IEqualityComparer, PubSub, Result } from "../foundation";
-import { I18n, I18nKeys } from "../i18n";
+import type { IDocument } from "../document";
+import { Id, type IEqualityComparer, PubSub, Result } from "../foundation";
+import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
-import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
+import { type EdgeMeshData, type FaceMeshData, type IShape, type IShapeMeshData, LineType } from "../shape";
 import { GeometryNode } from "./geometryNode";
+
+const SHAPE_UNDEFINED = "Shape not initialized";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
@@ -27,7 +29,7 @@ export abstract class ShapeNode extends GeometryNode {
             return;
         }
 
-        let oldShape = this._shape;
+        const oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
 
@@ -134,7 +136,6 @@ export class MultiShapeNode extends GeometryNode {
     }
 }
 
-const SHAPE_UNDEFINED = "Shape not initialized";
 export abstract class ParameterShapeNode extends ShapeNode {
     override get shape(): Result<IShape> {
         if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {

@@ -1,13 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Id } from "../foundation";
-import { I18nKeys } from "../i18n";
+import type { I18nKeys } from "../i18n";
 import { BoundingBox } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
-import { Mesh } from "../shape";
+import type { Mesh } from "../shape";
 import { VisualNode } from "./visualNode";
 
 @Serializer.register(["document", "mesh", "name", "id"])
@@ -47,7 +47,7 @@ export class MeshNode extends VisualNode {
     }
 
     override boundingBox(): BoundingBox | undefined {
-        let points = this.transform.ofPoints(this.mesh.position!);
+        const points = this.transform.ofPoints(this.mesh.position!);
         return BoundingBox.fromNumbers(points);
     }
 }

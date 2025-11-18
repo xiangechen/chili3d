@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IApplication, IDocument, IEventHandler, INode, IService, Logger, PubSub } from "chili-core";
+import {
+    type IApplication,
+    type IDocument,
+    type IEventHandler,
+    type INode,
+    type IService,
+    Logger,
+    PubSub,
+} from "chili-core";
 
 export class EditorService implements IService {
     private editHandler?: IEventHandler;

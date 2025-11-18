@@ -2,11 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IEdge,
-    IShape,
-    IWire,
+    type I18nKeys,
+    type IDocument,
+    type IEdge,
+    type IShape,
+    type IWire,
     ParameterShapeNode,
     Result,
     Serializer,
@@ -37,9 +37,9 @@ export class FaceNode extends ParameterShapeNode {
     }
 
     private getWires(): IWire[] {
-        let wires: IWire[] = [];
+        const wires: IWire[] = [];
         if (this.isAllClosed()) {
-            this.addClosedEdges(wires, this.shapes as IEdge[]);
+            this.addClosedEdges(wires);
         } else {
             this.addUnclosedEdges(wires, this.shapes as IEdge[]);
         }
@@ -47,7 +47,7 @@ export class FaceNode extends ParameterShapeNode {
         return wires;
     }
 
-    private addClosedEdges(wires: IWire[], edges: IEdge[]): void {
+    private addClosedEdges(wires: IWire[]): void {
         for (const shape of this.shapes) {
             if (shape.shapeType === ShapeType.Wire) {
                 wires.push(shape as IWire);
@@ -58,7 +58,7 @@ export class FaceNode extends ParameterShapeNode {
     }
 
     private addUnclosedEdges(wires: IWire[], edges: IEdge[]): void {
-        let wire = this.document.application.shapeFactory.wire(edges);
+        const wire = this.document.application.shapeFactory.wire(edges);
         if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
         wires.push(wire.value);
     }
@@ -66,7 +66,7 @@ export class FaceNode extends ParameterShapeNode {
     override generateShape(): Result<IShape> {
         if (this.shapes.length === 0) return Result.err("No shapes to create face");
 
-        let wires = this.getWires();
+        const wires = this.getWires();
         return this.document.application.shapeFactory.face(wires);
     }
 }

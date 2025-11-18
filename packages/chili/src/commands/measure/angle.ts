@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, Precision, ShapeMeshData, VisualConfig, XYZ } from "chili-core";
-import { Dimension, PointSnapData, SnapResult } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { command, Precision, type ShapeMeshData, VisualConfig, type XYZ } from "chili-core";
+import { Dimension, type PointSnapData, type SnapResult } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 const ARC_POSITION = 0.5;
@@ -120,7 +120,7 @@ export class AngleMeasure extends MultistepCommand {
         const visualId = this.document.visual.context.displayMesh([
             this.meshPoint(this.stepDatas[2].point!),
             ...this.arcPreview(this.stepDatas[2].point),
-       ]);
+        ]);
         this.application.activeView?.htmlText(((rad * 180) / Math.PI).toFixed(2) + "°", arcMid, {
             onDispose: () => {
                 this.document.visual.context.removeMesh(visualId);

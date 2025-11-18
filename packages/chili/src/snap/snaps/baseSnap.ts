@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IView, VisualShapeData, VisualState, XYZ } from "chili-core";
-import { ISnap, MouseAndDetected, SnapResult } from "../snap";
+import { type IView, type VisualShapeData, VisualState, type XYZ } from "chili-core";
+import type { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export abstract class BaseSnap implements ISnap {
     protected _tempMeshIds: Map<IView, number[]> = new Map();

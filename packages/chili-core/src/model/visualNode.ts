@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18nKeys } from "../i18n";
-import { BoundingBox, Matrix4 } from "../math";
+import type { I18nKeys } from "../i18n";
+import { type BoundingBox, Matrix4 } from "../math";
 import { Serializer } from "../serialize";
 import { Node } from "./node";
 

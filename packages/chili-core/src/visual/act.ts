@@ -2,9 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import { Observable } from "../foundation";
-import { XYZ } from "../math";
+import type { XYZ } from "../math";
 import { Serializer } from "../serialize";
-import { IView } from "./view";
+import type { IView } from "./view";
 
 @Serializer.register(["name", "cameraPosition", "cameraTarget", "cameraUp"])
 export class Act extends Observable {

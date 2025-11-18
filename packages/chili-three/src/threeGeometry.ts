@@ -2,28 +2,28 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    BoundingBox,
-    EdgeMeshData,
-    FaceMeshData,
-    GeometryNode,
-    IShape,
-    ISubShape,
-    IVisualGeometry,
-    Matrix4,
-    ShapeMeshRange,
+    type BoundingBox,
+    type EdgeMeshData,
+    type FaceMeshData,
+    type GeometryNode,
+    type IShape,
+    type ISubShape,
+    type IVisualGeometry,
+    type Matrix4,
+    type ShapeMeshRange,
     ShapeNode,
     ShapeType,
 } from "chili-core";
 import { MeshUtils } from "chili-geo";
-import { Material, Mesh, MeshLambertMaterial } from "three";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { type Material, Mesh, type MeshLambertMaterial } from "three";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
 import { defaultEdgeMaterial } from "./common";
 import { Constants } from "./constants";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
@@ -154,10 +154,10 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
-        let subShape: ISubShape | undefined = undefined;
-        let transform: Matrix4 | undefined = undefined;
+        let subShape: ISubShape | undefined;
+        let transform: Matrix4 | undefined;
         let index: number = -1;
-        let groups: ShapeMeshRange[] | undefined = undefined;
+        let groups: ShapeMeshRange[] | undefined;
         if (shapeType === "edge") {
             groups = this.geometryNode.mesh.edges?.range;
             if (groups) {

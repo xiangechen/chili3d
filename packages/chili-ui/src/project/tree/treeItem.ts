@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { label, setSVGIcon, svg } from "chili-controls";
-import { Binding, IDocument, INode, Transaction } from "chili-core";
+import { Binding, type IDocument, type INode, Transaction } from "chili-core";
 import style from "./treeItem.module.css";
 
 export abstract class TreeItem extends HTMLElement {

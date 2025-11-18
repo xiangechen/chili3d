@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, GeometryNode, MathUtils, Plane, Property, XYZ, command } from "chili-core";
+import { Config, command, type GeometryNode, MathUtils, Plane, Property, type XYZ } from "chili-core";
 import { ViewUtils } from "chili-vis";
 import { RectNode } from "../../bodys";
-import { SnapLengthAtPlaneData, SnapResult } from "../../snap";
-import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
+import type { SnapLengthAtPlaneData, SnapResult } from "../../snap";
+import { type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 export interface RectData {
@@ -18,10 +18,10 @@ export interface RectData {
 
 export namespace RectData {
     export function get(atPlane: Plane, start: XYZ, end: XYZ): RectData {
-        let plane = new Plane(start, atPlane.normal, atPlane.xvec);
-        let vector = end.sub(start);
-        let dx = vector.dot(plane.xvec);
-        let dy = vector.dot(plane.yvec);
+        const plane = new Plane(start, atPlane.normal, atPlane.xvec);
+        const vector = end.sub(start);
+        const dx = vector.dot(plane.xvec);
+        const dy = vector.dot(plane.yvec);
         return { plane, dx, dy, p1: start, p2: end };
     }
 }
@@ -42,7 +42,7 @@ export abstract class RectCommandBase extends CreateCommand {
             plane: (tmp: XYZ | undefined) => this.findPlane(view, point!, tmp),
             validator: this.handleValid,
             prompt: (snaped: SnapResult) => {
-                let data = this.rectDataFromTemp(snaped.point!);
+                const data = this.rectDataFromTemp(snaped.point!);
                 return `${data.dx.toFixed(2)}, ${data.dy.toFixed(2)}`;
             },
         };

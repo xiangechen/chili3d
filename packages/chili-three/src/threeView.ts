@@ -3,42 +3,42 @@
 
 import { div, span, svg } from "chili-controls";
 import {
-    HtmlTextOptions,
-    IDisposable,
-    IDocument,
-    INodeFilter,
-    IShape,
-    IShapeFilter,
-    ISubShape,
-    IView,
-    IViewGizmo,
-    IVisualObject,
-    Matrix4,
+    debounce,
+    type HtmlTextOptions,
+    type IDisposable,
+    type IDocument,
+    type INodeFilter,
+    type IShape,
+    type IShapeFilter,
+    type ISubShape,
+    type IView,
+    type IViewGizmo,
+    type IVisualObject,
+    type Matrix4,
     MultiShapeNode,
     Observable,
-    Plane,
+    type Plane,
     PubSub,
     Ray,
-    ShapeMeshRange,
+    type ShapeMeshRange,
     ShapeNode,
     ShapeType,
     ViewMode,
-    VisualNode,
-    VisualShapeData,
+    type VisualNode,
+    type VisualShapeData,
     XY,
-    XYZ,
-    XYZLike,
-    debounce,
+    type XYZ,
+    type XYZLike,
 } from "chili-core";
 import {
     DirectionalLight,
-    Intersection,
+    type Intersection,
     Mesh,
-    Object3D,
+    type Object3D,
     OrthographicCamera,
     PerspectiveCamera,
     Raycaster,
-    Scene,
+    type Scene,
     Vector2,
     Vector3,
     WebGLRenderer,
@@ -50,9 +50,9 @@ import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeHighlighter } from "./threeHighlighter";
+import type { ThreeHighlighter } from "./threeHighlighter";
 import style from "./threeView.module.css";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
 
@@ -110,7 +110,7 @@ export class ThreeView extends Observable implements IView {
         this.setPrivateValue("name", name);
         this._scene = content.scene;
         this._workplane = workplane;
-        let resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
+        const resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
         this._resizeObserver = new ResizeObserver(resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
@@ -133,7 +133,7 @@ export class ThreeView extends Observable implements IView {
         if (this._isClosed) return;
         this._isClosed = true;
         this.document.application.views.remove(this);
-        let otherView = this.document.application.views.find((x) => x.document === this.document);
+        const otherView = this.document.application.views.find((x) => x.document === this.document);
         if (!otherView) {
             this.document.close();
         } else if (this.document.application.activeView === this) {
@@ -157,7 +157,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     protected initRenderer() {
-        let renderer = new WebGLRenderer({
+        const renderer = new WebGLRenderer({
             antialias: false,
             alpha: true,
         });
@@ -167,7 +167,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     protected initCssRenderer() {
-        let renderer = new CSS2DRenderer();
+        const renderer = new CSS2DRenderer();
         return renderer;
     }
 
@@ -205,7 +205,7 @@ export class ThreeView extends Observable implements IView {
             this.content.cssObjects.remove(cssObject);
             cssObject.element.remove();
         };
-        let cssObject = new CSS2DObject(this.htmlElement(text, dispose, options));
+        const cssObject = new CSS2DObject(this.htmlElement(text, dispose, options));
         cssObject.position.set(point.x, point.y, point.z);
         if (options?.center) cssObject.center.set(options.center.x, options.center.y);
         this.content.cssObjects.add(cssObject);
@@ -258,7 +258,7 @@ export class ThreeView extends Observable implements IView {
         });
         if (!this._needsUpdate) return;
 
-        let dir = this.camera.position.clone().sub(this.cameraController.target);
+        const dir = this.camera.position.clone().sub(this.cameraController.target);
         this.dynamicLight.position.copy(dir);
         this._renderer.render(this._scene, this.camera);
         this._cssRenderer.render(this._scene, this.camera);
@@ -315,14 +315,14 @@ export class ThreeView extends Observable implements IView {
     }
 
     screenToWorld(mx: number, my: number): XYZ {
-        let vec = this.mouseToWorld(mx, my);
+        const vec = this.mouseToWorld(mx, my);
         return ThreeHelper.toXYZ(vec);
     }
 
     worldToScreen(point: XYZ): XY {
-        let cx = this.width / 2;
-        let cy = this.height / 2;
-        let vec = new Vector3(point.x, point.y, point.z).project(this.camera);
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const vec = new Vector3(point.x, point.y, point.z).project(this.camera);
         return new XY(Math.round(cx * vec.x + cx), Math.round(-cy * vec.y + cy));
     }
 
@@ -337,18 +337,18 @@ export class ThreeView extends Observable implements IView {
     }
 
     private mouseToWorld(mx: number, my: number, z: number = 0.5) {
-        let { x, y } = this.screenToCameraRect(mx, my);
+        const { x, y } = this.screenToCameraRect(mx, my);
         return new Vector3(x, y, z).unproject(this.camera);
     }
 
     detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[] {
-        let visual: IVisualObject[] = [];
-        let detecteds = this.findIntersectedNodes(x, y);
+        const visual: IVisualObject[] = [];
+        const detecteds = this.findIntersectedNodes(x, y);
         for (const detected of detecteds) {
-            let threeObject = detected.object.parent as ThreeVisualObject;
+            const threeObject = detected.object.parent as ThreeVisualObject;
             if (!threeObject) continue;
 
-            let node = this.getNodeFromObject(threeObject);
+            const node = this.getNodeFromObject(threeObject);
             if (node === undefined) continue;
             if (nodeFilter !== undefined && !nodeFilter.allow(node)) {
                 continue;
@@ -366,12 +366,12 @@ export class ThreeView extends Observable implements IView {
         nodeFilter?: INodeFilter,
     ): IVisualObject[] {
         const selectionBox = this.initSelectionBox(mx1, my1, mx2, my2);
-        let visual = new Set<IVisualObject>();
+        const visual = new Set<IVisualObject>();
         for (const obj of selectionBox.select()) {
-            let threeObject = obj.parent as ThreeVisualObject;
+            const threeObject = obj.parent as ThreeVisualObject;
             if (!threeObject?.visible) continue;
 
-            let node = this.getNodeFromObject(threeObject);
+            const node = this.getNodeFromObject(threeObject);
             if (node === undefined) continue;
             if (nodeFilter !== undefined && !nodeFilter.allow(node)) {
                 continue;
@@ -413,8 +413,8 @@ export class ThreeView extends Observable implements IView {
         nodeFilter?: INodeFilter,
     ) {
         const selectionBox = this.initSelectionBox(mx1, my1, mx2, my2);
-        let detecteds: VisualShapeData[] = [];
-        let containsCache = new Set<IShape>();
+        const detecteds: VisualShapeData[] = [];
+        const containsCache = new Set<IShape>();
         for (const obj of selectionBox.select()) {
             this.addDetectedShape(detecteds, containsCache, shapeType, obj, shapeFilter, nodeFilter);
         }
@@ -450,7 +450,7 @@ export class ThreeView extends Observable implements IView {
         if ((shape.shapeType & shapeType) === 0) return;
         if ((shapeFilter && !shapeFilter.allow(shape)) || (nodeFilter && !nodeFilter.allow(node!))) return;
 
-        let groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
+        const groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
         addShape([...Array(groups?.length).keys()]);
     }
 
@@ -467,7 +467,7 @@ export class ThreeView extends Observable implements IView {
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
     ): VisualShapeData[] {
-        let intersections = this.findIntersectedShapes(shapeType, mx, my);
+        const intersections = this.findIntersectedShapes(shapeType, mx, my);
         return ShapeType.isWhole(shapeType)
             ? this.detectThreeShapes(intersections, shapeFilter, nodeFilter)
             : this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
@@ -516,11 +516,11 @@ export class ThreeView extends Observable implements IView {
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
     ) {
-        let result: VisualShapeData[] = [];
+        const result: VisualShapeData[] = [];
         for (const intersected of intersections) {
             const visualShape = intersected.object.parent;
             if (visualShape instanceof ThreeVisualObject) {
-                let { shape, indexes, transform } = this.getSubShapeFromInsection(
+                const { shape, indexes, transform } = this.getSubShapeFromInsection(
                     shapeType,
                     visualShape,
                     intersected,
@@ -554,19 +554,19 @@ export class ThreeView extends Observable implements IView {
         transform?: Matrix4;
         indexes: number[];
     } {
-        let { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
+        const { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
         if (!subShape || !shape) return { shape: undefined, indexes: [] };
 
         if (ShapeType.hasSolid(shapeType) && subShape.shapeType === ShapeType.Face) {
-            let solid = this.getAncestorAndIndex(ShapeType.Solid, subShape, shape, groups);
+            const solid = this.getAncestorAndIndex(ShapeType.Solid, subShape, shape, groups);
             if (solid.shape) return solid;
         }
         if (ShapeType.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
-            let shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, shape, groups);
+            const shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, shape, groups);
             if (shell.shape) return shell;
         }
         if (ShapeType.hasWire(shapeType) && subShape.shapeType === ShapeType.Edge) {
-            let wire = this.getAncestorAndIndex(ShapeType.Wire, subShape, shape, groups);
+            const wire = this.getAncestorAndIndex(ShapeType.Wire, subShape, shape, groups);
             if (wire.shape) return wire;
         }
         if (!ShapeType.hasFace(shapeType) && subShape.shapeType === ShapeType.Face) {
@@ -585,10 +585,10 @@ export class ThreeView extends Observable implements IView {
         shape: IShape,
         groups: ShapeMeshRange[],
     ) {
-        let ancestor = subShape.findAncestor(type, shape).at(0);
+        const ancestor = subShape.findAncestor(type, shape).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 
-        let indexes: number[] = [];
+        const indexes: number[] = [];
         for (const sub of ancestor.findSubShapes(subShape.shapeType)) {
             this.findIndex(groups, sub, indexes);
         }
@@ -615,7 +615,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     private findIntersectedNodes(mx: number, my: number) {
-        let visuals: Object3D[] = [];
+        const visuals: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
 
@@ -628,13 +628,13 @@ export class ThreeView extends Observable implements IView {
     }
 
     private findIntersectedShapes(shapeType: ShapeType, mx: number, my: number) {
-        let raycaster = this.initRaycaster(mx, my);
-        let shapes = this.initIntersectableShapes(shapeType);
+        const raycaster = this.initRaycaster(mx, my);
+        const shapes = this.initIntersectableShapes(shapeType);
         return raycaster.intersectObjects(shapes, false);
     }
 
     private initIntersectableShapes(shapeType: ShapeType) {
-        let shapes = new Array<Object3D>();
+        const shapes: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
             if (x instanceof ThreeVisualObject) shapes.push(...x.subShapeVisual(shapeType));
@@ -644,11 +644,11 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initRaycaster(mx: number, my: number) {
-        let threshold = Constants.RaycasterThreshold;
-        let { x, y } = this.screenToCameraRect(mx, my);
-        let mousePos = new Vector2(x, y);
+        const threshold = Constants.RaycasterThreshold;
+        const { x, y } = this.screenToCameraRect(mx, my);
+        const mousePos = new Vector2(x, y);
 
-        let raycaster = new Raycaster();
+        const raycaster = new Raycaster();
         if (this.mode === ViewMode.wireframe) {
             raycaster.layers.disableAll();
             raycaster.layers.enable(Constants.Layers.Wireframe);

@@ -12,7 +12,7 @@ describe("test ray", () => {
     });
 
     test("test nearest", () => {
-        let r1 = new Ray(XYZ.zero, XYZ.unitX);
+        const r1 = new Ray(XYZ.zero, XYZ.unitX);
         expect(r1.nearestToPoint(XYZ.zero)).toStrictEqual(XYZ.zero);
         expect(r1.nearestToPoint(new XYZ(-1, 0, 0))).toStrictEqual(new XYZ(-1, 0, 0));
         expect(r1.nearestToPoint(new XYZ(-1, 1, 0))).toStrictEqual(new XYZ(-1, 0, 0));

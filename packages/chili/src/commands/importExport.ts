@@ -8,8 +8,8 @@ import {
     command,
     download,
     I18n,
-    IApplication,
-    ICommand,
+    type IApplication,
+    type ICommand,
     Property,
     PubSub,
     readFilesAsync,
@@ -70,9 +70,9 @@ export class Export extends CancelableCommand {
 
                 let suffix = format;
 
-                if (suffix == ".stl binary") {
+                if (suffix === ".stl binary") {
                     suffix = ".stl";
-                } else if (suffix == ".ply binary") {
+                } else if (suffix === ".ply binary") {
                     suffix = ".ply";
                 }
 

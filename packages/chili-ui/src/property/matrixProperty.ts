@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GroupNode, IConverter, IDocument, Matrix4, Result, VisualNode, XYZLike } from "chili-core";
+import {
+    type GroupNode,
+    type IConverter,
+    type IDocument,
+    Matrix4,
+    Result,
+    type VisualNode,
+    type XYZLike,
+} from "chili-core";
 import { InputProperty } from "./input";
 import { PropertyBase } from "./propertyBase";
 
@@ -96,7 +104,7 @@ export abstract class MatrixConverter implements IConverter<Matrix4, string> {
 
 export class TranslationConverter extends MatrixConverter {
     protected convertFrom(matrix: Matrix4): [number, number, number] {
-        let position = matrix.translationPart();
+        const position = matrix.translationPart();
         return [position.x, position.y, position.z];
     }
     protected convertTo(values: XYZLike): Matrix4 {
@@ -108,7 +116,7 @@ export class TranslationConverter extends MatrixConverter {
 
 export class ScalingConverter extends MatrixConverter {
     protected convertFrom(matrix: Matrix4): [number, number, number] {
-        let s = matrix.getScale();
+        const s = matrix.getScale();
         return [s.x, s.y, s.z];
     }
     protected convertTo(values: XYZLike): Matrix4 {
@@ -120,7 +128,7 @@ export class ScalingConverter extends MatrixConverter {
 
 export class RotateConverter extends MatrixConverter {
     protected convertFrom(matrix: Matrix4): [number, number, number] {
-        let s = matrix.getEulerAngles();
+        const s = matrix.getEulerAngles();
         return [(s.pitch * 180) / Math.PI, (s.yaw * 180) / Math.PI, (s.roll * 180) / Math.PI];
     }
     protected convertTo(values: XYZLike): Matrix4 {

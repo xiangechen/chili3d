@@ -3,19 +3,19 @@
 
 import {
     AsyncController,
+    command,
     EdgeMeshData,
     EditableShapeNode,
-    GeometryNode,
+    type GeometryNode,
     I18n,
     LineType,
     Precision,
-    ShapeMeshData,
+    type ShapeMeshData,
     VisualConfig,
-    XYZ,
-    command,
+    type XYZ,
 } from "chili-core";
-import { Dimension, PointSnapData, SnapResult } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { Dimension, type PointSnapData, type SnapResult } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
@@ -24,7 +24,7 @@ import { CreateCommand } from "../createCommand";
 })
 export class BezierCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        let bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
+        const bezier = this.application.shapeFactory.bezier(this.stepDatas.map((x) => x.point!));
         return new EditableShapeNode(this.document, I18n.translate("command.create.bezier"), bezier.value);
     }
 
@@ -55,8 +55,8 @@ export class BezierCommand extends CreateCommand {
     }
 
     protected override getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint");
-        let secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
         return [firstStep, secondStep];
     }
 
@@ -77,8 +77,8 @@ export class BezierCommand extends CreateCommand {
     };
 
     private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let ps: ShapeMeshData[] = this.stepDatas.map((data) => this.meshPoint(data.point!));
-        let points = this.stepDatas.map((data) => data.point) as XYZ[];
+        const ps: ShapeMeshData[] = this.stepDatas.map((data) => this.meshPoint(data.point!));
+        const points = this.stepDatas.map((data) => data.point) as XYZ[];
         if (point) {
             points.push(point);
         }
@@ -94,7 +94,7 @@ export class BezierCommand extends CreateCommand {
         if (points.length < 2) {
             return [];
         }
-        let res: ShapeMeshData[] = [];
+        const res: ShapeMeshData[] = [];
         for (let i = 1; i < points.length; i++) {
             res.push(this.meshHandle(points[i - 1], points[i]));
         }

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Constants, IStorage, Logger } from "chili-core";
+import { Constants, type IStorage, Logger } from "chili-core";
 
 export class IndexedDBStorage implements IStorage {
     readonly version: number = 4;
@@ -48,7 +48,7 @@ export class IndexedDBStorage implements IStorage {
         version: number,
         options?: IDBObjectStoreParameters,
     ): Promise<IDBDatabase> {
-        let request = window.indexedDB.open(dbName, version);
+        const request = window.indexedDB.open(dbName, version);
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {
                 Logger.info(`open ${dbName} success`);
@@ -62,7 +62,7 @@ export class IndexedDBStorage implements IStorage {
 
             request.onupgradeneeded = (e) => {
                 Logger.info(`upgrade ${dbName}`);
-                let db: IDBDatabase = (e.target as unknown as any).result;
+                const db: IDBDatabase = (e.target as unknown as any).result;
                 [Constants.DocumentTable, Constants.RecentTable].forEach((store) => {
                     if (!db.objectStoreNames.contains(store)) {
                         Logger.info(`create store ${store}`);

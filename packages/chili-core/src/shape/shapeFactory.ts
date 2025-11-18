@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Result } from "../foundation";
-import { Plane, Ray, XYZ, XYZLike } from "../math";
-import { Continuity } from "./curve";
-import { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
-import { IShapeConverter } from "./shapeConverter";
+import type { Result } from "../foundation";
+import type { Plane, Ray, XYZ, XYZLike } from "../math";
+import type { Continuity } from "./curve";
+import type { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
+import type { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly kernelName: string;

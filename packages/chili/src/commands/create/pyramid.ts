@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Plane, XYZ, command } from "chili-core";
+import { command, type GeometryNode, type Plane, type XYZ } from "chili-core";
 import { PyramidNode } from "../../bodys";
-import { LengthAtAxisSnapData } from "../../snap";
-import { IStep, LengthAtAxisStep } from "../../step";
+import type { LengthAtAxisSnapData } from "../../snap";
+import { type IStep, LengthAtAxisStep } from "../../step";
 import { RectCommandBase } from "./rect";
 
 @command({
@@ -13,8 +13,8 @@ import { RectCommandBase } from "./rect";
 })
 export class Pyramid extends RectCommandBase {
     protected override getSteps(): IStep[] {
-        let steps = super.getSteps();
-        let third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
+        const steps = super.getSteps();
+        const third = new LengthAtAxisStep("prompt.pickNextPoint", this.getHeightStepData);
         return [...steps, third];
     }
 

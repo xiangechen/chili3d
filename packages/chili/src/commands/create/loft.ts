@@ -5,10 +5,10 @@ import {
     AsyncController,
     CancelableCommand,
     Combobox,
-    command,
     Continuity,
+    command,
     EditableShapeNode,
-    IShape,
+    type IShape,
     Property,
     PubSub,
     Result,
@@ -78,7 +78,7 @@ export class LoftCommand extends CancelableCommand {
 
         try {
             while (true) {
-                let data = await this.selectSection();
+                const data = await this.selectSection();
                 if (data === undefined) {
                     if (this.controller?.result?.status === "success") {
                         break;

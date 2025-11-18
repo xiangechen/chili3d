@@ -6,18 +6,18 @@ import {
     CancelableCommand,
     Config,
     EdgeMeshData,
-    IShape,
-    IShapeFactory,
-    IView,
+    type IShape,
+    type IShapeFactory,
+    type IView,
     LineType,
     Result,
     VertexMeshData,
     VisualConfig,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 import { ViewUtils } from "chili-vis";
-import { SnapResult } from "../snap";
-import { IStep } from "../step";
+import type { SnapResult } from "../snap";
+import type { IStep } from "../step";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
@@ -39,11 +39,11 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected async executeSteps(): Promise<boolean> {
-        let steps = this.getSteps();
+        const steps = this.getSteps();
         try {
             while (this.stepDatas.length < steps.length) {
                 this.controller = new AsyncController();
-                let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
+                const data = await steps[this.stepDatas.length].execute(this.document, this.controller);
                 if (data === undefined || this.controller.result?.status !== "success") {
                     return false;
                 }

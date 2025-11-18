@@ -100,8 +100,8 @@ export class XYZ {
      */
     angleTo(right: XYZLike): number | undefined {
         if (this.isEqualTo(XYZ.zero) || XYZ.zero.isEqualTo(right)) return undefined;
-        let cross = this.cross(right);
-        let dot = this.dot(right);
+        const cross = this.cross(right);
+        const dot = this.dot(right);
         // tan(x) = |a||b|sin(x) / |a||b|cos(x)
         return Math.atan2(cross.length(), dot);
     }

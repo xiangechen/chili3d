@@ -3,7 +3,7 @@
 
 import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
-import { SerializedProperties, Serializer } from "./serialize";
+import { type SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
 export class VisualItemConfig extends Observable {
@@ -42,7 +42,7 @@ export class Config extends Observable {
     static readonly #instance = new Config();
 
     static get instance() {
-        return this.#instance;
+        return Config.#instance;
     }
 
     readonly SnapDistance: number = 5;

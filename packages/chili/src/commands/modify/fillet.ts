@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    ISubEdgeShape,
+    type ISubEdgeShape,
     Property,
-    ShapeNode,
+    type ShapeNode,
     ShapeType,
     Transaction,
     VisualState,
-    command,
 } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Serializer } from "../serialize";
-import { IEqualityComparer } from "./equalityComparer";
+import type { IEqualityComparer } from "./equalityComparer";
 import { Logger } from "./logger";
 
 @Serializer.register(["isOk", "value", "error"])

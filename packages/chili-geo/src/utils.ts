@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { ICurve, IEdge, IFace, IWire, Orientation, Precision, Result, ShapeType, XYZ } from "chili-core";
+import {
+    ICurve,
+    type IEdge,
+    type IFace,
+    type IWire,
+    Orientation,
+    Precision,
+    Result,
+    ShapeType,
+    XYZ,
+} from "chili-core";
 
 export class GeoUtils {
     static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ } {
@@ -26,7 +36,7 @@ export class GeoUtils {
         if (ICurve.isConic(curve)) {
             return curve.axis;
         }
-        let vec = curve.dn(0, 1);
+        const vec = curve.dn(0, 1);
         if (vec.isParallelTo(XYZ.unitX)) return XYZ.unitZ;
         return vec.cross(XYZ.unitX).normalize()!;
     }
@@ -37,7 +47,7 @@ export class GeoUtils {
             console.warn("Empty wire");
             return XYZ.unitZ;
         } else if (edges.length === 1) {
-            return this.curveNormal(edges[0].curve);
+            return GeoUtils.curveNormal(edges[0].curve);
         } else {
             const curve1 = edges[0].curve;
             const curve2 = edges[1].curve;
@@ -56,7 +66,7 @@ export class GeoUtils {
     }
 
     static isCCW(normal: XYZ, wire: IWire): boolean {
-        const testNormal = this.wireNormal(wire);
+        const testNormal = GeoUtils.wireNormal(wire);
         return testNormal.dot(normal) > 0.001;
     }
 
@@ -83,17 +93,17 @@ export class GeoUtils {
         }
 
         if (shape.shapeType === ShapeType.Edge) {
-            let curve = (shape as IEdge).curve;
-            return this.curveNormal(curve);
+            const curve = (shape as IEdge).curve;
+            return GeoUtils.curveNormal(curve);
         }
 
-        return this.wireNormal(shape as IWire);
+        return GeoUtils.wireNormal(shape as IWire);
     }
 
     static intersects(edge: IEdge, otherEdges: IEdge[]): { point: XYZ; parameter: number }[] {
-        let result: { point: XYZ; parameter: number }[] = [];
+        const result: { point: XYZ; parameter: number }[] = [];
         otherEdges.forEach((e) => {
-            let intersect = edge.intersect(e);
+            const intersect = edge.intersect(e);
             if (intersect.length > 0) {
                 result.push(...intersect);
             }

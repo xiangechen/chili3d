@@ -4,30 +4,30 @@
 import {
     BoundingBox,
     CollectionAction,
-    CollectionChangedArgs,
+    type CollectionChangedArgs,
     ComponentNode,
     DeepObserver,
-    EdgeMeshData,
+    type EdgeMeshData,
     GeometryNode,
     GroupNode,
     IDisposable,
     INode,
-    IShapeFilter,
-    IVisual,
-    IVisualContext,
-    IVisualObject,
-    Material,
-    Matrix4,
-    MeshLike,
+    type IShapeFilter,
+    type IVisual,
+    type IVisualContext,
+    type IVisualObject,
+    type Material,
+    type Matrix4,
+    type MeshLike,
     MeshNode,
     NodeAction,
-    NodeRecord,
+    type NodeRecord,
     ShapeMeshData,
-    ShapeNode,
+    type ShapeNode,
     ShapeType,
     Texture,
     XY,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 import {
     Box3,
@@ -40,8 +40,8 @@ import {
     Mesh,
     Object3D,
     Points,
-    Scene,
-    Material as ThreeMaterial,
+    type Scene,
+    type Material as ThreeMaterial,
     Vector3,
 } from "three";
 import { ThreeGeometry } from "./threeGeometry";
@@ -196,7 +196,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     visuals(): IVisualObject[] {
-        let shapes = new Array<IVisualObject>();
+        const shapes: IVisualObject[] = [];
         this.visualShapes.children.forEach((x) => this._getVisualObject(shapes, x));
         return shapes;
     }
@@ -208,7 +208,7 @@ export class ThreeVisualContext implements IVisualContext {
         },
         filter?: IShapeFilter,
     ): IVisualObject[] {
-        let box = new Box3().setFromPoints([
+        const box = new Box3().setFromPoints([
             ThreeHelper.fromXYZ(boundingBox.min),
             ThreeHelper.fromXYZ(boundingBox.max),
         ]);
@@ -219,12 +219,12 @@ export class ThreeVisualContext implements IVisualContext {
                 return false;
             }
 
-            let boundingBox = BoundingBox.transformed(x.boundingBox()!, node.worldTransform());
+            const boundingBox = BoundingBox.transformed(x.boundingBox()!, node.worldTransform());
             if (boundingBox === undefined) {
                 return false;
             }
 
-            let testBox = new Box3(
+            const testBox = new Box3(
                 new Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
                 new Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z),
             );
@@ -233,7 +233,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private _getVisualObject(visuals: Array<IVisualObject>, obj: Object3D) {
-        let group = obj as Group;
+        const group = obj as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getVisualObject(visuals, x));
         } else if (
@@ -246,7 +246,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     displayMesh(datas: ShapeMeshData[], opacity?: number): number {
-        let group = new Group();
+        const group = new Group();
         datas.forEach((data) => {
             if (ShapeMeshData.isVertex(data)) {
                 group.add(ThreeGeometryFactory.createVertexGeometry(data));
@@ -261,8 +261,8 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number {
-        let geometry = ThreeGeometryFactory.createFaceBufferGeometry(data);
-        let material = ThreeGeometryFactory.createMeshMaterial(opacity);
+        const geometry = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        const material = ThreeGeometryFactory.createMeshMaterial(opacity);
 
         ThreeGeometryFactory.setColor(geometry, data, material);
         const instancedMesh = new InstancedMesh(geometry, material, matrixs.length);
@@ -286,7 +286,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     setPosition(id: number, position: Float32Array): void {
-        let shape = this.tempShapes.getObjectById(id);
+        const shape = this.tempShapes.getObjectById(id);
         if (shape === undefined) return;
 
         if ("geometry" in shape && shape.geometry instanceof BufferGeometry) {
@@ -296,7 +296,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     setInstanceMatrix(id: number, matrixs: Matrix4[]) {
-        let shape = this.tempShapes.getObjectById(id) as InstancedMesh;
+        const shape = this.tempShapes.getObjectById(id) as InstancedMesh;
         if (shape === undefined) return;
         matrixs.forEach((matrix, index) => {
             shape.setMatrixAt(index, ThreeHelper.fromMatrix(matrix));
@@ -305,7 +305,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     removeMesh(id: number) {
-        let shape = this.tempShapes.getObjectById(id);
+        const shape = this.tempShapes.getObjectById(id);
         if (shape === undefined) return;
         shape.children.forEach((x) => {
             if (x instanceof Mesh || x instanceof LineSegments || x instanceof Points) {
@@ -321,7 +321,7 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     setVisible(node: INode, visible: boolean): void {
-        let shape = this.getVisual(node);
+        const shape = this.getVisual(node);
         if (shape === undefined || shape.visible === visible) return;
         shape.visible = visible;
     }
@@ -329,14 +329,14 @@ export class ThreeVisualContext implements IVisualContext {
     moveNode(node: INode, oldParent: INode): void {
         if (oldParent === node.parent) return;
 
-        let parentNode = this._NodeVisualMap.get(oldParent) ?? this.visualShapes;
-        let newParentNode = (this._NodeVisualMap.get(node.parent!) as any) ?? this.visualShapes;
+        const parentNode = this._NodeVisualMap.get(oldParent) ?? this.visualShapes;
+        const newParentNode = (this._NodeVisualMap.get(node.parent!) as any) ?? this.visualShapes;
         if (parentNode === newParentNode) {
             return;
         }
 
         if (parentNode instanceof Group) {
-            let visual = this._NodeVisualMap.get(node);
+            const visual = this._NodeVisualMap.get(node);
             if (visual instanceof Object3D) {
                 parentNode.remove(visual);
                 newParentNode.add(visual);
@@ -374,7 +374,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     removeNode(models: INode[]) {
         models.forEach((m) => {
-            let visual = this._NodeVisualMap.get(m);
+            const visual = this._NodeVisualMap.get(m);
             this._NodeVisualMap.delete(m);
             if (!visual) return;
             this._visualNodeMap.delete(visual);
@@ -386,7 +386,7 @@ export class ThreeVisualContext implements IVisualContext {
     private getParentVisual(node: INode): Group {
         let parent = this.visualShapes;
         if (node.parent) {
-            let parentNode = this._NodeVisualMap.get(node.parent);
+            const parentNode = this._NodeVisualMap.get(node.parent);
             if (parentNode instanceof Group) {
                 parent = parentNode;
             }
@@ -403,10 +403,10 @@ export class ThreeVisualContext implements IVisualContext {
             if (!(child instanceof ThreeGeometry)) return;
 
             if (shapeType === ShapeType.Edge) {
-                let wireframe = child.edges();
+                const wireframe = child.edges();
                 if (wireframe) shapes.push(wireframe);
             } else if (shapeType === ShapeType.Face) {
-                let faces = child.faces();
+                const faces = child.faces();
                 if (faces) shapes.push(faces);
             }
         });

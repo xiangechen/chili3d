@@ -3,18 +3,18 @@
 
 import {
     AsyncController,
+    command,
     EdgeMeshDataBuilder,
-    GeometryNode,
+    type GeometryNode,
     I18n,
     Precision,
     Property,
-    ShapeMeshData,
-    XYZ,
-    command,
+    type ShapeMeshData,
+    type XYZ,
 } from "chili-core";
 import { PolygonNode } from "../../bodys";
-import { Dimension, PointSnapData, SnapResult } from "../../snap";
-import { IStep, PointStep } from "../../step";
+import { Dimension, type PointSnapData, type SnapResult } from "../../snap";
+import { type IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({
@@ -28,7 +28,7 @@ export class Polygon extends CreateFaceableCommand {
     };
 
     protected override geometryNode(): GeometryNode {
-        let node = new PolygonNode(
+        const node = new PolygonNode(
             this.document,
             this.stepDatas.map((step) => step.point!),
         );
@@ -37,13 +37,13 @@ export class Polygon extends CreateFaceableCommand {
     }
 
     protected override async executeSteps(): Promise<boolean> {
-        let steps = this.getSteps();
+        const steps = this.getSteps();
         let firstStep = true;
         while (true) {
-            let step = firstStep ? steps[0] : steps[1];
+            const step = firstStep ? steps[0] : steps[1];
             if (firstStep) firstStep = false;
             this.controller = new AsyncController();
-            let data = await step.execute(this.document, this.controller);
+            const data = await step.execute(this.document, this.controller);
             if (data === undefined) {
                 return this.controller.result?.status === "success";
             }
@@ -62,8 +62,8 @@ export class Polygon extends CreateFaceableCommand {
     }
 
     protected override getSteps(): IStep[] {
-        let firstStep = new PointStep("prompt.pickFistPoint");
-        let secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
+        const firstStep = new PointStep("prompt.pickFistPoint");
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
         return [firstStep, secondStep];
     }
 
@@ -84,8 +84,8 @@ export class Polygon extends CreateFaceableCommand {
     };
 
     private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
-        let ps = this.stepDatas.map((data) => this.meshPoint(data.point!));
-        let edges = new EdgeMeshDataBuilder();
+        const ps = this.stepDatas.map((data) => this.meshPoint(data.point!));
+        const edges = new EdgeMeshDataBuilder();
         this.stepDatas.forEach((data) => edges.addPosition(data.point!.x, data.point!.y, data.point!.z));
         if (point) {
             edges.addPosition(point.x, point.y, point.z);

@@ -5,14 +5,13 @@ import { a, button, collection, div, img, label, span, svg } from "chili-control
 import {
     Constants,
     I18n,
-    I18nKeys,
-    IApplication,
+    type I18nKeys,
+    type IApplication,
     Localize,
     ObservableCollection,
     PubSub,
-    RecentDocumentDTO,
+    type RecentDocumentDTO,
 } from "chili-core";
-
 import style from "./home.module.css";
 import { LanguageSelector } from "./languageSelector";
 import { Navigation3DSelector } from "./navigation3DSelector";
@@ -231,7 +230,7 @@ export class Home extends HTMLElement {
             PubSub.default.pub(
                 "showPermanent",
                 async () => {
-                    let document = await this.app.openDocument(item.id);
+                    const document = await this.app.openDocument(item.id);
                     document?.application.activeView?.cameraController.fitContent();
                 },
                 "toast.excuting{0}",

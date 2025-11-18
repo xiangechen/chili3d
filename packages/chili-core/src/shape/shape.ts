@@ -1,12 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, Result } from "../foundation";
-import { Matrix4, Plane, Ray, XYZ, XYZLike } from "../math";
-import { ICurve, ITrimmedCurve } from "./curve";
-import { EdgeMeshData, IShapeMeshData } from "./meshData";
-import { ShapeType } from "./shapeType";
-import { ISurface } from "./surface";
+import type { IDisposable, Result } from "../foundation";
+import type { Matrix4, Plane, Ray, XYZ, XYZLike } from "../math";
+import type { ICurve, ITrimmedCurve } from "./curve";
+import type { EdgeMeshData, IShapeMeshData } from "./meshData";
+import type { ShapeType } from "./shapeType";
+import type { ISurface } from "./surface";
 
 export enum Orientation {
     FORWARD,

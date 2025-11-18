@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IPropertyChanged, isPropertyChanged } from "./observer";
+import { type IPropertyChanged, isPropertyChanged } from "./observer";
 import { Result } from "./result";
 
 export type DeepPropertyChangedHandler = (path: string, source: IPropertyChanged, oldValue: any) => void;
@@ -36,7 +36,7 @@ export class DeepObserver {
 
     static addDeepPropertyChangedHandler(instance: IPropertyChanged, handler: DeepPropertyChangedHandler) {
         const sourceHandler = DeepObserver.getOrInitHandler(instance, handler);
-        this.deepHandlePropertyChanged(sourceHandler, instance);
+        DeepObserver.deepHandlePropertyChanged(sourceHandler, instance);
     }
 
     static deepHandlePropertyChanged(
@@ -47,30 +47,31 @@ export class DeepObserver {
         source.onPropertyChanged(sourceHandler.handler);
         sourceHandler.sources.push({ source, prefix });
 
-        let keys = Object.keys(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(source)));
+        const keys = Object.keys(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(source)));
         for (const key of keys) {
             if (key === "constructor" || key.startsWith("_")) {
                 continue;
             }
-            let subSource = (source as any)[key];
+            const subSource = (source as any)[key];
             if (isPropertyChanged(subSource)) {
-                this.deepHandlePropertyChanged(sourceHandler, subSource, prefix ? `${prefix}.${key}` : key);
+                DeepObserver.deepHandlePropertyChanged(
+                    sourceHandler,
+                    subSource,
+                    prefix ? `${prefix}.${key}` : key,
+                );
             }
         }
     }
 
-    static removeDeepPropertyChangedHandler(
-        instance: IPropertyChanged,
-        handler: DeepPropertyChangedHandler,
-    ) {
-        let handlerMap = this.handlers.get(instance);
+    static removeDeepPropertyChangedHandler(instance: IPropertyChanged, handler: DeepPropertyChangedHandler) {
+        const handlerMap = DeepObserver.handlers.get(instance);
         if (!handlerMap) {
             return;
         }
 
-        let sourceHandler = handlerMap.get(handler);
+        const sourceHandler = handlerMap.get(handler);
         if (!sourceHandler) {
-            this.handlers.delete(instance);
+            DeepObserver.handlers.delete(instance);
             return;
         }
 
@@ -80,7 +81,7 @@ export class DeepObserver {
 
         handlerMap.delete(handler);
         if (handlerMap.size === 0) {
-            this.handlers.delete(instance);
+            DeepObserver.handlers.delete(instance);
         }
     }
 
@@ -98,25 +99,25 @@ export class DeepObserver {
             });
         }
 
-        sourceHandler = this.initSourceHandler(instance, deepHandler);
+        sourceHandler = DeepObserver.initSourceHandler(instance, deepHandler);
         handlerMap.set(deepHandler, sourceHandler);
         return sourceHandler;
     }
 
     private static initSourceHandler(instance: IPropertyChanged, deepHandler: DeepPropertyChangedHandler) {
         const handler = (property: string, target: IPropertyChanged, oldValue: any) => {
-            let sourceHandler = this.handlers.get(instance)?.get(deepHandler);
+            const sourceHandler = DeepObserver.handlers.get(instance)?.get(deepHandler);
             if (!sourceHandler) {
                 return;
             }
 
-            let source = sourceHandler.sources.find((x) => x.source === target);
+            const source = sourceHandler.sources.find((x) => x.source === target);
             if (!source) {
                 return;
             }
 
-            let prefix = source.prefix ? `${source.prefix}.${property}` : property;
-            this.updateHandlers(sourceHandler, target, property, prefix);
+            const prefix = source.prefix ? `${source.prefix}.${property}` : property;
+            DeepObserver.updateHandlers(sourceHandler, target, property, prefix);
 
             deepHandler(prefix, instance, oldValue);
         };
@@ -133,7 +134,7 @@ export class DeepObserver {
         prefix: string | undefined,
     ) {
         const value = (target as any)[property];
-        if (value === undefined && prefix != undefined) {
+        if (value === undefined && prefix !== undefined) {
             const sources = [];
             for (const source of sourceHandler.sources) {
                 if (source.prefix?.startsWith(prefix)) {
@@ -147,7 +148,7 @@ export class DeepObserver {
         }
 
         if (isPropertyChanged(value)) {
-            this.deepHandlePropertyChanged(sourceHandler, value, prefix);
+            DeepObserver.deepHandlePropertyChanged(sourceHandler, value, prefix);
         }
     }
 }

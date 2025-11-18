@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IConverter, IDocument, Logger, Property, Texture } from "chili-core";
+import { type IConverter, type IDocument, Logger, type Property, Texture } from "chili-core";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";

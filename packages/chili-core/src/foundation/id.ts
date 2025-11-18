@@ -9,7 +9,7 @@
 // `'use`, `andom`, and `rict'`
 // References to the brotli default dictionary:
 // `-26T`, `1983`, `40px`, `75px`, `bush`, `jack`, `mind`, `very`, and `wolf`
-let alphabet = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+const alphabet = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
 
 export class Id {
     static generate(size = 21) {

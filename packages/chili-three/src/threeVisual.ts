@@ -1,14 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, IDocument, IEventHandler, IMeshExporter, IVisual, Logger, Plane } from "chili-core";
+import {
+    IDisposable,
+    type IDocument,
+    type IEventHandler,
+    type IMeshExporter,
+    type IVisual,
+    Logger,
+    type Plane,
+} from "chili-core";
 import { NodeSelectionHandler } from "chili-vis";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
+import { ThreeMeshExporter } from "./meshExporter";
 import { ThreeHighlighter } from "./threeHighlighter";
 import { ThreeView } from "./threeView";
-import { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeViewHandler } from "./threeViewEventHandler";
-import { ThreeMeshExporter } from "./meshExporter";
+import { ThreeVisualContext } from "./threeVisualContext";
 
 Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -46,9 +54,9 @@ export class ThreeVisual implements IVisual {
     }
 
     initScene() {
-        let scene = new Scene();
-        let envLight = new AmbientLight(0x888888, 4);
-        let axisHelper = new AxesHelper(250);
+        const scene = new Scene();
+        const envLight = new AmbientLight(0x888888, 4);
+        const axisHelper = new AxesHelper(250);
         scene.add(envLight, axisHelper);
         return scene;
     }

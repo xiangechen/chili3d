@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IApplication } from "../application";
-import { AsyncController, IDisposable, Observable, PubSub } from "../foundation";
+import type { IApplication } from "../application";
+import { type AsyncController, type IDisposable, Observable, PubSub } from "../foundation";
 import { Property } from "../property";
 
 export interface ICommand {
@@ -131,7 +131,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
 
     private readProperties() {
         Property.getProperties(this).forEach((x) => {
-            let key = this.cacheKeyOfProperty(x);
+            const key = this.cacheKeyOfProperty(x);
             if (CancelableCommand._propertiesCache.has(key)) {
                 this.setPrivateValue(key as keyof this, CancelableCommand._propertiesCache.get(key));
             }
@@ -140,8 +140,8 @@ export abstract class CancelableCommand extends Observable implements ICanclable
 
     private saveProperties() {
         Property.getProperties(this).forEach((x) => {
-            let key = this.cacheKeyOfProperty(x);
-            let prop = (this as any)[key];
+            const key = this.cacheKeyOfProperty(x);
+            const prop = (this as any)[key];
             if (typeof prop === "function") return;
             CancelableCommand._propertiesCache.set(key, prop);
         });

@@ -1,14 +1,20 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EdgeMeshData, FaceMeshData, LineType, MeshLike, VertexMeshData } from "chili-core";
+import {
+    type EdgeMeshData,
+    type FaceMeshData,
+    LineType,
+    type MeshLike,
+    type VertexMeshData,
+} from "chili-core";
 import {
     AlwaysDepth,
     BufferAttribute,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
-    LineBasicMaterial,
+    type LineBasicMaterial,
     Mesh,
     MeshLambertMaterial,
     Points,
@@ -20,9 +26,9 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData) {
-        let buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
-        let material = ThreeGeometryFactory.createVertexMaterial(data);
-        this.setColor(buff, data, material);
+        const buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
+        const material = ThreeGeometryFactory.createVertexMaterial(data);
+        ThreeGeometryFactory.setColor(buff, data, material);
 
         material.depthFunc = AlwaysDepth;
         return new Points(buff, material);
@@ -36,15 +42,15 @@ export class ThreeGeometryFactory {
     }
 
     static createFaceGeometry(data: FaceMeshData, opacity?: number) {
-        let buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
-        let material = ThreeGeometryFactory.createMeshMaterial(opacity);
-        this.setColor(buff, data, material);
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
+        const material = ThreeGeometryFactory.createMeshMaterial(opacity);
+        ThreeGeometryFactory.setColor(buff, data, material);
 
         return new Mesh(buff, material);
     }
 
     static createMeshMaterial(opacity: number | undefined) {
-        let material = new MeshLambertMaterial({ side: DoubleSide });
+        const material = new MeshLambertMaterial({ side: DoubleSide });
         if (opacity !== undefined) {
             material.transparent = true;
             material.opacity = opacity;
@@ -66,7 +72,7 @@ export class ThreeGeometryFactory {
     }
 
     static createFaceBufferGeometry(data: MeshLike) {
-        let buff = new BufferGeometry();
+        const buff = new BufferGeometry();
         buff.setAttribute("position", new BufferAttribute(data.position, 3));
         buff.setAttribute("normal", new BufferAttribute(data.normal, 3));
         buff.setAttribute("uv", new BufferAttribute(data.uv, 2));
@@ -76,14 +82,14 @@ export class ThreeGeometryFactory {
     }
 
     static createEdgeGeometry(data: EdgeMeshData) {
-        let buff = this.createEdgeBufferGeometry(data);
-        let material = ThreeGeometryFactory.createEdgeMaterial(data);
-        this.setColor(buff, data, material);
+        const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
+        const material = ThreeGeometryFactory.createEdgeMaterial(data);
+        ThreeGeometryFactory.setColor(buff, data, material);
         return new LineSegments2(buff, material).computeLineDistances();
     }
 
     static createEdgeMaterial(data: EdgeMeshData) {
-        let material = new LineMaterial({
+        const material = new LineMaterial({
             linewidth: data.lineWidth ?? 1,
             polygonOffset: true,
             polygonOffsetFactor: -4,
@@ -99,14 +105,14 @@ export class ThreeGeometryFactory {
     }
 
     static createEdgeBufferGeometry(data: EdgeMeshData) {
-        let buff = new LineSegmentsGeometry();
+        const buff = new LineSegmentsGeometry();
         buff.setPositions(data.position);
         buff.computeBoundingBox();
         return buff;
     }
 
     static createVertexBufferGeometry(data: VertexMeshData) {
-        let buff = new BufferGeometry();
+        const buff = new BufferGeometry();
         buff.setAttribute("position", new BufferAttribute(data.position, 3));
         buff.computeBoundingBox();
         return buff;

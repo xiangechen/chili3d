@@ -1,15 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { ICommand } from "./command";
-import { IDataExchange } from "./dataExchange";
-import { IDocument } from "./document";
-import { IStorage, ObservableCollection } from "./foundation";
-import { Serialized } from "./serialize";
-import { IService } from "./service";
-import { IShapeFactory } from "./shape";
-import { IWindow } from "./ui/window";
-import { IView, IVisualFactory } from "./visual";
+import type { ICommand } from "./command";
+import type { IDataExchange } from "./dataExchange";
+import type { IDocument } from "./document";
+import type { IStorage, ObservableCollection } from "./foundation";
+import type { Serialized } from "./serialize";
+import type { IService } from "./service";
+import type { IShapeFactory } from "./shape";
+import type { IWindow } from "./ui/window";
+import type { IView, IVisualFactory } from "./visual";
 
 export interface IApplication {
     readonly mainWindow?: IWindow;
