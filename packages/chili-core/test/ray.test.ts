@@ -9,7 +9,7 @@ describe("test ray", () => {
     });
 
     test("test nearest", () => {
-        let r1 = new Ray(XYZ.zero, XYZ.unitX);
+        const r1 = new Ray(XYZ.zero, XYZ.unitX);
         expect(r1.nearestToPoint(XYZ.zero)).toStrictEqual(XYZ.zero);
         expect(r1.nearestToPoint(new XYZ(-1, 0, 0))).toStrictEqual(new XYZ(-1, 0, 0));
         expect(r1.nearestToPoint(new XYZ(-1, 1, 0))).toStrictEqual(new XYZ(-1, 0, 0));
@@ -23,8 +23,8 @@ describe("test ray", () => {
     });
 
     test("test intersect", () => {
-        let r1 = new Ray(XYZ.zero, XYZ.unitX);
-        let r2 = new Ray(XYZ.unitX.add(XYZ.unitY), XYZ.unitY);
+        const r1 = new Ray(XYZ.zero, XYZ.unitX);
+        const r2 = new Ray(XYZ.unitX.add(XYZ.unitY), XYZ.unitY);
         expect(r1.intersect(r2)).toStrictEqual(XYZ.unitX);
     });
 });

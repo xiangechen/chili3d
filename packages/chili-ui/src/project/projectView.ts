@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, span } from "chili-controls";
-import { IDocument, IView, Localize, PubSub } from "chili-core";
+import { type IDocument, type IView, Localize, PubSub } from "chili-core";
 import style from "./projectView.module.css";
 import { ToolBar } from "./toolBar";
 import { Tree } from "./tree";

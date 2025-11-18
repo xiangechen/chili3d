@@ -3,10 +3,10 @@
 
 import {
     History,
-    IDocument,
-    INodeChangedObserver,
+    type IDocument,
+    type INodeChangedObserver,
     NodeLinkedListHistoryRecord,
-    NodeRecord,
+    type NodeRecord,
     Transaction,
 } from "../src";
 

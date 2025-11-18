@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { INode, INodeLinkedList } from "../model";
-import { IDisposable } from "./disposable";
+import type { INode, INodeLinkedList } from "../model";
+import type { IDisposable } from "./disposable";
 
 export interface IHistoryRecord extends IDisposable {
     readonly name: string;

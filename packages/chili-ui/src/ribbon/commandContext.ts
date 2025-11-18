@@ -19,9 +19,9 @@ import {
     Combobox,
     Command,
     I18n,
-    I18nKeys,
-    ICommand,
-    IDisposable,
+    type I18nKeys,
+    type ICommand,
+    type IDisposable,
     Localize,
     Observable,
     PathBinding,
@@ -36,7 +36,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
     constructor(readonly command: ICommand) {
         super();
         this.className = style.panel;
-        let data = Command.getData(command);
+        const data = Command.getData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
             label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
@@ -138,8 +138,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
     }
 
     private newCombobox(noType: any, g: Property) {
-        let combobox = noType[g.name] as Combobox<any>;
-        let options = combobox.items.map((item, index) => {
+        const combobox = noType[g.name] as Combobox<any>;
+        const options = combobox.items.map((item, index) => {
             return option({
                 selected: index === combobox.selectedIndex,
                 textContent: I18n.isI18nKey(item)

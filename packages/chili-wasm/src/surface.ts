@@ -2,35 +2,34 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Continuity,
-    IBSplineSurface,
-    IBezierSurface,
-    IBoundedSurface,
-    ICompositeSurface,
-    IConicalSurface,
-    ICurve,
-    ICylindricalSurface,
-    IElementarySurface,
-    IGeometry,
-    IOffsetSurface,
-    IPlaneSurface,
-    IPlateSurface,
-    IRectangularTrimmedSurface,
-    ISphericalSurface,
-    ISurface,
-    ISurfaceOfLinearExtrusion,
-    ISurfaceOfRevolution,
-    ISweptSurface,
-    IToroidalSurface,
-    Matrix4,
-    Plane,
-    XYZ,
+    type Continuity,
     gc,
+    type IBezierSurface,
+    type IBoundedSurface,
+    type IBSplineSurface,
+    type ICompositeSurface,
+    type IConicalSurface,
+    type ICurve,
+    type ICylindricalSurface,
+    type IElementarySurface,
+    type IGeometry,
+    type IOffsetSurface,
+    type IPlaneSurface,
+    type IPlateSurface,
+    type IRectangularTrimmedSurface,
+    type ISphericalSurface,
+    type ISurface,
+    type ISurfaceOfLinearExtrusion,
+    type ISurfaceOfRevolution,
+    type ISweptSurface,
+    type IToroidalSurface,
+    type Matrix4,
+    type Plane,
+    XYZ,
 } from "chili-core";
-import {
-    GeomPlate_Surface,
-    Geom_BSplineSurface,
+import type {
     Geom_BezierSurface,
+    Geom_BSplineSurface,
     Geom_ConicalSurface,
     Geom_CylindricalSurface,
     Geom_ElementarySurface,
@@ -43,6 +42,7 @@ import {
     Geom_SurfaceOfRevolution,
     Geom_SweptSurface,
     Geom_ToroidalSurface,
+    GeomPlate_Surface,
     ShapeExtend_CompositeSurface,
 } from "../lib/chili-wasm";
 import { OccCurve } from "./curve";
@@ -56,14 +56,14 @@ export class OccSurface extends OccGeometry implements ISurface {
 
     override copy(): IGeometry {
         return gc((c) => {
-            let s = c(this.surface.copy());
+            const s = c(this.surface.copy());
             return OcctHelper.wrapSurface(s.get() as Geom_Surface);
         });
     }
 
     override transformed(matrix: Matrix4): IGeometry {
         return gc((c) => {
-            let s = c(this.surface.transformed(OcctHelper.convertFromMatrix(matrix)));
+            const s = c(this.surface.transformed(OcctHelper.convertFromMatrix(matrix)));
             return OcctHelper.wrapSurface(s.get() as Geom_Surface);
         });
     }
@@ -71,7 +71,7 @@ export class OccSurface extends OccGeometry implements ISurface {
     projectCurve(curve: ICurve): ICurve | undefined {
         return gc((c) => {
             if (!(curve instanceof OccCurve)) return undefined;
-            let handleCurve = c(wasm.Surface.projectCurve(this.surface, curve.curve));
+            const handleCurve = c(wasm.Surface.projectCurve(this.surface, curve.curve));
             return OcctHelper.wrapCurve(handleCurve.get()!);
         });
     }
@@ -91,7 +91,7 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
 
     nearestPoint(point: XYZ): [XYZ, number] | undefined {
-        let result = wasm.Surface.nearestPoint(this.surface, point);
+        const result = wasm.Surface.nearestPoint(this.surface, point);
         if (result) {
             return [OcctHelper.toXYZ(result.point), result.parameter];
         }
@@ -104,13 +104,13 @@ export class OccSurface extends OccGeometry implements ISurface {
 
     uIso(u: number): ICurve {
         return gc((c) => {
-            let curve = c(this.surface.uIso(u));
+            const curve = c(this.surface.uIso(u));
             return OcctHelper.wrapCurve(curve.get()!);
         });
     }
     vIso(v: number): ICurve {
         return gc((c) => {
-            let curve = c(this.surface.vIso(v));
+            const curve = c(this.surface.vIso(v));
             return OcctHelper.wrapCurve(curve.get()!);
         });
     }
@@ -143,7 +143,7 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
     d0(u: number, v: number): XYZ {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
             this.surface.d0(u, v, pnt);
             return OcctHelper.toXYZ(pnt);
         });
@@ -157,9 +157,9 @@ export class OccSurface extends OccGeometry implements ISurface {
         d1v: XYZ;
     } {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let d1u = c(new wasm.gp_Vec(0, 0, 0));
-            let d1v = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const d1u = c(new wasm.gp_Vec(0, 0, 0));
+            const d1v = c(new wasm.gp_Vec(0, 0, 0));
             this.surface.d1(u, v, pnt, d1u, d1v);
             return {
                 point: OcctHelper.toXYZ(pnt),
@@ -170,12 +170,12 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
     d2(u: number, v: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let d1u = c(new wasm.gp_Vec(0, 0, 0));
-            let d1v = c(new wasm.gp_Vec(0, 0, 0));
-            let d2u = c(new wasm.gp_Vec(0, 0, 0));
-            let d2v = c(new wasm.gp_Vec(0, 0, 0));
-            let d2uv = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const d1u = c(new wasm.gp_Vec(0, 0, 0));
+            const d1v = c(new wasm.gp_Vec(0, 0, 0));
+            const d2u = c(new wasm.gp_Vec(0, 0, 0));
+            const d2v = c(new wasm.gp_Vec(0, 0, 0));
+            const d2uv = c(new wasm.gp_Vec(0, 0, 0));
             this.surface.d2(u, v, pnt, d1u, d1v, d2u, d2v, d2uv);
 
             return {
@@ -190,16 +190,16 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
     d3(u: number, v: number) {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let d1u = c(new wasm.gp_Vec(0, 0, 0));
-            let d1v = c(new wasm.gp_Vec(0, 0, 0));
-            let d2u = c(new wasm.gp_Vec(0, 0, 0));
-            let d2v = c(new wasm.gp_Vec(0, 0, 0));
-            let d2uv = c(new wasm.gp_Vec(0, 0, 0));
-            let d3u = c(new wasm.gp_Vec(0, 0, 0));
-            let d3v = c(new wasm.gp_Vec(0, 0, 0));
-            let d3uuv = c(new wasm.gp_Vec(0, 0, 0));
-            let d3uvv = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const d1u = c(new wasm.gp_Vec(0, 0, 0));
+            const d1v = c(new wasm.gp_Vec(0, 0, 0));
+            const d2u = c(new wasm.gp_Vec(0, 0, 0));
+            const d2v = c(new wasm.gp_Vec(0, 0, 0));
+            const d2uv = c(new wasm.gp_Vec(0, 0, 0));
+            const d3u = c(new wasm.gp_Vec(0, 0, 0));
+            const d3v = c(new wasm.gp_Vec(0, 0, 0));
+            const d3uuv = c(new wasm.gp_Vec(0, 0, 0));
+            const d3uvv = c(new wasm.gp_Vec(0, 0, 0));
             this.surface.d3(u, v, pnt, d1u, d1v, d2u, d2v, d2uv, d3u, d3v, d3uuv, d3uvv);
 
             return {
@@ -218,13 +218,13 @@ export class OccSurface extends OccGeometry implements ISurface {
     }
     dn(u: number, v: number, nu: number, nv: number): XYZ {
         return gc((c) => {
-            let vec = c(this.surface.dn(u, v, nu, nv));
+            const vec = c(this.surface.dn(u, v, nu, nv));
             return OcctHelper.toXYZ(vec);
         });
     }
     value(u: number, v: number): XYZ {
         return gc((c) => {
-            let pnt = c(this.surface.value(u, v));
+            const pnt = c(this.surface.value(u, v));
             return OcctHelper.toXYZ(pnt);
         });
     }
@@ -263,8 +263,8 @@ export class OccElementarySurface extends OccSurface implements IElementarySurfa
     }
     set axis(value: XYZ) {
         gc((c) => {
-            let pnt = c(this.elementarySurface.location());
-            let axis = c(new wasm.gp_Ax1(pnt, c(OcctHelper.toDir(value))));
+            const pnt = c(this.elementarySurface.location());
+            const axis = c(new wasm.gp_Ax1(pnt, c(OcctHelper.toDir(value))));
             this.elementarySurface.setAxis(axis);
         });
     }
@@ -292,14 +292,14 @@ export class OccOffsetSurface extends OccSurface implements IOffsetSurface {
     }
     get basisSurface() {
         return gc((c) => {
-            let handleSurface = c(this.offsetSurface.basisSurface());
+            const handleSurface = c(this.offsetSurface.basisSurface());
             return OcctHelper.wrapSurface(handleSurface.get()!);
         });
     }
     set basisSurface(value: ISurface) {
         gc((c) => {
             if (value instanceof OccSurface) {
-                let handleSurface = c(new wasm.Handle_Geom_Surface(value.surface));
+                const handleSurface = c(new wasm.Handle_Geom_Surface(value.surface));
                 this.offsetSurface.setBasisSurface(handleSurface, true);
             }
             throw new Error("Invalid surface type");
@@ -318,7 +318,7 @@ export class OccSweptSurface extends OccSurface implements ISweptSurface {
     }
     basisCurve(): ICurve {
         return gc((c) => {
-            let handleCurve = this.sweptSurface.basisCurve();
+            const handleCurve = this.sweptSurface.basisCurve();
             return OcctHelper.wrapCurve(handleCurve.get()!);
         });
     }
@@ -348,7 +348,7 @@ export class OccRectangularSurface extends OccSurface implements IRectangularTri
     }
     basisSurface(): ISurface {
         return gc((c) => {
-            let handleSurface = c(this.rectangularSurface.basisSurface());
+            const handleSurface = c(this.rectangularSurface.basisSurface());
             return OcctHelper.wrapSurface(handleSurface.get()!);
         });
     }
@@ -469,7 +469,7 @@ export class OccSurfaceOfLinearExtrusion extends OccSweptSurface implements ISur
         if (!(curve instanceof OccCurve)) {
             throw new Error("curve must be an OccCurve");
         }
-        let handleCurve = new wasm.Handle_Geom_Curve(curve.curve);
+        const handleCurve = new wasm.Handle_Geom_Curve(curve.curve);
         this.surfaceOfLinearExtrusion.setBasisCurve(handleCurve);
         handleCurve.delete();
     }
@@ -503,7 +503,7 @@ export class OccSurfaceOfRevolution extends OccSweptSurface implements ISurfaceO
         if (!(curve instanceof OccCurve)) {
             throw new Error("curve must be an OccCurve");
         }
-        let handleCurve = new wasm.Handle_Geom_Curve(curve.curve);
+        const handleCurve = new wasm.Handle_Geom_Curve(curve.curve);
         this.surfaceOfRevolution.setBasisCurve(handleCurve);
         handleCurve.delete();
     }

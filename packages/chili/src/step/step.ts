@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
-import { SnapData, SnapEventHandler, SnapResult } from "../snap";
+import type { AsyncController, CursorType, I18nKeys, IDocument, XYZ } from "chili-core";
+import type { SnapData, SnapEventHandler, SnapResult } from "../snap";
 
 export interface IStep {
     execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
@@ -29,7 +29,7 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         const executorHandler = this.getEventHandler(document, controller, data);
         await document.selection.pickAsync(executorHandler, this.tip, controller, false, this.cursor);
         const snaped = executorHandler.snaped;
-        
+
         executorHandler.dispose();
 
         return controller.result?.status === "success" ? snaped : undefined;

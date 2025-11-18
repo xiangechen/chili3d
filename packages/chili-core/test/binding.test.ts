@@ -39,15 +39,15 @@ class TestObjectB extends Observable {
 
 describe("PathBinding test", () => {
     test("test PathBinding1", () => {
-        let obj2 = new TestObjectB();
+        const obj2 = new TestObjectB();
         const binding = new PathBinding(obj2, "propB.propA.value");
-        let target = { value: "v1" };
+        const target = { value: "v1" };
         binding.setBinding(target, "value");
         expect(target.value).toBe("v1");
         obj2.propB = new TestObjectA();
         expect(target.value).toBe("v1");
 
-        let obj3 = new TestObjectValue();
+        const obj3 = new TestObjectValue();
         obj2.propB.propA = obj3;
         expect(target.value).toBe("value");
         obj2.propB.propA.value = "value2";
@@ -78,10 +78,10 @@ describe("PathBinding test", () => {
     });
 
     test("test PathBinding2", () => {
-        let obj = new TestObjectB();
+        const obj = new TestObjectB();
         obj.propB = new TestObjectA();
         obj.propB.propA = new TestObjectValue();
-        let target = { value1: "v1", value2: "v2" };
+        const target = { value1: "v1", value2: "v2" };
         const binding1 = new PathBinding(obj, "propB.propA.value");
         binding1.setBinding(target, "value1");
         expect(target.value1).toBe("value");

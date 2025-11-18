@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument, VertexMeshData } from "chili-core";
-import { SnapResult } from "..";
+import { type IDocument, VertexMeshData } from "chili-core";
+import type { SnapResult } from "..";
 
 export abstract class TrackingBase {
     protected readonly tempMeshes: Map<IDocument, number[]> = new Map();

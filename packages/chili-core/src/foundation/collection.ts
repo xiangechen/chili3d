@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable } from "./disposable";
+import type { IDisposable } from "./disposable";
 
 export enum CollectionAction {
     add,
@@ -183,9 +183,9 @@ export class SelectableItems<T> {
     selectedItems: Set<T>;
 
     get selectedIndexes(): number[] {
-        let indexes: number[] = [];
+        const indexes: number[] = [];
         this.selectedItems.forEach((x) => {
-            let index = this.items.indexOf(x);
+            const index = this.items.indexOf(x);
             if (index > -1) {
                 indexes.push(index);
             }

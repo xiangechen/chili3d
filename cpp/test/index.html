@@ -32,7 +32,6 @@
             font-weight: bold;
         }
     </style>
-    </style>
     
 </head>
 
@@ -40,7 +39,7 @@
     <div id="output"></div>
     <script type="text/javascript">
         function resultMessage(passed, failed, time) {
-            let p = document.createElement('p');
+            const p = document.createElement('p');
             p.className = 'result';
             p.innerHTML = `Passed: ${passed}, Failed: ${failed}, Time: ${time}`;
             if (failed > 0) {
@@ -50,7 +49,7 @@
         }
 
         function failedMessage(actual, expected) {
-            let p = document.createElement('p');
+            const p = document.createElement('p');
             p.innerHTML = `Expected ${expected}, but got ${actual}`;
             p.className = 'failed';
             return p;
@@ -71,32 +70,31 @@
                 };
             };
 
-            let div = document.createElement('div');
+            const div = document.createElement('div');
             div.className = 'test';
             output.append(div);
-            let title = document.createElement('h2');
+            const title = document.createElement('h2');
             div.innerHTML = name
             output.append(title);
-            let start = performance.now();
+            const start = performance.now();
             fn(expect);
-            let end = performance.now();
+            const end = performance.now();
             div.append(resultMessage(passed, failed, end - start));
         }
 
     </script>
     <script type="module">
         window.onload = async () => {
-            let output = document.getElementById('output');
-            let initWasm = await import('../build/target/release/chili-wasm.js');
-            let wasm = await initWasm.default();
+            const initWasm = await import('../build/target/release/chili-wasm.js');
+            const wasm = await initWasm.default();
             test("test face mesh", (expect) => {
-                let location = { x: 0, y: 0, z: 0 };
-                let direction = { x: 0, y: 0, z: 1 };
-                let xDirection = { x: 1, y: 0, z: 0 };
-                let ax3 = { location, direction, xDirection };
-                let box = wasm.ShapeFactory.box(ax3, 1, 2, 3).shape;
-                let mesher = new wasm.Mesher(box, 0.1);
-                let mesh = mesher.mesh();
+                const location = { x: 0, y: 0, z: 0 };
+                const direction = { x: 0, y: 0, z: 1 };
+                const xDirection = { x: 1, y: 0, z: 0 };
+                const ax3 = { location, direction, xDirection };
+                const box = wasm.ShapeFactory.box(ax3, 1, 2, 3).shape;
+                const mesher = new wasm.Mesher(box, 0.1);
+                const mesh = mesher.mesh();
 
                 expect(mesh.faceMeshData.position.length).toBe(72);
                 expect(mesh.faceMeshData.index.length).toBe(36);
@@ -106,36 +104,36 @@
             })
 
             test("test edge mesh", (expect) => {
-                let location = { x: 0, y: 0, z: 0 };
-                let direction = { x: 0, y: 0, z: 1 };
-                let xDirection = { x: 1, y: 0, z: 0 };
-                let ax3 = { location, direction, xDirection };
-                let box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
-                let mesher = new wasm.Mesher(box, 0.1);
-                let mesh = mesher.mesh();
+                const location = { x: 0, y: 0, z: 0 };
+                const direction = { x: 0, y: 0, z: 1 };
+                const xDirection = { x: 1, y: 0, z: 0 };
+                const ax3 = { location, direction, xDirection };
+                const box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
+                const mesher = new wasm.Mesher(box, 0.1);
+                const mesh = mesher.mesh();
                 expect(mesh.edgeMeshData.position.length).toBe(72);
                 expect(mesh.edgeMeshData.group.length).toBe(24);
             })
 
             test("test shape", (expect) => {
-                let location = { x: 0, y: 0, z: 0 };
-                let direction = { x: 0, y: 0, z: 1 };
-                let xDirection = { x: 1, y: 0, z: 0 };
-                let ax3 = { location, direction, xDirection };
-                let box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
-                let edges = wasm.Shape.findSubShapes(box, wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+                const location = { x: 0, y: 0, z: 0 };
+                const direction = { x: 0, y: 0, z: 1 };
+                const xDirection = { x: 1, y: 0, z: 0 };
+                const ax3 = { location, direction, xDirection };
+                const box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
+                const edges = wasm.Shape.findSubShapes(box, wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
                 expect(edges.length).toBe(12);
                 expect(edges[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
 
-                let curve = wasm.Edge.curve(wasm.TopoDS.edge(edges[0]));
-                let newEdge = wasm.Edge.fromCurve(curve.get());
+                const curve = wasm.Edge.curve(wasm.TopoDS.edge(edges[0]));
+                const newEdge = wasm.Edge.fromCurve(curve.get());
                 expect(wasm.Edge.curveLength(newEdge)).toBe(1);
 
-                let faces = wasm.Shape.findAncestor(box, edges[1], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+                const faces = wasm.Shape.findAncestor(box, edges[1], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
                 expect(faces.length).toBe(2);
                 expect(faces[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_FACE)
 
-                let faceEdges = wasm.Shape.findSubShapes(faces[0], wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+                const faceEdges = wasm.Shape.findSubShapes(faces[0], wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
                 expect(faceEdges.length).toBe(4);
 
             })

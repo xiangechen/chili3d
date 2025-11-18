@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EditableShapeNode, ShapeNode, ShapeType, Transaction, VisualState, command } from "chili-core";
+import { command, EditableShapeNode, type ShapeNode, ShapeType, Transaction, VisualState } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 

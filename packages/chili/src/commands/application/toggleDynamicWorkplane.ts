@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Binding, Config, IApplication, ICommand, command } from "chili-core";
+import { Binding, Config, command, type IApplication, type ICommand } from "chili-core";
 
 @command({
     key: "workingPlane.toggleDynamic",
@@ -9,7 +9,7 @@ import { Binding, Config, IApplication, ICommand, command } from "chili-core";
     icon: "icon-dynamicPlane",
 })
 export class ToggleDynamicWorkplaneCommand implements ICommand {
-    async execute(app: IApplication): Promise<void> {
+    async execute(_app: IApplication): Promise<void> {
         Config.instance.dynamicWorkplane = !Config.instance.dynamicWorkplane;
     }
 }

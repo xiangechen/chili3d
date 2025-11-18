@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
-import { IDisposable } from "./disposable";
-import { IEqualityComparer } from "./equalityComparer";
+import type { IDocument } from "../document";
+import type { IDisposable } from "./disposable";
+import type { IEqualityComparer } from "./equalityComparer";
 import { PropertyHistoryRecord } from "./history";
 import { Logger } from "./logger";
 import { Transaction } from "./transaction";
@@ -134,10 +134,7 @@ export abstract class HistoryObservable extends Observable {
             newValue,
             (property, oldValue) => {
                 onPropertyChanged?.(property, oldValue);
-                Transaction.add(
-                    this.document,
-                    new PropertyHistoryRecord(this, property, oldValue, newValue),
-                );
+                Transaction.add(this.document, new PropertyHistoryRecord(this, property, oldValue, newValue));
             },
             equals,
         );

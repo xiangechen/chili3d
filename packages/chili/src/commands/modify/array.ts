@@ -4,9 +4,9 @@
 import {
     AsyncController,
     BoundingBox,
-    command,
     Component,
     ComponentNode,
+    command,
     GeometryNode,
     LineType,
     MathUtils,
@@ -18,13 +18,13 @@ import {
     Property,
     PubSub,
     Ray,
-    ShapeMeshData,
+    type ShapeMeshData,
     Transaction,
     VisualNode,
     XYZ,
 } from "chili-core";
-import { Dimension, PointSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, IStep, LengthAtPlaneStep, PointOnAxisStep, PointStep } from "../../step";
+import { Dimension, type PointSnapData, type SnapLengthAtPlaneData } from "../../snap";
+import { AngleStep, type IStep, LengthAtPlaneStep, PointOnAxisStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
@@ -394,9 +394,7 @@ export class ArrayCommand extends MultistepCommand {
         const yvec = normal.cross(xvec).normalize()!;
 
         const ray =
-            index === 2
-                ? new Ray(this.stepDatas[1].point!, yvec)
-                : new Ray(this.stepDatas[1].point!, normal);
+            index === 2 ? new Ray(this.stepDatas[1].point!, yvec) : new Ray(this.stepDatas[1].point!, normal);
         return { ray, yvec, normal, xvec };
     }
 

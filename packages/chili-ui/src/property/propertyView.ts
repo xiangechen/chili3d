@@ -5,9 +5,9 @@ import { div, Expander, label } from "chili-controls";
 import {
     FolderNode,
     GroupNode,
-    IDocument,
-    INode,
-    IView,
+    type IDocument,
+    type INode,
+    type IView,
     Localize,
     Node,
     Property,
@@ -37,7 +37,7 @@ export class PropertyView extends HTMLElement {
 
     private readonly handleActiveViewChanged = (view: IView | undefined) => {
         if (view) {
-            let nodes = view.document.selection.getSelectedNodes();
+            const nodes = view.document.selection.getSelectedNodes();
             this.handleShowProperties(view.document, nodes);
         }
     };

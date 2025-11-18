@@ -2,31 +2,31 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Act,
+    type Act,
     CollectionAction,
-    CollectionChangedArgs,
-    Component,
+    type CollectionChangedArgs,
+    type Component,
     Constants,
     FolderNode,
     History,
     I18n,
-    IApplication,
-    IDocument,
-    INode,
-    INodeChangedObserver,
-    INodeLinkedList,
-    ISelection,
-    IVisual,
+    type IApplication,
+    type IDocument,
     Id,
+    type INode,
+    type INodeChangedObserver,
+    type INodeLinkedList,
+    type ISelection,
+    type IVisual,
     Logger,
-    Material,
+    type Material,
     NodeLinkedListHistoryRecord,
-    NodeRecord,
+    type NodeRecord,
     NodeSerializer,
     Observable,
     ObservableCollection,
     PubSub,
-    Serialized,
+    type Serialized,
     Serializer,
     Transaction,
 } from "chili-core";
@@ -107,7 +107,7 @@ export class Document extends Observable implements IDocument {
     }
 
     serialize(): Serialized {
-        let serialized = {
+        const serialized = {
             classKey: "Document",
             version: __DOCUMENT_VERSION__,
             properties: {
@@ -156,7 +156,7 @@ export class Document extends Observable implements IDocument {
             await this.save();
         }
 
-        let views = this.application.views.filter((x) => x.document === this);
+        const views = this.application.views.filter((x) => x.document === this);
         this.application.views.remove(...views);
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
@@ -168,7 +168,7 @@ export class Document extends Observable implements IDocument {
     }
 
     static async open(application: IApplication, id: string) {
-        let data = (await application.storage.get(
+        const data = (await application.storage.get(
             Constants.DBName,
             Constants.DocumentTable,
             id,
@@ -177,7 +177,7 @@ export class Document extends Observable implements IDocument {
             Logger.warn(`document: ${id} not find`);
             return;
         }
-        let document = await this.load(application, data);
+        const document = await Document.load(application, data);
         if (document !== undefined) {
             Logger.info(`document: ${document.name} opened`);
         }
@@ -191,12 +191,10 @@ export class Document extends Observable implements IDocument {
             );
             return undefined;
         }
-        let document = new Document(app, data.properties["name"], data.properties["id"]);
+        const document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
         document.materials.push(
-            ...data.properties["materials"].map((x: Serialized) =>
-                Serializer.deserializeObject(document, x),
-            ),
+            ...data.properties["materials"].map((x: Serialized) => Serializer.deserializeObject(document, x)),
         );
         document.acts.push(
             ...data.properties["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)),

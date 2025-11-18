@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Precision, XYZ, command } from "chili-core";
+import { command, type GeometryNode, Precision, XYZ } from "chili-core";
 import { SphereNode } from "../../bodys";
-import { SnapLengthAtPlaneData } from "../../snap";
-import { IStep, LengthAtPlaneStep, PointStep } from "../../step";
+import type { SnapLengthAtPlaneData } from "../../snap";
+import { type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
@@ -13,8 +13,8 @@ import { CreateCommand } from "../createCommand";
 })
 export class Sphere extends CreateCommand {
     protected override getSteps(): IStep[] {
-        let centerStep = new PointStep("prompt.pickCircleCenter");
-        let radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
+        const centerStep = new PointStep("prompt.pickCircleCenter");
+        const radiusStep = new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData);
         return [centerStep, radiusStep];
     }
 

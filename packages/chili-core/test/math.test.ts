@@ -82,7 +82,7 @@ describe("MathUtils.computeLineSegmentDistance", () => {
         expect(result.distance).toBeCloseTo(0);
     });
 
-    test('should handle when closest points are at line endpoints', () => {
+    test("should handle when closest points are at line endpoints", () => {
         const p11 = new XYZ(0, 0, 0);
         const p12 = new XYZ(1, 0, 0);
         const p21 = new XYZ(2, 1, 0);

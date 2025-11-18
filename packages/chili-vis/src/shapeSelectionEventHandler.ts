@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
-    IDocument,
-    INodeFilter,
-    IShape,
-    IShapeFilter,
-    IView,
-    ShapeType,
-    VisualShapeData,
+    type AsyncController,
+    type IDocument,
+    type INodeFilter,
+    type IShape,
+    type IShapeFilter,
+    type IView,
+    type ShapeType,
+    type VisualShapeData,
     VisualState,
 } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
@@ -19,7 +19,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     private _detectAtMouse: VisualShapeData[] | undefined;
     private _lockDetected: IShape | undefined;
 
-    highlightState = VisualState.edgeHighlight
+    highlightState = VisualState.edgeHighlight;
 
     constructor(
         document: IDocument,
@@ -48,13 +48,19 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
                 this.nodeFilter,
             );
         }
-        this._detectAtMouse = view.detectShapes(this.shapeType, event.offsetX, event.offsetY, this.shapefilter, this.nodeFilter);
+        this._detectAtMouse = view.detectShapes(
+            this.shapeType,
+            event.offsetX,
+            event.offsetY,
+            this.shapefilter,
+            this.nodeFilter,
+        );
         const detected = this.getDetecting();
         return detected ? [detected] : [];
     }
 
     protected override setHighlight(view: IView, event: PointerEvent) {
-        let detecteds = this.getDetecteds(view, event);
+        const detecteds = this.getDetecteds(view, event);
         this.highlightDetecteds(view, detecteds);
     }
 
@@ -86,7 +92,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 
     protected highlightNext(view: IView) {
         if (this._detectAtMouse && this._detectAtMouse.length > 1) {
-            let index = this._lockDetected
+            const index = this._lockDetected
                 ? (this.getDetcedtingIndex() + 1) % this._detectAtMouse.length
                 : 1;
             this._lockDetected = this._detectAtMouse[index].shape;

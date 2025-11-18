@@ -5,19 +5,19 @@ import {
     Config,
     EdgeMeshData,
     I18n,
-    IDocument,
-    ISubEdgeShape,
+    type IDocument,
+    type ISubEdgeShape,
     IView,
     LineType,
     Precision,
-    Ray,
+    type Ray,
     ShapeType,
     VisualConfig,
     XY,
-    XYZ,
+    type XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapResult } from "../";
-import { Axis } from "./axis";
+import type { ISnap, MouseAndDetected, SnapResult } from "../";
+import type { Axis } from "./axis";
 import { AxisTracking } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
 
@@ -55,7 +55,7 @@ export class TrackingSnap implements ISnap {
         const trackingDatas = this.detectTracking(data.view, data.mx, data.my);
         if (trackingDatas.length === 0) return undefined;
         trackingDatas.sort((x) => x.distance);
-        let snaped = this.shapeIntersectTracking(data, trackingDatas);
+        const snaped = this.shapeIntersectTracking(data, trackingDatas);
         if (snaped !== undefined) return snaped;
         if (trackingDatas.length === 1) {
             return this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
@@ -79,8 +79,8 @@ export class TrackingSnap implements ISnap {
             .filter((id) => id !== undefined);
         this._tempLines.set(view, lines);
 
-        let info: string | undefined = undefined;
-        let distance: number | undefined = undefined;
+        let info: string | undefined;
+        let distance: number | undefined;
         if (trackingDatas.length === 1) {
             distance = point.distanceTo(trackingDatas[0].axis.location);
             info = trackingDatas[0].axis.name;
@@ -145,12 +145,12 @@ export class TrackingSnap implements ISnap {
     }
 
     private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapedName?: string) {
-        let result: TrackingData[] = [];
+        const result: TrackingData[] = [];
         for (const axis of axes) {
-            let distance = this.rayDistanceAtScreen(view, x, y, axis);
+            const distance = this.rayDistanceAtScreen(view, x, y, axis);
             if (distance < Config.instance.SnapDistance) {
-                let ray = view.rayAt(x, y);
-                let point = axis.nearestTo(ray);
+                const ray = view.rayAt(x, y);
+                const point = axis.nearestTo(ray);
                 if (point.sub(axis.location).dot(axis.direction) < 0) continue;
                 result.push({
                     axis,

@@ -5,13 +5,13 @@ import { button, div, input, label, XYZConverter } from "chili-controls";
 import {
     AsyncController,
     Binding,
-    command,
     Component,
     ComponentNode,
+    command,
     DialogResult,
-    IApplication,
-    ICommand,
-    IDocument,
+    type IApplication,
+    type ICommand,
+    type IDocument,
     Localize,
     Observable,
     PubSub,
@@ -19,7 +19,7 @@ import {
     VisualNode,
     XYZ,
 } from "chili-core";
-import { GetOrSelectNodeStep, IStep, PointStep } from "../../step";
+import { GetOrSelectNodeStep, type IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 class GroupDefinition extends Observable {
@@ -61,7 +61,7 @@ export class GroupCommand extends MultistepCommand {
             return;
         }
 
-        let definition = new GroupDefinition();
+        const definition = new GroupDefinition();
 
         PubSub.default.pub("showDialog", "command.create.group", this.dialog(definition), (r) => {
             if (r === DialogResult.ok) this.createGroup(definition, nodes);

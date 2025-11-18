@@ -2,10 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import { VisualConfig } from "../config";
-import { Matrix4, XYZ } from "../math";
+import type { Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
 import { LineType } from "./lineType";
-import { ISubShape } from "./shape";
+import type { ISubShape } from "./shape";
 
 @Serializer.register(["start", "count", "materialIndex"])
 export class MeshGroup {
@@ -28,7 +28,7 @@ export type MeshType = "surface" | "linesegments";
 @Serializer.register([])
 export class Mesh {
     static createSurface(positionSize: number, indexSize: number) {
-        let mesh = new Mesh();
+        const mesh = new Mesh();
         mesh.meshType = "surface";
         mesh.normal = new Float32Array(positionSize * 3);
         mesh.uv = new Float32Array(positionSize * 2);
@@ -38,7 +38,7 @@ export class Mesh {
     }
 
     static createLineSegments(size: number) {
-        let mesh = new Mesh();
+        const mesh = new Mesh();
         mesh.meshType = "linesegments";
         mesh.position = new Float32Array(size * 3);
         return mesh;
@@ -276,7 +276,7 @@ export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     }
 
     override build(): EdgeMeshData {
-        let color = this.getColor()!;
+        const color = this.getColor()!;
         return {
             position: new Float32Array(this._positions),
             range: this._groups,

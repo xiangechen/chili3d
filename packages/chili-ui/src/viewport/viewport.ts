@@ -3,12 +3,12 @@
 
 import { collection, div, input, label, span, svg } from "chili-controls";
 import {
-    Act,
+    type Act,
     Binding,
-    CameraType,
+    type CameraType,
     DialogResult,
-    IConverter,
-    IView,
+    type IConverter,
+    type IView,
     Localize,
     PubSub,
     Result,
@@ -220,7 +220,7 @@ export class Viewport extends HTMLElement {
     }
 
     private initEvent() {
-        let events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
+        const events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
             ["pointerdown", this.pointerDown],
             ["pointermove", this.pointerMove],
             ["pointerout", this.pointerOut],
@@ -233,7 +233,7 @@ export class Viewport extends HTMLElement {
     }
 
     private addEventListenerHandler(type: keyof HTMLElementEventMap, handler: (view: IView, e: any) => any) {
-        let listener = (e: any) => {
+        const listener = (e: any) => {
             e.preventDefault();
             handler(this.view, e);
         };

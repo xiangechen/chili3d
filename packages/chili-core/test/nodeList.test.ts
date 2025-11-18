@@ -1,17 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, IDocument } from "../src";
+import { FolderNode, type IDocument } from "../src";
 import { TestDocument } from "./testDocument";
 
 describe("test NodeLinkedList", () => {
-    let doc: IDocument = new TestDocument() as any;
+    const doc: IDocument = new TestDocument() as any;
 
     test("test add and remove", () => {
-        let l1 = new FolderNode(doc, "l1");
-        let l2 = new FolderNode(doc, "l2");
-        let l3 = new FolderNode(doc, "l3");
-        let l4 = new FolderNode(doc, "l4");
+        const l1 = new FolderNode(doc, "l1");
+        const l2 = new FolderNode(doc, "l2");
+        const l3 = new FolderNode(doc, "l3");
+        const l4 = new FolderNode(doc, "l4");
 
         l1.add(l2);
         expect(l1.firstChild).toEqual(l2);
@@ -49,10 +49,10 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test insert before", () => {
-        let l1 = new FolderNode(doc, "l1");
-        let l2 = new FolderNode(doc, "l2");
-        let l3 = new FolderNode(doc, "l3");
-        let l4 = new FolderNode(doc, "l4");
+        const l1 = new FolderNode(doc, "l1");
+        const l2 = new FolderNode(doc, "l2");
+        const l3 = new FolderNode(doc, "l3");
+        const l4 = new FolderNode(doc, "l4");
 
         l1.insertBefore(undefined, l2);
         expect(l1.firstChild).toBe(l2);
@@ -74,11 +74,11 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test insert after", () => {
-        let l1 = new FolderNode(doc, "l1");
-        let l2 = new FolderNode(doc, "l2");
-        let l3 = new FolderNode(doc, "l3");
-        let l4 = new FolderNode(doc, "l4");
-        let l5 = new FolderNode(doc, "l5");
+        const l1 = new FolderNode(doc, "l1");
+        const l2 = new FolderNode(doc, "l2");
+        const l3 = new FolderNode(doc, "l3");
+        const l4 = new FolderNode(doc, "l4");
+        const l5 = new FolderNode(doc, "l5");
 
         l1.insertAfter(undefined, l2);
         expect(l1.firstChild).toEqual(l2);
@@ -107,12 +107,12 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test moveTo", () => {
-        let l1 = new FolderNode(doc, "l1");
-        let l2 = new FolderNode(doc, "l2");
-        let l3 = new FolderNode(doc, "l3");
-        let l4 = new FolderNode(doc, "l4");
-        let l5 = new FolderNode(doc, "l5");
-        let l6 = new FolderNode(doc, "l6");
+        const l1 = new FolderNode(doc, "l1");
+        const l2 = new FolderNode(doc, "l2");
+        const l3 = new FolderNode(doc, "l3");
+        const l4 = new FolderNode(doc, "l4");
+        const l5 = new FolderNode(doc, "l5");
+        const l6 = new FolderNode(doc, "l6");
 
         l1.add(l2, l4);
         l2.add(l3);
@@ -134,7 +134,7 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test undo redo", () => {
-        let rootNode = new FolderNode(doc, "root");
+        const rootNode = new FolderNode(doc, "root");
         Object.defineProperties(doc, {
             rootNode: {
                 get() {
@@ -145,7 +145,7 @@ describe("test NodeLinkedList", () => {
         expect(doc.rootNode).not.toBeUndefined();
         expect(doc.rootNode).toBe(rootNode);
 
-        let l1 = new FolderNode(doc, "l1");
+        const l1 = new FolderNode(doc, "l1");
 
         // add undo redo
         doc.rootNode.add(l1);
@@ -167,8 +167,8 @@ describe("test NodeLinkedList", () => {
         expect(doc.rootNode.firstChild).toBeUndefined();
         doc.rootNode.remove(l1);
 
-        let l2 = new FolderNode(doc, "l2");
-        let l3 = new FolderNode(doc, "l3");
+        const l2 = new FolderNode(doc, "l2");
+        const l3 = new FolderNode(doc, "l3");
         // insertAfter undo redo
         doc.rootNode.add(l1, l3);
         doc.rootNode.insertAfter(l1, l2);
@@ -218,9 +218,9 @@ describe("test NodeLinkedList", () => {
         expect(l1.previousSibling).toBe(l2);
         doc.rootNode.remove(l1, l2);
 
-        let l4 = new FolderNode(doc, "l4");
-        let l5 = new FolderNode(doc, "l5");
-        let l6 = new FolderNode(doc, "l6");
+        const l4 = new FolderNode(doc, "l4");
+        const l5 = new FolderNode(doc, "l5");
+        const l6 = new FolderNode(doc, "l6");
         doc.rootNode.add(l1, l2);
         l1.add(l3, l4);
         l2.add(l5);

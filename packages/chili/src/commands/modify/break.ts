@@ -2,17 +2,17 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    IEdge,
-    ITrimmedCurve,
-    ShapeNode,
+    type IEdge,
+    type ITrimmedCurve,
+    type ShapeNode,
     ShapeType,
     Transaction,
-    XYZ,
-    command,
+    type XYZ,
 } from "chili-core";
 import { Dimension } from "../../snap";
-import { IStep, PointOnCurveStep } from "../../step";
+import { type IStep, PointOnCurveStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -70,7 +70,7 @@ export class Break extends MultistepCommand {
             dimension: Dimension.D1,
             preview: (point: XYZ | undefined) => {
                 if (!point) return [];
-                let project = curve.project(point).at(0);
+                const project = curve.project(point).at(0);
                 return [this.meshPoint(project ?? point)];
             },
         };

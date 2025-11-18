@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
+import type {
     AsyncController,
     I18nKeys,
     IDocument,
@@ -11,8 +11,8 @@ import {
     ShapeType,
     VisualState,
 } from "chili-core";
-import { SnapResult } from "../snap";
-import { IStep } from "./step";
+import type { SnapResult } from "../snap";
+import type { IStep } from "./step";
 
 export interface SelectShapeOptions {
     multiple?: boolean;
@@ -58,10 +58,7 @@ export abstract class SelectStep implements IStep {
 }
 
 export class SelectShapeStep extends SelectStep {
-    override async select(
-        document: IDocument,
-        controller: AsyncController,
-    ): Promise<SnapResult | undefined> {
+    override async select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const shapes = await document.selection.pickShape(
             this.prompt,
             controller,

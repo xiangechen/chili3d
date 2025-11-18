@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Precision, XYZ, command } from "chili-core";
+import { command, type GeometryNode, Precision, type XYZ } from "chili-core";
 import { EllipseNode } from "../../bodys/ellipse";
-import { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
+import type { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
+import { type IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({
@@ -13,9 +13,9 @@ import { CreateFaceableCommand } from "../createCommand";
 })
 export class Ellipse extends CreateFaceableCommand {
     getSteps(): IStep[] {
-        let centerStep = new PointStep("prompt.pickCircleCenter");
-        let radiusStepX = new LengthAtPlaneStep("prompt.pickRadius", this.getRadius1Data);
-        let radiusStepY = new LengthAtAxisStep("prompt.pickRadius", this.getRadius2Data);
+        const centerStep = new PointStep("prompt.pickCircleCenter");
+        const radiusStepX = new LengthAtPlaneStep("prompt.pickRadius", this.getRadius1Data);
+        const radiusStepY = new LengthAtAxisStep("prompt.pickRadius", this.getRadius2Data);
         return [centerStep, radiusStepX, radiusStepY];
     }
 

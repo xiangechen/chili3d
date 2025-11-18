@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18nKeys, IDocument, IShape, ParameterShapeNode, Property, Result, Serializer } from "chili-core";
+import {
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    ParameterShapeNode,
+    Property,
+    type Result,
+    Serializer,
+} from "chili-core";
 import { GeoUtils } from "chili-geo";
 
 @Serializer.register(["document", "section", "length"])
@@ -34,8 +42,8 @@ export class PrismNode extends ParameterShapeNode {
     }
 
     override generateShape(): Result<IShape> {
-        let normal = GeoUtils.normal(this.section as any);
-        let vec = normal.multiply(this.length);
+        const normal = GeoUtils.normal(this.section as any);
+        const vec = normal.multiply(this.length);
         return this.document.application.shapeFactory.prism(this.section, vec);
     }
 }

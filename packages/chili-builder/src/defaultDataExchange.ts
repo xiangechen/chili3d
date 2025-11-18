@@ -4,14 +4,14 @@
 import {
     EditableShapeNode,
     I18n,
-    IDataExchange,
-    IDocument,
-    INode,
-    IShape,
+    type IDataExchange,
+    type IDocument,
+    type INode,
+    type IShape,
     PubSub,
     Result,
     ShapeNode,
-    VisualNode,
+    type VisualNode,
 } from "chili-core";
 
 export class DefaultDataExchange implements IDataExchange {

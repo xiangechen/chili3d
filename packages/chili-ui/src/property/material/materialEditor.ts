@@ -1,13 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, collection, ColorConverter, div, span, svg } from "chili-controls";
+import { button, ColorConverter, collection, div, span, svg } from "chili-controls";
 import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
 import {
     Binding,
-    IConverter,
+    type IConverter,
     Localize,
-    Material,
+    type Material,
     PathBinding,
     Property,
     PubSub,
@@ -15,7 +15,7 @@ import {
     Texture,
 } from "chili-core";
 import { findPropertyControl } from "../utils";
-import { MaterialDataContent } from "./materialDataContent";
+import type { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
 
 class ActiveStyleConverter implements IConverter<Material> {
@@ -132,7 +132,7 @@ export class MaterialEditor extends HTMLElement {
             return (material as any)[p.name] instanceof Texture;
         };
 
-        let properties = Property.getProperties(material);
+        const properties = Property.getProperties(material);
         this.editingControl.append(
             ...properties
                 .filter((x) => !isTexture(x))

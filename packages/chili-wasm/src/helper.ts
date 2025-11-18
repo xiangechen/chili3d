@@ -5,20 +5,20 @@ import {
     Continuity,
     CurveType,
     gc,
-    ICurve,
+    type ICurve,
     Id,
-    IShape,
-    ISurface,
+    type IShape,
+    type ISurface,
     JoinType,
     Matrix4,
     Orientation,
     Plane,
-    Ray,
+    type Ray,
     ShapeType,
     SurfaceType,
     XYZ,
 } from "chili-core";
-import {
+import type {
     Geom_BezierCurve,
     Geom_BSplineCurve,
     Geom_Circle,
@@ -134,8 +134,8 @@ export class OcctHelper {
 
     static fromPln(pln: gp_Pln): Plane {
         return gc((c) => {
-            let ax3 = c(pln.position());
-            return this.fromAx23(ax3);
+            const ax3 = c(pln.position());
+            return OcctHelper.fromAx23(ax3);
         });
     }
 
@@ -147,7 +147,7 @@ export class OcctHelper {
 
     static convertFromMatrix(matrix: Matrix4): gp_Trsf {
         const arr = matrix.toArray();
-        let trsf = new wasm.gp_Trsf();
+        const trsf = new wasm.gp_Trsf();
         trsf.setValues(
             arr[0],
             arr[4],
@@ -322,7 +322,7 @@ export class OcctHelper {
     }
 
     static wrapCurve(curve: Geom_Curve): ICurve {
-        let isType = (type: string) => wasm.Transient.isInstance(curve, type);
+        const isType = (type: string) => wasm.Transient.isInstance(curve, type);
         if (isType("Geom_Line")) return new OccLine(curve as Geom_Line);
         else if (isType("Geom_Circle")) return new OccCircle(curve as Geom_Circle);
         else if (isType("Geom_Ellipse")) return new OccEllipse(curve as Geom_Ellipse);
@@ -337,7 +337,7 @@ export class OcctHelper {
     }
 
     static getCurveType(curve: Geom_Curve): CurveType {
-        let isType = (type: string) => wasm.Transient.isInstance(curve, type);
+        const isType = (type: string) => wasm.Transient.isInstance(curve, type);
         if (isType("Geom_Line")) return CurveType.Line;
         else if (isType("Geom_Circle")) return CurveType.Circle;
         else if (isType("Geom_Ellipse")) return CurveType.Ellipse;
@@ -352,8 +352,8 @@ export class OcctHelper {
     }
 
     static wrapSurface(surface: Geom_Surface): ISurface {
-        let isType = (type: string) => wasm.Transient.isInstance(surface, type);
-        let actualSurface = surface as any;
+        const isType = (type: string) => wasm.Transient.isInstance(surface, type);
+        const actualSurface = surface as any;
         if (isType("GeomPlate_Surface")) return new OccPlateSurface(actualSurface);
         else if (isType("Geom_Plane")) return new OccPlane(actualSurface);
         else if (isType("Geom_SurfaceOfLinearExtrusion"))
@@ -373,7 +373,7 @@ export class OcctHelper {
     }
 
     static getSurfaceType(surface: Geom_Surface): SurfaceType {
-        let isType = (type: string) => wasm.Transient.isInstance(surface, type);
+        const isType = (type: string) => wasm.Transient.isInstance(surface, type);
         if (isType("GeomPlate_Surface")) return SurfaceType.Plate;
         else if (isType("Geom_Plane")) return SurfaceType.Plane;
         else if (isType("Geom_SurfaceOfLinearExtrusion")) return SurfaceType.Extrusion;

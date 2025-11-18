@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Ray, XYZ } from "../math";
-import { IGeometry } from "./geometry";
-import { IEdge } from "./shape";
+import type { Ray, XYZ } from "../math";
+import type { IGeometry } from "./geometry";
+import type { IEdge } from "./shape";
 
 export enum CurveType {
     Line,
@@ -160,7 +160,7 @@ export namespace ICurve {
     }
 
     export function isCircle(curve: ICurve): curve is ICircle {
-        let circle = curve as ICircle;
+        const circle = curve as ICircle;
         return circle.center !== undefined && circle.radius !== undefined;
     }
 

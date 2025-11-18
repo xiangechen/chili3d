@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { concatTypedArrays, EdgeMeshData, FaceMeshData, MathUtils, Matrix4, Mesh } from "chili-core";
+import {
+    concatTypedArrays,
+    type EdgeMeshData,
+    type FaceMeshData,
+    MathUtils,
+    type Matrix4,
+    type Mesh,
+} from "chili-core";
 
 export class MeshUtils {
     static setFaceMeshData(
@@ -34,8 +41,8 @@ export class MeshUtils {
     }
 
     static setSurfaceMeshData(
-        data: Mesh, 
-        other: Mesh, 
+        data: Mesh,
+        other: Mesh,
         matrix: Matrix4,
         offset: { meshPosition: number; meshIndex: number },
         materialMap: Map<number, number>,
@@ -45,10 +52,13 @@ export class MeshUtils {
                 start: g.start + offset.meshIndex,
                 count: g.count,
                 materialIndex: materialMap.get(g.materialIndex)!,
-            })
-        })
+            });
+        });
         if (data.index && other.index) {
-            data.index.set(other.index.map((x) => x + offset.meshPosition), offset.meshIndex);
+            data.index.set(
+                other.index.map((x) => x + offset.meshPosition),
+                offset.meshIndex,
+            );
         }
         if (data.position && other.position) {
             data.position.set(matrix.ofPoints(other.position), offset.meshPosition * 3);
@@ -77,13 +87,13 @@ export class MeshUtils {
             }),
         );
         data.index = concatTypedArrays([data.index, other.index.map((x) => x + data.position.length / 3)]);
-        data.position = this.concatFloat32Array(data.position, matrix.ofPoints(other.position));
-        data.normal = this.concatFloat32Array(data.normal, matrix.ofVectors(other.normal));
-        data.uv = this.concatFloat32Array(data.uv, other.uv);
+        data.position = MeshUtils.concatFloat32Array(data.position, matrix.ofPoints(other.position));
+        data.normal = MeshUtils.concatFloat32Array(data.normal, matrix.ofVectors(other.normal));
+        data.uv = MeshUtils.concatFloat32Array(data.uv, other.uv);
     }
 
     static concatFloat32Array(arr1: ArrayLike<number>, arr2: ArrayLike<number>) {
-        let arr = new Float32Array(arr1.length + arr2.length);
+        const arr = new Float32Array(arr1.length + arr2.length);
         arr.set(arr1);
         arr.set(arr2, arr1.length);
         return arr;
@@ -117,8 +127,8 @@ export class MeshUtils {
             return;
         }
 
-        let start = data.position.length / 3;
-        data.position = this.concatFloat32Array(data.position, matrix.ofPoints(other.position));
+        const start = data.position.length / 3;
+        data.position = MeshUtils.concatFloat32Array(data.position, matrix.ofPoints(other.position));
         data.range = data.range.concat(
             other.range.map((g) => {
                 return {
@@ -143,7 +153,7 @@ export class MeshUtils {
             }
         }
 
-        return this.mergeFaceMeshWithMap(mesh, materialIndexMap);
+        return MeshUtils.mergeFaceMeshWithMap(mesh, materialIndexMap);
     }
 
     private static mergeFaceMeshWithMap(mesh: FaceMeshData, materialMap: Map<number, number>): FaceMeshData {
@@ -157,7 +167,7 @@ export class MeshUtils {
             groups: [],
         };
 
-        let offset = { facePosition: 0, faceIndex: 0 };
+        const offset = { facePosition: 0, faceIndex: 0 };
         const grouped = Object.groupBy(materialMap, (x) => x[1]);
 
         for (const key of Object.keys(grouped)) {
@@ -222,10 +232,10 @@ export class MeshUtils {
     }
 
     static subFaceOutlines(face: FaceMeshData, index: number) {
-        const mesh = this.subFace(face, index);
+        const mesh = MeshUtils.subFace(face, index);
         if (!mesh) return undefined;
 
-        return this.faceOutline(mesh);
+        return MeshUtils.faceOutline(mesh);
     }
 
     static addEdge(
@@ -251,9 +261,9 @@ export class MeshUtils {
         const pointsMap = new Map<string, { count: number; points: number[] }>();
 
         for (let i = 0; i < face.index.length; i += 3) {
-            this.addEdge(pointsMap, face, face.index[i], face.index[i + 1]);
-            this.addEdge(pointsMap, face, face.index[i + 1], face.index[i + 2]);
-            this.addEdge(pointsMap, face, face.index[i + 2], face.index[i]);
+            MeshUtils.addEdge(pointsMap, face, face.index[i], face.index[i + 1]);
+            MeshUtils.addEdge(pointsMap, face, face.index[i + 1], face.index[i + 2]);
+            MeshUtils.addEdge(pointsMap, face, face.index[i + 2], face.index[i]);
         }
 
         return new Float32Array(

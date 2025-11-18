@@ -3,9 +3,9 @@
 
 import { Serializer } from "../serialize";
 import { MathUtils } from "./mathUtils";
-import { Plane } from "./plane";
+import type { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
-import { XYZ, XYZLike } from "./xyz";
+import { XYZ, type XYZLike } from "./xyz";
 
 /**
  * Matrix in column-major order
@@ -21,21 +21,21 @@ export class Matrix4 {
     }
 
     public determinant(): number {
-        let [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
-        let [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
-        let [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
-        let [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
+        const [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
+        const [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
+        const [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
+        const [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
 
-        let b0 = a00 * a11 - a01 * a10;
-        let b1 = a00 * a12 - a02 * a10;
-        let b2 = a01 * a12 - a02 * a11;
-        let b3 = a20 * a31 - a21 * a30;
-        let b4 = a20 * a32 - a22 * a30;
-        let b5 = a21 * a32 - a22 * a31;
-        let b6 = a00 * b5 - a01 * b4 + a02 * b3;
-        let b7 = a10 * b5 - a11 * b4 + a12 * b3;
-        let b8 = a20 * b2 - a21 * b1 + a22 * b0;
-        let b9 = a30 * b2 - a31 * b1 + a32 * b0;
+        const b0 = a00 * a11 - a01 * a10;
+        const b1 = a00 * a12 - a02 * a10;
+        const b2 = a01 * a12 - a02 * a11;
+        const b3 = a20 * a31 - a21 * a30;
+        const b4 = a20 * a32 - a22 * a30;
+        const b5 = a21 * a32 - a22 * a31;
+        const b6 = a00 * b5 - a01 * b4 + a02 * b3;
+        const b7 = a10 * b5 - a11 * b4 + a12 * b3;
+        const b8 = a20 * b2 - a21 * b1 + a22 * b0;
+        const b9 = a30 * b2 - a31 * b1 + a32 * b0;
 
         return a13 * b6 - a03 * b7 + a33 * b8 - a23 * b9;
     }
@@ -45,7 +45,7 @@ export class Matrix4 {
     }
 
     public add(other: Matrix4): Matrix4 {
-        let result = new Matrix4();
+        const result = new Matrix4();
         for (let index = 0; index < 16; index++) {
             result._array[index] = this._array[index] + other._array[index];
         }
@@ -53,22 +53,22 @@ export class Matrix4 {
     }
 
     public invert(): Matrix4 | undefined {
-        let [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
-        let [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
-        let [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
-        let [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
-        let b00 = a00 * a11 - a01 * a10;
-        let b01 = a00 * a12 - a02 * a10;
-        let b02 = a00 * a13 - a03 * a10;
-        let b03 = a01 * a12 - a02 * a11;
-        let b04 = a01 * a13 - a03 * a11;
-        let b05 = a02 * a13 - a03 * a12;
-        let b06 = a20 * a31 - a21 * a30;
-        let b07 = a20 * a32 - a22 * a30;
-        let b08 = a20 * a33 - a23 * a30;
-        let b09 = a21 * a32 - a22 * a31;
-        let b10 = a21 * a33 - a23 * a31;
-        let b11 = a22 * a33 - a23 * a32;
+        const [a00, a01, a02, a03] = [this._array[0], this._array[1], this._array[2], this._array[3]];
+        const [a10, a11, a12, a13] = [this._array[4], this._array[5], this._array[6], this._array[7]];
+        const [a20, a21, a22, a23] = [this._array[8], this._array[9], this._array[10], this._array[11]];
+        const [a30, a31, a32, a33] = [this._array[12], this._array[13], this._array[14], this._array[15]];
+        const b00 = a00 * a11 - a01 * a10;
+        const b01 = a00 * a12 - a02 * a10;
+        const b02 = a00 * a13 - a03 * a10;
+        const b03 = a01 * a12 - a02 * a11;
+        const b04 = a01 * a13 - a03 * a11;
+        const b05 = a02 * a13 - a03 * a12;
+        const b06 = a20 * a31 - a21 * a30;
+        const b07 = a20 * a32 - a22 * a30;
+        const b08 = a20 * a33 - a23 * a30;
+        const b09 = a21 * a32 - a22 * a31;
+        const b10 = a21 * a33 - a23 * a31;
+        const b11 = a22 * a33 - a23 * a32;
 
         let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
         if (det === 0) return undefined;
@@ -118,7 +118,7 @@ export class Matrix4 {
     }
 
     public static fromArray(array: ArrayLike<number>): Matrix4 {
-        let result = new Matrix4();
+        const result = new Matrix4();
         for (let index = 0; index < 16; index++) {
             result._array[index] = array[index];
         }
@@ -136,12 +136,12 @@ export class Matrix4 {
     }
 
     public static fromEuler(x: number, y: number, z: number): Matrix4 {
-        let cx = Math.cos(x);
-        let sx = Math.sin(x);
-        let cy = Math.cos(y);
-        let sy = Math.sin(y);
-        let cz = Math.cos(z);
-        let sz = Math.sin(z);
+        const cx = Math.cos(x);
+        const sx = Math.sin(x);
+        const cy = Math.cos(y);
+        const sy = Math.sin(y);
+        const cz = Math.cos(z);
+        const sz = Math.sin(z);
         return Matrix4.fromArray([
             cy * cz,
             cx * sz + sx * sy * cz,
@@ -178,7 +178,7 @@ export class Matrix4 {
     }
 
     public static createMirrorWithPlane(plane: Plane): Matrix4 {
-        let d = -plane.origin.dot(plane.normal);
+        const d = -plane.origin.dot(plane.normal);
         const x = plane.normal.x;
         const y = plane.normal.y;
         const z = plane.normal.z;
@@ -206,7 +206,7 @@ export class Matrix4 {
     }
 
     public transpose(): Matrix4 {
-        let result = new Matrix4();
+        const result = new Matrix4();
         result._array[0] = this._array[0];
         result._array[1] = this._array[4];
         result._array[2] = this._array[8];
@@ -231,24 +231,24 @@ export class Matrix4 {
     }
 
     ofPoints(points: ArrayLike<number>): number[] {
-        let result: number[] = [];
+        const result: number[] = [];
         for (let i = 0; i < points.length / 3; i++) {
-            let x =
+            const x =
                 points[3 * i] * this._array[0] +
                 points[3 * i + 1] * this._array[4] +
                 points[3 * i + 2] * this._array[8] +
                 this._array[12];
-            let y =
+            const y =
                 points[3 * i] * this._array[1] +
                 points[3 * i + 1] * this._array[5] +
                 points[3 * i + 2] * this._array[9] +
                 this._array[13];
-            let z =
+            const z =
                 points[3 * i] * this._array[2] +
                 points[3 * i + 1] * this._array[6] +
                 points[3 * i + 2] * this._array[10] +
                 this._array[14];
-            let w =
+            const w =
                 points[3 * i] * this._array[3] +
                 points[3 * i + 1] * this._array[7] +
                 points[3 * i + 2] * this._array[11] +
@@ -259,27 +259,27 @@ export class Matrix4 {
     }
 
     public ofPoint(point: XYZLike): XYZ {
-        let result = this.ofPoints([point.x, point.y, point.z]);
+        const result = this.ofPoints([point.x, point.y, point.z]);
         return new XYZ(result[0], result[1], result[2]);
     }
 
     public ofVector(vector: XYZLike): XYZ {
-        let result = this.ofVectors([vector.x, vector.y, vector.z]);
+        const result = this.ofVectors([vector.x, vector.y, vector.z]);
         return new XYZ(result[0], result[1], result[2]);
     }
 
     public ofVectors(vectors: ArrayLike<number>): number[] {
-        let result: number[] = [];
+        const result: number[] = [];
         for (let i = 0; i < vectors.length / 3; i++) {
-            let x =
+            const x =
                 vectors[3 * i] * this._array[0] +
                 vectors[3 * i + 1] * this._array[4] +
                 vectors[3 * i + 2] * this._array[8];
-            let y =
+            const y =
                 vectors[3 * i] * this._array[1] +
                 vectors[3 * i + 1] * this._array[5] +
                 vectors[3 * i + 2] * this._array[9];
-            let z =
+            const z =
                 vectors[3 * i] * this._array[2] +
                 vectors[3 * i + 1] * this._array[6] +
                 vectors[3 * i + 2] * this._array[10];
@@ -310,7 +310,7 @@ export class Matrix4 {
             m33 = m[10];
 
         let pitch = 0;
-        let yaw = Math.asin(MathUtils.clamp(m13, -1, 1));
+        const yaw = Math.asin(MathUtils.clamp(m13, -1, 1));
         let roll = 0;
 
         if (Math.abs(m13) < 0.9999999) {

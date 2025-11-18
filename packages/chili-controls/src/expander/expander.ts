@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18nKeys, Localize } from "chili-core";
-import style from "./expander.module.css";
+import { type I18nKeys, Localize } from "chili-core";
 import { div, label, setSVGIcon, svg } from "../controls";
+import style from "./expander.module.css";
 
 export class Expander extends HTMLElement {
     private _isExpanded = true;

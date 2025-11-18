@@ -5,24 +5,24 @@ import {
     AsyncController,
     BoundingBox,
     CancelableCommand,
+    command,
     EditableShapeNode,
-    GeometryNode,
+    type GeometryNode,
     I18n,
-    ICurve,
-    IDisposable,
-    IDocument,
-    IEdge,
-    IShape,
-    IShapeFilter,
-    ITrimmedCurve,
-    IView,
-    IVisualGeometry,
-    ShapeNode,
+    type ICurve,
+    type IDisposable,
+    type IDocument,
+    type IEdge,
+    type IShape,
+    type IShapeFilter,
+    type ITrimmedCurve,
+    type IView,
+    type IVisualGeometry,
+    type ShapeNode,
     ShapeType,
     Transaction,
     VisualConfig,
-    VisualShapeData,
-    command,
+    type VisualShapeData,
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { ShapeSelectionHandler } from "chili-vis";
@@ -33,7 +33,7 @@ import { ShapeSelectionHandler } from "chili-vis";
 })
 export class Trim extends CancelableCommand {
     protected override async executeAsync() {
-        let transaction = new Transaction(this.document, I18n.translate("command.modify.trim"));
+        const transaction = new Transaction(this.document, I18n.translate("command.modify.trim"));
         transaction.start();
         try {
             await this.trimAsync();
@@ -50,7 +50,7 @@ export class Trim extends CancelableCommand {
 
         while (!this.isCompleted) {
             this.controller = new AsyncController();
-            let handler = new PickTrimEdgeEventHandler(this.document, this.controller);
+            const handler = new PickTrimEdgeEventHandler(this.document, this.controller);
             await this.document.selection.pickAsync(
                 handler,
                 "prompt.select.edges",
@@ -67,10 +67,10 @@ export class Trim extends CancelableCommand {
     }
 
     private trimEdge(selected: TrimEdge) {
-        let model = this.document.visual.context.getNode(selected.edge.owner);
-        let materialId = (model as GeometryNode)?.materialId;
+        const model = this.document.visual.context.getNode(selected.edge.owner);
+        const materialId = (model as GeometryNode)?.materialId;
         selected.segments.retainSegments.forEach((segment) => {
-            let newEdge = selected.curve.trim(segment.start, segment.end).makeEdge();
+            const newEdge = selected.curve.trim(segment.start, segment.end).makeEdge();
             model?.parent?.add(new EditableShapeNode(this.document, model.name, newEdge, materialId));
         });
         model?.parent?.remove(model);
@@ -117,12 +117,12 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
 
         const box = BoundingBox.transformed(detecteds[0].owner.boundingBox()!, detecteds[0].transform);
-        const edges = this.filterByBoundingBox(box, view, detecteds[0].shape.id);
+        const edges = this.filterByBoundingBox(box, view, detecteds[0].shape);
         const edge = detecteds[0].shape.transformedMul(detecteds[0].transform) as IEdge;
         this.releaseStack.add(edge);
 
-        let segments = findSegments(edge.curve, edge, edges, detecteds);
-        let mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
+        const segments = findSegments(edge.curve, edge, edges, detecteds);
+        const mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
         mesh.lineWidth = 3;
         this.highlightedEdge = view.document.visual.highlighter.highlightMesh(mesh);
@@ -148,14 +148,14 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         return this.#selected ? 1 : 0;
     }
 
-    private filterByBoundingBox(box: BoundingBox, view: IView, currentId: string) {
-        let boundingBox = BoundingBox.expand(box, 1e-3);
+    private filterByBoundingBox(box: BoundingBox, view: IView, currentShape: IShape) {
+        const boundingBox = BoundingBox.expand(box, 1e-3);
         return view.document.visual.context
             .boundingBoxIntersectFilter(boundingBox, new EdgeFilter())
             .map((x) => {
                 const node = (x as IVisualGeometry)?.geometryNode;
                 const shape = (node as ShapeNode)?.shape?.value;
-                if (!shape || shape?.id === currentId) return undefined;
+                if (!shape || shape === currentShape) return undefined;
                 const edge = shape.transformedMul(node.worldTransform()) as IEdge;
                 this.releaseStack.add(edge);
                 return edge;
@@ -178,7 +178,7 @@ function findSegments(curve: ITrimmedCurve, edge: IEdge, otherEdges: IEdge[], de
 
     if (intersections.length === 2) return allSegment(intersections);
 
-    let parameter = curve.parameter(detecteds[0].point!, 5)!;
+    const parameter = curve.parameter(detecteds[0].point!, 5)!;
     for (let i = 1; i < intersections.length; i++) {
         if (parameter < intersections[i]) {
             if (i === 1) {

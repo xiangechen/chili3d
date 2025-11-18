@@ -2,20 +2,20 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
     I18n,
-    IEdge,
-    IFace,
-    IShape,
-    IWire,
+    type IEdge,
+    type IFace,
+    type IShape,
+    type IWire,
     JoinType,
-    ShapeMeshData,
+    type ShapeMeshData,
     ShapeType,
-    XYZ,
-    command,
+    type XYZ,
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
-import { IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
+import { type IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
@@ -39,7 +39,7 @@ export class OffsetCommand extends MultistepCommand {
         return [
             new SelectShapeStep(ShapeType.Edge | ShapeType.Wire | ShapeType.Face, "prompt.select.shape"),
             new LengthAtAxisStep("common.length", () => {
-                let ax = this.getAxis();
+                const ax = this.getAxis();
                 return {
                     point: ax.point,
                     direction: ax.direction,
@@ -53,11 +53,11 @@ export class OffsetCommand extends MultistepCommand {
         ax: { point: XYZ; direction: XYZ; normal: XYZ },
         point: XYZ | undefined,
     ): ShapeMeshData[] {
-        let res: ShapeMeshData[] = [this.meshPoint(ax.point)];
+        const res: ShapeMeshData[] = [this.meshPoint(ax.point)];
         if (point !== undefined) {
             res.push(this.meshLine(ax.point, point));
-            let distance = point.sub(ax.point).dot(ax.direction);
-            let shape = this.createOffsetShape(ax.normal, distance);
+            const distance = point.sub(ax.point).dot(ax.direction);
+            const shape = this.createOffsetShape(ax.normal, distance);
             if (shape.isOk) {
                 res.push(shape.value.edgesMeshPosition());
             }
@@ -66,8 +66,8 @@ export class OffsetCommand extends MultistepCommand {
     }
 
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
-        let start = this.stepDatas[0].shapes[0].point!;
-        let shape = this.transformdFirstShape(this.stepDatas[0]);
+        const start = this.stepDatas[0].shapes[0].point!;
+        const shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return this.getEdgeAxis(shape as IEdge, start);
         }
@@ -117,7 +117,7 @@ export class OffsetCommand extends MultistepCommand {
     }
 
     private createOffsetShape(normal: XYZ, distance: number) {
-        let shape = this.transformdFirstShape(this.stepDatas[0]);
+        const shape = this.transformdFirstShape(this.stepDatas[0]);
         if (shape.shapeType === ShapeType.Edge) {
             return (shape as IEdge).offset(distance, normal);
         }

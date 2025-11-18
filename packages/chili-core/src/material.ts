@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "./document";
+import type { IDocument } from "./document";
 import { HistoryObservable, Id } from "./foundation";
 import { XY } from "./math";
 import { Property } from "./property";
@@ -120,7 +120,7 @@ export class Material extends HistoryObservable {
     }
 
     clone(): Material {
-        let material = new Material(this.document, `${this.name} clone`, this.color);
+        const material = new Material(this.document, `${this.name} clone`, this.color);
         material.setPrivateValue("map", this.map);
 
         return material;

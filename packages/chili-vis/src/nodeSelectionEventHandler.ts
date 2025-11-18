@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
-    IDocument,
-    INode,
-    INodeFilter,
-    IView,
-    IVisualObject,
+    type AsyncController,
+    type IDocument,
+    type INode,
+    type INodeFilter,
+    type IView,
+    type IVisualObject,
     ShapeType,
-    VisualNode,
+    type VisualNode,
     VisualState,
 } from "chili-core";
 import { SelectionHandler } from "./selectionEventHandler";
@@ -85,7 +85,7 @@ export class NodeSelectionHandler extends SelectionHandler {
     }
 
     protected override setHighlight(view: IView, event: PointerEvent) {
-        let detecteds = this.getDetecteds(view, event);
+        const detecteds = this.getDetecteds(view, event);
         this.highlightDetecteds(view, detecteds);
     }
 

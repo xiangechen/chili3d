@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ColorConverter, div, input, label } from "chili-controls";
-import { Binding, IDocument, Localize, Property, PubSub, Transaction } from "chili-core";
+import { Binding, type IDocument, Localize, type Property, PubSub, Transaction } from "chili-core";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";

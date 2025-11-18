@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument, Plane } from "chili-core";
+import { type IDocument, Plane } from "chili-core";
 import * as THREE from "three";
 import { ThreeHighlighter } from "../src/threeHighlighter";
 import { ThreeView } from "../src/threeView";
-import { ThreeVisualContext } from "../src/threeVisualContext";
+import type { ThreeVisualContext } from "../src/threeVisualContext";
 
 class TestWebGLRenderer {
     constructor(readonly domElement = document.createElement("canvas")) {}
@@ -70,7 +70,7 @@ export class TestView extends ThreeView {
     }
 
     protected override initRenderer() {
-        let render = new TestWebGLRenderer() as any;
+        const render = new TestWebGLRenderer() as any;
         render.setSize(container.clientWidth, container.clientHeight);
         container.appendChild(render.domElement);
         return render;

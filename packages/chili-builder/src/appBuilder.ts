@@ -4,18 +4,18 @@
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
     I18n,
-    IApplication,
-    IDataExchange,
-    IDocument,
-    INode,
-    IService,
-    IShapeFactory,
-    IStorage,
-    IVisualFactory,
-    IWindow,
+    type IApplication,
+    type IDataExchange,
+    type IDocument,
+    type INode,
+    type IService,
+    type IShapeFactory,
+    type IStorage,
+    type IVisualFactory,
+    type IWindow,
     Logger,
 } from "chili-core";
-import { IAdditionalModule } from "./additionalModule";
+import type { IAdditionalModule } from "./additionalModule";
 import { DefaultDataExchange } from "./defaultDataExchange";
 
 export class AppBuilder {
@@ -30,7 +30,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing IndexedDBStorage");
 
-            let db = await import("chili-storage");
+            const db = await import("chili-storage");
             this._storage = new db.IndexedDBStorage();
         });
         return this;
@@ -40,7 +40,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing wasm occ");
 
-            let wasm = await import("chili-wasm");
+            const wasm = await import("chili-wasm");
             await wasm.initWasm();
             this._shapeFactory = new wasm.ShapeFactory();
         });
@@ -51,7 +51,7 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing three");
 
-            let three = await import("chili-three");
+            const three = await import("chili-three");
             this._visualFactory = new three.ThreeVisulFactory();
         });
         return this;
@@ -63,7 +63,7 @@ export class AppBuilder {
 
             this.loadAdditionalI18n();
 
-            let ui = await import("chili-ui");
+            const ui = await import("chili-ui");
             const app = document.getElementById("app") as HTMLElement;
             this._window = new ui.MainWindow(await this.getRibbonTabs(), "iconfont.js", app);
         });
@@ -76,7 +76,7 @@ export class AppBuilder {
     }
 
     async getRibbonTabs() {
-        let defaultRibbon = await import("./ribbon");
+        const defaultRibbon = await import("./ribbon");
         return defaultRibbon.DefaultRibbon;
     }
 
@@ -86,7 +86,7 @@ export class AppBuilder {
         }
         this.ensureNecessary();
 
-        let app = this.createApp();
+        const app = this.createApp();
         await this._window?.init(app);
 
         this.loadAdditionalCommands();

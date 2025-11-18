@@ -1,14 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IMeshExporter, Result, VisualNode } from "chili-core";
+import { type IMeshExporter, Result, type VisualNode } from "chili-core";
 import { Group, Mesh, Object3D } from "three";
+import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter";
 import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter";
-import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeMeshExporter implements IMeshExporter {
     constructor(readonly content: ThreeVisualContext) {}

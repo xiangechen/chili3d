@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { br, div, img, label } from "chili-controls";
-import { IApplication, ICommand, PubSub, command } from "chili-core";
+import { command, type IApplication, type ICommand, PubSub } from "chili-core";
 
 @command({
     key: "wechat.group",

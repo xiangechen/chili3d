@@ -8,14 +8,14 @@ import {
     EdgeMeshData,
     GeometryNode,
     LineType,
-    Matrix4,
+    type Matrix4,
     MeshNode,
     Property,
     PubSub,
     Transaction,
     VisualConfig,
     VisualNode,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 

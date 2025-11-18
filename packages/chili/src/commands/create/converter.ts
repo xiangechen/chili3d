@@ -4,22 +4,22 @@
 import {
     AsyncController,
     CancelableCommand,
+    command,
     EditableShapeNode,
-    GeometryNode,
-    IDocument,
-    IEdge,
-    IFace,
-    INode,
-    IShape,
-    IShapeFilter,
-    IShell,
+    type GeometryNode,
+    type IDocument,
+    type IEdge,
+    type IFace,
+    type INode,
+    type IShape,
+    type IShapeFilter,
+    type IShell,
     PubSub,
     Result,
-    ShapeNode,
+    type ShapeNode,
     ShapeNodeFilter,
     ShapeType,
     Transaction,
-    command,
 } from "chili-core";
 import { FaceNode } from "../../bodys/face";
 import { WireNode } from "../../bodys/wire";
@@ -56,7 +56,7 @@ abstract class ConvertCommand extends CancelableCommand {
 
     async getOrPickModels(document: IDocument) {
         const filter = this.shapeFilter();
-        let models = this._getSelectedModels(document, filter);
+        const models = this._getSelectedModels(document, filter);
         document.selection.clearSelection();
         if (models.length > 0) return models;
 
@@ -76,7 +76,7 @@ abstract class ConvertCommand extends CancelableCommand {
             .map((x) => x as ShapeNode)
             .filter((x) => {
                 if (x === undefined) return false;
-                let shape = x.shape.value;
+                const shape = x.shape.value;
                 if (shape === undefined) return false;
                 if (filter !== undefined && !filter.allow(shape)) return false;
                 return true;

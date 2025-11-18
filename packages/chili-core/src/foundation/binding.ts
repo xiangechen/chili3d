@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IConverter } from "./converter";
-import { IPropertyChanged } from "./observer";
+import type { IConverter } from "./converter";
+import type { IPropertyChanged } from "./observer";
 
 const registry = new FinalizationRegistry((binding: PathBinding<IPropertyChanged>) => {
     binding.removeBinding();
@@ -61,9 +61,7 @@ export class PathBinding<T extends IPropertyChanged = IPropertyChanged> {
         }
 
         if (
-            this._oldPathObjects.some(
-                (element) => element.property === property && element.source === source,
-            )
+            this._oldPathObjects.some((element) => element.property === property && element.source === source)
         ) {
             return true;
         }

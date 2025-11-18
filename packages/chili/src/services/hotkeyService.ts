@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CommandKeys, IApplication, IService, Logger, PubSub } from "chili-core";
+import { type CommandKeys, type IApplication, type IService, Logger, PubSub } from "chili-core";
 
 export interface Keys {
     key: string;
@@ -56,8 +56,8 @@ export class HotkeyService implements IService {
         if (!this.canHandleKey(e)) return;
 
         e.preventDefault();
-        let visual = this.app?.activeView?.document?.visual;
-        let view = this.app?.activeView;
+        const visual = this.app?.activeView?.document?.visual;
+        const view = this.app?.activeView;
         if (view && visual) {
             if (visual.eventHandler.isEnabled) visual.eventHandler.keyDown(view, e);
             if (visual.viewHandler.isEnabled) visual.viewHandler.keyDown(view, e);
@@ -69,7 +69,7 @@ export class HotkeyService implements IService {
         if (!this.canHandleKey(e)) return;
 
         e.preventDefault();
-        let command = this.getCommand(e);
+        const command = this.getCommand(e);
         if (command !== undefined) {
             PubSub.default.pub("executeCommand", command);
         }
@@ -84,17 +84,17 @@ export class HotkeyService implements IService {
     }
 
     map(command: CommandKeys, keys: Keys) {
-        let key = this.getKey(keys);
+        const key = this.getKey(keys);
         this._keyMap.set(key, command);
     }
 
     getCommand(keys: Keys): CommandKeys | undefined {
-        let key = this.getKey(keys);
+        const key = this.getKey(keys);
         return this._keyMap.get(key);
     }
 
     addMap(map: HotkeyMap) {
-        let keys = Object.keys(map);
+        const keys = Object.keys(map);
         keys.forEach((key) => {
             this._keyMap.set(key, map[key]);
         });

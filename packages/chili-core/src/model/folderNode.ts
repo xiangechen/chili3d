@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Id, Logger, NodeAction } from "../foundation";
 import { Serializer } from "../serialize";
-import { INode, INodeLinkedList, Node } from "./node";
+import { type INode, type INodeLinkedList, Node } from "./node";
 
 @Serializer.register(["document", "name", "id"])
 export class FolderNode extends Node implements INodeLinkedList {
@@ -262,7 +262,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             node.nextSibling = null as any;
         }
         while (next) {
-            let cache = next.nextSibling;
+            const cache = next.nextSibling;
             next.previousSibling = null as any;
             next.nextSibling = null as any;
             next.dispose();

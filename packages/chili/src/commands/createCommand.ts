@@ -1,15 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Property, Transaction } from "chili-core";
+import { type GeometryNode, Property, Transaction } from "chili-core";
 import { MultistepCommand } from "./multistepCommand";
 
-let count = 1;
+const count = 1;
 
 export abstract class CreateCommand extends MultistepCommand {
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            let node = this.geometryNode();
+            const node = this.geometryNode();
             this.document.addNode(node);
             this.document.visual.update();
         });

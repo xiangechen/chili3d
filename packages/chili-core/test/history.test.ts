@@ -17,10 +17,10 @@ describe("test history", () => {
     }
 
     test("test modify history", () => {
-        let obj = new TestClass();
-        let history = new History();
-        let h: PropertyHistoryRecord = new PropertyHistoryRecord(obj, "property", "p1", "p2");
-        let action = new ArrayRecord("test");
+        const obj = new TestClass();
+        const history = new History();
+        const h: PropertyHistoryRecord = new PropertyHistoryRecord(obj, "property", "p1", "p2");
+        const action = new ArrayRecord("test");
         action.records.push(h);
         history.add(action);
         expect(history.undoCount()).toBe(1);
