@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { CollectionAction, type CollectionChangedArgs, ObservableCollection } from "chili-core";
-import { setProperties } from "./controls";
 import type { HTMLProps } from "./htmlProps";
+import { setProperties } from "./utils";
 
 export type CollectionProps<T> = HTMLProps<Collection<T>> & {
     sources: ObservableCollection<T> | Array<T>;
