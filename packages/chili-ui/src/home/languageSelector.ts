@@ -6,10 +6,10 @@ import { Config, I18n } from "chili-core";
 
 export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
     const languages: HTMLOptionElement[] = [];
-    I18n.languages.forEach((language, index) =>
+    I18n.languages.forEach((language) =>
         languages.push(
             option({
-                selected: index === I18n.currentLanguage(),
+                selected: language.code === I18n.currentLanguage(),
                 textContent: language.display,
             }),
         ),
@@ -18,7 +18,7 @@ export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
         {
             onchange: (e) => {
                 const language = (e.target as HTMLSelectElement).selectedIndex;
-                Config.instance.languageIndex = language;
+                Config.instance.language = Array.from(I18n.languages.keys())[language];
             },
             ...props,
         },

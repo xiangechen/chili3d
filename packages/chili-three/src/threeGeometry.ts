@@ -10,11 +10,11 @@ import {
     type ISubShape,
     type IVisualGeometry,
     type Matrix4,
+    MeshUtils,
     type ShapeMeshRange,
     ShapeNode,
     ShapeType,
 } from "chili-core";
-import { MeshUtils } from "chili-geo";
 import { type Material, Mesh, type MeshLambertMaterial } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";

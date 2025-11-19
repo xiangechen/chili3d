@@ -1,7 +1,6 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4 } from "./matrix4";
 import { XYZ, type XYZLike } from "./xyz";
 
 export class Quaternion {
@@ -109,42 +108,7 @@ export class Quaternion {
             };
         }
     }
-    toMatrix4(): Matrix4 {
-        const x2 = this.x * this.x;
-        const y2 = this.y * this.y;
-        const z2 = this.z * this.z;
 
-        const xx2 = x2 * this.x;
-        const xy2 = x2 * this.y;
-        const xz2 = x2 * this.z;
-
-        const yy2 = y2 * this.y;
-        const yz2 = y2 * this.z;
-        const zz2 = z2 * this.z;
-
-        const sy2 = y2 * this.w;
-        const sz2 = z2 * this.w;
-        const sx2 = x2 * this.w;
-
-        return Matrix4.fromArray([
-            1 - yy2 - zz2,
-            xy2 + sz2,
-            xz2 - sy2,
-            0,
-            xy2 - sz2,
-            1 - xx2 - zz2,
-            yz2 + sx2,
-            0,
-            xz2 + sy2,
-            yz2 - sx2,
-            1 - xx2 - yy2,
-            0,
-            0,
-            0,
-            0,
-            1,
-        ]);
-    }
     static fromEuler(roll: number, pitch: number, yaw: number): Quaternion {
         const halfRoll = roll * 0.5;
         const halfPitch = pitch * 0.5;

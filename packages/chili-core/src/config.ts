@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ObjectStorage, Observable } from "./foundation";
-import { I18n } from "./i18n";
+import { I18n, type LanguageCode } from "./i18n";
 import { type SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
@@ -84,11 +84,11 @@ export class Config extends Observable {
     }
 
     @Serializer.serialze()
-    get languageIndex() {
-        return this.getPrivateValue("languageIndex");
+    get language() {
+        return this.getPrivateValue("language", I18n.defaultLanguage());
     }
-    set languageIndex(value: number) {
-        this.setProperty("languageIndex", value, () => {
+    set language(value: LanguageCode) {
+        this.setProperty("language", value, () => {
             I18n.changeLanguage(value);
             this.saveToStorage();
         });
@@ -147,10 +147,12 @@ export class Config extends Observable {
                 this.setPrivateValue(thisKey, properties[thisKey]);
             }
         } else {
-            this.setPrivateValue("languageIndex", I18n.defaultLanguageIndex());
+            this.setPrivateValue("language", I18n.currentLanguage());
             this.setPrivateValue("navigation3DIndex", 0);
             this.setPrivateValue("themeMode", "system");
         }
+
+        I18n.changeLanguage(this.language);
 
         // Apply theme on startup
         this.applyTheme();

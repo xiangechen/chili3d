@@ -1,13 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MeshUtils } from "chili-geo";
 import type { IDocument } from "../document";
 import { Id, PropertyHistoryRecord, Transaction } from "../foundation";
 import { BoundingBox } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
 import type { FaceMeshData, IShapeMeshData } from "../shape";
+import { MeshUtils } from "../visual/meshUtils";
 import { VisualNode } from "./visualNode";
 
 @Serializer.register(["faceIndex", "materialIndex"])

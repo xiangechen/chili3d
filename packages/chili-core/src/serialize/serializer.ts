@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
-import { Observable } from "../foundation";
+import { Observable } from "../foundation/observer";
 
 export interface ISerialize {
     serialize(): Serialized;
