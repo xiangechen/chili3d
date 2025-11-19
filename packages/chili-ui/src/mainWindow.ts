@@ -14,7 +14,6 @@ import {
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
 import { Home } from "./home";
-import "./mainWindow.module.css";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
@@ -55,6 +54,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         }
         this._inited = true;
 
+        await this.loadCss();
         await this.fetchIconFont();
 
         this._initHome(app);
@@ -62,7 +62,11 @@ export class MainWindow extends HTMLElement implements IWindow {
         this._initSubs(app);
     }
 
-    async fetchIconFont() {
+    protected async loadCss() {
+        await import("./mainWindow.module.css");
+    }
+
+    protected async fetchIconFont() {
         const response = await fetch(this.iconFont);
         const text = await response.text();
 
