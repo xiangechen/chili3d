@@ -1,7 +1,6 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MeshUtils } from "chili-geo";
 import { VisualConfig } from "../config";
 import type { IDocument } from "../document";
 import { Id, type IEqualityComparer, PubSub, Result } from "../foundation";
@@ -9,6 +8,7 @@ import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, type IShape, type IShapeMeshData, LineType } from "../shape";
+import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
 
 const SHAPE_UNDEFINED = "Shape not initialized";

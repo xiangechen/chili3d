@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, type IHighlighter, ShapeMeshData, ShapeType, VisualState } from "chili-core";
-import { MeshUtils } from "chili-geo";
+import { IDisposable, type IHighlighter, MeshUtils, ShapeMeshData, ShapeType, VisualState } from "chili-core";
 import { Group, Mesh, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";

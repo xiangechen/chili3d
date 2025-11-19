@@ -50,6 +50,10 @@ export default defineConfig({
     },
     plugins: [
         new ForkTsCheckerWebpackPlugin(),
+        new rspack.CircularDependencyRspackPlugin({
+            failOnError: true,
+            exclude: /node_modules/,
+        }),
         new rspack.CopyRspackPlugin({
             patterns: [
                 {

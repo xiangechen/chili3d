@@ -374,4 +374,41 @@ export class Matrix4 {
 
         return Matrix4.fromArray(te);
     }
+
+    public static fromQuaternion(qua: Quaternion): Matrix4 {
+        const x2 = qua.x * qua.x;
+        const y2 = qua.y * qua.y;
+        const z2 = qua.z * qua.z;
+
+        const xx2 = x2 * qua.x;
+        const xy2 = x2 * qua.y;
+        const xz2 = x2 * qua.z;
+
+        const yy2 = y2 * qua.y;
+        const yz2 = y2 * qua.z;
+        const zz2 = z2 * qua.z;
+
+        const sy2 = y2 * qua.w;
+        const sz2 = z2 * qua.w;
+        const sx2 = x2 * qua.w;
+
+        return Matrix4.fromArray([
+            1 - yy2 - zz2,
+            xy2 + sz2,
+            xz2 - sy2,
+            0,
+            xy2 - sz2,
+            1 - xx2 - zz2,
+            yz2 + sx2,
+            0,
+            xz2 + sy2,
+            yz2 - sx2,
+            1 - xx2 - yy2,
+            0,
+            0,
+            0,
+            0,
+            1,
+        ]);
+    }
 }

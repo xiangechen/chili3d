@@ -1,7 +1,6 @@
 // Part of the Chili3d Project, under the AGPL-3.0 Licensettt.
 // See LICENSE file in the project root for full license information.
 
-import { MeshUtils } from "chili-geo";
 import type { IDocument } from "../document";
 import { Id } from "../foundation";
 import type { I18nKeys } from "../i18n";
@@ -9,6 +8,7 @@ import { BoundingBox, Matrix4, type XYZ } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, LineType, Mesh } from "../shape";
+import { MeshUtils } from "../visual/meshUtils";
 import { MeshNode } from "./meshNode";
 import type { INode } from "./node";
 import { ShapeNode } from "./shapeNode";
