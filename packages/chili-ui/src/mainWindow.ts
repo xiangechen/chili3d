@@ -4,7 +4,9 @@
 import {
     type Button,
     type CommandKeys,
+    Config,
     debounce,
+    I18n,
     type I18nKeys,
     type IApplication,
     type IWindow,
@@ -54,12 +56,15 @@ export class MainWindow extends HTMLElement implements IWindow {
         }
         this._inited = true;
 
+        I18n.changeLanguage(Config.instance.language);
+
         await this.loadCss();
         await this.fetchIconFont();
-
+        
+        this.applyTheme();
         this._initHome(app);
         this._initEditor(app);
-        this._initSubs(app);
+        this._initEventHandlers(app);
     }
 
     protected async loadCss() {
@@ -73,7 +78,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         new Function(text)();
     }
 
-    private _initSubs(app: IApplication) {
+    private _initEventHandlers(app: IApplication) {
         const displayHome = debounce(this.displayHome, 100);
         PubSub.default.sub("showToast", Toast.info);
         PubSub.default.sub("displayError", Toast.error);
@@ -81,6 +86,13 @@ export class MainWindow extends HTMLElement implements IWindow {
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));
+
+        Config.instance.onPropertyChanged(this.handleConfigChanged);
+        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            if (Config.instance.themeMode === "system") {
+                this.applyTheme();
+            }
+        });
     }
 
     private readonly displayHome = (app: IApplication, displayHome: boolean) => {
@@ -110,9 +122,33 @@ export class MainWindow extends HTMLElement implements IWindow {
         this._editor?.registerRibbonCommand(tabName, groupName, command);
     }
 
-    setTheme(theme: "light" | "dark") {
+    private applyTheme() {
+        const themeMode = Config.instance.themeMode;
+        let theme: "light" | "dark";
+
+        if (themeMode === "system") {
+            theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        } else {
+            theme = themeMode;
+        }
+
         document.documentElement.setAttribute("theme", theme);
     }
+
+    private readonly handleConfigChanged = (prop: keyof Config) => {
+        if (prop === "themeMode") {
+            this.applyTheme();
+        }
+
+        if (prop === "language") {
+            I18n.changeLanguage(Config.instance.language);
+        }
+
+        const shouldSaveProps: (keyof Config)[] = ["themeMode", "language", "navigation3DIndex"];
+        if (shouldSaveProps.includes(prop)) {
+            Config.instance.saveToStorage();
+        }
+    };
 }
 
 customElements.define("chili3d-main-window", MainWindow);
