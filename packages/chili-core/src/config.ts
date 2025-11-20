@@ -29,14 +29,12 @@ export class VisualItemConfig extends Observable {
         this.setProperty("defaultEdgeColor", value);
     }
 
-    setTheme(theme: "light" | "dark") {
+    applyTheme(theme: "light" | "dark") {
         this.defaultEdgeColor = theme === "light" ? 0x333333 : 0xeeeeee;
     }
 }
 
 export const VisualConfig = new VisualItemConfig();
-
-const CONFIG_STORAGE_KEY = "config";
 
 export class Config extends Observable {
     static readonly #instance = new Config();
@@ -88,20 +86,15 @@ export class Config extends Observable {
         return this.getPrivateValue("language", I18n.defaultLanguage());
     }
     set language(value: LanguageCode) {
-        this.setProperty("language", value, () => {
-            I18n.changeLanguage(value);
-            this.saveToStorage();
-        });
+        this.setProperty("language", value);
     }
 
     @Serializer.serialze()
     get navigation3DIndex() {
-        return this.getPrivateValue("navigation3DIndex");
+        return this.getPrivateValue("navigation3DIndex", 0);
     }
     set navigation3DIndex(value: number) {
-        this.setProperty("navigation3DIndex", value, () => {
-            this.saveToStorage();
-        });
+        this.setProperty("navigation3DIndex", value);
     }
 
     @Serializer.serialze()
@@ -110,58 +103,43 @@ export class Config extends Observable {
     }
     set themeMode(value: "light" | "dark" | "system") {
         this.setProperty("themeMode", value, () => {
-            this.applyTheme();
-            this.saveToStorage();
+            if (value === "system") {
+                VisualConfig.applyTheme(
+                    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+                );
+            } else {
+                VisualConfig.applyTheme(value);
+            }
         });
     }
 
-    private applyTheme() {
-        const themeMode = this.themeMode;
-        let theme: "light" | "dark";
-
-        if (themeMode === "system") {
-            theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        } else {
-            theme = themeMode;
-        }
-
-        document.documentElement.setAttribute("theme", theme);
-        VisualConfig.setTheme(theme);
+    #storageKey: string = "config";
+    get storageKey() {
+        return this.#storageKey;
     }
-
-    private saveToStorage() {
-        const json = Serializer.serializeProperties(this);
-        ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
+    private set storageKey(value: string) {
+        this.#storageKey = value;
     }
 
     private constructor() {
         super();
-        this.init();
     }
 
-    private init() {
-        const properties = ObjectStorage.default.value<SerializedProperties<Config>>(CONFIG_STORAGE_KEY);
-        if (properties) {
-            for (const key in properties) {
-                const thisKey = key as keyof Config;
-                this.setPrivateValue(thisKey, properties[thisKey]);
-            }
-        } else {
-            this.setPrivateValue("language", I18n.currentLanguage());
-            this.setPrivateValue("navigation3DIndex", 0);
-            this.setPrivateValue("themeMode", "system");
+    init(storageKey: string) {
+        this.#storageKey = storageKey;
+        this.readFromStorage();
+    }
+
+    readFromStorage() {
+        const data = ObjectStorage.default.value<SerializedProperties<Config>>(this.storageKey);
+        for (const key in data) {
+            const thisKey = key as keyof Config;
+            this.setPrivateValue(thisKey, (data as any)[key]);
         }
+    }
 
-        I18n.changeLanguage(this.language);
-
-        // Apply theme on startup
-        this.applyTheme();
-
-        // Listen for system theme changes
-        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
-            if (this.themeMode === "system") {
-                this.applyTheme();
-            }
-        });
+    saveToStorage() {
+        const json = Serializer.serializeProperties(this);
+        ObjectStorage.default.setValue(this.storageKey, json);
     }
 }
