@@ -3,6 +3,7 @@
 
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "chili";
 import {
+    Config,
     I18n,
     type IApplication,
     type IDataExchange,
@@ -94,6 +95,11 @@ export class AppBuilder {
         Logger.info("Application build completed");
 
         return app;
+    }
+
+    initConfig() {
+        Config.instance.init("config");
+        return this;
     }
 
     createApp() {
