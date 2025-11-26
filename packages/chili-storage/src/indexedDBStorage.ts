@@ -8,38 +8,30 @@ export class IndexedDBStorage implements IStorage {
 
     async get(database: string, table: string, id: string): Promise<any> {
         const db = await this.open(database, table, this.version);
-        try {
-            return await IndexedDBStorage.get(db, table, id);
-        } finally {
+        return Promise.try(IndexedDBStorage.get, db, table, id).finally(() => {
             db.close();
-        }
+        });
     }
 
     async put(database: string, table: string, id: string, value: any): Promise<boolean> {
         const db = await this.open(database, table, this.version);
-        try {
-            return await IndexedDBStorage.put(db, table, id, value);
-        } finally {
+        return Promise.try(IndexedDBStorage.put, db, table, id, value).finally(() => {
             db.close();
-        }
+        });
     }
 
     async delete(database: string, table: string, id: string): Promise<boolean> {
         const db = await this.open(database, table, this.version);
-        try {
-            return await IndexedDBStorage.delete(db, table, id);
-        } finally {
+        return Promise.try(IndexedDBStorage.delete, db, table, id).finally(() => {
             db.close();
-        }
+        });
     }
 
     async page(database: string, table: string, page: number): Promise<any[]> {
         const db = await this.open(database, table, this.version);
-        try {
-            return await IndexedDBStorage.getPage(db, table, page);
-        } finally {
+        return Promise.try(IndexedDBStorage.getPage, db, table, page).finally(() => {
             db.close();
-        }
+        });
     }
 
     private open(

@@ -43,13 +43,14 @@ export class Transaction {
     static async executeAsync(document: IDocument, name: string, action: () => Promise<void>) {
         const trans = new Transaction(document, name);
         trans.start();
-        try {
+
+        await Promise.try(async () => {
             await action();
             trans.commit();
-        } catch (e) {
+        }).catch((e) => {
             trans.rollback();
             throw e;
-        }
+        });
     }
 
     start(name?: string) {

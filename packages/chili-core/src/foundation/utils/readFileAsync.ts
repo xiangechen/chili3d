@@ -60,12 +60,12 @@ async function readInputedFiles(
         return { fileName: file.name, data };
     });
 
-    try {
+    return Promise.try(async () => {
         const result = await Promise.all(fileDataPromises);
         return Result.ok(result);
-    } catch (error) {
+    }).catch((error) => {
         return Result.err((error as Error).message);
-    }
+    });
 }
 
 function readFileDataAsync(file: File, method: "readAsText" | "readAsDataURL"): Promise<string | null> {
