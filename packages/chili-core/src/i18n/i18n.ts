@@ -1,19 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import en from "./en";
 import type { I18nKeys } from "./keys";
-import ptBr from "./pt-br";
-import zh from "./zh-cn";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
 
-export type LanguageCode = "zh-CN" | "en" | "pt-BR";
-
 export type Locale = {
     display: string;
-    code: LanguageCode;
+    language: string;
     translation: {
         [key in I18nKeys]: string;
     } & {
@@ -34,19 +29,15 @@ export class Localize {
 export type Translation = Record<I18nKeys, string>;
 
 export namespace I18n {
-    export const languages = new Map<LanguageCode, Locale>([
-        ["en", en],
-        ["zh-CN", zh],
-        ["pt-BR", ptBr],
-    ]);
+    const languages = new Map<string, Locale>();
 
-    let _currentLanguage: LanguageCode | undefined;
+    let _currentLanguage: string | undefined;
     export function currentLanguage() {
         _currentLanguage ??= defaultLanguage();
         return _currentLanguage;
     }
 
-    export function defaultLanguage(): LanguageCode {
+    export function defaultLanguage(): string {
         const defaultLanguage = navigator.language.toLowerCase();
         const language = languages.keys().find((key) => key.toLowerCase() === defaultLanguage);
         if (language) {
@@ -56,7 +47,15 @@ export namespace I18n {
         return "en";
     }
 
-    export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
+    export function getLanguages(): Locale[] {
+        return Array.from(languages.values());
+    }
+
+    export function addLanguage(local: Locale) {
+        languages.set(local.language, local);
+    }
+
+    export function combineTranslation(language: string, translations: Record<string, string>) {
         const local = languages.get(language);
         if (local) {
             local.translation = {
@@ -89,7 +88,7 @@ export namespace I18n {
         }
     }
 
-    export function changeLanguage(newLanguage: LanguageCode) {
+    export function changeLanguage(newLanguage: string) {
         if (newLanguage === _currentLanguage) return;
         _currentLanguage = newLanguage;
 
