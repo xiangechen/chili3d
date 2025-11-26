@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Locale } from "./i18n";
+import type { Locale } from "chili-core";
 
 export default {
     display: "简体中文",
-    code: "zh-CN",
+    language: "zh-CN",
     translation: {
         "arc.angle": "角度",
         "arc.start": "起点",

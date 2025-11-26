@@ -5,6 +5,7 @@
     "main": "src/index.ts",
     "devDependencies": {
         "chili": "*",
+        "chili-i18n": "*",
         "chili-three": "*",
         "chili-ui": "*",
         "chili-wasm": "*"
