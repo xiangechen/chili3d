@@ -63,15 +63,16 @@ export class CommandService implements IService {
         const command = new commandCtor();
         this.app.executingCommand = command;
         PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
-        try {
-            await command.execute(this.app);
-        } catch (err) {
-            PubSub.default.pub("displayError", err as string);
-            Logger.error(err);
-        } finally {
-            this._lastCommand = commandName;
-            this.app.executingCommand = undefined;
-        }
+
+        await Promise.try(command.execute.bind(command), this.app)
+            .catch((err) => {
+                PubSub.default.pub("displayError", err as string);
+                Logger.error(err);
+            })
+            .finally(() => {
+                this._lastCommand = commandName;
+                this.app.executingCommand = undefined;
+            });
     }
 
     private async canExecute(commandName: CommandKeys) {

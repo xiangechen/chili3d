@@ -71,19 +71,22 @@ export class Selection implements ISelection, IDisposable {
         PubSub.default.pub("statusBarTip", prompt);
         if (showControl) PubSub.default.pub("showSelectionControl", controller);
 
-        try {
-            await new Promise((resolve, reject) => {
-                controller.onCompleted(resolve);
-                controller.onCancelled(reject);
+        await Promise.try(
+            () =>
+                new Promise((resolve, reject) => {
+                    controller.onCompleted(resolve);
+                    controller.onCancelled(reject);
+                }),
+        )
+            .catch((e) => {
+                Logger.debug("pick status: ", e);
+            })
+            .finally(() => {
+                if (showControl) PubSub.default.pub("clearSelectionControl");
+                PubSub.default.pub("clearStatusBarTip");
+                this.document.visual.eventHandler = oldHandler;
+                PubSub.default.pub("viewCursor", "default");
             });
-        } catch (e) {
-            Logger.debug("pick status: ", e);
-        } finally {
-            if (showControl) PubSub.default.pub("clearSelectionControl");
-            PubSub.default.pub("clearStatusBarTip");
-            this.document.visual.eventHandler = oldHandler;
-            PubSub.default.pub("viewCursor", "default");
-        }
     }
 
     dispose(): void {
