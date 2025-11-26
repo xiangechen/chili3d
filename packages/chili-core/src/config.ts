@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ObjectStorage, Observable } from "./foundation";
-import { I18n, type LanguageCode } from "./i18n";
+import { I18n } from "./i18n";
 import { type SerializedProperties, Serializer } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
@@ -85,7 +85,7 @@ export class Config extends Observable {
     get language() {
         return this.getPrivateValue("language", I18n.defaultLanguage());
     }
-    set language(value: LanguageCode) {
+    set language(value: string) {
         this.setProperty("language", value);
     }
 

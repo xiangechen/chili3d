@@ -14,6 +14,7 @@ import {
     type IStorage,
     type IVisualFactory,
     type IWindow,
+    type Locale,
     Logger,
 } from "chili-core";
 import type { IAdditionalModule } from "./additionalModule";
@@ -26,6 +27,27 @@ export class AppBuilder {
     protected _visualFactory?: IVisualFactory;
     protected _shapeFactory?: IShapeFactory;
     protected _window?: IWindow;
+
+    constructor() {
+        this.initI18n();
+        this.initConfig();
+    }
+
+    protected initConfig() {
+        Config.instance.init("config");
+        return this;
+    }
+
+    protected initI18n() {
+        this._inits.push(async () => {
+            Logger.info("initializing i18n");
+
+            const i18n = await import("chili-i18n");
+            for (const key of Object.keys(i18n)) {
+                I18n.addLanguage((i18n as { [key: string]: Locale })[key]);
+            }
+        });
+    }
 
     useIndexedDB() {
         this._inits.push(async () => {
@@ -97,11 +119,6 @@ export class AppBuilder {
         return app;
     }
 
-    initConfig() {
-        Config.instance.init("config");
-        return this;
-    }
-
     createApp() {
         return new Application({
             storage: this._storage!,
@@ -132,7 +149,7 @@ export class AppBuilder {
     private loadAdditionalI18n() {
         for (const module of this._additionalModules) {
             module.i18n().forEach((local) => {
-                I18n.combineTranslation(local.code, local.translation);
+                I18n.combineTranslation(local.language, local.translation);
             });
         }
     }
