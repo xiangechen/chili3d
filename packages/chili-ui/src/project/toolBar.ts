@@ -52,7 +52,7 @@ export class ToolBar extends HTMLElement {
     private setExpand(expand: boolean) {
         const tree = this.projectView.activeTree();
         if (!tree) return;
-        const first = this.projectView.activeDocument?.rootNode.firstChild;
+        const first = this.projectView.activeDocument?.modelManager.rootNode.firstChild;
         if (first) this.setNodeExpand(tree, first, expand);
     }
 

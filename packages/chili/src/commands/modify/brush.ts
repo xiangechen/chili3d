@@ -12,7 +12,7 @@ import { MultistepCommand } from "../multistepCommand";
 export class AddBrushCommand extends MultistepCommand {
     @Property.define("common.material", { type: "materialId" })
     get materialId(): string {
-        return this.getPrivateValue("materialId", this.document.materials.at(0)?.id);
+        return this.getPrivateValue("materialId", this.document.modelManager.materials.at(0)?.id);
     }
     set materialId(value: string) {
         this.setProperty("materialId", value);

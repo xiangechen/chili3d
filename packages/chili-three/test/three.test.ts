@@ -14,7 +14,7 @@ import { TestView } from "./testView";
 
 describe("three test", () => {
     const doc = new TestDocument();
-    doc.materials.push(new Material(doc, "test", 0x00ff00));
+    doc.modelManager.materials.push(new Material(doc, "test", 0x00ff00));
     const view = new TestView(doc, doc.visual.context);
 
     test("test view", () => {

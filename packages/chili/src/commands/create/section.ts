@@ -16,7 +16,7 @@ export class Section extends MultistepCommand {
         const path = this.transformdFirstShape(this.stepDatas[1]);
         const section = shape.section(path);
         const node = new EditableShapeNode(this.document, I18n.translate("command.create.section"), section);
-        this.document.rootNode.add(node);
+        this.document.modelManager.rootNode.add(node);
         this.document.visual.update();
     }
 

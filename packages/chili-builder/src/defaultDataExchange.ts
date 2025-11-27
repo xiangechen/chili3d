@@ -58,7 +58,7 @@ export class DefaultDataExchange implements IDataExchange {
 
         const node = nodeResult.value;
         node.name = name;
-        document.addNode(node);
+        document.modelManager.addNode(node);
         document.visual.update();
     }
 

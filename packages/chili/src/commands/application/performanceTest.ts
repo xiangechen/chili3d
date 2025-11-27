@@ -29,7 +29,7 @@ export abstract class PerformanceTestCommand implements ICommand {
                         .add(XYZ.unitX.multiply(x * distance))
                         .add(XYZ.unitY.multiply(y * distance))
                         .add(XYZ.unitZ.multiply(z * distance));
-                    this.createShape(document, document.materials.at(0)!, position);
+                    this.createShape(document, document.modelManager.materials.at(0)!, position);
                 }
             }
         }
@@ -59,6 +59,6 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
             this.size * Math.random(),
         ).value;
         const node = new EditableShapeNode(document, `box ${this.index++}`, box, material.id);
-        document.addNode(node);
+        document.modelManager.addNode(node);
     }
 }

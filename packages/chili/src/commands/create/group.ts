@@ -77,7 +77,7 @@ export class GroupCommand extends MultistepCommand {
             }
 
             const component = new Component(definition.name, this.stepDatas[0].nodes!, definition.insert);
-            this.document.components.push(component);
+            this.document.modelManager.components.push(component);
 
             if (definition.convertInstance) {
                 const group = new ComponentNode(
@@ -86,7 +86,7 @@ export class GroupCommand extends MultistepCommand {
                     component.id,
                     component.origin,
                 );
-                this.document.rootNode.add(group);
+                this.document.modelManager.rootNode.add(group);
             }
         });
     }

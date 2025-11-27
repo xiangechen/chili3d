@@ -37,7 +37,7 @@ abstract class ConvertCommand extends CancelableCommand {
             if (!node.isOk) {
                 PubSub.default.pub("showToast", "toast.converter.error");
             } else {
-                this.document.rootNode.add(node.value);
+                this.document.modelManager.rootNode.add(node.value);
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");
             }

@@ -404,12 +404,12 @@ export class ArrayCommand extends MultistepCommand {
         Transaction.execute(this.document, "Array", () => {
             if (this.isGroup) {
                 const component = new Component("Array", nodes);
-                this.document.components.push(component);
-                this.document.addNode(
+                this.document.modelManager.components.push(component);
+                this.document.modelManager.addNode(
                     new ComponentNode(this.document, "Array", component.id, component.origin),
                 );
             } else {
-                this.document.addNode(...nodes);
+                this.document.modelManager.addNode(...nodes);
             }
             this.models?.forEach((model) => {
                 model.parent?.remove(model);

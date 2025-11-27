@@ -160,7 +160,7 @@ export class Application implements IApplication {
         const document = new Document(this, name);
         const lightGray = new Material(document, "LightGray", 0xdedede);
         const deepGray = new Material(document, "DeepGray", 0x898989);
-        document.materials.push(lightGray, deepGray);
+        document.modelManager.materials.push(lightGray, deepGray);
         await this.createActiveView(document);
         return document;
     }

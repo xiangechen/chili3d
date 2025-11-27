@@ -64,7 +64,7 @@ export class MaterialEditor extends HTMLElement {
     private materialsCollection() {
         return collection({
             className: style.materials,
-            sources: this.dataContent.document.materials,
+            sources: this.dataContent.document.modelManager.materials,
             template: (material: Material) => this.material(material),
         });
     }

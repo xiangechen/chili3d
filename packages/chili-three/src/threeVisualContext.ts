@@ -66,8 +66,8 @@ export class ThreeVisualContext implements IVisualContext {
         this.tempShapes = new Group();
         this.cssObjects = new Group();
         scene.add(this.visualShapes, this.tempShapes, this.cssObjects);
-        visual.document.addNodeObserver(this.handleNodeChanged);
-        visual.document.materials.onCollectionChanged(this.onMaterialCollectionChanged);
+        visual.document.modelManager.addNodeObserver(this.handleNodeChanged);
+        visual.document.modelManager.materials.onCollectionChanged(this.onMaterialCollectionChanged);
     }
 
     private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
@@ -164,11 +164,11 @@ export class ThreeVisualContext implements IVisualContext {
         this.visualShapes.traverse((x) => {
             if (IDisposable.isDisposable(x)) x.dispose();
         });
-        this.visual.document.materials.forEach((x) =>
+        this.visual.document.modelManager.materials.forEach((x) =>
             x.removePropertyChanged(this.onMaterialPropertyChanged),
         );
-        this.visual.document.materials.removeCollectionChanged(this.onMaterialCollectionChanged);
-        this.visual.document.removeNodeObserver(this.handleNodeChanged);
+        this.visual.document.modelManager.materials.removeCollectionChanged(this.onMaterialCollectionChanged);
+        this.visual.document.modelManager.removeNodeObserver(this.handleNodeChanged);
         this.materialMap.forEach((x) => x.dispose());
         this.materialMap.clear();
         this.visualShapes.clear();
