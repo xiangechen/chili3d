@@ -220,6 +220,60 @@ export namespace INode {
     }
 }
 
+export class NodeUtils {
+    static findNode(parent: INodeLinkedList, predicate: (value: INode) => boolean) {
+        function findNodeRecursive(
+            node: INode | undefined,
+            predicate: (value: INode) => boolean,
+        ): INode | undefined {
+            if (!node) {
+                return undefined;
+            }
+
+            if (predicate(node)) {
+                return node;
+            }
+
+            if (INode.isLinkedListNode(node)) {
+                const found = findNodeRecursive(node.firstChild, predicate);
+                if (found) {
+                    return found;
+                }
+            }
+
+            return findNodeRecursive(node.nextSibling, predicate);
+        }
+
+        return findNodeRecursive(parent.firstChild, predicate);
+    }
+
+    static findNodes(parent: INodeLinkedList, predicate?: (value: INode) => boolean) {
+        function findNodesRecursive(
+            result: INode[],
+            node: INode | undefined,
+            predicate?: (value: INode) => boolean,
+        ) {
+            if (!node) return;
+
+            if (!predicate || predicate(node)) {
+                result.push(node);
+            }
+
+            if (INode.isLinkedListNode(node)) {
+                findNodesRecursive(result, node.firstChild, predicate);
+            }
+
+            if (node.nextSibling) {
+                findNodesRecursive(result, node.nextSibling, predicate);
+            }
+        }
+
+        const result: INode[] = [];
+        findNodesRecursive(result, parent.firstChild, predicate);
+        return result;
+    }
+}
+
 export namespace NodeSerializer {
     export function serialize(node: INode) {
         const nodes: Serialized[] = [];
