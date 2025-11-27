@@ -66,7 +66,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.tempShapes = new Group();
         this.cssObjects = new Group();
         scene.add(this.visualShapes, this.tempShapes, this.cssObjects);
-        visual.document.addNodeObserver(this);
+        visual.document.addNodeObserver(this.handleNodeChanged);
         visual.document.materials.onCollectionChanged(this.onMaterialCollectionChanged);
     }
 
@@ -127,7 +127,7 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    handleNodeChanged = (records: NodeRecord[]) => {
+    readonly handleNodeChanged = (records: NodeRecord[]) => {
         const adds: INode[] = [];
         const rms: INode[] = [];
         records.forEach((x) => {
@@ -168,7 +168,7 @@ export class ThreeVisualContext implements IVisualContext {
             x.removePropertyChanged(this.onMaterialPropertyChanged),
         );
         this.visual.document.materials.removeCollectionChanged(this.onMaterialCollectionChanged);
-        this.visual.document.removeNodeObserver(this);
+        this.visual.document.removeNodeObserver(this.handleNodeChanged);
         this.materialMap.forEach((x) => x.dispose());
         this.materialMap.clear();
         this.visualShapes.clear();
