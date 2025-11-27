@@ -29,6 +29,8 @@ export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     addNodeObserver(observer: OnNodeChanged): void;
     removeNodeObserver(observer: OnNodeChanged): void;
     notifyNodeChanged(records: NodeRecord[]): void;
+    findNode(predicate: (value: INode) => boolean): INode | undefined;
+    findNodes(predicate?: (value: INode) => boolean): INode[];
     save(): Promise<void>;
     close(): Promise<void>;
     serialize(): Serialized;

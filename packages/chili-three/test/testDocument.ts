@@ -81,6 +81,12 @@ export class TestDocument implements IDocument, ISerialize {
     addNode(...nodes: INode[]): void {
         throw new Error("Method not implemented.");
     }
+    findNode(predicate: (value: INode) => boolean): INode | undefined {
+        throw new Error("Method not implemented.");
+    }
+    findNodes(predicate?: (value: INode) => boolean): INode[] {
+        throw new Error("Method not implemented.");
+    }
     save(): Promise<void> {
         return Promise.resolve();
     }
