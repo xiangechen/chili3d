@@ -4,9 +4,9 @@
 import {
     History,
     type IDocument,
-    type INodeChangedObserver,
     NodeLinkedListHistoryRecord,
     type NodeRecord,
+    type OnNodeChanged,
     Transaction,
 } from "../src";
 
@@ -15,5 +15,5 @@ export class TestDocument {
     notifyNodeChanged(records: NodeRecord[]) {
         Transaction.add(this as unknown as IDocument, new NodeLinkedListHistoryRecord(records));
     }
-    addNodeObserver(observer: INodeChangedObserver) {}
+    addNodeObserver(observer: OnNodeChanged) {}
 }

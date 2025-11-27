@@ -14,7 +14,6 @@ import {
     type IDocument,
     Id,
     type INode,
-    type INodeChangedObserver,
     type INodeLinkedList,
     type ISelection,
     type IVisual,
@@ -25,6 +24,7 @@ import {
     NodeSerializer,
     Observable,
     ObservableCollection,
+    type OnNodeChanged,
     PubSub,
     type Serialized,
     Serializer,
@@ -40,7 +40,7 @@ export class Document extends Observable implements IDocument {
     readonly acts = new ObservableCollection<Act>();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
-    private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
+    private readonly _nodeChangedObservers = new Set<OnNodeChanged>();
 
     static readonly version = __DOCUMENT_VERSION__;
 
@@ -229,17 +229,19 @@ export class Document extends Observable implements IDocument {
         }
     };
 
-    addNodeObserver(observer: INodeChangedObserver) {
+    addNodeObserver(observer: OnNodeChanged) {
         this._nodeChangedObservers.add(observer);
     }
 
-    removeNodeObserver(observer: INodeChangedObserver) {
+    removeNodeObserver(observer: OnNodeChanged) {
         this._nodeChangedObservers.delete(observer);
     }
 
     notifyNodeChanged(records: NodeRecord[]) {
         Transaction.add(this, new NodeLinkedListHistoryRecord(records));
-        this._nodeChangedObservers.forEach((x) => x.handleNodeChanged(records));
+        this._nodeChangedObservers.forEach((x) => {
+            x(records);
+        });
     }
 
     addNode(...nodes: INode[]): void {

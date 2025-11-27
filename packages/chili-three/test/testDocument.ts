@@ -7,7 +7,6 @@ import {
     type IApplication,
     type IDocument,
     type INode,
-    type INodeChangedObserver,
     type INodeLinkedList,
     type ISelection,
     type ISerialize,
@@ -15,6 +14,7 @@ import {
     type Material,
     type NodeRecord,
     ObservableCollection,
+    type OnNodeChanged,
     type PropertyChangedHandler,
     type Serialized,
 } from "chili-core";
@@ -71,8 +71,8 @@ export class TestDocument implements IDocument, ISerialize {
     clearPropertyChanged(): void {
         throw new Error("Method not implemented.");
     }
-    addNodeObserver(observer: INodeChangedObserver): void {}
-    removeNodeObserver(observer: INodeChangedObserver): void {
+    addNodeObserver(observer: OnNodeChanged): void {}
+    removeNodeObserver(observer: OnNodeChanged): void {
         throw new Error("Method not implemented.");
     }
     notifyNodeChanged(records: NodeRecord[]): void {
