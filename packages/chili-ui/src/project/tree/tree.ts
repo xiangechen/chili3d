@@ -30,17 +30,17 @@ export class Tree extends HTMLElement {
     }
 
     private initializeTree(document: IDocument) {
-        this.addAllNodes(document, this, document.rootNode);
+        this.addAllNodes(document, this, document.modelManager.rootNode);
         this.addEvents(this);
     }
 
     connectedCallback() {
-        this.document.addNodeObserver(this.handleNodeChanged);
+        this.document.modelManager.addNodeObserver(this.handleNodeChanged);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
     }
 
     disconnectedCallback() {
-        this.document.removeNodeObserver(this.handleNodeChanged);
+        this.document.modelManager.removeNodeObserver(this.handleNodeChanged);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
     }
 
@@ -55,7 +55,7 @@ export class Tree extends HTMLElement {
         this.nodeMap.clear();
         this.selectedNodes.clear();
         this.removeEvents(this);
-        this.document.removeNodeObserver(this.handleNodeChanged);
+        this.document.modelManager.removeNodeObserver(this.handleNodeChanged);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
         this.document = null as any;
     }
@@ -219,7 +219,7 @@ export class Tree extends HTMLElement {
         this.lastClicked = item;
         if (item !== undefined) {
             this.nodeMap.get(item)?.addSelectedStyle(style.current);
-            this.document.currentNode = INode.isLinkedListNode(item) ? item : item.parent;
+            this.document.modelManager.currentNode = INode.isLinkedListNode(item) ? item : item.parent;
         }
     }
 

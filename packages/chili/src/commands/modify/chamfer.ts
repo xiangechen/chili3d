@@ -41,7 +41,7 @@ export class ChamferCommand extends MultistepCommand {
             const model = new EditableShapeNode(this.document, node.name, filetShape, node.materialId);
             model.transform = node.transform;
 
-            (node.parent ?? this.document.rootNode).add(model);
+            (node.parent ?? this.document.modelManager.rootNode).add(model);
             node.parent?.remove(node);
             this.document.visual.update();
         });

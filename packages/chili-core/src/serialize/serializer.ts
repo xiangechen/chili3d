@@ -176,7 +176,7 @@ export namespace Serializer {
 }
 
 export namespace Serializer {
-    export function serializeObject(target: Object) {
+    export function serializeObject(target: Object): Serialized {
         const classKey = target.constructor.name;
         if (!reflectMap.has(classKey)) {
             console.log(target);

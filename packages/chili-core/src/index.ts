@@ -13,6 +13,7 @@ export * from "./i18n";
 export * from "./material";
 export * from "./math";
 export * from "./model";
+export * from "./modelManager";
 export * from "./navigation";
 export * from "./property";
 export * from "./selection";

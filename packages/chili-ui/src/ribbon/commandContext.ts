@@ -210,7 +210,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
             throw new Error("MaterialEditor only support CancelableCommand");
         }
 
-        const material = this.command.document.materials.find((x) => x.id === noType[g.name])!;
+        const material = this.command.document.modelManager.materials.find((x) => x.id === noType[g.name])!;
         const display = material.clone();
 
         return button({

@@ -52,7 +52,7 @@ export abstract class GeometryNode extends VisualNode {
         id: string = Id.generate(),
     ) {
         super(document, name, id);
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+        this.setPrivateValue("materialId", materialId ?? document.modelManager.materials.at(0)?.id ?? "");
     }
 
     protected _mesh: IShapeMeshData | undefined;

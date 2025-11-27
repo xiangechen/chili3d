@@ -134,44 +134,33 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test undo redo", () => {
-        const rootNode = new FolderNode(doc, "root");
-        Object.defineProperties(doc, {
-            rootNode: {
-                get() {
-                    return rootNode;
-                },
-            },
-        });
-        expect(doc.rootNode).not.toBeUndefined();
-        expect(doc.rootNode).toBe(rootNode);
-
         const l1 = new FolderNode(doc, "l1");
 
         // add undo redo
-        doc.rootNode.add(l1);
-        expect(doc.rootNode.firstChild).toBe(l1);
+        doc.modelManager.rootNode.add(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBe(l1);
         doc.history.undo();
-        expect(doc.rootNode.firstChild).toBeUndefined();
+        expect(doc.modelManager.rootNode.firstChild).toBeUndefined();
         doc.history.redo();
-        expect(doc.rootNode.firstChild).toBe(l1);
-        doc.rootNode.remove(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBe(l1);
+        doc.modelManager.rootNode.remove(l1);
 
         // remove undo redo
-        doc.rootNode.add(l1);
-        expect(doc.rootNode.firstChild).toBe(l1);
-        doc.rootNode.remove(l1);
-        expect(doc.rootNode.firstChild).toBeUndefined();
+        doc.modelManager.rootNode.add(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBe(l1);
+        doc.modelManager.rootNode.remove(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBeUndefined();
         doc.history.undo();
-        expect(doc.rootNode.firstChild).toBe(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBe(l1);
         doc.history.redo();
-        expect(doc.rootNode.firstChild).toBeUndefined();
-        doc.rootNode.remove(l1);
+        expect(doc.modelManager.rootNode.firstChild).toBeUndefined();
+        doc.modelManager.rootNode.remove(l1);
 
         const l2 = new FolderNode(doc, "l2");
         const l3 = new FolderNode(doc, "l3");
         // insertAfter undo redo
-        doc.rootNode.add(l1, l3);
-        doc.rootNode.insertAfter(l1, l2);
+        doc.modelManager.rootNode.add(l1, l3);
+        doc.modelManager.rootNode.insertAfter(l1, l2);
         expect(l1.nextSibling).toBe(l2);
         expect(l2.previousSibling).toBe(l1);
         expect(l2.nextSibling).toBe(l3);
@@ -185,11 +174,11 @@ describe("test NodeLinkedList", () => {
         expect(l2.previousSibling).toBe(l1);
         expect(l2.nextSibling).toBe(l3);
         expect(l3.previousSibling).toBe(l2);
-        doc.rootNode.remove(l1, l2, l3);
+        doc.modelManager.rootNode.remove(l1, l2, l3);
 
         // insertBefore undo redo
-        doc.rootNode.add(l3, l1);
-        doc.rootNode.insertBefore(l1, l2);
+        doc.modelManager.rootNode.add(l3, l1);
+        doc.modelManager.rootNode.insertBefore(l1, l2);
         expect(l3.nextSibling).toBe(l2);
         expect(l2.previousSibling).toBe(l3);
         expect(l2.nextSibling).toBe(l1);
@@ -203,11 +192,11 @@ describe("test NodeLinkedList", () => {
         expect(l2.previousSibling).toBe(l3);
         expect(l2.nextSibling).toBe(l1);
         expect(l1.previousSibling).toBe(l2);
-        doc.rootNode.remove(l1, l2, l3);
+        doc.modelManager.rootNode.remove(l1, l2, l3);
 
         // move undo redo
-        doc.rootNode.add(l1, l2);
-        doc.rootNode.move(l1, doc.rootNode, l2);
+        doc.modelManager.rootNode.add(l1, l2);
+        doc.modelManager.rootNode.move(l1, doc.modelManager.rootNode, l2);
         expect(l2.nextSibling).toBe(l1);
         expect(l1.previousSibling).toBe(l2);
         doc.history.undo();
@@ -216,12 +205,12 @@ describe("test NodeLinkedList", () => {
         doc.history.redo();
         expect(l2.nextSibling).toBe(l1);
         expect(l1.previousSibling).toBe(l2);
-        doc.rootNode.remove(l1, l2);
+        doc.modelManager.rootNode.remove(l1, l2);
 
         const l4 = new FolderNode(doc, "l4");
         const l5 = new FolderNode(doc, "l5");
         const l6 = new FolderNode(doc, "l6");
-        doc.rootNode.add(l1, l2);
+        doc.modelManager.rootNode.add(l1, l2);
         l1.add(l3, l4);
         l2.add(l5);
         l5.add(l6);

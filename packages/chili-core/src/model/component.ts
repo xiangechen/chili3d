@@ -276,7 +276,7 @@ export class ComponentNode extends VisualNode {
     @Property.define("body.group")
     get component() {
         if (!this._component) {
-            this._component = this.document.components.find((c) => c.id === this.componentId);
+            this._component = this.document.modelManager.components.find((c) => c.id === this.componentId);
             if (!this._component) {
                 throw new Error(`Component ${this.componentId} not found`);
             }
