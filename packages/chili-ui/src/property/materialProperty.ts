@@ -75,7 +75,7 @@ export class MaterialProperty extends PropertyBase {
     }
 
     private materialCollection(id: string | string[]) {
-        const findMaterial = (id: string) => this.document.materials.find((m) => m.id === id);
+        const findMaterial = (id: string) => this.document.modelManager.materials.find((m) => m.id === id);
         const materials = Array.isArray(id)
             ? id.map(findMaterial).filter(Boolean)
             : [findMaterial(id)].filter(Boolean);

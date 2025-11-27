@@ -17,8 +17,11 @@ export class Delete extends MultistepCommand {
             return;
         }
 
-        if (this.document.currentNode && nodes.includes(this.document.currentNode)) {
-            this.document.currentNode = this.document.rootNode;
+        if (
+            this.document.modelManager.currentNode &&
+            nodes.includes(this.document.modelManager.currentNode)
+        ) {
+            this.document.modelManager.currentNode = this.document.modelManager.rootNode;
         }
 
         this.document.selection.clearSelection();

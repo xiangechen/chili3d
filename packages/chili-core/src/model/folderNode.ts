@@ -46,7 +46,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             this._count++;
         });
 
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     private initNode(node: INode): boolean {
@@ -90,7 +90,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }));
 
         records.forEach((record) => this.removeNode(record.node, true));
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     transfer(...items: INode[]): void {
@@ -106,7 +106,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }));
 
         records.forEach((record) => this.removeNode(record.node, true));
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     private validateChild(item: INode): boolean {
@@ -175,7 +175,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }
         }
         this._count++;
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     private insertAsFirst(node: INode) {
@@ -213,7 +213,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }
         }
         this._count++;
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     move(child: INode, newParent: FolderNode, previousSibling?: INode): void {
@@ -244,7 +244,7 @@ export class FolderNode extends Node implements INodeLinkedList {
         }
         newParent._count++;
 
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     override disposeInternal(): void {

@@ -71,7 +71,7 @@ export class OccShapeConverter implements IShapeConverter {
 
             if (!materialMap.has(materialKey)) {
                 const material = new Material(document, materialKey, materialColor);
-                document.materials.push(material);
+                document.modelManager.materials.push(material);
                 materialMap.set(materialKey, material.id);
             }
             return materialMap.get(materialKey)!;

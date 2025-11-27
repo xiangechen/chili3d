@@ -31,7 +31,7 @@ export class OffsetCommand extends MultistepCommand {
             I18n.translate("command.create.offset"),
             shape.value,
         );
-        this.document.rootNode.add(node);
+        this.document.modelManager.rootNode.add(node);
         this.document.visual.update();
     }
 

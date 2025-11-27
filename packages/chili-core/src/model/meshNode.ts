@@ -43,7 +43,7 @@ export class MeshNode extends VisualNode {
     ) {
         super(document, name, id);
         this._mesh = mesh;
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+        this.setPrivateValue("materialId", materialId ?? document.modelManager.materials.at(0)?.id ?? "");
     }
 
     override boundingBox(): BoundingBox | undefined {

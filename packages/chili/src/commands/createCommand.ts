@@ -10,7 +10,7 @@ export abstract class CreateCommand extends MultistepCommand {
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.geometryNode();
-            this.document.addNode(node);
+            this.document.modelManager.addNode(node);
             this.document.visual.update();
         });
     }
@@ -21,7 +21,7 @@ export abstract class CreateCommand extends MultistepCommand {
 export abstract class CreateNodeCommand extends MultistepCommand {
     protected override executeMainTask() {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
-            this.document.addNode(this.getNode());
+            this.document.modelManager.addNode(this.getNode());
             this.document.visual.update();
         });
     }
