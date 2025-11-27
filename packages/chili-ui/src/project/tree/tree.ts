@@ -4,7 +4,6 @@
 import {
     type IDocument,
     INode,
-    type INodeChangedObserver,
     type INodeLinkedList,
     type NodeRecord,
     PubSub,
@@ -18,7 +17,7 @@ import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
 
-export class Tree extends HTMLElement implements INodeChangedObserver {
+export class Tree extends HTMLElement {
     private readonly nodeMap = new Map<INode, TreeItem>();
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
@@ -36,12 +35,12 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
     }
 
     connectedCallback() {
-        this.document.addNodeObserver(this);
+        this.document.addNodeObserver(this.handleNodeChanged);
         PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
     }
 
     disconnectedCallback() {
-        this.document.removeNodeObserver(this);
+        this.document.removeNodeObserver(this.handleNodeChanged);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
     }
 
@@ -56,12 +55,12 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
         this.nodeMap.clear();
         this.selectedNodes.clear();
         this.removeEvents(this);
-        this.document.removeNodeObserver(this);
+        this.document.removeNodeObserver(this.handleNodeChanged);
         PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
         this.document = null as any;
     }
 
-    handleNodeChanged(records: NodeRecord[]) {
+    readonly handleNodeChanged = (records: NodeRecord[]) => {
         this.ensureHasHTML(records);
         records.forEach((record) => {
             const ele = this.nodeMap.get(record.node);
@@ -74,7 +73,7 @@ export class Tree extends HTMLElement implements INodeChangedObserver {
                 parent.insertAfter(ele, pre ?? null);
             }
         });
-    }
+    };
 
     private createAndMapParent(newParent: INode) {
         const parent = this.createHTMLElement(this.document, newParent);
