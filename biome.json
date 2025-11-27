@@ -45,6 +45,9 @@
                 "noUnusedFunctionParameters": "warn",
                 "noUnusedPrivateClassMembers": "warn",
                 "noUnusedVariables": "warn"
+            },
+            "complexity": {
+                "noStaticOnlyClass": "off"
             }
         }
     },
