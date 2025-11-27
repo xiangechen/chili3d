@@ -22,6 +22,7 @@ import {
     NodeLinkedListHistoryRecord,
     type NodeRecord,
     NodeSerializer,
+    NodeUtils,
     Observable,
     ObservableCollection,
     type OnNodeChanged,
@@ -246,5 +247,17 @@ export class Document extends Observable implements IDocument {
 
     addNode(...nodes: INode[]): void {
         (this.currentNode ?? this.rootNode).add(...nodes);
+    }
+
+    findNode(predicate: (value: INode) => boolean) {
+        if (!this._rootNode) return undefined;
+
+        return NodeUtils.findNode(this._rootNode, predicate);
+    }
+
+    findNodes(predicate?: (value: INode) => boolean) {
+        if (!this._rootNode) return [];
+
+        return NodeUtils.findNodes(this._rootNode, predicate);
     }
 }
