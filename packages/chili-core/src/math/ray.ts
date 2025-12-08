@@ -33,7 +33,7 @@ export class Ray {
 
     distanceTo(right: Ray): number {
         const neareast1 = this.nearestTo(right);
-        const neareast2 = this.nearestToPoint(neareast1);
+        const neareast2 = right.nearestToPoint(neareast1);
         return neareast1.distanceTo(neareast2);
     }
 
