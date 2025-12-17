@@ -26,9 +26,11 @@ describe("test ray", () => {
     });
 
     test("test intersect", () => {
-        let r1 = new Ray(XYZ.zero, XYZ.unitX);
-        let r2 = new Ray(XYZ.unitX.add(XYZ.unitY), XYZ.unitY);
+        const r1 = new Ray(XYZ.zero, XYZ.unitX);
+        const r11 = new Ray(XYZ.zero, XYZ.unitY);
+        const r2 = new Ray(XYZ.unitX.add(XYZ.unitY), XYZ.unitY);
         expect(r1.intersect(r2)).toStrictEqual(XYZ.unitX);
+        expect(r1.intersect(r11)).toStrictEqual(XYZ.zero);
 
         const r3 = new Ray(XYZ.zero, XYZ.unitX);
         const r4 = new Ray(XYZ.unitY, XYZ.unitX);

@@ -24,11 +24,13 @@ export class Ray {
         this.direction = n;
     }
 
-    intersect(right: Ray): XYZ | undefined {
-        if (this.direction.isParallelTo(right.direction)) return undefined;
+    intersect(right: Ray, tolerance = 1e-6): XYZ | undefined {
+        if (this.direction.isParallelTo(right.direction, tolerance)) return undefined;
         const result = this.nearestTo(right);
         const vec = result.sub(right.location);
-        return vec.isParallelTo(right.direction) ? result : undefined;
+        if (vec.length() < tolerance) return result;
+
+        return vec.isParallelTo(right.direction, tolerance) ? result : undefined;
     }
 
     distanceTo(right: Ray): number {
