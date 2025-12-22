@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type I18nKeys, type Plane, Ray, type XYZ } from "chili-core";
+import { I18n, type I18nKeys, Line, type Plane, type XYZ } from "chili-core";
 
-export class Axis extends Ray {
+export class Axis extends Line {
     constructor(
         location: XYZ,
         direction: XYZ,

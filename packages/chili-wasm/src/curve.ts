@@ -20,8 +20,8 @@ import {
     type IOffsetCurve,
     type IParabola,
     type ITrimmedCurve,
+    Line,
     type Matrix4,
-    Ray,
     XYZ,
 } from "chili-core";
 import type {
@@ -68,13 +68,13 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         return new OccEdge(wasm.Edge.fromCurve(this.curve));
     }
 
-    nearestExtrema(curve: ICurve | Ray) {
+    nearestExtrema(curve: ICurve | Line) {
         return gc((c) => {
             let result;
             if (curve instanceof OccCurve) {
                 result = wasm.Curve.nearestExtremaCC(this.curve, curve.curve);
-            } else if (curve instanceof Ray) {
-                const line = c(wasm.Curve.makeLine(curve.location, curve.direction));
+            } else if (curve instanceof Line) {
+                const line = c(wasm.Curve.makeLine(curve.point, curve.direction));
                 result = wasm.Curve.nearestExtremaCC(this.curve, line.get());
             }
 

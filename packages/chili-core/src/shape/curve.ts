@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Ray, XYZ } from "../math";
+import type { Line, XYZ } from "../math";
 import type { IGeometry } from "./geometry";
 import type { IEdge } from "./shape";
 
@@ -52,7 +52,7 @@ export interface ICurve extends IGeometry {
         parameter: number;
         distance: number;
     };
-    nearestExtrema(curve: ICurve | Ray):
+    nearestExtrema(curve: ICurve | Line):
         | undefined
         | {
               isParallel: boolean;

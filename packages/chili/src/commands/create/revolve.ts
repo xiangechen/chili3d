@@ -9,8 +9,8 @@ import {
     type ILine,
     type IShape,
     type IShapeFilter,
+    Line,
     Property,
-    Ray,
     ShapeType,
 } from "chili-core";
 import { RevolvedNode } from "../../bodys";
@@ -35,7 +35,7 @@ export class Revolve extends CreateCommand {
         const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
         const transform = this.stepDatas[1].shapes[0].transform;
-        const axis = new Ray(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
+        const axis = new Line(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
         return new RevolvedNode(this.document, shape, axis, this.angle);
     }
 

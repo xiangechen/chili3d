@@ -2,21 +2,21 @@
 // See LICENSE file in the project root for full license information.
 
 import { Serializer } from "../serialize";
-import { Plane } from "./plane";
+import { Line } from "./line";
 import { XYZ } from "./xyz";
 
-@Serializer.register(["location", "direction"])
+@Serializer.register(["point", "direction"])
 export class Ray {
     @Serializer.serialze()
-    readonly location: XYZ;
+    readonly point: XYZ;
     /**
      * unit vector
      */
     @Serializer.serialze()
     readonly direction: XYZ;
 
-    constructor(location: XYZ, direction: XYZ) {
-        this.location = location;
+    constructor(point: XYZ, direction: XYZ) {
+        this.point = point;
         const n = direction.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("direction can not be zero");
@@ -24,32 +24,7 @@ export class Ray {
         this.direction = n;
     }
 
-    intersect(right: Ray, tolerance = 1e-6): XYZ | undefined {
-        if (this.direction.isParallelTo(right.direction, tolerance)) return undefined;
-        const result = this.nearestTo(right);
-        const vec = result.sub(right.location);
-        if (vec.length() < tolerance) return result;
-
-        return vec.isParallelTo(right.direction, tolerance) ? result : undefined;
-    }
-
-    distanceTo(right: Ray): number {
-        const neareast1 = this.nearestTo(right);
-        const neareast2 = right.nearestToPoint(neareast1);
-        return neareast1.distanceTo(neareast2);
-    }
-
-    nearestTo(right: Ray): XYZ {
-        const n = right.direction.cross(this.direction).normalize();
-        if (n === undefined) return this.nearestToPoint(right.location);
-        const normal = n.cross(right.direction).normalize()!;
-        const plane = new Plane(right.location, normal, n);
-        return plane.intersect(this)!;
-    }
-
-    nearestToPoint(point: XYZ): XYZ {
-        const vec = point.sub(this.location);
-        const dot = vec.dot(this.direction);
-        return this.location.add(this.direction.multiply(dot));
+    toLine(): Line {
+        return new Line(this.point, this.direction);
     }
 }

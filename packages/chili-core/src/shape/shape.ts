@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDisposable, Result } from "../foundation";
-import type { Matrix4, Plane, Ray, XYZ, XYZLike } from "../math";
+import type { Line, Matrix4, Plane, XYZ, XYZLike } from "../math";
 import type { ICurve, ITrimmedCurve } from "./curve";
 import type { EdgeMeshData, IShapeMeshData } from "./meshData";
 import type { ShapeType } from "./shapeType";
@@ -61,7 +61,7 @@ export interface IVertex extends IShape {}
 
 export interface IEdge extends IShape {
     update(curve: ICurve): void;
-    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[];
+    intersect(other: IEdge | Line): { parameter: number; point: XYZ }[];
     length(): number;
     get curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;

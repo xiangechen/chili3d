@@ -8,8 +8,8 @@ import {
     type ICurve,
     type IDocument,
     type IView,
+    type Line,
     type Plane,
-    type Ray,
     type ShapeType,
     XYZ,
 } from "chili-core";
@@ -30,7 +30,7 @@ export interface SnapPointOnCurveData extends PointSnapData {
 }
 
 export interface SnapPointOnAxisData extends PointSnapData {
-    ray: Ray;
+    ray: Line;
 }
 
 export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
@@ -144,13 +144,13 @@ export class SnapPointOnCurveEventHandler extends SnapEventHandler<SnapPointOnCu
 export class SnapPointOnAxisEventHandler extends SnapEventHandler<SnapPointOnAxisData> {
     constructor(document: IDocument, controller: AsyncController, pointData: SnapPointOnAxisData) {
         const objectSnap = new ObjectSnap(Config.instance.snapType);
-        const snap = new AxisSnap(pointData.ray.location, pointData.ray.direction);
+        const snap = new AxisSnap(pointData.ray.point, pointData.ray.direction);
         super(document, controller, [objectSnap, snap], pointData);
     }
 
     protected override getPointFromInput(view: IView, text: string): SnapResult {
         const parameter = Number(text);
-        const point = this.data.ray.location.add(this.data.ray.direction.multiply(parameter));
+        const point = this.data.ray.point.add(this.data.ray.direction.multiply(parameter));
         return { point, view, shapes: [] };
     }
 

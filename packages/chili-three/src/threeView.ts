@@ -33,7 +33,6 @@ import {
 import {
     DirectionalLight,
     type Intersection,
-    Mesh,
     type Object3D,
     OrthographicCamera,
     PerspectiveCamera,

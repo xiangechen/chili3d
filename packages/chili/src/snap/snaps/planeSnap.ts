@@ -15,7 +15,7 @@ export abstract class PlaneSnapBase implements ISnap {
     protected snapAtPlane(plane: Plane, data: MouseAndDetected): SnapResult | undefined {
         plane = ViewUtils.ensurePlane(data.view, plane);
         const ray = data.view.rayAt(data.mx, data.my);
-        const point = plane.intersect(ray);
+        const point = plane.intersectRay(ray);
         if (!point) return undefined;
 
         const distance = this.refPoint ? this.refPoint().distanceTo(point) : undefined;

@@ -10,7 +10,7 @@ export class PointOnCurveSnap implements ISnap {
     snap(data: MouseAndDetected): SnapResult | undefined {
         const ray = data.view.rayAt(data.mx, data.my);
         const curve = this.pointData.curve;
-        const nearest = curve.nearestExtrema(ray);
+        const nearest = curve.nearestExtrema(ray.toLine());
         if (!nearest) return undefined;
         return {
             view: data.view,

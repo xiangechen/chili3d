@@ -12,12 +12,12 @@ import {
     type IShapeMeshData,
     type ITrimmedCurve,
     type IWire,
+    type Line,
     LineType,
     Matrix4,
     Orientation,
     ParameterShapeNode,
     type Plane,
-    type Ray,
     Result,
     type Serialized,
     ShapeType,
@@ -88,7 +88,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    intersect(other: IEdge | Ray) {
+    intersect(other: IEdge | Line) {
         return [];
     }
     length(): number {

@@ -19,7 +19,7 @@ export class AxisSnap implements ISnap {
 
         const plane = new Plane(this.point, normal, right!);
         const ray = data.view.rayAt(data.mx, data.my);
-        const intersect = plane.intersect(ray, false);
+        const intersect = plane.intersectRay(ray);
         if (!intersect) return undefined;
 
         const vector = intersect.sub(this.point);

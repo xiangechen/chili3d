@@ -22,13 +22,13 @@ import {
     type IVertex,
     type IWire,
     type JoinType,
+    Line,
     LineType,
     Logger,
     MathUtils,
     type Matrix4,
     type Orientation,
     Plane,
-    Ray,
     Result,
     type SerializedProperties,
     Serializer,
@@ -289,14 +289,14 @@ export class OccEdge extends OccShape implements IEdge {
         this._mesh = undefined;
     }
 
-    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[] {
+    intersect(other: IEdge | Line): { parameter: number; point: XYZ }[] {
         return gc((c) => {
             let edge: TopoDS_Edge | undefined;
             if (other instanceof OccEdge) {
                 edge = other.edge;
             }
-            if (other instanceof Ray) {
-                const line = c(wasm.Curve.makeLine(other.location, other.direction));
+            if (other instanceof Line) {
+                const line = c(wasm.Curve.makeLine(other.point, other.direction));
                 edge = c(wasm.Edge.fromCurve(line.get()));
             }
             if (edge === undefined) {

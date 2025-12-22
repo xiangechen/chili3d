@@ -10,10 +10,10 @@ import {
     type IShape,
     type ISurface,
     JoinType,
+    type Line,
     Matrix4,
     Orientation,
     Plane,
-    type Ray,
     ShapeType,
     SurfaceType,
     XYZ,
@@ -98,9 +98,9 @@ export class OcctHelper {
         return new wasm.gp_Vec(value.x, value.y, value.z);
     }
 
-    static toAx1(ray: Ray): gp_Ax1 {
+    static toAx1(ray: Line): gp_Ax1 {
         return gc((c) => {
-            return new wasm.gp_Ax1(c(OcctHelper.toPnt(ray.location)), c(OcctHelper.toDir(ray.direction)));
+            return new wasm.gp_Ax1(c(OcctHelper.toPnt(ray.point)), c(OcctHelper.toDir(ray.direction)));
         });
     }
 

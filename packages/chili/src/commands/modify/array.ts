@@ -8,6 +8,7 @@ import {
     ComponentNode,
     command,
     GeometryNode,
+    Line,
     LineType,
     MathUtils,
     Matrix4,
@@ -17,7 +18,6 @@ import {
     Precision,
     Property,
     PubSub,
-    Ray,
     type ShapeMeshData,
     Transaction,
     VisualNode,
@@ -348,7 +348,7 @@ export class ArrayCommand extends MultistepCommand {
         return {
             ray,
             validator: (p: XYZ) => {
-                return ray.location.distanceTo(p) > Precision.Distance;
+                return ray.point.distanceTo(p) > Precision.Distance;
             },
             preview: (p: XYZ | undefined) => {
                 if (!p) {
@@ -394,7 +394,9 @@ export class ArrayCommand extends MultistepCommand {
         const yvec = normal.cross(xvec).normalize()!;
 
         const ray =
-            index === 2 ? new Ray(this.stepDatas[1].point!, yvec) : new Ray(this.stepDatas[1].point!, normal);
+            index === 2
+                ? new Line(this.stepDatas[1].point!, yvec)
+                : new Line(this.stepDatas[1].point!, normal);
         return { ray, yvec, normal, xvec };
     }
 

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { Result } from "../foundation";
-import type { Plane, Ray, XYZ, XYZLike } from "../math";
+import type { Line, Plane, XYZ, XYZLike } from "../math";
 import type { Continuity } from "./curve";
 import type { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
 import type { IShapeConverter } from "./shapeConverter";
@@ -36,7 +36,7 @@ export interface IShapeFactory {
     prism(shape: IShape, vec: XYZ): Result<IShape>;
     fuse(bottom: IShape, top: IShape): Result<IShape>;
     sweep(profile: IShape[], path: IWire, isRoundCorner: boolean): Result<IShape>;
-    revolve(profile: IShape, axis: Ray, angle: number): Result<IShape>;
+    revolve(profile: IShape, axis: Line, angle: number): Result<IShape>;
     booleanCommon(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     booleanCut(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape>;

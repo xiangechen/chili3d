@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Serializer } from "../serialize";
+import type { Line } from "./line";
 import { MathUtils } from "./mathUtils";
 import type { Matrix4 } from "./matrix4";
 import type { Ray } from "./ray";
@@ -58,15 +59,33 @@ export class Plane {
         return new Plane(location, normal, x);
     }
 
-    intersect(ray: Ray, containsExtension: boolean = true): XYZ | undefined {
-        const vec = this.origin.sub(ray.location);
-        if (vec.isEqualTo(XYZ.zero)) return this.origin;
+    intersectLine(line: Line): XYZ | undefined {
+        const t = this.lineIntersectParameter(line);
+        if (t === undefined) return undefined;
+
+        return line.point.add(line.direction.multiply(t));
+    }
+
+    intersectRay(ray: Ray): XYZ | undefined {
+        const t = this.lineIntersectParameter(ray);
+        if (t === undefined || t < 0) return undefined;
+
+        return ray.point.add(ray.direction.multiply(t));
+    }
+
+    private lineIntersectParameter(line: { point: XYZ; direction: XYZ }) {
+        const vec = this.origin.sub(line.point);
+        if (vec.isEqualTo(XYZ.zero)) {
+            return 0;
+        }
+
         const len = vec.dot(this.normal);
-        const dot = ray.direction.dot(this.normal);
-        if (MathUtils.almostEqual(dot, 0)) return MathUtils.almostEqual(len, 0) ? ray.location : undefined;
-        const t = len / dot;
-        if (!containsExtension && t < 0) return undefined;
-        return ray.location.add(ray.direction.multiply(t));
+        const dot = line.direction.dot(this.normal); // line parallel to plane
+        if (MathUtils.almostEqual(dot, 0)) {
+            return MathUtils.almostEqual(len, 0) ? 0 : undefined;
+        }
+
+        return len / dot;
     }
 
     projectDistance(p1: XYZ, p2: XYZ) {

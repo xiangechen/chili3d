@@ -13,10 +13,10 @@ import {
     type ISolid,
     type IVertex,
     type IWire,
+    type Line,
     MathUtils,
     type Plane,
     Precision,
-    type Ray,
     Result,
     ShapeType,
     type XYZ,
@@ -251,12 +251,12 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.sweep(ensureOccShape(profile), ensureOccShape(path)[0], true, isRound),
         );
     }
-    revolve(profile: IShape, axis: Ray, angle: number): Result<IShape> {
+    revolve(profile: IShape, axis: Line, angle: number): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.revolve(
                 ensureOccShape(profile)[0],
                 {
-                    location: axis.location,
+                    location: axis.point,
                     direction: axis.direction,
                 },
                 MathUtils.degToRad(angle),

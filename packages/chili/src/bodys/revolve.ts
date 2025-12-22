@@ -5,8 +5,8 @@ import {
     type I18nKeys,
     type IDocument,
     type IShape,
+    type Line,
     ParameterShapeNode,
-    type Ray,
     type Result,
     Serializer,
 } from "chili-core";
@@ -29,7 +29,7 @@ export class RevolvedNode extends ParameterShapeNode {
     get axis() {
         return this.getPrivateValue("axis");
     }
-    set axis(value: Ray) {
+    set axis(value: Line) {
         this.setPropertyEmitShapeChanged("axis", value);
     }
 
@@ -41,7 +41,7 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("angle", value);
     }
 
-    constructor(document: IDocument, profile: IShape, axis: Ray, angle: number) {
+    constructor(document: IDocument, profile: IShape, axis: Line, angle: number) {
         super(document);
         this.setPrivateValue("profile", profile);
         this.setPrivateValue("axis", axis);
