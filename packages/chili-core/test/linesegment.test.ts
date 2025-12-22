@@ -17,39 +17,59 @@ describe("test linesegment", () => {
     test("test distanceTo with parallel segments", () => {
         const seg1 = new LineSegment(new XYZ(0, 0, 0), new XYZ(1, 0, 0));
         const seg2 = new LineSegment(new XYZ(0, 1, 0), new XYZ(1, 1, 0));
-        expect(seg1.distanceTo(seg2)).toBeCloseTo(1);
+        const result1 = seg1.distanceTo(seg2);
+        expect(result1.distance).toBeCloseTo(1);
+        expect(result1.pointOnThis).toStrictEqual(new XYZ(0, 0, 0));
+        expect(result1.pointOnRight).toStrictEqual(new XYZ(0, 1, 0));
 
         const seg3 = new LineSegment(new XYZ(0, 0, 0), new XYZ(3, 0, 0));
         const seg4 = new LineSegment(new XYZ(1, 1, 0), new XYZ(2, 1, 0));
-        expect(seg3.distanceTo(seg4)).toBeCloseTo(1);
-        expect(seg1.distanceTo(seg4)).toBeCloseTo(1);
+        const result2 = seg3.distanceTo(seg4);
+        expect(result2.distance).toBeCloseTo(1);
+
+        const result3 = seg1.distanceTo(seg4);
+        expect(result3.distance).toBeCloseTo(1);
 
         const seg5 = new LineSegment(new XYZ(2, 1, 0), new XYZ(3, 1, 0));
-        expect(seg5.distanceTo(seg1)).toBeCloseTo(Math.sqrt(2));
+        const result4 = seg5.distanceTo(seg1);
+        expect(result4.distance).toBeCloseTo(Math.sqrt(2));
     });
 
     test("test distanceTo with intersecting segments", () => {
         const seg1 = new LineSegment(new XYZ(-1, 0, 0), new XYZ(1, 0, 0));
         const seg2 = new LineSegment(new XYZ(0, -1, 0), new XYZ(0, 1, 0));
-        expect(seg1.distanceTo(seg2)).toBeCloseTo(0);
+        const result = seg1.distanceTo(seg2);
+        expect(result.distance).toBeCloseTo(0);
+        expect(result.pointOnThis).toStrictEqual(new XYZ(0, 0, 0));
+        expect(result.pointOnRight).toStrictEqual(new XYZ(0, 0, 0));
     });
 
     test("test distanceTo with skew segments", () => {
         const seg1 = new LineSegment(new XYZ(0, 0, 0), new XYZ(1, 0, 0));
         const seg2 = new LineSegment(new XYZ(0, 1, 1), new XYZ(1, 1, 1));
         const seg3 = new LineSegment(new XYZ(0.5, 0.5, 0), new XYZ(1, 1, 0));
-        expect(seg1.distanceTo(seg2)).toBeCloseTo(Math.sqrt(2));
-        expect(seg1.distanceTo(seg3)).toBeCloseTo(0.5);
+
+        const result1 = seg1.distanceTo(seg2);
+        expect(result1.distance).toBeCloseTo(Math.sqrt(2));
+
+        const result2 = seg1.distanceTo(seg3);
+        expect(result2.distance).toBeCloseTo(0.5);
     });
 
     test("test distanceTo with collinear segments", () => {
         const seg1 = new LineSegment(new XYZ(0, 0, 0), new XYZ(1, 0, 0));
         const seg2 = new LineSegment(new XYZ(2, 0, 0), new XYZ(3, 0, 0));
-        expect(seg1.distanceTo(seg2)).toBeCloseTo(1);
+        const result1 = seg1.distanceTo(seg2);
+        expect(result1.distance).toBeCloseTo(1);
+        expect(result1.pointOnThis).toStrictEqual(new XYZ(1, 0, 0));
+        expect(result1.pointOnRight).toStrictEqual(new XYZ(2, 0, 0));
 
         const seg3 = new LineSegment(new XYZ(0, 0, 0), new XYZ(2, 0, 0));
         const seg4 = new LineSegment(new XYZ(1, 0, 0), new XYZ(3, 0, 0));
-        expect(seg3.distanceTo(seg4)).toBeCloseTo(0);
+        const result2 = seg3.distanceTo(seg4);
+        expect(result2.pointOnThis).toStrictEqual(new XYZ(1, 0, 0));
+        expect(result2.pointOnRight).toStrictEqual(new XYZ(1, 0, 0));
+        expect(result2.distance).toBeCloseTo(0);
     });
 
     test("test distanceToPoint", () => {
@@ -69,5 +89,10 @@ describe("test linesegment", () => {
         // Test point on the segment
         const point4 = new XYZ(1, 0, 0);
         expect(segment.distanceToPoint(point4)).toBeCloseTo(0);
+
+        // Test with 3D points
+        const segment3D = new LineSegment(new XYZ(0, 0, 0), new XYZ(0, 0, 2));
+        const point3D = new XYZ(1, 0, 1);
+        expect(segment3D.distanceToPoint(point3D)).toBeCloseTo(1);
     });
 });
