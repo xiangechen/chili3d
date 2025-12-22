@@ -3,7 +3,7 @@
 
 import { VisualConfig } from "../config";
 import type { IDocument } from "../document";
-import { Id, type IEqualityComparer, PubSub, Result } from "../foundation";
+import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
@@ -40,7 +40,8 @@ export abstract class ShapeNode extends GeometryNode {
 
     protected override createMesh(): IShapeMeshData {
         if (!this.shape.isOk) {
-            throw new Error(this.shape.error);
+            Logger.warn(this.shape.error);
+            return { edges: undefined, faces: undefined };
         }
         const mesh = this.shape.value.mesh;
         this._originFaceMesh = mesh.faces;
