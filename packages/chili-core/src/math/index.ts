@@ -3,6 +3,7 @@
 
 export * from "./boundingBox";
 export * from "./line";
+export * from "./lineSegment";
 export * from "./mathUtils";
 export * from "./matrix4";
 export * from "./plane";
