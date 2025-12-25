@@ -9,11 +9,14 @@ export type XYZLike = { x: number; y: number; z: number };
 
 @Serializer.register(["x", "y", "z"])
 export class XYZ {
-    static readonly zero = new XYZ(0, 0, 0);
-    static readonly unitX = new XYZ(1, 0, 0);
-    static readonly unitY = new XYZ(0, 1, 0);
-    static readonly unitZ = new XYZ(0, 0, 1);
-    static readonly one = new XYZ(1, 1, 1);
+    static readonly zero = Object.freeze(new XYZ(0, 0, 0));
+    static readonly unitX = Object.freeze(new XYZ(1, 0, 0));
+    static readonly unitY = Object.freeze(new XYZ(0, 1, 0));
+    static readonly unitZ = Object.freeze(new XYZ(0, 0, 1));
+    static readonly unitNX = Object.freeze(new XYZ(-1, 0, 0));
+    static readonly unitNY = Object.freeze(new XYZ(0, -1, 0));
+    static readonly unitNZ = Object.freeze(new XYZ(0, 0, -1));
+    static readonly one = Object.freeze(new XYZ(1, 1, 1));
 
     @Serializer.serialze()
     readonly x: number;
@@ -36,6 +39,15 @@ export class XYZ {
         return [this.x, this.y, this.z];
     }
 
+    static fromArray(arr: number[]) {
+        if (!arr) return XYZ.zero;
+
+        const x = arr.at(0) ?? 0;
+        const y = arr.at(1) ?? 0;
+        const z = arr.at(2) ?? 0;
+        return new XYZ(x, y, z);
+    }
+
     cross(right: XYZLike): XYZ {
         return new XYZ(
             this.y * right.z - this.z * right.y,
@@ -54,7 +66,11 @@ export class XYZ {
     }
 
     reverse(): XYZ {
-        return new XYZ(-this.x, -this.y, -this.z);
+        const x = MathUtils.almostEqual(this.x, 0) ? 0 : -this.x;
+        const y = MathUtils.almostEqual(this.y, 0) ? 0 : -this.y;
+        const z = MathUtils.almostEqual(this.z, 0) ? 0 : -this.z;
+
+        return new XYZ(x, y, z);
     }
 
     multiply(scalar: number): XYZ {
@@ -140,6 +156,13 @@ export class XYZ {
             MathUtils.almostEqual(this.y, right.y, tolerance) &&
             MathUtils.almostEqual(this.z, right.z, tolerance)
         );
+    }
+
+    isPerpendicularTo(right: XYZLike, tolerance: number = 1e-6): boolean {
+        const angle = this.angleTo(right);
+        if (angle === undefined) return false;
+
+        return Math.abs(angle - Math.PI * 0.5) < tolerance;
     }
 
     isParallelTo(right: XYZLike, tolerance: number = 1e-6): boolean {
