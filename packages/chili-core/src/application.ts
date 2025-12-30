@@ -25,6 +25,7 @@ export interface IApplication {
     newDocument(name: string): Promise<IDocument>;
     openDocument(id: string): Promise<IDocument | undefined>;
     loadDocument(data: Serialized): Promise<IDocument | undefined>;
+    loadFileFromUrl(url: string): Promise<void>;
 }
 
 let currentApplication: IApplication | undefined;
