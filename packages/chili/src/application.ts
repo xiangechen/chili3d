@@ -15,6 +15,7 @@ import {
     type IView,
     type IVisualFactory,
     type IWindow,
+    Logger,
     Material,
     ObservableCollection,
     Plane,
@@ -113,7 +114,7 @@ export class Application implements IApplication {
         }
     };
 
-    async importFiles(files: FileList | undefined) {
+    async importFiles(files: File[] | FileList | undefined) {
         if (!files || files.length === 0) {
             return;
         }
@@ -137,7 +138,7 @@ export class Application implements IApplication {
         );
     }
 
-    private groupFiles(files: FileList) {
+    private groupFiles(files: FileList | File[]) {
         const opens: File[] = [];
         const imports: File[] = [];
         for (const element of files) {
@@ -169,6 +170,26 @@ export class Application implements IApplication {
         const document = await Document.load(this, data);
         await this.createActiveView(document);
         return document;
+    }
+
+    async loadFileFromUrl(url: string): Promise<void> {
+        return Promise.try(async () => {
+            const filename = url.substring(url.lastIndexOf("/") + 1);
+            if (!filename || !filename.includes(".")) {
+                throw new Error(`No file name in url: ${url}`);
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch model: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const file = new File([blob], filename, { type: blob.type });
+            await this.importFiles([file]);
+        }).catch((err) => {
+            Logger.error(err);
+        });
     }
 
     protected async createActiveView(document: IDocument | undefined) {
