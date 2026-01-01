@@ -181,7 +181,7 @@ export class Application implements IApplication {
 
             const response = await fetch(url);
             if (!response.ok) {
-                throw new Error(`Failed to fetch model: ${response.statusText}`);
+                throw new Error(`Failed to fetch model: ${url}, statusText: ${response.statusText}`);
             }
 
             const blob = await response.blob();

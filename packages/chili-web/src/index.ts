@@ -29,5 +29,5 @@ new AppBuilder()
     .build()
     .then(handleApplicaionBuilt)
     .catch((err) => {
-        Logger.error(err);
+        alert(err.message);
     });
