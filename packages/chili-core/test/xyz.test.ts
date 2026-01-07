@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Precision, XY, XYZ } from "../src";
+import { getVectorComponent, Precision, XY, XYZ } from "../src";
 
 describe("XYZ class tests", () => {
     describe("Basic properties and constructor", () => {
@@ -256,5 +256,28 @@ describe("XYZ class tests", () => {
             const v2 = XY.unitY;
             expect(v1.angleTo(v2)).toBe(Math.PI / 2);
         });
+    });
+});
+
+describe("getVectorComponent", () => {
+    it("should return the x component when index is 0", () => {
+        const point = { x: 1, y: 2, z: 3 };
+        expect(getVectorComponent(point, 0)).toBe(1);
+    });
+
+    it("should return the y component when index is 1", () => {
+        const point = { x: 1, y: 2, z: 3 };
+        expect(getVectorComponent(point, 1)).toBe(2);
+    });
+
+    it("should return the z component when index is 2", () => {
+        const point = { x: 1, y: 2, z: 3 };
+        expect(getVectorComponent(point, 2)).toBe(3);
+    });
+
+    it("should throw an error when index is out of range", () => {
+        const point = { x: 1, y: 2, z: 3 };
+        expect(() => getVectorComponent(point, 3)).toThrow("index out of range");
+        expect(() => getVectorComponent(point, -1)).toThrow("index out of range");
     });
 });

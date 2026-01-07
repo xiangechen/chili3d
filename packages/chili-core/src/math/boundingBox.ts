@@ -1,16 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { Precision } from "../foundation";
 import { type EdgeMeshData, LineType } from "../shape";
+import type { LineSegment } from "./lineSegment";
 import type { Matrix4 } from "./matrix4";
-import { XYZ } from "./xyz";
-
-export type PointLike = { x: number; y: number; z: number };
+import { getVectorComponent, XYZ, type XYZLike } from "./xyz";
 
 export class BoundingBox {
     constructor(
-        readonly min: PointLike,
-        readonly max: PointLike,
+        readonly min: XYZLike,
+        readonly max: XYZLike,
     ) {}
 
     static readonly zero = new BoundingBox(new XYZ(0, 0, 0), new XYZ(0, 0, 0));
@@ -147,7 +147,40 @@ export class BoundingBox {
         );
     }
 
-    static isInside(box: BoundingBox, point: PointLike, tolerance = 0.001) {
+    static isIntersectLineSegment(box: BoundingBox, line: LineSegment) {
+        const d = line.end.sub(line.start);
+
+        let [tMin, tMax] = [0, 1];
+        for (let i = 0; i < 3; i++) {
+            const coordMin = getVectorComponent(box.min, i);
+            const coordMax = getVectorComponent(box.max, i);
+            const coordStart = getVectorComponent(line.start, i);
+            const coordD = getVectorComponent(d, i);
+
+            if (Math.abs(coordD) < Precision.Distance) {
+                if (coordStart < coordMin || coordStart > coordMax) {
+                    return false;
+                }
+            } else {
+                const t1 = (coordMin - coordStart) / coordD;
+                const t2 = (coordMax - coordStart) / coordD;
+                tMin = Math.max(tMin, Math.min(t1, t2));
+                tMax = Math.min(tMax, Math.max(t1, t2));
+
+                if (tMin > tMax) {
+                    return false;
+                }
+
+                if (tMax < 0 || tMin > 1) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    static isInside(box: BoundingBox, point: XYZLike, tolerance = 0.001) {
         return (
             box.min.x + tolerance <= point.x &&
             point.x <= box.max.x - tolerance &&
@@ -158,7 +191,7 @@ export class BoundingBox {
         );
     }
 
-    static expandByPoint(box: BoundingBox, point: PointLike) {
+    static expandByPoint(box: BoundingBox, point: XYZLike) {
         const { min, max } = box;
         min.x = Math.min(min.x, point.x);
         min.y = Math.min(min.y, point.y);
@@ -209,7 +242,7 @@ export class BoundingBox {
         return new BoundingBox(min, max);
     }
 
-    static fromPoints(points: PointLike[]): BoundingBox {
+    static fromPoints(points: XYZLike[]): BoundingBox {
         const min = { x: Infinity, y: Infinity, z: Infinity };
         const max = { x: -Infinity, y: -Infinity, z: -Infinity };
 

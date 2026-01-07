@@ -7,6 +7,26 @@ import { MathUtils } from "./mathUtils";
 
 export type XYZLike = { x: number; y: number; z: number };
 
+/**
+ * Gets the component value of a vector at the specified index
+ *
+ * @param point - An XYZLike object containing x, y, z properties
+ * @param index - The index of the component to retrieve (0 for x, 1 for y, 2 for z)
+ * @returns The component value at the specified index
+ * @throws Error when index is out of valid range (0-2)
+ */
+export function getVectorComponent(point: XYZLike, index: number) {
+    if (index === 0) {
+        return point.x;
+    } else if (index === 1) {
+        return point.y;
+    } else if (index === 2) {
+        return point.z;
+    }
+
+    throw new Error("index out of range");
+}
+
 @Serializer.register(["x", "y", "z"])
 export class XYZ {
     static readonly zero = Object.freeze(new XYZ(0, 0, 0));
