@@ -9,7 +9,6 @@ import {
     type ISubEdgeShape,
     IView,
     type Line,
-    LineType,
     Precision,
     ShapeType,
     VisualConfig,
@@ -97,7 +96,7 @@ export class TrackingSnap implements ISnap {
         if (!normal) return undefined;
         const distance = Math.min(vector.length() * 1e10, 1e20);
         const newEnd = start.add(normal.multiply(distance));
-        const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
+        const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, "dash");
         return view.document.visual.context.displayMesh([lineDats]);
     }
 

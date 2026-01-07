@@ -9,7 +9,6 @@ import {
     command,
     GeometryNode,
     Line,
-    LineType,
     MathUtils,
     Matrix4,
     MeshNode,
@@ -183,7 +182,7 @@ export class ArrayCommand extends MultistepCommand {
 
         this._meshId = this.document.visual.context.displayLineSegments({
             position: positions,
-            lineType: LineType.Solid,
+            lineType: "solid",
             range: [],
         });
     }

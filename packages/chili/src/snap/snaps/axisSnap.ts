@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EdgeMeshData, type IView, LineType, Plane, VisualConfig, type XYZ } from "chili-core";
+import { EdgeMeshData, type IView, Plane, VisualConfig, type XYZ } from "chili-core";
 import type { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export class AxisSnap implements ISnap {
@@ -41,7 +41,7 @@ export class AxisSnap implements ISnap {
             this.point,
             this.point.add(this.direction.multiply(dist)),
             VisualConfig.temporaryEdgeColor,
-            LineType.Dash,
+            "dash",
         );
         const id = view.document.visual.context.displayMesh([lineDats]);
         this._tempLines = [view, id];

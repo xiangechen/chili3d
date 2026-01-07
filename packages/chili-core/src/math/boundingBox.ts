@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation";
-import { type EdgeMeshData, LineType } from "../shape";
+import type { EdgeMeshData } from "../shape";
 import type { LineSegment } from "./lineSegment";
 import type { Matrix4 } from "./matrix4";
 import { getVectorComponent, XYZ, type XYZLike } from "./xyz";
@@ -127,7 +127,7 @@ export class BoundingBox {
         ];
         return {
             position: new Float32Array(position),
-            lineType: LineType.Solid,
+            lineType: "solid",
             range: [],
         };
     }

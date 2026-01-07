@@ -5,7 +5,6 @@ import {
     command,
     EdgeMeshData,
     type GeometryNode,
-    LineType,
     type Plane,
     Precision,
     VisualConfig,
@@ -82,7 +81,7 @@ export class Cone extends CreateCommand {
     };
 
     protected override meshLine(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, LineType.Solid);
+        return EdgeMeshData.from(start, end, VisualConfig.defaultEdgeColor, "solid");
     }
 
     protected override geometryNode(): GeometryNode {

@@ -7,7 +7,7 @@ import type { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4, type XYZ } from "../math";
 import { Property } from "../property";
 import { Serializer } from "../serialize";
-import { type EdgeMeshData, type FaceMeshData, LineType, Mesh } from "../shape";
+import { type EdgeMeshData, type FaceMeshData, Mesh } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { MeshNode } from "./meshNode";
 import type { INode } from "./node";
@@ -27,7 +27,7 @@ export function createComponentMesh(size: ComponentSize): ComponentMesh {
     return {
         faceMaterials: [],
         edge: {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(size.edge * 3),
             range: [],
         },

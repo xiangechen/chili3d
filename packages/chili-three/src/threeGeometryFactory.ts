@@ -1,13 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type EdgeMeshData,
-    type FaceMeshData,
-    LineType,
-    type MeshLike,
-    type VertexMeshData,
-} from "chili-core";
+import type { EdgeMeshData, FaceMeshData, MeshLike, VertexMeshData } from "chili-core";
 import {
     AlwaysDepth,
     BufferAttribute,
@@ -95,7 +89,7 @@ export class ThreeGeometryFactory {
             polygonOffsetFactor: -4,
             polygonOffsetUnits: -4,
         });
-        if (data.lineType === LineType.Dash) {
+        if (data.lineType === "dash") {
             material.dashed = true;
             material.dashScale = 100;
             material.dashSize = 100;

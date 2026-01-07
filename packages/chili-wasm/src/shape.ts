@@ -23,7 +23,6 @@ import {
     type IWire,
     type JoinType,
     Line,
-    LineType,
     Logger,
     MathUtils,
     type Matrix4,
@@ -127,7 +126,7 @@ export class OccShape implements IShape {
         const position = occMesher.edgesMeshPosition();
         occMesher.delete();
         return {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(position),
             range: [],
             color: VisualConfig.defaultEdgeColor,

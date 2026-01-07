@@ -9,7 +9,6 @@ import {
     type IShape,
     type IShapeFactory,
     type IView,
-    LineType,
     Result,
     VertexMeshData,
     VisualConfig,
@@ -68,7 +67,7 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
-        const data = EdgeMeshData.from(start, end, color, LineType.Solid);
+        const data = EdgeMeshData.from(start, end, color, "solid");
         if (lineWith !== undefined) {
             data.lineWidth = lineWith;
         }

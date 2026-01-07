@@ -4,7 +4,7 @@
 import { VisualConfig } from "../config";
 import type { Matrix4, XYZ } from "../math";
 import { Serializer } from "../serialize";
-import { LineType } from "./lineType";
+import type { LineType } from "./lineType";
 import type { ISubShape } from "./shape";
 
 @Serializer.register(["start", "count", "materialIndex"])
@@ -241,7 +241,7 @@ export abstract class MeshDataBuilder<T extends ShapeMeshData> {
 export class EdgeMeshDataBuilder extends MeshDataBuilder<EdgeMeshData> {
     protected _positionStart: number = 0;
     private _previousVertex: [number, number, number] | undefined = undefined;
-    private _lineType: LineType = LineType.Solid;
+    private _lineType: LineType = "solid";
 
     constructor() {
         super();

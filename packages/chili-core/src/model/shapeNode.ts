@@ -7,7 +7,7 @@ import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundatio
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { Serializer } from "../serialize";
-import { type EdgeMeshData, type FaceMeshData, type IShape, type IShapeMeshData, LineType } from "../shape";
+import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
 
@@ -74,7 +74,7 @@ export class MultiShapeMesh implements IShapeMeshData {
 
     constructor() {
         this._edges = {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(),
             range: [],
             color: VisualConfig.defaultEdgeColor,

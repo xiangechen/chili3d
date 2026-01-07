@@ -7,7 +7,6 @@ import {
     ComponentNode,
     EdgeMeshData,
     GeometryNode,
-    LineType,
     type Matrix4,
     MeshNode,
     Property,
@@ -38,7 +37,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         const positions = transform.ofPoints(this.positions!);
         return {
             position: new Float32Array(positions),
-            lineType: LineType.Solid,
+            lineType: "solid",
             color: VisualConfig.defaultEdgeColor,
             range: [],
         };
@@ -75,7 +74,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     }
 
     protected getTempLineData(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Solid);
+        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, "solid");
     }
 
     protected executeMainTask(): void {

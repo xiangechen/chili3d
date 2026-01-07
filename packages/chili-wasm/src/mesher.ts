@@ -7,7 +7,6 @@ import {
     gc,
     type IDisposable,
     type IShapeMeshData,
-    LineType,
     type ShapeMeshRange,
     VisualConfig,
 } from "chili-core";
@@ -72,7 +71,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
 
     private parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
         return {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(edgeMeshData.position),
             range: this.getEdgeRanges(edgeMeshData),
             color: VisualConfig.defaultEdgeColor,
