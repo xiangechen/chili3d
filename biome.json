@@ -47,6 +47,7 @@
                 "noUnusedVariables": "warn"
             },
             "complexity": {
+                "noBannedTypes": "error",
                 "noStaticOnlyClass": "off"
             }
         }

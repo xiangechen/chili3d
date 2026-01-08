@@ -19,10 +19,10 @@ export interface Property {
     }[];
 }
 
-const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
+const PropertyKeyMap = new Map<object, Map<string | number | symbol, Property>>();
 
 export function property(display: I18nKeys, parameters?: Omit<Property, "name" | "display">) {
-    return (target: Object, name: string) => {
+    return (target: object, name: string) => {
         if (!PropertyKeyMap.has(target)) {
             PropertyKeyMap.set(target, new Map());
         }
@@ -51,7 +51,7 @@ export class PropertyUtils {
         PropertyUtils.getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties, until);
     }
 
-    static getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
+    static getProperty<T extends object>(target: T, property: keyof T): Property | undefined {
         if (!target) return undefined;
         const map = PropertyKeyMap.get(target);
         if (map?.has(property)) return map.get(property);

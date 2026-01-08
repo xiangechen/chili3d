@@ -172,7 +172,7 @@ export class Serializer {
         }
     }
 
-    static serializeObject(target: Object): Serialized {
+    static serializeObject(target: object): Serialized {
         const classKey = target.constructor.name;
         if (!reflectMap.has(classKey)) {
             console.log(target);
@@ -189,7 +189,7 @@ export class Serializer {
         };
     }
 
-    static serializeProperties(target: Object) {
+    static serializeProperties(target: object) {
         const data: SerializedProperties<any> = {};
         const keys = Serializer.getAllKeysOfPrototypeChain(target, propertiesMap);
         for (const key of keys) {
@@ -215,7 +215,7 @@ export class Serializer {
     }
 
     private static getAllKeysOfPrototypeChain(
-        target: Object,
+        target: object,
         map: Map<new (...args: any[]) => any, Set<string>>,
     ) {
         const keys: string[] = [];
