@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, VertexMeshData } from "chili-core";
+import { type IDocument, MeshDataUtils } from "chili-core";
 import type { SnapResult } from "..";
 
 export abstract class TrackingBase {
@@ -32,7 +32,7 @@ export abstract class TrackingBase {
     }
 
     protected displayPoint(document: IDocument, point: SnapResult, size: number, color: number): number {
-        const data = VertexMeshData.from(point.point!, size, color);
+        const data = MeshDataUtils.createVertexMesh(point.point!, size, color);
         const id = document.visual.context.displayMesh([data]);
         this.addTempMesh(document, id);
         return id;

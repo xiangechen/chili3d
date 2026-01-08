@@ -2,12 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Command,
     type CommandKeys,
+    CommandUtils,
     type IApplication,
     ICommand,
     type IService,
     type IView,
+    isCancelableCommand,
     Logger,
     PubSub,
 } from "chili-core";
@@ -42,7 +43,7 @@ export class CommandService implements IService {
     }
 
     private readonly onActiveViewChanged = async (view: IView | undefined) => {
-        if (this.app.executingCommand && ICommand.isCancelableCommand(this.app.executingCommand))
+        if (this.app.executingCommand && isCancelableCommand(this.app.executingCommand))
             await this.app.executingCommand.cancel();
     };
 
@@ -54,7 +55,7 @@ export class CommandService implements IService {
     };
 
     private async executeAsync(commandName: CommandKeys) {
-        const commandCtor = Command.get(commandName)!;
+        const commandCtor = CommandUtils.getCommond(commandName)!;
         if (!commandCtor) {
             Logger.error(`Can not find ${commandName} command`);
             return;
@@ -84,7 +85,7 @@ export class CommandService implements IService {
     }
 
     private async checking(commandName: CommandKeys) {
-        const commandData = Command.getData(commandName);
+        const commandData = CommandUtils.getComandData(commandName);
         if (!commandData?.isApplicationCommand && this.app.activeView === undefined) {
             Logger.error("No active document");
             return false;
@@ -92,11 +93,11 @@ export class CommandService implements IService {
         if (!this.app.executingCommand) {
             return true;
         }
-        if (Command.getData(this.app.executingCommand)?.key === commandName) {
+        if (CommandUtils.getComandData(this.app.executingCommand)?.key === commandName) {
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
             return false;
         }
-        if (ICommand.isCancelableCommand(this.app.executingCommand)) {
+        if (isCancelableCommand(this.app.executingCommand)) {
             await this.app.executingCommand.cancel();
             return true;
         }

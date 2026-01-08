@@ -8,16 +8,17 @@ import {
     type Line,
     ParameterShapeNode,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "profile", "axis", "angle"])
+@serializable(["document", "profile", "axis", "angle"])
 export class RevolvedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.revol";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get profile() {
         return this.getPrivateValue("profile");
     }
@@ -25,7 +26,7 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get axis() {
         return this.getPrivateValue("axis");
     }
@@ -33,7 +34,7 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("axis", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get angle() {
         return this.getPrivateValue("angle");
     }

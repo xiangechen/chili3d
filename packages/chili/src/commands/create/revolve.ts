@@ -2,15 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CurveUtils,
     command,
     type GeometryNode,
-    ICurve,
     type IEdge,
     type ILine,
     type IShape,
     type IShapeFilter,
     Line,
-    Property,
+    property,
     ShapeType,
 } from "chili-core";
 import { RevolvedNode } from "../../bodys";
@@ -23,7 +23,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {
-    @Property.define("common.angle")
+    @property("common.angle")
     public get angle() {
         return this.getPrivateValue("angle", 360);
     }
@@ -55,7 +55,7 @@ class LineFilter implements IShapeFilter {
         if (shape.shapeType === ShapeType.Edge) {
             const edge = shape as IEdge;
             const curve = edge.curve.basisCurve;
-            return ICurve.isLine(curve);
+            return CurveUtils.isLine(curve);
         }
         return false;
     }

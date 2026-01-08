@@ -5,12 +5,11 @@ import {
     AsyncController,
     CancelableCommand,
     Config,
-    EdgeMeshData,
     type IShape,
     type IShapeFactory,
     type IView,
+    MeshDataUtils,
     Result,
-    VertexMeshData,
     VisualConfig,
     type XYZ,
 } from "chili-core";
@@ -63,11 +62,15 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected meshPoint(point: XYZ) {
-        return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
+        return MeshDataUtils.createVertexMesh(
+            point,
+            VisualConfig.editVertexSize,
+            VisualConfig.editVertexColor,
+        );
     }
 
     protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
-        const data = EdgeMeshData.from(start, end, color, "solid");
+        const data = MeshDataUtils.createEdgeMesh(start, end, color, "solid");
         if (lineWith !== undefined) {
             data.lineWidth = lineWith;
         }

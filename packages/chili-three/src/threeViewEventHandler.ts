@@ -27,12 +27,9 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        const currentNav3D = Config.instance.navigation3DIndex;
+        const currentNav3D = Config.instance.navigation3D;
 
-        if (
-            currentNav3D === Navigation3D.Nav3DType.Solidworks ||
-            currentNav3D === Navigation3D.Nav3DType.Creo
-        ) {
+        if (currentNav3D === "Solidworks" || currentNav3D === "Creo") {
             view.cameraController.zoom(event.offsetX, event.offsetY, -event.deltaY);
         } else {
             view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);

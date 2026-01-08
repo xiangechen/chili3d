@@ -1,16 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable } from "./disposable";
+import { type IDisposable, isDisposable } from "./disposable";
 
 export interface Deletable {
     delete(): void;
 }
 
-export namespace Deletable {
-    export function isDeletable(value: unknown): value is Deletable {
-        return typeof (value as any)?.delete === "function" && (value as any).delete.length === 0;
-    }
+export function isDeletable(value: unknown): value is Deletable {
+    return typeof (value as any)?.delete === "function" && (value as any).delete.length === 0;
 }
 
 export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(resource: T) => T) => R): R => {
@@ -25,9 +23,9 @@ export const gc = <R>(action: (collect: <T extends Deletable | IDisposable>(reso
         return action(collectResource);
     } finally {
         for (const resource of resources) {
-            if (Deletable.isDeletable(resource)) {
+            if (isDeletable(resource)) {
                 resource.delete();
-            } else if (IDisposable.isDisposable(resource)) {
+            } else if (isDisposable(resource)) {
                 resource.dispose();
             }
         }

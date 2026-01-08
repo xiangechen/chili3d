@@ -3,14 +3,15 @@
 
 import {
     Config,
-    EdgeMeshData,
     I18n,
     type IDocument,
     type ISubEdgeShape,
-    IView,
+    type IView,
     type Line,
+    MeshDataUtils,
     Precision,
     ShapeType,
+    screenDistance,
     VisualConfig,
     XY,
     type XYZ,
@@ -96,7 +97,7 @@ export class TrackingSnap implements ISnap {
         if (!normal) return undefined;
         const distance = Math.min(vector.length() * 1e10, 1e20);
         const newEnd = start.add(normal.multiply(distance));
-        const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, "dash");
+        const lineDats = MeshDataUtils.createEdgeMesh(start, newEnd, VisualConfig.temporaryEdgeColor, "dash");
         return view.document.visual.context.displayMesh([lineDats]);
     }
 
@@ -126,7 +127,7 @@ export class TrackingSnap implements ISnap {
                 points.push({ intersect: p.point, location: x.axis.point });
             });
         });
-        points.sort((p) => IView.screenDistance(data.view, data.mx, data.my, p.intersect));
+        points.sort((p) => screenDistance(data.view, data.mx, data.my, p.intersect));
         return points.at(0);
     }
 

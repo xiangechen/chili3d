@@ -7,7 +7,6 @@ import {
     type ICompound,
     type ICompoundSolid,
     type ICurve,
-    IDisposable,
     Id,
     type IEdge,
     type IFace,
@@ -21,6 +20,7 @@ import {
     type ITrimmedCurve,
     type IVertex,
     type IWire,
+    isDisposable,
     type JoinType,
     Line,
     Logger,
@@ -30,8 +30,8 @@ import {
     Plane,
     Result,
     type SerializedProperties,
-    Serializer,
     type ShapeType,
+    serializable,
     VisualConfig,
     type XYZ,
     type XYZLike,
@@ -62,7 +62,7 @@ function occShapeDeserialize(shape: string, id: string) {
     return tshape;
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
@@ -251,14 +251,14 @@ export class OccShape implements IShape {
         this._shape.delete();
         this._shape = null as any;
 
-        if (this._mesh && IDisposable.isDisposable(this._mesh)) {
+        if (this._mesh && isDisposable(this._mesh)) {
             this._mesh.dispose();
             this._mesh = null as any;
         }
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccVertex extends OccShape implements IVertex {
     readonly vertex: TopoDS_Vertex;
 
@@ -268,7 +268,7 @@ export class OccVertex extends OccShape implements IVertex {
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccEdge extends OccShape implements IEdge {
     private _edge: TopoDS_Edge;
     get edge(): TopoDS_Edge {
@@ -347,14 +347,14 @@ export class OccEdge extends OccShape implements IEdge {
 
     protected override disposeInternal(): void {
         super.disposeInternal();
-        if (this._curve && IDisposable.isDisposable(this._curve)) {
+        if (this._curve && isDisposable(this._curve)) {
             this._curve.dispose();
             this._curve = null as any;
         }
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccWire extends OccShape implements IWire {
     constructor(
         readonly wire: TopoDS_Wire,
@@ -384,7 +384,7 @@ export class OccWire extends OccShape implements IWire {
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccFace extends OccShape implements IFace {
     constructor(
         readonly face: TopoDS_Face,
@@ -426,10 +426,10 @@ export class OccFace extends OccShape implements IFace {
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShell extends OccShape implements IShell {}
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccSolid extends OccShape implements ISolid {
     constructor(
         readonly solid: TopoDS_Solid,
@@ -443,10 +443,10 @@ export class OccSolid extends OccShape implements ISolid {
     }
 }
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompSolid extends OccShape implements ICompoundSolid {}
 
-@Serializer.register(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompound extends OccShape implements ICompound {}
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {

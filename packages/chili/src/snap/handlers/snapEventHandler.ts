@@ -7,12 +7,13 @@ import {
     type I18nKeys,
     type IDocument,
     type IEventHandler,
-    IView,
+    type IView,
+    MeshDataUtils,
     MessageType,
     PubSub,
     Result,
     ShapeType,
-    VertexMeshData,
+    screenDistance,
     VisualConfig,
     type XYZ,
 } from "chili-core";
@@ -120,7 +121,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         for (const point of this.data.featurePoints || []) {
             if (point.when && !point.when()) continue;
 
-            const dist = IView.screenDistance(view, event.offsetX, event.offsetY, point.point);
+            const dist = screenDistance(view, event.offsetX, event.offsetY, point.point);
             if (dist < minDist) {
                 minDist = dist;
                 nearest = point;
@@ -205,7 +206,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
     private showTempShape(point: XYZ | undefined) {
         if (point && this.showTempPoint) {
-            const data = VertexMeshData.from(
+            const data = MeshDataUtils.createVertexMesh(
                 point,
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,

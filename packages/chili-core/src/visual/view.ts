@@ -70,11 +70,9 @@ export interface IView extends IPropertyChanged, IDisposable {
     ): VisualShapeData[];
 }
 
-export namespace IView {
-    export function screenDistance(view: IView, mx: number, my: number, point: XYZ) {
-        const xy = view.worldToScreen(point);
-        const dx = xy.x - mx;
-        const dy = xy.y - my;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
+export function screenDistance(view: IView, mx: number, my: number, point: XYZ) {
+    const xy = view.worldToScreen(point);
+    const dx = xy.x - mx;
+    const dy = xy.y - my;
+    return Math.sqrt(dx * dx + dy * dy);
 }

@@ -10,8 +10,8 @@ import {
     I18n,
     type IApplication,
     type ICommand,
-    Property,
     PubSub,
+    property,
     readFilesAsync,
 } from "chili-core";
 import { SelectNodeStep } from "../step";
@@ -38,7 +38,7 @@ export class Import implements ICommand {
     icon: "icon-export",
 })
 export class Export extends CancelableCommand {
-    @Property.define("file.format")
+    @property("file.format")
     public get formats() {
         return this.getPrivateValue("formats", this.initCombobox());
     }

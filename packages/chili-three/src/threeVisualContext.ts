@@ -10,19 +10,21 @@ import {
     type EdgeMeshData,
     GeometryNode,
     GroupNode,
-    IDisposable,
-    INode,
+    type INode,
     type IShapeFilter,
     type IVisual,
     type IVisualContext,
     type IVisualObject,
+    isDisposable,
     type Material,
     type Matrix4,
+    MeshDataUtils,
     type MeshLike,
     MeshNode,
     NodeAction,
     type NodeRecord,
-    ShapeMeshData,
+    NodeUtils,
+    type ShapeMeshData,
     type ShapeNode,
     ShapeType,
     Texture,
@@ -136,9 +138,9 @@ export class ThreeVisualContext implements IVisualContext {
                 x.action === NodeAction.insertBefore ||
                 x.action === NodeAction.insertAfter
             ) {
-                INode.nodeOrChildrenAppendToNodes(adds, x.node);
+                NodeUtils.nodeOrChildrenAppendToNodes(adds, x.node);
             } else if (x.action === NodeAction.remove || x.action === NodeAction.transfer) {
-                INode.nodeOrChildrenAppendToNodes(rms, x.node);
+                NodeUtils.nodeOrChildrenAppendToNodes(rms, x.node);
             } else if (x.action === NodeAction.move && x.newParent) {
                 this.moveNode(x.node, x.oldParent!);
             }
@@ -162,7 +164,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     dispose() {
         this.visualShapes.traverse((x) => {
-            if (IDisposable.isDisposable(x)) x.dispose();
+            if (isDisposable(x)) x.dispose();
         });
         this.visual.document.modelManager.materials.forEach((x) =>
             x.removePropertyChanged(this.onMaterialPropertyChanged),
@@ -248,11 +250,11 @@ export class ThreeVisualContext implements IVisualContext {
     displayMesh(datas: ShapeMeshData[], opacity?: number): number {
         const group = new Group();
         datas.forEach((data) => {
-            if (ShapeMeshData.isVertex(data)) {
+            if (MeshDataUtils.isVertexMesh(data)) {
                 group.add(ThreeGeometryFactory.createVertexGeometry(data));
-            } else if (ShapeMeshData.isEdge(data)) {
+            } else if (MeshDataUtils.isEdgeMesh(data)) {
                 group.add(ThreeGeometryFactory.createEdgeGeometry(data));
-            } else if (ShapeMeshData.isFace(data)) {
+            } else if (MeshDataUtils.isFaceMesh(data)) {
                 group.add(ThreeGeometryFactory.createFaceGeometry(data, opacity));
             }
         });
@@ -312,7 +314,7 @@ export class ThreeVisualContext implements IVisualContext {
                 x.geometry.dispose();
                 x.material.dispose();
             }
-            if (IDisposable.isDisposable(x)) {
+            if (isDisposable(x)) {
                 x.dispose();
             }
         });

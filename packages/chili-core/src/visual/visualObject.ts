@@ -18,8 +18,6 @@ export interface IVisualGeometry extends IVisualObject {
     get geometryNode(): GeometryNode;
 }
 
-export namespace IVisualObject {
-    export function isGeometry(obj: IVisualObject): obj is IVisualGeometry {
-        return (obj as IVisualGeometry).geometryNode !== undefined;
-    }
+export function isVisualGeometry(obj: IVisualObject): obj is IVisualGeometry {
+    return (obj as IVisualGeometry).geometryNode !== undefined;
 }

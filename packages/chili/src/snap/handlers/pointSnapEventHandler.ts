@@ -13,7 +13,7 @@ import {
     type ShapeType,
     XYZ,
 } from "chili-core";
-import { Dimension } from "../dimension";
+import { type Dimension, DimensionUtils } from "../dimension";
 import type { ISnap, SnapData, SnapResult } from "../snap";
 import { AxisSnap, ObjectSnap, PlaneSnap, PointOnCurveSnap, WorkplaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
@@ -88,7 +88,7 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
 
     protected inputError(text: string): I18nKeys | undefined {
         const [dims, isAbsolute] = this.parseInputDimensions(text);
-        const dimension = Dimension.from(dims.length);
+        const dimension = DimensionUtils.from(dims.length);
 
         if (isAbsolute && dims.length !== 3) return "error.input.threeNumberCanBeInput";
         if (!this.isValidDimension(dimension)) return "error.input.unsupportedInputs";
@@ -100,7 +100,7 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     }
 
     private isValidDimension(dimension: Dimension): boolean {
-        return Dimension.contains(this.data.dimension!, dimension);
+        return DimensionUtils.contains(this.data.dimension!, dimension);
     }
 
     private hasInvalidNumbers(dims: number[]): boolean {

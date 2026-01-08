@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { a, svg } from "chili-controls";
-import { I18n, type I18nKeys, INode, PubSub } from "chili-core";
+import { I18n, type I18nKeys, type INode, NodeUtils, PubSub } from "chili-core";
 import type { ProjectView } from "./projectView";
 import style from "./toolBar.module.css";
 import type { Tree } from "./tree";
@@ -61,7 +61,7 @@ export class ToolBar extends HTMLElement {
         if (item instanceof TreeGroup) {
             item.isExpanded = expand;
         }
-        if (INode.isLinkedListNode(list) && list.firstChild) {
+        if (NodeUtils.isLinkedListNode(list) && list.firstChild) {
             this.setNodeExpand(tree, list.firstChild, expand);
         }
         if (list.nextSibling) {

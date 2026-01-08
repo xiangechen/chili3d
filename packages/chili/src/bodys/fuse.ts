@@ -7,16 +7,17 @@ import {
     type IShape,
     ParameterShapeNode,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "bottom", "top"])
+@serializable(["document", "bottom", "top"])
 export class FuseNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.fuse";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get bottom(): IShape {
         return this.getPrivateValue("bottom");
     }
@@ -24,7 +25,7 @@ export class FuseNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("bottom", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get top(): IShape {
         return this.getPrivateValue("top");
     }

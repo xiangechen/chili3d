@@ -28,16 +28,17 @@ export class Localize {
 
 export type Translation = Record<I18nKeys, string>;
 
-export namespace I18n {
-    const languages = new Map<string, Locale>();
+const DATASET_LINK_KEY = "_:_";
+const languages = new Map<string, Locale>();
+let _currentLanguage: string | undefined;
 
-    let _currentLanguage: string | undefined;
-    export function currentLanguage() {
-        _currentLanguage ??= defaultLanguage();
+export class I18n {
+    static currentLanguage() {
+        _currentLanguage ??= I18n.defaultLanguage();
         return _currentLanguage;
     }
 
-    export function defaultLanguage(): string {
+    static defaultLanguage(): string {
         const defaultLanguage = navigator.language.toLowerCase();
         const language = languages.keys().find((key) => key.toLowerCase() === defaultLanguage);
         if (language) {
@@ -47,15 +48,15 @@ export namespace I18n {
         return "en";
     }
 
-    export function getLanguages(): Locale[] {
+    static getLanguages(): Locale[] {
         return Array.from(languages.values());
     }
 
-    export function addLanguage(local: Locale) {
+    static addLanguage(local: Locale) {
         languages.set(local.language, local);
     }
 
-    export function combineTranslation(language: string, translations: Record<string, string>) {
+    static combineTranslation(language: string, translations: Record<string, string>) {
         const local = languages.get(language);
         if (local) {
             local.translation = {
@@ -65,8 +66,8 @@ export namespace I18n {
         }
     }
 
-    export function translate(key: I18nKeys, ...args: any[]) {
-        const language = languages.get(currentLanguage());
+    static translate(key: I18nKeys, ...args: any[]) {
+        const language = languages.get(I18n.currentLanguage());
         if (!language) {
             console.warn(`No translation for ${key} in ${language}`);
             return key;
@@ -78,30 +79,28 @@ export namespace I18n {
         return text;
     }
 
-    export function isI18nKey(key: string): key is I18nKeys {
+    static isI18nKey(key: string): key is I18nKeys {
         return key in languages.get("zh-CN")!.translation;
     }
 
-    const LINK_KEY = "_:_";
-
-    export function set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {
-        dom[path] = translate(key, ...args);
-        dom.dataset[I18nId] = `${key}${LINK_KEY}${path}`;
+    static set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {
+        dom[path] = I18n.translate(key, ...args);
+        dom.dataset[I18nId] = `${key}${DATASET_LINK_KEY}${path}`;
         if (args.length > 0) {
             I18nArgs.set(dom, args);
         }
     }
 
-    export function changeLanguage(newLanguage: string) {
+    static changeLanguage(newLanguage: string) {
         if (newLanguage === _currentLanguage) return;
         _currentLanguage = newLanguage;
 
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
             const html = e as HTMLElement;
-            const data = html?.dataset[I18nId]?.split(LINK_KEY);
+            const data = html?.dataset[I18nId]?.split(DATASET_LINK_KEY);
             if (data?.length !== 2) return;
             const args = I18nArgs.get(html) ?? [];
-            html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
+            html[data[1] as I18nPath] = I18n.translate(data[0] as I18nKeys, ...args);
         });
     }
 }

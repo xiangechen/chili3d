@@ -27,7 +27,7 @@ export class Statusbar extends HTMLElement {
     }
 
     private readonly handleConfigChanged = (prop: keyof Config) => {
-        if (prop === "navigation3DIndex" && this._isDefaultTip) {
+        if (prop === "navigation3D" && this._isDefaultTip) {
             this.setDefaultTip();
         }
     };

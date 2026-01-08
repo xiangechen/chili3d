@@ -5,8 +5,8 @@ import type { IDocument } from "../document";
 import { Id } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4, type XYZ } from "../math";
-import { Property } from "../property";
-import { Serializer } from "../serialize";
+import { property } from "../property";
+import { serializable, serialze } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { MeshNode } from "./meshNode";
@@ -68,25 +68,25 @@ export function createComponentSize(): ComponentSize {
     };
 }
 
-@Serializer.register(["name", "nodes", "origin", "id"])
+@serializable(["name", "nodes", "origin", "id"])
 export class Component {
     private readonly _nodes: ReadonlyArray<VisualNode>;
-    @Serializer.serialze()
+    @serialze()
     get nodes(): ReadonlyArray<VisualNode> {
         return this._nodes;
     }
 
     private readonly _name: string;
-    @Serializer.serialze()
+    @serialze()
     get name(): string {
         return this._name;
     }
 
-    @Serializer.serialze()
+    @serialze()
     readonly id: string;
 
     private _origin: XYZ;
-    @Serializer.serialze()
+    @serialze()
     get origin(): XYZ {
         return this._origin;
     }
@@ -258,7 +258,7 @@ export class Component {
     }
 }
 
-@Serializer.register(["document", "name", "componentId", "insert", "id"])
+@serializable(["document", "name", "componentId", "insert", "id"])
 export class ComponentNode extends VisualNode {
     override display(): I18nKeys {
         return "body.group";
@@ -273,7 +273,7 @@ export class ComponentNode extends VisualNode {
     }
 
     private _component?: Component;
-    @Property.define("body.group")
+    @property("body.group")
     get component() {
         if (!this._component) {
             this._component = this.document.modelManager.components.find((c) => c.id === this.componentId);
@@ -285,10 +285,10 @@ export class ComponentNode extends VisualNode {
         return this._component;
     }
 
-    @Serializer.serialze()
+    @serialze()
     readonly componentId: string;
 
-    @Serializer.serialze()
+    @serialze()
     readonly insert: XYZ;
 
     constructor(

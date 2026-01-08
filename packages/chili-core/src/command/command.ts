@@ -3,7 +3,7 @@
 
 import type { IApplication } from "../application";
 import { type AsyncController, type IDisposable, Observable, PubSub } from "../foundation";
-import { Property } from "../property";
+import { type Property, PropertyUtils, property } from "../property";
 
 export interface ICommand {
     execute(application: IApplication): Promise<void>;
@@ -13,10 +13,8 @@ export interface ICanclableCommand extends ICommand, IDisposable {
     cancel(): Promise<void>;
 }
 
-export namespace ICommand {
-    export function isCancelableCommand(command: ICommand): command is ICanclableCommand {
-        return "cancel" in command;
-    }
+export function isCancelableCommand(command: ICommand): command is ICanclableCommand {
+    return "cancel" in command;
 }
 
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
@@ -55,7 +53,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.#controller = value;
     }
 
-    @Property.define("common.cancel")
+    @property("common.cancel")
     async cancel() {
         this._isCanceled = true;
 
@@ -65,7 +63,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         }
     }
 
-    @Property.define("option.command.repeat")
+    @property("option.command.repeat")
     get repeatOperation() {
         return this.getPrivateValue("repeatOperation", false);
     }
@@ -131,7 +129,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     private readProperties() {
-        Property.getProperties(this).forEach((x) => {
+        PropertyUtils.getProperties(this).forEach((x) => {
             const key = this.cacheKeyOfProperty(x);
             if (CancelableCommand._propertiesCache.has(key)) {
                 this.setPrivateValue(key as keyof this, CancelableCommand._propertiesCache.get(key));
@@ -140,7 +138,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     private saveProperties() {
-        Property.getProperties(this).forEach((x) => {
+        PropertyUtils.getProperties(this).forEach((x) => {
             const key = this.cacheKeyOfProperty(x);
             const prop = (this as any)[key];
             if (typeof prop === "function") return;

@@ -9,7 +9,8 @@ import {
     Localize,
     type Material,
     PathBinding,
-    Property,
+    type Property,
+    PropertyUtils,
     PubSub,
     Result,
     Texture,
@@ -132,7 +133,7 @@ export class MaterialEditor extends HTMLElement {
             return (material as any)[p.name] instanceof Texture;
         };
 
-        const properties = Property.getProperties(material);
+        const properties = PropertyUtils.getProperties(material);
         this.editingControl.append(
             ...properties
                 .filter((x) => !isTexture(x))

@@ -5,7 +5,7 @@ import {
     command,
     EditableShapeNode,
     type ISubEdgeShape,
-    Property,
+    property,
     type ShapeNode,
     ShapeType,
     Transaction,
@@ -19,7 +19,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-chamfer",
 })
 export class ChamferCommand extends MultistepCommand {
-    @Property.define("common.length")
+    @property("common.length")
     get length() {
         return this.getPrivateValue("length", 10);
     }

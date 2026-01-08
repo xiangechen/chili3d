@@ -4,10 +4,10 @@
 import {
     AsyncController,
     command,
-    EdgeMeshData,
     EditableShapeNode,
     type GeometryNode,
     I18n,
+    MeshDataUtils,
     Precision,
     type ShapeMeshData,
     VisualConfig,
@@ -101,7 +101,7 @@ export class BezierCommand extends CreateCommand {
     };
 
     protected meshHandle(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, "dash");
+        return MeshDataUtils.createEdgeMesh(start, end, VisualConfig.temporaryEdgeColor, "dash");
     }
 
     private readonly validator = (point: XYZ): boolean => {

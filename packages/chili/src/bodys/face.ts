@@ -9,17 +9,18 @@ import {
     type IWire,
     ParameterShapeNode,
     Result,
-    Serializer,
     ShapeType,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "shapes"])
+@serializable(["document", "shapes"])
 export class FaceNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.face";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get shapes(): IEdge[] | IWire[] {
         return this.getPrivateValue("shapes");
     }

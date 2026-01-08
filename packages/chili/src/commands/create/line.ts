@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type GeometryNode, Precision, Property, type XYZ } from "chili-core";
+import { command, type GeometryNode, Precision, property, type XYZ } from "chili-core";
 import { LineNode } from "../../bodys";
 import { Dimension, type PointSnapData } from "../../snap";
 import { type IStep, PointStep } from "../../step";
@@ -12,7 +12,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    @Property.define("option.command.isConnected", {
+    @property("option.command.isConnected", {
         dependencies: [{ property: "repeatOperation", value: true }],
     })
     get isContinue() {

@@ -12,6 +12,7 @@ import {
     type MeshNode,
     type ShapeMeshRange,
     ShapeType,
+    ShapeTypeUtils,
     VisualConfig,
     type VisualNode,
 } from "chili-core";
@@ -421,15 +422,15 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
 
         const isWhole =
             shapeType === ShapeType.Shape ||
-            ShapeType.hasCompound(shapeType) ||
-            ShapeType.hasCompoundSolid(shapeType) ||
-            ShapeType.hasSolid(shapeType);
+            ShapeTypeUtils.hasCompound(shapeType) ||
+            ShapeTypeUtils.hasCompoundSolid(shapeType) ||
+            ShapeTypeUtils.hasSolid(shapeType);
 
-        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
             shapes.push(this.edges);
         }
 
-        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
             shapes.push(this.faces);
         }
 

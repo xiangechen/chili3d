@@ -9,8 +9,8 @@ import {
     command,
     EditableShapeNode,
     type IShape,
-    Property,
     PubSub,
+    property,
     Result,
     ShapeType,
 } from "chili-core";
@@ -26,7 +26,7 @@ export class LoftCommand extends CancelableCommand {
     private shape: Result<IShape> = Result.err("None shape");
     private readonly _continuity = this.initContinuties();
 
-    @Property.define("option.command.isSolid")
+    @property("option.command.isSolid")
     get isSolid() {
         return this.getPrivateValue("isSolid", false);
     }
@@ -36,7 +36,7 @@ export class LoftCommand extends CancelableCommand {
         });
     }
 
-    @Property.define("option.command.isRuled")
+    @property("option.command.isRuled")
     get isRuled() {
         return this.getPrivateValue("isRuled", false);
     }
@@ -46,7 +46,7 @@ export class LoftCommand extends CancelableCommand {
         });
     }
 
-    @Property.define("option.command.continuity", {
+    @property("option.command.continuity", {
         dependencies: [
             {
                 property: "isRuled",
@@ -58,7 +58,7 @@ export class LoftCommand extends CancelableCommand {
         return this._continuity;
     }
 
-    @Property.define("common.confirm")
+    @property("common.confirm")
     readonly confirm = () => {
         this.controller?.success();
     };

@@ -15,8 +15,8 @@ import {
     Plane,
     PlaneAngle,
     Precision,
-    Property,
     PubSub,
+    property,
     type ShapeMeshData,
     Transaction,
     VisualNode,
@@ -36,7 +36,7 @@ export class ArrayCommand extends MultistepCommand {
     protected models?: VisualNode[];
     protected positions?: number[];
 
-    @Property.define("common.isGroup")
+    @property("common.isGroup")
     get isGroup() {
         return this.getPrivateValue("isGroup", true);
     }
@@ -44,7 +44,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("isGroup", value);
     }
 
-    @Property.define("option.command.circularPattern")
+    @property("option.command.circularPattern")
     get circularPattern() {
         return this.getPrivateValue("circularPattern", false);
     }
@@ -54,7 +54,7 @@ export class ArrayCommand extends MultistepCommand {
         });
     }
 
-    @Property.define("common.count", {
+    @property("common.count", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -69,7 +69,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("count", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberX", {
+    @property("common.numberX", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -84,7 +84,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("numberX", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberY", {
+    @property("common.numberY", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -99,7 +99,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("numberY", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberZ", {
+    @property("common.numberZ", {
         dependencies: [
             {
                 property: "circularPattern",

@@ -5,12 +5,13 @@ import {
     AsyncController,
     BoundingBox,
     ComponentNode,
-    EdgeMeshData,
+    type EdgeMeshData,
     GeometryNode,
     type Matrix4,
+    MeshDataUtils,
     MeshNode,
-    Property,
     PubSub,
+    property,
     Transaction,
     VisualConfig,
     VisualNode,
@@ -22,7 +23,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected models?: VisualNode[];
     protected positions?: number[];
 
-    @Property.define("common.clone")
+    @property("common.clone")
     get isClone() {
         return this.getPrivateValue("isClone", false);
     }
@@ -74,7 +75,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     }
 
     protected getTempLineData(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, "solid");
+        return MeshDataUtils.createEdgeMesh(start, end, VisualConfig.temporaryEdgeColor, "solid");
     }
 
     protected executeMainTask(): void {

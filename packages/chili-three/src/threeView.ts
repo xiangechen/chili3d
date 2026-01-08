@@ -23,6 +23,7 @@ import {
     type ShapeMeshRange,
     ShapeNode,
     ShapeType,
+    ShapeTypeUtils,
     ViewMode,
     type VisualNode,
     type VisualShapeData,
@@ -467,7 +468,7 @@ export class ThreeView extends Observable implements IView {
         nodeFilter?: INodeFilter,
     ): VisualShapeData[] {
         const intersections = this.findIntersectedShapes(shapeType, mx, my);
-        return ShapeType.isWhole(shapeType)
+        return ShapeTypeUtils.isWhole(shapeType)
             ? this.detectThreeShapes(intersections, shapeFilter, nodeFilter)
             : this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
     }
@@ -556,22 +557,22 @@ export class ThreeView extends Observable implements IView {
         const { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
         if (!subShape || !shape) return { shape: undefined, indexes: [] };
 
-        if (ShapeType.hasSolid(shapeType) && subShape.shapeType === ShapeType.Face) {
+        if (ShapeTypeUtils.hasSolid(shapeType) && subShape.shapeType === ShapeType.Face) {
             const solid = this.getAncestorAndIndex(ShapeType.Solid, subShape, shape, groups);
             if (solid.shape) return solid;
         }
-        if (ShapeType.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
+        if (ShapeTypeUtils.hasShell(shapeType) && subShape.shapeType === ShapeType.Face) {
             const shell = this.getAncestorAndIndex(ShapeType.Shell, subShape, shape, groups);
             if (shell.shape) return shell;
         }
-        if (ShapeType.hasWire(shapeType) && subShape.shapeType === ShapeType.Edge) {
+        if (ShapeTypeUtils.hasWire(shapeType) && subShape.shapeType === ShapeType.Edge) {
             const wire = this.getAncestorAndIndex(ShapeType.Wire, subShape, shape, groups);
             if (wire.shape) return wire;
         }
-        if (!ShapeType.hasFace(shapeType) && subShape.shapeType === ShapeType.Face) {
+        if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeType.Face) {
             return { shape: undefined, indexes: [index] };
         }
-        if (!ShapeType.hasEdge(shapeType) && subShape.shapeType === ShapeType.Edge) {
+        if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeType.Edge) {
             return { shape: undefined, indexes: [index] };
         }
 

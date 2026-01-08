@@ -5,19 +5,19 @@ import type { IDocument } from "../document";
 import { Id } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import { BoundingBox } from "../math";
-import { Property } from "../property";
-import { Serializer } from "../serialize";
+import { property } from "../property";
+import { serializable, serialze } from "../serialize";
 import type { Mesh } from "../shape";
 import { VisualNode } from "./visualNode";
 
-@Serializer.register(["document", "mesh", "name", "id"])
+@serializable(["document", "mesh", "name", "id"])
 export class MeshNode extends VisualNode {
     override display(): I18nKeys {
         return "body.meshNode";
     }
 
-    @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
+    @serialze()
+    @property("common.material", { type: "materialId" })
     get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
     }
@@ -26,7 +26,7 @@ export class MeshNode extends VisualNode {
     }
 
     protected _mesh: Mesh;
-    @Serializer.serialze()
+    @serialze()
     get mesh(): Mesh {
         return this._mesh;
     }

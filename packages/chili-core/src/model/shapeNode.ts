@@ -6,7 +6,7 @@ import type { IDocument } from "../document";
 import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
@@ -103,10 +103,10 @@ export class MultiShapeMesh implements IShapeMeshData {
     }
 }
 
-@Serializer.register(["document", "name", "shapes", "materialId", "id"])
+@serializable(["document", "name", "shapes", "materialId", "id"])
 export class MultiShapeNode extends GeometryNode {
     private readonly _shapes: IShape[];
-    @Serializer.serialze()
+    @serialze()
     get shapes(): ReadonlyArray<IShape> {
         return this._shapes;
     }
@@ -167,13 +167,13 @@ export abstract class ParameterShapeNode extends ShapeNode {
     protected abstract generateShape(): Result<IShape>;
 }
 
-@Serializer.register(["document", "name", "shape", "materialId", "id"])
+@serializable(["document", "name", "shape", "materialId", "id"])
 export class EditableShapeNode extends ShapeNode {
     override display(): I18nKeys {
         return "body.editableShape";
     }
 
-    @Serializer.serialze()
+    @serialze()
     override get shape() {
         return this._shape;
     }

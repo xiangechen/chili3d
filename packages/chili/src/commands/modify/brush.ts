@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, GeometryNode, type ISubFaceShape, Property, ShapeType, Transaction } from "chili-core";
+import { command, GeometryNode, type ISubFaceShape, property, ShapeType, Transaction } from "chili-core";
 import { type IStep, SelectNodeStep, SelectShapeStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -10,7 +10,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-addBrush",
 })
 export class AddBrushCommand extends MultistepCommand {
-    @Property.define("common.material", { type: "materialId" })
+    @property("common.material", { type: "materialId" })
     get materialId(): string {
         return this.getPrivateValue("materialId", this.document.modelManager.materials.at(0)?.id);
     }

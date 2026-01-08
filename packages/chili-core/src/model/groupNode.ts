@@ -2,12 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { Matrix4 } from "../math";
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import { FolderNode } from "./folderNode";
 
-@Serializer.register(["document", "name", "id"])
+@serializable(["document", "name", "id"])
 export class GroupNode extends FolderNode {
-    @Serializer.serialze()
+    @serialze()
     get transform(): Matrix4 {
         return this.getPrivateValue("transform", Matrix4.identity());
     }

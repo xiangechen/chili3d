@@ -11,8 +11,8 @@ export enum Dimension {
     D1D2D3 = 1 | 2 | 4,
 }
 
-export namespace Dimension {
-    export function contains(d1: Dimension, d2: Dimension): boolean {
+export class DimensionUtils {
+    static contains(d1: Dimension, d2: Dimension): boolean {
         if (d2 === Dimension.None) return false;
         return (d1 & d2) === d2;
     }
@@ -22,7 +22,7 @@ export namespace Dimension {
      * @param value 1: D1, 2: D2, 3: D3, other: None
      * @returns
      */
-    export function from(value: number): Dimension {
+    static from(value: number): Dimension {
         const mapping: { [key: number]: Dimension } = {
             1: Dimension.D1,
             2: Dimension.D2,

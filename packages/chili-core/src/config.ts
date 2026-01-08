@@ -3,7 +3,8 @@
 
 import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
-import { type SerializedProperties, Serializer } from "./serialize";
+import type { Navigation3DType } from "./navigation";
+import { type SerializedProperties, Serializer, serialze } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
 export class VisualItemConfig extends Observable {
@@ -81,7 +82,7 @@ export class Config extends Observable {
         this.setProperty("dynamicWorkplane", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get language() {
         return this.getPrivateValue("language", I18n.defaultLanguage());
     }
@@ -89,15 +90,15 @@ export class Config extends Observable {
         this.setProperty("language", value);
     }
 
-    @Serializer.serialze()
-    get navigation3DIndex() {
-        return this.getPrivateValue("navigation3DIndex", 0);
+    @serialze()
+    get navigation3D() {
+        return this.getPrivateValue("navigation3D", "Chili3d");
     }
-    set navigation3DIndex(value: number) {
-        this.setProperty("navigation3DIndex", value);
+    set navigation3D(value: Navigation3DType) {
+        this.setProperty("navigation3D", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get themeMode() {
         return this.getPrivateValue("themeMode", "system");
     }

@@ -6,20 +6,21 @@ import {
     type IDocument,
     type IShape,
     ParameterShapeNode,
-    Property,
+    property,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
     type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "start", "end"])
+@serializable(["document", "start", "end"])
 export class LineNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.line";
     }
 
-    @Serializer.serialze()
-    @Property.define("line.start")
+    @serialze()
+    @property("line.start")
     get start() {
         return this.getPrivateValue("start");
     }
@@ -27,8 +28,8 @@ export class LineNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("start", pnt);
     }
 
-    @Serializer.serialze()
-    @Property.define("line.end")
+    @serialze()
+    @property("line.end")
     get end() {
         return this.getPrivateValue("end");
     }

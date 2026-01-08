@@ -8,16 +8,17 @@ import {
     type IShape,
     ParameterShapeNode,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "edges"])
+@serializable(["document", "edges"])
 export class WireNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.wire";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get edges(): IEdge[] {
         return this.getPrivateValue("edges");
     }

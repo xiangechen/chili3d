@@ -7,16 +7,17 @@ import {
     type IShape,
     ParameterShapeNode,
     Result,
-    Serializer,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "booleanShape"])
+@serializable(["document", "booleanShape"])
 export class BooleanNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.bolean";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get booleanShape(): IShape {
         return this.getPrivateValue("booleanShape");
     }

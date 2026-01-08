@@ -25,8 +25,8 @@ export function command<T extends CommandConstructor>(metadata: CommandData) {
     };
 }
 
-export namespace Command {
-    export function getData(target: string | ICommand | CommandConstructor): CommandData | undefined {
+export class CommandUtils {
+    static getComandData(target: string | ICommand | CommandConstructor): CommandData | undefined {
         if (typeof target === "string") {
             const ctor = commandRegistry.get(target);
             return ctor?.prototype.data;
@@ -37,7 +37,7 @@ export namespace Command {
         return prototype.data;
     }
 
-    export function get(name: CommandKeys): CommandConstructor | undefined {
+    static getCommond(name: CommandKeys): CommandConstructor | undefined {
         return commandRegistry.get(name);
     }
 }

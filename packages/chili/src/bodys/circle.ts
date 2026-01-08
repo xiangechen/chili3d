@@ -6,20 +6,21 @@ import {
     type I18nKeys,
     type IDocument,
     type IShape,
-    Property,
+    property,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
     type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "radius"])
+@serializable(["document", "normal", "center", "radius"])
 export class CircleNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.circle";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -27,8 +28,8 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.radius")
+    @serialze()
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
     }
@@ -36,7 +37,7 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("radius", radius);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }

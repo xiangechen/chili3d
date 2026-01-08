@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, command, type GeometryNode, MathUtils, Plane, Property, type XYZ } from "chili-core";
+import { Config, command, type GeometryNode, MathUtils, Plane, property, type XYZ } from "chili-core";
 import { ViewUtils } from "chili-vis";
 import { RectNode } from "../../bodys";
 import type { SnapLengthAtPlaneData, SnapResult } from "../../snap";
@@ -16,14 +16,12 @@ export interface RectData {
     p2: XYZ;
 }
 
-export namespace RectData {
-    export function get(atPlane: Plane, start: XYZ, end: XYZ): RectData {
-        const plane = new Plane(start, atPlane.normal, atPlane.xvec);
-        const vector = end.sub(start);
-        const dx = vector.dot(plane.xvec);
-        const dy = vector.dot(plane.yvec);
-        return { plane, dx, dy, p1: start, p2: end };
-    }
+export function getReactData(atPlane: Plane, start: XYZ, end: XYZ): RectData {
+    const plane = new Plane(start, atPlane.normal, atPlane.xvec);
+    const vector = end.sub(start);
+    const dx = vector.dot(plane.xvec);
+    const dy = vector.dot(plane.yvec);
+    return { plane, dx, dy, p1: start, p2: end };
 }
 
 export abstract class RectCommandBase extends CreateCommand {
@@ -69,13 +67,13 @@ export abstract class RectCommandBase extends CreateCommand {
         const plane = Config.instance.dynamicWorkplane
             ? ViewUtils.raycastClosestPlane(view, point!, tmp)
             : this.stepDatas[0].view.workplane.translateTo(point!);
-        return RectData.get(plane, point!, tmp);
+        return getReactData(plane, point!, tmp);
     }
 
     protected rectDataFromTwoSteps() {
         let rect: RectData;
         if (this.stepDatas[1].plane) {
-            rect = RectData.get(this.stepDatas[1].plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
+            rect = getReactData(this.stepDatas[1].plane, this.stepDatas[0].point!, this.stepDatas[1].point!);
         } else {
             rect = this.rectDataFromTemp(this.stepDatas[1].point!);
         }
@@ -88,7 +86,7 @@ export abstract class RectCommandBase extends CreateCommand {
     icon: "icon-rect",
 })
 export class Rect extends RectCommandBase {
-    @Property.define("option.command.isFace")
+    @property("option.command.isFace")
     public get isFace() {
         return this.getPrivateValue("isFace", false);
     }

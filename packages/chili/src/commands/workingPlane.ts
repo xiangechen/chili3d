@@ -14,8 +14,9 @@ import {
     type IFace,
     Observable,
     Plane,
-    Property,
+    PropertyUtils,
     PubSub,
+    property,
     SelectableItems,
     SelectMode,
     ShapeType,
@@ -26,7 +27,7 @@ import { type IStep, PointOnCurveStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
-    @Property.define("dialog.title.selectWorkingPlane")
+    @property("dialog.title.selectWorkingPlane")
     planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], SelectMode.radio, ["XOY"]);
 }
 
@@ -50,7 +51,7 @@ export class SetWorkplane implements ICommand {
 
     private ui(vm: WorkingPlaneViewModel) {
         return div(
-            ...Property.getProperties(vm).map((x) => {
+            ...PropertyUtils.getProperties(vm).map((x) => {
                 const value = (vm as any)[x.name];
                 if (value instanceof SelectableItems) {
                     return new RadioGroup(I18n.translate(x.display), value);

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type GeometryNode, Property, Transaction } from "chili-core";
+import { type GeometryNode, property, Transaction } from "chili-core";
 import { MultistepCommand } from "./multistepCommand";
 
 const count = 1;
@@ -31,7 +31,7 @@ export abstract class CreateNodeCommand extends MultistepCommand {
 
 export abstract class CreateFaceableCommand extends CreateCommand {
     protected _isFace: boolean = false;
-    @Property.define("option.command.isFace")
+    @property("option.command.isFace")
     public get isFace() {
         return this._isFace;
     }

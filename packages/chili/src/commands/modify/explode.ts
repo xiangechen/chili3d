@@ -10,6 +10,7 @@ import {
     MultiShapeNode,
     ShapeNode,
     ShapeType,
+    ShapeTypeUtils,
     Transaction,
 } from "chili-core";
 import type { IStep } from "../../step";
@@ -63,7 +64,7 @@ export class Explode extends MultistepCommand {
 
         let i = 1;
         for (const subShape of subShapes) {
-            const name = `${ShapeType.stringValue(subShape.shapeType)} ${i++}`;
+            const name = `${ShapeTypeUtils.stringValue(subShape.shapeType)} ${i++}`;
             const subShapeNode = new EditableShapeNode(this.document, name, subShape);
             folder.add(subShapeNode);
         }

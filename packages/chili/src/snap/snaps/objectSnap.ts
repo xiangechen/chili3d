@@ -3,16 +3,18 @@
 
 import {
     Config,
+    CurveUtils,
     I18n,
     type ICircle,
-    ICurve,
     type IDocument,
     type IEdge,
-    IView,
+    type IView,
     type IVisualContext,
+    MeshDataUtils,
     ObjectSnapType,
+    ObjectSnapTypeUtils,
     ShapeType,
-    VertexMeshData,
+    screenDistance,
     VisualConfig,
     type VisualShapeData,
     type XYZ,
@@ -108,7 +110,7 @@ export class ObjectSnap extends BaseSnap {
 
         if (ordered.length === 0) return undefined;
 
-        const dist = IView.screenDistance(view, x, y, ordered[0].point!);
+        const dist = screenDistance(view, x, y, ordered[0].point!);
         if (dist < Config.instance.SnapDistance) {
             this.hilighted(view, ordered[0].shapes);
             return ordered[0];
@@ -120,7 +122,7 @@ export class ObjectSnap extends BaseSnap {
 
     private displayHint(view: IView, shape: SnapResult) {
         this.hilighted(view, shape.shapes);
-        const data = VertexMeshData.from(
+        const data = MeshDataUtils.createVertexMesh(
             shape.point!,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
@@ -147,7 +149,7 @@ export class ObjectSnap extends BaseSnap {
 
         this._invisibleInfos.forEach((info) => {
             info.snaps.forEach((s) => {
-                const dist = IView.screenDistance(view, x, y, s.point!);
+                const dist = screenDistance(view, x, y, s.point!);
                 if (dist < minDistance) {
                     minDistance = dist;
                     snap = s;
@@ -162,7 +164,7 @@ export class ObjectSnap extends BaseSnap {
             if (this._invisibleInfos.has(shape)) return;
             const curve = (shape.shape as IEdge).curve;
             const basisCurve = curve.basisCurve;
-            if (ICurve.isCircle(basisCurve)) {
+            if (CurveUtils.isCircle(basisCurve)) {
                 this.showCircleCenter(basisCurve, view, shape);
             }
         }
@@ -170,7 +172,7 @@ export class ObjectSnap extends BaseSnap {
 
     private showCircleCenter(curve: ICircle, view: IView, shape: VisualShapeData) {
         const center = shape.transform.ofPoint(curve.center);
-        const temporary = VertexMeshData.from(
+        const temporary = MeshDataUtils.createVertexMesh(
             center,
             VisualConfig.hintVertexSize,
             VisualConfig.hintVertexColor,
@@ -195,13 +197,13 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private sortSnaps(view: IView, x: number, y: number, a: SnapResult, b: SnapResult): number {
-        return IView.screenDistance(view, x, y, a.point!) - IView.screenDistance(view, x, y, b.point!);
+        return screenDistance(view, x, y, a.point!) - screenDistance(view, x, y, b.point!);
     }
 
     private findPerpendicular(view: IView, shape: VisualShapeData): SnapResult[] {
         const result: SnapResult[] = [];
         if (
-            !ObjectSnapType.has(this._snapType, ObjectSnapType.perpendicular) ||
+            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.perpendicular) ||
             this.referencePoint === undefined
         ) {
             return result;
@@ -224,7 +226,7 @@ export class ObjectSnap extends BaseSnap {
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
         const result: SnapResult[] = [];
         if (
-            !ObjectSnapType.has(this._snapType, ObjectSnapType.intersection) ||
+            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.intersection) ||
             current.shape.shapeType !== ShapeType.Edge
         ) {
             return result;

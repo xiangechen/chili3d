@@ -154,21 +154,21 @@ export interface IComplexCurve {
     curve(index: number): ICurve;
 }
 
-export namespace ICurve {
-    export function isConic(curve: ICurve): curve is IConic {
+export class CurveUtils {
+    static isConic(curve: ICurve): curve is IConic {
         return (curve as IConic).axis !== undefined;
     }
 
-    export function isCircle(curve: ICurve): curve is ICircle {
+    static isCircle(curve: ICurve): curve is ICircle {
         const circle = curve as ICircle;
         return circle.center !== undefined && circle.radius !== undefined;
     }
 
-    export function isLine(curve: ICurve): curve is ILine {
+    static isLine(curve: ICurve): curve is ILine {
         return (curve as ILine).direction !== undefined;
     }
 
-    export function isTrimmed(curve: ICurve): curve is ITrimmedCurve {
+    static isTrimmed(curve: ICurve): curve is ITrimmedCurve {
         return (curve as ITrimmedCurve).basisCurve !== undefined;
     }
 }

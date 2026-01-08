@@ -6,8 +6,6 @@ export interface IHighlightable {
     unhighlight(): void;
 }
 
-export namespace IHighlightable {
-    export function is(value: any): value is IHighlightable {
-        return value && typeof value.highlight === "function" && typeof value.unhighlight === "function";
-    }
+export function isHighlightable(value: any): value is IHighlightable {
+    return value && typeof value.highlight === "function" && typeof value.unhighlight === "function";
 }

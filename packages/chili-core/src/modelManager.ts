@@ -14,7 +14,7 @@ import {
 import type { Material } from "./material";
 import type { Component } from "./model/component";
 import { FolderNode } from "./model/folderNode";
-import { type INode, type INodeLinkedList, NodeSerializer, NodeUtils } from "./model/node";
+import { type INode, type INodeLinkedList, NodeUtils } from "./model/node";
 import { type Serialized, Serializer } from "./serialize";
 
 export type OnNodeChanged = (records: NodeRecord[]) => void;
@@ -97,7 +97,7 @@ export class ModelManager extends Observable {
     serialize() {
         return {
             components: this.components.map((x) => Serializer.serializeObject(x)),
-            nodes: NodeSerializer.serialize(this.rootNode),
+            nodes: NodeUtils.serializeNode(this.rootNode),
             materials: this.materials.map((x) => Serializer.serializeObject(x)),
         };
     }
@@ -111,7 +111,7 @@ export class ModelManager extends Observable {
             ...data.materials.map((x: Serialized) => Serializer.deserializeObject(this.document, x)),
         );
 
-        const rootNode = await NodeSerializer.deserialize(this.document, data.nodes);
+        const rootNode = await NodeUtils.deserializeNode(this.document, data.nodes);
         this.rootNode = rootNode!;
     }
 

@@ -2,15 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation/precision";
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import type { XYZ } from "./xyz";
 
-@Serializer.register(["start", "end"])
+@serializable(["start", "end"])
 export class LineSegment {
-    @Serializer.serialze()
+    @serialze()
     readonly start: XYZ;
 
-    @Serializer.serialze()
+    @serialze()
     readonly end: XYZ;
 
     constructor(start: XYZ, end: XYZ) {

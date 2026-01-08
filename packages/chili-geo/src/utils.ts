@@ -2,7 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    ICurve,
+    CurveUtils,
+    type ICurve,
     type IEdge,
     type IFace,
     type IWire,
@@ -29,11 +30,11 @@ export class GeoUtils {
     }
 
     static curveNormal(curve: ICurve) {
-        if (ICurve.isTrimmed(curve)) {
+        if (CurveUtils.isTrimmed(curve)) {
             curve = curve.basisCurve;
         }
 
-        if (ICurve.isConic(curve)) {
+        if (CurveUtils.isConic(curve)) {
             return curve.axis;
         }
         const vec = curve.dn(0, 1);

@@ -8,7 +8,7 @@ import {
     type GeometryNode,
     I18n,
     Precision,
-    Property,
+    property,
     type ShapeMeshData,
     type XYZ,
 } from "chili-core";
@@ -22,7 +22,7 @@ import { CreateFaceableCommand } from "../createCommand";
     icon: "icon-toPoly",
 })
 export class Polygon extends CreateFaceableCommand {
-    @Property.define("common.confirm")
+    @property("common.confirm")
     readonly confirm = () => {
         this.controller?.success();
     };

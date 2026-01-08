@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, type IHighlighter, MeshUtils, ShapeMeshData, ShapeType, VisualState } from "chili-core";
+import {
+    type IHighlighter,
+    isDisposable,
+    MeshDataUtils,
+    MeshUtils,
+    type ShapeMeshData,
+    type ShapeType,
+    ShapeTypeUtils,
+    VisualState,
+    VisualStateUtils,
+} from "chili-core";
 import { Group, Mesh, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
@@ -11,7 +21,7 @@ import {
     hilightEdgeMaterial,
     selectedEdgeMaterial,
 } from "./common";
-import { IHighlightable } from "./highlightable";
+import { isHighlightable } from "./highlightable";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import type { ThreeVisualContext } from "./threeVisualContext";
@@ -43,7 +53,7 @@ export class GeometryState {
     }
 
     private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
-        if (ShapeType.isWhole(type)) {
+        if (ShapeTypeUtils.isWhole(type)) {
             this.setWholeState(method, state, type);
         } else if (index.length > 0) {
             this.setSubGeometryState(method, state, type, index);
@@ -56,18 +66,18 @@ export class GeometryState {
         if (this.visual instanceof ThreeGeometry) {
             if (newState === VisualState.normal) {
                 this.visual.removeTemperaryMaterial();
-            } else if (VisualState.hasState(newState, VisualState.edgeHighlight)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.edgeHighlight)) {
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
-            } else if (VisualState.hasState(newState, VisualState.edgeSelected)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.edgeSelected)) {
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
-            } else if (VisualState.hasState(newState, VisualState.faceTransparent)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
-            } else if (VisualState.hasState(newState, VisualState.faceColored)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.faceColored)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceColoredMaterial);
             }
-        } else if (IHighlightable.is(this.visual)) {
+        } else if (isHighlightable(this.visual)) {
             if (newState !== VisualState.normal) {
                 this.visual.highlight();
             } else {
@@ -89,7 +99,7 @@ export class GeometryState {
             if (method === "remove") return [undefined, VisualState.normal];
             newState = state;
         } else {
-            const func = method === "add" ? VisualState.addState : VisualState.removeState;
+            const func = method === "add" ? VisualStateUtils.addState : VisualStateUtils.removeState;
             newState = func(newState, state);
         }
         return [oldState, newState];
@@ -138,7 +148,7 @@ export class GeometryState {
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
         const geometry = this.getOrCloneGeometry(type, key, i);
         if (geometry && "material" in geometry) {
-            const material = VisualState.hasState(newState, VisualState.edgeHighlight)
+            const material = VisualStateUtils.hasState(newState, VisualState.edgeHighlight)
                 ? hilightEdgeMaterial
                 : selectedEdgeMaterial;
             geometry.material = material;
@@ -153,10 +163,10 @@ export class GeometryState {
         if (geometry) return geometry;
 
         let points: Float32Array | undefined;
-        if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
+        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type)) {
             points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }
-        if (points === undefined && (ShapeType.hasEdge(type) || ShapeType.hasWire(type))) {
+        if (points === undefined && (ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type))) {
             points = MeshUtils.subEdge(this.visual.geometryNode.mesh.edges!, index);
         }
 
@@ -227,11 +237,11 @@ export class ThreeHighlighter implements IHighlighter {
     highlightMesh(...datas: ShapeMeshData[]): number {
         const group = new Group();
         datas.forEach((data) => {
-            if (ShapeMeshData.isVertex(data)) {
+            if (MeshDataUtils.isVertexMesh(data)) {
                 group.add(ThreeGeometryFactory.createVertexGeometry(data));
-            } else if (ShapeMeshData.isEdge(data)) {
+            } else if (MeshDataUtils.isEdgeMesh(data)) {
                 group.add(ThreeGeometryFactory.createEdgeGeometry(data));
-            } else if (ShapeMeshData.isFace(data)) {
+            } else if (MeshDataUtils.isFaceMesh(data)) {
                 group.add(ThreeGeometryFactory.createFaceGeometry(data));
             }
         });
@@ -247,7 +257,7 @@ export class ThreeHighlighter implements IHighlighter {
                 x.geometry.dispose();
                 x.material.dispose();
             }
-            if (IDisposable.isDisposable(x)) {
+            if (isDisposable(x)) {
                 x.dispose();
             }
         });

@@ -15,7 +15,7 @@ import {
     type ISolid,
     Localize,
     type Matrix4,
-    Property,
+    property,
     ShapeType,
     VisualConfig,
     type VisualShapeData,
@@ -40,7 +40,7 @@ export class SelectMeasure extends CancelableCommand {
     readonly #disposeSet: Set<IDisposable> = new Set();
 
     #category?: Combobox<I18nKeys>;
-    @Property.define("common.type")
+    @property("common.type")
     public get category(): Combobox<I18nKeys> {
         if (!this.#category) {
             this.#category = this.initCombobox();

@@ -3,9 +3,10 @@
 
 import {
     type IDocument,
-    INode,
+    type INode,
     type INodeLinkedList,
     type NodeRecord,
+    NodeUtils,
     PubSub,
     ShapeType,
     Transaction,
@@ -137,7 +138,7 @@ export class Tree extends HTMLElement {
 
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
-        if (INode.isLinkedListNode(node)) result = new TreeGroup(document, node);
+        if (NodeUtils.isLinkedListNode(node)) result = new TreeGroup(document, node);
         else if (node instanceof VisualNode) result = new TreeModel(document, node);
         else throw new Error("unknown node");
         return result;
@@ -183,7 +184,7 @@ export class Tree extends HTMLElement {
 
     private handleShiftClick(item: INode) {
         if (this.lastClicked) {
-            const nodes = INode.getNodesBetween(this.lastClicked, item);
+            const nodes = NodeUtils.getNodesBetween(this.lastClicked, item);
             this.document.selection.setSelection(nodes, false);
         }
     }
@@ -219,7 +220,7 @@ export class Tree extends HTMLElement {
         this.lastClicked = item;
         if (item !== undefined) {
             this.nodeMap.get(item)?.addSelectedStyle(style.current);
-            this.document.modelManager.currentNode = INode.isLinkedListNode(item) ? item : item.parent;
+            this.document.modelManager.currentNode = NodeUtils.isLinkedListNode(item) ? item : item.parent;
         }
     }
 
@@ -242,7 +243,7 @@ export class Tree extends HTMLElement {
         const node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
         Transaction.execute(this.document, "move node", () => {
-            const isLinkList = INode.isLinkedListNode(node);
+            const isLinkList = NodeUtils.isLinkedListNode(node);
             const newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
             const target = isLinkList ? undefined : node;
             this.dragging?.forEach((x) => {
@@ -255,8 +256,8 @@ export class Tree extends HTMLElement {
     private readonly onDragStart = (event: DragEvent) => {
         event.stopPropagation();
         const item = this.getTreeItem(event.target as HTMLElement)?.node;
-        this.dragging = INode.findTopLevelNodes(this.selectedNodes);
-        if (item && !INode.containsDescendant(this.selectedNodes, item)) {
+        this.dragging = NodeUtils.findTopLevelNodes(this.selectedNodes);
+        if (item && !NodeUtils.containsDescendant(this.selectedNodes, item)) {
             this.dragging.push(item);
         }
     };

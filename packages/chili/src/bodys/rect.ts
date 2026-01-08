@@ -7,20 +7,21 @@ import {
     type IDocument,
     type IShape,
     type Plane,
-    Property,
+    property,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
     type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "plane", "dx", "dy"])
+@serializable(["document", "plane", "dx", "dy"])
 export class RectNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.rect";
     }
 
-    @Serializer.serialze()
-    @Property.define("rect.dx")
+    @serialze()
+    @property("rect.dx")
     get dx() {
         return this.getPrivateValue("dx");
     }
@@ -28,8 +29,8 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @Serializer.serialze()
-    @Property.define("rect.dy")
+    @serialze()
+    @property("rect.dy")
     get dy() {
         return this.getPrivateValue("dy");
     }
@@ -37,7 +38,7 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }

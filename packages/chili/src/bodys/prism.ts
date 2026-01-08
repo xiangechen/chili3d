@@ -6,19 +6,20 @@ import {
     type IDocument,
     type IShape,
     ParameterShapeNode,
-    Property,
+    property,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
 } from "chili-core";
 import { GeoUtils } from "chili-geo";
 
-@Serializer.register(["document", "section", "length"])
+@serializable(["document", "section", "length"])
 export class PrismNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.prism";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get section(): IShape {
         return this.getPrivateValue("section");
     }
@@ -26,8 +27,8 @@ export class PrismNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("section", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("common.length")
+    @serialze()
+    @property("common.length")
     get length(): number {
         return this.getPrivateValue("length");
     }

@@ -14,6 +14,7 @@ import {
     type ShapeMeshRange,
     ShapeNode,
     ShapeType,
+    ShapeTypeUtils,
 } from "chili-core";
 import { type Material, Mesh, type MeshLambertMaterial } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
@@ -186,15 +187,15 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
         const isWhole =
             shapeType === ShapeType.Shape ||
-            ShapeType.hasCompound(shapeType) ||
-            ShapeType.hasCompoundSolid(shapeType) ||
-            ShapeType.hasSolid(shapeType);
+            ShapeTypeUtils.hasCompound(shapeType) ||
+            ShapeTypeUtils.hasCompoundSolid(shapeType) ||
+            ShapeTypeUtils.hasSolid(shapeType);
 
-        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
             shapes.push(this.edges());
         }
 
-        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
             shapes.push(this.faces());
         }
 

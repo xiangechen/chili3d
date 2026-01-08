@@ -8,6 +8,7 @@ import {
     type IDocument,
     PathBinding,
     Property,
+    PropertyUtils,
     readFileAsync,
     type Texture,
 } from "chili-core";
@@ -26,7 +27,7 @@ export class TextureProperty extends Expander {
     }
 
     private render() {
-        const properties = Property.getProperties(this.texture)
+        const properties = PropertyUtils.getProperties(this.texture)
             .filter((x) => (x.name as keyof Texture) !== "image")
             .map((x) => findPropertyControl(this.document, [this.texture], x));
 

@@ -4,9 +4,9 @@
 import { label, svg } from "chili-controls";
 import {
     ButtonSize,
-    Command,
     type CommandData,
     type CommandKeys,
+    CommandUtils,
     I18n,
     type I18nKeys,
     type IConverter,
@@ -30,7 +30,7 @@ export class RibbonButton extends HTMLElement {
     }
 
     static fromCommandName(commandName: CommandKeys, size: ButtonSize) {
-        const data = Command.getData(commandName);
+        const data = CommandUtils.getComandData(commandName);
         if (!data) {
             Logger.warn(`commandData of ${commandName} is undefined`);
             return undefined;

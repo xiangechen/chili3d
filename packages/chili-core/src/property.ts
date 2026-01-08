@@ -21,40 +21,40 @@ export interface Property {
 
 const PropertyKeyMap = new Map<Object, Map<string | number | symbol, Property>>();
 
-export namespace Property {
-    export function define(display: I18nKeys, parameters?: Omit<Property, "name" | "display">) {
-        return (target: Object, name: string) => {
-            if (!PropertyKeyMap.has(target)) {
-                PropertyKeyMap.set(target, new Map());
-            }
-            PropertyKeyMap.get(target)?.set(name, { display, name, ...parameters });
-        };
-    }
+export function property(display: I18nKeys, parameters?: Omit<Property, "name" | "display">) {
+    return (target: Object, name: string) => {
+        if (!PropertyKeyMap.has(target)) {
+            PropertyKeyMap.set(target, new Map());
+        }
+        PropertyKeyMap.get(target)?.set(name, { display, name, ...parameters });
+    };
+}
 
-    export function getProperties(target: any, until?: object): Property[] {
+export class PropertyUtils {
+    static getProperties(target: any, until?: object): Property[] {
         const result: Property[] = [];
-        getAllKeysOfPrototypeChain(target, result, until);
+        PropertyUtils.getAllKeysOfPrototypeChain(target, result, until);
         return result;
     }
 
-    export function getOwnProperties(target: any): Property[] {
+    static getOwnProperties(target: any): Property[] {
         const properties = PropertyKeyMap.get(target);
         if (!properties) return [];
         return [...properties.values()];
     }
 
-    function getAllKeysOfPrototypeChain(target: any, properties: Property[], until?: object) {
+    private static getAllKeysOfPrototypeChain(target: any, properties: Property[], until?: object) {
         if (!target || target === until) return;
         if (PropertyKeyMap.has(target)) {
             properties.splice(0, 0, ...PropertyKeyMap.get(target)!.values());
         }
-        getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties, until);
+        PropertyUtils.getAllKeysOfPrototypeChain(Object.getPrototypeOf(target), properties, until);
     }
 
-    export function getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
+    static getProperty<T extends Object>(target: T, property: keyof T): Property | undefined {
         if (!target) return undefined;
         const map = PropertyKeyMap.get(target);
         if (map?.has(property)) return map.get(property);
-        return getProperty(Object.getPrototypeOf(target), property);
+        return PropertyUtils.getProperty(Object.getPrototypeOf(target), property);
     }
 }

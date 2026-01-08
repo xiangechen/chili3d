@@ -5,7 +5,7 @@ import {
     command,
     EditableShapeNode,
     type ISubEdgeShape,
-    Property,
+    property,
     type ShapeNode,
     ShapeType,
     Transaction,
@@ -19,7 +19,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-fillet",
 })
 export class FilletCommand extends MultistepCommand {
-    @Property.define("circle.radius")
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius", 10);
     }

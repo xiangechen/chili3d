@@ -1,18 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
-@Serializer.register(["point", "direction"])
+@serializable(["point", "direction"])
 export class Line {
-    @Serializer.serialze()
+    @serialze()
     readonly point: XYZ;
     /**
      * unit vector
      */
-    @Serializer.serialze()
+    @serialze()
     readonly direction: XYZ;
 
     constructor(location: XYZ, direction: XYZ) {

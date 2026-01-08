@@ -3,10 +3,10 @@
 
 import type { IDocument } from "../document";
 import { Id, Logger, NodeAction } from "../foundation";
-import { Serializer } from "../serialize";
+import { serializable } from "../serialize";
 import { type INode, type INodeLinkedList, Node } from "./node";
 
-@Serializer.register(["document", "name", "id"])
+@serializable(["document", "name", "id"])
 export class FolderNode extends Node implements INodeLinkedList {
     private _count: number = 0;
     private _firstChild: INode | undefined;

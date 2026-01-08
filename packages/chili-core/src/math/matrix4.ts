@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import type { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -10,12 +10,12 @@ import { XYZ, type XYZLike } from "./xyz";
 /**
  * Matrix in column-major order
  */
-@Serializer.register(["array"], (array: Float32Array) => {
+@serializable(["array"], (array: Float32Array) => {
     return Matrix4.fromArray(array);
 })
 export class Matrix4 {
     private readonly _array: Float32Array = new Float32Array(16);
-    @Serializer.serialze()
+    @serialze()
     get array(): ReadonlyArray<number> {
         return [...this._array];
     }

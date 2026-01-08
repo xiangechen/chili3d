@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, input, label } from "chili-controls";
-import { Config, type I18nKeys, Localize, ObjectSnapType } from "chili-core";
+import { Config, type I18nKeys, Localize, ObjectSnapType, ObjectSnapTypeUtils } from "chili-core";
 import style from "./snapConfig.module.css";
 
 const SnapTypes: Array<{
@@ -48,10 +48,10 @@ export class SnapConfig extends HTMLElement {
     };
 
     private handleSnapClick(snapType: ObjectSnapType) {
-        if (ObjectSnapType.has(Config.instance.snapType, snapType)) {
-            Config.instance.snapType = ObjectSnapType.remove(Config.instance.snapType, snapType);
+        if (ObjectSnapTypeUtils.hasType(Config.instance.snapType, snapType)) {
+            Config.instance.snapType = ObjectSnapTypeUtils.removeType(Config.instance.snapType, snapType);
         } else {
-            Config.instance.snapType = ObjectSnapType.add(Config.instance.snapType, snapType);
+            Config.instance.snapType = ObjectSnapTypeUtils.addType(Config.instance.snapType, snapType);
         }
     }
 
@@ -62,7 +62,7 @@ export class SnapConfig extends HTMLElement {
                     input({
                         type: "checkbox",
                         id: `snap-${snapType.type}`,
-                        checked: ObjectSnapType.has(Config.instance.snapType, snapType.type),
+                        checked: ObjectSnapTypeUtils.hasType(Config.instance.snapType, snapType.type),
                         onclick: () => this.handleSnapClick(snapType.type),
                     }),
                     label({

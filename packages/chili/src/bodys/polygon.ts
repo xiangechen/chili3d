@@ -6,20 +6,21 @@ import {
     type I18nKeys,
     type IDocument,
     type IShape,
-    Property,
+    property,
     type Result,
-    Serializer,
+    serializable,
+    serialze,
     type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "points"])
+@serializable(["document", "points"])
 export class PolygonNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.polygon";
     }
 
-    @Serializer.serialze()
-    @Property.define("polygon.points")
+    @serialze()
+    @property("polygon.points")
     get points() {
         return this.getPrivateValue("points");
     }

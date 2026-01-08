@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, type IDocument, Id, INode, NodeUtils } from "../src";
+import { FolderNode, type IDocument, Id, type INode, NodeUtils } from "../src";
 import { TestDocument } from "./testDocument";
 
 function newNode(name: string, id?: string): INode {
@@ -52,16 +52,16 @@ describe("test node", () => {
         n3.add(n5, n6);
         n6.add(n7, n8);
         n10.add(n11);
-        let nodes = INode.getNodesBetween(n2, n4);
+        let nodes = NodeUtils.getNodesBetween(n2, n4);
         expect(nodes.length).toBe(2);
         expect(nodes[0]).toBe(n2);
         expect(nodes[1]).toBe(n4);
 
-        nodes = INode.getNodesBetween(n8, n3);
+        nodes = NodeUtils.getNodesBetween(n8, n3);
         expect(nodes.length).toBe(5);
         expect(nodes[0]).toBe(n3);
 
-        nodes = INode.getNodesBetween(n7, n11);
+        nodes = NodeUtils.getNodesBetween(n7, n11);
         expect(nodes.length).toBe(5);
         expect(nodes[0]).toBe(n7);
         expect(nodes[4]).toBe(n11);

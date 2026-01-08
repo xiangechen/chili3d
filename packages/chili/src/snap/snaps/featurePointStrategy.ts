@@ -6,6 +6,7 @@ import {
     type IEdge,
     type IView,
     ObjectSnapType,
+    ObjectSnapTypeUtils,
     ShapeType,
     type VisualShapeData,
     type XYZ,
@@ -43,11 +44,11 @@ export class FeaturePointStrategy {
                 shapes: [shape],
             });
 
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));
             addPoint(end, I18n.translate("snap.end"));
         }
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.midPoint)) {
             const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, I18n.translate("snap.mid"));
         }

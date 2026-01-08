@@ -5,8 +5,8 @@ import { a, collection, div, label, span, svg } from "chili-controls";
 import {
     Binding,
     ButtonSize,
-    Command,
     type CommandKeys,
+    CommandUtils,
     I18n,
     type IApplication,
     type ICommand,
@@ -61,7 +61,7 @@ export class RibbonDataContent extends Observable {
 }
 
 export const QuickButton = (command: ICommand) => {
-    const data = Command.getData(command);
+    const data = CommandUtils.getComandData(command);
     if (!data) {
         Logger.warn("commandData is undefined");
         return span({ textContent: "null" });

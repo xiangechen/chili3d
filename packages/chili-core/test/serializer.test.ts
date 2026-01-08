@@ -1,21 +1,29 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, type IDocument, NodeSerializer, type Serialized, Serializer } from "../src";
+import {
+    FolderNode,
+    type IDocument,
+    NodeUtils,
+    type Serialized,
+    Serializer,
+    serializable,
+    serialze,
+} from "../src";
 import { TestDocument } from "./testDocument";
 
-@Serializer.register(["k1" as any])
+@serializable(["k1" as any])
 class TestObject {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @Serializer.serialze()
+    @serialze()
     private k1: string;
-    @Serializer.serialze()
+    @serialze()
     private k4: string = "k4";
-    @Serializer.serialze()
+    @serialze()
     protected k5: string = "k5";
-    @Serializer.serialze()
+    @serialze()
     public k6: string = "k6";
 
     constructor(k1: string) {
@@ -48,9 +56,9 @@ test("test Node Serializer", () => {
     const n4 = new FolderNode(doc, "n4");
     n1.add(n2, n3);
     n2.add(n4);
-    const s = NodeSerializer.serialize(n1);
+    const s = NodeUtils.serializeNode(n1);
 
-    NodeSerializer.deserialize(doc, s).then((n11: any) => {
+    NodeUtils.deserializeNode(doc, s).then((n11: any) => {
         expect(n11.firstChild.name).toBe("n2");
         expect(n11.firstChild.nextSibling.name).toBe("n3");
         expect(n11.firstChild.firstChild.name).toBe("n4");

@@ -2,11 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    IDisposable,
     type IDocument,
     type IEventHandler,
     type IMeshExporter,
     type IVisual,
+    isDisposable,
     Logger,
     type Plane,
 } from "chili-core";
@@ -85,7 +85,7 @@ export class ThreeVisual implements IVisual {
         this._eventHandler.dispose();
         this.viewHandler.dispose();
         this.scene.traverse((x) => {
-            if (IDisposable.isDisposable(x)) x.dispose();
+            if (isDisposable(x)) x.dispose();
         });
         this.scene.clear();
     }

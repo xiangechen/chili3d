@@ -1,27 +1,27 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import type { Line } from "./line";
 import { MathUtils } from "./mathUtils";
 import type { Matrix4 } from "./matrix4";
 import type { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
-@Serializer.register(["origin", "normal", "xvec"])
+@serializable(["origin", "normal", "xvec"])
 export class Plane {
     static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
     static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
     static readonly ZX: Plane = new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ);
 
-    @Serializer.serialze()
+    @serialze()
     readonly origin: XYZ;
     /**
      * unit vector
      */
-    @Serializer.serialze()
+    @serialze()
     readonly normal: XYZ;
-    @Serializer.serialze()
+    @serialze()
     readonly xvec: XYZ;
     readonly yvec: XYZ;
     constructor(origin: XYZ, normal: XYZ, xvec: XYZ) {

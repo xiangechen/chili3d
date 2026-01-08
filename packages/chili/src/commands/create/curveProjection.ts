@@ -8,7 +8,7 @@ import {
     type IEdge,
     type IFace,
     type IWire,
-    Property,
+    property,
     ShapeType,
     XYZ,
 } from "chili-core";
@@ -20,7 +20,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-curveProject",
 })
 export class CurveProjectionCommand extends CreateCommand {
-    @Property.define("common.dir")
+    @property("common.dir")
     get dir() {
         return this.getPrivateValue("dir", "0,0,-1");
     }

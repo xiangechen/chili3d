@@ -9,17 +9,18 @@ import {
     type IWire,
     ParameterShapeNode,
     type Result,
-    Serializer,
     ShapeType,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "profile", "path", "round"])
+@serializable(["document", "profile", "path", "round"])
 export class SweepedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sweep";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get profile() {
         return this.getPrivateValue("profile");
     }
@@ -27,7 +28,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get path() {
         return this.getPrivateValue("path");
     }
@@ -35,7 +36,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("path", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get round() {
         return this.getPrivateValue("round");
     }

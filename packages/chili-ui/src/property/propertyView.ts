@@ -11,6 +11,7 @@ import {
     Localize,
     Node,
     Property,
+    PropertyUtils,
     PubSub,
     VisualNode,
 } from "chili-core";
@@ -60,11 +61,11 @@ export class PropertyView extends HTMLElement {
 
         let controls: (HTMLElement | string)[] = [];
         if (nodes[0] instanceof FolderNode) {
-            controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
+            controls = PropertyUtils.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
                 findPropertyControl(document, nodes, x),
             );
         } else if (nodes[0] instanceof Node) {
-            controls = Property.getOwnProperties(Node.prototype).map((x) =>
+            controls = PropertyUtils.getOwnProperties(Node.prototype).map((x) =>
                 findPropertyControl(document, nodes, x),
             );
         }
@@ -91,7 +92,7 @@ export class PropertyView extends HTMLElement {
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         const parameters = new Expander(entities[0].display());
         parameters.contenxtPanel.append(
-            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
+            ...PropertyUtils.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
                 findPropertyControl(document, entities, x),
             ),
         );
