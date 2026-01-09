@@ -37,10 +37,10 @@
         "@rstest/core": "^0.6.5",
         "@rstest/coverage-istanbul": "^0.0.5",
         "clang-format": "^1.8.0",
-        "fork-ts-checker-webpack-plugin": "9.1.0",
         "happy-dom": "^20.0.10",
         "lint-staged": "16.2.6",
         "simple-git-hooks": "2.13.1",
+        "ts-checker-rspack-plugin": "^1.2.3",
         "typescript": "5.9.3",
         "typescript-plugin-css-modules": "^5.2.0"
     }

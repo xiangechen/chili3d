@@ -1,6 +1,6 @@
 import { defineConfig } from "@rspack/cli";
 import rspack from "@rspack/core";
-import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
+import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
 import packages from "./package.json";
 
 export default defineConfig({
@@ -49,7 +49,7 @@ export default defineConfig({
         extensions: [".ts", ".js", ".json", ".wasm"],
     },
     plugins: [
-        new ForkTsCheckerWebpackPlugin(),
+        new TsCheckerRspackPlugin(),
         new rspack.CircularDependencyRspackPlugin({
             failOnError: true,
             exclude: /node_modules/,
