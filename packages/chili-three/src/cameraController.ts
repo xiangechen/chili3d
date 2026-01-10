@@ -35,6 +35,7 @@ const CAMERA_FOV = 50;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
 const MIN_CARME_TO_TARGET = 50;
+const SHAPE_EMPTY_SIZE = 800;
 
 Camera.DEFAULT_UP = new Vector3(0, 0, 1);
 
@@ -242,22 +243,26 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     private getBoundingSphere(context: ThreeVisualContext) {
-        const sphere = new Sphere();
         const shapes = this.view.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
-        if (shapes.length === 0) {
-            new Box3().setFromObject(context.visualShapes).getBoundingSphere(sphere);
-            return sphere;
-        }
 
         const box = new Box3();
-        for (const shape of shapes) {
-            const threeGeometry = context.getVisual(shape) as ThreeGeometry;
-            const boundingBox = new Box3().setFromObject(threeGeometry);
-            if (boundingBox) {
-                box.union(boundingBox);
+        if (shapes.length === 0) {
+            box.setFromObject(context.visualShapes);
+        } else {
+            for (const shape of shapes) {
+                const threeGeometry = context.getVisual(shape) as ThreeGeometry;
+                const boundingBox = new Box3().setFromObject(threeGeometry);
+                if (boundingBox) {
+                    box.union(boundingBox);
+                }
             }
         }
+
+        const sphere = new Sphere();
         box.getBoundingSphere(sphere);
+        if (sphere.radius < 0) {
+            sphere.radius = SHAPE_EMPTY_SIZE;
+        }
         return sphere;
     }
 
