@@ -20,7 +20,7 @@
         "pre-commit": "npx lint-staged"
     },
     "lint-staged": {
-        "*.{ts,js,css,json,md,mjs}": [
+        "*.{ts,js,css,json,mjs}": [
             "biome check --write"
         ],
         "*.{c,h,cxx,hxx,cpp,hpp}": [

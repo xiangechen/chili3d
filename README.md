@@ -1,6 +1,6 @@
 # Chili3D
 
-A web-based 3D CAD application for online model design and editing.
+A browser-based 3D CAD application for online model design and editing.
 
 ![Screenshot](./screenshots/screenshot.png)
 
@@ -165,7 +165,7 @@ Full license details: [LICENSE](LICENSE)
 Chili3d uses [Microsoft Clarity](https://clarity.microsoft.com) for growth analytics. To disable data collection:
 
 1. Open public/index.html
-2. Delete lines 11-17 containing this code:
+2. Delete lines containing this code:
 
 ```
 <script type="text/javascript">
