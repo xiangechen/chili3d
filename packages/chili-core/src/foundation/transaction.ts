@@ -71,7 +71,9 @@ export class Transaction {
     }
 
     rollback() {
-        Transaction._transactionMap.get(this.document)?.undo();
+        const transaction = Transaction._transactionMap.get(this.document);
         Transaction._transactionMap.delete(this.document);
+
+        transaction?.undo();
     }
 }
