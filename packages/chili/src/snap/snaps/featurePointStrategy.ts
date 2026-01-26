@@ -4,6 +4,7 @@
 import {
     I18n,
     type IEdge,
+    type IVertex,
     type IView,
     ObjectSnapType,
     ObjectSnapTypeUtils,
@@ -24,11 +25,25 @@ export class FeaturePointStrategy {
         }
 
         const infos: SnapResult[] = [];
-        if (shape.shape.shapeType === ShapeType.Edge) {
+        if (shape.shape.shapeType === ShapeType.Vertex) {
+            this.getVertexFeaturePoints(view, shape, infos);
+        } else if (shape.shape.shapeType === ShapeType.Edge) {
             this.getEdgeFeaturePoints(view, shape, infos);
         }
         this._featureInfos.set(shape, infos);
         return infos;
+    }
+
+    private getVertexFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.vertex)) {
+            const point = shape.transform.ofPoint((shape.shape as IVertex).point());
+            infos.push({
+                view,
+                point,
+                info: I18n.translate("vertex.point"),
+                shapes: [shape],
+            });
+        }
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {

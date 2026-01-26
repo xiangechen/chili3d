@@ -53,11 +53,15 @@ export interface ISubShape extends IShape {
     parent: IShape;
 }
 
+export interface ISubVertexShape extends ISubShape, IVertex {}
+
 export interface ISubEdgeShape extends ISubShape, IEdge {}
 
 export interface ISubFaceShape extends ISubShape, IFace {}
 
-export interface IVertex extends IShape {}
+export interface IVertex extends IShape {
+    point(): XYZ;
+}
 
 export interface IEdge extends IShape {
     update(curve: ICurve): void;

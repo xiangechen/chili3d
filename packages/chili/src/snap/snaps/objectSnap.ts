@@ -209,16 +209,18 @@ export class ObjectSnap extends BaseSnap {
             return result;
         }
 
-        const curve = (shape.shape as IEdge).curve;
-        const transform = shape.transform;
-        const point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
-        if (point === undefined) return result;
-        result.push({
-            view,
-            point: transform.ofPoint(point),
-            info: I18n.translate("snap.perpendicular"),
-            shapes: [shape],
-        });
+        if (shape.shape.shapeType === ShapeType.Edge) {
+            const curve = (shape.shape as IEdge).curve;
+            const transform = shape.transform;
+            const point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
+            if (point === undefined) return result;
+            result.push({
+                view,
+                point: transform.ofPoint(point),
+                info: I18n.translate("snap.perpendicular"),
+                shapes: [shape],
+            });
+        }
 
         return result;
     }

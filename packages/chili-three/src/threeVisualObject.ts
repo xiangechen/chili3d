@@ -25,6 +25,7 @@ import {
     Mesh,
     MeshLambertMaterial,
     Object3D,
+    type Points,
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
@@ -87,7 +88,7 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
     }
 
     abstract getSubShapeAndIndex(
-        shapeType: "face" | "edge",
+        shapeType: "face" | "edge" | "vertex",
         subVisualIndex: number,
     ): {
         shape: IShape | undefined;
@@ -97,9 +98,9 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         groups: ShapeMeshRange[];
     };
 
-    abstract subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[];
+    abstract subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2 | Points)[];
 
-    abstract wholeVisual(): (Mesh | LineSegments2)[];
+    abstract wholeVisual(): (Mesh | LineSegments2 | Points)[];
 }
 
 export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable {

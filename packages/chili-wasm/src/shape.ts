@@ -16,6 +16,7 @@ import {
     type ISolid,
     type ISubEdgeShape,
     type ISubFaceShape,
+    type ISubVertexShape,
     type ISurface,
     type ITrimmedCurve,
     type IVertex,
@@ -266,6 +267,10 @@ export class OccVertex extends OccShape implements IVertex {
         super(shape, id);
         this.vertex = shape;
     }
+
+    point(): XYZ {
+        return OcctHelper.toXYZ(wasm.Vertex.point(this.vertex));
+    }
 }
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
@@ -448,6 +453,21 @@ export class OccCompSolid extends OccShape implements ICompoundSolid {}
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompound extends OccShape implements ICompound {}
+
+export class OccSubVertexShape extends OccVertex implements ISubVertexShape {
+    override get mesh(): IShapeMeshData {
+        throw new Error("Method not implemented.");
+    }
+
+    constructor(
+        readonly parent: IShape,
+        vertex: TopoDS_Vertex,
+        readonly index: number,
+        id?: string,
+    ) {
+        super(vertex, id);
+    }
+}
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
     override get mesh(): IShapeMeshData {

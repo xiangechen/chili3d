@@ -32,6 +32,12 @@ class MockShape implements IShape {
                 range: [{ start: 0, count: 4, shape: {} as any }],
                 color: VisualConfig.defaultEdgeColor,
             },
+            vertexs: {
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 0]),
+                color: VisualConfig.defaultFaceColor,
+                range: [],
+                size: 3,
+            },
         };
     }
     get matrix(): Matrix4 {
@@ -114,7 +120,7 @@ describe("shapeNode", () => {
                 }
 
                 protected override createMesh(): IShapeMeshData {
-                    return { edges: undefined, faces: undefined };
+                    return { edges: undefined, faces: undefined, vertexs: undefined };
                 }
             };
             node = new node(doc, "test", "mat1");

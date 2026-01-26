@@ -8,7 +8,10 @@ import {
     Continuity,
     command,
     EditableShapeNode,
+    type IEdge,
     type IShape,
+    type IVertex,
+    type IWire,
     PubSub,
     property,
     Result,
@@ -126,7 +129,7 @@ export class LoftCommand extends CancelableCommand {
             return false;
         }
         this.shape = this.document.application.shapeFactory.loft(
-            this.shapes,
+            this.shapes as (IVertex | IEdge | IWire)[],
             this.isSolid,
             this.isRuled,
             this.continuity.selectedIndex,

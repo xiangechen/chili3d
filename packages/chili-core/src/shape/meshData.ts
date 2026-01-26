@@ -69,6 +69,7 @@ export class Mesh {
 export interface IShapeMeshData {
     edges: EdgeMeshData | undefined;
     faces: FaceMeshData | undefined;
+    vertexs: VertexMeshData | undefined;
 }
 
 export interface ShapeMeshRange {

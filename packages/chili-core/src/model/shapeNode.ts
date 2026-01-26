@@ -7,7 +7,7 @@ import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundatio
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { serializable, serialze } from "../serialize";
-import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData } from "../shape";
+import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, VertexMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
 
@@ -41,7 +41,7 @@ export abstract class ShapeNode extends GeometryNode {
     protected override createMesh(): IShapeMeshData {
         if (!this.shape.isOk) {
             Logger.warn(this.shape.error);
-            return { edges: undefined, faces: undefined };
+            return { edges: undefined, faces: undefined, vertexs: undefined };
         }
         const mesh = this.shape.value.mesh;
         this._originFaceMesh = mesh.faces;
@@ -61,8 +61,13 @@ export abstract class ShapeNode extends GeometryNode {
 }
 
 export class MultiShapeMesh implements IShapeMeshData {
+    private readonly _vertexs: VertexMeshData;
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
+
+    get vertexs() {
+        return this._vertexs.position.length > 0 ? this._vertexs : undefined;
+    }
 
     get edges() {
         return this._edges.position.length > 0 ? this._edges : undefined;
@@ -73,6 +78,11 @@ export class MultiShapeMesh implements IShapeMeshData {
     }
 
     constructor() {
+        this._vertexs = {
+            position: new Float32Array(),
+            range: [],
+            size: 0,
+        };
         this._edges = {
             lineType: "solid",
             position: new Float32Array(),

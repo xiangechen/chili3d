@@ -25,7 +25,7 @@ describe("test ShapeType", () => {
         expect(ShapeTypeUtils.isWhole(ShapeType.Face)).toBeFalsy();
         expect(ShapeTypeUtils.isWhole(ShapeType.Wire)).toBeFalsy();
         expect(ShapeTypeUtils.isWhole(ShapeType.Edge)).toBeFalsy();
-        expect(ShapeTypeUtils.isWhole(ShapeType.Vertex)).toBeFalsy();
+        expect(ShapeTypeUtils.isWhole(ShapeType.Vertex)).toBeTruthy();
     });
 
     test("test stringValue method", () => {

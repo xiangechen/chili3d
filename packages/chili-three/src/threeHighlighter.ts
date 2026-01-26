@@ -18,8 +18,10 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import {
     faceColoredMaterial,
     faceTransparentMaterial,
+    highlightVertexMaterial,
     hilightEdgeMaterial,
     selectedEdgeMaterial,
+    selectedVertexMaterial,
 } from "./common";
 import { isHighlightable } from "./highlightable";
 import { ThreeGeometry } from "./threeGeometry";
@@ -67,8 +69,10 @@ export class GeometryState {
             if (newState === VisualState.normal) {
                 this.visual.removeTemperaryMaterial();
             } else if (VisualStateUtils.hasState(newState, VisualState.edgeHighlight)) {
+                this.visual.setVertexsMateiralTemperary(highlightVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
             } else if (VisualStateUtils.hasState(newState, VisualState.edgeSelected)) {
+                this.visual.setVertexsMateiralTemperary(selectedVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
             } else if (VisualStateUtils.hasState(newState, VisualState.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();

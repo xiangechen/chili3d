@@ -604,9 +604,12 @@ export class ThreeView extends Observable implements IView {
     }
 
     private findShapeAndIndex(parent: ThreeVisualObject, element: Intersection) {
-        let type: "edge" | "face" = "edge";
+        let type: "edge" | "face" | "vertex" = "edge";
         let subVisualIndex = element.faceIndex! * 2;
-        if (!element.pointOnLine) {
+        if (!element.pointOnLine && !Number.isInteger(element.faceIndex)) {
+            type = "vertex";
+            subVisualIndex = element.index!;
+        } else if (!element.pointOnLine) {
             type = "face";
             subVisualIndex = element.faceIndex! * 3;
         }
@@ -638,7 +641,6 @@ export class ThreeView extends Observable implements IView {
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
             if (x instanceof ThreeVisualObject) shapes.push(...x.subShapeVisual(shapeType));
-            // TODO: vertex
         });
         return shapes;
     }

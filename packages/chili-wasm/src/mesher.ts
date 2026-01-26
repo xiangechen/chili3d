@@ -8,15 +8,17 @@ import {
     type IDisposable,
     type IShapeMeshData,
     type ShapeMeshRange,
+    type VertexMeshData,
     VisualConfig,
 } from "chili-core";
 import type { EdgeMeshData as OccEdgeMeshData, FaceMeshData as OccFaceMeshData } from "../lib/chili-wasm";
-import { type OccShape, OccSubEdgeShape, OccSubFaceShape } from "./shape";
+import { type OccShape, OccSubEdgeShape, OccSubFaceShape, OccSubVertexShape, OccVertex } from "./shape";
 
 export class Mesher implements IShapeMeshData, IDisposable {
     private _isMeshed = false;
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
+    private _points?: VertexMeshData;
 
     get edges(): EdgeMeshData | undefined {
         if (this._lines === undefined) {
@@ -36,6 +38,24 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
     set faces(value: FaceMeshData | undefined) {
         this._faces = value;
+    }
+
+    get vertexs(): VertexMeshData | undefined {
+        if (this._points === undefined && this.shape instanceof OccVertex) {
+            const point = this.shape.point();
+            this._points = {
+                position: new Float32Array(point.toArray()),
+                color: VisualConfig.defaultEdgeColor,
+                range: [
+                    { start: 0, count: 1, shape: new OccSubVertexShape(this.shape, this.shape.shape, 0) },
+                ],
+                size: 3,
+            };
+        }
+        return this._points;
+    }
+    set vertexs(value: VertexMeshData | undefined) {
+        this._points = value;
     }
 
     constructor(private shape: OccShape) {}

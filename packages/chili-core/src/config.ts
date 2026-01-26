@@ -57,7 +57,8 @@ export class Config extends Observable {
                 ObjectSnapType.center |
                 ObjectSnapType.perpendicular |
                 ObjectSnapType.intersection |
-                ObjectSnapType.nearest,
+                ObjectSnapType.nearest |
+                ObjectSnapType.vertex,
         );
     }
     set snapType(snapType: ObjectSnapType) {

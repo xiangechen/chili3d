@@ -16,7 +16,7 @@ class MockShape implements IShape {
     }
 
     matrix: Matrix4 = Matrix4.identity();
-    mesh: IShapeMeshData = { faces: undefined, edges: undefined };
+    mesh: IShapeMeshData = { faces: undefined, edges: undefined, vertexs: undefined };
 
     transformed(matrix: Matrix4): IShape {
         return this;

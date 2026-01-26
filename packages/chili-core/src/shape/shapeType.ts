@@ -19,7 +19,8 @@ export class ShapeTypeUtils {
             type === ShapeType.Shape ||
             type === ShapeType.Compound ||
             type === ShapeType.CompoundSolid ||
-            type === ShapeType.Solid
+            type === ShapeType.Solid ||
+            type === ShapeType.Vertex
         );
     }
 

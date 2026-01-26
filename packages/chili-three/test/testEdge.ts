@@ -117,6 +117,7 @@ export class TestEdge implements IEdge {
                 range: [],
             },
             faces: undefined,
+            vertexs: undefined,
         };
     }
     serialize(): Serialized {

@@ -109,7 +109,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
-        this.findSnapPoint(ShapeType.Edge, view, event);
+        this.findSnapPoint(ShapeType.Edge | ShapeType.Vertex, view, event);
 
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
     }
