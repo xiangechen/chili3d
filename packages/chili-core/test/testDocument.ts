@@ -56,7 +56,14 @@ export class TestDocument implements IDocument, ISerialize {
     constructor() {
         this.name = "test";
         this.id = "test";
-        this.visual = {} as any;
+        this.visual = {
+            context: {
+                removeNode: () => {},
+                redrawNode: () => {},
+                getVisual: () => undefined,
+                setVisible: () => {},
+            },
+        } as any;
         this.history = new History();
         this.selection = {} as any;
         this.application = { views: [] } as any;

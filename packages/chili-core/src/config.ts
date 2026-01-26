@@ -7,6 +7,9 @@ import type { Navigation3DType } from "./navigation";
 import { type SerializedProperties, Serializer, serialze } from "./serialize";
 import { ObjectSnapType } from "./snapType";
 
+export const DefaultLightEdgeColor = 0x333333;
+export const DefaultDarkEdgeColor = 0xeeeeee;
+
 export class VisualItemConfig extends Observable {
     defaultFaceColor = 0xdedede;
     highlightEdgeColor = 0x33ff33;
@@ -24,14 +27,14 @@ export class VisualItemConfig extends Observable {
     temporaryEdgeColor = 0x33ff33;
 
     get defaultEdgeColor() {
-        return this.getPrivateValue("defaultEdgeColor", 0x333333);
+        return this.getPrivateValue("defaultEdgeColor", DefaultLightEdgeColor);
     }
     set defaultEdgeColor(value: number) {
         this.setProperty("defaultEdgeColor", value);
     }
 
     applyTheme(theme: "light" | "dark") {
-        this.defaultEdgeColor = theme === "light" ? 0x333333 : 0xeeeeee;
+        this.defaultEdgeColor = theme === "light" ? DefaultLightEdgeColor : DefaultDarkEdgeColor;
     }
 }
 
@@ -117,9 +120,6 @@ export class Config extends Observable {
     #storageKey: string = "config";
     get storageKey() {
         return this.#storageKey;
-    }
-    private set storageKey(value: string) {
-        this.#storageKey = value;
     }
 
     private constructor() {

@@ -72,7 +72,11 @@ export class I18n {
             console.warn(`No translation for ${key} in ${language}`);
             return key;
         }
-        let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
+        let text = language.translation[key] ?? languages.get("en")!.translation[key];
+        if (text === undefined) {
+            console.warn(`No translation for ${key} in ${language}`);
+            return key;
+        }
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }

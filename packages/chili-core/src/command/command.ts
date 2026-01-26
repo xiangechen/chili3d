@@ -18,7 +18,7 @@ export function isCancelableCommand(command: ICommand): command is ICanclableCom
 }
 
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
-    private static readonly _propertiesCache: Map<string, any> = new Map(); // 所有命令共享
+    private static readonly _propertiesCache: Map<string, any> = new Map();
     protected readonly disposeStack: Set<IDisposable> = new Set();
 
     private _isCompleted: boolean = false;
