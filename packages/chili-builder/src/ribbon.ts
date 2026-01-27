@@ -11,8 +11,9 @@ export const DefaultRibbon: RibbonTab[] = [
                 groupName: "ribbon.group.draw",
                 items: [
                     "create.line",
+                    "create.rect",
                     "create.extrude",
-                    ["create.arc", "create.rect", "create.circle"],
+                    ["create.point", "create.arc", "create.circle"],
                     ["create.loft", "create.sweep", "create.revol"],
                     ["create.ellipse", "create.bezier", "create.polygon"],
                     ["create.box", "create.pyramid", "create.cylinder"],

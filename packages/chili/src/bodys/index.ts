@@ -8,6 +8,7 @@ export * from "./cylinder";
 export * from "./ellipse";
 export * from "./line";
 export * from "./pipe";
+export * from "./point";
 export * from "./polygon";
 export * from "./prism";
 export * from "./pyramid";
