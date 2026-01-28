@@ -49,6 +49,7 @@ export default {
         "command.create.folder": "Criar Pasta",
         "command.create.group": "Agrupar",
         "command.create.line": "Linha",
+        "command.create.pipe": "Tubo",
         "command.create.offset": "Deslocar",
         "command.create.polygon": "Polilinha",
         "command.create.pyramid": "Piramide",

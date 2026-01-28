@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type CommandKeys, type IApplication, type IService, Logger, PubSub } from "chili-core";
+import {
+    type CommandKeys,
+    Config,
+    type IApplication,
+    type IService,
+    Logger,
+    PubSub,
+    ShortcutProfiles,
+} from "chili-core";
 
 export interface Keys {
     key: string;
@@ -14,21 +22,28 @@ export interface HotkeyMap {
     [key: string]: CommandKeys;
 }
 
-const DefaultKeyMap: HotkeyMap = {
-    Delete: "modify.deleteNode",
-    Backspace: "modify.deleteNode",
-    " ": "special.last",
-    Enter: "special.last",
-    "ctrl+z": "edit.undo",
-    "ctrl+y": "edit.redo",
-};
-
 export class HotkeyService implements IService {
     private app?: IApplication;
     private readonly _keyMap = new Map<string, CommandKeys>();
 
     constructor() {
-        this.addMap(DefaultKeyMap);
+        this.loadProfile();
+    }
+
+    private loadProfile() {
+        const profile = Config.instance.navigation3D;
+        const shortcuts = ShortcutProfiles[profile];
+
+        this._keyMap.clear();
+
+        for (const [command, keyOrKeys] of Object.entries(shortcuts)) {
+            if (Array.isArray(keyOrKeys)) {
+                keyOrKeys.forEach((k) => this._keyMap.set(k.toLowerCase(), command as CommandKeys));
+            } else if (typeof keyOrKeys === "string") {
+                this._keyMap.set(keyOrKeys.toLowerCase(), command as CommandKeys);
+            }
+        }
+        Logger.info(`Loaded shortcuts profile: ${profile}`);
     }
 
     register(app: IApplication): void {
@@ -39,14 +54,22 @@ export class HotkeyService implements IService {
     start(): void {
         window.addEventListener("keydown", this.eventHandlerKeyDown);
         window.addEventListener("keydown", this.commandKeyDown);
+        Config.instance.onPropertyChanged(this.handleConfigChanged);
         Logger.info(`${HotkeyService.name} started`);
     }
 
     stop(): void {
         window.removeEventListener("keydown", this.eventHandlerKeyDown);
         window.removeEventListener("keydown", this.commandKeyDown);
+        Config.instance.removePropertyChanged(this.handleConfigChanged);
         Logger.info(`${HotkeyService.name} stoped`);
     }
+
+    private readonly handleConfigChanged = (prop: keyof Config) => {
+        if (prop === "navigation3D") {
+            this.loadProfile();
+        }
+    };
 
     protected canHandleKey(e: KeyboardEvent): boolean {
         return true;
@@ -55,22 +78,38 @@ export class HotkeyService implements IService {
     private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
         if (!this.canHandleKey(e)) return;
 
-        e.preventDefault();
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+            return;
+        }
+
         const visual = this.app?.activeView?.document?.visual;
         const view = this.app?.activeView;
         if (view && visual) {
             if (visual.eventHandler.isEnabled) visual.eventHandler.keyDown(view, e);
             if (visual.viewHandler.isEnabled) visual.viewHandler.keyDown(view, e);
-            if (this.app!.executingCommand) e.stopImmediatePropagation();
         }
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
         if (!this.canHandleKey(e)) return;
 
-        e.preventDefault();
-        const command = this.getCommand(e);
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+            return;
+        }
+
+        const keys: Keys = {
+            key: e.key.toLowerCase(),
+            ctrlKey: e.ctrlKey || e.metaKey,
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+        };
+
+        const command = this.getCommand(keys);
         if (command !== undefined) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
             PubSub.default.pub("executeCommand", command);
         }
     };
@@ -96,7 +135,7 @@ export class HotkeyService implements IService {
     addMap(map: HotkeyMap) {
         const keys = Object.keys(map);
         keys.forEach((key) => {
-            this._keyMap.set(key, map[key]);
+            this._keyMap.set(key.toLowerCase(), map[key]);
         });
     }
 }

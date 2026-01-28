@@ -95,6 +95,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "create.cone",
                     "create.sphere",
                     "create.thickSolid",
+                    "create.pipe",
                 ],
             },
         ],
