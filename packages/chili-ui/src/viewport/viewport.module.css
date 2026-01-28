@@ -177,3 +177,62 @@
         display: none;
     }
 }
+
+.viewModeControl {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 30;
+    color: var(--foreground-color);
+
+    .viewModeDisplay {
+        padding: 6px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 14px;
+        transition: background-color 0.2s;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        border-radius: 6px;
+        gap: 4px;
+
+        &:hover {
+            background-color: var(--hover-background-color);
+        }
+    }
+
+    .viewModeMenu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 4px;
+        background-color: var(--background-color);
+        border-radius: 6px;
+        padding: 4px;
+        width: fit-content;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+        &.visible {
+            display: block;
+        }
+
+        div {
+            padding: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 14px;
+            border-radius: 4px;
+            text-wrap-mode: nowrap;
+
+            &:hover {
+                background-color: var(--hover-background-color);
+            }
+
+            &.actived {
+                background-color: var(--checked-color);
+            }
+        }
+    }
+}

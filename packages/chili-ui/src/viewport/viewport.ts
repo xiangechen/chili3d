@@ -7,11 +7,15 @@ import {
     Binding,
     type CameraType,
     DialogResult,
+    I18n,
     type IConverter,
     type IView,
     Localize,
     PubSub,
     Result,
+    type ViewMode,
+    ViewModeI18nKeys,
+    ViewModes,
 } from "chili-core";
 import { Flyout } from "./flyout";
 import style from "./viewport.module.css";
@@ -21,6 +25,17 @@ class CameraConverter implements IConverter<CameraType> {
 
     convert(value: CameraType): Result<string, string> {
         if (value === this.type) {
+            return Result.ok(style.actived);
+        }
+        return Result.ok("");
+    }
+}
+
+class ViewModeConverter implements IConverter<ViewMode> {
+    constructor(readonly mode: ViewMode) {}
+
+    convert(value: ViewMode): Result<string, string> {
+        if (value === this.mode) {
             return Result.ok(style.actived);
         }
         return Result.ok("");
@@ -66,6 +81,7 @@ export class Viewport extends HTMLElement {
                       this.createActionControls(),
                   )
                 : "",
+            this.createViewModeControl(),
         );
     }
 
@@ -199,6 +215,54 @@ export class Viewport extends HTMLElement {
                     this.view.update();
                 },
             }),
+        );
+    }
+
+    private createViewModeControl() {
+        const label = span({
+            textContent: new Localize(ViewModeI18nKeys[this.view.mode]),
+        });
+        return div(
+            {
+                className: style.viewModeControl,
+            },
+            div(
+                {
+                    className: style.viewModeDisplay,
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        const target = e.currentTarget as HTMLElement;
+                        if (target.nextElementSibling instanceof HTMLElement) {
+                            target.nextElementSibling.classList.toggle(style.visible);
+                        }
+                    },
+                },
+                "[ ",
+                label,
+                " ]",
+            ),
+            div(
+                {
+                    className: style.viewModeMenu,
+                },
+                ...ViewModes.map((m) =>
+                    div({
+                        className: new Binding(this.view, "mode", new ViewModeConverter(m)),
+                        textContent: new Localize(ViewModeI18nKeys[m]),
+                        onclick: (e) => {
+                            e.stopPropagation();
+                            I18n.set(label, "textContent", ViewModeI18nKeys[m]);
+                            this.view.mode = m;
+                            this.view.update();
+
+                            const target = e.currentTarget as HTMLElement;
+                            if (target.parentElement instanceof HTMLElement) {
+                                target.parentElement.classList.remove(style.visible);
+                            }
+                        },
+                    }),
+                ),
+            ),
         );
     }
 
