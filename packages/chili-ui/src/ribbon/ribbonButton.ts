@@ -7,6 +7,7 @@ import {
     type CommandData,
     type CommandKeys,
     CommandUtils,
+    DefaultShortcuts,
     I18n,
     type I18nKeys,
     type IConverter,
@@ -18,14 +19,17 @@ import {
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {
+    private observer?: MutationObserver;
+
     constructor(
         display: I18nKeys,
         icon: string,
         size: ButtonSize,
         readonly onClick: () => void,
+        shortcut?: string,
     ) {
         super();
-        this.initHTML(display, icon, size);
+        this.initHTML(display, icon, size, shortcut);
         this.addEventListener("click", onClick);
     }
 
@@ -38,16 +42,27 @@ export class RibbonButton extends HTMLElement {
         if (data.toggle) {
             return new RibbonToggleButton(data, size);
         }
-        return new RibbonButton(`command.${data.key}`, data.icon, size, () => {
-            PubSub.default.pub("executeCommand", commandName);
-        });
+
+        const shortcutData = DefaultShortcuts[commandName];
+        const shortcut = Array.isArray(shortcutData) ? shortcutData[0] : shortcutData;
+
+        return new RibbonButton(
+            `command.${data.key}`,
+            data.icon,
+            size,
+            () => {
+                PubSub.default.pub("executeCommand", commandName);
+            },
+            shortcut,
+        );
     }
 
     dispose(): void {
         this.removeEventListener("click", this.onClick);
+        this.observer?.disconnect();
     }
 
-    private initHTML(display: I18nKeys, icon: string, size: ButtonSize) {
+    private initHTML(display: I18nKeys, icon: string, size: ButtonSize, shortcut?: string) {
         const image = svg({ icon });
         this.className = size === ButtonSize.large ? style.normal : style.small;
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
@@ -55,7 +70,27 @@ export class RibbonButton extends HTMLElement {
             className: size === ButtonSize.large ? style.largeButtonText : style.smallButtonText,
             textContent: new Localize(display),
         });
+
         I18n.set(this, "title", display);
+
+        if (shortcut) {
+            const updateTitle = () => {
+                const current = this.getAttribute("title");
+                if (current && !current.includes(`(${shortcut})`)) {
+                    this.setAttribute("title", `${current} (${shortcut})`);
+                }
+            };
+            updateTitle();
+            this.observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    if (m.type === "attributes" && m.attributeName === "title") {
+                        updateTitle();
+                    }
+                }
+            });
+            this.observer.observe(this, { attributes: true });
+        }
+
         this.append(image, text);
     }
 }

@@ -72,6 +72,8 @@ export default {
         "command.create.line": "Line",
         "command.create.loft": "Loft",
         "command.create.offset": "Offset",
+        "body.pipe": "Pipe",
+        "command.create.pipe": "Pipe",
         "command.create.polygon": "Pline",
         "command.create.pyramid": "Pyramid",
         "command.create.rect": "Rectangle",
@@ -195,6 +197,8 @@ export default {
         "option.command.isConvertInstance": "Convert Instance",
         "option.command.insertPoint": "Insert Point",
         "polygon.points": "Points",
+        "pipe.bendRadius": "Bend Radius",
+        "pipe.bendType": "Bend Type",
         "prompt.default{0}{1}":
             "{0} to pan the view, {1} to rotate the view, Mouse wheel to scroll the zoom view",
         "prompt.deleteDocument{0}": "Do you want to delete {0}?",

@@ -40,4 +40,14 @@ export class CommandUtils {
     static getCommond(name: CommandKeys): CommandConstructor | undefined {
         return commandRegistry.get(name);
     }
+
+    static getAllCommands(): CommandData[] {
+        const commands: CommandData[] = [];
+        for (const ctor of commandRegistry.values()) {
+            if (ctor.prototype.data) {
+                commands.push(ctor.prototype.data);
+            }
+        }
+        return commands;
+    }
 }
