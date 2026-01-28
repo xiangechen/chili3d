@@ -6,7 +6,7 @@ import {
     type ICameraController,
     MathUtils,
     Observable,
-    ViewMode,
+    type ViewMode,
     VisualNode,
     type XYZLike,
 } from "chili-core";
@@ -108,10 +108,10 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     setCameraLayer(camera: Camera, mode: ViewMode) {
-        if (mode === ViewMode.wireframe) {
+        if (mode === "wireframe") {
             camera.layers.enable(Constants.Layers.Wireframe);
             camera.layers.disable(Constants.Layers.Solid);
-        } else if (mode === ViewMode.solid) {
+        } else if (mode === "solid") {
             camera.layers.enable(Constants.Layers.Solid);
             camera.layers.disable(Constants.Layers.Wireframe);
         } else {

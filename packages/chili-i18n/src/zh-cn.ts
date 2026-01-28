@@ -273,5 +273,8 @@ export default {
         "viewport.perspective": "透视视图",
         "viewport.zoomIn": "放大",
         "viewport.zoomOut": "缩小",
+        "viewport.mode.solid": "实体",
+        "viewport.mode.wireframe": "线框",
+        "viewport.mode.solidAndWireframe": "实体和线框",
     },
 } satisfies Locale;

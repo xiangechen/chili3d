@@ -24,7 +24,7 @@ import {
     ShapeNode,
     ShapeType,
     ShapeTypeUtils,
-    ViewMode,
+    type ViewMode,
     type VisualNode,
     type VisualShapeData,
     XY,
@@ -91,7 +91,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     get mode(): ViewMode {
-        return this.getPrivateValue("mode", ViewMode.solidAndWireframe);
+        return this.getPrivateValue("mode");
     }
     set mode(value: ViewMode) {
         this.setProperty("mode", value, () => {
@@ -117,7 +117,7 @@ export class ThreeView extends Observable implements IView {
         this._cssRenderer = this.initCssRenderer();
         this._scene.add(this.dynamicLight);
         this._gizmo = this.initGizmo();
-        this.setPrivateValue("mode", ViewMode.solidAndWireframe);
+        this.setPrivateValue("mode", "solidAndWireframe");
         this.camera.layers.enableAll();
         this.document.application.views.push(this);
         this.animate();
@@ -651,10 +651,10 @@ export class ThreeView extends Observable implements IView {
         const mousePos = new Vector2(x, y);
 
         const raycaster = new Raycaster();
-        if (this.mode === ViewMode.wireframe) {
+        if (this.mode === "wireframe") {
             raycaster.layers.disableAll();
             raycaster.layers.enable(Constants.Layers.Wireframe);
-        } else if (this.mode === ViewMode.solid) {
+        } else if (this.mode === "solid") {
             raycaster.layers.disableAll();
             raycaster.layers.enable(Constants.Layers.Solid);
         } else {

@@ -268,6 +268,9 @@ const I18N_KEYS = [
     "viewport.perspective",
     "viewport.zoomIn",
     "viewport.zoomOut",
+    "viewport.mode.solid",
+    "viewport.mode.wireframe",
+    "viewport.mode.solidAndWireframe",
 ] as const;
 
 export type I18nKeys = (typeof I18N_KEYS)[number];

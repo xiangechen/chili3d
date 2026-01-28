@@ -274,5 +274,8 @@ export default {
         "viewport.perspective": "Perspective",
         "viewport.zoomIn": "Zoom In",
         "viewport.zoomOut": "Zoom Out",
+        "viewport.mode.solid": "Solid",
+        "viewport.mode.wireframe": "Wireframe",
+        "viewport.mode.solidAndWireframe": "Solid And Wireframe",
     },
 } satisfies Locale;
