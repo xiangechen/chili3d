@@ -7,6 +7,7 @@ import {
     ButtonSize,
     type CommandKeys,
     CommandUtils,
+    Config,
     I18n,
     type IApplication,
     type ICommand,
@@ -255,19 +256,29 @@ export class Ribbon extends HTMLElement {
             });
             return stack;
         } else {
-            return new RibbonButton(item.display, item.icon, ButtonSize.large, item.onClick);
+            return new RibbonButton(item.command, item.icon, ButtonSize.large, item.onClick, item.display);
         }
     }
 
     connectedCallback(): void {
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
+        Config.instance.onPropertyChanged(this.handleConfigChanged);
     }
 
     disconnectedCallback(): void {
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
+        Config.instance.removePropertyChanged(this.handleConfigChanged);
     }
+
+    private readonly handleConfigChanged = (prop: keyof Config) => {
+        if (prop === "navigation3D") {
+            this.querySelectorAll(customElements.getName(RibbonButton)!).forEach((x) => {
+                (x as RibbonButton).updateShortcut();
+            });
+        }
+    };
 
     private readonly openContext = (command: ICommand) => {
         if (this.commandContext) {

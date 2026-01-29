@@ -5,7 +5,6 @@ import {
     type CommandKeys,
     CommandUtils,
     type IApplication,
-    ICommand,
     type IService,
     type IView,
     isCancelableCommand,

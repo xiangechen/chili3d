@@ -23,6 +23,7 @@ export interface HotkeyMap {
 }
 
 export class HotkeyService implements IService {
+    protected keys: string[] = [];
     private app?: IApplication;
     private readonly _keyMap = new Map<string, CommandKeys>();
 
@@ -52,6 +53,7 @@ export class HotkeyService implements IService {
     }
 
     start(): void {
+        PubSub.default.sub("executeCommand", this.executeCommand);
         window.addEventListener("keydown", this.eventHandlerKeyDown);
         window.addEventListener("keydown", this.commandKeyDown);
         Config.instance.onPropertyChanged(this.handleConfigChanged);
@@ -59,11 +61,16 @@ export class HotkeyService implements IService {
     }
 
     stop(): void {
+        PubSub.default.remove("executeCommand", this.executeCommand);
         window.removeEventListener("keydown", this.eventHandlerKeyDown);
         window.removeEventListener("keydown", this.commandKeyDown);
         Config.instance.removePropertyChanged(this.handleConfigChanged);
         Logger.info(`${HotkeyService.name} stoped`);
     }
+
+    private readonly executeCommand = (_commandName: CommandKeys) => {
+        this.keys = [];
+    };
 
     private readonly handleConfigChanged = (prop: keyof Config) => {
         if (prop === "navigation3D") {
@@ -114,22 +121,24 @@ export class HotkeyService implements IService {
         }
     };
 
-    getKey(keys: Keys): string {
-        let key = keys.key;
-        if (keys.ctrlKey) key = "ctrl+" + key;
-        if (keys.shiftKey) key = "shift+" + key;
-        if (keys.altKey) key = "alt+" + key;
-        return key;
-    }
-
-    map(command: CommandKeys, keys: Keys) {
-        const key = this.getKey(keys);
-        this._keyMap.set(key, command);
-    }
-
     getCommand(keys: Keys): CommandKeys | undefined {
-        const key = this.getKey(keys);
-        return this._keyMap.get(key);
+        const maxKeyLength = 20;
+        const totleLength = this.keys.length + keys.key.length;
+        if (totleLength > maxKeyLength) {
+            this.keys = this.keys.slice(totleLength - maxKeyLength);
+        }
+        this.keys.push(keys.key);
+
+        for (let i = 0; i < this.keys.length; i++) {
+            let key = this.keys.slice(i).join("+");
+            if (keys.ctrlKey) key = "ctrl+" + key;
+            if (keys.shiftKey) key = "shift+" + key;
+            if (keys.altKey) key = "alt+" + key;
+            if (this._keyMap.has(key)) {
+                return this._keyMap.get(key);
+            }
+        }
+        return undefined;
     }
 
     addMap(map: HotkeyMap) {

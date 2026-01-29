@@ -42,12 +42,11 @@ export class CommandUtils {
     }
 
     static getAllCommands(): CommandData[] {
-        const commands: CommandData[] = [];
-        for (const ctor of commandRegistry.values()) {
-            if (ctor.prototype.data) {
-                commands.push(ctor.prototype.data);
-            }
-        }
-        return commands;
+        return Array.from(
+            commandRegistry
+                .values()
+                .map((ctor) => ctor.prototype.data)
+                .filter((x) => x),
+        );
     }
 }

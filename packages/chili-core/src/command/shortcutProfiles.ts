@@ -20,7 +20,6 @@ export const Chili3dShortcuts: ShortcutMap = {
 
     // Primitives
     "create.box": "b",
-    "create.pyramid": "p",
     "create.sphere": "s",
     "create.cylinder": "y",
     "create.cone": "n",
@@ -30,11 +29,11 @@ export const Chili3dShortcuts: ShortcutMap = {
     "modify.trim": "t",
     "create.offset": "o",
     "modify.rotate": "shift+r",
-    "create.extrude": "shift+e",
-    "modify.move": "shift+m",
+    "create.extrude": "p",
+    "modify.move": "m",
     "modify.array": "shift+a",
     "boolean.common": "shift+i",
-    "modify.explode": "shift+x",
+    "modify.explode": "x",
     "modify.chamfer": "shift+c",
     "modify.fillet": "shift+f",
 };

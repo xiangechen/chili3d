@@ -7,7 +7,7 @@ import {
     type CommandData,
     type CommandKeys,
     CommandUtils,
-    DefaultShortcuts,
+    Config,
     I18n,
     type I18nKeys,
     type IConverter,
@@ -15,21 +15,25 @@ import {
     Logger,
     PubSub,
     Result,
+    ShortcutProfiles,
 } from "chili-core";
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {
-    private observer?: MutationObserver;
+    #shortcut?: string;
+    get shortcut() {
+        return this.#shortcut;
+    }
 
     constructor(
-        display: I18nKeys,
+        readonly commandName: CommandKeys,
         icon: string,
         size: ButtonSize,
         readonly onClick: () => void,
-        shortcut?: string,
+        display?: I18nKeys,
     ) {
         super();
-        this.initHTML(display, icon, size, shortcut);
+        this.initHTML(display ?? `command.${commandName}`, icon, size);
         this.addEventListener("click", onClick);
     }
 
@@ -43,26 +47,16 @@ export class RibbonButton extends HTMLElement {
             return new RibbonToggleButton(data, size);
         }
 
-        const shortcutData = DefaultShortcuts[commandName];
-        const shortcut = Array.isArray(shortcutData) ? shortcutData[0] : shortcutData;
-
-        return new RibbonButton(
-            `command.${data.key}`,
-            data.icon,
-            size,
-            () => {
-                PubSub.default.pub("executeCommand", commandName);
-            },
-            shortcut,
-        );
+        return new RibbonButton(data.key, data.icon, size, () => {
+            PubSub.default.pub("executeCommand", commandName);
+        });
     }
 
     dispose(): void {
         this.removeEventListener("click", this.onClick);
-        this.observer?.disconnect();
     }
 
-    private initHTML(display: I18nKeys, icon: string, size: ButtonSize, shortcut?: string) {
+    private initHTML(display: I18nKeys, icon: string, size: ButtonSize) {
         const image = svg({ icon });
         this.className = size === ButtonSize.large ? style.normal : style.small;
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
@@ -72,26 +66,26 @@ export class RibbonButton extends HTMLElement {
         });
 
         I18n.set(this, "title", display);
-
-        if (shortcut) {
-            const updateTitle = () => {
-                const current = this.getAttribute("title");
-                if (current && !current.includes(`(${shortcut})`)) {
-                    this.setAttribute("title", `${current} (${shortcut})`);
-                }
-            };
-            updateTitle();
-            this.observer = new MutationObserver((mutations) => {
-                for (const m of mutations) {
-                    if (m.type === "attributes" && m.attributeName === "title") {
-                        updateTitle();
-                    }
-                }
-            });
-            this.observer.observe(this, { attributes: true });
-        }
+        this.updateShortcut();
 
         this.append(image, text);
+    }
+
+    updateShortcut() {
+        const shortcutData = ShortcutProfiles[Config.instance.navigation3D][this.commandName];
+        const shortcut = Array.isArray(shortcutData) ? shortcutData.join("; ") : shortcutData;
+
+        if (shortcut) {
+            if (this.#shortcut) {
+                this.title = this.title.replace(this.#shortcut, shortcut);
+            } else {
+                this.title += ` (${shortcut})`;
+            }
+            this.#shortcut = shortcut;
+        } else if (this.#shortcut) {
+            this.title = this.title.replace(this.#shortcut, "");
+            this.#shortcut = undefined;
+        }
     }
 }
 
@@ -109,7 +103,7 @@ class ToggleConverter implements IConverter {
 
 export class RibbonToggleButton extends RibbonButton {
     constructor(data: CommandData, size: ButtonSize) {
-        super(`command.${data.key}`, data.icon, size, () => {
+        super(data.key, data.icon, size, () => {
             PubSub.default.pub("executeCommand", data.key);
         });
 

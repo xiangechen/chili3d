@@ -72,6 +72,10 @@ export class I18n {
             console.warn(`No translation for ${key} in ${language}`);
             return key;
         }
+        return I18n.translateLanguage(language, key, ...args);
+    }
+
+    static translateLanguage(language: Locale, key: I18nKeys, ...args: any[]) {
         let text = language.translation[key] ?? languages.get("en")!.translation[key];
         if (text === undefined) {
             console.warn(`No translation for ${key} in ${language}`);
@@ -97,6 +101,7 @@ export class I18n {
 
     static changeLanguage(newLanguage: string) {
         if (newLanguage === _currentLanguage) return;
+        const oldLanguage = _currentLanguage;
         _currentLanguage = newLanguage;
 
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
@@ -104,7 +109,10 @@ export class I18n {
             const data = html?.dataset[I18nId]?.split(DATASET_LINK_KEY);
             if (data?.length !== 2) return;
             const args = I18nArgs.get(html) ?? [];
-            html[data[1] as I18nPath] = I18n.translate(data[0] as I18nKeys, ...args);
+            const [key, path] = data as [I18nKeys, I18nPath];
+            const oldText = I18n.translateLanguage(languages.get(oldLanguage!)!, key, ...args);
+            const newText = I18n.translate(key, ...args);
+            html[path] = html[path].replace(oldText, newText);
         });
     }
 }
