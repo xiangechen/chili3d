@@ -49,6 +49,10 @@ export class XYZ {
         this.x = x;
         this.y = y;
         this.z = z;
+
+        if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+            throw new Error("NaN in XYZ");
+        }
     }
 
     toString() {

@@ -337,6 +337,9 @@ export class OccEdge extends OccShape implements IEdge {
     offset(distance: number, dir: XYZ): Result<IEdge> {
         return gc((c) => {
             const occDir = c(OcctHelper.toDir(dir));
+            if (MathUtils.anyEqualZero(distance)) {
+                return Result.err("Invalid distance");
+            }
             const edge = wasm.Edge.offset(this.edge, occDir, distance);
             if (edge.isNull()) {
                 return Result.err("Offset failed");
@@ -381,6 +384,9 @@ export class OccWire extends OccShape implements IWire {
     }
 
     offset(distance: number, joinType: JoinType): Result<IShape> {
+        if (MathUtils.anyEqualZero(distance)) {
+            return Result.err("Invalid distance");
+        }
         const offseted = wasm.Wire.offset(this.wire, distance, OcctHelper.getJoinType(joinType));
         if (offseted.isNull()) {
             return Result.err("Offset failed");

@@ -225,7 +225,8 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     dn(u: number, n: number) {
         return gc((c) => {
-            return OcctHelper.toXYZ(c(this.curve.dn(u, n)));
+            const vec = c(this.curve.dn(u, n));
+            return OcctHelper.toXYZ(vec);
         });
     }
 }
