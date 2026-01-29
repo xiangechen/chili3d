@@ -43,9 +43,9 @@ import {
     Vector3,
     WebGLRenderer,
 } from "three";
-import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer";
+import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
 import { ThreeGeometry } from "./threeGeometry";

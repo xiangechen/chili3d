@@ -27,11 +27,11 @@ import {
     Object3D,
     type Points,
 } from "three";
-import { Line2 } from "three/examples/jsm/lines/Line2";
-import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { defaultEdgeMaterial, hilightEdgeMaterial } from "./common";
 import { Constants } from "./constants";
 import type { IHighlightable } from "./highlightable";

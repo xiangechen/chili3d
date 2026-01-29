@@ -18,9 +18,9 @@ import {
     type VertexMeshData,
 } from "chili-core";
 import { type Material, Mesh, type MeshLambertMaterial, Points, type PointsMaterial } from "three";
-import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { defaultEdgeMaterial, defaultVertexMaterial } from "./common";
 import { Constants } from "./constants";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";

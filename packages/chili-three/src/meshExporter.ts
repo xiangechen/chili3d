@@ -3,11 +3,11 @@
 
 import { type IMeshExporter, Result, type VisualNode } from "chili-core";
 import { Group, Mesh, Object3D } from "three";
-import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter";
-import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter";
-import { STLExporter } from "three/examples/jsm/exporters/STLExporter";
-import { Line2 } from "three/examples/jsm/lines/Line2";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
+import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
+import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter.js";
+import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import type { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeMeshExporter implements IMeshExporter {

@@ -7,7 +7,6 @@ import {
     type I18nKeys,
     type IDocument,
     PathBinding,
-    Property,
     PropertyUtils,
     readFileAsync,
     type Texture,

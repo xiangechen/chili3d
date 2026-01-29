@@ -3,7 +3,7 @@
 
 import { getCurrentApplication, VisualConfig, type VisualItemConfig } from "chili-core";
 import { DoubleSide, MeshLambertMaterial, PointsMaterial } from "three";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { ThreeHelper } from "./threeHelper";
 
 export const defaultVertexMaterial = new PointsMaterial({
