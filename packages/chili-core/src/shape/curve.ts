@@ -3,7 +3,6 @@
 
 import type { Line, XYZ } from "../math";
 import type { IGeometry } from "./geometry";
-import type { IEdge } from "./shape";
 
 export enum CurveType {
     Line,
@@ -66,7 +65,6 @@ export interface ICurve extends IGeometry {
     period(): number;
     isPeriodic(): boolean;
     continutity(): Continuity;
-    makeEdge(): IEdge;
 }
 
 export interface ILine extends ICurve {

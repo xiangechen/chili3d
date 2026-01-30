@@ -10,14 +10,13 @@ import {
     type IView,
     Localize,
     Node,
-    Property,
     PropertyUtils,
     PubSub,
     VisualNode,
 } from "chili-core";
+import { propertyControl } from "./complexPropertyUtils";
 import { MatrixProperty } from "./matrixProperty";
 import style from "./propertyView.module.css";
-import { findPropertyControl } from "./utils";
 
 export class PropertyView extends HTMLElement {
     private readonly panel = div({ className: style.panel });
@@ -62,11 +61,11 @@ export class PropertyView extends HTMLElement {
         let controls: (HTMLElement | string)[] = [];
         if (nodes[0] instanceof FolderNode) {
             controls = PropertyUtils.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
-                findPropertyControl(document, nodes, x),
+                propertyControl(document, nodes, x),
             );
         } else if (nodes[0] instanceof Node) {
             controls = PropertyUtils.getOwnProperties(Node.prototype).map((x) =>
-                findPropertyControl(document, nodes, x),
+                propertyControl(document, nodes, x),
             );
         }
 
@@ -93,7 +92,7 @@ export class PropertyView extends HTMLElement {
         const parameters = new Expander(entities[0].display());
         parameters.contenxtPanel.append(
             ...PropertyUtils.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
-                findPropertyControl(document, entities, x),
+                propertyControl(document, entities, x),
             ),
         );
         this.panel.append(parameters);

@@ -1,14 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IConverter, type IDocument, Logger, type Property, Texture } from "chili-core";
+import { type IConverter, type IDocument, Logger, type Property } from "chili-core";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
-import { TextureProperty } from "./material/textureEditor";
 import { MaterialProperty } from "./materialProperty";
 
-export function findPropertyControl(
+export function basicPropertyControl(
     document: IDocument,
     objs: any[],
     prop: Property,
@@ -25,10 +24,6 @@ export function findPropertyControl(
     }
 
     const value = objs[0][prop.name];
-    if (value instanceof Texture) {
-        return new TextureProperty(document, prop.display, value);
-    }
-
     if (["object", "string", "number"].includes(typeof value)) {
         return new InputProperty(document, objs, prop, converter);
     }

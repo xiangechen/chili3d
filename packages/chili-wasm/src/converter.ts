@@ -15,7 +15,6 @@ import {
     Result,
 } from "chili-core";
 import type { ShapeNode } from "../lib/chili-wasm";
-import { OcctHelper } from "./helper";
 import { OccShape } from "./shape";
 
 export class OccShapeConverter implements IShapeConverter {
@@ -27,7 +26,7 @@ export class OccShapeConverter implements IShapeConverter {
         getMaterialId: (document: IDocument, color: string) => string,
     ) => {
         if (node.shape && !node.shape.isNull()) {
-            const shape = OcctHelper.wrapShape(node.shape);
+            const shape = OccShape.wrap(node.shape);
             const material = getMaterialId(folder.document, node.color as string);
             folder.add(new EditableShapeNode(folder.document, node.name, shape, material));
         }
@@ -115,7 +114,7 @@ export class OccShapeConverter implements IShapeConverter {
         if (shape.isNull()) {
             return Result.err("can not convert");
         }
-        return Result.ok(OcctHelper.wrapShape(shape));
+        return Result.ok(OccShape.wrap(shape));
     }
 
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {

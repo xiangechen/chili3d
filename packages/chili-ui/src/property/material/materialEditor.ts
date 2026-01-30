@@ -15,7 +15,7 @@ import {
     Result,
     Texture,
 } from "chili-core";
-import { findPropertyControl } from "../utils";
+import { propertyControl } from "../complexPropertyUtils";
 import type { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
 
@@ -137,10 +137,10 @@ export class MaterialEditor extends HTMLElement {
         this.editingControl.append(
             ...properties
                 .filter((x) => !isTexture(x))
-                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
+                .map((x) => propertyControl(this.dataContent.document, [material], x)),
             ...properties
                 .filter(isTexture)
-                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
+                .map((x) => propertyControl(this.dataContent.document, [material], x)),
         );
     }
 }

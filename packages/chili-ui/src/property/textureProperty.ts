@@ -11,8 +11,8 @@ import {
     readFileAsync,
     type Texture,
 } from "chili-core";
-import { findPropertyControl } from "../utils";
-import style from "./textureEditor.module.css";
+import { basicPropertyControl } from "./basicPropertyControl";
+import style from "./textureProperty.module.css";
 
 export class TextureProperty extends Expander {
     constructor(
@@ -28,7 +28,7 @@ export class TextureProperty extends Expander {
     private render() {
         const properties = PropertyUtils.getProperties(this.texture)
             .filter((x) => (x.name as keyof Texture) !== "image")
-            .map((x) => findPropertyControl(this.document, [this.texture], x));
+            .map((x) => basicPropertyControl(this.document, [this.texture], x));
 
         return div(
             { className: style.expander },

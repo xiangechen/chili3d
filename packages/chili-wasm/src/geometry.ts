@@ -3,7 +3,7 @@
 
 import { GeometryType, type IGeometry, type Matrix4 } from "chili-core";
 import type { Geom_Geometry, Handle_Geom_Geometry } from "../lib/chili-wasm";
-import { OcctHelper } from "./helper";
+import { convertFromMatrix } from "./helper";
 
 export abstract class OccGeometry implements IGeometry {
     private readonly _geometryType: GeometryType;
@@ -43,7 +43,7 @@ export abstract class OccGeometry implements IGeometry {
     }
 
     transform(value: Matrix4) {
-        this.geometry.transform(OcctHelper.convertFromMatrix(value));
+        this.geometry.transform(convertFromMatrix(value));
     }
 
     abstract copy(): IGeometry;
