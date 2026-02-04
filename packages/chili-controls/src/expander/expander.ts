@@ -24,7 +24,8 @@ export class Expander extends HTMLElement {
             className: style.headerText,
         });
         this.headerPanel.append(this.expanderIcon, text);
-        super.append(this.headerPanel, this.contenxtPanel);
+        super.appendChild(this.headerPanel);
+        super.appendChild(this.contenxtPanel);
     }
 
     override appendChild<T extends Node>(node: T): T {
