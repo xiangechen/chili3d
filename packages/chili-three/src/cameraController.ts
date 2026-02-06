@@ -13,6 +13,7 @@ import {
 import {
     Box3,
     Camera,
+    Object3D,
     OrthographicCamera,
     PerspectiveCamera,
     Quaternion,
@@ -163,8 +164,10 @@ export class CameraController extends Observable implements ICameraController {
         const nodes = this.view.document.selection.getSelectedNodes();
         if (nodes.length > 0) {
             for (const node of nodes) {
-                const shape = this.view.document.visual.context.getVisual(node) as ThreeVisualObject;
-                box.expandByObject(shape);
+                const shape = this.view.document.visual.context.getVisual(node);
+                if (shape instanceof Object3D) {
+                    box.expandByObject(shape);
+                }
             }
             this._rotateCenter = box.getCenter(new Vector3());
             return;
