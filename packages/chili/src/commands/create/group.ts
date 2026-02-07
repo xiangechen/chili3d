@@ -1,25 +1,31 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, div, input, label, XYZConverter } from "chili-controls";
 import {
     AsyncController,
     Binding,
+    button,
     Component,
     ComponentNode,
     command,
     DialogResult,
+    div,
+    GetOrSelectNodeStep,
     type IApplication,
     type ICommand,
     type IDocument,
+    type IStep,
+    input,
     Localize,
+    label,
     Observable,
+    PointStep,
     PubSub,
     Transaction,
     VisualNode,
     XYZ,
-} from "chili-core";
-import { GetOrSelectNodeStep, type IStep, PointStep } from "../../step";
+    XYZConverter,
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 class GroupDefinition extends Observable {

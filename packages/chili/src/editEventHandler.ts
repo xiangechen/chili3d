@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, type INode, PubSub } from "chili-core";
-import { NodeSelectionHandler } from "chili-vis";
+import { type IDocument, type INode, NodeSelectionHandler, PubSub } from "chili-api";
 
 export class EditEventHandler extends NodeSelectionHandler {
     constructor(

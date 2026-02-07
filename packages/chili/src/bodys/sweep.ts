@@ -12,7 +12,7 @@ import {
     ShapeType,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "profile", "path", "round"])
 export class SweepedNode extends ParameterShapeNode {

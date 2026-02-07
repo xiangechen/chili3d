@@ -9,7 +9,7 @@ import {
     type IService,
     Logger,
     PubSub,
-} from "chili-core";
+} from "chili-api";
 
 export class EditorService implements IService {
     private editHandler?: IEventHandler;

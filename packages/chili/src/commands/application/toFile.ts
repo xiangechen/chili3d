@@ -9,7 +9,7 @@ import {
     type IApplication,
     type ICommand,
     PubSub,
-} from "chili-core";
+} from "chili-api";
 
 @command({
     key: "doc.saveToFile",

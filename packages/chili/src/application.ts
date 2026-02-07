@@ -22,7 +22,7 @@ import {
     PubSub,
     type Serialized,
     setCurrentApplication,
-} from "chili-core";
+} from "chili-api";
 import { Document } from "./document";
 import { importFiles } from "./utils";
 

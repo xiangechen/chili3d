@@ -18,7 +18,7 @@ import {
     PubSub,
     type Serialized,
     Serializer,
-} from "chili-core";
+} from "chili-api";
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {

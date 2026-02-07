@@ -10,7 +10,7 @@ import {
     isCancelableCommand,
     Logger,
     PubSub,
-} from "chili-core";
+} from "chili-api";
 
 export class CommandService implements IService {
     private _lastCommand: CommandKeys | undefined;

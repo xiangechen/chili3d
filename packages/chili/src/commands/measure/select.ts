@@ -1,13 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, h1, h2, span, ul } from "chili-controls";
 import {
     AsyncController,
     BoundingBox,
     CancelableCommand,
     Combobox,
     command,
+    div,
+    h1,
+    h2,
     type I18nKeys,
     type IDisposable,
     type IEdge,
@@ -16,12 +18,14 @@ import {
     Localize,
     type Matrix4,
     property,
+    SelectShapeStep,
     ShapeType,
+    span,
+    ul,
     VisualConfig,
     type VisualShapeData,
     type XYZ,
-} from "chili-core";
-import { SelectShapeStep } from "../../step";
+} from "chili-api";
 import style from "./select.module.css";
 
 @command({

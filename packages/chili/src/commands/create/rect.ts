@@ -1,11 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, command, type GeometryNode, MathUtils, Plane, property, type XYZ } from "chili-core";
-import { ViewUtils } from "chili-vis";
+import {
+    Config,
+    command,
+    type GeometryNode,
+    type IStep,
+    LengthAtPlaneStep,
+    MathUtils,
+    Plane,
+    PointStep,
+    property,
+    type SnapLengthAtPlaneData,
+    type SnapResult,
+    ViewUtils,
+    type XYZ,
+} from "chili-api";
 import { RectNode } from "../../bodys";
-import type { SnapLengthAtPlaneData, SnapResult } from "../../snap";
-import { type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 export interface RectData {

@@ -7,15 +7,15 @@ import {
     Config,
     type IShape,
     type IShapeFactory,
+    type IStep,
     type IView,
     MeshDataUtils,
     Result,
+    type SnapResult,
+    ViewUtils,
     VisualConfig,
     type XYZ,
-} from "chili-core";
-import { ViewUtils } from "chili-vis";
-import type { SnapResult } from "../snap";
-import type { IStep } from "../step";
+} from "chili-api";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];

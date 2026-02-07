@@ -9,7 +9,7 @@ import {
     Logger,
     PubSub,
     ShortcutProfiles,
-} from "chili-core";
+} from "chili-api";
 
 export interface Keys {
     key: string;

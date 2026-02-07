@@ -3,17 +3,18 @@
 
 import {
     command,
+    Dimension,
     EditableShapeNode,
     type IEdge,
+    type IStep,
     type ITrimmedCurve,
+    PointOnCurveStep,
+    SelectShapeStep,
     type ShapeNode,
     ShapeType,
     Transaction,
     type XYZ,
-} from "chili-core";
-import { Dimension } from "../../snap";
-import { type IStep, PointOnCurveStep } from "../../step";
-import { SelectShapeStep } from "../../step/selectStep";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

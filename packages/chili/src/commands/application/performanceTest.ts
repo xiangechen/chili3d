@@ -10,7 +10,7 @@ import {
     type Material,
     Plane,
     XYZ,
-} from "chili-core";
+} from "chili-api";
 
 export abstract class PerformanceTestCommand implements ICommand {
     protected size = 10;

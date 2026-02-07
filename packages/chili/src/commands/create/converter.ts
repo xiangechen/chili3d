@@ -16,14 +16,14 @@ import {
     type IShell,
     PubSub,
     Result,
+    SelectNodeStep,
     type ShapeNode,
     ShapeNodeFilter,
     ShapeType,
     Transaction,
-} from "chili-core";
+} from "chili-api";
 import { FaceNode } from "../../bodys/face";
 import { WireNode } from "../../bodys/wire";
-import { SelectNodeStep } from "../../step";
 
 abstract class ConvertCommand extends CancelableCommand {
     async executeAsync(): Promise<void> {

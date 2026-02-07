@@ -4,15 +4,19 @@
 import {
     command,
     type GeometryNode,
+    type IStep,
+    type LengthAtAxisSnapData,
+    LengthAtAxisStep,
+    LengthAtPlaneStep,
     MeshDataUtils,
     type Plane,
+    PointStep,
     Precision,
+    type SnapLengthAtPlaneData,
     VisualConfig,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 import { ConeNode } from "../../bodys";
-import type { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { type IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({

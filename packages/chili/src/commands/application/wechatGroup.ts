@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { br, div, img, label } from "chili-controls";
-import { command, type IApplication, type ICommand, PubSub } from "chili-core";
+import { br, command, div, type IApplication, type ICommand, img, label, PubSub } from "chili-api";
 
 @command({
     key: "wechat.group",

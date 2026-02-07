@@ -10,7 +10,7 @@ import {
     type Result,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "profile", "axis", "angle"])
 export class RevolvedNode extends ParameterShapeNode {

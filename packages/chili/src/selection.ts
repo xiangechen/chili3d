@@ -13,13 +13,14 @@ import {
     type ISelection,
     type IShapeFilter,
     Logger,
+    NodeSelectionHandler,
     PubSub,
     ShapeNode,
     ShapeType,
+    SubshapeSelectionHandler,
     VisualNode,
     VisualState,
-} from "chili-core";
-import { NodeSelectionHandler, SubshapeSelectionHandler } from "chili-vis";
+} from "chili-api";
 
 export class Selection implements ISelection, IDisposable {
     private _selectedNodes: INode[] = [];

@@ -12,7 +12,7 @@ import {
     ShapeType,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "shapes"])
 export class FaceNode extends ParameterShapeNode {

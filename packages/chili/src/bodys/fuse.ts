@@ -9,7 +9,7 @@ import {
     type Result,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "bottom", "top"])
 export class FuseNode extends ParameterShapeNode {

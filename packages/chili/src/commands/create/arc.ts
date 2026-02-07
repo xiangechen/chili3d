@@ -2,17 +2,21 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AngleStep,
     command,
+    Dimension,
     type GeometryNode,
+    type IStep,
+    LengthAtPlaneStep,
     Plane,
     PlaneAngle,
+    PointStep,
     Precision,
     type ShapeMeshData,
+    type SnapLengthAtPlaneData,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 import { ArcNode } from "../../bodys/arc";
-import { Dimension, type SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({

@@ -1,29 +1,32 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { div, RadioGroup } from "chili-controls";
 import {
     AsyncController,
     command,
     DialogResult,
+    Dimension,
+    div,
     I18n,
     type IApplication,
     type ICommand,
     type ICurve,
     type IEdge,
     type IFace,
+    type IStep,
     Observable,
     Plane,
+    PointOnCurveStep,
     PropertyUtils,
     PubSub,
     property,
+    RadioGroup,
     SelectableItems,
     SelectMode,
+    SelectShapeStep,
     ShapeType,
     XYZ,
-} from "chili-core";
-import { Dimension } from "../snap";
-import { type IStep, PointOnCurveStep, SelectShapeStep } from "../step";
+} from "chili-api";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {

@@ -13,8 +13,8 @@ import {
     PubSub,
     property,
     readFilesAsync,
-} from "chili-core";
-import { SelectNodeStep } from "../step";
+    SelectNodeStep,
+} from "chili-api";
 import { importFiles } from "../utils";
 
 @command({

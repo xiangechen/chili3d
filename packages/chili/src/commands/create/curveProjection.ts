@@ -7,12 +7,13 @@ import {
     I18n,
     type IEdge,
     type IFace,
+    type IStep,
     type IWire,
     property,
+    SelectShapeStep,
     ShapeType,
     XYZ,
-} from "chili-core";
-import { type IStep, SelectShapeStep } from "../../step";
+} from "chili-api";
 import { CreateCommand } from "../createCommand";
 
 @command({

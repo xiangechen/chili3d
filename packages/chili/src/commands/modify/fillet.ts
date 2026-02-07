@@ -6,12 +6,12 @@ import {
     EditableShapeNode,
     type ISubEdgeShape,
     property,
+    SelectShapeStep,
     type ShapeNode,
     ShapeType,
     Transaction,
     VisualState,
-} from "chili-core";
-import { SelectShapeStep } from "../../step/selectStep";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

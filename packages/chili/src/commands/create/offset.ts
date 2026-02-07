@@ -4,18 +4,20 @@
 import {
     command,
     EditableShapeNode,
+    GeoUtils,
     I18n,
     type IEdge,
     type IFace,
     type IShape,
+    type IStep,
     type IWire,
     JoinType,
+    LengthAtAxisStep,
+    SelectShapeStep,
     type ShapeMeshData,
     ShapeType,
     type XYZ,
-} from "chili-core";
-import { GeoUtils } from "chili-geo";
-import { type IStep, LengthAtAxisStep, SelectShapeStep } from "../../step";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
