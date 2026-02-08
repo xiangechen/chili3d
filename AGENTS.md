@@ -4,7 +4,7 @@ This document provides coding guidelines and build instructions for agentic codi
 
 ## Project Overview
 
-Chili3D is a 3D CAD/WebGL application framework with WebAssembly integration. It's a TypeScript monorepo with 12 packages and a C++ WebAssembly module built with OpenCascade.
+Chili3D is a 3D CAD/WebGL application framework with WebAssembly integration. It's a TypeScript monorepo with 13 packages and a C++ WebAssembly module built with OpenCascade.
 
 - **Tech Stack**: TypeScript, Rspack, Biome, Rstest, C++/Emscripten, Three.js
 - **Architecture**: Modular monorepo with package-based organization
@@ -71,7 +71,7 @@ import * as THREE from "three";
 - Classes: `PascalCase` (e.g., `Application`, `Document`)
 - Functions/Variables: `camelCase`
 - Constants: `UPPER_SNAKE_CASE`
-- Files: `kebab-case.ts` or `kebab-case.test.ts`
+- Files: `kebabCase.ts` or `kebabCase.test.ts`
 
 **Error Handling**:
 - Use `Result<T>` pattern for operations that can fail
@@ -129,6 +129,8 @@ describe("FeatureName", () => {
 ## Package Architecture
 
 **Core Packages**:
+- `chili`: Main application package
+- `chili-api`: API layer for external integrations
 - `chili-core`: Core interfaces and utilities
 - `chili-web`: Web application entry point
 - `chili-builder`: Application builder pattern
