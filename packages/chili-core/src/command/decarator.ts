@@ -5,8 +5,6 @@ import type { Binding } from "../foundation";
 import type { ICommand } from "./command";
 import type { CommandKeys } from "./commandKeys";
 
-const commandRegistry = new Map<string, CommandConstructor>();
-
 export type CommandConstructor = new (...args: any[]) => ICommand;
 
 export interface CommandData {
@@ -20,12 +18,29 @@ export interface CommandData {
 
 export function command<T extends CommandConstructor>(metadata: CommandData) {
     return (ctor: T) => {
-        commandRegistry.set(metadata.key, ctor);
-        ctor.prototype.data = metadata;
+        CommandStore.registerCommand(ctor, metadata);
     };
 }
 
-export class CommandUtils {
+const commandRegistry = new Map<string, CommandConstructor>();
+
+export class CommandStore {
+    static registerCommand<T extends CommandConstructor>(
+        ctor: T,
+        metadata: Omit<CommandData, "key"> & { key: string },
+    ) {
+        commandRegistry.set(metadata.key, ctor);
+        ctor.prototype.data = metadata;
+    }
+
+    static unregisterCommand(key: string) {
+        const ctor = commandRegistry.get(key);
+        if (ctor) {
+            delete ctor.prototype.data;
+        }
+        commandRegistry.delete(key);
+    }
+
     static getComandData(target: string | ICommand | CommandConstructor): CommandData | undefined {
         if (typeof target === "string") {
             const ctor = commandRegistry.get(target);
@@ -37,7 +52,7 @@ export class CommandUtils {
         return prototype.data;
     }
 
-    static getCommond(name: CommandKeys): CommandConstructor | undefined {
+    static getCommand(name: string): CommandConstructor | undefined {
         return commandRegistry.get(name);
     }
 

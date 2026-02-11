@@ -6,7 +6,7 @@ import {
     Binding,
     ButtonSize,
     type CommandKeys,
-    CommandUtils,
+    CommandStore,
     Config,
     I18n,
     type IApplication,
@@ -62,7 +62,7 @@ export class RibbonDataContent extends Observable {
 }
 
 export const QuickButton = (command: ICommand) => {
-    const data = CommandUtils.getComandData(command);
+    const data = CommandStore.getComandData(command);
     if (!data) {
         Logger.warn("commandData is undefined");
         return span({ textContent: "null" });

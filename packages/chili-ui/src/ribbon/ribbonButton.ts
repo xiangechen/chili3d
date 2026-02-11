@@ -6,7 +6,7 @@ import {
     ButtonSize,
     type CommandData,
     type CommandKeys,
-    CommandUtils,
+    CommandStore,
     Config,
     I18n,
     type I18nKeys,
@@ -38,7 +38,7 @@ export class RibbonButton extends HTMLElement {
     }
 
     static fromCommandName(commandName: CommandKeys, size: ButtonSize) {
-        const data = CommandUtils.getComandData(commandName);
+        const data = CommandStore.getComandData(commandName);
         if (!data) {
             Logger.warn(`commandData of ${commandName} is undefined`);
             return undefined;
