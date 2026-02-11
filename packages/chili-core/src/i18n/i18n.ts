@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { I18nKeys } from "./keys";
+import { I18N_KEYS, type I18nKeys } from "./keys";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
@@ -56,6 +56,10 @@ export class I18n {
         languages.set(local.language, local);
     }
 
+    static removeLanguage(language: string) {
+        languages.delete(language);
+    }
+
     static combineTranslation(language: string, translations: Record<string, string>) {
         const local = languages.get(language);
         if (local) {
@@ -63,6 +67,17 @@ export class I18n {
                 ...local.translation,
                 ...translations,
             };
+        }
+    }
+
+    static removeTranslation(language: string, translations: Record<string, string>) {
+        const local = languages.get(language);
+        if (local) {
+            local.translation = Object.fromEntries(
+                Object.entries(local.translation).filter(
+                    ([key]) => !(key in translations) && I18N_KEYS.includes(key as I18nKeys),
+                ),
+            ) as { [key in I18nKeys]: string };
         }
     }
 

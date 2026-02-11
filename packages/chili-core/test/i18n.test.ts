@@ -199,6 +199,31 @@ describe("I18n", () => {
             expect(I18n.translate("common.new" as I18nKeys)).toBe("New");
         });
     });
+
+    describe("removeTranslation", () => {
+        test("should remove specified translation keys", () => {
+            I18n.addLanguage(mockLocaleEn);
+            I18n.addLanguage(mockLocaleZh);
+            I18n.changeLanguage("en");
+            I18n.removeTranslation("en", { "common.cancel": "" });
+            expect(I18n.translate("common.cancel" as I18nKeys)).toBe("common.cancel");
+        });
+
+        test("should not affect other keys when removing", () => {
+            I18n.addLanguage(mockLocaleEn);
+            I18n.addLanguage(mockLocaleZh);
+            I18n.changeLanguage("en");
+            I18n.removeTranslation("en", { "common.cancel": "" });
+            expect(I18n.translate("common.confirm" as I18nKeys)).toBe("Confirm");
+        });
+
+        test("should do nothing if language does not exist", () => {
+            const languages1 = I18n.getLanguages();
+            I18n.removeTranslation("non-existent", { "common.cancel": "" });
+            const languages2 = I18n.getLanguages();
+            expect(languages1.length).toBe(languages2.length);
+        });
+    });
 });
 
 describe("Localize", () => {
@@ -214,9 +239,9 @@ describe("Localize", () => {
     });
 
     test("set should call I18n.set", () => {
-        const localize = new Localize("common.cancel");
+        const localize = new Localize("common.confirm");
         const element = document.createElement("div");
         localize.set(element, "textContent");
-        expect(element.textContent).toBe("Cancel");
+        expect(element.textContent).toBe("Confirm");
     });
 });
