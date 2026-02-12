@@ -16,12 +16,6 @@ export interface CommandData {
     isApplicationCommand?: boolean;
 }
 
-export function command<T extends CommandConstructor>(metadata: CommandData) {
-    return (ctor: T) => {
-        CommandStore.registerCommand(ctor, metadata);
-    };
-}
-
 const commandRegistry = new Map<string, CommandConstructor>();
 
 export class CommandStore {

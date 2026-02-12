@@ -12,7 +12,7 @@ import {
     type IView,
     isCancelableCommand,
 } from "../src";
-import { CommandStore } from "../src/command/decarator";
+import { CommandStore } from "../src/command/commandStore";
 
 const mockDocument = {} as IDocument;
 

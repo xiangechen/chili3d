@@ -3,6 +3,6 @@
 
 export * from "./command";
 export * from "./commandKeys";
-export * from "./decarator";
-
+export * from "./commandStore";
+export * from "./decorator";
 export * from "./shortcutProfiles";
