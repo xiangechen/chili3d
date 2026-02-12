@@ -15,51 +15,18 @@ import {
     type IView,
     Localize,
     Logger,
-    Observable,
     ObservableCollection,
     PubSub,
     Result,
+    type Ribbon,
+    type RibbonCommand,
+    type RibbonGroup,
+    type RibbonTab,
 } from "chili-core";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
-import type { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonStack } from "./ribbonStack";
-
-export class RibbonDataContent extends Observable {
-    readonly quickCommands = new ObservableCollection<CommandKeys>();
-    readonly ribbonTabs = new ObservableCollection<RibbonTabData>();
-    private _activeTab: RibbonTabData;
-    private _activeView: IView | undefined;
-
-    constructor(
-        readonly app: IApplication,
-        quickCommands: CommandKeys[],
-        ribbonTabs: RibbonTabData[],
-    ) {
-        super();
-        this.quickCommands.push(...quickCommands);
-        this.ribbonTabs.push(...ribbonTabs);
-        this._activeTab = ribbonTabs[0];
-        PubSub.default.sub("activeViewChanged", (v) => {
-            this.activeView = v;
-        });
-    }
-
-    get activeTab() {
-        return this._activeTab;
-    }
-    set activeTab(value: RibbonTabData) {
-        this.setProperty("activeTab", value);
-    }
-
-    get activeView() {
-        return this._activeView;
-    }
-    set activeView(value: IView | undefined) {
-        this.setProperty("activeView", value);
-    }
-}
 
 export const QuickButton = (command: ICommand) => {
     const data = CommandStore.getComandData(command);
@@ -87,31 +54,34 @@ class ViewActiveConverter implements IConverter<IView> {
     }
 }
 
-class ActivedRibbonTabConverter implements IConverter<RibbonTabData> {
+class ActivedRibbonTabConverter implements IConverter<RibbonTab> {
     constructor(
-        readonly tab: RibbonTabData,
+        readonly tab: RibbonTab,
         readonly style: string,
         readonly activeStyle: string,
     ) {}
 
-    convert(value: RibbonTabData): Result<string> {
+    convert(value: RibbonTab): Result<string> {
         return Result.ok(this.tab === value ? `${this.style} ${this.activeStyle}` : this.style);
     }
 }
 
-class DisplayConverter implements IConverter<RibbonTabData> {
-    constructor(readonly tab: RibbonTabData) {}
+class DisplayConverter implements IConverter<RibbonTab> {
+    constructor(readonly tab: RibbonTab) {}
 
-    convert(value: RibbonTabData): Result<string> {
+    convert(value: RibbonTab): Result<string> {
         return Result.ok(this.tab === value ? "" : "none");
     }
 }
 
-export class Ribbon extends HTMLElement {
+export class RibbonUI extends HTMLElement {
     private readonly _commandContext = div({ className: style.commandContextPanel });
     private commandContext?: CommandContext;
 
-    constructor(readonly dataContent: RibbonDataContent) {
+    constructor(
+        readonly app: IApplication,
+        readonly dataContent: Ribbon,
+    ) {
         super();
         this.className = style.root;
         this.append(this.header(), this.ribbonTabs(), this._commandContext);
@@ -149,8 +119,8 @@ export class Ribbon extends HTMLElement {
 
     private createRibbonHeader() {
         return collection({
-            sources: this.dataContent.ribbonTabs,
-            template: (tab: RibbonTabData) => {
+            sources: this.dataContent.tabs,
+            template: (tab: RibbonTab) => {
                 const converter = new ActivedRibbonTabConverter(tab, style.tabHeader, style.activedTab);
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
@@ -168,7 +138,7 @@ export class Ribbon extends HTMLElement {
             { className: style.center },
             collection({
                 className: style.views,
-                sources: this.dataContent.app.views,
+                sources: this.app.views,
                 template: (view) => this.createViewItem(view),
             }),
             svg({
@@ -189,7 +159,7 @@ export class Ribbon extends HTMLElement {
                     new ViewActiveConverter(view, style.tab, style.active),
                 ),
                 onclick: () => {
-                    this.dataContent.app.activeView = view;
+                    this.dataContent.activeView = view;
                 },
             },
             div({ className: style.name }, span({ textContent: new Binding(view.document, "name") })),
@@ -217,23 +187,23 @@ export class Ribbon extends HTMLElement {
     private ribbonTabs() {
         return collection({
             className: style.tabContentPanel,
-            sources: this.dataContent.ribbonTabs,
-            template: (tab: RibbonTabData) => this.ribbonTab(tab),
+            sources: this.dataContent.tabs,
+            template: (tab: RibbonTab) => this.ribbonTab(tab),
         });
     }
 
-    private ribbonTab(tab: RibbonTabData) {
+    private ribbonTab(tab: RibbonTab) {
         return collection({
             className: style.groupPanel,
             sources: tab.groups,
             style: {
                 display: new Binding(this.dataContent, "activeTab", new DisplayConverter(tab)),
             },
-            template: (group: RibbonGroupData) => this.ribbonGroup(group),
+            template: (group: RibbonGroup) => this.ribbonGroup(group),
         });
     }
 
-    private ribbonGroup(group: RibbonGroupData) {
+    private ribbonGroup(group: RibbonGroup) {
         return div(
             { className: style.ribbonGroup },
             collection({
@@ -245,7 +215,7 @@ export class Ribbon extends HTMLElement {
         );
     }
 
-    private ribbonButton(item: RibbonCommandData) {
+    private ribbonButton(item: RibbonCommand) {
         if (typeof item === "string") {
             return RibbonButton.fromCommandName(item, ButtonSize.large)!;
         } else if (item instanceof ObservableCollection) {
@@ -296,4 +266,4 @@ export class Ribbon extends HTMLElement {
     };
 }
 
-customElements.define("chili-ribbon", Ribbon);
+customElements.define("chili-ribbon", RibbonUI);

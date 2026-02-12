@@ -2,16 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    type Button,
     type CommandKeys,
     Config,
     debounce,
     I18n,
-    type I18nKeys,
     type IApplication,
     type IWindow,
     PubSub,
-    type RibbonTab,
+    Ribbon,
+    RibbonTab,
+    type RibbonTabProfile,
 } from "chili-core";
 import { Dialog } from "./dialog";
 import { Editor } from "./editor";
@@ -19,19 +19,23 @@ import { Home } from "./home";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
 
+const quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
+
 export class MainWindow extends HTMLElement implements IWindow {
+    readonly ribbon: Ribbon;
     private _inited: boolean = false;
     private _home?: Home;
     private _editor?: Editor;
 
     constructor(
-        readonly tabs: RibbonTab[],
+        readonly tabs: RibbonTabProfile[],
         readonly iconFont: string,
         dom?: HTMLElement,
     ) {
         super();
         this.tabIndex = 0;
         this.ensureDom(dom);
+        this.ribbon = new Ribbon(quickCommands, tabs.map(RibbonTab.fromProfile));
     }
 
     protected ensureDom(dom?: HTMLElement) {
@@ -111,15 +115,7 @@ export class MainWindow extends HTMLElement implements IWindow {
     }
 
     private async _initEditor(app: IApplication) {
-        this._editor = new Editor(app, this.tabs);
-    }
-
-    registerHomeCommand(groupName: I18nKeys, command: CommandKeys | Button): void {
-        throw new Error("Method not implemented.");
-    }
-
-    registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
-        this._editor?.registerRibbonCommand(tabName, groupName, command);
+        this._editor = new Editor(app, this.ribbon);
     }
 
     private applyTheme() {

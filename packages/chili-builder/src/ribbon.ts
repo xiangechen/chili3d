@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { RibbonTab } from "chili-core";
+import type { RibbonTabProfile } from "chili-core";
 
-export const DefaultRibbon: RibbonTab[] = [
+export const DefaultRibbon: RibbonTabProfile[] = [
     {
         tabName: "ribbon.tab.startup",
         groups: [

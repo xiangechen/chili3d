@@ -158,7 +158,11 @@ export class AppBuilder {
         for (const module of this._additionalModules) {
             if (this._window) {
                 module.ribbonCommands().forEach((command) => {
-                    this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);
+                    this._window!.ribbon.addRibbonCommand(
+                        command.tabName,
+                        command.groupName,
+                        command.command,
+                    );
                 });
             }
         }

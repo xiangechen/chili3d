@@ -4,29 +4,22 @@
 import { div } from "chili-controls";
 import {
     type AsyncController,
-    type Button,
-    type CommandKeys,
-    type I18nKeys,
     type IApplication,
     type IDocument,
     type Material,
     PubSub,
-    type RibbonTab,
+    type Ribbon,
 } from "chili-core";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { MaterialDataContent, MaterialEditor } from "./property/material";
-import { Ribbon, RibbonDataContent } from "./ribbon";
-import { RibbonTabData } from "./ribbon/ribbonData";
+import { RibbonUI } from "./ribbon";
 import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
 
-const quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
-
 export class Editor extends HTMLElement {
-    readonly ribbonContent: RibbonDataContent;
     private readonly _selectionController: OKCancel;
     private readonly _viewportContainer: HTMLDivElement;
     private _sidebarWidth: number = 360;
@@ -35,10 +28,9 @@ export class Editor extends HTMLElement {
 
     constructor(
         readonly app: IApplication,
-        tabs: RibbonTab[],
+        readonly ribbonContent: Ribbon,
     ) {
         super();
-        this.ribbonContent = new RibbonDataContent(app, quickCommands, tabs.map(RibbonTabData.fromProfile));
         const viewport = new LayoutViewport(app);
         viewport.classList.add(style.viewport);
         this._selectionController = new OKCancel();
@@ -67,7 +59,7 @@ export class Editor extends HTMLElement {
         this.append(
             div(
                 { className: style.root },
-                new Ribbon(this.ribbonContent),
+                new RibbonUI(this.app, this.ribbonContent),
                 div({ className: style.content }, this._sidebarEl, this._viewportContainer),
                 new Statusbar(style.statusbar),
             ),
@@ -131,12 +123,6 @@ export class Editor extends HTMLElement {
         const context = new MaterialDataContent(document, callback, editingMaterial);
         this._viewportContainer.append(new MaterialEditor(context));
     };
-
-    registerRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
-        const tab = this.ribbonContent.ribbonTabs.find((p) => p.tabName === tabName);
-        const group = tab?.groups.find((p) => p.groupName === groupName);
-        group?.items.push(command);
-    }
 }
 
 customElements.define("chili-editor", Editor);
