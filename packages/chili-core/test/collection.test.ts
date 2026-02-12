@@ -29,8 +29,8 @@ describe("ObservableCollection test", () => {
         const collection = new ObservableCollection<number>(1, 2, 3);
         collection.onCollectionChanged((arg: CollectionChangedArgs) => {
             if (arg.action === CollectionAction.move) {
-                expect(collection.items).toStrictEqual([2, 1, 3]);
-                expect(collection.items.length).toBe(3);
+                expect(collection.items()).toStrictEqual([2, 1, 3]);
+                expect(collection.items().length).toBe(3);
                 expect(arg.from).toBe(0);
                 expect(arg.to).toBe(2);
             }
@@ -42,7 +42,7 @@ describe("ObservableCollection test", () => {
         const collection = new ObservableCollection<number>(1, 2, 3);
         collection.onCollectionChanged((arg: CollectionChangedArgs) => {
             if (arg.action === CollectionAction.replace) {
-                expect(collection.items).toStrictEqual([1, 3, 2, 3]);
+                expect(collection.items()).toStrictEqual([1, 3, 2, 3]);
                 expect(arg.items).toStrictEqual([3, 2]);
                 expect(arg.items.length).toBe(2);
                 expect(arg.item).toBe(2);

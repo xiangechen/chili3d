@@ -22,7 +22,7 @@ export class Collection<T> extends HTMLElement {
     }
 
     connectedCallback() {
-        const items = Array.isArray(this.props.sources) ? this.props.sources : this.props.sources.items;
+        const items = Array.isArray(this.props.sources) ? this.props.sources : this.props.sources.items();
         this.append(...this._mapItems(items));
         if (this.props.sources instanceof ObservableCollection)
             this.props.sources.onCollectionChanged(this._onCollectionChanged);
