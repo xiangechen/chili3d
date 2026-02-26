@@ -1,16 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FacebaseNode, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    FacebaseNode,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
+} from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "radius"])
+@serializable(["document", "normal", "center", "radius"])
 export class CircleNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.circle";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -18,8 +28,8 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.radius")
+    @serialze()
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
     }
@@ -27,7 +37,7 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("radius", radius);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
@@ -40,9 +50,9 @@ export class CircleNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        let circle = this.document.application.shapeFactory.circle(this.normal, this.center, this.radius);
+        const circle = this.document.application.shapeFactory.circle(this.normal, this.center, this.radius);
         if (!circle.isOk || !this.isFace) return circle;
-        let wire = this.document.application.shapeFactory.wire([circle.value]);
+        const wire = this.document.application.shapeFactory.wire([circle.value]);
         return wire.isOk ? wire.value.toFace() : circle;
     }
 }

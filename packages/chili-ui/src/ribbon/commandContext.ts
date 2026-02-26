@@ -17,15 +17,16 @@ import {
     Binding,
     CancelableCommand,
     Combobox,
-    Command,
+    CommandUtils,
     I18n,
-    I18nKeys,
-    ICommand,
-    IDisposable,
+    type I18nKeys,
+    type ICommand,
+    type IDisposable,
     Localize,
     Observable,
     PathBinding,
-    Property,
+    type Property,
+    PropertyUtils,
     PubSub,
 } from "chili-core";
 import style from "./commandContext.module.css";
@@ -36,7 +37,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
     constructor(readonly command: ICommand) {
         super();
         this.className = style.panel;
-        let data = Command.getData(command);
+        const data = CommandUtils.getComandData(command);
         this.append(
             svg({ className: style.icon, icon: data!.icon }),
             label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
@@ -71,7 +72,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private initContext() {
         const groupMap = new Map<I18nKeys, HTMLDivElement>();
-        Property.getProperties(this.command).forEach((property) => {
+        PropertyUtils.getProperties(this.command).forEach((property) => {
             const group = this.findGroup(groupMap, property);
             const item = this.createItem(this.command, property);
             this.setVisible(item, property);
@@ -138,8 +139,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
     }
 
     private newCombobox(noType: any, g: Property) {
-        let combobox = noType[g.name] as Combobox<any>;
-        let options = combobox.items.map((item, index) => {
+        const combobox = noType[g.name] as Combobox<any>;
+        const options = combobox.items.map((item, index) => {
             return option({
                 selected: index === combobox.selectedIndex,
                 textContent: I18n.isI18nKey(item)
@@ -210,7 +211,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
             throw new Error("MaterialEditor only support CancelableCommand");
         }
 
-        const material = this.command.document.materials.find((x) => x.id === noType[g.name])!;
+        const material = this.command.document.modelManager.materials.find((x) => x.id === noType[g.name])!;
         const display = material.clone();
 
         return button({

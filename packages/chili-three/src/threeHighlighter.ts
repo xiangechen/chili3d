@@ -1,22 +1,33 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, IHighlighter, ShapeMeshData, ShapeType, VisualState } from "chili-core";
-import { MeshUtils } from "chili-geo";
+import {
+    type IHighlighter,
+    isDisposable,
+    MeshDataUtils,
+    MeshUtils,
+    type ShapeMeshData,
+    type ShapeType,
+    ShapeTypeUtils,
+    VisualState,
+    VisualStateUtils,
+} from "chili-core";
 import { Group, Mesh, Points } from "three";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import {
     faceColoredMaterial,
     faceTransparentMaterial,
+    highlightVertexMaterial,
     hilightEdgeMaterial,
     selectedEdgeMaterial,
+    selectedVertexMaterial,
 } from "./common";
+import { isHighlightable } from "./highlightable";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
-import { ThreeVisualContext } from "./threeVisualContext";
-import { ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
-import { IHighlightable } from "./highlightable";
+import type { ThreeVisualContext } from "./threeVisualContext";
+import { ThreeMeshObject, type ThreeVisualObject } from "./threeVisualObject";
 
 export class GeometryState {
     private readonly _states: Map<string, [VisualState, LineSegments2 | undefined]> = new Map();
@@ -44,7 +55,7 @@ export class GeometryState {
     }
 
     private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
-        if (ShapeType.isWhole(type)) {
+        if (ShapeTypeUtils.isWhole(type)) {
             this.setWholeState(method, state, type);
         } else if (index.length > 0) {
             this.setSubGeometryState(method, state, type, index);
@@ -53,22 +64,24 @@ export class GeometryState {
 
     private setWholeState(method: "add" | "remove", state: VisualState, type: ShapeType) {
         const key = this.state_key(type);
-        let [_oldState, newState] = this.updateStates(key, method, state);
+        const [_oldState, newState] = this.updateStates(key, method, state);
         if (this.visual instanceof ThreeGeometry) {
             if (newState === VisualState.normal) {
                 this.visual.removeTemperaryMaterial();
-            } else if (VisualState.hasState(newState, VisualState.edgeHighlight)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.edgeHighlight)) {
+                this.visual.setVertexsMateiralTemperary(highlightVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
-            } else if (VisualState.hasState(newState, VisualState.edgeSelected)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.edgeSelected)) {
+                this.visual.setVertexsMateiralTemperary(selectedVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
-            } else if (VisualState.hasState(newState, VisualState.faceTransparent)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
-            } else if (VisualState.hasState(newState, VisualState.faceColored)) {
+            } else if (VisualStateUtils.hasState(newState, VisualState.faceColored)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceColoredMaterial);
             }
-        } else if (IHighlightable.is(this.visual)) {
+        } else if (isHighlightable(this.visual)) {
             if (newState !== VisualState.normal) {
                 this.visual.highlight();
             } else {
@@ -84,13 +97,13 @@ export class GeometryState {
         method: "add" | "remove",
         state: VisualState,
     ): [VisualState | undefined, VisualState] {
-        let oldState = this._states.get(key)?.[0];
+        const oldState = this._states.get(key)?.[0];
         let newState = oldState;
         if (newState === undefined) {
             if (method === "remove") return [undefined, VisualState.normal];
             newState = state;
         } else {
-            let func = method === "add" ? VisualState.addState : VisualState.removeState;
+            const func = method === "add" ? VisualStateUtils.addState : VisualStateUtils.removeState;
             newState = func(newState, state);
         }
         return [oldState, newState];
@@ -139,7 +152,7 @@ export class GeometryState {
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
         const geometry = this.getOrCloneGeometry(type, key, i);
         if (geometry && "material" in geometry) {
-            let material = VisualState.hasState(newState, VisualState.edgeHighlight)
+            const material = VisualStateUtils.hasState(newState, VisualState.edgeHighlight)
                 ? hilightEdgeMaterial
                 : selectedEdgeMaterial;
             geometry.material = material;
@@ -153,11 +166,11 @@ export class GeometryState {
         const geometry = this._states.get(key)?.[1];
         if (geometry) return geometry;
 
-        let points: Float32Array | undefined = undefined;
-        if (ShapeType.hasFace(type) || ShapeType.hasShell(type)) {
+        let points: Float32Array | undefined;
+        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type)) {
             points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }
-        if (points === undefined && (ShapeType.hasEdge(type) || ShapeType.hasWire(type))) {
+        if (points === undefined && (ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type))) {
             points = MeshUtils.subEdge(this.visual.geometryNode.mesh.edges!, index);
         }
 
@@ -194,7 +207,7 @@ export class ThreeHighlighter implements IHighlighter {
 
     resetState(geometry: ThreeVisualObject): void {
         if (!this._stateMap.has(geometry)) return;
-        let geometryState = this._stateMap.get(geometry);
+        const geometryState = this._stateMap.get(geometry);
         geometryState!.resetState();
         this._stateMap.delete(geometry);
     }
@@ -207,12 +220,12 @@ export class ThreeHighlighter implements IHighlighter {
     }
 
     addState(geometry: ThreeVisualObject, state: VisualState, type: ShapeType, ...index: number[]) {
-        let geometryState = this.getOrInitState(geometry);
+        const geometryState = this.getOrInitState(geometry);
         geometryState.addState(state, type, index);
     }
 
     removeState(geometry: ThreeVisualObject, state: VisualState, type: ShapeType, ...index: number[]) {
-        let geometryState = this.getOrInitState(geometry);
+        const geometryState = this.getOrInitState(geometry);
         geometryState.removeState(state, type, index);
     }
 
@@ -226,13 +239,13 @@ export class ThreeHighlighter implements IHighlighter {
     }
 
     highlightMesh(...datas: ShapeMeshData[]): number {
-        let group = new Group();
+        const group = new Group();
         datas.forEach((data) => {
-            if (ShapeMeshData.isVertex(data)) {
+            if (MeshDataUtils.isVertexMesh(data)) {
                 group.add(ThreeGeometryFactory.createVertexGeometry(data));
-            } else if (ShapeMeshData.isEdge(data)) {
+            } else if (MeshDataUtils.isEdgeMesh(data)) {
                 group.add(ThreeGeometryFactory.createEdgeGeometry(data));
-            } else if (ShapeMeshData.isFace(data)) {
+            } else if (MeshDataUtils.isFaceMesh(data)) {
                 group.add(ThreeGeometryFactory.createFaceGeometry(data));
             }
         });
@@ -241,14 +254,14 @@ export class ThreeHighlighter implements IHighlighter {
     }
 
     removeHighlightMesh(id: number) {
-        let shape = this.container.getObjectById(id);
+        const shape = this.container.getObjectById(id);
         if (shape === undefined) return;
         shape.children.forEach((x) => {
             if (x instanceof Mesh || x instanceof LineSegments2 || x instanceof Points) {
                 x.geometry.dispose();
                 x.material.dispose();
             }
-            if (IDisposable.isDisposable(x)) {
+            if (isDisposable(x)) {
                 x.dispose();
             }
         });

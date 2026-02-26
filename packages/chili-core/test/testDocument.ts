@@ -2,18 +2,76 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type Act,
     History,
-    IDocument,
-    INodeChangedObserver,
-    NodeLinkedListHistoryRecord,
-    NodeRecord,
-    Transaction,
-} from "../src";
+    type IApplication,
+    type IDocument,
+    type ISelection,
+    type ISerialize,
+    type IView,
+    type IVisual,
+    type Material,
+    ModelManager,
+    ObservableCollection,
+    type PropertyChangedHandler,
+    type Serialized,
+} from "chili-core";
 
-export class TestDocument {
-    history = new History();
-    notifyNodeChanged(records: NodeRecord[]) {
-        Transaction.add(this as unknown as IDocument, new NodeLinkedListHistoryRecord(records));
+export class TestDocument implements IDocument, ISerialize {
+    application: IApplication;
+    name: string;
+    id: string;
+    history: History;
+    selection: ISelection;
+    visual: IVisual;
+    activeView: IView | undefined;
+    modelManager: ModelManager = new ModelManager(this);
+    materials: ObservableCollection<Material> = new ObservableCollection<Material>();
+    acts: ObservableCollection<Act> = new ObservableCollection<Act>();
+    onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
+        throw new Error("Method not implemented.");
     }
-    addNodeObserver(observer: INodeChangedObserver) {}
+    removePropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
+        throw new Error("Method not implemented.");
+    }
+    dispose() {
+        throw new Error("Method not implemented.");
+    }
+
+    importFiles(files: File[] | FileList): Promise<void> {
+        return Promise.resolve();
+    }
+
+    close(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    serialize(): Serialized {
+        return {
+            classKey: "TestDocument",
+            properties: {},
+        };
+    }
+
+    constructor() {
+        this.name = "test";
+        this.id = "test";
+        this.visual = {
+            context: {
+                removeNode: () => {},
+                redrawNode: () => {},
+                getVisual: () => undefined,
+                setVisible: () => {},
+            },
+        } as any;
+        this.history = new History();
+        this.selection = {} as any;
+        this.application = { views: [] } as any;
+    }
+    clearPropertyChanged(): void {
+        throw new Error("Method not implemented.");
+    }
+    save(): Promise<void> {
+        return Promise.resolve();
+    }
 }

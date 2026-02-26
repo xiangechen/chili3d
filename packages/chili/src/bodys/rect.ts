@@ -3,24 +3,25 @@
 
 import {
     FacebaseNode,
-    I18nKeys,
-    IDocument,
-    IShape,
-    Plane,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    type Plane,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "plane", "dx", "dy"])
+@serializable(["document", "plane", "dx", "dy"])
 export class RectNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.rect";
     }
 
-    @Serializer.serialze()
-    @Property.define("rect.dx")
+    @serialze()
+    @property("rect.dx")
     get dx() {
         return this.getPrivateValue("dx");
     }
@@ -28,8 +29,8 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @Serializer.serialze()
-    @Property.define("rect.dy")
+    @serialze()
+    @property("rect.dy")
     get dy() {
         return this.getPrivateValue("dy");
     }
@@ -37,7 +38,7 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }
@@ -50,14 +51,14 @@ export class RectNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        let points = RectNode.points(this.plane, this.dx, this.dy);
-        let wire = this.document.application.shapeFactory.polygon(points);
+        const points = RectNode.points(this.plane, this.dx, this.dy);
+        const wire = this.document.application.shapeFactory.polygon(points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }
 
     static points(plane: Plane, dx: number, dy: number): XYZ[] {
-        let start = plane.origin;
+        const start = plane.origin;
         return [
             start,
             start.add(plane.xvec.multiply(dx)),

@@ -1,12 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Id, Logger, NodeAction } from "../foundation";
-import { Serializer } from "../serialize";
-import { INode, INodeLinkedList, Node } from "./node";
+import { serializable } from "../serialize";
+import { type INode, type INodeLinkedList, Node } from "./node";
 
-@Serializer.register(["document", "name", "id"])
+@serializable(["document", "name", "id"])
 export class FolderNode extends Node implements INodeLinkedList {
     private _count: number = 0;
     private _firstChild: INode | undefined;
@@ -46,7 +46,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             this._count++;
         });
 
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     private initNode(node: INode): boolean {
@@ -90,7 +90,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }));
 
         records.forEach((record) => this.removeNode(record.node, true));
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     transfer(...items: INode[]): void {
@@ -106,7 +106,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }));
 
         records.forEach((record) => this.removeNode(record.node, true));
-        this.document.notifyNodeChanged(records);
+        this.document.modelManager.notifyNodeChanged(records);
     }
 
     private validateChild(item: INode): boolean {
@@ -175,7 +175,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }
         }
         this._count++;
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     private insertAsFirst(node: INode) {
@@ -213,7 +213,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             }
         }
         this._count++;
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     move(child: INode, newParent: FolderNode, previousSibling?: INode): void {
@@ -244,7 +244,7 @@ export class FolderNode extends Node implements INodeLinkedList {
         }
         newParent._count++;
 
-        this.document.notifyNodeChanged([record]);
+        this.document.modelManager.notifyNodeChanged([record]);
     }
 
     override disposeInternal(): void {
@@ -262,7 +262,7 @@ export class FolderNode extends Node implements INodeLinkedList {
             node.nextSibling = null as any;
         }
         while (next) {
-            let cache = next.nextSibling;
+            const cache = next.nextSibling;
             next.previousSibling = null as any;
             next.nextSibling = null as any;
             next.dispose();

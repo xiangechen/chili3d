@@ -2,29 +2,30 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
-    Plane,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
+    type Plane,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "plane", "dx", "dy", "dz"])
+@serializable(["document", "plane", "dx", "dy", "dz"])
 export class BoxNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.box";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }
 
-    @Property.define("common.location")
+    @property("common.location")
     get location() {
         return this.plane.origin;
     }
@@ -32,8 +33,8 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("plane", this.plane.translateTo(value));
     }
 
-    @Serializer.serialze()
-    @Property.define("box.dx")
+    @serialze()
+    @property("box.dx")
     get dx() {
         return this.getPrivateValue("dx");
     }
@@ -41,8 +42,8 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @Serializer.serialze()
-    @Property.define("box.dy")
+    @serialze()
+    @property("box.dy")
     get dy() {
         return this.getPrivateValue("dy");
     }
@@ -50,8 +51,8 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @Serializer.serialze()
-    @Property.define("box.dz")
+    @serialze()
+    @property("box.dz")
     get dz() {
         return this.getPrivateValue("dz");
     }

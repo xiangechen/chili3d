@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument, Material, Observable } from "chili-core";
+import { type IDocument, Material, Observable } from "chili-core";
 
 let count = 1;
 
@@ -23,18 +23,22 @@ export class MaterialDataContent extends Observable {
     }
 
     deleteMaterial() {
-        if (this.document.materials.length <= 1) return;
-        let tempMaterial = this.editingMaterial;
-        this.editingMaterial = this.document.materials.find((m) => m.id !== this.editingMaterial.id)!;
+        if (this.document.modelManager.materials.length <= 1) return;
+        const tempMaterial = this.editingMaterial;
+        this.editingMaterial = this.document.modelManager.materials.find(
+            (m) => m.id !== this.editingMaterial.id,
+        )!;
         this.callback(this.editingMaterial);
-        this.document.materials.remove(tempMaterial);
+        this.document.modelManager.materials.remove(tempMaterial);
     }
 
     addMaterial() {
-        this.document.materials.push(new Material(this.document, `Material ${count++}`, 0xdddddd));
+        this.document.modelManager.materials.push(
+            new Material(this.document, `Material ${count++}`, 0xdddddd),
+        );
     }
 
     copyMaterial() {
-        this.document.materials.push(this.editingMaterial.clone());
+        this.document.modelManager.materials.push(this.editingMaterial.clone());
     }
 }

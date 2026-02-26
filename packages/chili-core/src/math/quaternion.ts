@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4 } from "./matrix4";
-import { XYZ, XYZLike } from "./xyz";
+import { XYZ, type XYZLike } from "./xyz";
 
 export class Quaternion {
     readonly w: number;
@@ -37,19 +36,19 @@ export class Quaternion {
     }
 
     toAxes() {
-        let { x, y, z, w } = this;
-        let x2 = x + x;
-        let y2 = y + y;
-        let z2 = z + z;
-        let xx = x * x2;
-        let xy = x * y2;
-        let xz = x * z2;
-        let yy = y * y2;
-        let yz = y * z2;
-        let zz = z * z2;
-        let wx = w * x2;
-        let wy = w * y2;
-        let wz = w * z2;
+        const { x, y, z, w } = this;
+        const x2 = x + x;
+        const y2 = y + y;
+        const z2 = z + z;
+        const xx = x * x2;
+        const xy = x * y2;
+        const xz = x * z2;
+        const yy = y * y2;
+        const yz = y * z2;
+        const zz = z * z2;
+        const wx = w * x2;
+        const wy = w * y2;
+        const wz = w * z2;
         return [
             1.0 - (yy + zz),
             xy + wz,
@@ -84,11 +83,11 @@ export class Quaternion {
         );
     }
     toEuler(): { x: number; y: number; z: number } {
-        let sig = 0.499;
-        let [qw, qx, qy, qz] = [this.w, this.x, this.y, this.z];
-        let [sqw, sqx, sqy, sqz] = [qw * qw, qx * qx, qy * qy, qz * qz];
-        let unit = sqx + sqz + sqy + sqw;
-        let test = qx * qz + qy * qw;
+        const sig = 0.499;
+        const [qw, qx, qy, qz] = [this.w, this.x, this.y, this.z];
+        const [sqw, sqx, sqy, sqz] = [qw * qw, qx * qx, qy * qy, qz * qz];
+        const unit = sqx + sqz + sqy + sqw;
+        const test = qx * qz + qy * qw;
         if (test > sig * unit) {
             return {
                 x: 0,
@@ -109,42 +108,7 @@ export class Quaternion {
             };
         }
     }
-    toMatrix4(): Matrix4 {
-        const x2 = this.x * this.x;
-        const y2 = this.y * this.y;
-        const z2 = this.z * this.z;
 
-        const xx2 = x2 * this.x;
-        const xy2 = x2 * this.y;
-        const xz2 = x2 * this.z;
-
-        const yy2 = y2 * this.y;
-        const yz2 = y2 * this.z;
-        const zz2 = z2 * this.z;
-
-        const sy2 = y2 * this.w;
-        const sz2 = z2 * this.w;
-        const sx2 = x2 * this.w;
-
-        return Matrix4.fromArray([
-            1 - yy2 - zz2,
-            xy2 + sz2,
-            xz2 - sy2,
-            0,
-            xy2 - sz2,
-            1 - xx2 - zz2,
-            yz2 + sx2,
-            0,
-            xz2 + sy2,
-            yz2 - sx2,
-            1 - xx2 - yy2,
-            0,
-            0,
-            0,
-            0,
-            1,
-        ]);
-    }
     static fromEuler(roll: number, pitch: number, yaw: number): Quaternion {
         const halfRoll = roll * 0.5;
         const halfPitch = pitch * 0.5;

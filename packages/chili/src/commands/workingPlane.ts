@@ -1,32 +1,33 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { RadioGroup, div } from "chili-controls";
+import { div, RadioGroup } from "chili-controls";
 import {
     AsyncController,
+    command,
     DialogResult,
     I18n,
-    IApplication,
-    ICommand,
-    ICurve,
-    IEdge,
-    IFace,
+    type IApplication,
+    type ICommand,
+    type ICurve,
+    type IEdge,
+    type IFace,
     Observable,
     Plane,
-    Property,
+    PropertyUtils,
     PubSub,
-    SelectMode,
+    property,
     SelectableItems,
+    SelectMode,
     ShapeType,
     XYZ,
-    command,
 } from "chili-core";
 import { Dimension } from "../snap";
-import { IStep, PointOnCurveStep, SelectShapeStep } from "../step";
+import { type IStep, PointOnCurveStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
-    @Property.define("dialog.title.selectWorkingPlane")
+    @property("dialog.title.selectWorkingPlane")
     planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], SelectMode.radio, ["XOY"]);
 }
 
@@ -50,7 +51,7 @@ export class SetWorkplane implements ICommand {
 
     private ui(vm: WorkingPlaneViewModel) {
         return div(
-            ...Property.getProperties(vm).map((x) => {
+            ...PropertyUtils.getProperties(vm).map((x) => {
                 const value = (vm as any)[x.name];
                 if (value instanceof SelectableItems) {
                     return new RadioGroup(I18n.translate(x.display), value);
@@ -101,7 +102,7 @@ export class FromSection extends MultistepCommand {
         const parameter = curve.parameter(point, 1e-3);
         if (parameter === undefined) return;
         const direction = curve.d1(parameter).vec.normalize()!;
-        let xvec: XYZ = this.findXVec(direction);
+        const xvec: XYZ = this.findXVec(direction);
         const plane = new Plane(point, direction, xvec);
         const view = this.application.activeView;
         if (!view) return;
@@ -142,7 +143,7 @@ export class FromSection extends MultistepCommand {
             dimension: Dimension.D1,
             preview: (point: XYZ | undefined) => {
                 if (!point) return [];
-                let project = curve.project(point).at(0);
+                const project = curve.project(point).at(0);
                 return [this.meshPoint(project ?? point)];
             },
         };

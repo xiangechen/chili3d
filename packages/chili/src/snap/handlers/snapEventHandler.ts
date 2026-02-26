@@ -2,21 +2,22 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
+    type AsyncController,
     Config,
-    I18nKeys,
-    IDocument,
-    IEventHandler,
-    IView,
+    type I18nKeys,
+    type IDocument,
+    type IEventHandler,
+    type IView,
+    MeshDataUtils,
     MessageType,
     PubSub,
     Result,
     ShapeType,
-    VertexMeshData,
+    screenDistance,
     VisualConfig,
-    XYZ,
+    type XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
+import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
 enum SnapState {
     Idle,
@@ -32,6 +33,9 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     protected showTempPoint: boolean = true;
     protected _snaped?: SnapResult;
     private _state: SnapState = SnapState.Idle;
+
+    facePreviewOpacity: number = 1;
+    isEnabled: boolean = true;
 
     constructor(
         readonly document: IDocument,
@@ -105,7 +109,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
-        this.findSnapPoint(ShapeType.Edge, view, event);
+        this.findSnapPoint(ShapeType.Edge | ShapeType.Vertex, view, event);
 
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
     }
@@ -117,7 +121,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         for (const point of this.data.featurePoints || []) {
             if (point.when && !point.when()) continue;
 
-            const dist = IView.screenDistance(view, event.offsetX, event.offsetY, point.point);
+            const dist = screenDistance(view, event.offsetX, event.offsetY, point.point);
             if (dist < minDist) {
                 minDist = dist;
                 nearest = point;
@@ -175,7 +179,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     ): HTMLElement | { level: MessageType; msg: string } | undefined {
         let prompt = this.data.prompt?.(snaped);
         if (!prompt) {
-            let distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
+            const distance = snaped.distance ?? snaped.refPoint?.distanceTo(snaped.point!);
             if (distance) {
                 prompt = this.formatSnapDistance(distance);
             }
@@ -202,7 +206,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
     private showTempShape(point: XYZ | undefined) {
         if (point && this.showTempPoint) {
-            const data = VertexMeshData.from(
+            const data = MeshDataUtils.createVertexMesh(
                 point,
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,
@@ -212,7 +216,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
         this._tempShapes = this.data
             .preview?.(point)
-            ?.map((shape) => this.document.visual.context.displayMesh([shape]));
+            ?.map((shape) => this.document.visual.context.displayMesh([shape], this.facePreviewOpacity));
     }
 
     private removeTempShapes() {

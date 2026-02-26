@@ -1,8 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, IEdge, IView, ObjectSnapType, ShapeType, VisualShapeData, XYZ } from "chili-core";
-import { SnapResult } from "../snap";
+import {
+    I18n,
+    type IEdge,
+    type IVertex,
+    type IView,
+    ObjectSnapType,
+    ObjectSnapTypeUtils,
+    ShapeType,
+    type VisualShapeData,
+    type XYZ,
+} from "chili-core";
+import type { SnapResult } from "../snap";
 
 export class FeaturePointStrategy {
     private readonly _featureInfos: Map<VisualShapeData, SnapResult[]> = new Map();
@@ -15,11 +25,25 @@ export class FeaturePointStrategy {
         }
 
         const infos: SnapResult[] = [];
-        if (shape.shape.shapeType === ShapeType.Edge) {
+        if (shape.shape.shapeType === ShapeType.Vertex) {
+            this.getVertexFeaturePoints(view, shape, infos);
+        } else if (shape.shape.shapeType === ShapeType.Edge) {
             this.getEdgeFeaturePoints(view, shape, infos);
         }
         this._featureInfos.set(shape, infos);
         return infos;
+    }
+
+    private getVertexFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.vertex)) {
+            const point = shape.transform.ofPoint((shape.shape as IVertex).point());
+            infos.push({
+                view,
+                point,
+                info: I18n.translate("vertex.point"),
+                shapes: [shape],
+            });
+        }
     }
 
     private getEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
@@ -35,11 +59,11 @@ export class FeaturePointStrategy {
                 shapes: [shape],
             });
 
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.endPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));
             addPoint(end, I18n.translate("snap.end"));
         }
-        if (ObjectSnapType.has(this._snapType, ObjectSnapType.midPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.midPoint)) {
             const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, I18n.translate("snap.mid"));
         }

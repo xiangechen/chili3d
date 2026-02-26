@@ -2,13 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    IFace,
-    ShapeNode,
+    type IFace,
+    type ShapeNode,
     ShapeType,
     Transaction,
     VisualState,
-    command,
 } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
@@ -27,7 +27,7 @@ export class RemoveFaceCommand extends MultistepCommand {
             const model = new EditableShapeNode(this.document, node.name, filetShape, node.materialId);
             model.transform = node.transform;
 
-            this.document.addNode(model);
+            this.document.modelManager.addNode(model);
             node.parent?.remove(node);
             this.document.visual.update();
         });

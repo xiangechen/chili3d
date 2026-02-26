@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, IApplication, ICommand, PubSub, Serialized, command, readFileAsync } from "chili-core";
+import {
+    command,
+    I18n,
+    type IApplication,
+    type ICommand,
+    PubSub,
+    readFileAsync,
+    type Serialized,
+} from "chili-core";
 
 @command({
     key: "doc.open",
@@ -13,10 +21,10 @@ export class OpenDocument implements ICommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                let files = await readFileAsync(".cd", false);
+                const files = await readFileAsync(".cd", false);
                 if (files.isOk) {
-                    let json: Serialized = JSON.parse(files.value[0].data);
-                    let document = await app.loadDocument(json);
+                    const json: Serialized = JSON.parse(files.value[0].data);
+                    const document = await app.loadDocument(json);
                     document?.application.activeView?.cameraController.fitContent();
                 }
             },

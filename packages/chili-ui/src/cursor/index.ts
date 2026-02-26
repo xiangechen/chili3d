@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CursorType } from "chili-core";
+import type { CursorType } from "chili-core";
 import draw from "./draw.cur";
 
 const cursors: Map<CursorType, string> = new Map([
@@ -10,8 +10,8 @@ const cursors: Map<CursorType, string> = new Map([
     ["select.default", "crosshair"],
 ]);
 
-export namespace Cursor {
-    export function get(type: CursorType) {
+export class Cursor {
+    static get(type: CursorType) {
         return cursors.get(type) ?? "default";
     }
 }

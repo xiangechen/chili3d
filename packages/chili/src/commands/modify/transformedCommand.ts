@@ -5,17 +5,17 @@ import {
     AsyncController,
     BoundingBox,
     ComponentNode,
-    EdgeMeshData,
+    type EdgeMeshData,
     GeometryNode,
-    LineType,
-    Matrix4,
+    type Matrix4,
+    MeshDataUtils,
     MeshNode,
-    Property,
     PubSub,
+    property,
     Transaction,
     VisualConfig,
     VisualNode,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -23,7 +23,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected models?: VisualNode[];
     protected positions?: number[];
 
-    @Property.define("common.clone")
+    @property("common.clone")
     get isClone() {
         return this.getPrivateValue("isClone", false);
     }
@@ -38,7 +38,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         const positions = transform.ofPoints(this.positions!);
         return {
             position: new Float32Array(positions),
-            lineType: LineType.Solid,
+            lineType: "solid",
             color: VisualConfig.defaultEdgeColor,
             range: [],
         };
@@ -75,7 +75,7 @@ export abstract class TransformedCommand extends MultistepCommand {
     }
 
     protected getTempLineData(start: XYZ, end: XYZ) {
-        return EdgeMeshData.from(start, end, VisualConfig.temporaryEdgeColor, LineType.Solid);
+        return MeshDataUtils.createEdgeMesh(start, end, VisualConfig.temporaryEdgeColor, "solid");
     }
 
     protected executeMainTask(): void {

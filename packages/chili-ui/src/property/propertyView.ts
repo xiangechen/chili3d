@@ -5,18 +5,18 @@ import { div, Expander, label } from "chili-controls";
 import {
     FolderNode,
     GroupNode,
-    IDocument,
-    INode,
-    IView,
+    type IDocument,
+    type INode,
+    type IView,
     Localize,
     Node,
-    Property,
+    PropertyUtils,
     PubSub,
     VisualNode,
 } from "chili-core";
+import { propertyControl } from "./complexPropertyUtils";
 import { MatrixProperty } from "./matrixProperty";
 import style from "./propertyView.module.css";
-import { findPropertyControl } from "./utils";
 
 export class PropertyView extends HTMLElement {
     private readonly panel = div({ className: style.panel });
@@ -37,7 +37,7 @@ export class PropertyView extends HTMLElement {
 
     private readonly handleActiveViewChanged = (view: IView | undefined) => {
         if (view) {
-            let nodes = view.document.selection.getSelectedNodes();
+            const nodes = view.document.selection.getSelectedNodes();
             this.handleShowProperties(view.document, nodes);
         }
     };
@@ -60,12 +60,12 @@ export class PropertyView extends HTMLElement {
 
         let controls: (HTMLElement | string)[] = [];
         if (nodes[0] instanceof FolderNode) {
-            controls = Property.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
-                findPropertyControl(document, nodes, x),
+            controls = PropertyUtils.getProperties(Object.getPrototypeOf(nodes[0])).map((x) =>
+                propertyControl(document, nodes, x),
             );
         } else if (nodes[0] instanceof Node) {
-            controls = Property.getOwnProperties(Node.prototype).map((x) =>
-                findPropertyControl(document, nodes, x),
+            controls = PropertyUtils.getOwnProperties(Node.prototype).map((x) =>
+                propertyControl(document, nodes, x),
             );
         }
 
@@ -91,8 +91,8 @@ export class PropertyView extends HTMLElement {
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         const parameters = new Expander(entities[0].display());
         parameters.contenxtPanel.append(
-            ...Property.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
-                findPropertyControl(document, entities, x),
+            ...PropertyUtils.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
+                propertyControl(document, entities, x),
             ),
         );
         this.panel.append(parameters);

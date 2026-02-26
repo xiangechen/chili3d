@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, INode, PubSub, Transaction } from "chili-core";
-import { GetOrSelectNodeStep, IStep } from "../step";
+import { command, type INode, PubSub, Transaction } from "chili-core";
+import { GetOrSelectNodeStep, type IStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 @command({
@@ -17,8 +17,11 @@ export class Delete extends MultistepCommand {
             return;
         }
 
-        if (this.document.currentNode && nodes.includes(this.document.currentNode)) {
-            this.document.currentNode = this.document.rootNode;
+        if (
+            this.document.modelManager.currentNode &&
+            nodes.includes(this.document.modelManager.currentNode)
+        ) {
+            this.document.modelManager.currentNode = this.document.modelManager.rootNode;
         }
 
         this.document.selection.clearSelection();

@@ -2,13 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import { Observable } from "../foundation";
-import { XYZ } from "../math";
-import { Serializer } from "../serialize";
-import { IView } from "./view";
+import type { XYZ } from "../math";
+import { serializable, serialze } from "../serialize";
+import type { IView } from "./view";
 
-@Serializer.register(["name", "cameraPosition", "cameraTarget", "cameraUp"])
+@serializable(["name", "cameraPosition", "cameraTarget", "cameraUp"])
 export class Act extends Observable {
-    @Serializer.serialze()
+    @serialze()
     public get name() {
         return this.getPrivateValue("name");
     }
@@ -16,7 +16,7 @@ export class Act extends Observable {
         this.setProperty("name", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     public get cameraPosition() {
         return this.getPrivateValue("cameraPosition");
     }
@@ -24,7 +24,7 @@ export class Act extends Observable {
         this.setProperty("cameraPosition", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     public get cameraTarget() {
         return this.getPrivateValue("cameraTarget");
     }
@@ -32,7 +32,7 @@ export class Act extends Observable {
         this.setProperty("cameraTarget", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     public get cameraUp() {
         return this.getPrivateValue("cameraUp");
     }

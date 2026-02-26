@@ -8,18 +8,18 @@ import {
     CancelableCommand,
     Combobox,
     command,
-    I18nKeys,
-    IDisposable,
-    IEdge,
-    IFace,
-    ISolid,
+    type I18nKeys,
+    type IDisposable,
+    type IEdge,
+    type IFace,
+    type ISolid,
     Localize,
-    Matrix4,
-    Property,
+    type Matrix4,
+    property,
     ShapeType,
     VisualConfig,
-    VisualShapeData,
-    XYZ,
+    type VisualShapeData,
+    type XYZ,
 } from "chili-core";
 import { SelectShapeStep } from "../../step";
 import style from "./select.module.css";
@@ -40,7 +40,7 @@ export class SelectMeasure extends CancelableCommand {
     readonly #disposeSet: Set<IDisposable> = new Set();
 
     #category?: Combobox<I18nKeys>;
-    @Property.define("common.type")
+    @property("common.type")
     public get category(): Combobox<I18nKeys> {
         if (!this.#category) {
             this.#category = this.initCombobox();

@@ -1,10 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, Plane, PlaneAngle, Precision, ShapeMeshData, XYZ, command } from "chili-core";
+import {
+    command,
+    type GeometryNode,
+    Plane,
+    PlaneAngle,
+    Precision,
+    type ShapeMeshData,
+    type XYZ,
+} from "chili-core";
 import { ArcNode } from "../../bodys/arc";
-import { Dimension, SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, IStep, LengthAtPlaneStep, PointStep } from "../../step";
+import { Dimension, type SnapLengthAtPlaneData } from "../../snap";
+import { AngleStep, type IStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({

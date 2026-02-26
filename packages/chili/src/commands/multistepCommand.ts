@@ -5,19 +5,17 @@ import {
     AsyncController,
     CancelableCommand,
     Config,
-    EdgeMeshData,
-    IShape,
-    IShapeFactory,
-    IView,
-    LineType,
+    type IShape,
+    type IShapeFactory,
+    type IView,
+    MeshDataUtils,
     Result,
-    VertexMeshData,
     VisualConfig,
-    XYZ,
+    type XYZ,
 } from "chili-core";
 import { ViewUtils } from "chili-vis";
-import { SnapResult } from "../snap";
-import { IStep } from "../step";
+import type { SnapResult } from "../snap";
+import type { IStep } from "../step";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];
@@ -39,23 +37,24 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected async executeSteps(): Promise<boolean> {
-        let steps = this.getSteps();
-        try {
+        const steps = this.getSteps();
+
+        return Promise.try(async () => {
             while (this.stepDatas.length < steps.length) {
                 this.controller = new AsyncController();
-                let data = await steps[this.stepDatas.length].execute(this.document, this.controller);
+                const data = await steps[this.stepDatas.length].execute(this.document, this.controller);
                 if (data === undefined || this.controller.result?.status !== "success") {
                     return false;
                 }
                 this.stepDatas.push(data);
             }
             return true;
-        } finally {
+        }).finally(() => {
             if (!this._isRestarting) {
                 this.document.selection.clearSelection();
                 this.document.visual.highlighter.clear();
             }
-        }
+        });
     }
 
     protected resetStepDatas() {
@@ -63,11 +62,15 @@ export abstract class MultistepCommand extends CancelableCommand {
     }
 
     protected meshPoint(point: XYZ) {
-        return VertexMeshData.from(point, VisualConfig.editVertexSize, VisualConfig.editVertexColor);
+        return MeshDataUtils.createVertexMesh(
+            point,
+            VisualConfig.editVertexSize,
+            VisualConfig.editVertexColor,
+        );
     }
 
     protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
-        const data = EdgeMeshData.from(start, end, color, LineType.Solid);
+        const data = MeshDataUtils.createEdgeMesh(start, end, color, "solid");
         if (lineWith !== undefined) {
             data.lineWidth = lineWith;
         }

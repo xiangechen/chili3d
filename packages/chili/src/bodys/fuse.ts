@@ -1,15 +1,23 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18nKeys, IDocument, IShape, ParameterShapeNode, Result, Serializer } from "chili-core";
+import {
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    ParameterShapeNode,
+    type Result,
+    serializable,
+    serialze,
+} from "chili-core";
 
-@Serializer.register(["document", "bottom", "top"])
+@serializable(["document", "bottom", "top"])
 export class FuseNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.fuse";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get bottom(): IShape {
         return this.getPrivateValue("bottom");
     }
@@ -17,7 +25,7 @@ export class FuseNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("bottom", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get top(): IShape {
         return this.getPrivateValue("top");
     }

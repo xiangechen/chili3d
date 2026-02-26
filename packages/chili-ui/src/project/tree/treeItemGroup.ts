@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, setSVGIcon, svg } from "chili-controls";
-import { IDocument, INodeLinkedList } from "chili-core";
+import type { IDocument, INodeLinkedList } from "chili-core";
 import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 

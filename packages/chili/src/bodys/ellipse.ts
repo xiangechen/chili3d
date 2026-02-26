@@ -1,16 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FacebaseNode, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    FacebaseNode,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
+} from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "xvec", "majorRadius", "minorRadius"])
+@serializable(["document", "normal", "center", "xvec", "majorRadius", "minorRadius"])
 export class EllipseNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.ellipse";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -18,16 +28,16 @@ export class EllipseNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("ellipse.majorRadius")
+    @serialze()
+    @property("ellipse.majorRadius")
     get majorRadius() {
         return this.getPrivateValue("majorRadius");
     }
     set majorRadius(radius: number) {
         this.setPropertyEmitShapeChanged("majorRadius", radius);
     }
-    @Serializer.serialze()
-    @Property.define("ellipse.minorRadius")
+    @serialze()
+    @property("ellipse.minorRadius")
     get minorRadius() {
         return this.getPrivateValue("minorRadius");
     }
@@ -35,12 +45,12 @@ export class EllipseNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("minorRadius", radius);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
 
-    @Serializer.serialze()
+    @serialze()
     get xvec(): XYZ {
         return this.getPrivateValue("xvec");
     }
@@ -62,7 +72,7 @@ export class EllipseNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        let circle = this.document.application.shapeFactory.ellipse(
+        const circle = this.document.application.shapeFactory.ellipse(
             this.normal,
             this.center,
             this.xvec,
@@ -70,7 +80,7 @@ export class EllipseNode extends FacebaseNode {
             this.minorRadius,
         );
         if (!circle.isOk || !this.isFace) return circle;
-        let wire = this.document.application.shapeFactory.wire([circle.value]);
+        const wire = this.document.application.shapeFactory.wire([circle.value]);
         return wire.isOk ? wire.value.toFace() : circle;
     }
 }

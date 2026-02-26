@@ -2,24 +2,25 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "radius", "dz"])
+@serializable(["document", "normal", "center", "radius", "dz"])
 export class ConeNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.cone";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -27,8 +28,8 @@ export class ConeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.radius")
+    @serialze()
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
     }
@@ -36,8 +37,8 @@ export class ConeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("radius", dy);
     }
 
-    @Serializer.serialze()
-    @Property.define("box.dz")
+    @serialze()
+    @property("box.dz")
     get dz() {
         return this.getPrivateValue("dz");
     }
@@ -45,7 +46,7 @@ export class ConeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dz", dz);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
@@ -59,12 +60,6 @@ export class ConeNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.cone(
-            this.normal,
-            this.center,
-            this.radius,
-            0,
-            this.dz,
-        );
+        return this.document.application.shapeFactory.cone(this.normal, this.center, this.radius, 0, this.dz);
     }
 }

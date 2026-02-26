@@ -74,7 +74,7 @@ export class LinkedList<T> {
     }
 
     removeAt(index: number) {
-        let node = this.nodeAt(index);
+        const node = this.nodeAt(index);
         if (node) this.removeNode(node);
     }
 

@@ -3,8 +3,12 @@
 
 import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
-import { SerializedProperties, Serializer } from "./serialize";
+import type { Navigation3DType } from "./navigation";
+import { type SerializedProperties, Serializer, serialze } from "./serialize";
 import { ObjectSnapType } from "./snapType";
+
+export const DefaultLightEdgeColor = 0x333333;
+export const DefaultDarkEdgeColor = 0xeeeeee;
 
 export class VisualItemConfig extends Observable {
     defaultFaceColor = 0xdedede;
@@ -23,26 +27,24 @@ export class VisualItemConfig extends Observable {
     temporaryEdgeColor = 0x33ff33;
 
     get defaultEdgeColor() {
-        return this.getPrivateValue("defaultEdgeColor", 0x333333);
+        return this.getPrivateValue("defaultEdgeColor", DefaultLightEdgeColor);
     }
     set defaultEdgeColor(value: number) {
         this.setProperty("defaultEdgeColor", value);
     }
 
-    setTheme(theme: "light" | "dark") {
-        this.defaultEdgeColor = theme === "light" ? 0x333333 : 0xeeeeee;
+    applyTheme(theme: "light" | "dark") {
+        this.defaultEdgeColor = theme === "light" ? DefaultLightEdgeColor : DefaultDarkEdgeColor;
     }
 }
 
 export const VisualConfig = new VisualItemConfig();
 
-const CONFIG_STORAGE_KEY = "config";
-
 export class Config extends Observable {
     static readonly #instance = new Config();
 
     static get instance() {
-        return this.#instance;
+        return Config.#instance;
     }
 
     readonly SnapDistance: number = 5;
@@ -55,7 +57,8 @@ export class Config extends Observable {
                 ObjectSnapType.center |
                 ObjectSnapType.perpendicular |
                 ObjectSnapType.intersection |
-                ObjectSnapType.nearest,
+                ObjectSnapType.nearest |
+                ObjectSnapType.vertex,
         );
     }
     set snapType(snapType: ObjectSnapType) {
@@ -83,83 +86,62 @@ export class Config extends Observable {
         this.setProperty("dynamicWorkplane", value);
     }
 
-    @Serializer.serialze()
-    get languageIndex() {
-        return this.getPrivateValue("languageIndex");
+    @serialze()
+    get language() {
+        return this.getPrivateValue("language", I18n.defaultLanguage());
     }
-    set languageIndex(value: number) {
-        this.setProperty("languageIndex", value, () => {
-            I18n.changeLanguage(value);
-            this.saveToStorage();
-        });
+    set language(value: string) {
+        this.setProperty("language", value);
     }
 
-    @Serializer.serialze()
-    get navigation3DIndex() {
-        return this.getPrivateValue("navigation3DIndex");
+    @serialze()
+    get navigation3D() {
+        return this.getPrivateValue("navigation3D", "Chili3d");
     }
-    set navigation3DIndex(value: number) {
-        this.setProperty("navigation3DIndex", value, () => {
-            this.saveToStorage();
-        });
+    set navigation3D(value: Navigation3DType) {
+        this.setProperty("navigation3D", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get themeMode() {
         return this.getPrivateValue("themeMode", "system");
     }
     set themeMode(value: "light" | "dark" | "system") {
         this.setProperty("themeMode", value, () => {
-            this.applyTheme();
-            this.saveToStorage();
+            if (value === "system") {
+                VisualConfig.applyTheme(
+                    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+                );
+            } else {
+                VisualConfig.applyTheme(value);
+            }
         });
     }
 
-    private applyTheme() {
-        const themeMode = this.themeMode;
-        let theme: "light" | "dark";
-
-        if (themeMode === "system") {
-            theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        } else {
-            theme = themeMode;
-        }
-
-        document.documentElement.setAttribute("theme", theme);
-        VisualConfig.setTheme(theme);
-    }
-
-    private saveToStorage() {
-        const json = Serializer.serializeProperties(this);
-        ObjectStorage.default.setValue(CONFIG_STORAGE_KEY, json);
+    #storageKey: string = "config";
+    get storageKey() {
+        return this.#storageKey;
     }
 
     private constructor() {
         super();
-        this.init();
     }
 
-    private init() {
-        const properties = ObjectStorage.default.value<SerializedProperties<Config>>(CONFIG_STORAGE_KEY);
-        if (properties) {
-            for (const key in properties) {
-                const thisKey = key as keyof Config;
-                this.setPrivateValue(thisKey, properties[thisKey]);
-            }
-        } else {
-            this.setPrivateValue("languageIndex", I18n.defaultLanguageIndex());
-            this.setPrivateValue("navigation3DIndex", 0);
-            this.setPrivateValue("themeMode", "system");
+    init(storageKey: string) {
+        this.#storageKey = storageKey;
+        this.readFromStorage();
+    }
+
+    readFromStorage() {
+        const data = ObjectStorage.default.value<SerializedProperties<Config>>(this.storageKey);
+        for (const key in data) {
+            const thisKey = key as keyof Config;
+            this.setPrivateValue(thisKey, (data as any)[key]);
         }
+    }
 
-        // Apply theme on startup
-        this.applyTheme();
-
-        // Listen for system theme changes
-        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
-            if (this.themeMode === "system") {
-                this.applyTheme();
-            }
-        });
+    saveToStorage() {
+        const json = Serializer.serializeProperties(this);
+        ObjectStorage.default.setValue(this.storageKey, json);
     }
 }

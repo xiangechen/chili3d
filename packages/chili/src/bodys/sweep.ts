@@ -2,24 +2,25 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IEdge,
-    IShape,
-    IWire,
+    type I18nKeys,
+    type IDocument,
+    type IEdge,
+    type IShape,
+    type IWire,
     ParameterShapeNode,
-    Result,
-    Serializer,
+    type Result,
     ShapeType,
+    serializable,
+    serialze,
 } from "chili-core";
 
-@Serializer.register(["document", "profile", "path", "round"])
+@serializable(["document", "profile", "path", "round"])
 export class SweepedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sweep";
     }
 
-    @Serializer.serialze()
+    @serialze()
     get profile() {
         return this.getPrivateValue("profile");
     }
@@ -27,7 +28,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get path() {
         return this.getPrivateValue("path");
     }
@@ -35,7 +36,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("path", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get round() {
         return this.getPrivateValue("round");
     }

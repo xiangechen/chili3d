@@ -1,15 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MeshUtils } from "chili-geo";
 import { VisualConfig } from "../config";
-import { IDocument } from "../document";
-import { Id, IEqualityComparer, PubSub, Result } from "../foundation";
-import { I18n, I18nKeys } from "../i18n";
+import type { IDocument } from "../document";
+import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
+import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
-import { Serializer } from "../serialize";
-import { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, LineType } from "../shape";
+import { serializable, serialze } from "../serialize";
+import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, VertexMeshData } from "../shape";
+import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
+
+const SHAPE_UNDEFINED = "Shape not initialized";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
@@ -27,7 +29,7 @@ export abstract class ShapeNode extends GeometryNode {
             return;
         }
 
-        let oldShape = this._shape;
+        const oldShape = this._shape;
         this._shape = shape;
         this._mesh = undefined;
 
@@ -38,7 +40,8 @@ export abstract class ShapeNode extends GeometryNode {
 
     protected override createMesh(): IShapeMeshData {
         if (!this.shape.isOk) {
-            throw new Error(this.shape.error);
+            Logger.warn(this.shape.error);
+            return { edges: undefined, faces: undefined, vertexs: undefined };
         }
         const mesh = this.shape.value.mesh;
         this._originFaceMesh = mesh.faces;
@@ -58,8 +61,13 @@ export abstract class ShapeNode extends GeometryNode {
 }
 
 export class MultiShapeMesh implements IShapeMeshData {
+    private readonly _vertexs: VertexMeshData;
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
+
+    get vertexs() {
+        return this._vertexs.position.length > 0 ? this._vertexs : undefined;
+    }
 
     get edges() {
         return this._edges.position.length > 0 ? this._edges : undefined;
@@ -70,8 +78,13 @@ export class MultiShapeMesh implements IShapeMeshData {
     }
 
     constructor() {
+        this._vertexs = {
+            position: new Float32Array(),
+            range: [],
+            size: 0,
+        };
         this._edges = {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(),
             range: [],
             color: VisualConfig.defaultEdgeColor,
@@ -100,10 +113,10 @@ export class MultiShapeMesh implements IShapeMeshData {
     }
 }
 
-@Serializer.register(["document", "name", "shapes", "materialId", "id"])
+@serializable(["document", "name", "shapes", "materialId", "id"])
 export class MultiShapeNode extends GeometryNode {
     private readonly _shapes: IShape[];
-    @Serializer.serialze()
+    @serialze()
     get shapes(): ReadonlyArray<IShape> {
         return this._shapes;
     }
@@ -134,7 +147,6 @@ export class MultiShapeNode extends GeometryNode {
     }
 }
 
-const SHAPE_UNDEFINED = "Shape not initialized";
 export abstract class ParameterShapeNode extends ShapeNode {
     override get shape(): Result<IShape> {
         if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {
@@ -165,13 +177,13 @@ export abstract class ParameterShapeNode extends ShapeNode {
     protected abstract generateShape(): Result<IShape>;
 }
 
-@Serializer.register(["document", "name", "shape", "materialId", "id"])
+@serializable(["document", "name", "shape", "materialId", "id"])
 export class EditableShapeNode extends ShapeNode {
     override display(): I18nKeys {
         return "body.editableShape";
     }
 
-    @Serializer.serialze()
+    @serialze()
     override get shape() {
         return this._shape;
     }

@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { INode, INodeLinkedList } from "../model";
-import { IDisposable } from "./disposable";
+import type { INode, INodeLinkedList } from "../model";
+import type { IDisposable } from "./disposable";
 
 export interface IHistoryRecord extends IDisposable {
     readonly name: string;
@@ -16,6 +16,15 @@ export class History implements IDisposable {
 
     disabled = false;
     undoLimits = 50;
+
+    #isUndoing = false;
+    get isUndoing() {
+        return this.#isUndoing;
+    }
+    #isRedoing = false;
+    get isRedoing() {
+        return this.#isRedoing;
+    }
 
     dispose(): void {
         this._redos.forEach((record) => record.dispose());
@@ -49,32 +58,45 @@ export class History implements IDisposable {
     }
 
     undo() {
-        this.tryOperate(() => {
-            const record = this._undos.pop();
-            if (!record) return;
+        this.#isUndoing = true;
+        this.tryOperate(
+            () => {
+                const record = this._undos.pop();
+                if (!record) return;
 
-            record.undo();
-            this._redos.push(record);
-        });
+                record.undo();
+                this._redos.push(record);
+            },
+            () => {
+                this.#isUndoing = false;
+            },
+        );
     }
 
     redo() {
-        this.tryOperate(() => {
-            const record = this._redos.pop();
-            if (!record) return;
+        this.#isRedoing = true;
+        this.tryOperate(
+            () => {
+                const record = this._redos.pop();
+                if (!record) return;
 
-            record.redo();
-            this._undos.push(record);
-        });
+                record.redo();
+                this._undos.push(record);
+            },
+            () => {
+                this.#isRedoing = false;
+            },
+        );
     }
 
-    private tryOperate(action: () => void) {
+    private tryOperate(action: () => void, onFinally: () => void) {
         const previousState = this.disabled;
         this.disabled = true;
         try {
             action();
         } finally {
             this.disabled = previousState;
+            onFinally();
         }
     }
 }
@@ -117,10 +139,6 @@ export interface NodeRecord {
     oldPrevious?: INode;
     newParent?: INodeLinkedList;
     newPrevious?: INode;
-}
-
-export interface INodeChangedObserver {
-    handleNodeChanged(records: NodeRecord[]): void;
 }
 
 export class NodeLinkedListHistoryRecord implements IHistoryRecord {

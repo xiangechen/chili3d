@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, IApplication, PubSub, Transaction } from "chili-core";
+import { I18n, type IApplication, PubSub, Transaction } from "chili-core";
 
 export async function importFiles(application: IApplication, files: File[] | FileList) {
-    let document = application.activeView?.document ?? (await application.newDocument("Untitled"));
+    const document = application.activeView?.document ?? (await application.newDocument("Untitled"));
     PubSub.default.pub(
         "showPermanent",
         async () => {

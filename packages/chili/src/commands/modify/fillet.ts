@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    ISubEdgeShape,
-    Property,
-    ShapeNode,
+    type ISubEdgeShape,
+    property,
+    type ShapeNode,
     ShapeType,
     Transaction,
     VisualState,
-    command,
 } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
@@ -19,7 +19,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-fillet",
 })
 export class FilletCommand extends MultistepCommand {
-    @Property.define("circle.radius")
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius", 10);
     }
@@ -40,7 +40,7 @@ export class FilletCommand extends MultistepCommand {
 
             const model = new EditableShapeNode(this.document, node.name, filetShape, node.materialId);
             model.transform = node.transform;
-            (node.parent ?? this.document.rootNode).add(model);
+            (node.parent ?? this.document.modelManager.rootNode).add(model);
             node.parent?.remove(node);
             this.document.visual.update();
         });

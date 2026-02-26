@@ -1,0 +1,68 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "includes": [
+            "**",
+            "!!**/dist",
+            "!!**/occ-wasm",
+            "!!**/public",
+            "!!**/build",
+            "!!**/coverage",
+            "!!**/lib"
+        ]
+    },
+    "css": {
+        "parser": {
+            "cssModules": true
+        }
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "lineWidth": 110,
+        "indentWidth": 4
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "style": {
+                "noNonNullAssertion": "warn",
+                "useTemplate": "warn"
+            },
+            "suspicious": {
+                "noExplicitAny": "warn",
+                "noImplicitAnyLet": "warn",
+                "useIterableCallbackReturn": "warn",
+                "noNonNullAssertedOptionalChain": "warn"
+            },
+            "correctness": {
+                "noUnusedFunctionParameters": "warn",
+                "noUnusedPrivateClassMembers": "warn",
+                "noUnusedVariables": "warn"
+            },
+            "complexity": {
+                "noBannedTypes": "error",
+                "noStaticOnlyClass": "off"
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "double"
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    }
+}

@@ -1,0 +1,144 @@
+svg {
+    color: inherit;
+    fill: currentColor;
+}
+
+input,
+textarea,
+select {
+    color: var(--input-text-color);
+    background-color: var(--input-background-color);
+    border: 1px solid var(--input-border-color);
+}
+
+button,
+.button {
+    color: var(--foreground-color);
+    background-color: var(--control-background-color);
+    border: 1px solid var(--border-color);
+}
+
+a {
+    color: var(--foreground-color);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--foreground-color);
+}
+
+p,
+span,
+div {
+    color: var(--foreground-color);
+}
+
+chili3d-main-window {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--control-background-colo);
+    border-radius: 2em;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--foreground-muted-color);
+    border-radius: 2em;
+    transition: background-color 0.3s;
+    cursor: pointer;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(144, 147, 153, 0.3);
+}
+
+:root[theme="light"] {
+    --checked-color: rgba(25, 25, 25, 0.2);
+    --control-background-color: #ffffff;
+    --primary-color: #0e62d7;
+    --secondary-color: #6a9ee6;
+    --foreground-color: #333;
+    --foreground-secondary-color: #666;
+    --foreground-muted-color: #999;
+    --border-color: #dddddd;
+    --border-hover-color: #bbbbbb;
+    --background-color: #eeeeee;
+    --panel-background-color: #ffffff;
+    --panel-hover-background-color: #f5f5f5;
+    --hover-background-color: rgba(25, 25, 25, 0.15);
+    --active-background-color: rgba(25, 25, 25, 0.25);
+    --titlebar-forground-color: #333;
+    --titlebar-background-color: #eeeeee;
+    --title-background: rgba(25, 25, 25, 0.08);
+    --title-checked: #ffffff;
+    --statusbar-foreground-color: #333;
+    --statusbar-background-color: #eeeeee;
+    --viewport-background-color: #888;
+    --input-background-color: #ffffff;
+    --input-border-color: #dddddd;
+    --input-text-color: #333;
+    --button-primary-background: #0e62d7;
+    --button-primary-hover: #0d5bc7;
+    --button-secondary-background: #ffffff;
+    --button-secondary-hover: #f5f5f5;
+    --backdrop-color: rgba(0, 0, 0, 0.75);
+    --loading-border-color: rgba(0, 0, 0, 0.2);
+    --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    --resizer-gradient: linear-gradient(to right, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.12));
+    --resizer-gradient-hover: linear-gradient(to right, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.18));
+    --error-color: #ff0000;
+    --warning-color: #ffc107;
+}
+
+:root[theme="dark"] {
+    --checked-color: rgba(255, 255, 255, 0.2);
+    --control-background-color: #2a2a2a;
+    --primary-color: #4a9eff;
+    --secondary-color: #6a9ee6;
+    --foreground-color: #ffffff;
+    --foreground-secondary-color: #b0b0b0;
+    --foreground-muted-color: #808080;
+    --border-color: #4e4e4e;
+    --border-hover-color: #505050;
+    --background-color: #181818;
+    --panel-background-color: #1f1f1f;
+    --panel-hover-background-color: #323232;
+    --hover-background-color: rgba(255, 255, 255, 0.08);
+    --active-background-color: rgba(255, 255, 255, 0.15);
+    --titlebar-forground-color: #ffffff;
+    --titlebar-background-color: #1a1a1a;
+    --title-background: rgba(255, 255, 255, 0.08);
+    --title-checked: #2a2a2a;
+    --statusbar-foreground-color: #ffffff;
+    --statusbar-background-color: #1a1a1a;
+    --viewport-background-color: #242424;
+    --input-background-color: #1e1e1e;
+    --input-border-color: #404040;
+    --input-text-color: #ffffff;
+    --button-primary-background: #4a9eff;
+    --button-primary-hover: #3a8eef;
+    --button-secondary-background: #2a2a2a;
+    --button-secondary-hover: #323232;
+    --backdrop-color: rgba(0, 0, 0, 0.75);
+    --loading-border-color: rgba(255, 255, 255, 0.2);
+    --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --resizer-gradient: linear-gradient(to right, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12));
+    --resizer-gradient-hover: linear-gradient(to right, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.18));
+    --error-color: #ff6b6b;
+    --warning-color: #ffd93d;
+}

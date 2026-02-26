@@ -1,8 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, Config, I18nKeys, IDocument, IView, Plane, Precision, XYZ } from "chili-core";
-import { SnapData, SnapResult } from "../snap";
+import {
+    type AsyncController,
+    Config,
+    type I18nKeys,
+    type IDocument,
+    type IView,
+    type Plane,
+    Precision,
+    type XYZ,
+} from "chili-core";
+import type { SnapData, SnapResult } from "../snap";
 import { AxisSnap, ObjectSnap, PlaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";

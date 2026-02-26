@@ -2,34 +2,37 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    BoundingBox,
-    EdgeMeshData,
-    FaceMeshData,
-    GeometryNode,
-    IShape,
-    ISubShape,
-    IVisualGeometry,
-    Matrix4,
-    ShapeMeshRange,
+    type BoundingBox,
+    type EdgeMeshData,
+    type FaceMeshData,
+    type GeometryNode,
+    type IShape,
+    type ISubShape,
+    type IVisualGeometry,
+    type Matrix4,
+    MeshUtils,
+    type ShapeMeshRange,
     ShapeNode,
     ShapeType,
+    ShapeTypeUtils,
+    type VertexMeshData,
 } from "chili-core";
-import { MeshUtils } from "chili-geo";
-import { Material, Mesh, MeshLambertMaterial } from "three";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry";
-import { defaultEdgeMaterial } from "./common";
+import { type Material, Mesh, type MeshLambertMaterial, Points, type PointsMaterial } from "three";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
+import { defaultEdgeMaterial, defaultVertexMaterial } from "./common";
 import { Constants } from "./constants";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
-import { ThreeVisualContext } from "./threeVisualContext";
+import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeVisualObject } from "./threeVisualObject";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
     private _edges?: LineSegments2;
     private _faces?: Mesh;
+    private _vertexs?: Points;
 
     constructor(
         readonly geometryNode: GeometryNode,
@@ -73,6 +76,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private generateShape() {
         const mesh = this.geometryNode.mesh;
+        if (mesh?.vertexs?.position.length) this.initVertexs(mesh.vertexs);
         if (mesh?.faces?.position.length) this.initFaces(mesh.faces);
         if (mesh?.edges?.position.length) this.initEdges(mesh.edges);
     }
@@ -84,6 +88,11 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     private removeMeshes() {
+        if (this._vertexs) {
+            this.remove(this._vertexs);
+            this._vertexs.geometry.dispose();
+            this._vertexs = null as any;
+        }
         if (this._edges) {
             this.remove(this._edges);
             this._edges.geometry.dispose();
@@ -94,6 +103,13 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             this._faces.geometry.dispose();
             this._faces = null as any;
         }
+    }
+
+    private initVertexs(data: VertexMeshData) {
+        const buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
+        this._vertexs = new Points(buff, defaultVertexMaterial);
+        this._vertexs.layers.set(Constants.Layers.Wireframe);
+        this.add(this._vertexs);
     }
 
     private initEdges(data: EdgeMeshData) {
@@ -119,7 +135,12 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         if (this._edges) this._edges.material = material;
     }
 
+    setVertexsMateiralTemperary(material: PointsMaterial) {
+        if (this._vertexs) this._vertexs.material = material;
+    }
+
     removeTemperaryMaterial(): void {
+        if (this._vertexs) this._vertexs.material = defaultVertexMaterial;
         if (this._edges) this._edges.material = defaultEdgeMaterial;
         if (this._faces) this._faces.material = this._faceMaterial;
     }
@@ -153,12 +174,23 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         return this._edges;
     }
 
-    override getSubShapeAndIndex(shapeType: "face" | "edge", subVisualIndex: number) {
-        let subShape: ISubShape | undefined = undefined;
-        let transform: Matrix4 | undefined = undefined;
+    vertexs() {
+        return this._vertexs;
+    }
+
+    override getSubShapeAndIndex(shapeType: "face" | "edge" | "vertex", subVisualIndex: number) {
+        let subShape: ISubShape | undefined;
+        let transform: Matrix4 | undefined;
         let index: number = -1;
-        let groups: ShapeMeshRange[] | undefined = undefined;
-        if (shapeType === "edge") {
+        let groups: ShapeMeshRange[] | undefined;
+        if (shapeType === "vertex") {
+            groups = this.geometryNode.mesh.vertexs?.range;
+            if (groups) {
+                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
+                subShape = groups[index].shape;
+                transform = groups[index].transform;
+            }
+        } else if (shapeType === "edge") {
             groups = this.geometryNode.mesh.edges?.range;
             if (groups) {
                 index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
@@ -181,27 +213,31 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         return { transform, shape, subShape, index, groups: groups ?? [] };
     }
 
-    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2)[] {
-        const shapes: (Mesh | LineSegments2 | undefined)[] = [];
+    override subShapeVisual(shapeType: ShapeType): (Mesh | LineSegments2 | Points)[] {
+        const shapes: (Mesh | LineSegments2 | Points | undefined)[] = [];
 
         const isWhole =
             shapeType === ShapeType.Shape ||
-            ShapeType.hasCompound(shapeType) ||
-            ShapeType.hasCompoundSolid(shapeType) ||
-            ShapeType.hasSolid(shapeType);
+            ShapeTypeUtils.hasCompound(shapeType) ||
+            ShapeTypeUtils.hasCompoundSolid(shapeType) ||
+            ShapeTypeUtils.hasSolid(shapeType);
 
-        if (isWhole || ShapeType.hasEdge(shapeType) || ShapeType.hasWire(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasVertex(shapeType)) {
+            shapes.push(this.vertexs());
+        }
+
+        if (isWhole || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
             shapes.push(this.edges());
         }
 
-        if (isWhole || ShapeType.hasFace(shapeType) || ShapeType.hasShell(shapeType)) {
+        if (isWhole || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
             shapes.push(this.faces());
         }
 
         return shapes.filter((x) => x !== undefined);
     }
 
-    override wholeVisual(): (Mesh | LineSegments2)[] {
-        return [this.edges(), this.faces()].filter((x) => x !== undefined);
+    override wholeVisual(): (Mesh | LineSegments2 | Points)[] {
+        return [this.edges(), this.faces(), this.vertexs()].filter((x) => x !== undefined);
     }
 }

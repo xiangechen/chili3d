@@ -1,21 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, collection, ColorConverter, div, span, svg } from "chili-controls";
+import { button, ColorConverter, collection, div, span, svg } from "chili-controls";
 import { UrlStringConverter } from "chili-controls/src/converters/urlConverter";
 import {
     Binding,
-    IConverter,
+    type IConverter,
     Localize,
-    Material,
+    type Material,
     PathBinding,
-    Property,
+    type Property,
+    PropertyUtils,
     PubSub,
     Result,
     Texture,
 } from "chili-core";
-import { findPropertyControl } from "../utils";
-import { MaterialDataContent } from "./materialDataContent";
+import { propertyControl } from "../complexPropertyUtils";
+import type { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
 
 class ActiveStyleConverter implements IConverter<Material> {
@@ -64,7 +65,7 @@ export class MaterialEditor extends HTMLElement {
     private materialsCollection() {
         return collection({
             className: style.materials,
-            sources: this.dataContent.document.materials,
+            sources: this.dataContent.document.modelManager.materials,
             template: (material: Material) => this.material(material),
         });
     }
@@ -132,14 +133,14 @@ export class MaterialEditor extends HTMLElement {
             return (material as any)[p.name] instanceof Texture;
         };
 
-        let properties = Property.getProperties(material);
+        const properties = PropertyUtils.getProperties(material);
         this.editingControl.append(
             ...properties
                 .filter((x) => !isTexture(x))
-                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
+                .map((x) => propertyControl(this.dataContent.document, [material], x)),
             ...properties
                 .filter(isTexture)
-                .map((x) => findPropertyControl(this.dataContent.document, [material], x)),
+                .map((x) => propertyControl(this.dataContent.document, [material], x)),
         );
     }
 }

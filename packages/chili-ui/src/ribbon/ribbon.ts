@@ -5,13 +5,14 @@ import { a, collection, div, label, span, svg } from "chili-controls";
 import {
     Binding,
     ButtonSize,
-    Command,
-    CommandKeys,
+    type CommandKeys,
+    CommandUtils,
+    Config,
     I18n,
-    IApplication,
-    ICommand,
-    IConverter,
-    IView,
+    type IApplication,
+    type ICommand,
+    type IConverter,
+    type IView,
     Localize,
     Logger,
     Observable,
@@ -22,7 +23,7 @@ import {
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";
-import { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
+import type { RibbonCommandData, RibbonGroupData, RibbonTabData } from "./ribbonData";
 import { RibbonStack } from "./ribbonStack";
 
 export class RibbonDataContent extends Observable {
@@ -40,7 +41,9 @@ export class RibbonDataContent extends Observable {
         this.quickCommands.push(...quickCommands);
         this.ribbonTabs.push(...ribbonTabs);
         this._activeTab = ribbonTabs[0];
-        PubSub.default.sub("activeViewChanged", (v) => (this.activeView = v));
+        PubSub.default.sub("activeViewChanged", (v) => {
+            this.activeView = v;
+        });
     }
 
     get activeTab() {
@@ -59,7 +62,7 @@ export class RibbonDataContent extends Observable {
 }
 
 export const QuickButton = (command: ICommand) => {
-    const data = Command.getData(command);
+    const data = CommandUtils.getComandData(command);
     if (!data) {
         Logger.warn("commandData is undefined");
         return span({ textContent: "null" });
@@ -152,7 +155,9 @@ export class Ribbon extends HTMLElement {
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
                     textContent: new Localize(tab.tabName),
-                    onclick: () => (this.dataContent.activeTab = tab),
+                    onclick: () => {
+                        this.dataContent.activeTab = tab;
+                    },
                 });
             },
         });
@@ -251,19 +256,29 @@ export class Ribbon extends HTMLElement {
             });
             return stack;
         } else {
-            return new RibbonButton(item.display, item.icon, ButtonSize.large, item.onClick);
+            return new RibbonButton(item.command, item.icon, ButtonSize.large, item.onClick, item.display);
         }
     }
 
     connectedCallback(): void {
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
+        Config.instance.onPropertyChanged(this.handleConfigChanged);
     }
 
     disconnectedCallback(): void {
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
+        Config.instance.removePropertyChanged(this.handleConfigChanged);
     }
+
+    private readonly handleConfigChanged = (prop: keyof Config) => {
+        if (prop === "navigation3D") {
+            this.querySelectorAll(customElements.getName(RibbonButton)!).forEach((x) => {
+                (x as RibbonButton).updateShortcut();
+            });
+        }
+    };
 
     private readonly openContext = (command: ICommand) => {
         if (this.commandContext) {

@@ -1,10 +1,28 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { getCurrentApplication, VisualConfig, VisualItemConfig } from "chili-core";
-import { DoubleSide, MeshLambertMaterial } from "three";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { getCurrentApplication, VisualConfig, type VisualItemConfig } from "chili-core";
+import { DoubleSide, MeshLambertMaterial, PointsMaterial } from "three";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { ThreeHelper } from "./threeHelper";
+
+export const defaultVertexMaterial = new PointsMaterial({
+    color: ThreeHelper.fromColor(VisualConfig.defaultEdgeColor),
+    sizeAttenuation: false,
+    size: 3,
+});
+
+export const highlightVertexMaterial = new PointsMaterial({
+    color: ThreeHelper.fromColor(VisualConfig.highlightEdgeColor),
+    sizeAttenuation: false,
+    size: 5,
+});
+
+export const selectedVertexMaterial = new PointsMaterial({
+    color: ThreeHelper.fromColor(VisualConfig.selectedEdgeColor),
+    sizeAttenuation: false,
+    size: 5,
+});
 
 export const defaultEdgeMaterial = new LineMaterial({
     linewidth: 1,

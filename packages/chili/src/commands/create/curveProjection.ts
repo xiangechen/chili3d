@@ -1,8 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, EditableShapeNode, I18n, IEdge, IFace, IWire, Property, ShapeType, XYZ } from "chili-core";
-import { IStep, SelectShapeStep } from "../../step";
+import {
+    command,
+    EditableShapeNode,
+    I18n,
+    type IEdge,
+    type IFace,
+    type IWire,
+    property,
+    ShapeType,
+    XYZ,
+} from "chili-core";
+import { type IStep, SelectShapeStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({
@@ -10,7 +20,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-curveProject",
 })
 export class CurveProjectionCommand extends CreateCommand {
-    @Property.define("common.dir")
+    @property("common.dir")
     get dir() {
         return this.getPrivateValue("dir", "0,0,-1");
     }

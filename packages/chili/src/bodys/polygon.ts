@@ -1,16 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FacebaseNode, I18nKeys, IDocument, IShape, Property, Result, Serializer, XYZ } from "chili-core";
+import {
+    FacebaseNode,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
+} from "chili-core";
 
-@Serializer.register(["document", "points"])
+@serializable(["document", "points"])
 export class PolygonNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.polygon";
     }
 
-    @Serializer.serialze()
-    @Property.define("polygon.points")
+    @serialze()
+    @property("polygon.points")
     get points() {
         return this.getPrivateValue("points");
     }
@@ -24,7 +34,7 @@ export class PolygonNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        let wire = this.document.application.shapeFactory.polygon(this.points);
+        const wire = this.document.application.shapeFactory.polygon(this.points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }

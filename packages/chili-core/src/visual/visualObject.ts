@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, GeometryNode, IDisposable, Matrix4, VisualNode } from "chili-core";
+import type { BoundingBox, GeometryNode, IDisposable, Matrix4, VisualNode } from "chili-core";
 
 export interface IVisualObject extends IDisposable {
     visible: boolean;
@@ -18,8 +18,6 @@ export interface IVisualGeometry extends IVisualObject {
     get geometryNode(): GeometryNode;
 }
 
-export namespace IVisualObject {
-    export function isGeometry(obj: IVisualObject): obj is IVisualGeometry {
-        return (obj as IVisualGeometry).geometryNode !== undefined;
-    }
+export function isVisualGeometry(obj: IVisualObject): obj is IVisualGeometry {
+    return (obj as IVisualGeometry).geometryNode !== undefined;
 }

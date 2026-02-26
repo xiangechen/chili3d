@@ -17,16 +17,16 @@ export enum ObjectSnapType {
     grid = 1 << 11,
 }
 
-export namespace ObjectSnapType {
-    export function has(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
+export class ObjectSnapTypeUtils {
+    static hasType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
         return (snapTypes & targetType) === targetType;
     }
 
-    export function add(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
+    static addType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
         return snapTypes | targetType;
     }
 
-    export function remove(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
+    static removeType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
         return snapTypes & ~targetType;
     }
 }

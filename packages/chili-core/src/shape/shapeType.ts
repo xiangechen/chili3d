@@ -13,17 +13,18 @@ export enum ShapeType {
     Vertex = 0b10000000,
 }
 
-export namespace ShapeType {
-    export function isWhole(type: ShapeType) {
+export class ShapeTypeUtils {
+    public static isWhole(type: ShapeType) {
         return (
             type === ShapeType.Shape ||
             type === ShapeType.Compound ||
             type === ShapeType.CompoundSolid ||
-            type === ShapeType.Solid
+            type === ShapeType.Solid ||
+            type === ShapeType.Vertex
         );
     }
 
-    export function stringValue(type: ShapeType) {
+    public static stringValue(type: ShapeType) {
         switch (type) {
             case ShapeType.Shape:
                 return "Shape";
@@ -48,28 +49,28 @@ export namespace ShapeType {
         }
     }
 
-    export function hasCompound(type: ShapeType): boolean {
+    public static hasCompound(type: ShapeType): boolean {
         return (type & ShapeType.Compound) !== 0;
     }
-    export function hasCompoundSolid(type: ShapeType): boolean {
+    public static hasCompoundSolid(type: ShapeType): boolean {
         return (type & ShapeType.CompoundSolid) !== 0;
     }
-    export function hasSolid(type: ShapeType): boolean {
+    public static hasSolid(type: ShapeType): boolean {
         return (type & ShapeType.Solid) !== 0;
     }
-    export function hasShell(type: ShapeType): boolean {
+    public static hasShell(type: ShapeType): boolean {
         return (type & ShapeType.Shell) !== 0;
     }
-    export function hasFace(type: ShapeType): boolean {
+    public static hasFace(type: ShapeType): boolean {
         return (type & ShapeType.Face) !== 0;
     }
-    export function hasWire(type: ShapeType): boolean {
+    public static hasWire(type: ShapeType): boolean {
         return (type & ShapeType.Wire) !== 0;
     }
-    export function hasEdge(type: ShapeType): boolean {
+    public static hasEdge(type: ShapeType): boolean {
         return (type & ShapeType.Edge) !== 0;
     }
-    export function hasVertex(type: ShapeType): boolean {
+    public static hasVertex(type: ShapeType): boolean {
         return (type & ShapeType.Vertex) !== 0;
     }
 }

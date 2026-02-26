@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, IEventHandler, IView, Navigation3D } from "chili-core";
+import { Config, type IEventHandler, type IView, Navigation3D } from "chili-core";
 
 interface MouseDownData {
     time: number;
@@ -18,6 +18,7 @@ export class ThreeViewHandler implements IEventHandler {
     protected currentPointerEventMap: Map<number, PointerEvent> = new Map();
 
     canRotate: boolean = true;
+    isEnabled = true;
 
     dispose() {
         this.clearTimeout();
@@ -26,12 +27,9 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     mouseWheel(view: IView, event: WheelEvent): void {
-        const currentNav3D = Config.instance.navigation3DIndex;
+        const currentNav3D = Config.instance.navigation3D;
 
-        if (
-            currentNav3D === Navigation3D.Nav3DType.Solidworks ||
-            currentNav3D === Navigation3D.Nav3DType.Creo
-        ) {
+        if (currentNav3D === "Solidworks" || currentNav3D === "Creo") {
             view.cameraController.zoom(event.offsetX, event.offsetY, -event.deltaY);
         } else {
             view.cameraController.zoom(event.offsetX, event.offsetY, event.deltaY);
@@ -63,7 +61,7 @@ export class ThreeViewHandler implements IEventHandler {
             this._offsetPoint = { x: event.offsetX, y: event.offsetY };
         }
 
-        let key = Navigation3D.getKey(event);
+        const key = Navigation3D.getKey(event);
         const navigatioMap = Navigation3D.navigationKeyMap();
         if (navigatioMap.pan === key) {
             view.cameraController.pan(dx, dy);
@@ -90,10 +88,7 @@ export class ThreeViewHandler implements IEventHandler {
             const dtDistance = current.distance - last.distance;
             if (dtCenter > Math.abs(dtDistance) * 0.5) {
                 // 0.5 no meaning, just for scale
-                view.cameraController.pan(
-                    current.center.x - last.center.x,
-                    current.center.y - last.center.y,
-                );
+                view.cameraController.pan(current.center.x - last.center.x, current.center.y - last.center.y);
             } else {
                 view.cameraController.zoom(current.center.x, current.center.y, -dtDistance);
             }
@@ -139,7 +134,7 @@ export class ThreeViewHandler implements IEventHandler {
     }
 
     private distance(x1: number, y1: number, x2: number, y2: number) {
-        return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+        return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
     }
 
     pointerDown(view: IView, event: PointerEvent): void {

@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EditableShapeNode, I18n, Property, PubSub, ShapeType, Transaction, command } from "chili-core";
-import { IStep, SelectShapeStep } from "../../step";
+import { command, EditableShapeNode, I18n, PubSub, property, ShapeType, Transaction } from "chili-core";
+import { type IStep, SelectShapeStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
@@ -10,7 +10,7 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-thickSolid",
 })
 export class ThickSolidCommand extends MultistepCommand {
-    @Property.define("option.command.thickness")
+    @property("option.command.thickness")
     get thickness() {
         return this.getPrivateValue("thickness", 10);
     }

@@ -2,30 +2,57 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation";
-import { Serializer } from "../serialize";
+import { serializable, serialze } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
 export type XYZLike = { x: number; y: number; z: number };
 
-@Serializer.register(["x", "y", "z"])
-export class XYZ {
-    static readonly zero = new XYZ(0, 0, 0);
-    static readonly unitX = new XYZ(1, 0, 0);
-    static readonly unitY = new XYZ(0, 1, 0);
-    static readonly unitZ = new XYZ(0, 0, 1);
-    static readonly one = new XYZ(1, 1, 1);
+/**
+ * Gets the component value of a vector at the specified index
+ *
+ * @param point - An XYZLike object containing x, y, z properties
+ * @param index - The index of the component to retrieve (0 for x, 1 for y, 2 for z)
+ * @returns The component value at the specified index
+ * @throws Error when index is out of valid range (0-2)
+ */
+export function getVectorComponent(point: XYZLike, index: number) {
+    if (index === 0) {
+        return point.x;
+    } else if (index === 1) {
+        return point.y;
+    } else if (index === 2) {
+        return point.z;
+    }
 
-    @Serializer.serialze()
+    throw new Error("index out of range");
+}
+
+@serializable(["x", "y", "z"])
+export class XYZ {
+    static readonly zero = Object.freeze(new XYZ(0, 0, 0));
+    static readonly unitX = Object.freeze(new XYZ(1, 0, 0));
+    static readonly unitY = Object.freeze(new XYZ(0, 1, 0));
+    static readonly unitZ = Object.freeze(new XYZ(0, 0, 1));
+    static readonly unitNX = Object.freeze(new XYZ(-1, 0, 0));
+    static readonly unitNY = Object.freeze(new XYZ(0, -1, 0));
+    static readonly unitNZ = Object.freeze(new XYZ(0, 0, -1));
+    static readonly one = Object.freeze(new XYZ(1, 1, 1));
+
+    @serialze()
     readonly x: number;
-    @Serializer.serialze()
+    @serialze()
     readonly y: number;
-    @Serializer.serialze()
+    @serialze()
     readonly z: number;
 
     constructor(x: number, y: number, z: number) {
         this.x = x;
         this.y = y;
         this.z = z;
+
+        if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+            throw new Error("NaN in XYZ");
+        }
     }
 
     toString() {
@@ -34,6 +61,15 @@ export class XYZ {
 
     toArray(): number[] {
         return [this.x, this.y, this.z];
+    }
+
+    static fromArray(arr: number[]) {
+        if (!arr) return XYZ.zero;
+
+        const x = arr.at(0) ?? 0;
+        const y = arr.at(1) ?? 0;
+        const z = arr.at(2) ?? 0;
+        return new XYZ(x, y, z);
     }
 
     cross(right: XYZLike): XYZ {
@@ -54,7 +90,11 @@ export class XYZ {
     }
 
     reverse(): XYZ {
-        return new XYZ(-this.x, -this.y, -this.z);
+        const x = MathUtils.almostEqual(this.x, 0) ? 0 : -this.x;
+        const y = MathUtils.almostEqual(this.y, 0) ? 0 : -this.y;
+        const z = MathUtils.almostEqual(this.z, 0) ? 0 : -this.z;
+
+        return new XYZ(x, y, z);
     }
 
     multiply(scalar: number): XYZ {
@@ -100,8 +140,8 @@ export class XYZ {
      */
     angleTo(right: XYZLike): number | undefined {
         if (this.isEqualTo(XYZ.zero) || XYZ.zero.isEqualTo(right)) return undefined;
-        let cross = this.cross(right);
-        let dot = this.dot(right);
+        const cross = this.cross(right);
+        const dot = this.dot(right);
         // tan(x) = |a||b|sin(x) / |a||b|cos(x)
         return Math.atan2(cross.length(), dot);
     }
@@ -140,6 +180,13 @@ export class XYZ {
             MathUtils.almostEqual(this.y, right.y, tolerance) &&
             MathUtils.almostEqual(this.z, right.z, tolerance)
         );
+    }
+
+    isPerpendicularTo(right: XYZLike, tolerance: number = 1e-6): boolean {
+        const angle = this.angleTo(right);
+        if (angle === undefined) return false;
+
+        return Math.abs(angle - Math.PI * 0.5) < tolerance;
     }
 
     isParallelTo(right: XYZLike, tolerance: number = 1e-6): boolean {

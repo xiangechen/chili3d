@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { div, label } from "chili-controls";
-import { Config, I18n, I18nKeys, Navigation3D, PubSub } from "chili-core";
+import { Config, I18n, type I18nKeys, Navigation3D, PubSub } from "chili-core";
 import { SnapConfig } from "./snapConfig";
 import style from "./statusbar.module.css";
 
@@ -27,7 +27,7 @@ export class Statusbar extends HTMLElement {
     }
 
     private readonly handleConfigChanged = (prop: keyof Config) => {
-        if (prop === "navigation3DIndex" && this._isDefaultTip) {
+        if (prop === "navigation3D" && this._isDefaultTip) {
             this.setDefaultTip();
         }
     };

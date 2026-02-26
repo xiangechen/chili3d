@@ -2,20 +2,19 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Deletable,
+    type Deletable,
     EditableShapeNode,
-    FolderNode,
+    type FolderNode,
     GroupNode,
-    IDisposable,
-    IDocument,
-    IShape,
-    IShapeConverter,
+    gc,
+    type IDisposable,
+    type IDocument,
+    type IShape,
+    type IShapeConverter,
     Material,
     Result,
-    gc,
 } from "chili-core";
-import { ShapeNode } from "../lib/chili-wasm";
-import { OcctHelper } from "./helper";
+import type { ShapeNode } from "../lib/chili-wasm";
 import { OccShape } from "./shape";
 
 export class OccShapeConverter implements IShapeConverter {
@@ -27,7 +26,7 @@ export class OccShapeConverter implements IShapeConverter {
         getMaterialId: (document: IDocument, color: string) => string,
     ) => {
         if (node.shape && !node.shape.isNull()) {
-            const shape = OcctHelper.wrapShape(node.shape);
+            const shape = OccShape.wrap(node.shape);
             const material = getMaterialId(folder.document, node.color as string);
             folder.add(new EditableShapeNode(folder.document, node.name, shape, material));
         }
@@ -45,7 +44,7 @@ export class OccShapeConverter implements IShapeConverter {
     };
 
     convertToIGES(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
+        const occShapes = shapes.map((shape) => {
             if (shape instanceof OccShape) {
                 return shape.shape;
             }
@@ -71,7 +70,7 @@ export class OccShapeConverter implements IShapeConverter {
 
             if (!materialMap.has(materialKey)) {
                 const material = new Material(document, materialKey, materialColor);
-                document.materials.push(material);
+                document.modelManager.materials.push(material);
                 materialMap.set(materialKey, material.id);
             }
             return materialMap.get(materialKey)!;
@@ -90,7 +89,7 @@ export class OccShapeConverter implements IShapeConverter {
     };
 
     convertToSTEP(...shapes: IShape[]): Result<string> {
-        let occShapes = shapes.map((shape) => {
+        const occShapes = shapes.map((shape) => {
             if (shape instanceof OccShape) {
                 return shape.shape;
             }
@@ -111,11 +110,11 @@ export class OccShapeConverter implements IShapeConverter {
     }
 
     convertFromBrep(brep: string): Result<IShape> {
-        let shape = wasm.Converter.convertFromBrep(brep);
+        const shape = wasm.Converter.convertFromBrep(brep);
         if (shape.isNull()) {
             return Result.err("can not convert");
         }
-        return Result.ok(OcctHelper.wrapShape(shape));
+        return Result.ok(OccShape.wrap(shape));
     }
 
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {

@@ -5,21 +5,22 @@ import {
     DOCUMENT_FILE_EXTENSION,
     getCurrentApplication,
     I18n,
-    IApplication,
-    ICommand,
-    IDataExchange,
-    IDocument,
-    IService,
-    IShapeFactory,
-    IStorage,
-    IView,
-    IVisualFactory,
-    IWindow,
+    type IApplication,
+    type ICommand,
+    type IDataExchange,
+    type IDocument,
+    type IService,
+    type IShapeFactory,
+    type IStorage,
+    type IView,
+    type IVisualFactory,
+    type IWindow,
+    Logger,
     Material,
     ObservableCollection,
     Plane,
     PubSub,
-    Serialized,
+    type Serialized,
     setCurrentApplication,
 } from "chili-core";
 import { Document } from "./document";
@@ -77,14 +78,14 @@ export class Application implements IApplication {
 
     private initWindowEvents() {
         window.onbeforeunload = this.handleWindowUnload;
-        window.addEventListener(
+        this.mainWindow?.addEventListener(
             "dragstart",
             (ev) => {
                 ev.preventDefault();
             },
             false,
         );
-        window.addEventListener(
+        this.mainWindow?.addEventListener(
             "dragover",
             (ev) => {
                 ev.stopPropagation();
@@ -93,7 +94,7 @@ export class Application implements IApplication {
             },
             false,
         );
-        window.addEventListener(
+        this.mainWindow?.addEventListener(
             "drop",
             (ev) => {
                 ev.stopPropagation();
@@ -113,7 +114,7 @@ export class Application implements IApplication {
         }
     };
 
-    async importFiles(files: FileList | undefined) {
+    async importFiles(files: File[] | FileList | undefined) {
         if (!files || files.length === 0) {
             return;
         }
@@ -127,7 +128,7 @@ export class Application implements IApplication {
             "showPermanent",
             async () => {
                 for (const file of opens) {
-                    let json: Serialized = JSON.parse(await file.text());
+                    const json: Serialized = JSON.parse(await file.text());
                     await this.loadDocument(json);
                     this.activeView?.cameraController.fitContent();
                 }
@@ -137,7 +138,7 @@ export class Application implements IApplication {
         );
     }
 
-    private groupFiles(files: FileList) {
+    private groupFiles(files: FileList | File[]) {
         const opens: File[] = [];
         const imports: File[] = [];
         for (const element of files) {
@@ -160,7 +161,7 @@ export class Application implements IApplication {
         const document = new Document(this, name);
         const lightGray = new Material(document, "LightGray", 0xdedede);
         const deepGray = new Material(document, "DeepGray", 0x898989);
-        document.materials.push(lightGray, deepGray);
+        document.modelManager.materials.push(lightGray, deepGray);
         await this.createActiveView(document);
         return document;
     }
@@ -169,6 +170,26 @@ export class Application implements IApplication {
         const document = await Document.load(this, data);
         await this.createActiveView(document);
         return document;
+    }
+
+    async loadFileFromUrl(url: string): Promise<void> {
+        return Promise.try(async () => {
+            const filename = url.substring(url.lastIndexOf("/") + 1);
+            if (!filename || !filename.includes(".")) {
+                throw new Error(`No file name in url: ${url}`);
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch model: ${url}, statusText: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const file = new File([blob], filename, { type: blob.type });
+            await this.importFiles([file]);
+        }).catch((err) => {
+            Logger.error(err);
+        });
     }
 
     protected async createActiveView(document: IDocument | undefined) {

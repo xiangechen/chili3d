@@ -2,24 +2,25 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "normal", "center", "start", "angle"])
+@serializable(["document", "normal", "center", "start", "angle"])
 export class ArcNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.arc";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -27,19 +28,19 @@ export class ArcNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("arc.start")
+    @serialze()
+    @property("arc.start")
     get start(): XYZ {
         return this.getPrivateValue("start");
     }
 
-    @Serializer.serialze()
+    @serialze()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
 
-    @Serializer.serialze()
-    @Property.define("arc.angle")
+    @serialze()
+    @property("arc.angle")
     get angle() {
         return this.getPrivateValue("angle");
     }

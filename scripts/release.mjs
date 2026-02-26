@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execAsync } from "./common.mjs";
 
 /**
@@ -23,13 +23,16 @@ const packages = fs.readdirSync(path.resolve(__dirname, "../packages")).filter((
         const pkg = JSON.parse(fs.readFileSync(path.resolve(pkgRoot, "package.json"), "utf-8"));
         return !pkg.private;
     }
+    return false;
 });
 
 function updateVersions(version) {
     // 1. update root package.json
     updatePackage(path.resolve(__dirname, ".."), version);
     // 2. update all packages
-    packages.forEach((p) => updatePackage(getPkgRoot(p), version));
+    packages.forEach((p) => {
+        updatePackage(getPkgRoot(p), version);
+    });
     console.log(`Updated all packages to version ${version}`);
 }
 
@@ -78,7 +81,7 @@ async function main() {
         if (data.toString().trim() === "y") {
             updateVersions(version);
             await tag(version);
-            console.log("Released " + version);
+            console.log(`Released·${version}`);
         } else {
             console.log("Aborting...");
         }

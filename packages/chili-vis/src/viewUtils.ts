@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IView, Plane, Precision, Ray, XYZ } from "chili-core";
+import { type IView, Line, Plane, Precision, XYZ } from "chili-core";
 
 export class ViewUtils {
     static rayFromEye(view: IView, point: XYZ) {
@@ -11,9 +11,9 @@ export class ViewUtils {
             const direction = view.direction();
             const dot = vector.dot(direction);
             const location = point.sub(direction.multiply(dot));
-            return new Ray(location, direction);
+            return new Line(location, direction);
         } else {
-            return new Ray(cameraPosition, vector);
+            return new Line(cameraPosition, vector);
         }
     }
 
@@ -49,7 +49,7 @@ export class ViewUtils {
             new Plane(start, XYZ.unitY, XYZ.unitZ),
         ];
 
-        const distances = planes.map((p) => p.intersect(ray)?.distanceTo(start));
+        const distances = planes.map((p) => p.intersectLine(ray)?.distanceTo(start));
         let result: [Plane, number | undefined] = [planes[0], distances[0]];
         for (let i = 1; i < distances.length; i++) {
             if (distances[i] === undefined) continue;

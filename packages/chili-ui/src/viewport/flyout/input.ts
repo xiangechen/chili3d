@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { input, label } from "chili-controls";
-import { I18n, I18nKeys, IDisposable, Localize, Result } from "chili-core";
+import { I18n, type I18nKeys, type IDisposable, Localize, type Result } from "chili-core";
 import style from "./input.module.css";
 
 export class Input extends HTMLElement implements IDisposable {

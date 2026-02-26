@@ -2,42 +2,48 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    EdgeMeshData,
+    type EdgeMeshData,
+    type FaceMeshData,
     gc,
-    ICompound,
-    ICompoundSolid,
-    ICurve,
+    type ICompound,
+    type ICompoundSolid,
+    type ICurve,
+    type IDisposable,
     Id,
-    IDisposable,
-    IEdge,
-    IFace,
-    IShape,
-    IShapeMeshData,
-    IShell,
-    ISolid,
-    ISubEdgeShape,
-    ISubFaceShape,
-    ISurface,
-    ITrimmedCurve,
-    IVertex,
-    IWire,
-    JoinType,
-    LineType,
+    type IEdge,
+    type IFace,
+    type IShape,
+    type IShapeMeshData,
+    type IShell,
+    type ISolid,
+    type ISubEdgeShape,
+    type ISubFaceShape,
+    type ISubVertexShape,
+    type ISurface,
+    type ITrimmedCurve,
+    type IVertex,
+    type IWire,
+    isDisposable,
+    type JoinType,
+    Line,
     Logger,
     MathUtils,
-    Matrix4,
-    Orientation,
+    type Matrix4,
+    type Orientation,
     Plane,
-    Ray,
     Result,
-    SerializedProperties,
-    Serializer,
-    ShapeType,
+    type SerializedProperties,
+    type ShapeMeshRange,
+    type ShapeType,
+    serializable,
+    type VertexMeshData,
     VisualConfig,
-    XYZ,
-    XYZLike,
+    type XYZ,
+    type XYZLike,
 } from "chili-core";
-import {
+import type {
+    EdgeMeshData as OccEdgeMeshData,
+    FaceMeshData as OccFaceMeshData,
     TopoDS_Edge,
     TopoDS_Face,
     TopoDS_Shape,
@@ -45,26 +51,33 @@ import {
     TopoDS_Vertex,
     TopoDS_Wire,
 } from "../lib/chili-wasm";
-import { OccShapeConverter } from "./converter";
 import { OccCurve, OccTrimmedCurve } from "./curve";
-import { OcctHelper } from "./helper";
-import { Mesher } from "./mesher";
+import {
+    convertFromMatrix,
+    convertToMatrix,
+    getJoinType,
+    getOrientation,
+    getShapeEnum,
+    getShapeType,
+    toDir,
+    toPnt,
+    toXYZ,
+} from "./helper";
+import { OccSurface } from "./surface";
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+function occShapeSerialize(target: OccShape): SerializedProperties<OccShape> {
+    return {
+        shape: wasm.Converter.convertToBrep(target.shape),
+        id: target.id,
+    };
+}
+
+function occShapeDeserialize(shape: string, id: string) {
+    return OccShape.wrap(wasm.Converter.convertFromBrep(shape), id) as OccShape;
+}
+
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShape implements IShape {
-    static serialize(target: OccShape): SerializedProperties<OccShape> {
-        return {
-            shape: new OccShapeConverter().convertToBrep(target).value,
-            id: target.id,
-        };
-    }
-
-    static deserialize(shape: string, id: string) {
-        let tshape = new OccShapeConverter().convertFromBrep(shape).value as OccShape;
-        tshape._id = id;
-        return tshape;
-    }
-
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
@@ -77,44 +90,68 @@ export class OccShape implements IShape {
         return this._shape;
     }
 
-    protected _id: string;
-    get id(): string {
-        return this._id;
-    }
+    id: string;
 
     get matrix(): Matrix4 {
         return gc((c) => {
-            return OcctHelper.convertToMatrix(c(c(this.shape.getLocation()).transformation()));
+            return convertToMatrix(c(c(this.shape.getLocation()).transformation()));
         });
     }
 
     set matrix(matrix: Matrix4) {
         gc((c) => {
-            let location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
             this._shape.setLocation(location, false);
             this.onTransformChanged();
         });
     }
 
     constructor(shape: TopoDS_Shape, id?: string) {
-        this._id = id ?? Id.generate();
+        this.id = id ?? Id.generate();
         this._shape = shape;
-        this.shapeType = OcctHelper.getShapeType(shape);
+        this.shapeType = getShapeType(shape);
+    }
+
+    static wrap(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
+        if (shape.isNull()) {
+            throw new Error("Shape is null");
+        }
+
+        switch (shape.shapeType()) {
+            case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
+                return new OccCompound(wasm.TopoDS.compound(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
+                return new OccCompSolid(wasm.TopoDS.compsolid(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
+                return new OccSolid(wasm.TopoDS.solid(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
+                return new OccShell(wasm.TopoDS.shell(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
+                return new OccFace(wasm.TopoDS.face(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
+                return new OccWire(wasm.TopoDS.wire(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
+                return new OccEdge(wasm.TopoDS.edge(shape), id);
+            case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
+                return new OccVertex(wasm.TopoDS.vertex(shape), id);
+            default:
+                return new OccShape(shape, id);
+        }
     }
 
     transformed(matrix: Matrix4): IShape {
         return gc((c) => {
-            const location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
             const shape = this._shape.located(location, false); // TODO: check if this is correct
-            return OcctHelper.wrapShape(shape);
+            return OccShape.wrap(shape);
         });
     }
 
     transformedMul(matrix: Matrix4): IShape {
         return gc((c) => {
-            const location = c(new wasm.TopLoc_Location(c(OcctHelper.convertFromMatrix(matrix))));
+            const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
             const shape = this._shape.moved(location, false); // TODO: check if this is correct
-            return OcctHelper.wrapShape(shape);
+            return OccShape.wrap(shape);
         });
     }
 
@@ -130,7 +167,7 @@ export class OccShape implements IShape {
         const position = occMesher.edgesMeshPosition();
         occMesher.delete();
         return {
-            lineType: LineType.Solid,
+            lineType: "solid",
             position: new Float32Array(position),
             range: [],
             color: VisualConfig.defaultEdgeColor,
@@ -138,7 +175,7 @@ export class OccShape implements IShape {
     }
 
     clone(): IShape {
-        return OcctHelper.wrapShape(wasm.Shape.clone(this._shape));
+        return OccShape.wrap(wasm.Shape.clone(this._shape));
     }
 
     isClosed(): boolean {
@@ -171,24 +208,20 @@ export class OccShape implements IShape {
     }
 
     orientation(): Orientation {
-        return OcctHelper.getOrientation(this.shape);
+        return getOrientation(this.shape);
     }
 
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {
         if (fromShape instanceof OccShape) {
-            return wasm.Shape.findAncestor(
-                fromShape.shape,
-                this.shape,
-                OcctHelper.getShapeEnum(ancestorType),
-            ).map((x) => OcctHelper.wrapShape(x));
+            return wasm.Shape.findAncestor(fromShape.shape, this.shape, getShapeEnum(ancestorType)).map((x) =>
+                OccShape.wrap(x),
+            );
         }
         return [];
     }
 
     findSubShapes(subshapeType: ShapeType): IShape[] {
-        return wasm.Shape.findSubShapes(this.shape, OcctHelper.getShapeEnum(subshapeType)).map((x) =>
-            OcctHelper.wrapShape(x),
-        );
+        return wasm.Shape.findSubShapes(this.shape, getShapeEnum(subshapeType)).map((x) => OccShape.wrap(x));
     }
 
     iterShape(): IShape[] {
@@ -196,34 +229,34 @@ export class OccShape implements IShape {
         if (subShape.length === 1 && subShape[0].shapeType() === this.shape.shapeType()) {
             subShape = wasm.Shape.iterShape(subShape[0]);
         }
-        return subShape.map((x) => OcctHelper.wrapShape(x));
+        return subShape.map((x) => OccShape.wrap(x));
     }
 
     section(shape: IShape | Plane): IShape {
         if (shape instanceof OccShape) {
-            let section = wasm.Shape.sectionSS(this.shape, shape.shape);
-            return OcctHelper.wrapShape(section);
+            const section = wasm.Shape.sectionSS(this.shape, shape.shape);
+            return OccShape.wrap(section);
         }
         if (shape instanceof Plane) {
-            let section = wasm.Shape.sectionSP(this.shape, {
+            const section = wasm.Shape.sectionSP(this.shape, {
                 location: shape.origin,
                 direction: shape.normal,
                 xDirection: shape.xvec,
             });
-            return OcctHelper.wrapShape(section);
+            return OccShape.wrap(section);
         }
 
         throw new Error("Unsupported type");
     }
 
     split(shapes: IShape[]): IShape {
-        let occShapes = shapes.map((x) => {
+        const occShapes = shapes.map((x) => {
             if (x instanceof OccShape) {
                 return x.shape;
             }
             throw new Error("Unsupported type");
         });
-        return OcctHelper.wrapShape(wasm.Shape.splitShapes([this.shape], occShapes));
+        return OccShape.wrap(wasm.Shape.splitShapes([this.shape], occShapes));
     }
 
     reserve(): void {
@@ -232,13 +265,8 @@ export class OccShape implements IShape {
 
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         return gc((c) => {
-            const shape = wasm.Shape.hlr(
-                this.shape,
-                c(OcctHelper.toPnt(position)),
-                c(OcctHelper.toDir(direction)),
-                c(OcctHelper.toDir(xDir)),
-            );
-            return OcctHelper.wrapShape(shape);
+            const shape = wasm.Shape.hlr(this.shape, c(toPnt(position)), c(toDir(direction)), c(toDir(xDir)));
+            return OccShape.wrap(shape);
         });
     }
 
@@ -255,14 +283,14 @@ export class OccShape implements IShape {
         this._shape.delete();
         this._shape = null as any;
 
-        if (this._mesh && IDisposable.isDisposable(this._mesh)) {
+        if (this._mesh && isDisposable(this._mesh)) {
             this._mesh.dispose();
             this._mesh = null as any;
         }
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccVertex extends OccShape implements IVertex {
     readonly vertex: TopoDS_Vertex;
 
@@ -270,9 +298,13 @@ export class OccVertex extends OccShape implements IVertex {
         super(shape, id);
         this.vertex = shape;
     }
+
+    point(): XYZ {
+        return toXYZ(wasm.Vertex.point(this.vertex));
+    }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccEdge extends OccShape implements IEdge {
     private _edge: TopoDS_Edge;
     get edge(): TopoDS_Edge {
@@ -292,14 +324,14 @@ export class OccEdge extends OccShape implements IEdge {
         this._mesh = undefined;
     }
 
-    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[] {
+    intersect(other: IEdge | Line): { parameter: number; point: XYZ }[] {
         return gc((c) => {
-            let edge: TopoDS_Edge | undefined = undefined;
+            let edge: TopoDS_Edge | undefined;
             if (other instanceof OccEdge) {
                 edge = other.edge;
             }
-            if (other instanceof Ray) {
-                let line = c(wasm.Curve.makeLine(other.location, other.direction));
+            if (other instanceof Line) {
+                const line = c(wasm.Curve.makeLine(other.point, other.direction));
                 edge = c(wasm.Edge.fromCurve(line.get()));
             }
             if (edge === undefined) {
@@ -307,7 +339,7 @@ export class OccEdge extends OccShape implements IEdge {
             }
             return wasm.Edge.intersect(this.edge, edge).map((x) => ({
                 parameter: x.parameter,
-                point: OcctHelper.toXYZ(x.point),
+                point: toXYZ(x.point),
             }));
         });
     }
@@ -319,10 +351,10 @@ export class OccEdge extends OccShape implements IEdge {
     private _curve: ITrimmedCurve | undefined;
     get curve(): ITrimmedCurve {
         this._curve ??= gc((c) => {
-            let curve = c(wasm.Edge.curve(this.edge));
+            const curve = c(wasm.Edge.curve(this.edge));
             return new OccTrimmedCurve(curve.get()!);
         });
-        return this._curve;
+        return this._curve as ITrimmedCurve;
     }
 
     protected override onTransformChanged(): void {
@@ -335,30 +367,33 @@ export class OccEdge extends OccShape implements IEdge {
 
     offset(distance: number, dir: XYZ): Result<IEdge> {
         return gc((c) => {
-            let occDir = c(OcctHelper.toDir(dir));
-            let edge = wasm.Edge.offset(this.edge, occDir, distance);
+            const occDir = c(toDir(dir));
+            if (MathUtils.anyEqualZero(distance)) {
+                return Result.err("Invalid distance");
+            }
+            const edge = wasm.Edge.offset(this.edge, occDir, distance);
             if (edge.isNull()) {
                 return Result.err("Offset failed");
             }
-            return Result.ok(OcctHelper.wrapShape(edge));
+            return Result.ok(OccShape.wrap(edge));
         });
     }
 
     trim(start: number, end: number): IEdge {
-        let newEdge = wasm.Edge.trim(this.edge, start, end);
+        const newEdge = wasm.Edge.trim(this.edge, start, end);
         return new OccEdge(newEdge);
     }
 
     protected override disposeInternal(): void {
         super.disposeInternal();
-        if (this._curve && IDisposable.isDisposable(this._curve)) {
+        if (this._curve && isDisposable(this._curve)) {
             this._curve.dispose();
             this._curve = null as any;
         }
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccWire extends OccShape implements IWire {
     constructor(
         readonly wire: TopoDS_Wire,
@@ -368,11 +403,11 @@ export class OccWire extends OccShape implements IWire {
     }
 
     edgeLoop(): IEdge[] {
-        return wasm.Wire.edgeLoop(this.wire).map((x) => OcctHelper.wrapShape(x)) as IEdge[];
+        return wasm.Wire.edgeLoop(this.wire).map((x) => OccShape.wrap(x)) as IEdge[];
     }
 
     toFace(): Result<IFace> {
-        let face = wasm.Wire.makeFace(this.wire);
+        const face = wasm.Wire.makeFace(this.wire);
         if (face.isNull()) {
             return Result.err("To face failed");
         }
@@ -380,15 +415,18 @@ export class OccWire extends OccShape implements IWire {
     }
 
     offset(distance: number, joinType: JoinType): Result<IShape> {
-        let offseted = wasm.Wire.offset(this.wire, distance, OcctHelper.getJoinType(joinType));
+        if (MathUtils.anyEqualZero(distance)) {
+            return Result.err("Invalid distance");
+        }
+        const offseted = wasm.Wire.offset(this.wire, distance, getJoinType(joinType));
         if (offseted.isNull()) {
             return Result.err("Offset failed");
         }
-        return Result.ok(OcctHelper.wrapShape(offseted));
+        return Result.ok(OccShape.wrap(offseted));
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccFace extends OccShape implements IFace {
     constructor(
         readonly face: TopoDS_Face,
@@ -403,10 +441,10 @@ export class OccFace extends OccShape implements IFace {
 
     normal(u: number, v: number): [point: XYZ, normal: XYZ] {
         return gc((c) => {
-            let pnt = c(new wasm.gp_Pnt(0, 0, 0));
-            let normal = c(new wasm.gp_Vec(0, 0, 0));
+            const pnt = c(new wasm.gp_Pnt(0, 0, 0));
+            const normal = c(new wasm.gp_Vec(0, 0, 0));
             wasm.Face.normal(this.shape, u, v, pnt, normal);
-            return [OcctHelper.toXYZ(pnt), OcctHelper.toXYZ(normal)];
+            return [toXYZ(pnt), toXYZ(normal)];
         });
     }
     outerWire(): IWire {
@@ -414,13 +452,13 @@ export class OccFace extends OccShape implements IFace {
     }
     surface(): ISurface {
         return gc((c) => {
-            let handleSurface = c(wasm.Face.surface(this.face));
-            return OcctHelper.wrapSurface(handleSurface.get()!);
+            const handleSurface = c(wasm.Face.surface(this.face));
+            return OccSurface.wrap(handleSurface.get()!);
         });
     }
     segmentsOfEdgeOnFace(edge: IEdge): undefined | { start: number; end: number } {
         if (edge instanceof OccEdge) {
-            let domain = wasm.Face.curveOnSurface(this.face, edge.edge);
+            const domain = wasm.Face.curveOnSurface(this.face, edge.edge);
             if (MathUtils.allEqualZero(domain.start, domain.end)) {
                 return undefined;
             }
@@ -430,10 +468,10 @@ export class OccFace extends OccShape implements IFace {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccShell extends OccShape implements IShell {}
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccSolid extends OccShape implements ISolid {
     constructor(
         readonly solid: TopoDS_Solid,
@@ -447,11 +485,26 @@ export class OccSolid extends OccShape implements ISolid {
     }
 }
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompSolid extends OccShape implements ICompoundSolid {}
 
-@Serializer.register(["shape", "id"], OccShape.deserialize, OccShape.serialize)
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccCompound extends OccShape implements ICompound {}
+
+export class OccSubVertexShape extends OccVertex implements ISubVertexShape {
+    override get mesh(): IShapeMeshData {
+        throw new Error("Method not implemented.");
+    }
+
+    constructor(
+        readonly parent: IShape,
+        vertex: TopoDS_Vertex,
+        readonly index: number,
+        id?: string,
+    ) {
+        super(vertex, id);
+    }
+}
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
     override get mesh(): IShapeMeshData {
@@ -480,5 +533,123 @@ export class OccSubFaceShape extends OccFace implements ISubFaceShape {
         id?: string,
     ) {
         super(face, id);
+    }
+}
+
+export class Mesher implements IShapeMeshData, IDisposable {
+    private _isMeshed = false;
+    private _lines?: EdgeMeshData;
+    private _faces?: FaceMeshData;
+    private _points?: VertexMeshData;
+
+    get edges(): EdgeMeshData | undefined {
+        if (this._lines === undefined) {
+            this.mesh();
+        }
+        return this._lines;
+    }
+    set edges(value: EdgeMeshData | undefined) {
+        this._lines = value;
+    }
+
+    get faces(): FaceMeshData | undefined {
+        if (this._faces === undefined) {
+            this.mesh();
+        }
+        return this._faces;
+    }
+    set faces(value: FaceMeshData | undefined) {
+        this._faces = value;
+    }
+
+    get vertexs(): VertexMeshData | undefined {
+        if (this._points === undefined && this.shape instanceof OccVertex) {
+            const point = this.shape.point();
+            this._points = {
+                position: new Float32Array(point.toArray()),
+                color: VisualConfig.defaultEdgeColor,
+                range: [
+                    { start: 0, count: 1, shape: new OccSubVertexShape(this.shape, this.shape.shape, 0) },
+                ],
+                size: 3,
+            };
+        }
+        return this._points;
+    }
+    set vertexs(value: VertexMeshData | undefined) {
+        this._points = value;
+    }
+
+    constructor(private shape: OccShape) {}
+
+    private mesh() {
+        if (this._isMeshed) {
+            return;
+        }
+        this._isMeshed = true;
+
+        gc((c) => {
+            const occMesher = c(new wasm.Mesher(this.shape.shape, 0.005));
+            const meshData = c(occMesher.mesh());
+            const faceMeshData = c(meshData.faceMeshData);
+            const edgeMeshData = c(meshData.edgeMeshData);
+
+            this._faces = this.parseFaceMeshData(faceMeshData);
+            this._lines = this.parseEdgeMeshData(edgeMeshData);
+        });
+    }
+
+    private parseFaceMeshData(faceMeshData: OccFaceMeshData): FaceMeshData {
+        return {
+            position: new Float32Array(faceMeshData.position),
+            normal: new Float32Array(faceMeshData.normal),
+            uv: new Float32Array(faceMeshData.uv),
+            index: new Uint32Array(faceMeshData.index),
+            range: this.getFaceRanges(faceMeshData),
+            color: VisualConfig.defaultFaceColor,
+            groups: [],
+        };
+    }
+
+    private parseEdgeMeshData(edgeMeshData: OccEdgeMeshData): EdgeMeshData {
+        return {
+            lineType: "solid",
+            position: new Float32Array(edgeMeshData.position),
+            range: this.getEdgeRanges(edgeMeshData),
+            color: VisualConfig.defaultEdgeColor,
+        };
+    }
+
+    dispose(): void {
+        this._faces?.range.forEach((g) => g.shape.dispose());
+        this._lines?.range.forEach((g) => g.shape.dispose());
+
+        this.shape = null as any;
+        this._faces = null as any;
+        this._lines = null as any;
+    }
+
+    private getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {
+        const result: ShapeMeshRange[] = [];
+        for (let i = 0; i < data.edges.length; i++) {
+            result.push({
+                start: data.group[2 * i],
+                count: data.group[2 * i + 1],
+                shape: new OccSubEdgeShape(this.shape, data.edges[i], i),
+            });
+        }
+        return result;
+    }
+
+    private getFaceRanges(data: OccFaceMeshData): ShapeMeshRange[] {
+        const result: ShapeMeshRange[] = [];
+        for (let i = 0; i < data.faces.length; i++) {
+            result.push({
+                start: data.group[2 * i],
+                count: data.group[2 * i + 1],
+                shape: new OccSubFaceShape(this.shape, data.faces[i], i),
+            });
+        }
+        return result;
     }
 }

@@ -20,7 +20,7 @@ export class Loading extends HTMLElement {
     }
 
     private initSpinner() {
-        let text = document.createElement("div");
+        const text = document.createElement("div");
         text.style.cssText = `
             position: absolute;
             top: 40%;
@@ -37,7 +37,7 @@ export class Loading extends HTMLElement {
     }
 
     private initAnimation() {
-        let styleSheet = document.createElement("style");
+        const styleSheet = document.createElement("style");
         styleSheet.innerHTML = `
           @keyframes spin {
             from { transform: rotate(0deg); }
@@ -48,7 +48,7 @@ export class Loading extends HTMLElement {
     }
 
     private initLabel() {
-        let text = document.createElement("div");
+        const text = document.createElement("div");
         text.innerText = "Loading...";
         text.style.cssText = `
         color: var(--foreground-color);

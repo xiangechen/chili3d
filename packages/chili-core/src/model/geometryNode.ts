@@ -1,21 +1,21 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MeshUtils } from "chili-geo";
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Id, PropertyHistoryRecord, Transaction } from "../foundation";
 import { BoundingBox } from "../math";
-import { Property } from "../property";
-import { Serializer } from "../serialize";
-import { FaceMeshData, IShapeMeshData } from "../shape";
+import { property } from "../property";
+import { serializable, serialze } from "../serialize";
+import type { FaceMeshData, IShapeMeshData } from "../shape";
+import { MeshUtils } from "../visual/meshUtils";
 import { VisualNode } from "./visualNode";
 
-@Serializer.register(["faceIndex", "materialIndex"])
+@serializable(["faceIndex", "materialIndex"])
 export class FaceMaterialPair {
-    @Serializer.serialze()
+    @serialze()
     faceIndex: number;
 
-    @Serializer.serialze()
+    @serialze()
     materialIndex: number;
     constructor(faceIndex: number, materialIndex: number) {
         this.faceIndex = faceIndex;
@@ -24,8 +24,8 @@ export class FaceMaterialPair {
 }
 
 export abstract class GeometryNode extends VisualNode {
-    @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
+    @serialze()
+    @property("common.material", { type: "materialId" })
     get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
     }
@@ -35,7 +35,7 @@ export abstract class GeometryNode extends VisualNode {
 
     protected _originFaceMesh?: FaceMeshData;
 
-    @Serializer.serialze()
+    @serialze()
     get faceMaterialPair(): FaceMaterialPair[] {
         return this.getPrivateValue("faceMaterialPair", []);
     }
@@ -52,7 +52,7 @@ export abstract class GeometryNode extends VisualNode {
         id: string = Id.generate(),
     ) {
         super(document, name, id);
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+        this.setPrivateValue("materialId", materialId ?? document.modelManager.materials.at(0)?.id ?? "");
     }
 
     protected _mesh: IShapeMeshData | undefined;
@@ -122,9 +122,7 @@ export abstract class GeometryNode extends VisualNode {
             this.faceMaterialPair.filter((x) => !faceIndexs.includes(x.faceIndex)),
         );
         toDelete.forEach((pair) => {
-            const hasSameMaterial = this.faceMaterialPair.some(
-                (x) => x.materialIndex === pair.materialIndex,
-            );
+            const hasSameMaterial = this.faceMaterialPair.some((x) => x.materialIndex === pair.materialIndex);
             if (hasSameMaterial || !Array.isArray(this.materialId)) {
                 return;
             }

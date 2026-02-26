@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
-import { ArrayRecord, IHistoryRecord } from "./history";
+import type { IDocument } from "../document";
+import { ArrayRecord, type IHistoryRecord } from "./history";
 import { Logger } from "./logger";
 
 export class Transaction {
@@ -15,7 +15,7 @@ export class Transaction {
 
     static add(document: IDocument, record: IHistoryRecord) {
         if (document.history.disabled) return;
-        let arrayRecord = Transaction._transactionMap.get(document);
+        const arrayRecord = Transaction._transactionMap.get(document);
         if (arrayRecord !== undefined) {
             arrayRecord.records.push(record);
         } else {
@@ -29,7 +29,7 @@ export class Transaction {
     }
 
     static execute(document: IDocument, name: string, action: () => void) {
-        let trans = new Transaction(document, name);
+        const trans = new Transaction(document, name);
         trans.start();
         try {
             action();
@@ -43,13 +43,14 @@ export class Transaction {
     static async executeAsync(document: IDocument, name: string, action: () => Promise<void>) {
         const trans = new Transaction(document, name);
         trans.start();
-        try {
+
+        await Promise.try(async () => {
             await action();
             trans.commit();
-        } catch (e) {
+        }).catch((e) => {
             trans.rollback();
             throw e;
-        }
+        });
     }
 
     start(name?: string) {
@@ -70,7 +71,9 @@ export class Transaction {
     }
 
     rollback() {
-        Transaction._transactionMap.get(this.document)?.undo();
+        const transaction = Transaction._transactionMap.get(this.document);
         Transaction._transactionMap.delete(this.document);
+
+        transaction?.undo();
     }
 }

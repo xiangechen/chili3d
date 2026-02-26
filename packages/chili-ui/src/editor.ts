@@ -3,15 +3,15 @@
 
 import { div } from "chili-controls";
 import {
-    AsyncController,
-    Button,
-    CommandKeys,
-    I18nKeys,
-    IApplication,
-    IDocument,
-    Material,
+    type AsyncController,
+    type Button,
+    type CommandKeys,
+    type I18nKeys,
+    type IApplication,
+    type IDocument,
+    type Material,
     PubSub,
-    RibbonTab,
+    type RibbonTab,
 } from "chili-core";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
@@ -23,7 +23,7 @@ import { RibbonTabData } from "./ribbon/ribbonData";
 import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
 
-let quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
+const quickCommands: CommandKeys[] = ["doc.save", "doc.saveToFile", "edit.undo", "edit.redo"];
 
 export class Editor extends HTMLElement {
     readonly ribbonContent: RibbonDataContent;
@@ -33,7 +33,10 @@ export class Editor extends HTMLElement {
     private _isResizingSidebar: boolean = false;
     private _sidebarEl: HTMLDivElement | null = null;
 
-    constructor(app: IApplication, tabs: RibbonTab[]) {
+    constructor(
+        readonly app: IApplication,
+        tabs: RibbonTab[],
+    ) {
         super();
         this.ribbonContent = new RibbonDataContent(app, quickCommands, tabs.map(RibbonTabData.fromProfile));
         const viewport = new LayoutViewport(app);
@@ -46,7 +49,6 @@ export class Editor extends HTMLElement {
         );
         this.clearSelectionControl();
         this.render();
-        document.body.appendChild(this);
     }
 
     private render() {
@@ -70,12 +72,13 @@ export class Editor extends HTMLElement {
                 new Statusbar(style.statusbar),
             ),
         );
+        this.app.mainWindow?.appendChild(this);
     }
 
     private _startSidebarResize(e: MouseEvent) {
         e.preventDefault();
         this._isResizingSidebar = true;
-        document.body.style.cursor = "ew-resize";
+        if (this.app.mainWindow) this.app.mainWindow.style.cursor = "ew-resize";
         const onMouseMove = (ev: MouseEvent) => {
             if (!this._isResizingSidebar) return;
             if (!this._sidebarEl) return;
@@ -89,12 +92,12 @@ export class Editor extends HTMLElement {
         };
         const onMouseUp = () => {
             this._isResizingSidebar = false;
-            document.body.style.cursor = "";
-            window.removeEventListener("mousemove", onMouseMove);
-            window.removeEventListener("mouseup", onMouseUp);
+            if (this.app.mainWindow) this.app.mainWindow.style.cursor = "";
+            this.app.mainWindow?.removeEventListener("mousemove", onMouseMove);
+            this.app.mainWindow?.removeEventListener("mouseup", onMouseUp);
         };
-        window.addEventListener("mousemove", onMouseMove);
-        window.addEventListener("mouseup", onMouseUp);
+        this.app.mainWindow?.addEventListener("mousemove", onMouseMove);
+        this.app.mainWindow?.addEventListener("mouseup", onMouseUp);
     }
 
     connectedCallback(): void {
@@ -125,7 +128,7 @@ export class Editor extends HTMLElement {
         editingMaterial: Material,
         callback: (material: Material) => void,
     ) => {
-        let context = new MaterialDataContent(document, callback, editingMaterial);
+        const context = new MaterialDataContent(document, callback, editingMaterial);
         this._viewportContainer.append(new MaterialEditor(context));
     };
 

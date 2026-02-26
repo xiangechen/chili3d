@@ -2,27 +2,26 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    EdgeMeshData,
-    I18nKeys,
-    ICurve,
-    IDocument,
-    IEdge,
-    IEqualityComparer,
-    IShape,
-    IShapeMeshData,
-    ITrimmedCurve,
-    IWire,
-    LineType,
+    type EdgeMeshData,
+    type I18nKeys,
+    type ICurve,
+    type IDocument,
+    type IEdge,
+    type IEqualityComparer,
+    type IShape,
+    type IShapeMeshData,
+    type ITrimmedCurve,
+    type IWire,
+    type Line,
     Matrix4,
     Orientation,
     ParameterShapeNode,
-    Plane,
-    Ray,
+    type Plane,
     Result,
-    Serialized,
+    type Serialized,
     ShapeType,
-    XYZ,
-    XYZLike,
+    type XYZ,
+    type XYZLike,
 } from "chili-core";
 
 export class TestEdge implements IEdge {
@@ -88,7 +87,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    intersect(other: IEdge | Ray) {
+    intersect(other: IEdge | Line) {
         return [];
     }
     length(): number {
@@ -114,10 +113,11 @@ export class TestEdge implements IEdge {
                     this.end.z,
                 ]),
                 color: 0xff0000,
-                lineType: LineType.Solid,
+                lineType: "solid",
                 range: [],
             },
             faces: undefined,
+            vertexs: undefined,
         };
     }
     serialize(): Serialized {

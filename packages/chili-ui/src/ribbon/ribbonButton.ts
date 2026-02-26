@@ -4,33 +4,41 @@
 import { label, svg } from "chili-controls";
 import {
     ButtonSize,
-    Command,
-    CommandData,
-    CommandKeys,
+    type CommandData,
+    type CommandKeys,
+    CommandUtils,
+    Config,
     I18n,
-    I18nKeys,
-    IConverter,
+    type I18nKeys,
+    type IConverter,
     Localize,
     Logger,
     PubSub,
     Result,
+    ShortcutProfiles,
 } from "chili-core";
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {
+    #shortcut?: string;
+    get shortcut() {
+        return this.#shortcut;
+    }
+
     constructor(
-        display: I18nKeys,
+        readonly commandName: CommandKeys,
         icon: string,
         size: ButtonSize,
         readonly onClick: () => void,
+        display?: I18nKeys,
     ) {
         super();
-        this.initHTML(display, icon, size);
+        this.initHTML(display ?? `command.${commandName}`, icon, size);
         this.addEventListener("click", onClick);
     }
 
     static fromCommandName(commandName: CommandKeys, size: ButtonSize) {
-        const data = Command.getData(commandName);
+        const data = CommandUtils.getComandData(commandName);
         if (!data) {
             Logger.warn(`commandData of ${commandName} is undefined`);
             return undefined;
@@ -38,7 +46,8 @@ export class RibbonButton extends HTMLElement {
         if (data.toggle) {
             return new RibbonToggleButton(data, size);
         }
-        return new RibbonButton(`command.${data.key}`, data.icon, size, () => {
+
+        return new RibbonButton(data.key, data.icon, size, () => {
             PubSub.default.pub("executeCommand", commandName);
         });
     }
@@ -55,8 +64,28 @@ export class RibbonButton extends HTMLElement {
             className: size === ButtonSize.large ? style.largeButtonText : style.smallButtonText,
             textContent: new Localize(display),
         });
+
         I18n.set(this, "title", display);
+        this.updateShortcut();
+
         this.append(image, text);
+    }
+
+    updateShortcut() {
+        const shortcutData = ShortcutProfiles[Config.instance.navigation3D][this.commandName];
+        const shortcut = Array.isArray(shortcutData) ? shortcutData.join("; ") : shortcutData;
+
+        if (shortcut) {
+            if (this.#shortcut) {
+                this.title = this.title.replace(this.#shortcut, shortcut);
+            } else {
+                this.title += ` (${shortcut})`;
+            }
+            this.#shortcut = shortcut;
+        } else if (this.#shortcut) {
+            this.title = this.title.replace(this.#shortcut, "");
+            this.#shortcut = undefined;
+        }
     }
 }
 
@@ -74,7 +103,7 @@ class ToggleConverter implements IConverter {
 
 export class RibbonToggleButton extends RibbonButton {
     constructor(data: CommandData, size: ButtonSize) {
-        super(`command.${data.key}`, data.icon, size, () => {
+        super(data.key, data.icon, size, () => {
             PubSub.default.pub("executeCommand", data.key);
         });
 

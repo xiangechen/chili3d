@@ -2,17 +2,17 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    command,
     EditableShapeNode,
-    IEdge,
-    ITrimmedCurve,
-    ShapeNode,
+    type IEdge,
+    type ITrimmedCurve,
+    type ShapeNode,
     ShapeType,
     Transaction,
-    XYZ,
-    command,
+    type XYZ,
 } from "chili-core";
 import { Dimension } from "../../snap";
-import { IStep, PointOnCurveStep } from "../../step";
+import { type IStep, PointOnCurveStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -36,9 +36,11 @@ export class Break extends MultistepCommand {
             curve.setTrim(curve.firstParameter(), parameter);
             shape.update(curve);
 
+            const edge2 = this.document.application.shapeFactory.edge(curve2);
+
             const model = this.stepDatas[0].nodes![0] as ShapeNode;
             const model1 = new EditableShapeNode(this.document, `${model.name}_1`, shape);
-            const model2 = new EditableShapeNode(this.document, `${model.name}_2`, curve2.makeEdge());
+            const model2 = new EditableShapeNode(this.document, `${model.name}_2`, edge2);
             model1.transform = model.transform;
             model2.transform = model.transform;
             model.parent?.insertAfter(model, model1);
@@ -70,7 +72,7 @@ export class Break extends MultistepCommand {
             dimension: Dimension.D1,
             preview: (point: XYZ | undefined) => {
                 if (!point) return [];
-                let project = curve.project(point).at(0);
+                const project = curve.project(point).at(0);
                 return [this.meshPoint(project ?? point)];
             },
         };

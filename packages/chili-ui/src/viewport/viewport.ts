@@ -3,15 +3,19 @@
 
 import { collection, div, input, label, span, svg } from "chili-controls";
 import {
-    Act,
+    type Act,
     Binding,
-    CameraType,
+    type CameraType,
     DialogResult,
-    IConverter,
-    IView,
+    I18n,
+    type IConverter,
+    type IView,
     Localize,
     PubSub,
     Result,
+    type ViewMode,
+    ViewModeI18nKeys,
+    ViewModes,
 } from "chili-core";
 import { Flyout } from "./flyout";
 import style from "./viewport.module.css";
@@ -21,6 +25,17 @@ class CameraConverter implements IConverter<CameraType> {
 
     convert(value: CameraType): Result<string, string> {
         if (value === this.type) {
+            return Result.ok(style.actived);
+        }
+        return Result.ok("");
+    }
+}
+
+class ViewModeConverter implements IConverter<ViewMode> {
+    constructor(readonly mode: ViewMode) {}
+
+    convert(value: ViewMode): Result<string, string> {
+        if (value === this.mode) {
             return Result.ok(style.actived);
         }
         return Result.ok("");
@@ -66,6 +81,7 @@ export class Viewport extends HTMLElement {
                       this.createActionControls(),
                   )
                 : "",
+            this.createViewModeControl(),
         );
     }
 
@@ -202,6 +218,54 @@ export class Viewport extends HTMLElement {
         );
     }
 
+    private createViewModeControl() {
+        const label = span({
+            textContent: new Localize(ViewModeI18nKeys[this.view.mode]),
+        });
+        return div(
+            {
+                className: style.viewModeControl,
+            },
+            div(
+                {
+                    className: style.viewModeDisplay,
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        const target = e.currentTarget as HTMLElement;
+                        if (target.nextElementSibling instanceof HTMLElement) {
+                            target.nextElementSibling.classList.toggle(style.visible);
+                        }
+                    },
+                },
+                "[ ",
+                label,
+                " ]",
+            ),
+            div(
+                {
+                    className: style.viewModeMenu,
+                },
+                ...ViewModes.map((m) =>
+                    div({
+                        className: new Binding(this.view, "mode", new ViewModeConverter(m)),
+                        textContent: new Localize(ViewModeI18nKeys[m]),
+                        onclick: (e) => {
+                            e.stopPropagation();
+                            I18n.set(label, "textContent", ViewModeI18nKeys[m]);
+                            this.view.mode = m;
+                            this.view.update();
+
+                            const target = e.currentTarget as HTMLElement;
+                            if (target.parentElement instanceof HTMLElement) {
+                                target.parentElement.classList.remove(style.visible);
+                            }
+                        },
+                    }),
+                ),
+            ),
+        );
+    }
+
     connectedCallback() {
         this.initEvent();
         this.appendChild(this._flyout);
@@ -220,7 +284,7 @@ export class Viewport extends HTMLElement {
     }
 
     private initEvent() {
-        let events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
+        const events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
             ["pointerdown", this.pointerDown],
             ["pointermove", this.pointerMove],
             ["pointerout", this.pointerOut],
@@ -233,7 +297,7 @@ export class Viewport extends HTMLElement {
     }
 
     private addEventListenerHandler(type: keyof HTMLElementEventMap, handler: (view: IView, e: any) => any) {
-        let listener = (e: any) => {
+        const listener = (e: any) => {
             e.preventDefault();
             handler(this.view, e);
         };
@@ -253,8 +317,10 @@ export class Viewport extends HTMLElement {
             this._flyout.style.top = event.offsetY + "px";
             this._flyout.style.left = event.offsetX + "px";
         }
-        view.document.visual.eventHandler.pointerMove(view, event);
-        view.document.visual.viewHandler.pointerMove(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerMove(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerMove(view, event);
     };
 
     private readonly pointerDown = (view: IView, event: PointerEvent) => {
@@ -263,23 +329,31 @@ export class Viewport extends HTMLElement {
         }
 
         view.document.application.activeView = view;
-        view.document.visual.eventHandler.pointerDown(view, event);
-        view.document.visual.viewHandler.pointerDown(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerDown(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerDown(view, event);
     };
 
     private readonly pointerUp = (view: IView, event: PointerEvent) => {
-        view.document.visual.eventHandler.pointerUp(view, event);
-        view.document.visual.viewHandler.pointerUp(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerUp(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerUp(view, event);
     };
 
     private readonly pointerOut = (view: IView, event: PointerEvent) => {
-        view.document.visual.eventHandler.pointerOut?.(view, event);
-        view.document.visual.viewHandler.pointerOut?.(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.pointerOut?.(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.pointerOut?.(view, event);
     };
 
     private readonly mouseWheel = (view: IView, event: WheelEvent) => {
-        view.document.visual.eventHandler.mouseWheel?.(view, event);
-        view.document.visual.viewHandler.mouseWheel?.(view, event);
+        if (view.document.visual.eventHandler.isEnabled)
+            view.document.visual.eventHandler.mouseWheel?.(view, event);
+        if (view.document.visual.viewHandler.isEnabled)
+            view.document.visual.viewHandler.mouseWheel?.(view, event);
     };
 }
 

@@ -1,12 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDisposable, Result } from "../foundation";
-import { Matrix4, Plane, Ray, XYZ, XYZLike } from "../math";
-import { ICurve, ITrimmedCurve } from "./curve";
-import { EdgeMeshData, IShapeMeshData } from "./meshData";
-import { ShapeType } from "./shapeType";
-import { ISurface } from "./surface";
+import type { IDisposable, Result } from "../foundation";
+import type { Line, Matrix4, Plane, XYZ, XYZLike } from "../math";
+import type { ICurve, ITrimmedCurve } from "./curve";
+import type { EdgeMeshData, IShapeMeshData } from "./meshData";
+import type { ShapeType } from "./shapeType";
+import type { ISurface } from "./surface";
 
 export enum Orientation {
     FORWARD,
@@ -53,15 +53,19 @@ export interface ISubShape extends IShape {
     parent: IShape;
 }
 
+export interface ISubVertexShape extends ISubShape, IVertex {}
+
 export interface ISubEdgeShape extends ISubShape, IEdge {}
 
 export interface ISubFaceShape extends ISubShape, IFace {}
 
-export interface IVertex extends IShape {}
+export interface IVertex extends IShape {
+    point(): XYZ;
+}
 
 export interface IEdge extends IShape {
     update(curve: ICurve): void;
-    intersect(other: IEdge | Ray): { parameter: number; point: XYZ }[];
+    intersect(other: IEdge | Line): { parameter: number; point: XYZ }[];
     length(): number;
     get curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EditableShapeNode, PubSub, ShapeType, Transaction, command } from "chili-core";
+import { command, EditableShapeNode, PubSub, ShapeType, ShapeTypeUtils, Transaction } from "chili-core";
 import { SelectShapeStep } from "../../step/selectStep";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -16,13 +16,13 @@ export class CopySubShapeCommand extends MultistepCommand {
                 const subShape = x.shape.clone();
                 const model = new EditableShapeNode(
                     this.document,
-                    ShapeType.stringValue(subShape.shapeType),
+                    ShapeTypeUtils.stringValue(subShape.shapeType),
                     subShape,
                 );
 
                 const node = x.owner.node;
                 model.transform = node.transform;
-                node.parent!.insertAfter(node, model);
+                node.parent?.insertAfter(node, model);
             });
             this.document.visual.update();
             PubSub.default.pub("showToast", "toast.success");

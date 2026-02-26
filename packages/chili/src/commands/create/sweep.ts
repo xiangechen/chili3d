@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, IWire, Property, ShapeType, command } from "chili-core";
+import { command, type GeometryNode, type IWire, property, ShapeType } from "chili-core";
 import { SweepedNode } from "../../bodys";
-import { IStep } from "../../step";
+import type { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
@@ -12,7 +12,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-sweep",
 })
 export class Sweep extends CreateCommand {
-    @Property.define("option.command.isRoundCorner")
+    @property("option.command.isRoundCorner")
     get round() {
         return this.getPrivateValue("round", false);
     }

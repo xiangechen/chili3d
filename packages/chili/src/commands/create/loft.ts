@@ -5,12 +5,15 @@ import {
     AsyncController,
     CancelableCommand,
     Combobox,
-    command,
     Continuity,
+    command,
     EditableShapeNode,
-    IShape,
-    Property,
+    type IEdge,
+    type IShape,
+    type IVertex,
+    type IWire,
     PubSub,
+    property,
     Result,
     ShapeType,
 } from "chili-core";
@@ -26,7 +29,7 @@ export class LoftCommand extends CancelableCommand {
     private shape: Result<IShape> = Result.err("None shape");
     private readonly _continuity = this.initContinuties();
 
-    @Property.define("option.command.isSolid")
+    @property("option.command.isSolid")
     get isSolid() {
         return this.getPrivateValue("isSolid", false);
     }
@@ -36,7 +39,7 @@ export class LoftCommand extends CancelableCommand {
         });
     }
 
-    @Property.define("option.command.isRuled")
+    @property("option.command.isRuled")
     get isRuled() {
         return this.getPrivateValue("isRuled", false);
     }
@@ -46,7 +49,7 @@ export class LoftCommand extends CancelableCommand {
         });
     }
 
-    @Property.define("option.command.continuity", {
+    @property("option.command.continuity", {
         dependencies: [
             {
                 property: "isRuled",
@@ -58,7 +61,7 @@ export class LoftCommand extends CancelableCommand {
         return this._continuity;
     }
 
-    @Property.define("common.confirm")
+    @property("common.confirm")
     readonly confirm = () => {
         this.controller?.success();
     };
@@ -78,7 +81,7 @@ export class LoftCommand extends CancelableCommand {
 
         try {
             while (true) {
-                let data = await this.selectSection();
+                const data = await this.selectSection();
                 if (data === undefined) {
                     if (this.controller?.result?.status === "success") {
                         break;
@@ -91,7 +94,7 @@ export class LoftCommand extends CancelableCommand {
                 this.displayVisual();
             }
 
-            this.document.addNode(new EditableShapeNode(this.document, "loft", this.shape));
+            this.document.modelManager.addNode(new EditableShapeNode(this.document, "loft", this.shape));
         } finally {
             this._continuity.removePropertyChanged(this.handleContinuityChange);
             this.clearVisual();
@@ -126,7 +129,7 @@ export class LoftCommand extends CancelableCommand {
             return false;
         }
         this.shape = this.document.application.shapeFactory.loft(
-            this.shapes,
+            this.shapes as (IVertex | IEdge | IWire)[],
             this.isSolid,
             this.isRuled,
             this.continuity.selectedIndex,

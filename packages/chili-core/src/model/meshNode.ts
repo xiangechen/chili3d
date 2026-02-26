@@ -1,23 +1,23 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "../document";
+import type { IDocument } from "../document";
 import { Id } from "../foundation";
-import { I18nKeys } from "../i18n";
+import type { I18nKeys } from "../i18n";
 import { BoundingBox } from "../math";
-import { Property } from "../property";
-import { Serializer } from "../serialize";
-import { Mesh } from "../shape";
+import { property } from "../property";
+import { serializable, serialze } from "../serialize";
+import type { Mesh } from "../shape";
 import { VisualNode } from "./visualNode";
 
-@Serializer.register(["document", "mesh", "name", "id"])
+@serializable(["document", "mesh", "name", "id"])
 export class MeshNode extends VisualNode {
     override display(): I18nKeys {
         return "body.meshNode";
     }
 
-    @Serializer.serialze()
-    @Property.define("common.material", { type: "materialId" })
+    @serialze()
+    @property("common.material", { type: "materialId" })
     get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
     }
@@ -26,7 +26,7 @@ export class MeshNode extends VisualNode {
     }
 
     protected _mesh: Mesh;
-    @Serializer.serialze()
+    @serialze()
     get mesh(): Mesh {
         return this._mesh;
     }
@@ -43,11 +43,11 @@ export class MeshNode extends VisualNode {
     ) {
         super(document, name, id);
         this._mesh = mesh;
-        this.setPrivateValue("materialId", materialId ?? document.materials.at(0)?.id ?? "");
+        this.setPrivateValue("materialId", materialId ?? document.modelManager.materials.at(0)?.id ?? "");
     }
 
     override boundingBox(): BoundingBox | undefined {
-        let points = this.transform.ofPoints(this.mesh.position!);
+        const points = this.transform.ofPoints(this.mesh.position!);
         return BoundingBox.fromNumbers(points);
     }
 }

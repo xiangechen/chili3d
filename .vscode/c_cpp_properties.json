@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": ["${workspaceFolder}/**"],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "compilerPath": "/usr/bin/clang",
+            "intelliSenseMode": "macos-clang-arm64"
+        },
+        {
+            "name": "Linux",
+            "includePath": ["${workspaceFolder}/**"],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "Win32",
+            "includePath": ["${workspaceFolder}/**"],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "compilerPath": "${default}",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "enableConfigurationSquiggles": true,
+    "version": 4
+}

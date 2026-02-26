@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument, IView, VisualConfig } from "chili-core";
+import { type IDocument, type IView, VisualConfig } from "chili-core";
 import { ViewUtils } from "chili-vis";
-import { SnapResult } from "..";
+import type { SnapResult } from "..";
 import { Axis } from "./axis";
 import { TrackingBase } from "./trackingBase";
 
@@ -35,8 +35,8 @@ export class ObjectTracking extends TrackingBase {
     getTrackingRays(view: IView) {
         const result: ObjectTrackingAxis[] = [];
         this.trackings.get(view.document)?.map((x) => {
-            let plane = ViewUtils.ensurePlane(view, view.workplane);
-            let axes = Axis.getAxiesAtPlane(x.snap.point!, plane, this.trackingZ);
+            const plane = ViewUtils.ensurePlane(view, view.workplane);
+            const axes = Axis.getAxiesAtPlane(x.snap.point!, plane, this.trackingZ);
             result.push({ axes, objectName: x.snap.info });
         });
         return result;

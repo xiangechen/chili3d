@@ -1,0 +1,9 @@
+{
+    "name": "chili-i18n",
+    "version": "0.6.1",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "chili-core": "*"
+    }
+}

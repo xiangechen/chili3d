@@ -4,27 +4,26 @@
 import {
     AsyncController,
     BoundingBox,
-    command,
     Component,
     ComponentNode,
+    command,
     GeometryNode,
-    LineType,
+    Line,
     MathUtils,
     Matrix4,
     MeshNode,
     Plane,
     PlaneAngle,
     Precision,
-    Property,
     PubSub,
-    Ray,
-    ShapeMeshData,
+    property,
+    type ShapeMeshData,
     Transaction,
     VisualNode,
     XYZ,
 } from "chili-core";
-import { Dimension, PointSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, IStep, LengthAtPlaneStep, PointOnAxisStep, PointStep } from "../../step";
+import { Dimension, type PointSnapData, type SnapLengthAtPlaneData } from "../../snap";
+import { AngleStep, type IStep, LengthAtPlaneStep, PointOnAxisStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
@@ -37,7 +36,7 @@ export class ArrayCommand extends MultistepCommand {
     protected models?: VisualNode[];
     protected positions?: number[];
 
-    @Property.define("common.isGroup")
+    @property("common.isGroup")
     get isGroup() {
         return this.getPrivateValue("isGroup", true);
     }
@@ -45,7 +44,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("isGroup", value);
     }
 
-    @Property.define("option.command.circularPattern")
+    @property("option.command.circularPattern")
     get circularPattern() {
         return this.getPrivateValue("circularPattern", false);
     }
@@ -55,7 +54,7 @@ export class ArrayCommand extends MultistepCommand {
         });
     }
 
-    @Property.define("common.count", {
+    @property("common.count", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -70,7 +69,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("count", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberX", {
+    @property("common.numberX", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -85,7 +84,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("numberX", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberY", {
+    @property("common.numberY", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -100,7 +99,7 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("numberY", value, () => this.resetMesh());
     }
 
-    @Property.define("common.numberZ", {
+    @property("common.numberZ", {
         dependencies: [
             {
                 property: "circularPattern",
@@ -183,7 +182,7 @@ export class ArrayCommand extends MultistepCommand {
 
         this._meshId = this.document.visual.context.displayLineSegments({
             position: positions,
-            lineType: LineType.Solid,
+            lineType: "solid",
             range: [],
         });
     }
@@ -348,7 +347,7 @@ export class ArrayCommand extends MultistepCommand {
         return {
             ray,
             validator: (p: XYZ) => {
-                return ray.location.distanceTo(p) > Precision.Distance;
+                return ray.point.distanceTo(p) > Precision.Distance;
             },
             preview: (p: XYZ | undefined) => {
                 if (!p) {
@@ -395,8 +394,8 @@ export class ArrayCommand extends MultistepCommand {
 
         const ray =
             index === 2
-                ? new Ray(this.stepDatas[1].point!, yvec)
-                : new Ray(this.stepDatas[1].point!, normal);
+                ? new Line(this.stepDatas[1].point!, yvec)
+                : new Line(this.stepDatas[1].point!, normal);
         return { ray, yvec, normal, xvec };
     }
 
@@ -406,12 +405,12 @@ export class ArrayCommand extends MultistepCommand {
         Transaction.execute(this.document, "Array", () => {
             if (this.isGroup) {
                 const component = new Component("Array", nodes);
-                this.document.components.push(component);
-                this.document.addNode(
+                this.document.modelManager.components.push(component);
+                this.document.modelManager.addNode(
                     new ComponentNode(this.document, "Array", component.id, component.origin),
                 );
             } else {
-                this.document.addNode(...nodes);
+                this.document.modelManager.addNode(...nodes);
             }
             this.models?.forEach((model) => {
                 model.parent?.remove(model);

@@ -8,10 +8,10 @@ import {
     command,
     download,
     I18n,
-    IApplication,
-    ICommand,
-    Property,
+    type IApplication,
+    type ICommand,
     PubSub,
+    property,
     readFilesAsync,
 } from "chili-core";
 import { SelectNodeStep } from "../step";
@@ -38,7 +38,7 @@ export class Import implements ICommand {
     icon: "icon-export",
 })
 export class Export extends CancelableCommand {
-    @Property.define("file.format")
+    @property("file.format")
     public get formats() {
         return this.getPrivateValue("formats", this.initCombobox());
     }
@@ -70,9 +70,9 @@ export class Export extends CancelableCommand {
 
                 let suffix = format;
 
-                if (suffix == ".stl binary") {
+                if (suffix === ".stl binary") {
                     suffix = ".stl";
-                } else if (suffix == ".ply binary") {
+                } else if (suffix === ".ply binary") {
                     suffix = ".ply";
                 }
 

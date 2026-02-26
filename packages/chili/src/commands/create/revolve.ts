@@ -2,19 +2,19 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    GeometryNode,
-    ICurve,
-    IEdge,
-    ILine,
-    IShape,
-    IShapeFilter,
-    Property,
-    Ray,
-    ShapeType,
+    CurveUtils,
     command,
+    type GeometryNode,
+    type IEdge,
+    type ILine,
+    type IShape,
+    type IShapeFilter,
+    Line,
+    property,
+    ShapeType,
 } from "chili-core";
 import { RevolvedNode } from "../../bodys";
-import { IStep } from "../../step";
+import type { IStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
@@ -23,7 +23,7 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-revolve",
 })
 export class Revolve extends CreateCommand {
-    @Property.define("common.angle")
+    @property("common.angle")
     public get angle() {
         return this.getPrivateValue("angle", 360);
     }
@@ -35,7 +35,7 @@ export class Revolve extends CreateCommand {
         const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
         const transform = this.stepDatas[1].shapes[0].transform;
-        const axis = new Ray(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
+        const axis = new Line(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
         return new RevolvedNode(this.document, shape, axis, this.angle);
     }
 
@@ -53,9 +53,9 @@ export class Revolve extends CreateCommand {
 class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
         if (shape.shapeType === ShapeType.Edge) {
-            let edge = shape as IEdge;
-            let curve = edge.curve.basisCurve;
-            return ICurve.isLine(curve);
+            const edge = shape as IEdge;
+            const curve = edge.curve.basisCurve;
+            return CurveUtils.isLine(curve);
         }
         return false;
     }

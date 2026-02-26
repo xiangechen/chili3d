@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, IDocument, IEventHandler, IView } from "chili-core";
+import type { AsyncController, IDocument, IEventHandler, IView } from "chili-core";
 
 const MOUSE_MIDDLE = 4;
 
@@ -28,6 +28,8 @@ export abstract class SelectionHandler implements IEventHandler {
     protected showRect = true;
     protected mouse = { isDown: false, x: 0, y: 0 };
     protected readonly pointerEventMap: Map<number, PointerEvent> = new Map();
+
+    isEnabled = true;
 
     constructor(
         readonly document: IDocument,
@@ -84,7 +86,7 @@ export abstract class SelectionHandler implements IEventHandler {
     private initRect(event: PointerEvent): SelectionRect {
         const rect = document.createElement("div");
         rect.style.cssText = SelectionRectStyle;
-        document.body.appendChild(rect);
+        this.document.application.mainWindow?.appendChild(rect);
         return { element: rect, clientX: event.clientX, clientY: event.clientY };
     }
 

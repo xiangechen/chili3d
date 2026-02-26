@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { button, div } from "chili-controls";
-import { DialogResult, I18n, I18nKeys } from "chili-core";
+import { DialogResult, I18n, type I18nKeys } from "chili-core";
 import style from "./dialog.module.css";
 
 export class Dialog {

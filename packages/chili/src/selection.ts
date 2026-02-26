@@ -2,16 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
-    CursorType,
-    I18nKeys,
-    IDisposable,
-    IDocument,
-    IEventHandler,
-    INode,
-    INodeFilter,
-    ISelection,
-    IShapeFilter,
+    type AsyncController,
+    type CursorType,
+    type I18nKeys,
+    type IDisposable,
+    type IDocument,
+    type IEventHandler,
+    type INode,
+    type INodeFilter,
+    type ISelection,
+    type IShapeFilter,
     Logger,
     PubSub,
     ShapeNode,
@@ -71,19 +71,22 @@ export class Selection implements ISelection, IDisposable {
         PubSub.default.pub("statusBarTip", prompt);
         if (showControl) PubSub.default.pub("showSelectionControl", controller);
 
-        try {
-            await new Promise((resolve, reject) => {
-                controller.onCompleted(resolve);
-                controller.onCancelled(reject);
+        await Promise.try(
+            () =>
+                new Promise((resolve, reject) => {
+                    controller.onCompleted(resolve);
+                    controller.onCancelled(reject);
+                }),
+        )
+            .catch((e) => {
+                Logger.debug("pick status: ", e);
+            })
+            .finally(() => {
+                if (showControl) PubSub.default.pub("clearSelectionControl");
+                PubSub.default.pub("clearStatusBarTip");
+                this.document.visual.eventHandler = oldHandler;
+                PubSub.default.pub("viewCursor", "default");
             });
-        } catch (e) {
-            Logger.debug("pick status: ", e);
-        } finally {
-            if (showControl) PubSub.default.pub("clearSelectionControl");
-            PubSub.default.pub("clearStatusBarTip");
-            this.document.visual.eventHandler = oldHandler;
-            PubSub.default.pub("viewCursor", "default");
-        }
     }
 
     dispose(): void {
@@ -108,7 +111,7 @@ export class Selection implements ISelection, IDisposable {
 
     private readonly shapeNodeFilter = (x: INode) => {
         if (x instanceof ShapeNode) {
-            let shape = x.shape.value;
+            const shape = x.shape.value;
             if (!shape || !this.shapeFilter) return true;
             return this.shapeFilter.allow(shape);
         }
@@ -159,7 +162,7 @@ export class Selection implements ISelection, IDisposable {
     private removeSelectedPublish(nodes: INode[], publish: boolean) {
         for (const node of nodes) {
             if (node instanceof VisualNode) {
-                let visual = this.document.visual.context.getVisual(node);
+                const visual = this.document.visual.context.getVisual(node);
                 if (visual)
                     this.document.visual.highlighter.removeState(
                         visual,

@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryNode, IShape, Precision, ShapeType, command } from "chili-core";
+import { command, type GeometryNode, type IShape, Precision, ShapeType } from "chili-core";
 import { GeoUtils } from "chili-geo";
 import { PrismNode } from "../../bodys";
-import { LengthAtAxisSnapData } from "../../snap";
-import { IStep, LengthAtAxisStep } from "../../step";
+import type { LengthAtAxisSnapData } from "../../snap";
+import { type IStep, LengthAtAxisStep } from "../../step";
 import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 

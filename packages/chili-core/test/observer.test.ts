@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { DeepObserver, IPropertyChanged, Observable } from "../src";
+import { DeepObserver, type IPropertyChanged, Observable } from "../src";
 
 class TestClassA extends Observable {
     get propA() {
@@ -45,7 +45,7 @@ class TestClassC extends Observable {
 }
 
 test("test observer", () => {
-    let t = new TestClassA();
+    const t = new TestClassA();
     t.onPropertyChanged((p, s, o) => {
         expect(p).toBe("propA");
         expect(s[p]).toBe(2);
@@ -54,7 +54,7 @@ test("test observer", () => {
 });
 
 test("deep observer", () => {
-    let c = new TestClassC();
+    const c = new TestClassC();
     let targetProperty: string | undefined;
     const onPropertyChanged = (p: string, s: IPropertyChanged, o: any) => {
         targetProperty = p;
@@ -71,7 +71,7 @@ test("deep observer", () => {
     a.propA = 3;
     expect(targetProperty).toBe("propC");
 
-    let b = new TestClassB();
+    const b = new TestClassB();
     c.propC = b;
     expect(targetProperty).toBe("propC");
     b.propB = a;

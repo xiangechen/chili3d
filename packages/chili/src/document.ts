@@ -2,45 +2,31 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Act,
-    CollectionAction,
-    CollectionChangedArgs,
-    Component,
+    type Act,
     Constants,
-    FolderNode,
     History,
     I18n,
-    IApplication,
-    IDocument,
-    INode,
-    INodeChangedObserver,
-    INodeLinkedList,
-    ISelection,
-    IVisual,
+    type IApplication,
+    type IDocument,
     Id,
+    type ISelection,
+    type IVisual,
     Logger,
-    Material,
-    NodeLinkedListHistoryRecord,
-    NodeRecord,
-    NodeSerializer,
+    ModelManager,
     Observable,
     ObservableCollection,
     PubSub,
-    Serialized,
+    type Serialized,
     Serializer,
-    Transaction,
 } from "chili-core";
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
-    readonly components: Component[] = [];
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
     readonly acts = new ObservableCollection<Act>();
-    readonly materials: ObservableCollection<Material> = new ObservableCollection();
-
-    private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
+    readonly modelManager: ModelManager;
 
     static readonly version = __DOCUMENT_VERSION__;
 
@@ -50,34 +36,7 @@ export class Document extends Observable implements IDocument {
     set name(name: string) {
         if (this.name === name) return;
         this.setProperty("name", name);
-        if (this._rootNode) this._rootNode.name = name;
-    }
-
-    private _rootNode: INodeLinkedList | undefined;
-    @Serializer.serialze()
-    get rootNode(): INodeLinkedList {
-        if (this._rootNode === undefined) {
-            this.setRootNode(this.initRootNode());
-        }
-        return this._rootNode!;
-    }
-    set rootNode(value: INodeLinkedList) {
-        this.setRootNode(value);
-    }
-
-    private setRootNode(value?: INodeLinkedList) {
-        if (this._rootNode === value) return;
-        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode = value ?? new FolderNode(this, this.name);
-        this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
-    }
-
-    private _currentNode?: INodeLinkedList;
-    get currentNode(): INodeLinkedList | undefined {
-        return this._currentNode;
-    }
-    set currentNode(value: INodeLinkedList | undefined) {
-        this.setProperty("currentNode", value);
+        if (this.modelManager.rootNode) this.modelManager.rootNode.name = name;
     }
 
     constructor(
@@ -87,35 +46,23 @@ export class Document extends Observable implements IDocument {
     ) {
         super();
         this.setPrivateValue("name", name);
+        this.modelManager = new ModelManager(this);
         this.history = new History();
         this.visual = application.visualFactory.create(this);
         this.selection = new Selection(this);
-        this.materials.onCollectionChanged(this.handleMaterialChanged);
         application.documents.add(this);
 
         Logger.info(`new document: ${name}`);
     }
 
-    private readonly handleRootNodeNameChanged = (prop: string) => {
-        if (prop === "name") {
-            this.name = this.rootNode.name;
-        }
-    };
-
-    initRootNode() {
-        return new FolderNode(this, this.name);
-    }
-
     serialize(): Serialized {
-        let serialized = {
+        const serialized = {
             classKey: "Document",
             version: __DOCUMENT_VERSION__,
             properties: {
                 id: this.id,
                 name: this.name,
-                components: this.components.map((x) => Serializer.serializeObject(x)),
-                nodes: NodeSerializer.serialize(this.rootNode),
-                materials: this.materials.map((x) => Serializer.serializeObject(x)),
+                models: this.modelManager.serialize(),
                 acts: this.acts.map((x) => Serializer.serializeObject(x)),
             },
         };
@@ -124,19 +71,13 @@ export class Document extends Observable implements IDocument {
 
     override disposeInternal(): void {
         super.disposeInternal();
-        this._nodeChangedObservers.clear();
-        this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode?.dispose();
+
+        this.modelManager.dispose();
         this.visual.dispose();
         this.history.dispose();
         this.selection.dispose();
-        this.materials.forEach((x) => x.dispose());
-        this.materials.clear();
         this.acts.forEach((x) => x.dispose());
         this.acts.clear();
-
-        this._rootNode = undefined;
-        this._currentNode = undefined;
     }
 
     async save() {
@@ -156,11 +97,11 @@ export class Document extends Observable implements IDocument {
             await this.save();
         }
 
-        let views = this.application.views.filter((x) => x.document === this);
+        const views = this.application.views.filter((x) => x.document === this);
         this.application.views.remove(...views);
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
-        this.materials.removeCollectionChanged(this.handleMaterialChanged);
+
         PubSub.default.pub("documentClosed", this);
 
         Logger.info(`document: ${this.name} closed`);
@@ -168,7 +109,7 @@ export class Document extends Observable implements IDocument {
     }
 
     static async open(application: IApplication, id: string) {
-        let data = (await application.storage.get(
+        const data = (await application.storage.get(
             Constants.DBName,
             Constants.DocumentTable,
             id,
@@ -177,7 +118,7 @@ export class Document extends Observable implements IDocument {
             Logger.warn(`document: ${id} not find`);
             return;
         }
-        let document = await this.load(application, data);
+        const document = await Document.load(application, data);
         if (document !== undefined) {
             Logger.info(`document: ${document.name} opened`);
         }
@@ -191,60 +132,14 @@ export class Document extends Observable implements IDocument {
             );
             return undefined;
         }
-        let document = new Document(app, data.properties["name"], data.properties["id"]);
+        const document = new Document(app, data.properties["name"], data.properties["id"]);
         document.history.disabled = true;
-        document.materials.push(
-            ...data.properties["materials"].map((x: Serialized) =>
-                Serializer.deserializeObject(document, x),
-            ),
-        );
         document.acts.push(
             ...data.properties["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)),
         );
-        document.components.push(
-            ...data.properties["components"].map((x: Serialized) =>
-                Serializer.deserializeObject(document, x),
-            ),
-        );
 
-        const rootNode = await NodeSerializer.deserialize(document, data.properties["nodes"]);
-        document.setRootNode(rootNode);
+        await document.modelManager.deserialize(data.properties["models"]);
         document.history.disabled = false;
         return document;
-    }
-
-    private readonly handleMaterialChanged = (args: CollectionChangedArgs) => {
-        if (args.action === CollectionAction.add) {
-            Transaction.add(this, {
-                name: "MaterialChanged",
-                dispose() {},
-                undo: () => this.materials.remove(...args.items),
-                redo: () => this.materials.push(...args.items),
-            });
-        } else if (args.action === CollectionAction.remove) {
-            Transaction.add(this, {
-                name: "MaterialChanged",
-                dispose() {},
-                undo: () => this.materials.push(...args.items),
-                redo: () => this.materials.remove(...args.items),
-            });
-        }
-    };
-
-    addNodeObserver(observer: INodeChangedObserver) {
-        this._nodeChangedObservers.add(observer);
-    }
-
-    removeNodeObserver(observer: INodeChangedObserver) {
-        this._nodeChangedObservers.delete(observer);
-    }
-
-    notifyNodeChanged(records: NodeRecord[]) {
-        Transaction.add(this, new NodeLinkedListHistoryRecord(records));
-        this._nodeChangedObservers.forEach((x) => x.handleNodeChanged(records));
-    }
-
-    addNode(...nodes: INode[]): void {
-        (this.currentNode ?? this.rootNode).add(...nodes);
     }
 }

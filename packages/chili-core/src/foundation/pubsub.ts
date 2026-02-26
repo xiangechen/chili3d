@@ -1,17 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CommandKeys, ICommand } from "../command";
-import { IDocument } from "../document";
-import { I18nKeys } from "../i18n";
-import { Material } from "../material";
-import { INode } from "../model";
-import { DialogResult } from "../ui";
-import { CursorType, IView } from "../visual";
-import { AsyncController } from "./asyncController";
-import { IDisposable } from "./disposable";
-import { MessageType } from "./messageType";
-import { Result } from "./result";
+import type { CommandKeys, ICommand } from "../command";
+import type { IDocument } from "../document";
+import type { I18nKeys } from "../i18n";
+import type { Material } from "../material";
+import type { INode } from "../model";
+import type { DialogResult } from "../ui";
+import type { CursorType, IView } from "../visual";
+import type { AsyncController } from "./asyncController";
+import type { IDisposable } from "./disposable";
+import type { MessageType } from "./messageType";
+import type { Result } from "./result";
 
 export interface PubSubEventMap {
     activeViewChanged: (view: IView | undefined) => void;
@@ -48,27 +48,45 @@ type EventMap = Map<keyof PubSubEventMap, Set<EventCallback>>;
 export class PubSub implements IDisposable {
     static readonly default = new PubSub();
     private readonly events: EventMap = new Map();
+    private isDisposed = false;
 
     dispose(): void {
+        this.isDisposed = true;
         this.events.forEach((callbacks) => callbacks.clear());
         this.events.clear();
     }
 
     sub<K extends keyof PubSubEventMap>(event: K, callback: PubSubEventMap[K]): void {
+        if (this.isDisposed) {
+            return;
+        }
+
         const callbacks = this.events.get(event) ?? new Set<EventCallback>();
         callbacks.add(callback);
         this.events.set(event, callbacks);
     }
 
     pub<K extends keyof PubSubEventMap>(event: K, ...args: Parameters<PubSubEventMap[K]>): void {
+        if (this.isDisposed) {
+            return;
+        }
+
         this.events.get(event)?.forEach((callback) => callback(...args));
     }
 
     remove<K extends keyof PubSubEventMap>(event: K, callback: PubSubEventMap[K]): void {
+        if (this.isDisposed) {
+            return;
+        }
+
         this.events.get(event)?.delete(callback);
     }
 
     removeAll<K extends keyof PubSubEventMap>(event: K): void {
+        if (this.isDisposed) {
+            return;
+        }
+
         this.events.get(event)?.clear();
     }
 }

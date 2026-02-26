@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
+import type {
     AsyncController,
     I18nKeys,
     IDocument,
@@ -11,8 +11,8 @@ import {
     ShapeType,
     VisualState,
 } from "chili-core";
-import { SnapResult } from "../snap";
-import { IStep } from "./step";
+import type { SnapResult } from "../snap";
+import type { IStep } from "./step";
 
 export interface SelectShapeOptions {
     multiple?: boolean;
@@ -45,23 +45,19 @@ export abstract class SelectStep implements IStep {
             document.selection.clearSelection();
             document.visual.highlighter.clear();
         }
-        try {
-            return await this.select(document, controller);
-        } finally {
+
+        return Promise.try(this.select.bind(this), document, controller).finally(() => {
             document.selection.shapeType = shapeType;
             document.selection.shapeFilter = shapeFilter;
             document.selection.nodeFilter = nodeFilter;
-        }
+        });
     }
 
     abstract select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
 }
 
 export class SelectShapeStep extends SelectStep {
-    override async select(
-        document: IDocument,
-        controller: AsyncController,
-    ): Promise<SnapResult | undefined> {
+    override async select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const shapes = await document.selection.pickShape(
             this.prompt,
             controller,
@@ -91,7 +87,8 @@ export class SelectNodeStep implements IStep {
             document.selection.clearSelection();
             document.visual.highlighter.clear();
         }
-        try {
+
+        return Promise.try(async () => {
             const nodes = await document.selection.pickNode(
                 this.prompt,
                 controller,
@@ -103,9 +100,9 @@ export class SelectNodeStep implements IStep {
                 shapes: [],
                 nodes,
             };
-        } finally {
+        }).finally(() => {
             document.selection.nodeFilter = nodeFilter;
-        }
+        });
     }
 }
 

@@ -1,15 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, collection, ColorConverter, div, span, UrlStringConverter } from "chili-controls";
+import { button, ColorConverter, collection, div, span, UrlStringConverter } from "chili-controls";
 import {
     Binding,
-    IDocument,
+    type IDocument,
     Localize,
-    Material,
+    type Material,
     ObservableCollection,
     PathBinding,
-    Property,
+    type Property,
     PubSub,
     Transaction,
 } from "chili-core";
@@ -75,7 +75,7 @@ export class MaterialProperty extends PropertyBase {
     }
 
     private materialCollection(id: string | string[]) {
-        const findMaterial = (id: string) => this.document.materials.find((m) => m.id === id);
+        const findMaterial = (id: string) => this.document.modelManager.materials.find((m) => m.id === id);
         const materials = Array.isArray(id)
             ? id.map(findMaterial).filter(Boolean)
             : [findMaterial(id)].filter(Boolean);

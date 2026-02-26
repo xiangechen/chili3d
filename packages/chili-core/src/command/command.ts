@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IApplication } from "../application";
-import { AsyncController, IDisposable, Observable, PubSub } from "../foundation";
-import { Property } from "../property";
+import type { IApplication } from "../application";
+import { type AsyncController, type IDisposable, Observable, PubSub } from "../foundation";
+import { type Property, PropertyUtils, property } from "../property";
 
 export interface ICommand {
     execute(application: IApplication): Promise<void>;
@@ -13,14 +13,12 @@ export interface ICanclableCommand extends ICommand, IDisposable {
     cancel(): Promise<void>;
 }
 
-export namespace ICommand {
-    export function isCancelableCommand(command: ICommand): command is ICanclableCommand {
-        return "cancel" in command;
-    }
+export function isCancelableCommand(command: ICommand): command is ICanclableCommand {
+    return "cancel" in command;
 }
 
 export abstract class CancelableCommand extends Observable implements ICanclableCommand {
-    private static readonly _propertiesCache: Map<string, any> = new Map(); // 所有命令共享
+    private static readonly _propertiesCache: Map<string, any> = new Map();
     protected readonly disposeStack: Set<IDisposable> = new Set();
 
     private _isCompleted: boolean = false;
@@ -55,7 +53,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         this.#controller = value;
     }
 
-    @Property.define("common.cancel")
+    @property("common.cancel")
     async cancel() {
         this._isCanceled = true;
 
@@ -65,7 +63,7 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         }
     }
 
-    @Property.define("option.command.repeat")
+    @property("option.command.repeat")
     get repeatOperation() {
         return this.getPrivateValue("repeatOperation", false);
     }
@@ -85,7 +83,8 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     async execute(application: IApplication): Promise<void> {
         if (!application.activeView?.document) return;
         this._application = application;
-        try {
+
+        await Promise.try(async () => {
             this.beforeExecute();
 
             await this.executeAsync();
@@ -96,9 +95,9 @@ export abstract class CancelableCommand extends Observable implements ICanclable
                 this.onRestarting();
                 await this.executeAsync();
             }
-        } finally {
+        }).finally(() => {
             this.afterExecute();
-        }
+        });
     }
 
     protected checkCanceled() {
@@ -130,8 +129,8 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     private readProperties() {
-        Property.getProperties(this).forEach((x) => {
-            let key = this.cacheKeyOfProperty(x);
+        PropertyUtils.getProperties(this).forEach((x) => {
+            const key = this.cacheKeyOfProperty(x);
             if (CancelableCommand._propertiesCache.has(key)) {
                 this.setPrivateValue(key as keyof this, CancelableCommand._propertiesCache.get(key));
             }
@@ -139,9 +138,9 @@ export abstract class CancelableCommand extends Observable implements ICanclable
     }
 
     private saveProperties() {
-        Property.getProperties(this).forEach((x) => {
-            let key = this.cacheKeyOfProperty(x);
-            let prop = (this as any)[key];
+        PropertyUtils.getProperties(this).forEach((x) => {
+            const key = this.cacheKeyOfProperty(x);
+            const prop = (this as any)[key];
             if (typeof prop === "function") return;
             CancelableCommand._propertiesCache.set(key, prop);
         });

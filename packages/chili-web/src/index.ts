@@ -2,11 +2,23 @@
 // See LICENSE file in the project root for full license information.
 
 import { AppBuilder } from "chili-builder";
-import { Logger } from "chili-core";
+import { type IApplication, Logger } from "chili-core";
 import { Loading } from "./loading";
 
-let loading = new Loading();
+const loading = new Loading();
 document.body.appendChild(loading);
+
+async function handleApplicaionBuilt(app: IApplication) {
+    document.body.removeChild(loading);
+
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get("url") ?? params.get("model");
+    if (url) {
+        Logger.info(`load file from url: ${url}`);
+
+        await app.loadFileFromUrl(url);
+    }
+}
 
 // prettier-ignore
 new AppBuilder()
@@ -15,9 +27,7 @@ new AppBuilder()
     .useThree()
     .useUI()
     .build()
-    .then(x => {
-        document.body.removeChild(loading)
-    })
+    .then(handleApplicaionBuilt)
     .catch((err) => {
-        Logger.error(err);
+        alert(err.message);
     });

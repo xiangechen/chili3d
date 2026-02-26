@@ -1,20 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config } from "../config";
-import en from "./en";
-import { I18nKeys } from "./keys";
-import zh from "./zh-cn";
-import ptBr from "./pt-br";
+import type { I18nKeys } from "./keys";
 
 const I18nId = "chili18n";
 const I18nArgs = new WeakMap<HTMLElement, any[]>();
 
-export type LanguageCode = "zh-CN" | "en" | "pt-BR";
-
 export type Locale = {
     display: string;
-    code: LanguageCode;
+    language: string;
     translation: {
         [key in I18nKeys]: string;
     } & {
@@ -34,25 +28,36 @@ export class Localize {
 
 export type Translation = Record<I18nKeys, string>;
 
-export namespace I18n {
-    export const languages = new Map<LanguageCode, Locale>([
-        ["en", en],
-        ["zh-CN", zh],
-        ["pt-BR", ptBr],
-    ]);
+const DATASET_LINK_KEY = "_:_";
+const languages = new Map<string, Locale>();
+let _currentLanguage: string | undefined;
 
-    let _currentLanguage: LanguageCode | undefined = undefined;
-    export function currentLanguage() {
-        _currentLanguage ??= Array.from(languages.keys())[Config.instance.languageIndex];
+export class I18n {
+    static currentLanguage() {
+        _currentLanguage ??= I18n.defaultLanguage();
         return _currentLanguage;
     }
 
-    export function defaultLanguageIndex() {
-        return navigator.language.toLowerCase() === "zh-cn" ? 1 : 0;
+    static defaultLanguage(): string {
+        const defaultLanguage = navigator.language.toLowerCase();
+        const language = languages.keys().find((key) => key.toLowerCase() === defaultLanguage);
+        if (language) {
+            return language;
+        }
+
+        return "en";
     }
 
-    export function combineTranslation(language: LanguageCode, translations: Record<string, string>) {
-        let local = languages.get(language);
+    static getLanguages(): Locale[] {
+        return Array.from(languages.values());
+    }
+
+    static addLanguage(local: Locale) {
+        languages.set(local.language, local);
+    }
+
+    static combineTranslation(language: string, translations: Record<string, string>) {
+        const local = languages.get(language);
         if (local) {
             local.translation = {
                 ...local.translation,
@@ -61,44 +66,53 @@ export namespace I18n {
         }
     }
 
-    export function translate(key: I18nKeys, ...args: any[]) {
-        let language = languages.get(currentLanguage())!;
-        let text = language.translation[key] ?? languages.get("zh-CN")!.translation[key];
+    static translate(key: I18nKeys, ...args: any[]) {
+        const language = languages.get(I18n.currentLanguage());
+        if (!language) {
+            console.warn(`No translation for ${key} in ${language}`);
+            return key;
+        }
+        return I18n.translateLanguage(language, key, ...args);
+    }
+
+    static translateLanguage(language: Locale, key: I18nKeys, ...args: any[]) {
+        let text = language.translation[key] ?? languages.get("en")!.translation[key];
+        if (text === undefined) {
+            console.warn(`No translation for ${key} in ${language}`);
+            return key;
+        }
         if (args.length > 0) {
             text = text.replace(/\{(\d+)\}/g, (_, index) => args[index]);
         }
         return text;
     }
 
-    export function isI18nKey(key: string): key is I18nKeys {
+    static isI18nKey(key: string): key is I18nKeys {
         return key in languages.get("zh-CN")!.translation;
     }
 
-    const LINK_KEY = "_:_";
-
-    export function set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {
-        dom[path] = translate(key, ...args);
-        dom.dataset[I18nId] = `${key}${LINK_KEY}${path}`;
+    static set(dom: HTMLElement, path: I18nPath, key: I18nKeys, ...args: any[]) {
+        dom[path] = I18n.translate(key, ...args);
+        dom.dataset[I18nId] = `${key}${DATASET_LINK_KEY}${path}`;
         if (args.length > 0) {
             I18nArgs.set(dom, args);
         }
     }
 
-    export function changeLanguage(index: number) {
-        if (index < 0 || index >= languages.size) return;
-
-        let newLanguage = Array.from(languages.keys())[index];
+    static changeLanguage(newLanguage: string) {
         if (newLanguage === _currentLanguage) return;
+        const oldLanguage = _currentLanguage;
         _currentLanguage = newLanguage;
 
         document.querySelectorAll(`[data-${I18nId}]`).forEach((e) => {
-            let html = e as HTMLElement;
-            let data = html?.dataset[I18nId]?.split(LINK_KEY);
+            const html = e as HTMLElement;
+            const data = html?.dataset[I18nId]?.split(DATASET_LINK_KEY);
             if (data?.length !== 2) return;
-            let args = I18nArgs.get(html) ?? [];
-            html[data[1] as I18nPath] = translate(data[0] as I18nKeys, ...args);
+            const args = I18nArgs.get(html) ?? [];
+            const [key, path] = data as [I18nKeys, I18nPath];
+            const oldText = I18n.translateLanguage(languages.get(oldLanguage!)!, key, ...args);
+            const newText = I18n.translate(key, ...args);
+            html[path] = html[path].replace(oldText, newText);
         });
-
-        Config.instance.languageIndex = index;
     }
 }

@@ -3,21 +3,21 @@
 
 import {
     Config,
-    EdgeMeshData,
     I18n,
-    IDocument,
-    ISubEdgeShape,
-    IView,
-    LineType,
+    type IDocument,
+    type ISubEdgeShape,
+    type IView,
+    type Line,
+    MeshDataUtils,
     Precision,
-    Ray,
     ShapeType,
+    screenDistance,
     VisualConfig,
     XY,
-    XYZ,
+    type XYZ,
 } from "chili-core";
-import { ISnap, MouseAndDetected, SnapResult } from "../";
-import { Axis } from "./axis";
+import type { ISnap, MouseAndDetected, SnapResult } from "../";
+import type { Axis } from "./axis";
 import { AxisTracking } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
 
@@ -55,7 +55,7 @@ export class TrackingSnap implements ISnap {
         const trackingDatas = this.detectTracking(data.view, data.mx, data.my);
         if (trackingDatas.length === 0) return undefined;
         trackingDatas.sort((x) => x.distance);
-        let snaped = this.shapeIntersectTracking(data, trackingDatas);
+        const snaped = this.shapeIntersectTracking(data, trackingDatas);
         if (snaped !== undefined) return snaped;
         if (trackingDatas.length === 1) {
             return this.getSnapedAndShowTracking(data.view, trackingDatas[0].point, [trackingDatas[0]]);
@@ -75,19 +75,19 @@ export class TrackingSnap implements ISnap {
 
     private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapResult {
         const lines: number[] = trackingDatas
-            .map((x) => this.showTempLine(view, x.axis.location, point))
+            .map((x) => this.showTempLine(view, x.axis.point, point))
             .filter((id) => id !== undefined);
         this._tempLines.set(view, lines);
 
-        let info: string | undefined = undefined;
-        let distance: number | undefined = undefined;
+        let info: string | undefined;
+        let distance: number | undefined;
         if (trackingDatas.length === 1) {
-            distance = point.distanceTo(trackingDatas[0].axis.location);
+            distance = point.distanceTo(trackingDatas[0].axis.point);
             info = trackingDatas[0].axis.name;
         } else if (trackingDatas.length === 2) {
             info = I18n.translate("snap.intersection");
         }
-        const refPoint = trackingDatas[0].axis.location;
+        const refPoint = trackingDatas[0].axis.point;
         return { view, point, info, shapes: [], refPoint, distance };
     }
 
@@ -97,7 +97,7 @@ export class TrackingSnap implements ISnap {
         if (!normal) return undefined;
         const distance = Math.min(vector.length() * 1e10, 1e20);
         const newEnd = start.add(normal.multiply(distance));
-        const lineDats = EdgeMeshData.from(start, newEnd, VisualConfig.temporaryEdgeColor, LineType.Dash);
+        const lineDats = MeshDataUtils.createEdgeMesh(start, newEnd, VisualConfig.temporaryEdgeColor, "dash");
         return view.document.visual.context.displayMesh([lineDats]);
     }
 
@@ -124,10 +124,10 @@ export class TrackingSnap implements ISnap {
         const points: { intersect: XYZ; location: XYZ }[] = [];
         trackingDatas.forEach((x) => {
             edge.intersect(x.axis).forEach((p) => {
-                points.push({ intersect: p.point, location: x.axis.location });
+                points.push({ intersect: p.point, location: x.axis.point });
             });
         });
-        points.sort((p) => IView.screenDistance(data.view, data.mx, data.my, p.intersect));
+        points.sort((p) => screenDistance(data.view, data.mx, data.my, p.intersect));
         return points.at(0);
     }
 
@@ -145,13 +145,13 @@ export class TrackingSnap implements ISnap {
     }
 
     private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapedName?: string) {
-        let result: TrackingData[] = [];
+        const result: TrackingData[] = [];
         for (const axis of axes) {
-            let distance = this.rayDistanceAtScreen(view, x, y, axis);
+            const distance = this.rayDistanceAtScreen(view, x, y, axis);
             if (distance < Config.instance.SnapDistance) {
-                let ray = view.rayAt(x, y);
-                let point = axis.nearestTo(ray);
-                if (point.sub(axis.location).dot(axis.direction) < 0) continue;
+                const ray = view.rayAt(x, y);
+                const point = axis.nearestTo(ray.toLine());
+                if (point.sub(axis.point).dot(axis.direction) < 0) continue;
                 result.push({
                     axis,
                     distance,
@@ -164,11 +164,11 @@ export class TrackingSnap implements ISnap {
         return result;
     }
 
-    private rayDistanceAtScreen(view: IView, x: number, y: number, axis: Ray): number {
-        const start = view.worldToScreen(axis.location);
+    private rayDistanceAtScreen(view: IView, x: number, y: number, axis: Line): number {
+        const start = view.worldToScreen(axis.point);
         const vector = new XY(x - start.x, y - start.y);
         if (vector.isEqualTo(XY.zero)) return 0;
-        const end = view.worldToScreen(axis.location.add(axis.direction.multiply(100000)));
+        const end = view.worldToScreen(axis.point.add(axis.direction.multiply(100000)));
         if (start.distanceTo(end) < Precision.Float) return vector.length();
         const dir = end.sub(start).normalize()!;
         const dot = vector.dot(dir);

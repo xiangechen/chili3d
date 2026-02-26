@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Act, I18n, IApplication, ICommand, command } from "chili-core";
+import { Act, command, I18n, type IApplication, type ICommand } from "chili-core";
 
 let index = 0;
 

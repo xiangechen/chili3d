@@ -9,16 +9,16 @@ export enum VisualState {
     faceColored = 1 << 3,
 }
 
-export namespace VisualState {
-    export function addState(origin: VisualState, add: VisualState) {
+export class VisualStateUtils {
+    public static addState(origin: VisualState, add: VisualState) {
         return origin | add;
     }
 
-    export function removeState(origin: VisualState, remove: VisualState) {
+    public static removeState(origin: VisualState, remove: VisualState) {
         return (origin & remove) ^ origin;
     }
 
-    export function hasState(origin: VisualState, testState: VisualState) {
+    public static hasState(origin: VisualState, testState: VisualState) {
         return (origin & testState) === testState;
     }
 }

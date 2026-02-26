@@ -1,14 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IMeshExporter, Result, VisualNode } from "chili-core";
+import { type IMeshExporter, Result, type VisualNode } from "chili-core";
 import { Group, Mesh, Object3D } from "three";
-import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter";
-import { STLExporter } from "three/examples/jsm/exporters/STLExporter";
-import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter";
-import { Line2 } from "three/examples/jsm/lines/Line2";
-import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2";
-import { ThreeVisualContext } from "./threeVisualContext";
+import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
+import { PLYExporter } from "three/examples/jsm/exporters/PLYExporter.js";
+import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import type { ThreeVisualContext } from "./threeVisualContext";
 
 export class ThreeMeshExporter implements IMeshExporter {
     constructor(readonly content: ThreeVisualContext) {}
@@ -18,7 +18,7 @@ export class ThreeMeshExporter implements IMeshExporter {
         const group = this.parseNodeToGroup(nodes);
         const blob = exporter.parse(group, { binary: !asciiMode });
         this.disposeObject(group);
-        return Result.ok(blob);
+        return Result.ok(blob as BlobPart);
     }
 
     exportToPly(nodes: VisualNode[], asciiMode: boolean): Result<BlobPart> {

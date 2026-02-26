@@ -1,16 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { IDocument } from "./document";
+import type { IDocument } from "./document";
 import { HistoryObservable, Id } from "./foundation";
 import { XY } from "./math";
-import { Property } from "./property";
-import { Serializer } from "./serialize";
+import { property } from "./property";
+import { serializable, serialze } from "./serialize";
 
-@Serializer.register(["document"])
+@serializable(["document"])
 export class Texture extends HistoryObservable {
-    @Serializer.serialze()
-    @Property.define("material.texture.image")
+    @serialze()
+    @property("material.texture.image")
     get image(): string {
         return this.getPrivateValue("image", "");
     }
@@ -18,7 +18,7 @@ export class Texture extends HistoryObservable {
         this.setProperty("image", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get wrapS(): number {
         return this.getPrivateValue("wrapS", 1000);
     }
@@ -26,7 +26,7 @@ export class Texture extends HistoryObservable {
         this.setProperty("wrapS", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     get wrapT(): number {
         return this.getPrivateValue("wrapT", 1000);
     }
@@ -34,8 +34,8 @@ export class Texture extends HistoryObservable {
         this.setProperty("wrapT", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.texture.rotation")
+    @serialze()
+    @property("material.texture.rotation")
     get rotation(): number {
         return this.getPrivateValue("rotation", 0);
     }
@@ -43,8 +43,8 @@ export class Texture extends HistoryObservable {
         this.setProperty("rotation", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.texture.offset")
+    @serialze()
+    @property("material.texture.offset")
     get offset(): XY {
         return this.getPrivateValue("offset", new XY(0, 0));
     }
@@ -52,8 +52,8 @@ export class Texture extends HistoryObservable {
         this.setProperty("offset", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.texture.repeat")
+    @serialze()
+    @property("material.texture.repeat")
     get repeat(): XY {
         return this.getPrivateValue("repeat", new XY(1, 1));
     }
@@ -61,23 +61,23 @@ export class Texture extends HistoryObservable {
         this.setProperty("repeat", value);
     }
 
-    @Serializer.serialze()
+    @serialze()
     center: XY = new XY(0.5, 0.5);
 }
 
-@Serializer.register(["document", "name", "color", "id"])
+@serializable(["document", "name", "color", "id"])
 export class Material extends HistoryObservable {
-    @Serializer.serialze()
+    @serialze()
     vertexColors = false;
 
-    @Serializer.serialze()
+    @serialze()
     transparent = true;
 
-    @Serializer.serialze()
+    @serialze()
     readonly id: string;
 
-    @Serializer.serialze()
-    @Property.define("common.name")
+    @serialze()
+    @property("common.name")
     get name(): string {
         return this.getPrivateValue("name");
     }
@@ -85,8 +85,8 @@ export class Material extends HistoryObservable {
         this.setProperty("name", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("common.color", { type: "color" })
+    @serialze()
+    @property("common.color", { type: "color" })
     get color(): number | string {
         return this.getPrivateValue("color");
     }
@@ -94,8 +94,8 @@ export class Material extends HistoryObservable {
         this.setProperty("color", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("common.opacity")
+    @serialze()
+    @property("common.opacity")
     get opacity(): number {
         return this.getPrivateValue("opacity", 1);
     }
@@ -103,8 +103,8 @@ export class Material extends HistoryObservable {
         this.setProperty("opacity", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.map")
+    @serialze()
+    @property("material.map")
     get map(): Texture {
         return this.getPrivateValue("map", new Texture(this.document));
     }
@@ -120,17 +120,17 @@ export class Material extends HistoryObservable {
     }
 
     clone(): Material {
-        let material = new Material(this.document, `${this.name} clone`, this.color);
+        const material = new Material(this.document, `${this.name} clone`, this.color);
         material.setPrivateValue("map", this.map);
 
         return material;
     }
 }
 
-@Serializer.register(["document", "name", "color", "id"])
+@serializable(["document", "name", "color", "id"])
 export class PhongMaterial extends Material {
-    @Serializer.serialze()
-    @Property.define("material.specular", { type: "color" })
+    @serialze()
+    @property("material.specular", { type: "color" })
     get specular(): number | string {
         return this.getPrivateValue("specular", 0x111111);
     }
@@ -138,8 +138,8 @@ export class PhongMaterial extends Material {
         this.setProperty("specular", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.shininess")
+    @serialze()
+    @property("material.shininess")
     get shininess(): number {
         return this.getPrivateValue("shininess", 30);
     }
@@ -147,8 +147,8 @@ export class PhongMaterial extends Material {
         this.setProperty("shininess", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.emissive", { type: "color" })
+    @serialze()
+    @property("material.emissive", { type: "color" })
     get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }
@@ -156,8 +156,8 @@ export class PhongMaterial extends Material {
         this.setProperty("emissive", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.specularMap")
+    @serialze()
+    @property("material.specularMap")
     get specularMap(): Texture {
         return this.getPrivateValue("specularMap", new Texture(this.document));
     }
@@ -165,8 +165,8 @@ export class PhongMaterial extends Material {
         this.setProperty("specularMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.bumpMap")
+    @serialze()
+    @property("material.bumpMap")
     get bumpMap(): Texture {
         return this.getPrivateValue("bumpMap", new Texture(this.document));
     }
@@ -174,8 +174,8 @@ export class PhongMaterial extends Material {
         this.setProperty("bumpMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.normalMap")
+    @serialze()
+    @property("material.normalMap")
     get normalMap(): Texture {
         return this.getPrivateValue("normalMap", new Texture(this.document));
     }
@@ -183,8 +183,8 @@ export class PhongMaterial extends Material {
         this.setProperty("normalMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.emissiveMap")
+    @serialze()
+    @property("material.emissiveMap")
     get emissiveMap(): Texture {
         return this.getPrivateValue("emissiveMap", new Texture(this.document));
     }
@@ -193,10 +193,10 @@ export class PhongMaterial extends Material {
     }
 }
 
-@Serializer.register(["document", "name", "color", "id"])
+@serializable(["document", "name", "color", "id"])
 export class PhysicalMaterial extends Material {
-    @Serializer.serialze()
-    @Property.define("material.metalness")
+    @serialze()
+    @property("material.metalness")
     get metalness(): number {
         return this.getPrivateValue("metalness", 0);
     }
@@ -204,8 +204,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("metalness", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.metalnessMap")
+    @serialze()
+    @property("material.metalnessMap")
     get metalnessMap(): Texture {
         return this.getPrivateValue("metalnessMap", new Texture(this.document));
     }
@@ -213,8 +213,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("metalnessMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.roughness")
+    @serialze()
+    @property("material.roughness")
     get roughness(): number {
         return this.getPrivateValue("roughness", 1);
     }
@@ -222,8 +222,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("roughness", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.roughnessMap")
+    @serialze()
+    @property("material.roughnessMap")
     get roughnessMap(): Texture {
         return this.getPrivateValue("roughnessMap", new Texture(this.document));
     }
@@ -231,8 +231,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("roughnessMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.emissive", { type: "color" })
+    @serialze()
+    @property("material.emissive", { type: "color" })
     get emissive(): number | string {
         return this.getPrivateValue("emissive", 0x000000);
     }
@@ -240,8 +240,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("emissive", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.bumpMap")
+    @serialze()
+    @property("material.bumpMap")
     get bumpMap(): Texture {
         return this.getPrivateValue("bumpMap", new Texture(this.document));
     }
@@ -249,8 +249,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("bumpMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.normalMap")
+    @serialze()
+    @property("material.normalMap")
     get normalMap(): Texture {
         return this.getPrivateValue("normalMap", new Texture(this.document));
     }
@@ -258,8 +258,8 @@ export class PhysicalMaterial extends Material {
         this.setProperty("normalMap", value);
     }
 
-    @Serializer.serialze()
-    @Property.define("material.emissiveMap")
+    @serialze()
+    @property("material.emissiveMap")
     get emissiveMap(): Texture {
         return this.getPrivateValue("emissiveMap", new Texture(this.document));
     }

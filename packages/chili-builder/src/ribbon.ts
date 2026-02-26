@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { RibbonTab } from "chili-core";
+import type { RibbonTab } from "chili-core";
 
 export const DefaultRibbon: RibbonTab[] = [
     {
@@ -11,8 +11,9 @@ export const DefaultRibbon: RibbonTab[] = [
                 groupName: "ribbon.group.draw",
                 items: [
                     "create.line",
+                    "create.rect",
                     "create.extrude",
-                    ["create.arc", "create.rect", "create.circle"],
+                    ["create.point", "create.arc", "create.circle"],
                     ["create.loft", "create.sweep", "create.revol"],
                     ["create.ellipse", "create.bezier", "create.polygon"],
                     ["create.box", "create.pyramid", "create.cylinder"],
@@ -95,6 +96,7 @@ export const DefaultRibbon: RibbonTab[] = [
                     "create.cone",
                     "create.sphere",
                     "create.thickSolid",
+                    "create.pipe",
                 ],
             },
         ],

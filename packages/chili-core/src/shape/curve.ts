@@ -1,9 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Ray, XYZ } from "../math";
-import { IGeometry } from "./geometry";
-import { IEdge } from "./shape";
+import type { Line, XYZ } from "../math";
+import type { IGeometry } from "./geometry";
 
 export enum CurveType {
     Line,
@@ -52,7 +51,7 @@ export interface ICurve extends IGeometry {
         parameter: number;
         distance: number;
     };
-    nearestExtrema(curve: ICurve | Ray):
+    nearestExtrema(curve: ICurve | Line):
         | undefined
         | {
               isParallel: boolean;
@@ -66,7 +65,6 @@ export interface ICurve extends IGeometry {
     period(): number;
     isPeriodic(): boolean;
     continutity(): Continuity;
-    makeEdge(): IEdge;
 }
 
 export interface ILine extends ICurve {
@@ -154,21 +152,21 @@ export interface IComplexCurve {
     curve(index: number): ICurve;
 }
 
-export namespace ICurve {
-    export function isConic(curve: ICurve): curve is IConic {
+export class CurveUtils {
+    static isConic(curve: ICurve): curve is IConic {
         return (curve as IConic).axis !== undefined;
     }
 
-    export function isCircle(curve: ICurve): curve is ICircle {
-        let circle = curve as ICircle;
+    static isCircle(curve: ICurve): curve is ICircle {
+        const circle = curve as ICircle;
         return circle.center !== undefined && circle.radius !== undefined;
     }
 
-    export function isLine(curve: ICurve): curve is ILine {
+    static isLine(curve: ICurve): curve is ILine {
         return (curve as ILine).direction !== undefined;
     }
 
-    export function isTrimmed(curve: ICurve): curve is ITrimmedCurve {
+    static isTrimmed(curve: ICurve): curve is ITrimmedCurve {
         return (curve as ITrimmedCurve).basisCurve !== undefined;
     }
 }

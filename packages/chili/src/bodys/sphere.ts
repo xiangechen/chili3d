@@ -2,24 +2,25 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    I18nKeys,
-    IDocument,
-    IShape,
+    type I18nKeys,
+    type IDocument,
+    type IShape,
     ParameterShapeNode,
-    Property,
-    Result,
-    Serializer,
-    XYZ,
+    property,
+    type Result,
+    serializable,
+    serialze,
+    type XYZ,
 } from "chili-core";
 
-@Serializer.register(["document", "center", "radius"])
+@serializable(["document", "center", "radius"])
 export class SphereNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sphere";
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.center")
+    @serialze()
+    @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
     }
@@ -27,8 +28,8 @@ export class SphereNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @Serializer.serialze()
-    @Property.define("circle.radius")
+    @serialze()
+    @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
     }

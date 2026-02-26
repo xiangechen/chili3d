@@ -1,15 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { HTMLProps, option, select } from "chili-controls";
-import { Config, Navigation3D } from "chili-core";
+import { type HTMLProps, option, select } from "chili-controls";
+import { Config, Navigation3DTypes } from "chili-core";
 
 export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
-    let nav3DTypes: HTMLOptionElement[] = [];
-    Navigation3D.types.forEach((nav3DType, index) =>
+    const nav3DTypes: HTMLOptionElement[] = [];
+    Navigation3DTypes.forEach((nav3DType) =>
         nav3DTypes.push(
             option({
-                selected: index === Config.instance.navigation3DIndex,
+                selected: nav3DType === Config.instance.navigation3D,
                 textContent: nav3DType,
             }),
         ),
@@ -17,8 +17,8 @@ export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
     return select(
         {
             onchange: (e) => {
-                let nav3DType = (e.target as HTMLSelectElement).selectedIndex;
-                Config.instance.navigation3DIndex = nav3DType;
+                const index = (e.target as HTMLSelectElement).selectedIndex;
+                Config.instance.navigation3D = Navigation3DTypes[index];
             },
             ...props,
         },
