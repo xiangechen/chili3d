@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "build": "rspack build",
-        "package": "npm run build && zip -j ./dist/helloworld-ts.chiliplugin manifest.json ./dist/extension.js ./icons/*"
+        "package": "npm run build && zip -r ./dist/helloworld-ts.chiliplugin manifest.json ./dist/extension.js icons"
     },
     "devDependencies": {
         "chili-api": "*",

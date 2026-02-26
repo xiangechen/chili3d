@@ -1,10 +1,47 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Localize } from "chili-core";
+import { type CommandIcon, Localize } from "chili-core";
 import { Collection, type CollectionProps } from "./collection";
 import type { HTMLProps } from "./htmlProps";
 import { setProperties } from "./utils";
+
+export function createIcon(icon: CommandIcon): Element {
+    if (typeof icon === "string") {
+        return svg({ icon });
+    }
+
+    switch (icon.type) {
+        case "svg":
+            return createSvgElement(icon.value);
+        case "png": {
+            const base64 = uint8ArrayToBase64(icon.value);
+            const dataUrl = `data:image/png;base64,${base64}`;
+            return img({ src: dataUrl });
+        }
+        case "url":
+            return img({ src: icon.value });
+        case "plugin":
+            console.trace("Plugin icon is not supported");
+            throw new Error("Plugin icon is not supported, please transform it to other icon type");
+        default:
+            return svg({ icon: "icon-chili" });
+    }
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+function createSvgElement(svgString: string): SVGSVGElement {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, "image/svg+xml");
+    return doc.documentElement as unknown as SVGSVGElement;
+}
 
 export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     return (

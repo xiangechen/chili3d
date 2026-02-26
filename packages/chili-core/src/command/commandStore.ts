@@ -1,20 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Binding } from "../foundation";
 import type { ICommand } from "./command";
-import type { CommandKeys } from "./commandKeys";
+import type { CommandData } from "./commandData";
 
 export type CommandConstructor = new (...args: any[]) => ICommand;
-
-export interface CommandData {
-    key: CommandKeys;
-    icon: string;
-    toggle?: Binding;
-    helpText?: string;
-    helpUrl?: string;
-    isApplicationCommand?: boolean;
-}
 
 const commandRegistry = new Map<string, CommandConstructor>();
 

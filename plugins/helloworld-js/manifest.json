@@ -2,7 +2,7 @@
     "name": "Hello World JS",
     "version": "1.0.0",
     "description": "A demo plugin for Chili3D showing plugin system capabilities",
-    "main": "extension.js",
+    "main": "src/extension.js",
     "author": {
         "name": "Chili3D Team"
     },

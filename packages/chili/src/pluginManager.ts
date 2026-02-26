@@ -5,11 +5,13 @@ import {
     CommandStore,
     I18n,
     type IApplication,
+    type IconPath,
     type IPluginManager,
     Logger,
     type Plugin,
     type PluginManifest,
     Result,
+    toBase64Img,
 } from "chili-api";
 import type JSZip from "jszip";
 
@@ -59,15 +61,32 @@ export class PluginManager implements IPluginManager {
         const code = await codeFile.async("text");
         const blob = new Blob([code], { type: "application/javascript" });
         const blobUrl = URL.createObjectURL(blob);
-        await import(/*webpackIgnore: true*/ blobUrl)
-            .then((r) => {
-                this.registerPlugin(r.default);
-                this.plugins.set(manifest.name, r.default);
-            })
-            .finally(() => {
-                URL.revokeObjectURL(blobUrl);
-            });
+        await Promise.try(async () => {
+            const module = await import(/*webpackIgnore: true*/ blobUrl);
+            await this.transformCommandIcon(zip, module.default);
+            this.registerPlugin(module.default);
+            this.plugins.set(manifest.name, module.default);
+        }).finally(() => {
+            URL.revokeObjectURL(blobUrl);
+        });
         return true;
+    }
+
+    private async transformCommandIcon(zip: JSZip, plugin: Plugin) {
+        for (const command of plugin.commands ?? []) {
+            const data = CommandStore.getComandData(command);
+            const iconData = data?.icon as IconPath;
+            if (iconData?.type === "plugin") {
+                const codeFile = zip.file(iconData?.path);
+                if (!codeFile) {
+                    alert(`${iconData.path} not found in plugin archive`);
+                    continue;
+                }
+                const icon = await codeFile.async("base64");
+                const base64: string = toBase64Img(iconData.path, icon);
+                data!.icon = { type: "url", value: base64 };
+            }
+        }
     }
 
     async unload(pluginName: string): Promise<void> {

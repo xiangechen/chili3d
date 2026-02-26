@@ -5,7 +5,10 @@ import { command, type I18nKeys, type IApplication, type ICommand, PubSub } from
 
 @command({
     key: "demo.hello" as any,
-    icon: "icons/hello.svg",
+    icon: {
+        type: "plugin",
+        path: "icons/hello.svg",
+    },
     helpText: "demo.hello.description" as any,
 })
 export class HelloWorldCommand implements ICommand {

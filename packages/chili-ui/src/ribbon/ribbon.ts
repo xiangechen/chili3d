@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { a, collection, div, label, span, svg } from "chili-controls";
+import { a, collection, createIcon, div, label, span, svg } from "chili-controls";
 import {
     Binding,
     ButtonSize,
@@ -35,11 +35,15 @@ export const QuickButton = (command: ICommand) => {
         return span({ textContent: "null" });
     }
 
-    return svg({
-        icon: data.icon,
-        title: new Localize(`command.${data.key}`),
-        onclick: () => PubSub.default.pub("executeCommand", data.key),
-    });
+    const icon = createIcon(data.icon);
+    icon.classList.add(style.icon);
+    return span(
+        {
+            title: new Localize(`command.${data.key}`),
+            onclick: () => PubSub.default.pub("executeCommand", data.key),
+        },
+        icon,
+    );
 };
 
 class ViewActiveConverter implements IConverter<IView> {

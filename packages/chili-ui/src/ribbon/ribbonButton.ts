@@ -1,10 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { label, svg } from "chili-controls";
+import { createIcon, label, svg } from "chili-controls";
 import {
     ButtonSize,
     type CommandData,
+    type CommandIcon,
     type CommandKeys,
     CommandStore,
     Config,
@@ -27,7 +28,7 @@ export class RibbonButton extends HTMLElement {
 
     constructor(
         readonly commandName: CommandKeys,
-        icon: string,
+        icon: CommandIcon,
         size: ButtonSize,
         readonly onClick: () => void,
         display?: I18nKeys,
@@ -56,8 +57,8 @@ export class RibbonButton extends HTMLElement {
         this.removeEventListener("click", this.onClick);
     }
 
-    private initHTML(display: I18nKeys, icon: string, size: ButtonSize) {
-        const image = svg({ icon });
+    private initHTML(display: I18nKeys, icon: CommandIcon, size: ButtonSize) {
+        const image = createIcon(icon);
         this.className = size === ButtonSize.large ? style.normal : style.small;
         image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
         const text = label({

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./command";
+export * from "./commandData";
 export * from "./commandKeys";
 export * from "./commandStore";
 export * from "./decorator";
