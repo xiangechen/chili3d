@@ -15,6 +15,7 @@ export * from "./math";
 export * from "./model";
 export * from "./modelManager";
 export * from "./navigation";
+export * from "./plugin";
 export * from "./property";
 export * from "./selection";
 export * from "./selectionFilter";

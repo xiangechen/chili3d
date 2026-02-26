@@ -6,4 +6,5 @@ export * from "./bodys";
 export * from "./commands";
 export * from "./document";
 export * from "./editEventHandler";
+export * from "./pluginManager";
 export * from "./services";

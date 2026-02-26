@@ -28,7 +28,8 @@
         ]
     },
     "workspaces": [
-        "packages/*"
+        "packages/*",
+        "plugins/*"
     ],
     "devDependencies": {
         "@biomejs/biome": "2.3.12",
@@ -43,5 +44,9 @@
         "ts-checker-rspack-plugin": "^1.2.6",
         "typescript": "5.9.3",
         "typescript-plugin-css-modules": "^5.2.0"
+    },
+    "dependencies": {
+        "@types/jszip": "^3.4.0",
+        "jszip": "^3.10.1"
     }
 }

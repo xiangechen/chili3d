@@ -63,10 +63,7 @@ export class I18n {
     static combineTranslation(language: string, translations: Record<string, string>) {
         const local = languages.get(language);
         if (local) {
-            local.translation = {
-                ...local.translation,
-                ...translations,
-            };
+            local.translation = Object.assign({}, translations, local.translation);
         }
     }
 

@@ -27,8 +27,17 @@ export class CommandStore {
         ctor.prototype.data = metadata;
     }
 
-    static unregisterCommand(key: string) {
-        const ctor = commandRegistry.get(key);
+    static unregisterCommand(command: string | CommandConstructor) {
+        let ctor: CommandConstructor | undefined;
+        let key: string;
+        if (typeof command === "string") {
+            ctor = commandRegistry.get(command);
+            key = command;
+        } else {
+            ctor = command;
+            key = ctor.prototype.data.key;
+        }
+
         if (ctor) {
             delete ctor.prototype.data;
         }

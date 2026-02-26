@@ -31,6 +31,15 @@ export class AppBuilder {
     constructor() {
         this.initI18n();
         this.initConfig();
+        this.ensureAPI();
+    }
+
+    protected ensureAPI() {
+        this._inits.push(async () => {
+            Logger.info("initializing api");
+
+            (globalThis as any).ChiliAPI = await import("chili-api");
+        });
     }
 
     protected initConfig() {

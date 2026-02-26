@@ -87,6 +87,28 @@ export class Ribbon extends Observable {
         });
     }
 
+    combineRibbonTab(tabProfile: RibbonTabProfile) {
+        const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabProfile.tabName);
+        if (!tab) {
+            this.tabs.push(RibbonTab.fromProfile(tabProfile));
+            return;
+        }
+
+        for (const groupProfile of tabProfile.groups) {
+            const group = tab?.groups.find((p: RibbonGroup) => p.groupName === groupProfile.groupName);
+            if (!group) {
+                tab.groups.push(RibbonGroup.fromProfile(groupProfile));
+            } else {
+                for (const command of groupProfile.items) {
+                    const ribbonCommand = Array.isArray(command)
+                        ? new ObservableCollection(...command)
+                        : command;
+                    group.items.push(ribbonCommand);
+                }
+            }
+        }
+    }
+
     addRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
         const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabName);
         const group = tab?.groups.find((p: RibbonGroup) => p.groupName === groupName);
