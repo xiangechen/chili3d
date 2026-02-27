@@ -79,6 +79,11 @@ export class Application implements IApplication {
         this.services.forEach((x) => x.start());
 
         this.initWindowEvents();
+        this.loadPluginsFromPublic();
+    }
+
+    private async loadPluginsFromPublic() {
+        await this.pluginManager.loadFromFolder("./plugins/");
     }
 
     private initWindowEvents() {

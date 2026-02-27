@@ -35,6 +35,37 @@ export class PluginManager implements IPluginManager {
         }
     }
 
+    async loadFromUrl(url: string) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            alert(`Failed to fetch plugin from ${url}: ${response.statusText}`);
+            return;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: "application/zip" });
+        const file = new File([blob], "plugin.chiliplugin");
+
+        await this.loadFromFile(file);
+    }
+
+    async loadFromFolder(folderUrl: string, indexName: string = "plugins.json") {
+        try {
+            const response = await fetch(folderUrl + indexName);
+            if (!response.ok) {
+                return;
+            }
+            const config = await response.json();
+            const plugins = config.plugins as string[];
+            const baseUrl = folderUrl.endsWith("/") ? folderUrl : folderUrl + "/";
+            for (const plugin of plugins ?? []) {
+                await this.loadFromUrl(baseUrl + plugin);
+            }
+        } catch {
+            Logger.warn(`Failed to load plugins from folder: ${folderUrl}`);
+        }
+    }
+
     private async readManifest(zip: JSZip) {
         const manifestFile = zip.file("manifest.json");
         if (!manifestFile) {
