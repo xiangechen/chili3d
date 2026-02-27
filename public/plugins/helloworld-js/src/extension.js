@@ -1,18 +1,30 @@
-// Demo Plugin for Chili3D
-// This plugin demonstrates the plugin system capabilities
+const { CommandStore, PubSub } = ChiliAPI;
 
-import type { CommandKeys, Plugin } from "chili-api";
-import { HelloWorldCommand } from "./commands/hello";
+class HelloWorldJSCommand {
+    execute(app) {
+        PubSub.default.pub("showToast", "demo.hello.message");
 
-const DemoPlugin: Plugin = {
-    commands: [HelloWorldCommand],
+        return Promise.resolve();
+    }
+}
+
+CommandStore.registerCommand(HelloWorldJSCommand, {
+    key: "jsdemo.hello",
+    icon: {
+        type: "path",
+        value: "icons/hello.svg"
+    },
+});
+
+const DemoPlugin = {
+    commands: [HelloWorldJSCommand],
     ribbons: [
         {
             tabName: "ribbon.tab.tools",
             groups: [
                 {
                     groupName: "ribbon.group.other",
-                    items: ["demo.hello" as CommandKeys],
+                    items: ["jsdemo.hello"],
                 },
             ],
         },
@@ -22,18 +34,18 @@ const DemoPlugin: Plugin = {
             language: "en",
             display: "English",
             translation: {
-                "command.demo.hello": "TS Plugin",
+                "command.jsdemo.hello": "JS Plugin",
                 "demo.hello.message": "Hello, This is a demo plugin!",
             },
-        } as any,
+        },
         {
             language: "zh-CN",
             display: "简体中文",
             translation: {
-                "command.demo.hello": "TS 插件",
+                "command.jsdemo.hello": "JS插件",
                 "demo.hello.message": "你好，这是一个演示插件！",
             },
-        } as any,
+        },
     ],
 };
 

@@ -119,6 +119,7 @@ export class AppBuilder {
         this.ensureNecessary();
 
         const app = this.createApp();
+        await app.init();
         await this._window?.init(app);
 
         this.loadAdditionalCommands();

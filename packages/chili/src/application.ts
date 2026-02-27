@@ -74,16 +74,13 @@ export class Application implements IApplication {
         this.dataExchange = option.dataExchange;
         this.mainWindow = option.mainWindow;
         this.pluginManager = new PluginManager(this);
-
-        this.services.forEach((x) => x.register(this));
-        this.services.forEach((x) => x.start());
-
-        this.initWindowEvents();
-        this.loadPluginsFromPublic();
     }
 
-    private async loadPluginsFromPublic() {
-        await this.pluginManager.loadFromFolder("./plugins/");
+    async init() {
+        this.services.forEach((x) => x.register(this));
+        this.services.forEach((x) => x.start());
+        this.initWindowEvents();
+        await this.loadDefaultPlugins("plugins/");
     }
 
     private initWindowEvents() {
@@ -236,5 +233,22 @@ export class Application implements IApplication {
         if (document === undefined) return undefined;
         const view = document.visual.createView("3d", Plane.XY);
         this.activeView = view;
+    }
+
+    protected async loadDefaultPlugins(folderUrl: string) {
+        try {
+            const response = await fetch(folderUrl + "plugins.json");
+            if (!response.ok) {
+                return;
+            }
+            const config = await response.json();
+            const plugins = config.plugins as string[];
+            const baseUrl = folderUrl.endsWith("/") ? folderUrl : folderUrl + "/";
+            for (const plugin of plugins ?? []) {
+                await this.pluginManager.loadFromUrl(baseUrl + plugin);
+            }
+        } catch {
+            Logger.warn(`Failed to load plugins from folder: ${folderUrl}`);
+        }
     }
 }

@@ -1,6 +1,6 @@
 const { CommandStore, PubSub } = ChiliAPI;
 
-class HelloWorldCommand {
+class HelloWorldJSCommand {
     execute(app) {
         PubSub.default.pub("showToast", "demo.hello.message");
 
@@ -8,20 +8,23 @@ class HelloWorldCommand {
     }
 }
 
-CommandStore.registerCommand(HelloWorldCommand, {
-    key: "demo.hello",
-    icon: "icon-info",
+CommandStore.registerCommand(HelloWorldJSCommand, {
+    key: "jsdemo.hello",
+    icon: {
+        type: "path",
+        value: "icons/hello.svg",
+    },
 });
 
 const DemoPlugin = {
-    commands: [HelloWorldCommand],
+    commands: [HelloWorldJSCommand],
     ribbons: [
         {
             tabName: "ribbon.tab.tools",
             groups: [
                 {
                     groupName: "ribbon.group.other",
-                    items: ["demo.hello"],
+                    items: ["jsdemo.hello"],
                 },
             ],
         },
@@ -31,7 +34,7 @@ const DemoPlugin = {
             language: "en",
             display: "English",
             translation: {
-                "command.demo.hello": "Plugin Demo",
+                "command.jsdemo.hello": "JS Plugin",
                 "demo.hello.message": "Hello, This is a demo plugin!",
             },
         },
@@ -39,7 +42,7 @@ const DemoPlugin = {
             language: "zh-CN",
             display: "简体中文",
             translation: {
-                "command.demo.hello": "插件示例",
+                "command.jsdemo.hello": "JS插件",
                 "demo.hello.message": "你好，这是一个演示插件！",
             },
         },

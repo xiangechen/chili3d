@@ -2,11 +2,11 @@
     "name": "Demo Plugin",
     "version": "1.0.0",
     "description": "A demo plugin for Chili3D showing plugin system capabilities",
-    "main": "extension.js",
+    "main": "dist/extension.js",
     "author": {
         "name": "Chili3D Team"
     },
     "engines": {
-        "chili3d": ">=0.7"
+        "chili3d": ">=0.6"
     }
 }

@@ -10,7 +10,6 @@ import {
     Logger,
     type Plugin,
     type PluginManifest,
-    Result,
     toBase64Img,
 } from "chili-api";
 import type JSZip from "jszip";
@@ -25,97 +24,131 @@ export class PluginManager implements IPluginManager {
         const JSZip = await import("jszip");
         const zip = await JSZip.default.loadAsync(file);
 
-        const manifest = await this.readManifest(zip);
-        if (!manifest) {
-            return;
-        }
-
-        if (await this.loadPluginCode(zip, manifest)) {
-            Logger.info(`Plugin ${manifest.name} loaded successfully`);
+        const manifest = await this.readManifestFromZip(zip);
+        if (manifest) {
+            await this.loadPluginCodeFromZip(zip, manifest);
         }
     }
 
     async loadFromUrl(url: string) {
-        const response = await fetch(url);
-        if (!response.ok) {
-            alert(`Failed to fetch plugin from ${url}: ${response.statusText}`);
-            return;
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: "application/zip" });
-        const file = new File([blob], "plugin.chiliplugin");
-
-        await this.loadFromFile(file);
-    }
-
-    async loadFromFolder(folderUrl: string, indexName: string = "plugins.json") {
-        try {
-            const response = await fetch(folderUrl + indexName);
+        if (url.endsWith(".chiliplugin")) {
+            const response = await fetch(url);
             if (!response.ok) {
+                alert(`Failed to fetch plugin from ${url}: ${response.statusText}`);
                 return;
             }
-            const config = await response.json();
-            const plugins = config.plugins as string[];
-            const baseUrl = folderUrl.endsWith("/") ? folderUrl : folderUrl + "/";
-            for (const plugin of plugins ?? []) {
-                await this.loadFromUrl(baseUrl + plugin);
+
+            const arrayBuffer = await response.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: "application/zip" });
+            const file = new File([blob], "plugin.chiliplugin");
+
+            await this.loadFromFile(file);
+        } else {
+            if (!url.endsWith("/")) url += "/";
+            const manifest = await this.readManifestFromUrl(url + "manifest.json");
+            if (manifest) {
+                await this.loadPluginCodeFromUrl(manifest.name, url, manifest.main);
             }
-        } catch {
-            Logger.warn(`Failed to load plugins from folder: ${folderUrl}`);
         }
     }
 
-    private async readManifest(zip: JSZip) {
+    private async readManifestFromZip(zip: JSZip) {
         const manifestFile = zip.file("manifest.json");
         if (!manifestFile) {
             alert("manifest.json not found in plugin archive");
             return undefined;
         }
+
         const content = await manifestFile.async("text");
         const manifest = JSON.parse(content) as PluginManifest;
-        const validation = this.validateManifest(manifest);
-        if (!validation.isOk) {
-            alert(validation.error);
-            return undefined;
-        }
-
-        return manifest;
+        return this.validateManifest(manifest) ? manifest : undefined;
     }
 
-    private async loadPluginCode(zip: JSZip, manifest: PluginManifest) {
+    private async readManifestFromUrl(url: string) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            return undefined;
+        }
+        const manifest: PluginManifest = await response.json();
+        return this.validateManifest(manifest) ? manifest : undefined;
+    }
+
+    private async loadPluginCodeFromZip(zip: JSZip, manifest: PluginManifest) {
         const codeFile = zip.file(manifest.main);
         if (!codeFile) {
             alert(manifest.main + " not found in plugin archive");
-            return false;
+            return;
         }
         const code = await codeFile.async("text");
+        const handlePluginIcon = async (plugin: Plugin) => {
+            await this.transformZipCommandIcon(zip, plugin);
+        };
+        await this.loadPluginCode(manifest.name, code, handlePluginIcon);
+    }
+
+    private async loadPluginCodeFromUrl(name: string, baseUrl: string, codePath: string) {
+        if (codePath.startsWith("/")) codePath = codePath.substring(1);
+
+        const fullUrl = baseUrl + codePath;
+        const response = await fetch(fullUrl);
+        if (!response.ok) {
+            return undefined;
+        }
+
+        const code = await response.text();
+        const handlePluginIcon = async (plugin: Plugin) => {
+            await this.transformUrlCommandIcon(baseUrl, plugin);
+        };
+        await this.loadPluginCode(name, code, handlePluginIcon);
+    }
+
+    private async loadPluginCode(
+        name: string,
+        code: string,
+        handlePluginIcon: (plugin: Plugin) => Promise<void>,
+    ) {
         const blob = new Blob([code], { type: "application/javascript" });
         const blobUrl = URL.createObjectURL(blob);
         await Promise.try(async () => {
             const module = await import(/*webpackIgnore: true*/ blobUrl);
-            await this.transformCommandIcon(zip, module.default);
-            this.registerPlugin(module.default);
-            this.plugins.set(manifest.name, module.default);
-        }).finally(() => {
-            URL.revokeObjectURL(blobUrl);
-        });
-        return true;
+            const plugin: Plugin = module.default;
+            await handlePluginIcon(plugin);
+            this.registerPlugin(plugin);
+            this.plugins.set(name, plugin);
+
+            Logger.info(`Plugin ${name} loaded successfully`);
+        })
+            .catch((err) => {
+                alert(`Failed to load plugin ${name}: ${err}`);
+            })
+            .finally(() => {
+                URL.revokeObjectURL(blobUrl);
+            });
     }
 
-    private async transformCommandIcon(zip: JSZip, plugin: Plugin) {
+    private async transformZipCommandIcon(zip: JSZip, plugin: Plugin) {
         for (const command of plugin.commands ?? []) {
             const data = CommandStore.getComandData(command);
             const iconData = data?.icon as IconPath;
-            if (iconData?.type === "plugin") {
-                const codeFile = zip.file(iconData?.path);
+            if (iconData?.type === "path") {
+                const codeFile = zip.file(iconData?.value);
                 if (!codeFile) {
-                    alert(`${iconData.path} not found in plugin archive`);
+                    alert(`${iconData.value} not found in plugin archive`);
                     continue;
                 }
                 const icon = await codeFile.async("base64");
-                const base64: string = toBase64Img(iconData.path, icon);
+                const base64: string = toBase64Img(iconData.value, icon);
                 data!.icon = { type: "url", value: base64 };
+            }
+        }
+    }
+
+    private async transformUrlCommandIcon(baseUrl: string, plugin: Plugin) {
+        for (const command of plugin.commands ?? []) {
+            const data = CommandStore.getComandData(command);
+            const iconData = data?.icon as IconPath;
+            if (iconData?.type === "path") {
+                data!.icon = { type: "url", value: baseUrl + iconData.value };
             }
         }
     }
@@ -152,23 +185,38 @@ export class PluginManager implements IPluginManager {
         return this.plugins.has(pluginName);
     }
 
-    private validateManifest(manifest: PluginManifest): Result<boolean> {
-        if (!manifest.name) Result.err("Missing required field: name");
-        if (!manifest.version) Result.err("Missing required field: version");
-        if (!manifest.main) Result.err("Missing required field: main");
-
-        if (manifest.version && !this.isValidSemver(manifest.version)) {
-            Result.err("Invalid version format (expected semver like 1.0.0)");
+    private validateManifest(manifest: PluginManifest) {
+        if (this.manifests.has(manifest.name)) {
+            alert(`Plugin ${manifest.name} already loaded`);
+            return false;
         }
 
+        const errors: string[] = [];
+        if (!manifest.name) errors.push("Missing required field: name");
+        if (!manifest.version) errors.push("Missing required field: version");
+        if (!manifest.main) errors.push("Missing required field: main");
+        if (manifest.version && !this.isValidSemver(manifest.version)) {
+            errors.push("Invalid version format (expected semver like 1.0.0)");
+        }
         if (manifest.engines?.chili3d) {
             const currentVersion = __APP_VERSION__;
             if (!this.satisfiesVersion(currentVersion, manifest.engines.chili3d)) {
-                Result.err(`Chili3D version ${currentVersion} does not satisfy ${manifest.engines.chili3d}`);
+                errors.push(`Chili3D version ${currentVersion} does not satisfy ${manifest.engines.chili3d}`);
             }
         }
 
-        return Result.ok(true);
+        if (errors.length > 0) {
+            alert(
+                "Load plugin " +
+                    manifest.name +
+                    " failed:\n" +
+                    errors.map((x, i) => `${i + 1}. ${x}`).join("\n"),
+            );
+            return false;
+        }
+
+        this.manifests.set(manifest.name, manifest);
+        return true;
     }
 
     private isValidSemver(version: string): boolean {

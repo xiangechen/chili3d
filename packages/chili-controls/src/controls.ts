@@ -21,8 +21,7 @@ export function createIcon(icon: CommandIcon): Element {
         }
         case "url":
             return img({ src: icon.value });
-        case "plugin":
-            console.trace("Plugin icon is not supported");
+        case "path":
             throw new Error("Plugin icon is not supported, please transform it to other icon type");
         default:
             return svg({ icon: "icon-chili" });

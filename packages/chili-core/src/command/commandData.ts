@@ -10,10 +10,7 @@ export type IconPng = { type: "png"; value: Uint8Array };
 
 export type IconUrl = { type: "url"; value: string };
 
-/**
- * Only for plugin use, should transform to other type
- */
-export type IconPath = { type: "plugin"; path: string };
+export type IconPath = { type: "path"; value: string };
 
 export type CommandIcon = string | IconSvg | IconPng | IconUrl | IconPath;
 

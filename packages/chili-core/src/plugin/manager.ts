@@ -12,16 +12,12 @@ export interface IPluginManager {
      */
     loadFromFile(pluginFile: File): Promise<void>;
     /**
-     * Load plugins from a url, the plugin file must be a zip file
+     * Load plugins from a url,
+     * if the url is a zip file, it will be loaded as a plugin, eg: https://example.com/plugin1.chiliplugin
+     * if the url is a directory, it will be loaded as a plugin folder, eg: https://example.com/plugin1, the plugin folder must have a manifest.json file inside,
      * @param pluginUrl the plugin url
      */
     loadFromUrl(pluginUrl: string): Promise<void>;
-    /**
-     * Load plugins from a folder, the index file is optional, if not specified, the default plugins.json will be used
-     * @param folderUrl the folder url
-     * @param indexName the index file name, default is plugins.json
-     */
-    loadFromFolder(folderUrl: string, indexName?: string): Promise<void>;
     unload(pluginName: string): Promise<void>;
     unloadAll(): void;
     getPlugins(): Plugin[];
