@@ -5,7 +5,7 @@
     "main": "extension.js",
     "type": "module",
     "scripts": {
-        "package": "rm -rf dist && mkdir dist && zip -r ./dist/helloworld-js.chiliplugin manifest.json ./src/extension.js icons"
+        "package": "node ../scripts/package-plugin.mjs --entry src/extension.js --output dist/helloworld-js.chiliplugin"
     },
     "keywords": [
         "chili3d",
