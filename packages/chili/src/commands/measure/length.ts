@@ -1,9 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, Precision, VisualConfig, type XYZ } from "chili-core";
-import { Dimension, type PointSnapData } from "../../snap";
-import { type IStep, PointStep } from "../../step";
+import {
+    command,
+    Dimension,
+    type IStep,
+    type PointSnapData,
+    PointStep,
+    Precision,
+    VisualConfig,
+    type XYZ,
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

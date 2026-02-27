@@ -9,7 +9,7 @@ import {
     PubSub,
     readFileAsync,
     type Serialized,
-} from "chili-core";
+} from "chili-api";
 
 @command({
     key: "doc.open",

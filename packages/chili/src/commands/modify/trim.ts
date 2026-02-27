@@ -8,6 +8,7 @@ import {
     command,
     EditableShapeNode,
     type GeometryNode,
+    GeoUtils,
     I18n,
     type ICurve,
     type IDisposable,
@@ -19,13 +20,12 @@ import {
     type IView,
     type IVisualGeometry,
     type ShapeNode,
+    ShapeSelectionHandler,
     ShapeType,
     Transaction,
     VisualConfig,
     type VisualShapeData,
-} from "chili-core";
-import { GeoUtils } from "chili-geo";
-import { ShapeSelectionHandler } from "chili-vis";
+} from "chili-api";
 
 @command({
     key: "modify.trim",

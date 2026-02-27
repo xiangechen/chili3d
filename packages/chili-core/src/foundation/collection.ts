@@ -41,7 +41,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     private _items: T[];
 
     constructor(...items: T[]) {
-        this._items = [...items];
+        this._items = Array.from(items);
     }
 
     push(...items: T[]) {
@@ -81,7 +81,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
 
     clear() {
         if (this._items.length === 0) return;
-        const items = [...this._items];
+        const items = this.items();
         this._items = [];
         this.notifyChange({
             action: CollectionAction.remove,
@@ -115,19 +115,19 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 
     forEach(callback: (item: T, index: number) => void) {
-        this.items.forEach(callback);
+        this._items.forEach(callback);
     }
 
     map(callback: (item: T, index: number) => any) {
-        return this.items.map(callback);
+        return this._items.map(callback);
     }
 
-    get items() {
-        return [...this._items];
+    items() {
+        return Array.from(this._items);
     }
 
     [Symbol.iterator]() {
-        return this.items[Symbol.iterator]();
+        return this._items[Symbol.iterator]();
     }
 
     item(index: number) {

@@ -12,7 +12,7 @@ import {
     serializable,
     serialze,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "plane", "dx", "dy", "dz"])
 export class BoxNode extends ParameterShapeNode {

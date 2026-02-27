@@ -3,8 +3,10 @@ import rspack from "@rspack/core";
 import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
 import packages from "./package.json";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export default defineConfig({
-    devtool: process.env.NODE_ENV === "production" ? false : "source-map",
+    devtool: isProduction ? false : "source-map",
     entry: {
         main: "./packages/chili-web/src/index.ts",
     },
@@ -40,6 +42,9 @@ export default defineConfig({
                             decorators: true,
                         },
                         target: "esnext",
+                    },
+                    collectTypeScriptInfo: {
+                        exportedEnum: isProduction,
                     },
                 },
             },

@@ -12,6 +12,7 @@ import {
     type IView,
     isCancelableCommand,
 } from "../src";
+import { CommandStore } from "../src/command/commandStore";
 
 const mockDocument = {} as IDocument;
 
@@ -396,6 +397,309 @@ describe("Command System", () => {
             command["controller"] = mockController;
 
             expect(disposeCallCount).toBe(0);
+        });
+    });
+
+    describe("CommandUtils", () => {
+        beforeEach(() => {
+            CommandStore.getAllCommands().forEach((cmd) => {
+                CommandStore.unregisterCommand(cmd.key);
+            });
+        });
+
+        describe("registerCommand", () => {
+            test("should register command with key and metadata", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.command",
+                    icon: "test-icon",
+                    helpText: "Test help text",
+                });
+
+                const data = CommandStore.getComandData("test.command");
+                expect(data).toBeDefined();
+                expect(data?.key).toBe("test.command");
+                expect(data?.icon).toBe("test-icon");
+                expect(data?.helpText).toBe("Test help text");
+            });
+
+            test("should store command constructor in registry", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.registry",
+                    icon: "icon",
+                });
+
+                const ctor = CommandStore.getCommand("test.registry");
+                expect(ctor).toBe(TestCommandClass);
+            });
+
+            test("should overwrite existing command with same key", () => {
+                class FirstCommand implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                class SecondCommand implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(FirstCommand, {
+                    key: "test.overwrite",
+                    icon: "icon1",
+                });
+
+                CommandStore.registerCommand(SecondCommand, {
+                    key: "test.overwrite",
+                    icon: "icon2",
+                });
+
+                const data = CommandStore.getComandData("test.overwrite");
+                expect(data?.icon).toBe("icon2");
+            });
+
+            test("should register command with optional toggle binding", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                const mockToggle = {} as any;
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.toggle",
+                    icon: "icon",
+                    toggle: mockToggle,
+                });
+
+                const data = CommandStore.getComandData("test.toggle");
+                expect(data?.toggle).toBe(mockToggle);
+            });
+
+            test("should register command with helpUrl", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.helpUrl",
+                    icon: "icon",
+                    helpUrl: "https://example.com/help",
+                });
+
+                const data = CommandStore.getComandData("test.helpUrl");
+                expect(data?.helpUrl).toBe("https://example.com/help");
+            });
+
+            test("should register command with isApplicationCommand flag", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.appCommand",
+                    icon: "icon",
+                    isApplicationCommand: true,
+                });
+
+                const data = CommandStore.getComandData("test.appCommand");
+                expect(data?.isApplicationCommand).toBe(true);
+            });
+        });
+
+        describe("unregisterCommand", () => {
+            test("should remove command from registry", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.unregister",
+                    icon: "icon",
+                });
+
+                expect(CommandStore.getCommand("test.unregister")).toBeDefined();
+
+                CommandStore.unregisterCommand("test.unregister");
+
+                expect(CommandStore.getCommand("test.unregister")).toBeUndefined();
+            });
+
+            test("should remove command data from prototype", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.prototype",
+                    icon: "icon",
+                });
+
+                expect((TestCommandClass.prototype as any).data).toBeDefined();
+
+                CommandStore.unregisterCommand("test.prototype");
+
+                expect((TestCommandClass.prototype as any).data).toBeUndefined();
+            });
+
+            test("should handle unregistering non-existent command", () => {
+                expect(() => {
+                    CommandStore.unregisterCommand("test.nonexistent");
+                }).not.toThrow();
+            });
+
+            test("should remove command data from getAllCommands result", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.getall",
+                    icon: "icon",
+                });
+
+                expect(CommandStore.getAllCommands().length).toBeGreaterThan(0);
+
+                CommandStore.unregisterCommand("test.getall");
+
+                const allCommands = CommandStore.getAllCommands();
+                const found = allCommands.find((cmd) => (cmd as any).key === "test.getall");
+                expect(found).toBeUndefined();
+            });
+
+            test("should handle unregistering command that was registered multiple times", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.multi",
+                    icon: "icon1",
+                });
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.multi",
+                    icon: "icon2",
+                });
+
+                CommandStore.unregisterCommand("test.multi");
+
+                expect(CommandStore.getCommand("test.multi")).toBeUndefined();
+            });
+        });
+
+        describe("getComandData", () => {
+            test("should get command data by string key", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.getData",
+                    icon: "test-icon",
+                });
+
+                const data = CommandStore.getComandData("test.getData");
+                expect(data?.icon).toBe("test-icon");
+            });
+
+            test("should get command data by command constructor", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.getDataCtor",
+                    icon: "icon",
+                });
+
+                const data = CommandStore.getComandData(TestCommandClass);
+                expect(data?.key).toBe("test.getDataCtor");
+            });
+
+            test("should get command data by command instance", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.getDataInstance",
+                    icon: "icon",
+                });
+
+                const instance = new TestCommandClass();
+                const data = CommandStore.getComandData(instance);
+                expect(data?.key).toBe("test.getDataInstance");
+            });
+
+            test("should return undefined for non-existent command", () => {
+                const data = CommandStore.getComandData("test.nonExistent");
+                expect(data).toBeUndefined();
+            });
+        });
+
+        describe("getCommand", () => {
+            test("should return command constructor by name", () => {
+                class TestCommandClass implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(TestCommandClass, {
+                    key: "test.getCommand",
+                    icon: "icon",
+                });
+
+                const ctor = CommandStore.getCommand("test.getCommand");
+                expect(ctor).toBe(TestCommandClass);
+            });
+
+            test("should return undefined for non-existent command", () => {
+                const ctor = CommandStore.getCommand("test.doesNotExist");
+                expect(ctor).toBeUndefined();
+            });
+        });
+
+        describe("getAllCommands", () => {
+            test("should return all registered commands", () => {
+                class Command1 implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                class Command2 implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                class Command3 implements ICommand {
+                    async execute(_app: IApplication): Promise<void> {}
+                }
+
+                CommandStore.registerCommand(Command1, {
+                    key: "test.all1",
+                    icon: "icon1",
+                });
+
+                CommandStore.registerCommand(Command2, {
+                    key: "test.all2",
+                    icon: "icon2",
+                });
+
+                CommandStore.registerCommand(Command3, {
+                    key: "test.all3",
+                    icon: "icon3",
+                });
+
+                const allCommands = CommandStore.getAllCommands();
+                expect(allCommands.length).toBe(3);
+            });
+
+            test("should return empty array when no commands registered", () => {
+                const allCommands = CommandStore.getAllCommands();
+                expect(allCommands.length).toBe(0);
+            });
         });
     });
 });

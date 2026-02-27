@@ -1,10 +1,19 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type GeometryNode, Precision, type XYZ } from "chili-core";
+import {
+    command,
+    type GeometryNode,
+    type IStep,
+    type LengthAtAxisSnapData,
+    LengthAtAxisStep,
+    LengthAtPlaneStep,
+    PointStep,
+    Precision,
+    type SnapLengthAtPlaneData,
+    type XYZ,
+} from "chili-api";
 import { EllipseNode } from "../../bodys/ellipse";
-import type { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { type IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({

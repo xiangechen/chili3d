@@ -4,8 +4,6 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
-        "chili-core": "*",
-        "chili-geo": "*",
-        "chili-vis": "*"
+        "chili-api": "*"
     }
 }

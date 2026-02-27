@@ -16,7 +16,7 @@ import {
     VisualConfig,
     VisualNode,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 export abstract class TransformedCommand extends MultistepCommand {

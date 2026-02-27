@@ -4,16 +4,18 @@
 import {
     AsyncController,
     command,
+    Dimension,
     EdgeMeshDataBuilder,
     I18n,
     type IEdge,
+    type IStep,
+    type PointSnapData,
+    PointStep,
     property,
     type ShapeMeshData,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 import { PipeNode } from "../../bodys";
-import { Dimension, type PointSnapData } from "../../snap";
-import { type IStep, PointStep } from "../../step";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

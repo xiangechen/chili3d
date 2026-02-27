@@ -9,7 +9,7 @@ import {
     Precision,
     Result,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 
 export class WireFilletBuilder {
     constructor(private factory: IShapeFactory) {}

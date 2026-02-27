@@ -5,6 +5,7 @@ import { MultistepCommand } from "chili";
 import {
     button,
     ColorConverter,
+    createIcon,
     div,
     input,
     label,
@@ -17,7 +18,7 @@ import {
     Binding,
     CancelableCommand,
     Combobox,
-    CommandUtils,
+    CommandStore,
     I18n,
     type I18nKeys,
     type ICommand,
@@ -37,9 +38,11 @@ export class CommandContext extends HTMLElement implements IDisposable {
     constructor(readonly command: ICommand) {
         super();
         this.className = style.panel;
-        const data = CommandUtils.getComandData(command);
+        const data = CommandStore.getComandData(command);
+        const icon = createIcon(data!.icon);
+        icon.classList.add(style.icon);
         this.append(
-            svg({ className: style.icon, icon: data!.icon }),
+            icon,
             label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
         );
         this.initContext();

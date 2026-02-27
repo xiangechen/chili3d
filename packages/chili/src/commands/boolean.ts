@@ -4,15 +4,16 @@
 import {
     command,
     type IShape,
+    type IStep,
     PubSub,
     type Result,
+    SelectShapeStep,
     ShapeNode,
     ShapeType,
     Transaction,
     VisualState,
-} from "chili-core";
+} from "chili-api";
 import { BooleanNode } from "../bodys/boolean";
-import { type IStep, SelectShapeStep } from "../step";
 import { MultistepCommand } from "./multistepCommand";
 
 export abstract class BooleanOperate extends MultistepCommand {

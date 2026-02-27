@@ -4,17 +4,20 @@
 import {
     AsyncController,
     command,
+    Dimension,
     EditableShapeNode,
     type GeometryNode,
     I18n,
+    type IStep,
     MeshDataUtils,
+    type PointSnapData,
+    PointStep,
     Precision,
     type ShapeMeshData,
+    type SnapResult,
     VisualConfig,
     type XYZ,
-} from "chili-core";
-import { Dimension, type PointSnapData, type SnapResult } from "../../snap";
-import { type IStep, PointStep } from "../../step";
+} from "chili-api";
 import { CreateCommand } from "../createCommand";
 
 @command({

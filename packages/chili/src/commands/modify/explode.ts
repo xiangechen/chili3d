@@ -5,16 +5,15 @@ import {
     ComponentNode,
     command,
     EditableShapeNode,
+    GetOrSelectNodeStep,
     GroupNode,
     type IShape,
+    type IStep,
     MultiShapeNode,
     ShapeNode,
-    ShapeType,
     ShapeTypeUtils,
     Transaction,
-} from "chili-core";
-import type { IStep } from "../../step";
-import { GetOrSelectNodeStep } from "../../step/selectStep";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

@@ -9,6 +9,7 @@ import {
     type ICommand,
     type IDataExchange,
     type IDocument,
+    type IPluginManager,
     type IService,
     type IShapeFactory,
     type IStorage,
@@ -18,12 +19,14 @@ import {
     Logger,
     Material,
     ObservableCollection,
+    PLUGIN_FILE_EXTENSION,
     Plane,
     PubSub,
     type Serialized,
     setCurrentApplication,
-} from "chili-core";
+} from "chili-api";
 import { Document } from "./document";
+import { PluginManager } from "./pluginManager";
 import { importFiles } from "./utils";
 
 export interface ApplicationOptions {
@@ -42,6 +45,7 @@ export class Application implements IApplication {
     readonly services: IService[];
     readonly storage: IStorage;
     readonly mainWindow?: IWindow;
+    readonly pluginManager: IPluginManager;
 
     readonly views = new ObservableCollection<IView>();
     readonly documents: Set<IDocument> = new Set<IDocument>();
@@ -69,6 +73,7 @@ export class Application implements IApplication {
         this.storage = option.storage;
         this.dataExchange = option.dataExchange;
         this.mainWindow = option.mainWindow;
+        this.pluginManager = new PluginManager(this);
 
         this.services.forEach((x) => x.register(this));
         this.services.forEach((x) => x.start());
@@ -118,9 +123,23 @@ export class Application implements IApplication {
         if (!files || files.length === 0) {
             return;
         }
-        const { opens, imports } = this.groupFiles(files);
+        const { opens, imports, plugins } = this.groupFiles(files);
+        this.loadPluginsWithLoading(plugins);
         this.loadDocumentsWithLoading(opens);
         importFiles(this, imports);
+    }
+
+    private loadPluginsWithLoading(plugins: File[]) {
+        PubSub.default.pub(
+            "showPermanent",
+            async () => {
+                for (const pluginFile of plugins) {
+                    await this.pluginManager.loadFromFile(pluginFile);
+                }
+            },
+            "toast.excuting{0}",
+            I18n.translate("command.doc.open"),
+        );
     }
 
     private loadDocumentsWithLoading(opens: File[]) {
@@ -141,14 +160,17 @@ export class Application implements IApplication {
     private groupFiles(files: FileList | File[]) {
         const opens: File[] = [];
         const imports: File[] = [];
+        const plugins: File[] = [];
         for (const element of files) {
             if (element.name.endsWith(DOCUMENT_FILE_EXTENSION)) {
                 opens.push(element);
+            } else if (element.name.endsWith(PLUGIN_FILE_EXTENSION)) {
+                plugins.push(element);
             } else {
                 imports.push(element);
             }
         }
-        return { opens, imports };
+        return { opens, imports, plugins };
     }
 
     async openDocument(id: string): Promise<IDocument | undefined> {

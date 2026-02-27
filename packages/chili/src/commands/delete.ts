@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type INode, PubSub, Transaction } from "chili-core";
-import { GetOrSelectNodeStep, type IStep } from "../step";
+import { command, GetOrSelectNodeStep, type INode, type IStep, PubSub, Transaction } from "chili-api";
 import { MultistepCommand } from "./multistepCommand";
 
 @command({

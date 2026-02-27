@@ -9,7 +9,7 @@ import {
     Result,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "booleanShape"])
 export class BooleanNode extends ParameterShapeNode {

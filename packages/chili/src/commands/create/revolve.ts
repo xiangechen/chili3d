@@ -9,13 +9,13 @@ import {
     type ILine,
     type IShape,
     type IShapeFilter,
+    type IStep,
     Line,
     property,
+    SelectShapeStep,
     ShapeType,
-} from "chili-core";
+} from "chili-api";
 import { RevolvedNode } from "../../bodys";
-import type { IStep } from "../../step";
-import { SelectShapeStep } from "../../step/selectStep";
 import { CreateCommand } from "../createCommand";
 
 @command({

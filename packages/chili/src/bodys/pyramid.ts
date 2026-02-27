@@ -11,7 +11,7 @@ import {
     type Result,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "plane", "dx", "dy", "dz"])
 export class PyramidNode extends ParameterShapeNode {

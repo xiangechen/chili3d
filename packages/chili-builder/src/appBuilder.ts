@@ -31,6 +31,15 @@ export class AppBuilder {
     constructor() {
         this.initI18n();
         this.initConfig();
+        this.ensureAPI();
+    }
+
+    protected ensureAPI() {
+        this._inits.push(async () => {
+            Logger.info("initializing api");
+
+            (globalThis as any).ChiliAPI = await import("chili-api");
+        });
     }
 
     protected initConfig() {
@@ -158,7 +167,11 @@ export class AppBuilder {
         for (const module of this._additionalModules) {
             if (this._window) {
                 module.ribbonCommands().forEach((command) => {
-                    this._window!.registerRibbonCommand(command.tabName, command.groupName, command.command);
+                    this._window!.ribbon.addRibbonCommand(
+                        command.tabName,
+                        command.groupName,
+                        command.command,
+                    );
                 });
             }
         }

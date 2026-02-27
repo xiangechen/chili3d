@@ -1,0 +1,21 @@
+{
+    "name": "helloworld-ts",
+    "version": "1.0.0",
+    "description": "A demo plugin for Chili3D showing plugin system capabilities",
+    "main": "extension.js",
+    "type": "module",
+    "scripts": {
+        "build": "rspack build",
+        "package": "npm run build && zip -r ./dist/helloworld-ts.chiliplugin manifest.json ./dist/extension.js icons"
+    },
+    "devDependencies": {
+        "chili-api": "*",
+        "typescript": "^5.0.0"
+    },
+    "keywords": [
+        "chili3d",
+        "plugin",
+        "demo"
+    ],
+    "author": "Chili3D Team"
+}

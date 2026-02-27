@@ -5,13 +5,13 @@ import {
     command,
     EditableShapeNode,
     type IEdge,
+    type IStep,
     type IVisualObject,
+    SelectShapeStep,
     ShapeType,
     Transaction,
     VisualState,
-} from "chili-core";
-import type { IStep } from "../../step";
-import { SelectShapeStep } from "../../step/selectStep";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({

@@ -16,6 +16,6 @@
         "plugins": [{ "name": "typescript-plugin-css-modules" }],
         "types": ["@rstest/core/globals"]
     },
-    "include": ["packages"],
+    "include": ["packages", "plugins"],
     "exclude": ["packages/chili-occ/occ-wasm", "packages/chili-wasm/lib"]
 }

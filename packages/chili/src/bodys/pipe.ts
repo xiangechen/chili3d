@@ -15,7 +15,7 @@ import {
     ShapeType,
     serializable,
     serialze,
-} from "chili-core";
+} from "chili-api";
 import { WireFilletBuilder } from "./utils/WireFilletBuilder";
 
 @serializable(["document", "radius", "path", "bendRadius", "thickness"])

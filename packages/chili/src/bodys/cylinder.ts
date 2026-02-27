@@ -11,7 +11,7 @@ import {
     serializable,
     serialze,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 
 @serializable(["document", "normal", "center", "radius", "dz"])
 export class CylinderNode extends ParameterShapeNode {

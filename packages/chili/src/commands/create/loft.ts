@@ -15,9 +15,9 @@ import {
     PubSub,
     property,
     Result,
+    SelectShapeStep,
     ShapeType,
-} from "chili-core";
-import { SelectShapeStep } from "../../step";
+} from "chili-api";
 
 @command({
     key: "create.loft",

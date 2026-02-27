@@ -1,10 +1,20 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type GeometryNode, type Plane, Precision, type XYZ } from "chili-core";
+import {
+    command,
+    type GeometryNode,
+    type IStep,
+    type LengthAtAxisSnapData,
+    LengthAtAxisStep,
+    LengthAtPlaneStep,
+    type Plane,
+    PointStep,
+    Precision,
+    type SnapLengthAtPlaneData,
+    type XYZ,
+} from "chili-api";
 import { CylinderNode } from "../../bodys";
-import type { LengthAtAxisSnapData, SnapLengthAtPlaneData } from "../../snap";
-import { type IStep, LengthAtAxisStep, LengthAtPlaneStep, PointStep } from "../../step";
 import { CreateCommand } from "../createCommand";
 
 @command({

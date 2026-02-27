@@ -3,14 +3,14 @@
 
 import {
     type CommandKeys,
-    CommandUtils,
+    CommandStore,
     type IApplication,
     type IService,
     type IView,
     isCancelableCommand,
     Logger,
     PubSub,
-} from "chili-core";
+} from "chili-api";
 
 export class CommandService implements IService {
     private _lastCommand: CommandKeys | undefined;
@@ -54,7 +54,7 @@ export class CommandService implements IService {
     };
 
     private async executeAsync(commandName: CommandKeys) {
-        const commandCtor = CommandUtils.getCommond(commandName)!;
+        const commandCtor = CommandStore.getCommand(commandName)!;
         if (!commandCtor) {
             Logger.error(`Can not find ${commandName} command`);
             return;
@@ -84,7 +84,7 @@ export class CommandService implements IService {
     }
 
     private async checking(commandName: CommandKeys) {
-        const commandData = CommandUtils.getComandData(commandName);
+        const commandData = CommandStore.getComandData(commandName);
         if (!commandData?.isApplicationCommand && this.app.activeView === undefined) {
             Logger.error("No active document");
             return false;
@@ -92,7 +92,7 @@ export class CommandService implements IService {
         if (!this.app.executingCommand) {
             return true;
         }
-        if (CommandUtils.getComandData(this.app.executingCommand)?.key === commandName) {
+        if (CommandStore.getComandData(this.app.executingCommand)?.key === commandName) {
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
             return false;
         }

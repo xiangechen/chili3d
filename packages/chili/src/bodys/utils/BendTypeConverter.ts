@@ -1,4 +1,4 @@
-import { type IConverter, Result } from "chili-core";
+import { type IConverter, Result } from "chili-api";
 
 export class BendTypeConverter implements IConverter<number> {
     convert(value: number): Result<string> {

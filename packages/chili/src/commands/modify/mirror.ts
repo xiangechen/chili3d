@@ -1,9 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, Matrix4, Plane, type ShapeMeshData, type XYZ } from "chili-core";
-import { Dimension, type PointSnapData } from "../../snap";
-import { type IStep, PointStep } from "../../step";
+import {
+    command,
+    Dimension,
+    type IStep,
+    Matrix4,
+    Plane,
+    type PointSnapData,
+    PointStep,
+    type ShapeMeshData,
+    type XYZ,
+} from "chili-api";
 import { TransformedCommand } from "./transformedCommand";
 
 @command({

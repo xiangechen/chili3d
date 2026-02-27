@@ -4,17 +4,20 @@
 import {
     AsyncController,
     command,
+    Dimension,
     EdgeMeshDataBuilder,
     type GeometryNode,
     I18n,
+    type IStep,
+    type PointSnapData,
+    PointStep,
     Precision,
     property,
     type ShapeMeshData,
+    type SnapResult,
     type XYZ,
-} from "chili-core";
+} from "chili-api";
 import { PolygonNode } from "../../bodys";
-import { Dimension, type PointSnapData, type SnapResult } from "../../snap";
-import { type IStep, PointStep } from "../../step";
 import { CreateFaceableCommand } from "../createCommand";
 
 @command({

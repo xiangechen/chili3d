@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    GeoUtils,
     type I18nKeys,
     type IDocument,
     type IShape,
@@ -10,8 +11,7 @@ import {
     type Result,
     serializable,
     serialze,
-} from "chili-core";
-import { GeoUtils } from "chili-geo";
+} from "chili-api";
 
 @serializable(["document", "section", "length"])
 export class PrismNode extends ParameterShapeNode {

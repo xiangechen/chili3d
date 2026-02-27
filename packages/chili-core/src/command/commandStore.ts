@@ -1,31 +1,39 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Binding } from "../foundation";
 import type { ICommand } from "./command";
-import type { CommandKeys } from "./commandKeys";
-
-const commandRegistry = new Map<string, CommandConstructor>();
+import type { CommandData } from "./commandData";
 
 export type CommandConstructor = new (...args: any[]) => ICommand;
 
-export interface CommandData {
-    key: CommandKeys;
-    icon: string;
-    toggle?: Binding;
-    helpText?: string;
-    helpUrl?: string;
-    isApplicationCommand?: boolean;
-}
+const commandRegistry = new Map<string, CommandConstructor>();
 
-export function command<T extends CommandConstructor>(metadata: CommandData) {
-    return (ctor: T) => {
+export class CommandStore {
+    static registerCommand<T extends CommandConstructor>(
+        ctor: T,
+        metadata: Omit<CommandData, "key"> & { key: string },
+    ) {
         commandRegistry.set(metadata.key, ctor);
         ctor.prototype.data = metadata;
-    };
-}
+    }
 
-export class CommandUtils {
+    static unregisterCommand(command: string | CommandConstructor) {
+        let ctor: CommandConstructor | undefined;
+        let key: string;
+        if (typeof command === "string") {
+            ctor = commandRegistry.get(command);
+            key = command;
+        } else {
+            ctor = command;
+            key = ctor.prototype.data.key;
+        }
+
+        if (ctor) {
+            delete ctor.prototype.data;
+        }
+        commandRegistry.delete(key);
+    }
+
     static getComandData(target: string | ICommand | CommandConstructor): CommandData | undefined {
         if (typeof target === "string") {
             const ctor = commandRegistry.get(target);
@@ -37,7 +45,7 @@ export class CommandUtils {
         return prototype.data;
     }
 
-    static getCommond(name: CommandKeys): CommandConstructor | undefined {
+    static getCommand(name: string): CommandConstructor | undefined {
         return commandRegistry.get(name);
     }
 

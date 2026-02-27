@@ -2,28 +2,34 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AngleStep,
     AsyncController,
     BoundingBox,
     Component,
     ComponentNode,
     command,
+    Dimension,
     GeometryNode,
+    type IStep,
+    LengthAtPlaneStep,
     Line,
     MathUtils,
     Matrix4,
     MeshNode,
     Plane,
     PlaneAngle,
+    PointOnAxisStep,
+    type PointSnapData,
+    PointStep,
     Precision,
     PubSub,
     property,
     type ShapeMeshData,
+    type SnapLengthAtPlaneData,
     Transaction,
     VisualNode,
     XYZ,
-} from "chili-core";
-import { Dimension, type PointSnapData, type SnapLengthAtPlaneData } from "../../snap";
-import { AngleStep, type IStep, LengthAtPlaneStep, PointOnAxisStep, PointStep } from "../../step";
+} from "chili-api";
 import { MultistepCommand } from "../multistepCommand";
 
 @command({
