@@ -5,7 +5,7 @@
     "main": "extension.js",
     "type": "module",
     "scripts": {
-        "package": "rm -rf dist && mkdir dist && zip -r ./dist/helloworld-js.chiliplugin manifest.json ./src/extension.js icons"
+        "package": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (Test-Path dist) { Remove-Item -Recurse -Force dist }; if (Test-Path .package-temp) { Remove-Item -Recurse -Force .package-temp }; New-Item -ItemType Directory -Path dist | Out-Null; New-Item -ItemType Directory -Path .package-temp -Force | Out-Null; Copy-Item manifest.json .package-temp/manifest.json; Copy-Item src/extension.js .package-temp/extension.js; Copy-Item icons .package-temp/icons -Recurse; Compress-Archive -Path .package-temp/* -DestinationPath dist/helloworld-js.zip -Force; Rename-Item -Path dist/helloworld-js.zip -NewName helloworld-js.chiliplugin -Force; Remove-Item -Recurse -Force .package-temp\""
     },
     "keywords": [
         "chili3d",

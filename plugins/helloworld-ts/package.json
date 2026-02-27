@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "build": "rspack build",
-        "package": "npm run build && zip -r ./dist/helloworld-ts.chiliplugin manifest.json ./dist/extension.js icons"
+        "package": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (Test-Path .package-temp) { Remove-Item -Recurse -Force .package-temp }; New-Item -ItemType Directory -Path .package-temp -Force | Out-Null; Copy-Item manifest.json .package-temp/manifest.json; Copy-Item dist/extension.js .package-temp/extension.js; Copy-Item icons .package-temp/icons -Recurse; Compress-Archive -Path .package-temp/* -DestinationPath dist/helloworld-ts.zip -Force; Rename-Item -Path dist/helloworld-ts.zip -NewName helloworld-ts.chiliplugin -Force; Remove-Item -Recurse -Force .package-temp\""
     },
     "devDependencies": {
         "chili-api": "*",
