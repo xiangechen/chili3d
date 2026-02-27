@@ -29,6 +29,8 @@ Package the plugin (creates .chiliplugin file):
 npm run package
 ```
 
+The packaging script is cross-platform and works on both Windows (PowerShell) and macOS/Linux.
+
 ## Installation
 
 Drag and drop the .chiliplugin file into Chili3D.

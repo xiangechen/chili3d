@@ -83,31 +83,13 @@ export class Application implements IApplication {
 
     private initWindowEvents() {
         window.onbeforeunload = this.handleWindowUnload;
-        this.mainWindow?.addEventListener(
-            "dragstart",
-            (ev) => {
-                ev.preventDefault();
-            },
-            false,
-        );
-        this.mainWindow?.addEventListener(
-            "dragover",
-            (ev) => {
-                ev.stopPropagation();
-                ev.preventDefault();
-                ev.dataTransfer!.dropEffect = "copy";
-            },
-            false,
-        );
-        this.mainWindow?.addEventListener(
-            "drop",
-            (ev) => {
-                ev.stopPropagation();
-                ev.preventDefault();
-                this.importFiles(ev.dataTransfer?.files);
-            },
-            false,
-        );
+        this.mainWindow?.addEventListener("dragstart", this.handleDragStart, false);
+        // Use capture to intercept file-drop before nested widgets call stopPropagation().
+        this.mainWindow?.addEventListener("dragover", this.handleDragOver, true);
+        this.mainWindow?.addEventListener("drop", this.handleDrop, true);
+        // Fallback: catch drag/drop anywhere in page, also in capture phase.
+        window.addEventListener("dragover", this.handleDragOver, true);
+        window.addEventListener("drop", this.handleDrop, true);
     }
 
     private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
@@ -117,6 +99,25 @@ export class Application implements IApplication {
             // Chrome requires returnValue to be set.
             event.returnValue = "";
         }
+    };
+
+    private readonly handleDragStart = (ev: DragEvent) => {
+        ev.preventDefault();
+    };
+
+    private readonly handleDragOver = (ev: DragEvent) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        if (ev.dataTransfer) {
+            ev.dataTransfer.dropEffect = "copy";
+        }
+    };
+
+    private readonly handleDrop = (ev: DragEvent) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const files = this.extractDroppedFiles(ev.dataTransfer);
+        this.importFiles(files);
     };
 
     async importFiles(files: File[] | FileList | undefined) {
@@ -162,15 +163,27 @@ export class Application implements IApplication {
         const imports: File[] = [];
         const plugins: File[] = [];
         for (const element of files) {
-            if (element.name.endsWith(DOCUMENT_FILE_EXTENSION)) {
+            const fileName = element.name.toLowerCase();
+            if (fileName.endsWith(DOCUMENT_FILE_EXTENSION)) {
                 opens.push(element);
-            } else if (element.name.endsWith(PLUGIN_FILE_EXTENSION)) {
+            } else if (fileName.endsWith(PLUGIN_FILE_EXTENSION)) {
                 plugins.push(element);
             } else {
                 imports.push(element);
             }
         }
         return { opens, imports, plugins };
+    }
+
+    private extractDroppedFiles(dataTransfer: DataTransfer | null): File[] {
+        if (!dataTransfer) return [];
+        const fromFileList = Array.from(dataTransfer.files ?? []);
+        if (fromFileList.length > 0) return fromFileList;
+        const fromItems = Array.from(dataTransfer.items ?? [])
+            .filter((item) => item.kind === "file")
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => file !== null);
+        return fromItems;
     }
 
     async openDocument(id: string): Promise<IDocument | undefined> {

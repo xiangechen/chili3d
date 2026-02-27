@@ -10,10 +10,7 @@ class HelloWorldCommand {
 
 CommandStore.registerCommand(HelloWorldCommand, {
     key: "demo.hello",
-    icon: {
-        type: "plugin",
-        path: "icons/hello.svg",
-    },
+    icon: "icon-info",
 });
 
 const DemoPlugin = {
