@@ -43,9 +43,9 @@ dialog::backdrop {
     background-color: rgba(128, 128, 128, 0.25);
 
     & button {
-        width: 64px;
+        width: fit-content;
         margin: 6px;
-        padding: 4px;
+        padding: 8px 16px;
         font-size: 1em;
         border: 1px solid var(--border-color);
         border-radius: 6px;
@@ -59,5 +59,21 @@ dialog::backdrop {
             background-color: var(--primary-color);
             color: var(--title-checked);
         }
+    }
+}
+
+.domain {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin: 12px;
+
+    .domainTip {
+        font-size: 18px;
+    }
+
+    span {
+        font-size: 16px;
+        font-weight: bold;
     }
 }

@@ -136,6 +136,9 @@ export const I18N_KEYS = [
     "common.thickness",
     "common.type",
     "common.volume",
+    "common.warning",
+    "common.trust",
+    "common.dontTrust",
     "dialog.title.selectWorkingPlane",
     "ellipse.majorRadius",
     "ellipse.minorRadius",
@@ -271,6 +274,7 @@ export const I18N_KEYS = [
     "viewport.mode.solid",
     "viewport.mode.wireframe",
     "viewport.mode.solidAndWireframe",
+    "warning.script.fromDomain",
 ] as const;
 
 export type I18nKeys = (typeof I18N_KEYS)[number];

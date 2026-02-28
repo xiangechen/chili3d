@@ -141,6 +141,9 @@ export default {
         "common.thickness": "Thickness",
         "common.type": "Type",
         "common.volume": "Volume",
+        "common.warning": "Warning",
+        "common.trust": "Trust",
+        "common.dontTrust": "Don't Trust",
         "dialog.title.selectWorkingPlane": "Select Working Plane",
         "ellipse.majorRadius": "major Radius",
         "ellipse.minorRadius": "minor Radius",
@@ -277,5 +280,6 @@ export default {
         "viewport.mode.solid": "Solid",
         "viewport.mode.wireframe": "Wireframe",
         "viewport.mode.solidAndWireframe": "Solid And Wireframe",
+        "warning.script.fromDomain": "Do you trust scripts from the following domains?",
     },
 } satisfies Locale;

@@ -3,6 +3,7 @@
 
 import {
     CommandStore,
+    Config,
     I18n,
     type IApplication,
     type IconPath,
@@ -10,9 +11,12 @@ import {
     Logger,
     type Plugin,
     type PluginManifest,
+    PubSub,
     toBase64Img,
 } from "chili-api";
 import type JSZip from "jszip";
+
+const untrustedDomains: string[] = [];
 
 export class PluginManager implements IPluginManager {
     readonly plugins = new Map<string, Plugin>();
@@ -30,7 +34,7 @@ export class PluginManager implements IPluginManager {
         }
     }
 
-    async loadFromUrl(url: string) {
+    private async loadFromRemoteFile(url: string) {
         if (url.endsWith(".chiliplugin")) {
             const response = await fetch(url);
             if (!response.ok) {
@@ -44,12 +48,41 @@ export class PluginManager implements IPluginManager {
 
             await this.loadFromFile(file);
         } else {
-            if (!url.endsWith("/")) url += "/";
-            const manifest = await this.readManifestFromUrl(url + "manifest.json");
-            if (manifest) {
-                await this.loadPluginCodeFromUrl(manifest.name, url, manifest.main);
+            if (url.endsWith(".js")) {
+                const index = url.lastIndexOf("/") + 1;
+                await this.loadPluginCodeFromUrl("plugin", url.substring(0, index), url.substring(index));
+            } else {
+                if (!url.endsWith("/")) url += "/";
+                const manifest = await this.readManifestFromUrl(url + "manifest.json");
+                if (manifest) {
+                    await this.loadPluginCodeFromUrl(manifest.name, url, manifest.main);
+                }
             }
         }
+    }
+
+    async loadFromUrl(urlString: string) {
+        const url = new URL(urlString);
+        if (untrustedDomains.includes(url.host)) return;
+
+        if (url.host === window.location.host || Config.instance.trustedDomains.includes(url.host)) {
+            this.loadFromRemoteFile(urlString);
+            return;
+        }
+
+        await new Promise((resolve) => {
+            PubSub.default.pub("showTrustDomain", "warning.script.fromDomain", url.host, (trust) => {
+                if (trust) {
+                    Config.instance.trustedDomains.push(url.host);
+                    Config.instance.saveToStorage();
+
+                    this.loadFromRemoteFile(urlString);
+                } else {
+                    untrustedDomains.push(url.host);
+                }
+                resolve(trust);
+            });
+        });
     }
 
     private async readManifestFromZip(zip: JSZip) {

@@ -12,10 +12,14 @@ async function handleApplicaionBuilt(app: IApplication) {
     document.body.removeChild(loading);
 
     const params = new URLSearchParams(window.location.search);
+    const plugin = params.get("plugin");
+    if (plugin) {
+        Logger.info(`loading plugin from: ${plugin}`);
+        await app.pluginManager.loadFromUrl(plugin);
+    }
     const url = params.get("url") ?? params.get("model");
     if (url) {
-        Logger.info(`load file from url: ${url}`);
-
+        Logger.info(`loading file from: ${url}`);
         await app.loadFileFromUrl(url);
     }
 }

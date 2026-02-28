@@ -141,6 +141,9 @@ export default {
         "common.thickness": "厚度",
         "common.type": "类型",
         "common.volume": "体积",
+        "common.warning": "警告",
+        "common.trust": "信任",
+        "common.dontTrust": "不信任",
         "dialog.title.selectWorkingPlane": "选择工作平面",
         "ellipse.majorRadius": "长轴",
         "ellipse.minorRadius": "短轴",
@@ -276,5 +279,6 @@ export default {
         "viewport.mode.solid": "实体",
         "viewport.mode.wireframe": "线框",
         "viewport.mode.solidAndWireframe": "实体和线框",
+        "warning.script.fromDomain": "是否信任来之以下域名的脚本？",
     },
 } satisfies Locale;

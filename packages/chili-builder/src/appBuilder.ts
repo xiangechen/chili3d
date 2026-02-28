@@ -119,14 +119,30 @@ export class AppBuilder {
         this.ensureNecessary();
 
         const app = this.createApp();
-        await app.init();
         await this._window?.init(app);
-
+        await this.loadDefaultPlugins(app);
         this.loadAdditionalCommands();
 
         Logger.info("Application build completed");
 
         return app;
+    }
+
+    protected async loadDefaultPlugins(app: IApplication) {
+        const folderUrl = window.location.href + "plugins/";
+        try {
+            const response = await fetch(folderUrl + "plugins.json");
+            if (!response.ok) {
+                return;
+            }
+            const config = await response.json();
+            const plugins = config.plugins as string[];
+            for (const plugin of plugins ?? []) {
+                await app.pluginManager.loadFromUrl(folderUrl + plugin);
+            }
+        } catch {
+            Logger.warn(`Failed to load plugins from folder: ${folderUrl}`);
+        }
     }
 
     createApp() {

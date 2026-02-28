@@ -87,6 +87,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         PubSub.default.sub("showToast", Toast.info);
         PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", Dialog.show);
+        PubSub.default.sub("showTrustDomain", Dialog.showTrustDomain);
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));

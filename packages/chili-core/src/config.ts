@@ -118,6 +118,14 @@ export class Config extends Observable {
         });
     }
 
+    @serialze()
+    get trustedDomains() {
+        return this.getPrivateValue("trustedDomains", []);
+    }
+    set trustedDomains(value: string[]) {
+        this.setProperty("trustedDomains", value);
+    }
+
     #storageKey: string = "config";
     get storageKey() {
         return this.#storageKey;

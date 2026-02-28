@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { button, div } from "chili-controls";
+import { button, div, span } from "chili-controls";
 import { DialogResult, I18n, type I18nKeys } from "chili-core";
 import style from "./dialog.module.css";
 
@@ -34,6 +34,43 @@ export class Dialog {
                         },
                     }),
                 ),
+            ),
+        );
+
+        dialog.showModal();
+    }
+
+    static showTrustDomain(message: I18nKeys, domain: string, callback?: (trusted: boolean) => void) {
+        const dialog = document.createElement("dialog");
+        document.body.appendChild(dialog);
+
+        const trustButton = button({
+            textContent: I18n.translate("common.trust") ?? "Trust",
+            onclick: () => {
+                dialog.remove();
+                callback?.(true);
+            },
+        });
+
+        const dontTrustButton = button({
+            textContent: I18n.translate("common.dontTrust") ?? "Don't Trust",
+            autofocus: true,
+            onclick: () => {
+                dialog.remove();
+                callback?.(false);
+            },
+        });
+
+        dialog.appendChild(
+            div(
+                { className: style.root },
+                div({ className: style.title }, I18n.translate("common.warning") ?? "Warning"),
+                div(
+                    { className: `${style.content} ${style.domain}` },
+                    div({ className: style.domainTip }, I18n.translate(message)),
+                    span(domain),
+                ),
+                div({ className: style.buttons }, dontTrustButton, trustButton),
             ),
         );
 
