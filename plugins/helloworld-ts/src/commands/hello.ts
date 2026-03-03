@@ -1,7 +1,7 @@
 // Demo command for the plugin
 // Shows a hello world message
 
-import { command, type I18nKeys, type IApplication, type ICommand, PubSub } from "chili-api";
+import { command, type I18nKeys, type IApplication, type ICommand, PubSub } from "@chili3d/core";
 
 @command({
     key: "demo.hello" as any,

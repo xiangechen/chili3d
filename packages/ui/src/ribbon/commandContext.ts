@@ -1,0 +1,242 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
+import { MultistepCommand } from "@chili3d/app";
+import {
+    Binding,
+    CancelableCommand,
+    Combobox,
+    CommandStore,
+    I18n,
+    type I18nKeys,
+    type ICommand,
+    type IDisposable,
+    Localize,
+    Observable,
+    PathBinding,
+    type Property,
+    PropertyUtils,
+    PubSub,
+} from "@chili3d/core";
+import {
+    button,
+    ColorConverter,
+    createIcon,
+    div,
+    input,
+    label,
+    option,
+    select,
+    UrlStringConverter,
+} from "@chili3d/elements";
+import style from "./commandContext.module.css";
+
+export class CommandContext extends HTMLElement implements IDisposable {
+    private readonly propMap: Map<string | number | symbol, [Property, HTMLElement][]> = new Map();
+
+    constructor(readonly command: ICommand) {
+        super();
+        this.className = style.panel;
+        const data = CommandStore.getComandData(command);
+        const icon = createIcon(data!.icon);
+        icon.classList.add(style.icon);
+        this.append(
+            icon,
+            label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
+        );
+        this.initContext();
+    }
+
+    connectedCallback(): void {
+        if (this.command instanceof Observable) {
+            this.command.onPropertyChanged(this.onPropertyChanged);
+        }
+    }
+
+    disconnectedCallback(): void {
+        if (this.command instanceof Observable) {
+            this.command.removePropertyChanged(this.onPropertyChanged);
+        }
+    }
+
+    dispose() {
+        this.propMap.clear();
+    }
+
+    private readonly onPropertyChanged = (property: string | number | symbol) => {
+        if (this.propMap.has(property)) {
+            const items = this.propMap.get(property)!;
+            for (const [prop, control] of items) {
+                this.setVisible(control, prop);
+            }
+        }
+    };
+
+    private initContext() {
+        const groupMap = new Map<I18nKeys, HTMLDivElement>();
+        PropertyUtils.getProperties(this.command).forEach((property) => {
+            const group = this.findGroup(groupMap, property);
+            const item = this.createItem(this.command, property);
+            this.setVisible(item, property);
+            this.cacheDependencies(item, property);
+            group.append(item);
+        });
+    }
+
+    private cacheDependencies(item: HTMLElement, g: Property) {
+        if (g.dependencies) {
+            for (const d of g.dependencies) {
+                const items = this.propMap.get(d.property);
+                this.propMap.set(d.property, [...(items ?? []), [g, item]]);
+            }
+        }
+    }
+
+    private setVisible(control: HTMLElement, property: Property) {
+        let visible = true;
+        if (property.dependencies) {
+            for (const d of property.dependencies) {
+                if ((this.command as any)[d.property] !== d.value) {
+                    visible = false;
+                    break;
+                }
+            }
+        }
+        control.style.display = visible ? "inherit" : "none";
+    }
+
+    private findGroup(groupMap: Map<I18nKeys, HTMLDivElement>, prop: Property) {
+        let group = groupMap.get(prop.group!);
+        if (group === undefined) {
+            group = div({ className: style.group });
+            groupMap.set(prop.group!, group);
+            this.append(group);
+        }
+        return group;
+    }
+
+    private createItem(command: ICommand, g: Property) {
+        const noType = command as any;
+        const type = typeof noType[g.name];
+
+        if (g.type === "materialId") {
+            return this.materialEditor(g, noType);
+        }
+
+        switch (type) {
+            case "function":
+                return this.newButton(g, noType);
+            case "boolean":
+                return this.newCheckbox(g, noType);
+            case "number":
+                return this.newInput(g, noType, parseFloat);
+            case "string":
+                return this.newInput(g, noType);
+            default:
+                if (noType[g.name] instanceof Combobox) {
+                    return this.newCombobox(noType, g);
+                }
+                throw new Error("暂不支持的类型");
+        }
+    }
+
+    private newCombobox(noType: any, g: Property) {
+        const combobox = noType[g.name] as Combobox<any>;
+        const options = combobox.items.map((item, index) => {
+            return option({
+                selected: index === combobox.selectedIndex,
+                textContent: I18n.isI18nKey(item)
+                    ? new Localize(item)
+                    : (combobox.converter?.convert(item).unchecked() ?? String(item)),
+            });
+        });
+
+        return div(
+            label({ textContent: new Localize(g.display) }),
+            select(
+                {
+                    className: style.select,
+                    onchange: (e) => {
+                        combobox.selectedIndex = (e.target as HTMLSelectElement).selectedIndex;
+                    },
+                },
+                ...options,
+            ),
+        );
+    }
+
+    private newInput(g: Property, noType: any, converter?: (v: string) => any) {
+        return div(
+            label({ textContent: new Localize(g.display) }),
+            input({
+                type: "text",
+                className: style.input,
+                value: new Binding(noType, g.name),
+                onblur: (e) => {
+                    const input = e.target as HTMLInputElement;
+                    noType[g.name] = converter ? converter(input.value) : input.value;
+                },
+                onkeydown: (e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                        const input = e.target as HTMLInputElement;
+                        input.blur();
+                    }
+                },
+            }),
+        );
+    }
+
+    private newCheckbox(g: Property, noType: any) {
+        return div(
+            label({ textContent: new Localize(g.display) }),
+            input({
+                type: "checkbox",
+                checked: new Binding(noType, g.name),
+                onclick: () => {
+                    noType[g.name] = !noType[g.name];
+                },
+            }),
+        );
+    }
+
+    private newButton(g: Property, noType: any) {
+        return button({
+            className: style.button,
+            textContent: new Localize(g.display),
+            onclick: () => noType[g.name](),
+        });
+    }
+
+    private materialEditor(g: Property, noType: any) {
+        if (!(this.command instanceof CancelableCommand)) {
+            throw new Error("MaterialEditor only support CancelableCommand");
+        }
+
+        const material = this.command.document.modelManager.materials.find((x) => x.id === noType[g.name])!;
+        const display = material.clone();
+
+        return button({
+            className: style.materialButton,
+            style: {
+                backgroundColor: new Binding(display, "color", new ColorConverter()),
+                backgroundImage: new PathBinding(display, "map.image", new UrlStringConverter()),
+                backgroundBlendMode: "multiply",
+                backgroundSize: "cover",
+                cursor: "pointer",
+            },
+            textContent: new Localize(g.display),
+            onclick: () => {
+                if (this.command instanceof MultistepCommand) {
+                    PubSub.default.pub("editMaterial", this.command.document, material, (newMaterial) => {
+                        noType[g.name] = newMaterial.id;
+                        display.color = newMaterial.color;
+                        display.map = newMaterial.map;
+                    });
+                }
+            },
+        });
+    }
+}
+
+customElements.define("command-context", CommandContext);

@@ -1,4 +1,4 @@
-const { CommandStore, PubSub } = ChiliAPI;
+const { CommandStore, PubSub } = ChiliCore;
 
 class HelloWorldJSCommand {
     execute(app) {

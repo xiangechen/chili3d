@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 export default defineConfig({
     devtool: isProduction ? false : "source-map",
     entry: {
-        main: "./packages/chili-web/src/index.ts",
+        main: "./packages/web/src/index.ts",
     },
     experiments: {
         css: true,

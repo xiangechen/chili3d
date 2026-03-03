@@ -16,7 +16,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            "./viewGizmo": "./packages/chili-three/test/viewGizmo.ts",
+            "./viewGizmo": "./packages/three/test/viewGizmo.ts",
         },
     },
     source: {

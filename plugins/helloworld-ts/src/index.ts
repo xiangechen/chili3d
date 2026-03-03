@@ -1,7 +1,8 @@
 // Demo Plugin for Chili3D
 // This plugin demonstrates the plugin system capabilities
 
-import type { CommandKeys, Plugin } from "chili-api";
+import type { CommandKeys, Plugin } from "@chili3d/core";
+
 import { HelloWorldCommand } from "./commands/hello";
 
 const DemoPlugin: Plugin = {

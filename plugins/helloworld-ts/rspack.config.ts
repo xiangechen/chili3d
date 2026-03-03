@@ -6,7 +6,7 @@ export default defineConfig({
         main: "./src/index.ts",
     },
     externals: {
-        "chili-api": "ChiliAPI",
+        "@chili3d/core": "ChiliCore",
     },
     experiments: {
         css: true,

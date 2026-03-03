@@ -10,7 +10,7 @@
         "package": "npm run build && node ../scripts/package-plugin.mjs dist/helloworld-ts.chiliplugin manifest.json dist/extension.js icons"
     },
     "devDependencies": {
-        "chili-api": "*",
+        "@chili3d/core": "*",
         "typescript": "^5.0.0"
     },
     "keywords": [

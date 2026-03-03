@@ -4,7 +4,7 @@ This document provides coding guidelines and build instructions for agentic codi
 
 ## Project Overview
 
-Chili3D is a 3D CAD/WebGL application framework with WebAssembly integration. It's a TypeScript monorepo with 13 packages and a C++ WebAssembly module built with OpenCascade.
+Chili3D is a 3D CAD/WebGL application framework with WebAssembly integration. It's a TypeScript monorepo with 10 packages and a C++ WebAssembly module built with OpenCascade.
 
 - **Tech Stack**: TypeScript, Rspack, Biome, Rstest, C++/Emscripten, Three.js
 - **Architecture**: Modular monorepo with package-based organization
@@ -48,8 +48,8 @@ npx rstest packages/chili-core/test/  # Run all tests in directory
 **Import Conventions**:
 ```typescript
 // Package imports (use package names, not relative paths for internal packages)
-import { AppBuilder } from "chili-builder";
-import { type IApplication, Logger } from "chili-core";
+import { AppBuilder } from "@chili3d/builder";
+import { type IApplication, Logger } from "@chili3d/core";
 
 // Type imports prefixed with 'type'
 import type { ICommand } from "./command";
@@ -128,23 +128,29 @@ describe("FeatureName", () => {
 
 ## Package Architecture
 
-**Core Packages**:
-- `chili`: Main application package
-- `chili-api`: API layer for external integrations
-- `chili-core`: Core interfaces and utilities
-- `chili-web`: Web application entry point
-- `chili-builder`: Application builder pattern
-- `chili-three`: Three.js 3D rendering integration
-- `chili-ui`: UI components
-- `chili-vis`: Visualization layer
-- `chili-geo`: Geometry operations
-- `chili-controls`: User controls and interactions
-- `chili-storage`: Data persistence
-- `chili-i18n`: Internationalization
-- `chili-wasm`: WebAssembly bindings
+**Core Packages** (directory → npm package name):
+
+| Directory | Package Name | Description |
+|-----------|--------------|-------------|
+| `app` | `@chili3d/app` | Main application package |
+| `builder` | `@chili3d/builder` | Application builder pattern |
+| `core` | `@chili3d/core` | Core interfaces and utilities |
+| `elements` | `@chili3d/elements` | Basic elements and primitives |
+| `i18n` | `@chili3d/i18n` | Internationalization |
+| `storage` | `@chili3d/storage` | Data persistence |
+| `three` | `@chili3d/three` | Three.js 3D rendering integration |
+| `ui` | `@chili3d/ui` | UI components |
+| `wasm` | `@chili3d/wasm` | WebAssembly bindings |
+| `web` | `@chili3d/web` | Web application entry point |
+
+**Plugin Examples**:
+- `plugins/helloworld-js` - JavaScript plugin example
+- `plugins/helloworld-ts` - TypeScript plugin example
 
 **Module Resolution**:
 - Use package names for internal imports, not relative paths
+- Import main app as `import { ... } from "@chili3d/app";`
+- Import other packages as `import { ... } from "@chili3d/xxx";`
 - Export everything from package index files
 - TypeScript path resolution handles the mapping
 

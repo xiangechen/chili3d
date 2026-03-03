@@ -1,0 +1,12 @@
+{
+    "name": "@chili3d/three",
+    "version": "0.6.1",
+    "description": "",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "@types/three": "0.181.0",
+        "@chili3d/core": "*",
+        "three": "0.181.1",
+        "three-mesh-bvh": "0.9.0"
+    }
+}
