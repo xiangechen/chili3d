@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type I18nKeys, Localize } from "@chili3d/core";
-import { div, label, setSVGIcon, svg } from "../controls";
+import { div, label, setSVGIcon, svg } from "../elements";
 import style from "./expander.module.css";
 
 export class Expander extends HTMLElement {

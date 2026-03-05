@@ -42,7 +42,7 @@ function createSvgElement(svgString: string): SVGSVGElement {
     return doc.documentElement as unknown as SVGSVGElement;
 }
 
-export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
+export function createElement<K extends keyof HTMLElementTagNameMap>(tag: K) {
     return (
         props?: HTMLProps<HTMLElementTagNameMap[K]> | string | Node,
         ...children: (Node | string)[]
@@ -60,27 +60,27 @@ export function createControl<K extends keyof HTMLElementTagNameMap>(tag: K) {
     };
 }
 
-export const div = createControl("div");
-export const span = createControl("span");
-export const input = createControl("input");
-export const button = createControl("button");
-export const label = createControl("label");
-export const textarea = createControl("textarea");
-export const select = createControl("select");
-export const option = createControl("option");
-export const a = createControl("a");
-export const h1 = createControl("h1");
-export const h2 = createControl("h2");
-export const h3 = createControl("h3");
-export const p = createControl("p");
-export const ul = createControl("ul");
-export const li = createControl("li");
-export const img = createControl("img");
-export const dialog = createControl("dialog");
-export const canvas = createControl("canvas");
-export const sup = createControl("sup");
-export const form = createControl("form");
-export const br = createControl("br");
+export const div = createElement("div");
+export const span = createElement("span");
+export const input = createElement("input");
+export const button = createElement("button");
+export const label = createElement("label");
+export const textarea = createElement("textarea");
+export const select = createElement("select");
+export const option = createElement("option");
+export const a = createElement("a");
+export const h1 = createElement("h1");
+export const h2 = createElement("h2");
+export const h3 = createElement("h3");
+export const p = createElement("p");
+export const ul = createElement("ul");
+export const li = createElement("li");
+export const img = createElement("img");
+export const dialog = createElement("dialog");
+export const canvas = createElement("canvas");
+export const sup = createElement("sup");
+export const form = createElement("form");
+export const br = createElement("br");
 
 export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const ns = "http://www.w3.org/2000/svg";

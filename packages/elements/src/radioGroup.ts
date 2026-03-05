@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { SelectableItems } from "@chili3d/core";
-import { div, input, label } from "./controls";
+import { div, input, label } from "./elements";
 import style from "./radioGroup.module.css";
 
 export class RadioGroup extends HTMLElement {

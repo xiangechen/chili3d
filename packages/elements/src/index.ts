@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./collection";
-export * from "./controls";
 export * from "./converters";
+export * from "./elements";
 export * from "./expander";
 export * from "./htmlProps";
 export * from "./radioGroup";
