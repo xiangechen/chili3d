@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Binding, type IDocument, Localize, type Property, PubSub, Transaction } from "@chili3d/core";
-import { ColorConverter, div, input, label } from "@chili3d/elements";
+import { ColorConverter, div, input, label } from "@chili3d/element";
 import colorStyle from "./colorPorperty.module.css";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";

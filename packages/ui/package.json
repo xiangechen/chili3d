@@ -5,6 +5,6 @@
     "main": "src/index.ts",
     "devDependencies": {
         "@chili3d/core": "*",
-        "@chili3d/elements": "*"
+        "@chili3d/element": "*"
     }
 }

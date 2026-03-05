@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config, I18n } from "@chili3d/core";
-import { type HTMLProps, option, select } from "@chili3d/elements";
+import { type HTMLProps, option, select } from "@chili3d/element";
 
 export const LanguageSelector = (props: HTMLProps<HTMLElement>) => {
     const languages: HTMLOptionElement[] = [];

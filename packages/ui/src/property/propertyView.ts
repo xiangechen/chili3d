@@ -13,7 +13,7 @@ import {
     PubSub,
     VisualNode,
 } from "@chili3d/core";
-import { div, Expander, label } from "@chili3d/elements";
+import { div, Expander, label } from "@chili3d/element";
 import { propertyControl } from "./complexPropertyUtils";
 import { MatrixProperty } from "./matrixProperty";
 import style from "./propertyView.module.css";

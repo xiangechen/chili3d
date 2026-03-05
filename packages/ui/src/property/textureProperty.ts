@@ -9,7 +9,7 @@ import {
     readFileAsync,
     type Texture,
 } from "@chili3d/core";
-import { div, Expander, img, svg, UrlStringConverter } from "@chili3d/elements";
+import { div, Expander, img, svg, UrlStringConverter } from "@chili3d/element";
 import { basicPropertyControl } from "./basicPropertyControl";
 import style from "./textureProperty.module.css";
 

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Binding, type IDocument, Localize, type Property, Transaction } from "@chili3d/core";
-import { div, input, span } from "@chili3d/elements";
+import { div, input, span } from "@chili3d/element";
 import commonStyle from "./common.module.css";
 import { PropertyBase } from "./propertyBase";
 

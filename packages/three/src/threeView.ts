@@ -30,7 +30,7 @@ import {
     type XYZ,
     type XYZLike,
 } from "@chili3d/core";
-import { div, span, svg } from "@chili3d/elements";
+import { div, span, svg } from "@chili3d/element";
 import {
     DirectionalLight,
     type Intersection,

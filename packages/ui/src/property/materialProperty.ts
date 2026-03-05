@@ -12,7 +12,7 @@ import {
     PubSub,
     Transaction,
 } from "@chili3d/core";
-import { button, ColorConverter, collection, div, span, UrlStringConverter } from "@chili3d/elements";
+import { button, ColorConverter, collection, div, span, UrlStringConverter } from "@chili3d/element";
 import style from "./materialProperty.module.css";
 import { PropertyBase } from "./propertyBase";
 

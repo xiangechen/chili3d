@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { I18n, type I18nKeys, type IDisposable, Localize, type Result } from "@chili3d/core";
-import { input, label } from "@chili3d/elements";
+import { input, label } from "@chili3d/element";
 import style from "./input.module.css";
 
 export class Input extends HTMLElement implements IDisposable {

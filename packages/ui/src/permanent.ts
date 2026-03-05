@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { I18n, type I18nKeys } from "@chili3d/core";
-import { div, span } from "@chili3d/elements";
+import { div, span } from "@chili3d/element";
 import style from "./permanent.module.css";
 
 export class Permanent {

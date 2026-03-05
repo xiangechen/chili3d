@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config, type I18nKeys, Localize } from "@chili3d/core";
-import { type HTMLProps, option, select } from "@chili3d/elements";
+import { type HTMLProps, option, select } from "@chili3d/element";
 
 export const ThemeSelector = (props: HTMLProps<HTMLElement>) => {
     const themes = [

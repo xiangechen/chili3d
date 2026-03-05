@@ -39,6 +39,7 @@ export class AppBuilder {
             Logger.info("initializing api");
 
             (globalThis as any).ChiliCore = await import("@chili3d/core");
+            (globalThis as any).ChiliElement = await import("@chili3d/element");
         });
     }
 

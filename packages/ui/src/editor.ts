@@ -9,7 +9,7 @@ import {
     PubSub,
     type Ribbon,
 } from "@chili3d/core";
-import { div } from "@chili3d/elements";
+import { div } from "@chili3d/element";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";

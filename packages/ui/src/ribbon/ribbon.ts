@@ -22,7 +22,7 @@ import {
     type RibbonGroup,
     type RibbonTab,
 } from "@chili3d/core";
-import { a, collection, createIcon, div, label, span, svg } from "@chili3d/elements";
+import { a, collection, createIcon, div, label, span, svg } from "@chili3d/element";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonButton } from "./ribbonButton";

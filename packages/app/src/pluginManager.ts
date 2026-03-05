@@ -13,7 +13,7 @@ import {
     type PluginManifest,
     PubSub,
 } from "@chili3d/core";
-import { toBase64Img } from "@chili3d/elements";
+import { toBase64Img } from "@chili3d/element";
 import type JSZip from "jszip";
 
 const untrustedDomains: string[] = [];

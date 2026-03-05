@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument, INodeLinkedList } from "@chili3d/core";
-import { div, setSVGIcon, svg } from "@chili3d/elements";
+import { div, setSVGIcon, svg } from "@chili3d/element";
 import { TreeItem } from "./treeItem";
 import style from "./treeItemGroup.module.css";
 

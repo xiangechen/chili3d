@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { command, type IApplication, type ICommand, PubSub } from "@chili3d/core";
-import { br, div, img, label } from "@chili3d/elements";
+import { br, div, img, label } from "@chili3d/element";
 
 @command({
     key: "wechat.group",

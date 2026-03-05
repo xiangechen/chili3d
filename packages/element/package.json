@@ -1,5 +1,5 @@
 {
-    "name": "@chili3d/elements",
+    "name": "@chili3d/element",
     "version": "0.7.0-beta",
     "description": "",
     "main": "src/index.ts",

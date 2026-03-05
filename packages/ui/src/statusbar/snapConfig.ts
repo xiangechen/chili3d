@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config, type I18nKeys, Localize, ObjectSnapType, ObjectSnapTypeUtils } from "@chili3d/core";
-import { div, input, label } from "@chili3d/elements";
+import { div, input, label } from "@chili3d/element";
 import style from "./snapConfig.module.css";
 
 const SnapTypes: Array<{

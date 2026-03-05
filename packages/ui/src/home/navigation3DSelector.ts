@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config, Navigation3DTypes } from "@chili3d/core";
-import { type HTMLProps, option, select } from "@chili3d/elements";
+import { type HTMLProps, option, select } from "@chili3d/element";
 
 export const Navigation3DSelector = (props: HTMLProps<HTMLElement>) => {
     const nav3DTypes: HTMLOptionElement[] = [];

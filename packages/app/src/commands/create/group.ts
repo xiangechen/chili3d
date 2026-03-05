@@ -21,7 +21,7 @@ import {
     VisualNode,
     XYZ,
 } from "@chili3d/core";
-import { button, div, input, label, XYZConverter } from "@chili3d/elements";
+import { button, div, input, label, XYZConverter } from "@chili3d/element";
 import { MultistepCommand } from "../multistepCommand";
 
 class GroupDefinition extends Observable {

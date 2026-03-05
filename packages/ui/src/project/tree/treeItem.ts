@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Binding, type IDocument, type INode, Transaction } from "@chili3d/core";
-import { label, setSVGIcon, svg } from "@chili3d/elements";
+import { label, setSVGIcon, svg } from "@chili3d/element";
 import style from "./treeItem.module.css";
 
 export abstract class TreeItem extends HTMLElement {

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { DialogResult, I18n, type I18nKeys } from "@chili3d/core";
-import { button, div, span } from "@chili3d/elements";
+import { button, div, span } from "@chili3d/element";
 import style from "./dialog.module.css";
 
 export class Dialog {

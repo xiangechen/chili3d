@@ -22,7 +22,7 @@ import {
     span,
     XYConverter,
     XYZConverter,
-} from "@chili3d/elements";
+} from "@chili3d/element";
 import commonStyle from "./common.module.css";
 import style from "./input.module.css";
 import { PropertyBase } from "./propertyBase";

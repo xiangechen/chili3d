@@ -17,7 +17,7 @@ import {
     Result,
     ShortcutProfiles,
 } from "@chili3d/core";
-import { createIcon, label } from "@chili3d/elements";
+import { createIcon, label } from "@chili3d/element";
 import style from "./ribbonButton.module.css";
 
 export class RibbonButton extends HTMLElement {

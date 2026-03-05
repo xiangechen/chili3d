@@ -11,7 +11,7 @@ import {
     PubSub,
     type RecentDocumentDTO,
 } from "@chili3d/core";
-import { a, button, collection, div, img, label, span, svg } from "@chili3d/elements";
+import { a, button, collection, div, img, label, span, svg } from "@chili3d/element";
 import style from "./home.module.css";
 import { LanguageSelector } from "./languageSelector";
 import { Navigation3DSelector } from "./navigation3DSelector";

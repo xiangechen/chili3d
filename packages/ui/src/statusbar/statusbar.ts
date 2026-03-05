@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config, I18n, type I18nKeys, Navigation3D, PubSub } from "@chili3d/core";
-import { div, label } from "@chili3d/elements";
+import { div, label } from "@chili3d/element";
 import { SnapConfig } from "./snapConfig";
 import style from "./statusbar.module.css";
 

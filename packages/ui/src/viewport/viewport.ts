@@ -16,7 +16,7 @@ import {
     ViewModeI18nKeys,
     ViewModes,
 } from "@chili3d/core";
-import { collection, div, input, label, span, svg } from "@chili3d/elements";
+import { collection, div, input, label, span, svg } from "@chili3d/element";
 import { Flyout } from "./flyout";
 import style from "./viewport.module.css";
 

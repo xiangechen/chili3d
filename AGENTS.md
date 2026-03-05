@@ -135,7 +135,7 @@ describe("FeatureName", () => {
 | `app` | `@chili3d/app` | Main application package |
 | `builder` | `@chili3d/builder` | Application builder pattern |
 | `core` | `@chili3d/core` | Core interfaces and utilities |
-| `elements` | `@chili3d/elements` | Basic elements and primitives |
+| `element` | `@chili3d/element` | Basic elements and primitives |
 | `i18n` | `@chili3d/i18n` | Internationalization |
 | `storage` | `@chili3d/storage` | Data persistence |
 | `three` | `@chili3d/three` | Three.js 3D rendering integration |

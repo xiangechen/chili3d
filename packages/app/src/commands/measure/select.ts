@@ -21,7 +21,7 @@ import {
     type VisualShapeData,
     type XYZ,
 } from "@chili3d/core";
-import { div, h1, h2, span, ul } from "@chili3d/elements";
+import { div, h1, h2, span, ul } from "@chili3d/element";
 import style from "./select.module.css";
 
 @command({

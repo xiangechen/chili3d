@@ -25,7 +25,7 @@ import {
     ShapeType,
     XYZ,
 } from "@chili3d/core";
-import { div, RadioGroup } from "@chili3d/elements";
+import { div, RadioGroup } from "@chili3d/element";
 import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {

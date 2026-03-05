@@ -28,7 +28,7 @@ import {
     option,
     select,
     UrlStringConverter,
-} from "@chili3d/elements";
+} from "@chili3d/element";
 import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {
