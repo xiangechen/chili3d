@@ -130,7 +130,7 @@ export class AppBuilder {
     }
 
     protected async loadDefaultPlugins(app: IApplication) {
-        const folderUrl = window.location.href + "plugins/";
+        const folderUrl = window.location.origin + "/plugins/";
         try {
             const response = await fetch(folderUrl + "plugins.json");
             if (!response.ok) {
