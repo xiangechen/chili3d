@@ -6,3 +6,4 @@ coverage
 .DS_Store
 .clang-format
 CMakeUserPresets.json
+types

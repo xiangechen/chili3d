@@ -7,6 +7,7 @@
     "scripts": {
         "build": "rspack build",
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
+        "build:types": "node scripts/generate_types.mjs",
         "check": "biome check --write",
         "dev": "rspack dev",
         "format": "biome check --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
