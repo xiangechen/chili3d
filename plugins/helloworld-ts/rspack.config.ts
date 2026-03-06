@@ -6,8 +6,8 @@ export default defineConfig({
         main: "./src/index.ts",
     },
     externals: {
-        "@chili3d/core": "ChiliCore",
-        "@chili3d/element": "ChiliElement",
+        "@chili3d/core": "Chili3dCore",
+        "@chili3d/element": "Chili3dElement",
     },
     externalsType: "assign",
     experiments: {

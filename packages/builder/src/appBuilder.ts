@@ -39,8 +39,8 @@ export class AppBuilder {
         this._inits.push(async () => {
             Logger.info("initializing api");
 
-            (globalThis as any).ChiliCore = await import("@chili3d/core");
-            (globalThis as any).ChiliElement = await import("@chili3d/element");
+            (globalThis as any).Chili3dCore = await import("@chili3d/core");
+            (globalThis as any).Chili3dElement = await import("@chili3d/element");
         });
     }
 

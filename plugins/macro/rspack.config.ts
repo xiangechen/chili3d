@@ -1,8 +1,4 @@
-import * as path from "node:path";
 import { defineConfig } from "@rspack/cli";
-import rspack from "@rspack/core";
-
-const __dirName = process.cwd();
 
 export default defineConfig({
     devtool: false,
@@ -10,8 +6,8 @@ export default defineConfig({
         main: "./src/index.ts",
     },
     externals: {
-        "@chili3d/core": "ChiliCore",
-        "@chili3d/element": "ChiliElement",
+        "@chili3d/core": "Chili3dCore",
+        "@chili3d/element": "Chili3dElement",
     },
     externalsType: "assign",
     experiments: {

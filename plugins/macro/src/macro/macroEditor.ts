@@ -18,7 +18,7 @@ const DefaultCode = `// Available variables:
 
 // Example: Create a simple box
 
-// const { Plane, EditableShapeNode } = ChiliCore;
+// const { Plane, EditableShapeNode } = Chili3dCore;
 // const { document, cameraController } = app.activeView;
 // 
 // const box = app.shapeFactory.box(Plane.XY, 1000, 1000, 1000);

@@ -1,4 +1,4 @@
-const { CommandStore, PubSub } = ChiliCore;
+const { CommandStore, PubSub } = Chili3dCore;
 
 class HelloWorldJSCommand {
     execute(app) {
@@ -12,7 +12,7 @@ CommandStore.registerCommand(HelloWorldJSCommand, {
     key: "jsdemo.hello",
     icon: {
         type: "path",
-        value: "icons/hello.svg"
+        value: "icons/hello.svg",
     },
 });
 
