@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+
+        "strict": true,
+        "allowJs": true,
+        "noImplicitOverride": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "useDefineForClassFields": true,
+        "experimentalDecorators": true,
+        "forceConsistentCasingInFileNames": true,
+
+        "plugins": [{ "name": "typescript-plugin-css-modules" }],
+        "types": ["@rstest/core/globals"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
+}

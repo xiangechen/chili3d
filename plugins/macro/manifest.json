@@ -1,0 +1,13 @@
+{
+    "name": "Macro Plugin",
+    "version": "1.0.0",
+    "description": "A macro plugin for Chili3D that allows users to create, edit and run macros",
+    "main": "dist/extension.js",
+    "css": "dist/extension.css",
+    "author": {
+        "name": "Chili3D Team"
+    },
+    "engines": {
+        "chili3d": ">=0.6"
+    }
+}

@@ -1,4 +1,8 @@
+import * as path from "node:path";
 import { defineConfig } from "@rspack/cli";
+import rspack from "@rspack/core";
+
+const __dirName = process.cwd();
 
 export default defineConfig({
     devtool: false,
