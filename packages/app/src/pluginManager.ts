@@ -117,6 +117,7 @@ export class PluginManager implements IPluginManager {
             await this.transformZipCommandIcon(zip, plugin);
         };
         await this.loadPluginCode(manifest.name, code, handlePluginIcon);
+        await this.loadCssFromZip(zip, manifest);
     }
 
     private async loadPluginCodeFromUrl(name: string, baseUrl: string, codePath: string) {
@@ -133,6 +134,7 @@ export class PluginManager implements IPluginManager {
             await this.transformUrlCommandIcon(baseUrl, plugin);
         };
         await this.loadPluginCode(name, code, handlePluginIcon);
+        await this.loadCssFromUrl(baseUrl, name);
     }
 
     private async loadPluginCode(
@@ -192,7 +194,7 @@ export class PluginManager implements IPluginManager {
             return;
         }
 
-        await this.unregisterPlugin(plugin);
+        await this.unregisterPlugin(pluginName, plugin);
         this.plugins.delete(pluginName);
 
         Logger.info(`Plugin ${pluginName} unloaded successfully`);
@@ -306,7 +308,7 @@ export class PluginManager implements IPluginManager {
         }
     }
 
-    private async unregisterPlugin(plugin: Plugin): Promise<void> {
+    private async unregisterPlugin(pluginName: string, plugin: Plugin): Promise<void> {
         if (plugin.i18nResources) {
             for (const resource of plugin.i18nResources) {
                 const keys = Object.keys(resource.translation);
@@ -331,6 +333,61 @@ export class PluginManager implements IPluginManager {
             for (const commandKey of plugin.commands) {
                 CommandStore.unregisterCommand(commandKey);
             }
+        }
+
+        if (pluginName) {
+            this.removePluginCss(pluginName);
+        }
+    }
+
+    private async loadCssFromZip(zip: JSZip, manifest: PluginManifest) {
+        const cssFiles = manifest.css;
+        if (!cssFiles) return;
+
+        const files = Array.isArray(cssFiles) ? cssFiles : [cssFiles];
+        for (const cssFile of files) {
+            const file = zip.file(cssFile);
+            if (!file) {
+                alert(`${cssFile} not found in plugin archive`);
+                continue;
+            }
+            const css = await file.async("text");
+            this.injectCss(css, manifest.name);
+        }
+    }
+
+    private async loadCssFromUrl(baseUrl: string, pluginName: string) {
+        const manifest = this.manifests.get(pluginName);
+        if (!manifest?.css) return;
+
+        const files = Array.isArray(manifest.css) ? manifest.css : [manifest.css];
+        for (const cssFile of files) {
+            const fullUrl = baseUrl + cssFile;
+            const response = await fetch(fullUrl);
+            if (!response.ok) {
+                alert(`Failed to load CSS from ${fullUrl}: ${response.statusText}`);
+                continue;
+            }
+            const css = await response.text();
+            this.injectCss(css, pluginName);
+        }
+    }
+
+    private injectCss(css: string, pluginName: string) {
+        const styleId = `plugin-css-${pluginName}`;
+        if (document.getElementById(styleId)) return;
+
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.textContent = css;
+        document.head.appendChild(style);
+    }
+
+    private removePluginCss(pluginName: string) {
+        const styleId = `plugin-css-${pluginName}`;
+        const style = document.getElementById(styleId);
+        if (style) {
+            style.remove();
         }
     }
 }

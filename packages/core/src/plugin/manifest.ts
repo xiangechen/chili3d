@@ -47,4 +47,7 @@ export type PluginManifest = {
 
     /** Dependencies on other plugins (plugin ID -> version range) */
     dependencies?: Record<string, string>;
+
+    /** CSS file path(s) to load (relative path) */
+    css?: string | string[];
 };
