@@ -61,19 +61,3 @@ dialog::backdrop {
         }
     }
 }
-
-.domain {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    margin: 12px;
-
-    .domainTip {
-        font-size: 18px;
-    }
-
-    span {
-        font-size: 16px;
-        font-weight: bold;
-    }
-}

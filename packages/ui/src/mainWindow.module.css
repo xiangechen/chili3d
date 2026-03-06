@@ -96,7 +96,7 @@ chili3d-main-window {
     --button-primary-hover: #0d5bc7;
     --button-secondary-background: #ffffff;
     --button-secondary-hover: #f5f5f5;
-    --backdrop-color: rgba(0, 0, 0, 0.75);
+    --backdrop-color: rgba(0, 0, 0, 0.45);
     --loading-border-color: rgba(0, 0, 0, 0.2);
     --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     --resizer-gradient: linear-gradient(to right, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.12));
@@ -134,7 +134,7 @@ chili3d-main-window {
     --button-primary-hover: #3a8eef;
     --button-secondary-background: #2a2a2a;
     --button-secondary-hover: #323232;
-    --backdrop-color: rgba(0, 0, 0, 0.75);
+    --backdrop-color: rgba(0, 0, 0, 0.45);
     --loading-border-color: rgba(255, 255, 255, 0.2);
     --panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     --resizer-gradient: linear-gradient(to right, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12));

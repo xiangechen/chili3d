@@ -4,6 +4,7 @@
 import {
     CommandStore,
     Config,
+    type DialogButton,
     I18n,
     type IApplication,
     type IconPath,
@@ -13,7 +14,7 @@ import {
     type PluginManifest,
     PubSub,
 } from "@chili3d/core";
-import { toBase64Img } from "@chili3d/element";
+import { br, div, hr, toBase64Img } from "@chili3d/element";
 import type JSZip from "jszip";
 
 const untrustedDomains: string[] = [];
@@ -66,23 +67,36 @@ export class PluginManager implements IPluginManager {
         if (untrustedDomains.includes(url.host)) return;
 
         if (url.host === window.location.host || Config.instance.trustedDomains.includes(url.host)) {
-            this.loadFromRemoteFile(urlString);
+            await this.loadFromRemoteFile(urlString);
             return;
         }
 
-        await new Promise((resolve) => {
-            PubSub.default.pub("showTrustDomain", "warning.script.fromDomain", url.host, (trust) => {
-                if (trust) {
+        PubSub.default.pub(
+            "showDialog",
+            "common.warning",
+            div(I18n.translate("warning.script.fromDomain"), hr(), url.host),
+            this.buttons(url),
+        );
+    }
+
+    private buttons(url: URL): DialogButton[] {
+        return [
+            {
+                content: "common.dontTrust",
+                onclick: () => {
+                    untrustedDomains.push(url.host);
+                },
+            },
+            {
+                content: "common.trust",
+                onclick: () => {
                     Config.instance.trustedDomains.push(url.host);
                     Config.instance.saveToStorage();
 
-                    this.loadFromRemoteFile(urlString);
-                } else {
-                    untrustedDomains.push(url.host);
-                }
-                resolve(trust);
-            });
-        });
+                    this.loadFromRemoteFile(url.href);
+                },
+            },
+        ];
     }
 
     private async readManifestFromZip(zip: JSZip) {

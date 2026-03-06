@@ -1,79 +1,68 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { DialogResult, I18n, type I18nKeys } from "@chili3d/core";
-import { button, div, span } from "@chili3d/element";
+import { type DialogButton, getCurrentApplication, I18n, type I18nKeys } from "@chili3d/core";
+import { button, div } from "@chili3d/element";
 import style from "./dialog.module.css";
 
-export class Dialog {
-    private constructor() {}
+const DefaultButtons: DialogButton[] = [
+    {
+        content: "common.confirm",
+    },
+    {
+        content: "common.cancel",
+    },
+];
 
-    static show(title: I18nKeys, content: HTMLElement, callback?: (result: DialogResult) => void) {
-        const dialog = document.createElement("dialog");
-        document.body.appendChild(dialog);
+export function showDialog(title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) {
+    const dialog = document.createElement("dialog");
+    const host = getCurrentApplication()?.mainWindow ?? document.body;
+    host.appendChild(dialog);
 
-        dialog.appendChild(
+    dialog.appendChild(
+        div(
+            { className: style.root },
+            div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
+            div({ className: style.content }, content),
             div(
-                { className: style.root },
-                div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
-                div({ className: style.content }, content),
-                div(
-                    { className: style.buttons },
+                { className: style.buttons },
+                ...combineButtons(buttons).map((btn) =>
                     button({
-                        textContent: I18n.translate("common.confirm"),
-                        onclick: () => {
-                            dialog.remove();
-                            callback?.(DialogResult.ok);
-                        },
-                    }),
-                    button({
-                        textContent: I18n.translate("common.cancel"),
-                        onclick: () => {
-                            dialog.remove();
-                            callback?.(DialogResult.cancel);
+                        textContent: I18n.translate(btn.content),
+                        onclick: async () => {
+                            if (btn.onclick) {
+                                await btn?.onclick();
+                            }
+
+                            if (btn.shouldClose?.() !== false) {
+                                dialog.remove();
+                            }
                         },
                     }),
                 ),
             ),
-        );
+        ),
+    );
 
-        dialog.showModal();
+    dialog.showModal();
+}
+
+function combineButtons(buttons?: DialogButton[] | (() => void)): DialogButton[] {
+    if (buttons === undefined) {
+        return DefaultButtons;
     }
 
-    static showTrustDomain(message: I18nKeys, domain: string, callback?: (trusted: boolean) => void) {
-        const dialog = document.createElement("dialog");
-        document.body.appendChild(dialog);
-
-        const trustButton = button({
-            textContent: I18n.translate("common.trust") ?? "Trust",
-            onclick: () => {
-                dialog.remove();
-                callback?.(true);
-            },
-        });
-
-        const dontTrustButton = button({
-            textContent: I18n.translate("common.dontTrust") ?? "Don't Trust",
-            autofocus: true,
-            onclick: () => {
-                dialog.remove();
-                callback?.(false);
-            },
-        });
-
-        dialog.appendChild(
-            div(
-                { className: style.root },
-                div({ className: style.title }, I18n.translate("common.warning") ?? "Warning"),
-                div(
-                    { className: `${style.content} ${style.domain}` },
-                    div({ className: style.domainTip }, I18n.translate(message)),
-                    span(domain),
-                ),
-                div({ className: style.buttons }, dontTrustButton, trustButton),
-            ),
-        );
-
-        dialog.showModal();
+    if (Array.isArray(buttons)) {
+        return buttons;
     }
+
+    return [
+        {
+            content: "common.confirm",
+            onclick: buttons,
+        },
+        {
+            content: "common.cancel",
+        },
+    ];
 }

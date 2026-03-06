@@ -81,6 +81,7 @@ export const canvas = createElement("canvas");
 export const sup = createElement("sup");
 export const form = createElement("form");
 export const br = createElement("br");
+export const hr = createElement("hr");
 
 export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const ns = "http://www.w3.org/2000/svg";

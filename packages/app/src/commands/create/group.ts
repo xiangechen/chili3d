@@ -7,7 +7,6 @@ import {
     Component,
     ComponentNode,
     command,
-    DialogResult,
     GetOrSelectNodeStep,
     type IApplication,
     type ICommand,
@@ -65,8 +64,8 @@ export class GroupCommand extends MultistepCommand {
 
         const definition = new GroupDefinition();
 
-        PubSub.default.pub("showDialog", "command.create.group", this.dialog(definition), (r) => {
-            if (r === DialogResult.ok) this.createGroup(definition, nodes);
+        PubSub.default.pub("showDialog", "command.create.group", this.dialog(definition), () => {
+            this.createGroup(definition, nodes);
         });
     }
 

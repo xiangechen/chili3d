@@ -4,7 +4,6 @@
 import {
     AsyncController,
     command,
-    DialogResult,
     Dimension,
     I18n,
     type IApplication,
@@ -43,11 +42,9 @@ export class SetWorkplane implements ICommand {
         if (!view) return;
 
         const vm = new WorkingPlaneViewModel();
-        PubSub.default.pub("showDialog", "dialog.title.selectWorkingPlane", this.ui(vm), (result) => {
-            if (result === DialogResult.ok) {
-                const planes = [Plane.XY, Plane.YZ, Plane.ZX];
-                view.workplane = planes[vm.planes.selectedIndexes[0]];
-            }
+        PubSub.default.pub("showDialog", "dialog.title.selectWorkingPlane", this.ui(vm), () => {
+            const planes = [Plane.XY, Plane.YZ, Plane.ZX];
+            view.workplane = planes[vm.planes.selectedIndexes[0]];
         });
     }
 
