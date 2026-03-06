@@ -1,6 +1,6 @@
 {
     "name": "@chili3d/core",
-    "version": "0.7.0-beta2",
+    "version": "0.7.0-beta.1",
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {}

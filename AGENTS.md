@@ -22,6 +22,9 @@ npm run preview      # Preview production build
 npm run build:wasm   # Build C++ WASM module with CMake
 npm run setup:wasm   # Setup WASM dependencies
 
+# TypeScript Declaration Files
+npm run build:types  # Generate .d.ts files for npm packages
+
 # Code Quality
 npm run check        # Biome linting and auto-fix (run this before commits!)
 npm run format       # Format all code (Biome + clang-format)
@@ -33,6 +36,36 @@ npx rstest xyz.test.ts   # Run single test file (pattern matching supported)
 npx rstest -t "should do"      # Run tests matching pattern
 npx rstest packages/chili-core/test/  # Run all tests in directory
 ```
+
+## Publishing Packages
+
+To publish `@chili3d/core` and `@chili3d/element` packages to npm:
+
+1. Generate TypeScript declaration files:
+
+    ```bash
+    npm run build:types
+    ```
+
+2. Publish stable version:
+
+    ```bash
+    cd types/packages/core
+    npm publish
+
+    cd types/packages/element
+    npm publish
+    ```
+
+3. Publish beta version (add `--tag beta`):
+
+    ```bash
+    cd types/packages/core
+    npm publish --tag beta
+
+    cd types/packages/element
+    npm publish --tag beta
+    ```
 
 ## Code Style Guidelines
 
