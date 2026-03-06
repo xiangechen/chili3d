@@ -4,6 +4,7 @@
 import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "@chili3d/app";
 import {
     Config,
+    Constants,
     I18n,
     type IApplication,
     type IDataExchange,
@@ -65,6 +66,10 @@ export class AppBuilder {
 
             const db = await import("@chili3d/storage");
             this._storage = new db.IndexedDBStorage();
+            await this._storage.createDBIfNeeded(Constants.DBName, [
+                Constants.DocumentTable,
+                Constants.RecentTable,
+            ]);
         });
         return this;
     }

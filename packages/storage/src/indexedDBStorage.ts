@@ -1,46 +1,80 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Constants, type IStorage, Logger } from "@chili3d/core";
+import { type IStorage, Logger } from "@chili3d/core";
 
 export class IndexedDBStorage implements IStorage {
-    readonly version: number = 4;
+    async createDBIfNeeded(database: string, tables: string[]): Promise<void> {
+        let db = await this.openOrCreateDB(database, tables);
+        let shouldUpgrade = false;
+        for (const table of tables) {
+            if (!db.objectStoreNames.contains(table)) {
+                shouldUpgrade = true;
+                break;
+            }
+        }
+        if (shouldUpgrade) {
+            const newVersion = db.version + 1;
+            db.close();
+            db = await this.openOrCreateDB(database, tables, newVersion);
+        }
+        db.close();
+    }
+
+    private openOrCreateDB(database: string, tables: string[], version?: number): Promise<IDBDatabase> {
+        return new Promise((resolve, reject) => {
+            const request = window.indexedDB.open(database, version);
+            request.onsuccess = (e) => {
+                Logger.info(`open ${database} success`);
+                resolve((e.target as unknown as any).result);
+            };
+            request.onerror = (e) => {
+                Logger.error(`open ${database} error`);
+                reject(e);
+            };
+            request.onupgradeneeded = (e) => {
+                Logger.info(`upgrade ${database}`);
+                const db: IDBDatabase = (e.target as unknown as any).result;
+                tables.forEach((store) => {
+                    if (!db.objectStoreNames.contains(store)) {
+                        Logger.info(`create store ${store}`);
+                        db.createObjectStore(store);
+                    }
+                });
+            };
+        });
+    }
 
     async get(database: string, table: string, id: string): Promise<any> {
-        const db = await this.open(database, table, this.version);
+        const db = await this.open(database);
         return Promise.try(IndexedDBStorage.get, db, table, id).finally(() => {
             db.close();
         });
     }
 
     async put(database: string, table: string, id: string, value: any): Promise<boolean> {
-        const db = await this.open(database, table, this.version);
+        const db = await this.open(database);
         return Promise.try(IndexedDBStorage.put, db, table, id, value).finally(() => {
             db.close();
         });
     }
 
     async delete(database: string, table: string, id: string): Promise<boolean> {
-        const db = await this.open(database, table, this.version);
+        const db = await this.open(database);
         return Promise.try(IndexedDBStorage.delete, db, table, id).finally(() => {
             db.close();
         });
     }
 
     async page(database: string, table: string, page: number): Promise<any[]> {
-        const db = await this.open(database, table, this.version);
+        const db = await this.open(database);
         return Promise.try(IndexedDBStorage.getPage, db, table, page).finally(() => {
             db.close();
         });
     }
 
-    private open(
-        dbName: string,
-        storeName: string,
-        version: number,
-        options?: IDBObjectStoreParameters,
-    ): Promise<IDBDatabase> {
-        const request = window.indexedDB.open(dbName, version);
+    private open(dbName: string): Promise<IDBDatabase> {
+        const request = window.indexedDB.open(dbName);
         return new Promise((resolve, reject) => {
             request.onsuccess = (e) => {
                 Logger.info(`open ${dbName} success`);
@@ -50,17 +84,6 @@ export class IndexedDBStorage implements IStorage {
             request.onerror = (e) => {
                 Logger.error(`open ${dbName} error`);
                 reject(e);
-            };
-
-            request.onupgradeneeded = (e) => {
-                Logger.info(`upgrade ${dbName}`);
-                const db: IDBDatabase = (e.target as unknown as any).result;
-                [Constants.DocumentTable, Constants.RecentTable].forEach((store) => {
-                    if (!db.objectStoreNames.contains(store)) {
-                        Logger.info(`create store ${store}`);
-                        db.createObjectStore(store, options);
-                    }
-                });
             };
         });
     }
