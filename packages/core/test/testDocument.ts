@@ -25,6 +25,7 @@ export class TestDocument implements IDocument, ISerialize {
     selection: ISelection;
     visual: IVisual;
     activeView: IView | undefined;
+    userData?: Record<string, unknown> | undefined;
     modelManager: ModelManager = new ModelManager(this);
     materials: ObservableCollection<Material> = new ObservableCollection<Material>();
     acts: ObservableCollection<Act> = new ObservableCollection<Act>();

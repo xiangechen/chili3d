@@ -27,6 +27,7 @@ export class Document extends Observable implements IDocument {
     readonly selection: ISelection;
     readonly acts = new ObservableCollection<Act>();
     readonly modelManager: ModelManager;
+    userData: Record<string, unknown> = {};
 
     static readonly version = __DOCUMENT_VERSION__;
 
@@ -64,6 +65,7 @@ export class Document extends Observable implements IDocument {
                 name: this.name,
                 models: this.modelManager.serialize(),
                 acts: this.acts.map((x) => Serializer.serializeObject(x)),
+                userData: this.userData,
             },
         };
         return serialized;
@@ -137,6 +139,9 @@ export class Document extends Observable implements IDocument {
         document.acts.push(
             ...data.properties["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)),
         );
+        if (data.properties["userData"]) {
+            document.userData = data.properties["userData"];
+        }
 
         await document.modelManager.deserialize(data.properties["models"]);
         document.history.disabled = false;

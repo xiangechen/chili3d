@@ -20,6 +20,7 @@ export interface IDocument extends IPropertyChanged, IDisposable, ISerialize {
     readonly modelManager: ModelManager;
     name: string;
     acts: ObservableCollection<Act>;
+    userData?: Record<string, unknown>;
     save(): Promise<void>;
     close(): Promise<void>;
     serialize(): Serialized;

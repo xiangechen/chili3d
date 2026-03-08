@@ -26,6 +26,7 @@ export class TestDocument implements IDocument, ISerialize {
     activeView: IView | undefined;
     modelManager: ModelManager = new ModelManager(this);
     acts: ObservableCollection<Act> = new ObservableCollection<Act>();
+    userData?: Record<string, unknown> | undefined;
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>): void {
         throw new Error("Method not implemented.");
     }
