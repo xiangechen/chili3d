@@ -41,7 +41,10 @@ export class MacroManager {
             this.macroListElement,
         );
 
-        PubSub.default.pub("showDialog", "macro.manager.title" as I18nKeys, content);
+        PubSub.default.pub("showFloatPanel", {
+            title: "macro.manager.title" as I18nKeys,
+            content,
+        });
     }
 
     private createMacroItem(macro: MacroDefinition): HTMLElement {

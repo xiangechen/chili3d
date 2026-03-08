@@ -6,7 +6,7 @@ import type { IDocument } from "../document";
 import type { I18nKeys } from "../i18n";
 import type { Material } from "../material";
 import type { INode } from "../model";
-import type { DialogButton } from "../ui";
+import type { DialogButton, FloatPanelOptions } from "../ui";
 import type { CursorType, IView } from "../visual";
 import type { AsyncController } from "./asyncController";
 import type { IDisposable } from "./disposable";
@@ -30,6 +30,7 @@ export interface PubSubEventMap {
     parentVisibleChanged: (model: INode) => void;
     selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
     showDialog: (title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) => void;
+    showFloatPanel: (options: FloatPanelOptions) => void;
     showFloatTip: (dom: HTMLElement | { level: MessageType; msg: string }) => void;
     showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;

@@ -15,6 +15,7 @@ import {
 } from "@chili3d/core";
 import { showDialog } from "./dialog";
 import { Editor } from "./editor";
+import { showFloatPanel } from "./floatPanel";
 import { Home } from "./home";
 import { Permanent } from "./permanent";
 import { Toast } from "./toast";
@@ -87,6 +88,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         PubSub.default.sub("showToast", Toast.info);
         PubSub.default.sub("displayError", Toast.error);
         PubSub.default.sub("showDialog", showDialog);
+        PubSub.default.sub("showFloatPanel", showFloatPanel);
         PubSub.default.sub("showPermanent", Permanent.show);
         PubSub.default.sub("activeViewChanged", (view) => displayHome(app, view === undefined));
         PubSub.default.sub("displayHome", (show) => displayHome(app, show));
