@@ -14,7 +14,7 @@ import {
     type PluginManifest,
     PubSub,
 } from "@chili3d/core";
-import { br, div, hr, toBase64Img } from "@chili3d/element";
+import { div, hr, toBase64Img } from "@chili3d/element";
 import type JSZip from "jszip";
 
 const untrustedDomains: string[] = [];
@@ -31,7 +31,7 @@ export class PluginManager implements IPluginManager {
 
         const manifest = await this.readManifestFromZip(zip);
         if (manifest) {
-            await this.loadPluginCodeFromZip(zip, manifest);
+            await this.loadPluginFromZip(zip, manifest);
         }
     }
 
@@ -49,15 +49,10 @@ export class PluginManager implements IPluginManager {
 
             await this.loadFromFile(file);
         } else {
-            if (url.endsWith(".js")) {
-                const index = url.lastIndexOf("/") + 1;
-                await this.loadPluginCodeFromUrl("plugin", url.substring(0, index), url.substring(index));
-            } else {
-                if (!url.endsWith("/")) url += "/";
-                const manifest = await this.readManifestFromUrl(url + "manifest.json");
-                if (manifest) {
-                    await this.loadPluginCodeFromUrl(manifest.name, url, manifest.main);
-                }
+            if (!url.endsWith("/")) url += "/";
+            const manifest = await this.readManifestFromUrl(`${url}manifest.json`);
+            if (manifest) {
+                await this.loadPluginFromUrl(manifest.name, url, manifest.main, manifest.importMap);
             }
         }
     }
@@ -120,21 +115,24 @@ export class PluginManager implements IPluginManager {
         return this.validateManifest(manifest) ? manifest : undefined;
     }
 
-    private async loadPluginCodeFromZip(zip: JSZip, manifest: PluginManifest) {
+    private async loadPluginFromZip(zip: JSZip, manifest: PluginManifest) {
         const codeFile = zip.file(manifest.main);
         if (!codeFile) {
-            alert(manifest.main + " not found in plugin archive");
+            alert(`${manifest.main} not found in plugin archive`);
             return;
         }
         const code = await codeFile.async("text");
         const handlePluginIcon = async (plugin: Plugin) => {
             await this.transformZipCommandIcon(zip, plugin);
         };
-        await this.loadPluginCode(manifest.name, code, handlePluginIcon);
+
+        await this.loadImportMapFromZip(zip, manifest);
+
+        await this.loadMainCode(manifest.name, code, handlePluginIcon);
         await this.loadCssFromZip(zip, manifest);
     }
 
-    private async loadPluginCodeFromUrl(name: string, baseUrl: string, codePath: string) {
+    private async loadPluginFromUrl(name: string, baseUrl: string, codePath: string, importMapPath?: string) {
         if (codePath.startsWith("/")) codePath = codePath.substring(1);
 
         const fullUrl = baseUrl + codePath;
@@ -147,11 +145,27 @@ export class PluginManager implements IPluginManager {
         const handlePluginIcon = async (plugin: Plugin) => {
             await this.transformUrlCommandIcon(baseUrl, plugin);
         };
-        await this.loadPluginCode(name, code, handlePluginIcon);
+
+        if (importMapPath) {
+            await this.loadImportMapFromUrl(baseUrl, importMapPath);
+        }
+
+        await this.loadMainCode(name, code, handlePluginIcon);
         await this.loadCssFromUrl(baseUrl, name);
     }
 
-    private async loadPluginCode(
+    private async loadImportMapFromUrl(baseUrl: string, importMapPath: string) {
+        if (importMapPath.startsWith("/")) importMapPath = importMapPath.substring(1);
+        const response = await fetch(baseUrl + importMapPath);
+        if (!response.ok) {
+            return undefined;
+        }
+
+        const json = await response.text();
+        this.injectImportMap(json);
+    }
+
+    private async loadMainCode(
         name: string,
         code: string,
         handlePluginIcon: (plugin: Plugin) => Promise<void>,
@@ -385,6 +399,26 @@ export class PluginManager implements IPluginManager {
             const css = await response.text();
             this.injectCss(css, pluginName);
         }
+    }
+
+    private async loadImportMapFromZip(zip: JSZip, manifest: PluginManifest) {
+        if (!manifest.importMap) return;
+
+        const codeFile = zip.file(manifest.importMap);
+        if (!codeFile) {
+            alert(`${manifest.main} not found in plugin archive`);
+            return;
+        }
+        const importMap = await codeFile.async("text");
+
+        this.injectImportMap(importMap);
+    }
+
+    private injectImportMap(importMapJson: string) {
+        const script = document.createElement("script");
+        script.type = "importmap";
+        script.textContent = importMapJson;
+        document.head.appendChild(script);
     }
 
     private injectCss(css: string, pluginName: string) {

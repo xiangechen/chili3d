@@ -44,6 +44,8 @@ export class MacroManager {
         PubSub.default.pub("showFloatPanel", {
             title: "macro.manager.title" as I18nKeys,
             content,
+            width: 500,
+            height: 500,
         });
     }
 

@@ -1,9 +1,13 @@
+import { module1_function1 } from "module1";
+import { module2_function1 } from "module2";
+
 const { CommandStore, PubSub } = Chili3dCore;
 
 class HelloWorldJSCommand {
     execute(app) {
         PubSub.default.pub("showToast", "demo.hello.message");
-
+        module1_function1();
+        module2_function1();
         return Promise.resolve();
     }
 }
