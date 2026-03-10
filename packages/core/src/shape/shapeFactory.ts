@@ -41,6 +41,7 @@ export interface IShapeFactory {
     booleanCommon(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     booleanCut(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape>;
+    sewing(shape1: IShape, shape2: IShape): Result<IShape>;
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     makeThickSolidByJoin(shape: IShape, closingFaces: IShape[], thickness: number): Result<IShape>;

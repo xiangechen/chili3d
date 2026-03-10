@@ -102,6 +102,7 @@ export default {
         "command.modify.removeFeature": "删除特征",
         "command.modify.removeShapes": "删除子元素",
         "command.modify.rotate": "旋转",
+        "command.modify.sew": "缝合",
         "command.modify.split": "分割",
         "command.modify.trim": "修剪",
         "command.special.last": "__上个命令__",

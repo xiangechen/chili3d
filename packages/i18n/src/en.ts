@@ -102,6 +102,7 @@ export default {
         "command.modify.removeFeature": "Remove Feature",
         "command.modify.removeShapes": "Remove Shapes",
         "command.modify.rotate": "Rotate",
+        "command.modify.sew": "Sew",
         "command.modify.split": "Split",
         "command.modify.trim": "Trim",
         "command.special.last": "__Last_COMMAND__",

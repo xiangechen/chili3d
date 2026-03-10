@@ -290,6 +290,14 @@ export class ShapeFactory implements IShapeFactory {
 
         return convertShapeResult(wasm.ShapeFactory.simplifyShape(fused.shape, true, true));
     }
+    sewing(shape1: IShape, shape2: IShape): Result<IShape> {
+        const [occShape1, occShape2] = ensureOccShape([shape1, shape2]);
+        const result = wasm.Shape.sewing(occShape1, occShape2);
+        if (result.isNull()) {
+            return Result.err("Sewing failed: result is null");
+        }
+        return Result.ok(OccShape.wrap(result));
+    }
     combine(shapes: IShape[]): Result<ICompound> {
         return convertShapeResult(wasm.ShapeFactory.combine(ensureOccShape(shapes))) as Result<ICompound>;
     }
