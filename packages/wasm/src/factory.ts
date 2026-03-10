@@ -345,4 +345,9 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
+    simplifyShape(shape: IShape, removeEdges: boolean, removeFaces: boolean): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.simplifyShape(ensureOccShape(shape)[0], removeEdges, removeFaces),
+        );
+    }
 }

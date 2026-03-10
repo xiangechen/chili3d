@@ -13,5 +13,6 @@ export * from "./removeFeature";
 export * from "./removeSubShapes";
 export * from "./rotate";
 export * from "./sew";
+export * from "./simplify";
 export * from "./split";
 export * from "./trim";
