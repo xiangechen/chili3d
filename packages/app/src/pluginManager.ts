@@ -126,10 +126,18 @@ export class PluginManager implements IPluginManager {
             await this.transformZipCommandIcon(zip, plugin);
         };
 
-        await this.loadImportMapFromZip(zip, manifest);
-
+        const importMap = await this.getImportMapFromZip(zip, manifest);
+        if (importMap) {
+            this.injectImportMap(JSON.stringify(importMap));
+        }
         await this.loadMainCode(manifest.name, code, handlePluginIcon);
         await this.loadCssFromZip(zip, manifest);
+
+        if (importMap) {
+            Object.values(importMap.imports).forEach((url) => {
+                URL.revokeObjectURL(url);
+            });
+        }
     }
 
     private async loadPluginFromUrl(name: string, baseUrl: string, codePath: string, importMapPath?: string) {
@@ -401,17 +409,33 @@ export class PluginManager implements IPluginManager {
         }
     }
 
-    private async loadImportMapFromZip(zip: JSZip, manifest: PluginManifest) {
-        if (!manifest.importMap) return;
+    private async getImportMapFromZip(
+        zip: JSZip,
+        manifest: PluginManifest,
+    ): Promise<{ imports: Record<string, string> } | undefined> {
+        if (!manifest.importMap) return undefined;
 
         const codeFile = zip.file(manifest.importMap);
         if (!codeFile) {
             alert(`${manifest.main} not found in plugin archive`);
-            return;
+            return undefined;
         }
-        const importMap = await codeFile.async("text");
 
-        this.injectImportMap(importMap);
+        const importMap = await codeFile.async("text");
+        const json = JSON.parse(importMap);
+        for (const key in json.imports) {
+            const importFile = zip.file(json.imports[key]);
+            if (!importFile) {
+                alert(`${json.imports[key]} not found in plugin archive`);
+                continue;
+            }
+            const importCode = await importFile.async("text");
+            const blob = new Blob([importCode], { type: "application/javascript" });
+            const blobUrl = URL.createObjectURL(blob);
+            json.imports[key] = blobUrl;
+        }
+
+        return json;
     }
 
     private injectImportMap(importMapJson: string) {

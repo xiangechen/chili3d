@@ -34,3 +34,17 @@ The packaging script is cross-platform and works on both Windows (PowerShell) an
 ## Installation
 
 Drag and drop the .chiliplugin file into Chili3D.
+
+# Demo Plugin for Chili3D
+
+Change the importMap.json file to point to plugins server(http://localhost:88686), e.g.:
+```json
+{
+    "imports": {
+        "module1": "http://localhost:8686/src/module1.js",
+        "module2": "http://localhost:8686/src/module2.js"
+    }
+}
+```
+
+To run the plugin, you need to start the chili3d server: at the root of the chili3d folder, run: `npm run start`. Then, start the plugin server: at the root of the plugin folder, run: `npm run preview`. The plugin server will start on port 8686. The plugin will be available at http://localhost:8080?plugin=http://localhost:8686.
