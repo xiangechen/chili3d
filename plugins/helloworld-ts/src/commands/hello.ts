@@ -12,8 +12,11 @@ import { command, type I18nKeys, type IApplication, type ICommand, PubSub } from
     helpText: "demo.hello.description" as any,
 })
 export class HelloWorldCommand implements ICommand {
-    execute(application: IApplication): Promise<void> {
+    async execute(application: IApplication): Promise<void> {
         PubSub.default.pub("showToast", "demo.hello.message" as I18nKeys);
+
+        const module = await import(/** webpackIgnore: true*/ "module1");
+        module.module1_function1();
 
         return Promise.resolve();
     }

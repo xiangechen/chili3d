@@ -1,6 +1,6 @@
 {
     "imports": {
         "module1": "src/module1.js",
-        "module2": "src/module2.js"
+        "./module2": "src/module2.js"
     }
 }

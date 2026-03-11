@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "preview": "echo 'Debug URL: http://localhost:8080?plugin=http://localhost:8686' && npx servitsy -p 8686 --cors",
-        "package": "node ../scripts/package-plugin.mjs dist/helloworld-js.chiliplugin src manifest.json importMap.json icons"
+        "package": "node ../scripts/package-plugin.mjs dist/helloworld-js.chiliplugin src manifest.json importmap.json icons"
     },
     "keywords": [
         "chili3d",

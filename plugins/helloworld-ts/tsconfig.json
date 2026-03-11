@@ -1,8 +1,9 @@
 {
     "compilerOptions": {
-        "target": "es6",
-        "module": "es6",
+        "target": "ESNext",
+        "module": "ESNext",
         "moduleResolution": "bundler",
+        "resolveJsonModule": true,
 
         "strict": true,
         "allowJs": true,
@@ -10,7 +11,10 @@
         "noPropertyAccessFromIndexSignature": true,
         "useDefineForClassFields": true,
         "experimentalDecorators": true,
-        "forceConsistentCasingInFileNames": true
+        "forceConsistentCasingInFileNames": true,
+        "paths": {
+            "module1": ["./src/modules/module1.ts"]
+        }
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules"]

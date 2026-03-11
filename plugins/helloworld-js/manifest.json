@@ -9,5 +9,5 @@
     "engines": {
         "chili3d": ">=0.6"
     },
-    "importMap": "importMap.json"
+    "importmap": "importmap.json"
 }

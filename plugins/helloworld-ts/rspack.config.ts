@@ -4,11 +4,14 @@ export default defineConfig({
     devtool: false,
     entry: {
         main: "./src/index.ts",
+        module1: "./src/modules/module1.ts",
     },
-    externals: {
-        "@chili3d/core": "Chili3dCore",
-        "@chili3d/element": "Chili3dElement",
-    },
+    externals: [
+        {
+            "@chili3d/core": "Chili3dCore",
+            "@chili3d/element": "Chili3dElement",
+        },
+    ],
     externalsType: "assign",
     experiments: {
         css: true,
@@ -50,6 +53,9 @@ export default defineConfig({
     },
     resolve: {
         extensions: [".ts", ".js", ".json", ".wasm"],
+        alias: {
+            module1: "./src/modules/module1.ts",
+        },
     },
     optimization: {
         concatenateModules: true,
@@ -59,7 +65,7 @@ export default defineConfig({
     },
     output: {
         clean: true,
-        filename: "extension.js",
+        filename: "[name].js",
         module: true,
         chunkFormat: "module",
         library: {

@@ -6,8 +6,8 @@
     "type": "module",
     "scripts": {
         "build": "rspack build",
-        "preview": "npm run build && npx servitsy -p 8686 --cors & (sleep 2 && open http://localhost:8080?plugin=http://localhost:8686)",
-        "package": "npm run build && node ../scripts/package-plugin.mjs dist/helloworld-ts.chiliplugin manifest.json dist/extension.js icons"
+        "preview": "npm run build && echo 'Debug URL: http://localhost:8080?plugin=http://localhost:8686' && npx servitsy -p 8686 --cors",
+        "package": "npm run build && node ../scripts/package-plugin.mjs dist/helloworld-ts.chiliplugin manifest.json importmap.json dist icons"
     },
     "devDependencies": {
         "@chili3d/core": "*",

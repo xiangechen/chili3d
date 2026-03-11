@@ -52,5 +52,5 @@ export type PluginManifest = {
     css?: string | string[];
 
     /** Import map for module resolution, see https://developer.mozilla.org/zh-CN/docs/Web/HTML/Reference/Elements/script/type/importmap */
-    importMap?: string;
+    importmap?: string;
 };

@@ -22,6 +22,7 @@ const untrustedDomains: string[] = [];
 export class PluginManager implements IPluginManager {
     readonly plugins = new Map<string, Plugin>();
     readonly manifests = new Map<string, PluginManifest>();
+    readonly shouldRevokes = new Map<string, string[]>();
 
     constructor(readonly app: IApplication) {}
 
@@ -52,7 +53,7 @@ export class PluginManager implements IPluginManager {
             if (!url.endsWith("/")) url += "/";
             const manifest = await this.readManifestFromUrl(`${url}manifest.json`);
             if (manifest) {
-                await this.loadPluginFromUrl(manifest.name, url, manifest.main, manifest.importMap);
+                await this.loadPluginFromUrl(manifest.name, url, manifest.main, manifest.importmap);
             }
         }
     }
@@ -121,26 +122,29 @@ export class PluginManager implements IPluginManager {
             alert(`${manifest.main} not found in plugin archive`);
             return;
         }
+
+        const importmap = await this.getImportmapFromZip(zip, manifest);
+        if (importmap) {
+            this.injectImportmap(JSON.stringify(importmap));
+
+            this.shouldRevokes.set(manifest.name, Object.values(importmap.imports));
+        }
+
         const code = await codeFile.async("text");
-        const handlePluginIcon = async (plugin: Plugin) => {
-            await this.transformZipCommandIcon(zip, plugin);
-        };
-
-        const importMap = await this.getImportMapFromZip(zip, manifest);
-        if (importMap) {
-            this.injectImportMap(JSON.stringify(importMap));
-        }
-        await this.loadMainCode(manifest.name, code, handlePluginIcon);
-        await this.loadCssFromZip(zip, manifest);
-
-        if (importMap) {
-            Object.values(importMap.imports).forEach((url) => {
-                URL.revokeObjectURL(url);
-            });
-        }
+        const blob = new Blob([code], { type: "application/javascript" });
+        const blobUrl = URL.createObjectURL(blob);
+        await Promise.try(async () => {
+            const handlePluginIcon = async (plugin: Plugin) => {
+                await this.transformZipCommandIcon(zip, plugin);
+            };
+            await this.loadMainCode(manifest.name, blobUrl, handlePluginIcon);
+            await this.loadCssFromZip(zip, manifest);
+        }).finally(() => {
+            URL.revokeObjectURL(blobUrl);
+        });
     }
 
-    private async loadPluginFromUrl(name: string, baseUrl: string, codePath: string, importMapPath?: string) {
+    private async loadPluginFromUrl(name: string, baseUrl: string, codePath: string, importmapPath?: string) {
         if (codePath.startsWith("/")) codePath = codePath.substring(1);
 
         const fullUrl = baseUrl + codePath;
@@ -149,52 +153,72 @@ export class PluginManager implements IPluginManager {
             return undefined;
         }
 
-        const code = await response.text();
         const handlePluginIcon = async (plugin: Plugin) => {
             await this.transformUrlCommandIcon(baseUrl, plugin);
         };
 
-        if (importMapPath) {
-            await this.loadImportMapFromUrl(baseUrl, importMapPath);
+        if (importmapPath) {
+            await this.loadImportmapFromUrl(baseUrl, importmapPath);
         }
 
-        await this.loadMainCode(name, code, handlePluginIcon);
+        await this.loadMainCode(name, fullUrl, handlePluginIcon);
         await this.loadCssFromUrl(baseUrl, name);
     }
 
-    private async loadImportMapFromUrl(baseUrl: string, importMapPath: string) {
-        if (importMapPath.startsWith("/")) importMapPath = importMapPath.substring(1);
-        const response = await fetch(baseUrl + importMapPath);
+    private async loadImportmapFromUrl(baseUrl: string, importmapPath: string) {
+        if (importmapPath.startsWith("/")) importmapPath = importmapPath.substring(1);
+        const importmapUrl = baseUrl + importmapPath;
+        const response = await fetch(importmapUrl);
         if (!response.ok) {
             return undefined;
         }
 
-        const json = await response.text();
-        this.injectImportMap(json);
+        const importmapObj = await response.json();
+        const importmapBaseUrl = new URL(importmapPath, baseUrl).href;
+        if (importmapObj.imports) {
+            for (const key in importmapObj.imports) {
+                const value = importmapObj.imports[key];
+                if (!value.startsWith("http://") && !value.startsWith("https://")) {
+                    const absoluteUrl = new URL(value, importmapBaseUrl).href;
+                    importmapObj.imports[key] = absoluteUrl;
+                }
+            }
+        }
+
+        if (importmapObj.scopes) {
+            for (const scope in importmapObj.scopes) {
+                const scopeBaseUrl = new URL(scope, importmapBaseUrl).href;
+                for (const key in importmapObj.scopes[scope]) {
+                    const value = importmapObj.scopes[scope][key];
+                    if (!value.startsWith("http://") && !value.startsWith("https://")) {
+                        const absoluteUrl = new URL(value, scopeBaseUrl).href;
+                        importmapObj.scopes[scope][key] = absoluteUrl;
+                    }
+                }
+            }
+        }
+
+        this.injectImportmap(JSON.stringify(importmapObj));
     }
 
     private async loadMainCode(
         name: string,
-        code: string,
+        url: string,
         handlePluginIcon: (plugin: Plugin) => Promise<void>,
     ) {
-        const blob = new Blob([code], { type: "application/javascript" });
-        const blobUrl = URL.createObjectURL(blob);
         await Promise.try(async () => {
-            const module = await import(/*webpackIgnore: true*/ blobUrl);
+            const module = await import(/*webpackIgnore: true*/ url);
             const plugin: Plugin = module.default;
             await handlePluginIcon(plugin);
             this.registerPlugin(plugin);
             this.plugins.set(name, plugin);
 
             Logger.info(`Plugin ${name} loaded successfully`);
-        })
-            .catch((err) => {
-                alert(`Failed to load plugin ${name}: ${err}`);
-            })
-            .finally(() => {
-                URL.revokeObjectURL(blobUrl);
-            });
+        }).catch((err) => {
+            console.log(err);
+
+            alert(`Failed to load plugin ${name}: ${err}`);
+        });
     }
 
     private async transformZipCommandIcon(zip: JSZip, plugin: Plugin) {
@@ -232,6 +256,10 @@ export class PluginManager implements IPluginManager {
 
         await this.unregisterPlugin(pluginName, plugin);
         this.plugins.delete(pluginName);
+
+        this.shouldRevokes.get(pluginName)?.forEach((value) => {
+            URL.revokeObjectURL(value);
+        });
 
         Logger.info(`Plugin ${pluginName} unloaded successfully`);
     }
@@ -409,20 +437,20 @@ export class PluginManager implements IPluginManager {
         }
     }
 
-    private async getImportMapFromZip(
+    private async getImportmapFromZip(
         zip: JSZip,
         manifest: PluginManifest,
     ): Promise<{ imports: Record<string, string> } | undefined> {
-        if (!manifest.importMap) return undefined;
+        if (!manifest.importmap) return undefined;
 
-        const codeFile = zip.file(manifest.importMap);
+        const codeFile = zip.file(manifest.importmap);
         if (!codeFile) {
             alert(`${manifest.main} not found in plugin archive`);
             return undefined;
         }
 
-        const importMap = await codeFile.async("text");
-        const json = JSON.parse(importMap);
+        const importmap = await codeFile.async("text");
+        const json = JSON.parse(importmap);
         for (const key in json.imports) {
             const importFile = zip.file(json.imports[key]);
             if (!importFile) {
@@ -438,10 +466,10 @@ export class PluginManager implements IPluginManager {
         return json;
     }
 
-    private injectImportMap(importMapJson: string) {
+    private injectImportmap(importmapJson: string) {
         const script = document.createElement("script");
         script.type = "importmap";
-        script.textContent = importMapJson;
+        script.textContent = importmapJson;
         document.head.appendChild(script);
     }
 

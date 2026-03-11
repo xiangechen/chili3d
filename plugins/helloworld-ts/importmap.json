@@ -1,0 +1,5 @@
+{
+    "imports": {
+        "module1": "dist/module1.js"
+    }
+}
