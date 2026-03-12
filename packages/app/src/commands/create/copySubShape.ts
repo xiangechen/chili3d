@@ -6,7 +6,8 @@ import {
     EditableShapeNode,
     PubSub,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     ShapeTypeUtils,
     Transaction,
 } from "@chili3d/core";
@@ -38,7 +39,9 @@ export class CopySubShapeCommand extends MultistepCommand {
 
     protected override getSteps() {
         return [
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Face, "prompt.select.shape", { multiple: true }),
+            new SelectShapeStep((ShapeTypes.edge | ShapeTypes.face) as ShapeType, "prompt.select.shape", {
+                multiple: true,
+            }),
         ];
     }
 }

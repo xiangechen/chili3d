@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { GeometryType, type IGeometry, type Matrix4 } from "@chili3d/core";
+import type { GeometryType, IGeometry, Matrix4 } from "@chili3d/core";
 import type { Geom_Geometry, Handle_Geom_Geometry } from "../lib/chili-wasm";
 import { convertFromMatrix } from "./helper";
 
@@ -22,9 +22,9 @@ export abstract class OccGeometry implements IGeometry {
         const isKind = (type: string) => wasm.Transient.isKind(geometry, type);
 
         if (isKind("Geom_Curve")) {
-            return GeometryType.Curve;
+            return "curve";
         } else if (isKind("Geom_Surface")) {
-            return GeometryType.Surface;
+            return "surface";
         }
 
         throw new Error("Unknown geometry type");

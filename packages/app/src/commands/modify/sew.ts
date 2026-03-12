@@ -8,9 +8,9 @@ import {
     PubSub,
     SelectShapeStep,
     ShapeNode,
-    ShapeType,
+    ShapeTypes,
     Transaction,
-    VisualState,
+    VisualStates,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -42,11 +42,11 @@ export class Sew extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 nodeFilter: { allow: (node) => node instanceof ShapeNode },
-                selectedState: VisualState.faceTransparent,
+                selectedState: VisualStates.faceTransparent,
             }),
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 nodeFilter: {
                     allow: (node) => {
                         if (!(node instanceof ShapeNode)) {
@@ -59,7 +59,7 @@ export class Sew extends MultistepCommand {
                     },
                 },
                 keepSelection: true,
-                selectedState: VisualState.faceTransparent,
+                selectedState: VisualStates.faceTransparent,
             }),
         ];
     }

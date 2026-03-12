@@ -12,7 +12,7 @@ import {
     Precision,
     property,
     Result,
-    ShapeType,
+    ShapeTypes,
     serializable,
     serialze,
 } from "@chili3d/core";
@@ -69,7 +69,7 @@ export class PipeNode extends ParameterShapeNode {
 
     private ensureWire(path: IEdge | IWire) {
         let wire = path as IWire;
-        if (path.shapeType !== ShapeType.Wire) {
+        if (path.shapeType !== ShapeTypes.wire) {
             wire = this.document.application.shapeFactory.wire([path as unknown as IEdge]).value;
         }
         return wire;

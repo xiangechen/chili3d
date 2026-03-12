@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    ButtonSize,
+    type ButtonSize,
     type CommandData,
     type CommandIcon,
     type CommandKeys,
@@ -59,10 +59,10 @@ export class RibbonButton extends HTMLElement {
 
     private initHTML(display: I18nKeys, icon: CommandIcon, size: ButtonSize) {
         const image = createIcon(icon);
-        this.className = size === ButtonSize.large ? style.normal : style.small;
-        image.classList.add(size === ButtonSize.large ? style.icon : style.smallIcon);
+        this.className = size === "large" ? style.normal : style.small;
+        image.classList.add(size === "large" ? style.icon : style.smallIcon);
         const text = label({
-            className: size === ButtonSize.large ? style.largeButtonText : style.smallButtonText,
+            className: size === "large" ? style.largeButtonText : style.smallButtonText,
             textContent: new Localize(display),
         });
 

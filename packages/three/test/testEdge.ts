@@ -14,12 +14,13 @@ import {
     type IWire,
     type Line,
     Matrix4,
-    Orientation,
+    type Orientation,
     ParameterShapeNode,
     type Plane,
     Result,
     type Serialized,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     type XYZ,
     type XYZLike,
 } from "@chili3d/core";
@@ -99,7 +100,7 @@ export class TestEdge implements IEdge {
     get id(): string {
         return "testEdge";
     }
-    shapeType: ShapeType = ShapeType.Edge;
+    shapeType: ShapeType = ShapeTypes.edge;
     matrix: Matrix4 = Matrix4.identity();
     get mesh(): IShapeMeshData {
         return {
@@ -127,7 +128,7 @@ export class TestEdge implements IEdge {
         };
     }
     orientation(): Orientation {
-        return Orientation.FORWARD;
+        return "forward";
     }
     isPartner(other: IShape): boolean {
         return true;

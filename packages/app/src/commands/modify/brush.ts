@@ -9,7 +9,7 @@ import {
     property,
     SelectNodeStep,
     SelectShapeStep,
-    ShapeType,
+    ShapeTypes,
     Transaction,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
@@ -28,7 +28,7 @@ export class AddBrushCommand extends MultistepCommand {
     }
 
     protected override getSteps(): IStep[] {
-        return [new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { multiple: true })];
+        return [new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", { multiple: true })];
     }
     protected override executeMainTask(): void {
         const nodeMatiralMape = new Map<GeometryNode, { faceIndex: number; materialId: string }[]>();
@@ -61,7 +61,7 @@ export class AddBrushCommand extends MultistepCommand {
 })
 export class RemoveBrushCommand extends MultistepCommand {
     protected override getSteps(): IStep[] {
-        return [new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { multiple: true })];
+        return [new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", { multiple: true })];
     }
 
     protected override executeMainTask(): void {

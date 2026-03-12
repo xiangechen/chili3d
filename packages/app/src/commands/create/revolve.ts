@@ -13,7 +13,8 @@ import {
     Line,
     property,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
 } from "@chili3d/core";
 import { RevolvedNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
@@ -41,8 +42,11 @@ export class Revolve extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Face | ShapeType.Wire, "prompt.select.shape"),
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges", {
+            new SelectShapeStep(
+                (ShapeTypes.edge | ShapeTypes.face | ShapeTypes.wire) as ShapeType,
+                "prompt.select.shape",
+            ),
+            new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges", {
                 shapeFilter: new LineFilter(),
                 keepSelection: true,
             }),
@@ -52,7 +56,7 @@ export class Revolve extends CreateCommand {
 
 class LineFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
-        if (shape.shapeType === ShapeType.Edge) {
+        if (shape.shapeType === ShapeTypes.edge) {
             const edge = shape as IEdge;
             const curve = edge.curve.basisCurve;
             return CurveUtils.isLine(curve);

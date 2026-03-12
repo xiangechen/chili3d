@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { SelectableItems, SelectMode } from "@chili3d/core";
+import { SelectableItems } from "@chili3d/core";
 import { beforeEach, describe, expect, test } from "@rstest/core";
 import { RadioGroup } from "../src/radioGroup";
 import style from "../src/radioGroup.module.css";
@@ -43,7 +43,7 @@ describe("RadioGroup", () => {
 
     test("should mark selected item as checked", () => {
         const items = ["option1", "option2", "option3"];
-        const context = new SelectableItems(items, SelectMode.radio, ["option2"]);
+        const context = new SelectableItems(items, "radio", ["option2"]);
         const radioGroup = new RadioGroup("Test Header", context);
 
         container.appendChild(radioGroup);
@@ -92,7 +92,7 @@ describe("RadioGroup", () => {
 
     test("should not change selection when clicking non-radio element", () => {
         const items = ["option1", "option2"];
-        const context = new SelectableItems(items, SelectMode.radio, ["option1"]);
+        const context = new SelectableItems(items, "radio", ["option1"]);
         const radioGroup = new RadioGroup("Test Header", context);
 
         container.appendChild(radioGroup);

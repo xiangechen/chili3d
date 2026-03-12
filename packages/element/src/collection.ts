@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CollectionAction, type CollectionChangedArgs, ObservableCollection } from "@chili3d/core";
+import { type CollectionChangedArgs, ObservableCollection } from "@chili3d/core";
 import type { HTMLProps } from "./htmlProps";
 import { setProperties } from "./utils";
 
@@ -37,16 +37,16 @@ export class Collection<T> extends HTMLElement {
 
     private readonly _onCollectionChanged = (args: CollectionChangedArgs) => {
         switch (args.action) {
-            case CollectionAction.add:
+            case "add":
                 this.append(...this._mapItems(args.items));
                 break;
-            case CollectionAction.remove:
+            case "remove":
                 this._removeItem(args.items);
                 break;
-            case CollectionAction.move:
+            case "move":
                 this._moveItem(args.from, args.to);
                 break;
-            case CollectionAction.replace:
+            case "replace":
                 this._replaceItem(args.index, args.item, args.items);
                 break;
             default:

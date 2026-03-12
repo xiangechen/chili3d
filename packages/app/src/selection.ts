@@ -16,17 +16,19 @@ import {
     NodeSelectionHandler,
     PubSub,
     ShapeNode,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     SubshapeSelectionHandler,
     VisualNode,
-    VisualState,
+    type VisualState,
+    VisualStates,
 } from "@chili3d/core";
 
 export class Selection implements ISelection, IDisposable {
     private _selectedNodes: INode[] = [];
     private _unselectedNodes: INode[] = [];
 
-    shapeType: ShapeType = ShapeType.Shape;
+    shapeType: ShapeType = ShapeTypes.shape;
     shapeFilter?: IShapeFilter;
     nodeFilter?: INodeFilter;
 
@@ -36,8 +38,8 @@ export class Selection implements ISelection, IDisposable {
         prompt: I18nKeys,
         controller: AsyncController,
         multiMode: boolean,
-        selectedState: VisualState = VisualState.edgeSelected,
-        highlightState: VisualState = VisualState.edgeHighlight,
+        selectedState: VisualState = VisualStates.edgeSelected,
+        highlightState: VisualState = VisualStates.edgeHighlight,
     ) {
         const handler = new SubshapeSelectionHandler(
             this.document,
@@ -151,8 +153,8 @@ export class Selection implements ISelection, IDisposable {
                 if (visual)
                     this.document.visual.highlighter.addState(
                         visual,
-                        VisualState.edgeSelected,
-                        ShapeType.Shape,
+                        VisualStates.edgeSelected,
+                        ShapeTypes.shape,
                     );
             }
         });
@@ -167,8 +169,8 @@ export class Selection implements ISelection, IDisposable {
                 if (visual)
                     this.document.visual.highlighter.removeState(
                         visual,
-                        VisualState.edgeSelected,
-                        ShapeType.Shape,
+                        VisualStates.edgeSelected,
+                        ShapeTypes.shape,
                     );
             }
         }

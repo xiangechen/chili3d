@@ -11,7 +11,8 @@ import {
     type Matrix4,
     type MeshNode,
     type ShapeMeshRange,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     ShapeTypeUtils,
     VisualConfig,
     type VisualNode,
@@ -422,7 +423,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         const shapes: (Mesh | LineSegments2 | undefined)[] = [];
 
         const isWhole =
-            shapeType === ShapeType.Shape ||
+            shapeType === ShapeTypes.shape ||
             ShapeTypeUtils.hasCompound(shapeType) ||
             ShapeTypeUtils.hasCompoundSolid(shapeType) ||
             ShapeTypeUtils.hasSolid(shapeType);

@@ -3,7 +3,6 @@
 
 import {
     Binding,
-    ButtonSize,
     type CommandKeys,
     CommandStore,
     Config,
@@ -221,16 +220,16 @@ export class RibbonUI extends HTMLElement {
 
     private ribbonButton(item: RibbonCommand) {
         if (typeof item === "string") {
-            return RibbonButton.fromCommandName(item, ButtonSize.large)!;
+            return RibbonButton.fromCommandName(item, "large")!;
         } else if (item instanceof ObservableCollection) {
             const stack = new RibbonStack();
             item.forEach((b) => {
-                const button = RibbonButton.fromCommandName(b, ButtonSize.small);
+                const button = RibbonButton.fromCommandName(b, "small");
                 if (button) stack.append(button);
             });
             return stack;
         } else {
-            return new RibbonButton(item.command, item.icon, ButtonSize.large, item.onClick, item.display);
+            return new RibbonButton(item.command, item.icon, "large", item.onClick, item.display);
         }
     }
 

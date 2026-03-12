@@ -9,7 +9,7 @@ import {
     type IWire,
     ParameterShapeNode,
     type Result,
-    ShapeType,
+    ShapeTypes,
     serializable,
     serialze,
 } from "@chili3d/core";
@@ -56,7 +56,7 @@ export class SweepedNode extends ParameterShapeNode {
 
     private ensureWire(path: IEdge | IWire) {
         let wire = path as IWire;
-        if (path.shapeType !== ShapeType.Wire) {
+        if (path.shapeType !== ShapeTypes.wire) {
             wire = this.document.application.shapeFactory.wire([path as unknown as IEdge]).value;
         }
         return wire;

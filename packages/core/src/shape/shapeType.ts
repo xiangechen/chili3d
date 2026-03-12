@@ -1,48 +1,50 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-export enum ShapeType {
-    Shape = 0b0,
-    Compound = 0b1,
-    CompoundSolid = 0b10,
-    Solid = 0b100,
-    Shell = 0b1000,
-    Face = 0b10000,
-    Wire = 0b100000,
-    Edge = 0b1000000,
-    Vertex = 0b10000000,
-}
+export const ShapeTypes = {
+    shape: 0b0,
+    compound: 0b1,
+    compoundSolid: 0b10,
+    solid: 0b100,
+    shell: 0b1000,
+    face: 0b10000,
+    wire: 0b100000,
+    edge: 0b1000000,
+    vertex: 0b10000000,
+} as const;
+
+export type ShapeType = (typeof ShapeTypes)[keyof typeof ShapeTypes];
 
 export class ShapeTypeUtils {
     public static isWhole(type: ShapeType) {
         return (
-            type === ShapeType.Shape ||
-            type === ShapeType.Compound ||
-            type === ShapeType.CompoundSolid ||
-            type === ShapeType.Solid ||
-            type === ShapeType.Vertex
+            type === ShapeTypes.shape ||
+            type === ShapeTypes.compound ||
+            type === ShapeTypes.compoundSolid ||
+            type === ShapeTypes.solid ||
+            type === ShapeTypes.vertex
         );
     }
 
     public static stringValue(type: ShapeType) {
         switch (type) {
-            case ShapeType.Shape:
+            case ShapeTypes.shape:
                 return "Shape";
-            case ShapeType.Compound:
+            case ShapeTypes.compound:
                 return "Compound";
-            case ShapeType.CompoundSolid:
+            case ShapeTypes.compoundSolid:
                 return "CompoundSolid";
-            case ShapeType.Solid:
+            case ShapeTypes.solid:
                 return "Solid";
-            case ShapeType.Shell:
+            case ShapeTypes.shell:
                 return "Shell";
-            case ShapeType.Face:
+            case ShapeTypes.face:
                 return "Face";
-            case ShapeType.Wire:
+            case ShapeTypes.wire:
                 return "Wire";
-            case ShapeType.Edge:
+            case ShapeTypes.edge:
                 return "Edge";
-            case ShapeType.Vertex:
+            case ShapeTypes.vertex:
                 return "Vertex";
             default:
                 return "Unknown";
@@ -50,27 +52,27 @@ export class ShapeTypeUtils {
     }
 
     public static hasCompound(type: ShapeType): boolean {
-        return (type & ShapeType.Compound) !== 0;
+        return (type & ShapeTypes.compound) !== 0;
     }
     public static hasCompoundSolid(type: ShapeType): boolean {
-        return (type & ShapeType.CompoundSolid) !== 0;
+        return (type & ShapeTypes.compoundSolid) !== 0;
     }
     public static hasSolid(type: ShapeType): boolean {
-        return (type & ShapeType.Solid) !== 0;
+        return (type & ShapeTypes.solid) !== 0;
     }
     public static hasShell(type: ShapeType): boolean {
-        return (type & ShapeType.Shell) !== 0;
+        return (type & ShapeTypes.shell) !== 0;
     }
     public static hasFace(type: ShapeType): boolean {
-        return (type & ShapeType.Face) !== 0;
+        return (type & ShapeTypes.face) !== 0;
     }
     public static hasWire(type: ShapeType): boolean {
-        return (type & ShapeType.Wire) !== 0;
+        return (type & ShapeTypes.wire) !== 0;
     }
     public static hasEdge(type: ShapeType): boolean {
-        return (type & ShapeType.Edge) !== 0;
+        return (type & ShapeTypes.edge) !== 0;
     }
     public static hasVertex(type: ShapeType): boolean {
-        return (type & ShapeType.Vertex) !== 0;
+        return (type & ShapeTypes.vertex) !== 0;
     }
 }

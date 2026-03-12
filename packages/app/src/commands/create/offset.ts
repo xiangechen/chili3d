@@ -11,11 +11,11 @@ import {
     type IShape,
     type IStep,
     type IWire,
-    JoinType,
     LengthAtAxisStep,
     SelectShapeStep,
     type ShapeMeshData,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     type XYZ,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
@@ -39,7 +39,10 @@ export class OffsetCommand extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire | ShapeType.Face, "prompt.select.shape"),
+            new SelectShapeStep(
+                (ShapeTypes.edge | ShapeTypes.wire | ShapeTypes.face) as ShapeType,
+                "prompt.select.shape",
+            ),
             new LengthAtAxisStep("common.length", () => {
                 const ax = this.getAxis();
                 return {
@@ -70,7 +73,7 @@ export class OffsetCommand extends MultistepCommand {
     private getAxis(): { direction: XYZ; point: XYZ; normal: XYZ } {
         const start = this.stepDatas[0].shapes[0].point!;
         const shape = this.transformdFirstShape(this.stepDatas[0]);
-        if (shape.shapeType === ShapeType.Edge) {
+        if (shape.shapeType === ShapeTypes.edge) {
             return this.getEdgeAxis(shape as IEdge, start);
         }
 
@@ -79,7 +82,7 @@ export class OffsetCommand extends MultistepCommand {
 
     private getFaceOrWireAxis(shape: IShape, start: XYZ) {
         let face = shape as IFace;
-        if (shape.shapeType === ShapeType.Wire) {
+        if (shape.shapeType === ShapeTypes.wire) {
             face = (shape as IWire).toFace().value;
         }
         const normal = face.normal(0, 0)[1];
@@ -105,7 +108,7 @@ export class OffsetCommand extends MultistepCommand {
 
     private getNearstPointAndDirection(shape: IShape, start: XYZ, normal: XYZ) {
         let wire = shape as IWire;
-        if (shape.shapeType === ShapeType.Face) {
+        if (shape.shapeType === ShapeTypes.face) {
             wire = (shape as IFace).outerWire();
         }
         const nearest = GeometryUtils.nearestPoint(wire, start);
@@ -123,14 +126,14 @@ export class OffsetCommand extends MultistepCommand {
 
     private createOffsetShape(normal: XYZ, distance: number) {
         const shape = this.transformdFirstShape(this.stepDatas[0]);
-        if (shape.shapeType === ShapeType.Edge) {
+        if (shape.shapeType === ShapeTypes.edge) {
             return (shape as IEdge).offset(distance, normal);
         }
 
         let wire = shape as IWire;
-        if (shape.shapeType === ShapeType.Face) {
+        if (shape.shapeType === ShapeTypes.face) {
             wire = (shape as IFace).outerWire();
         }
-        return wire.offset(distance, JoinType.intersection);
+        return wire.offset(distance, "intersection");
     }
 }

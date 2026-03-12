@@ -4,15 +4,15 @@
 import { Precision, Result } from "../foundation";
 import { XYZ } from "../math";
 import { CurveUtils, type ICurve } from "./curve";
-import { type IEdge, type IFace, type IWire, Orientation } from "./shape";
-import { ShapeType } from "./shapeType";
+import type { IEdge, IFace, IWire } from "./shape";
+import { ShapeTypes } from "./shapeType";
 
 export class GeometryUtils {
     static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ } {
         let minDistance = Number.MAX_VALUE;
         let nearest: { edge: IEdge; point: XYZ } | undefined;
 
-        for (const edge of wire.findSubShapes(ShapeType.Edge) as IEdge[]) {
+        for (const edge of wire.findSubShapes(ShapeTypes.edge) as IEdge[]) {
             const tempPoint = edge.curve.nearestFromPoint(point);
             if (tempPoint.distance < minDistance) {
                 nearest = { edge, point: tempPoint.point };
@@ -36,7 +36,7 @@ export class GeometryUtils {
     }
 
     private static wireNormal(wire: IWire): XYZ {
-        const edges = wire.findSubShapes(ShapeType.Edge) as IEdge[];
+        const edges = wire.findSubShapes(ShapeTypes.edge) as IEdge[];
         if (edges.length === 0) {
             console.warn("Empty wire");
             return XYZ.unitZ;
@@ -52,7 +52,7 @@ export class GeometryUtils {
             const v1 = p2.sub(p1);
             const v2 = p4.sub(p3);
             const normal = v1.cross(v2).normalize()!;
-            if (wire.orientation() === Orientation.REVERSED) {
+            if (wire.orientation() === "reversed") {
                 return normal.reverse();
             }
             return normal;
@@ -68,7 +68,7 @@ export class GeometryUtils {
         const curve = edge.curve;
         const point = curve.value(curve.lastParameter());
 
-        for (const e of wire.findSubShapes(ShapeType.Edge)) {
+        for (const e of wire.findSubShapes(ShapeTypes.edge)) {
             if (e.isEqual(edge)) continue;
             const testCurve = (e as IEdge).curve;
             if (
@@ -82,11 +82,11 @@ export class GeometryUtils {
     }
 
     static normal(shape: IFace | IWire | IEdge): XYZ {
-        if (shape.shapeType === ShapeType.Face) {
+        if (shape.shapeType === ShapeTypes.face) {
             return (shape as IFace).normal(0, 0)[1];
         }
 
-        if (shape.shapeType === ShapeType.Edge) {
+        if (shape.shapeType === ShapeTypes.edge) {
             const curve = (shape as IEdge).curve;
             return GeometryUtils.curveNormal(curve);
         }

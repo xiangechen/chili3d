@@ -3,7 +3,7 @@
 
 import {
     command,
-    Dimension,
+    Dimensions,
     type IStep,
     Matrix4,
     Plane,
@@ -37,7 +37,7 @@ export class Mirror extends TransformedCommand {
     private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
-            dimension: Dimension.D1D2,
+            dimension: Dimensions.D1D2,
             preview: this.mirrorPreview,
             validator: (p) => {
                 const vec = p.sub(this.stepDatas[0].point!);

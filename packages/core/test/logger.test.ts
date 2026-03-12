@@ -1,67 +1,58 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Logger, LoggerLevel } from "../src";
-
-describe("LoggerLevel enum", () => {
-    test("should have correct values", () => {
-        expect(LoggerLevel.Debug).toBe(0);
-        expect(LoggerLevel.Info).toBe(1);
-        expect(LoggerLevel.Warn).toBe(2);
-        expect(LoggerLevel.Error).toBe(3);
-    });
-});
+import { Logger } from "../src";
 
 describe("Logger class", () => {
     beforeEach(() => {
-        Logger.level = LoggerLevel.Info;
+        Logger.level = "info";
     });
 
     test("should not output debug when level is above Debug", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Error;
+            Logger.level = "error";
             Logger.debug("test");
         }).not.toThrow();
     });
 
     test("should output debug when level is Debug", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Debug;
+            Logger.level = "debug";
             Logger.debug("test");
         }).not.toThrow();
     });
 
     test("should not output info when level is above Info", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Error;
+            Logger.level = "error";
             Logger.info("test");
         }).not.toThrow();
     });
 
     test("should output info when level is Info or below", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Info;
+            Logger.level = "info";
             Logger.info("test");
         }).not.toThrow();
     });
 
     test("should not output warn when level is above Warn", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Error;
+            Logger.level = "error";
             Logger.warn("test");
         }).not.toThrow();
     });
 
     test("should output warn when level is Warn or below", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Warn;
+            Logger.level = "warn";
             Logger.warn("test");
         }).not.toThrow();
     });
 
     test("should output error regardless of level", () => {
         expect(() => {
-            Logger.level = LoggerLevel.Error;
+            Logger.level = "error";
             Logger.error("test");
         }).not.toThrow();
     });

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { XYZ } from "../../math";
-import { type IView, type VisualShapeData, VisualState } from "../../visual";
+import { type IView, type VisualShapeData, VisualStates } from "../../visual";
 import type { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
 export abstract class BaseSnap implements ISnap {
@@ -43,7 +43,7 @@ export abstract class BaseSnap implements ISnap {
             const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.addState(
                 shape.owner,
-                VisualState.edgeHighlight,
+                VisualStates.edgeHighlight,
                 shape.shape.shapeType,
                 ...shape.indexes,
             );
@@ -56,7 +56,7 @@ export abstract class BaseSnap implements ISnap {
             const highlighter = shape.owner.node.document.visual.highlighter;
             highlighter.removeState(
                 shape.owner,
-                VisualState.edgeHighlight,
+                VisualStates.edgeHighlight,
                 shape.shape.shapeType,
                 ...shape.indexes,
             );

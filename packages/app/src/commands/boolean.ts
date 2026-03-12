@@ -9,9 +9,9 @@ import {
     type Result,
     SelectShapeStep,
     ShapeNode,
-    ShapeType,
+    ShapeTypes,
     Transaction,
-    VisualState,
+    VisualStates,
 } from "@chili3d/core";
 import { BooleanNode } from "../bodys/boolean";
 import { MultistepCommand } from "./multistepCommand";
@@ -56,10 +56,10 @@ export abstract class BooleanOperate extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 nodeFilter: { allow: (node) => node instanceof ShapeNode },
             }),
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 nodeFilter: {
                     allow: (node) => {
                         if (!(node instanceof ShapeNode)) {
@@ -73,7 +73,7 @@ export abstract class BooleanOperate extends MultistepCommand {
                 },
                 multiple: true,
                 keepSelection: true,
-                selectedState: VisualState.faceTransparent,
+                selectedState: VisualStates.faceTransparent,
             }),
         ];
     }

@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, type I18nKeys, Localize, ObjectSnapType, ObjectSnapTypeUtils } from "@chili3d/core";
+import {
+    Config,
+    type I18nKeys,
+    Localize,
+    type ObjectSnapType,
+    ObjectSnapTypes,
+    ObjectSnapTypeUtils,
+} from "@chili3d/core";
 import { div, input, label } from "@chili3d/element";
 import style from "./snapConfig.module.css";
 
@@ -10,23 +17,23 @@ const SnapTypes: Array<{
     display: I18nKeys;
 }> = [
     {
-        type: ObjectSnapType.endPoint,
+        type: ObjectSnapTypes.endPoint,
         display: "snap.end",
     },
     {
-        type: ObjectSnapType.midPoint,
+        type: ObjectSnapTypes.midPoint,
         display: "snap.mid",
     },
     {
-        type: ObjectSnapType.center,
+        type: ObjectSnapTypes.center,
         display: "snap.center",
     },
     {
-        type: ObjectSnapType.perpendicular,
+        type: ObjectSnapTypes.perpendicular,
         display: "snap.perpendicular",
     },
     {
-        type: ObjectSnapType.intersection,
+        type: ObjectSnapTypes.intersection,
         display: "snap.intersection",
     },
 ];

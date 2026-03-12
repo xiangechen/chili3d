@@ -3,7 +3,7 @@
 
 import {
     command,
-    Dimension,
+    Dimensions,
     EditableShapeNode,
     type IEdge,
     type IStep,
@@ -11,7 +11,7 @@ import {
     PointOnCurveStep,
     SelectShapeStep,
     type ShapeNode,
-    ShapeType,
+    ShapeTypes,
     Transaction,
     type XYZ,
 } from "@chili3d/core";
@@ -54,8 +54,8 @@ export class Break extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.edges", {
-                shapeFilter: { allow: (s) => s.shapeType === ShapeType.Edge },
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.edges", {
+                shapeFilter: { allow: (s) => s.shapeType === ShapeTypes.edge },
             }),
             new PointOnCurveStep("prompt.pickFistPoint", this.handlePointData, true),
         ];
@@ -70,7 +70,7 @@ export class Break extends MultistepCommand {
 
         return {
             curve,
-            dimension: Dimension.D1,
+            dimension: Dimensions.D1,
             preview: (point: XYZ | undefined) => {
                 if (!point) return [];
                 const project = curve.project(point).at(0);

@@ -3,7 +3,7 @@
 
 import {
     command,
-    Dimension,
+    Dimensions,
     type IStep,
     type PointSnapData,
     PointStep,
@@ -27,7 +27,7 @@ export class LengthMeasure extends MultistepCommand {
     private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
-            dimension: Dimension.D1D2D3,
+            dimension: Dimensions.D1D2D3,
             validator: (point: XYZ) => {
                 return this.stepDatas[0].point!.distanceTo(point) > Precision.Distance;
             },

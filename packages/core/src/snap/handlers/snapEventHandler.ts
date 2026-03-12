@@ -3,27 +3,21 @@
 
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
-import { type AsyncController, MessageType, PubSub, Result } from "../../foundation";
+import { type AsyncController, type MessageType, PubSub, Result } from "../../foundation";
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
-import { MeshDataUtils, ShapeType } from "../../shape";
+import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
 import { type IEventHandler, type IView, screenDistance } from "../../visual";
 import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
-enum SnapState {
-    Idle,
-    Snapping,
-    Inputing,
-    Cancelled,
-    Completed,
-}
+type SnapState = "idle" | "snapping" | "inputing" | "cancelled" | "completed";
 
 export abstract class SnapEventHandler<D extends SnapData = SnapData> implements IEventHandler {
     private _tempPoint?: number;
     private _tempShapes?: number[];
     protected showTempPoint: boolean = true;
     protected _snaped?: SnapResult;
-    private _state: SnapState = SnapState.Idle;
+    private _state: SnapState = "idle";
 
     facePreviewOpacity: number = 1;
     isEnabled: boolean = true;
@@ -48,21 +42,21 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
     dispose() {
         this._snaped = undefined;
-        this._state = SnapState.Completed;
+        this._state = "completed";
     }
 
     private handleSuccess() {
-        if (this._state === SnapState.Completed) return;
+        if (this._state === "completed") return;
 
-        this._state = SnapState.Completed;
+        this._state = "completed";
         this.controller.success();
         this.cleanupResources();
     }
 
     private handleCancel() {
-        if (this._state === SnapState.Cancelled) return;
+        if (this._state === "cancelled") return;
 
-        this._state = SnapState.Cancelled;
+        this._state = "cancelled";
         this.controller.cancel();
         this.cleanupResources();
     }
@@ -79,7 +73,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
-        this._state = SnapState.Snapping;
+        this._state = "snapping";
         this.removeTempVisuals();
         this.updateSnapPoint(view, event);
         this.updateVisualFeedback(view);
@@ -100,7 +94,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
-        this.findSnapPoint(ShapeType.Edge | ShapeType.Vertex, view, event);
+        this.findSnapPoint((ShapeTypes.edge | ShapeTypes.vertex) as ShapeType, view, event);
 
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
     }
@@ -181,7 +175,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         }
 
         return {
-            level: MessageType.info,
+            level: "info",
             msg: [snaped.info, prompt].filter((x) => x !== undefined).join(" -> "),
         };
     }
@@ -264,7 +258,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private handleNumericInput(view: IView, event: KeyboardEvent) {
         if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
 
-        this._state = SnapState.Inputing;
+        this._state = "inputing";
         PubSub.default.pub("showInput", event.key, (text: string) => {
             const error = this.inputError(text);
             if (error) return Result.err(error);

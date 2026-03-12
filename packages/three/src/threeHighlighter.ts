@@ -9,7 +9,8 @@ import {
     type ShapeMeshData,
     type ShapeType,
     ShapeTypeUtils,
-    VisualState,
+    type VisualState,
+    VisualStates,
     VisualStateUtils,
 } from "@chili3d/core";
 import { Group, Mesh, Points } from "three";
@@ -66,23 +67,23 @@ export class GeometryState {
         const key = this.state_key(type);
         const [_oldState, newState] = this.updateStates(key, method, state);
         if (this.visual instanceof ThreeGeometry) {
-            if (newState === VisualState.normal) {
+            if (newState === VisualStates.normal) {
                 this.visual.removeTemperaryMaterial();
-            } else if (VisualStateUtils.hasState(newState, VisualState.edgeHighlight)) {
+            } else if (VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)) {
                 this.visual.setVertexsMateiralTemperary(highlightVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
-            } else if (VisualStateUtils.hasState(newState, VisualState.edgeSelected)) {
+            } else if (VisualStateUtils.hasState(newState, VisualStates.edgeSelected)) {
                 this.visual.setVertexsMateiralTemperary(selectedVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
-            } else if (VisualStateUtils.hasState(newState, VisualState.faceTransparent)) {
+            } else if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
-            } else if (VisualStateUtils.hasState(newState, VisualState.faceColored)) {
+            } else if (VisualStateUtils.hasState(newState, VisualStates.faceColored)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceColoredMaterial);
             }
         } else if (isHighlightable(this.visual)) {
-            if (newState !== VisualState.normal) {
+            if (newState !== VisualStates.normal) {
                 this.visual.highlight();
             } else {
                 this.visual.unhighlight();
@@ -100,7 +101,7 @@ export class GeometryState {
         const oldState = this._states.get(key)?.[0];
         let newState = oldState;
         if (newState === undefined) {
-            if (method === "remove") return [undefined, VisualState.normal];
+            if (method === "remove") return [undefined, VisualStates.normal];
             newState = state;
         } else {
             const func = method === "add" ? VisualStateUtils.addState : VisualStateUtils.removeState;
@@ -132,7 +133,7 @@ export class GeometryState {
         index.forEach((i) => {
             const key = this.state_key(type, i);
             const [oldState, newState] = this.updateStates(key, method, state);
-            if (oldState !== undefined && newState === VisualState.normal) {
+            if (oldState !== undefined && newState === VisualStates.normal) {
                 shouldRemoved.push(key);
             } else {
                 this.addSubEdgeState(type, key, i, newState);
@@ -152,7 +153,7 @@ export class GeometryState {
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
         const geometry = this.getOrCloneGeometry(type, key, i);
         if (geometry && "material" in geometry) {
-            const material = VisualStateUtils.hasState(newState, VisualState.edgeHighlight)
+            const material = VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)
                 ? hilightEdgeMaterial
                 : selectedEdgeMaterial;
             geometry.material = material;

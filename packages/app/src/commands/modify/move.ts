@@ -3,7 +3,7 @@
 
 import {
     command,
-    Dimension,
+    Dimensions,
     type IStep,
     Matrix4,
     type PointSnapData,
@@ -27,7 +27,7 @@ export class Move extends TransformedCommand {
     private readonly getSecondPointData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas[0].point!,
-            dimension: Dimension.D1D2D3,
+            dimension: Dimensions.D1D2D3,
             preview: this.movePreview,
         };
     };

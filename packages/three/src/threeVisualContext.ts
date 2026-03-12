@@ -3,7 +3,6 @@
 
 import {
     BoundingBox,
-    CollectionAction,
     type CollectionChangedArgs,
     ComponentNode,
     DeepObserver,
@@ -21,12 +20,12 @@ import {
     MeshDataUtils,
     type MeshLike,
     MeshNode,
-    NodeAction,
     type NodeRecord,
     NodeUtils,
     type ShapeMeshData,
     type ShapeNode,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     Texture,
     XY,
     type XYZ,
@@ -73,9 +72,9 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
-        if (args.action === CollectionAction.add) {
+        if (args.action === "add") {
             args.items.forEach(this.createThreeMaterial.bind(this));
-        } else if (args.action === CollectionAction.remove) {
+        } else if (args.action === "remove") {
             args.items.forEach(this.removeThreeMaterial.bind(this));
         }
     };
@@ -133,15 +132,11 @@ export class ThreeVisualContext implements IVisualContext {
         const adds: INode[] = [];
         const rms: INode[] = [];
         records.forEach((x) => {
-            if (
-                x.action === NodeAction.add ||
-                x.action === NodeAction.insertBefore ||
-                x.action === NodeAction.insertAfter
-            ) {
+            if (x.action === "add" || x.action === "insertBefore" || x.action === "insertAfter") {
                 NodeUtils.nodeOrChildrenAppendToNodes(adds, x.node);
-            } else if (x.action === NodeAction.remove || x.action === NodeAction.transfer) {
+            } else if (x.action === "remove" || x.action === "transfer") {
                 NodeUtils.nodeOrChildrenAppendToNodes(rms, x.node);
-            } else if (x.action === NodeAction.move && x.newParent) {
+            } else if (x.action === "move" && x.newParent) {
                 this.moveNode(x.node, x.oldParent!);
             }
         });
@@ -397,17 +392,17 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     findShapes(shapeType: ShapeType): Object3D[] {
-        if (shapeType === ShapeType.Shape) {
+        if (shapeType === ShapeTypes.shape) {
             return [...this.visualShapes.children];
         }
         const shapes: Object3D[] = [];
         this.visualShapes.traverse((child) => {
             if (!(child instanceof ThreeGeometry)) return;
 
-            if (shapeType === ShapeType.Edge) {
+            if (shapeType === ShapeTypes.edge) {
                 const wireframe = child.edges();
                 if (wireframe) shapes.push(wireframe);
-            } else if (shapeType === ShapeType.Face) {
+            } else if (shapeType === ShapeTypes.face) {
                 const faces = child.faces();
                 if (faces) shapes.push(faces);
             }

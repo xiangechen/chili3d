@@ -1,21 +1,22 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-export enum VisualState {
-    normal = 0,
-    edgeHighlight = 1,
-    edgeSelected = 1 << 1,
-    faceTransparent = 1 << 2,
-    faceColored = 1 << 3,
-}
+export const VisualStates = {
+    normal: 0,
+    edgeHighlight: 1,
+    edgeSelected: 2,
+    faceTransparent: 4,
+    faceColored: 8,
+} as const;
+export type VisualState = (typeof VisualStates)[keyof typeof VisualStates];
 
 export class VisualStateUtils {
     public static addState(origin: VisualState, add: VisualState) {
-        return origin | add;
+        return (origin | add) as VisualState;
     }
 
     public static removeState(origin: VisualState, remove: VisualState) {
-        return (origin & remove) ^ origin;
+        return ((origin & remove) ^ origin) as VisualState;
     }
 
     public static hasState(origin: VisualState, testState: VisualState) {

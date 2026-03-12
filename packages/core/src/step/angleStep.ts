@@ -5,12 +5,12 @@ import type { IDocument } from "../document";
 import { type AsyncController, Precision } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import type { XYZ } from "../math";
-import { AngleSnapEventHandler, Dimension, type PointSnapData } from "../snap";
+import { AngleSnapEventHandler, Dimensions, type PointSnapData } from "../snap";
 import { SnapStep } from "./step";
 
 function defaultSnapedData(): PointSnapData {
     return {
-        dimension: Dimension.D1D2D3,
+        dimension: Dimensions.D1D2D3,
     };
 }
 

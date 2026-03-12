@@ -8,7 +8,7 @@ import {
     type NodeRecord,
     NodeUtils,
     PubSub,
-    ShapeType,
+    ShapeTypes,
     Transaction,
     VisualNode,
 } from "@chili3d/core";
@@ -207,7 +207,7 @@ export class Tree extends HTMLElement {
         }
 
         if (this.document.visual.eventHandler instanceof ShapeSelectionHandler) {
-            return this.document.visual.eventHandler.shapeType === ShapeType.Shape;
+            return this.document.visual.eventHandler.shapeType === ShapeTypes.shape;
         }
 
         return false;

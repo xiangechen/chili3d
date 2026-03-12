@@ -3,7 +3,6 @@
 
 import type { IDocument } from "./document";
 import {
-    CollectionAction,
     type CollectionChangedArgs,
     NodeLinkedListHistoryRecord,
     type NodeRecord,
@@ -128,14 +127,14 @@ export class ModelManager extends Observable {
     }
 
     private readonly handleMaterialChanged = (args: CollectionChangedArgs) => {
-        if (args.action === CollectionAction.add) {
+        if (args.action === "add") {
             Transaction.add(this.document, {
                 name: "MaterialChanged",
                 dispose() {},
                 undo: () => this.materials.remove(...args.items),
                 redo: () => this.materials.push(...args.items),
             });
-        } else if (args.action === CollectionAction.remove) {
+        } else if (args.action === "remove") {
             Transaction.add(this.document, {
                 name: "MaterialChanged",
                 dispose() {},

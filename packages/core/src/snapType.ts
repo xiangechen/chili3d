@@ -1,21 +1,23 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-export enum ObjectSnapType {
-    none = 0,
-    endPoint = 1,
-    midPoint = 1 << 1,
-    center = 1 << 2,
-    angle = 1 << 3,
-    intersection = 1 << 4,
-    perpendicular = 1 << 5,
-    extension = 1 << 6,
-    parallel = 1 << 7,
-    special = 1 << 8,
-    nearest = 1 << 9,
-    vertex = 1 << 10,
-    grid = 1 << 11,
-}
+export const ObjectSnapTypes = {
+    none: 0,
+    endPoint: 1,
+    midPoint: 2,
+    center: 4,
+    angl: 8,
+    intersection: 16,
+    perpendicular: 32,
+    extension: 64,
+    parallel: 128,
+    special: 256,
+    nearest: 512,
+    vertex: 1024,
+    grid: 2048,
+} as const;
+
+export type ObjectSnapType = (typeof ObjectSnapTypes)[keyof typeof ObjectSnapTypes];
 
 export class ObjectSnapTypeUtils {
     static hasType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
@@ -23,10 +25,14 @@ export class ObjectSnapTypeUtils {
     }
 
     static addType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
-        return snapTypes | targetType;
+        return (snapTypes | targetType) as ObjectSnapType;
     }
 
     static removeType(snapTypes: ObjectSnapType, targetType: ObjectSnapType) {
-        return snapTypes & ~targetType;
+        return (snapTypes & ~targetType) as ObjectSnapType;
+    }
+
+    static combine(...snapTypes: ObjectSnapType[]) {
+        return snapTypes.reduce(ObjectSnapTypeUtils.addType, 0);
     }
 }

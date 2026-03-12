@@ -6,7 +6,8 @@ import { type AsyncController, Precision } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import type { XYZ } from "../math";
 import {
-    Dimension,
+    type Dimension,
+    Dimensions,
     type PointSnapData,
     PointSnapEventHandler,
     type SnapPointOnAxisData,
@@ -18,7 +19,7 @@ import {
 import { SnapStep } from "./step";
 
 function defaultSnapedData(): PointSnapData {
-    return { dimension: Dimension.D1 | Dimension.D1D2D3 };
+    return { dimension: (Dimensions.D1 | Dimensions.D1D2D3) as Dimension };
 }
 
 export class PointStep extends SnapStep<PointSnapData> {

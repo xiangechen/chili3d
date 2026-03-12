@@ -1,36 +1,31 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-export enum LoggerLevel {
-    Debug,
-    Info,
-    Warn,
-    Error,
-}
+export type LoggerLevel = "debug" | "info" | "warn" | "error";
 
 export class Logger {
-    static level: LoggerLevel = LoggerLevel.Info;
+    static level: LoggerLevel = "info";
 
     static debug(message?: any, ...optionalParams: any[]) {
-        if (Logger.level <= LoggerLevel.Debug) {
+        if (Logger.level <= "debug") {
             console.debug(message, ...optionalParams);
         }
     }
 
     static info(message?: any, ...optionalParams: any[]) {
-        if (Logger.level <= LoggerLevel.Info) {
+        if (Logger.level <= "info") {
             console.log(message, ...optionalParams);
         }
     }
 
     static warn(message?: any, ...optionalParams: any[]) {
-        if (Logger.level <= LoggerLevel.Warn) {
+        if (Logger.level <= "warn") {
             console.warn(message, ...optionalParams);
         }
     }
 
     static error(message?: any, ...optionalParams: any[]) {
-        if (Logger.level <= LoggerLevel.Error) {
+        if (Logger.level <= "error") {
             console.error(message, ...optionalParams);
         }
     }

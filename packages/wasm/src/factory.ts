@@ -20,7 +20,7 @@ import {
     type Plane,
     Precision,
     Result,
-    ShapeType,
+    ShapeTypes,
     type XYZ,
     type XYZLike,
 } from "@chili3d/core";
@@ -323,7 +323,7 @@ export class ShapeFactory implements IShapeFactory {
     ): Result<IShape> {
         for (let i = 0; i < sections.length; i++) {
             const section = sections[i];
-            if (section.shapeType === ShapeType.Edge) {
+            if (section.shapeType === ShapeTypes.edge) {
                 sections[i] = this.wire([section as IEdge]).value;
             }
         }

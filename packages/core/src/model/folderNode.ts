@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
-import { Id, Logger, NodeAction } from "../foundation";
+import { Id, Logger, type NodeRecord } from "../foundation";
 import { serializable } from "../serialize";
 import { type INode, type INodeLinkedList, Node } from "./node";
 
@@ -30,14 +30,17 @@ export class FolderNode extends Node implements INodeLinkedList {
     }
 
     add(...items: INode[]): void {
-        const records = items.map((item) => ({
-            action: NodeAction.add,
-            node: item,
-            oldParent: undefined,
-            oldPrevious: undefined,
-            newParent: this,
-            newPrevious: this._lastChild,
-        }));
+        const records = items.map(
+            (item) =>
+                ({
+                    action: "add",
+                    node: item,
+                    oldParent: undefined,
+                    oldPrevious: undefined,
+                    newParent: this,
+                    newPrevious: this._lastChild,
+                }) satisfies NodeRecord,
+        );
 
         items.forEach((item) => {
             if (this.initNode(item)) {
@@ -80,14 +83,17 @@ export class FolderNode extends Node implements INodeLinkedList {
     remove(...items: INode[]): void {
         const records = items
             .filter((item) => this.validateChild(item))
-            .map((item) => ({
-                action: NodeAction.remove,
-                node: item,
-                newParent: undefined,
-                newPrevious: undefined,
-                oldParent: this,
-                oldPrevious: item.previousSibling,
-            }));
+            .map(
+                (item) =>
+                    ({
+                        action: "remove",
+                        node: item,
+                        newParent: undefined,
+                        newPrevious: undefined,
+                        oldParent: this,
+                        oldPrevious: item.previousSibling,
+                    }) satisfies NodeRecord,
+            );
 
         records.forEach((record) => this.removeNode(record.node, true));
         this.document.modelManager.notifyNodeChanged(records);
@@ -96,14 +102,17 @@ export class FolderNode extends Node implements INodeLinkedList {
     transfer(...items: INode[]): void {
         const records = items
             .filter((item) => this.validateChild(item))
-            .map((item) => ({
-                action: NodeAction.transfer,
-                node: item,
-                newParent: undefined,
-                newPrevious: undefined,
-                oldParent: this,
-                oldPrevious: item.previousSibling,
-            }));
+            .map(
+                (item) =>
+                    ({
+                        action: "transfer",
+                        node: item,
+                        newParent: undefined,
+                        newPrevious: undefined,
+                        oldParent: this,
+                        oldPrevious: item.previousSibling,
+                    }) satisfies NodeRecord,
+            );
 
         records.forEach((record) => this.removeNode(record.node, true));
         this.document.modelManager.notifyNodeChanged(records);
@@ -159,13 +168,13 @@ export class FolderNode extends Node implements INodeLinkedList {
         if (target && !this.validateChild(target)) return;
 
         const record = {
-            action: NodeAction.insertBefore,
+            action: "insertBefore",
             node,
             oldParent: undefined,
             oldPrevious: undefined,
             newParent: this,
             newPrevious: target?.previousSibling,
-        };
+        } satisfies NodeRecord;
 
         if (this.initNode(node)) {
             if (!target || target === this._firstChild) {
@@ -195,13 +204,13 @@ export class FolderNode extends Node implements INodeLinkedList {
         if (target && !this.validateChild(target)) return;
 
         const record = {
-            action: NodeAction.insertAfter,
+            action: "insertAfter",
             oldParent: undefined,
             oldPrevious: undefined,
             newParent: this,
             newPrevious: target,
             node,
-        };
+        } satisfies NodeRecord;
 
         if (this.initNode(node)) {
             if (!target) {
@@ -223,13 +232,13 @@ export class FolderNode extends Node implements INodeLinkedList {
         }
 
         const record = {
-            action: NodeAction.move,
+            action: "move",
             oldParent: child.parent,
             oldPrevious: child.previousSibling,
             newParent: newParent,
             newPrevious: previousSibling,
             node: child,
-        };
+        } satisfies NodeRecord;
 
         this.removeNode(child, false);
 

@@ -16,7 +16,8 @@ import {
     type Matrix4,
     property,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     VisualConfig,
     type VisualShapeData,
     type XYZ,
@@ -112,11 +113,11 @@ export class SelectMeasure extends CancelableCommand {
     protected override async executeAsync(): Promise<void> {
         while (true) {
             this.controller = new AsyncController();
-            let type: [ShapeType, I18nKeys] = [ShapeType.Edge, "prompt.select.edges"];
+            let type: [ShapeType, I18nKeys] = [ShapeTypes.edge, "prompt.select.edges"];
             if (this.category.selectedIndex === 1) {
-                type = [ShapeType.Face, "prompt.select.faces"];
+                type = [ShapeTypes.face, "prompt.select.faces"];
             } else if (this.category.selectedIndex === 2) {
-                type = [ShapeType.Solid, "prompt.select.solids"];
+                type = [ShapeTypes.solid, "prompt.select.solids"];
             }
 
             const step = new SelectShapeStep(type[0], type[1]);
@@ -135,11 +136,11 @@ export class SelectMeasure extends CancelableCommand {
 
     private readonly createMeasure = (shape: VisualShapeData | undefined) => {
         if (!shape) return;
-        if (shape.shape.shapeType === ShapeType.Edge) {
+        if (shape.shape.shapeType === ShapeTypes.edge) {
             this.edgeMeasure(shape.shape as IEdge, shape.transform);
-        } else if (shape.shape.shapeType === ShapeType.Face) {
+        } else if (shape.shape.shapeType === ShapeTypes.face) {
             this.faceMeasure(shape.shape as IFace, shape.transform);
-        } else if (shape.shape.shapeType === ShapeType.Solid) {
+        } else if (shape.shape.shapeType === ShapeTypes.solid) {
             this.solidMeasure(
                 shape.shape as ISolid,
                 shape.transform,

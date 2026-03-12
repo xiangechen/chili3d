@@ -5,21 +5,20 @@ import type { Plane, XYZ } from "../math";
 import type { Continuity, ICurve } from "./curve";
 import type { IGeometry } from "./geometry";
 
-export enum SurfaceType {
-    Plate,
-    Bezier,
-    BSpline,
-    RectangularTrimmed,
-    Conical,
-    Cylinder,
-    Plane,
-    Spherical,
-    Toroidal,
-    Revolution,
-    Extrusion,
-    Offset,
-    Composite,
-}
+export type SurfaceType =
+    | "plate"
+    | "bezier"
+    | "bspline"
+    | "rectangularTrimmed"
+    | "conical"
+    | "cylinder"
+    | "plane"
+    | "spherical"
+    | "toroidal"
+    | "revolution"
+    | "extrusion"
+    | "offset"
+    | "composite";
 
 export interface ISurface extends IGeometry {
     nearestPoint(point: XYZ): [XYZ, number] | undefined;

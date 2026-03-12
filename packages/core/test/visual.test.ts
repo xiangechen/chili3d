@@ -1,45 +1,45 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { BoundingBox, GeometryNode, Matrix4 } from "../src";
-import { VisualState, VisualStateUtils } from "../src";
+import type { BoundingBox, GeometryNode, Matrix4, VisualState } from "../src";
+import { VisualStates, VisualStateUtils } from "../src";
 import { type IVisualGeometry, type IVisualObject, isVisualGeometry } from "../src/visual/visualObject";
 
 describe("visual test", () => {
     test("test VisualState", () => {
-        let state = VisualState.normal;
+        let state: VisualState = VisualStates.normal;
         expect(state).toBe(0);
 
-        state = VisualStateUtils.addState(state, VisualState.edgeHighlight);
+        state = VisualStateUtils.addState(state, VisualStates.edgeHighlight);
         expect(state).toBe(1);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeTruthy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeFalsy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeFalsy();
 
-        state = VisualStateUtils.addState(state, VisualState.edgeSelected);
+        state = VisualStateUtils.addState(state, VisualStates.edgeSelected);
         expect(state).toBe(3);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeTruthy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeTruthy();
 
-        state = VisualStateUtils.removeState(state, VisualState.edgeHighlight);
+        state = VisualStateUtils.removeState(state, VisualStates.edgeHighlight);
         expect(state).toBe(2);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeFalsy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeFalsy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeTruthy();
 
-        state = VisualStateUtils.removeState(state, VisualState.edgeSelected);
+        state = VisualStateUtils.removeState(state, VisualStates.edgeSelected);
         expect(state).toBe(0);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeFalsy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeFalsy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeFalsy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeFalsy();
 
-        state = VisualState.edgeHighlight;
-        state = VisualStateUtils.addState(state, VisualState.edgeSelected);
+        state = VisualStates.edgeHighlight;
+        state = VisualStateUtils.addState(state, VisualStates.edgeSelected);
         expect(state).toBe(3);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeTruthy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeTruthy();
 
-        state = VisualStateUtils.removeState(state, VisualState.edgeHighlight);
+        state = VisualStateUtils.removeState(state, VisualStates.edgeHighlight);
         expect(state).toBe(2);
-        expect(VisualStateUtils.hasState(state, VisualState.edgeHighlight)).toBeFalsy();
-        expect(VisualStateUtils.hasState(state, VisualState.edgeSelected)).toBeTruthy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeHighlight)).toBeFalsy();
+        expect(VisualStateUtils.hasState(state, VisualStates.edgeSelected)).toBeTruthy();
     });
 });
 

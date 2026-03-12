@@ -11,7 +11,8 @@ import {
     LengthAtAxisStep,
     Precision,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
 } from "@chili3d/core";
 import { PrismNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
@@ -30,7 +31,10 @@ export class Prism extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Face | ShapeType.Edge | ShapeType.Wire, "prompt.select.shape"),
+            new SelectShapeStep(
+                (ShapeTypes.face | ShapeTypes.edge | ShapeTypes.wire) as ShapeType,
+                "prompt.select.shape",
+            ),
             new LengthAtAxisStep("prompt.pickNextPoint", this.getLengthStepData, true),
         ];
     }

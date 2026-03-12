@@ -4,7 +4,7 @@
 import {
     AngleStep,
     command,
-    Dimension,
+    Dimensions,
     type GeometryNode,
     type IStep,
     LengthAtPlaneStep,
@@ -58,7 +58,7 @@ export class Arc extends CreateCommand {
         const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
         this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
         return {
-            dimension: Dimension.D1D2,
+            dimension: Dimensions.D1D2,
             preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
             plane: () => plane,
             validators: [this.angleValidator(center, plane)],

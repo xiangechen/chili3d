@@ -5,7 +5,7 @@ import {
     AsyncController,
     CancelableCommand,
     Combobox,
-    Continuity,
+    Continuities,
     command,
     EditableShapeNode,
     type IEdge,
@@ -16,7 +16,8 @@ import {
     property,
     Result,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
 } from "@chili3d/core";
 
 @command({
@@ -68,10 +69,8 @@ export class LoftCommand extends CancelableCommand {
 
     private initContinuties() {
         const box = new Combobox<string>();
-        for (const item of Object.values(Continuity)) {
-            if (typeof item === "number") continue;
-
-            box.items.push(item.toString());
+        for (const item of Continuities) {
+            box.items.push(item);
         }
         return box;
     }
@@ -104,7 +103,7 @@ export class LoftCommand extends CancelableCommand {
     private async selectSection() {
         this.controller = new AsyncController();
         const step = new SelectShapeStep(
-            ShapeType.Vertex | ShapeType.Wire | ShapeType.Edge,
+            (ShapeTypes.vertex | ShapeTypes.wire | ShapeTypes.edge) as ShapeType,
             "prompt.select.section",
             {
                 keepSelection: true,
@@ -132,7 +131,7 @@ export class LoftCommand extends CancelableCommand {
             this.shapes as (IVertex | IEdge | IWire)[],
             this.isSolid,
             this.isRuled,
-            this.continuity.selectedIndex,
+            Continuities[this.continuity.selectedIndex],
         );
         if (!this.shape.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", this.shape.error);

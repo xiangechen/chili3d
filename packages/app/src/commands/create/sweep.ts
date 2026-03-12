@@ -8,7 +8,8 @@ import {
     type IWire,
     property,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
 } from "@chili3d/core";
 import { SweepedNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
@@ -35,8 +36,8 @@ export class Sweep extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.path"),
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.section", {
+            new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.path"),
+            new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.section", {
                 keepSelection: true,
                 multiple: true,
             }),

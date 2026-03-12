@@ -4,10 +4,7 @@
 import type { CommandKeys } from "../command";
 import type { I18nKeys } from "../i18n";
 
-export enum ButtonSize {
-    large,
-    small,
-}
+export type ButtonSize = "large" | "small";
 
 export interface Button {
     command: CommandKeys;

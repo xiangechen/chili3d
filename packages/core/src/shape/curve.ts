@@ -4,28 +4,20 @@
 import type { Line, XYZ } from "../math";
 import type { IGeometry } from "./geometry";
 
-export enum CurveType {
-    Line,
-    Circle,
-    Ellipse,
-    Hyperbola,
-    Parabola,
-    BezierCurve,
-    BSplineCurve,
-    OffsetCurve,
-    OtherCurve,
-    TrimmedCurve,
-}
+export type CurveType =
+    | "line"
+    | "circle"
+    | "ellipse"
+    | "hyperbola"
+    | "parabola"
+    | "bezierCurve"
+    | "bsplineCurve"
+    | "offsetCurve"
+    | "otherCurve"
+    | "trimmedCurve";
 
-export enum Continuity {
-    C0,
-    G1,
-    C1,
-    G2,
-    C2,
-    C3,
-    CN,
-}
+export const Continuities = ["c0", "g1", "c1", "g2", "c2", "c3", "cn"] as const;
+export type Continuity = (typeof Continuities)[number];
 
 export interface ICurve extends IGeometry {
     get curveType(): CurveType;

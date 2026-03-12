@@ -2,7 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    CollectionAction,
     type CollectionChangedArgs,
     type CursorType,
     type IApplication,
@@ -26,11 +25,11 @@ export class LayoutViewport extends HTMLElement {
     }
 
     private readonly _handleViewCollectionChanged = (args: CollectionChangedArgs) => {
-        if (args.action === CollectionAction.add) {
+        if (args.action === "add") {
             args.items.forEach((view) => {
                 this.createViewport(view);
             });
-        } else if (args.action === CollectionAction.remove) {
+        } else if (args.action === "remove") {
             args.items.forEach((view) => {
                 const viewport = this._viewports.get(view);
                 viewport?.remove();

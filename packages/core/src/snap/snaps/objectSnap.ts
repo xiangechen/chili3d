@@ -5,8 +5,8 @@ import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
 import { I18n } from "../../i18n";
 import type { XYZ } from "../../math";
-import { CurveUtils, type ICircle, type IEdge, MeshDataUtils, ShapeType } from "../../shape";
-import { ObjectSnapType, ObjectSnapTypeUtils } from "../../snapType";
+import { CurveUtils, type ICircle, type IEdge, MeshDataUtils, ShapeTypes } from "../../shape";
+import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IView, type IVisualContext, screenDistance, type VisualShapeData } from "../../visual";
 import type { MouseAndDetected, SnapResult } from "../snap";
 import { BaseSnap } from "./baseSnap";
@@ -149,7 +149,7 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private showInvisibleSnaps(view: IView, shape: VisualShapeData) {
-        if (shape.shape.shapeType === ShapeType.Edge) {
+        if (shape.shape.shapeType === ShapeTypes.edge) {
             if (this._invisibleInfos.has(shape)) return;
             const curve = (shape.shape as IEdge).curve;
             const basisCurve = curve.basisCurve;
@@ -192,13 +192,13 @@ export class ObjectSnap extends BaseSnap {
     private findPerpendicular(view: IView, shape: VisualShapeData): SnapResult[] {
         const result: SnapResult[] = [];
         if (
-            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.perpendicular) ||
+            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.perpendicular) ||
             this.referencePoint === undefined
         ) {
             return result;
         }
 
-        if (shape.shape.shapeType === ShapeType.Edge) {
+        if (shape.shape.shapeType === ShapeTypes.edge) {
             const curve = (shape.shape as IEdge).curve;
             const transform = shape.transform;
             const point = curve.project(transform.invert()!.ofPoint(this.referencePoint())).at(0);
@@ -217,13 +217,13 @@ export class ObjectSnap extends BaseSnap {
     private getIntersections(view: IView, current: VisualShapeData, shapes: VisualShapeData[]) {
         const result: SnapResult[] = [];
         if (
-            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.intersection) ||
-            current.shape.shapeType !== ShapeType.Edge
+            !ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.intersection) ||
+            current.shape.shapeType !== ShapeTypes.edge
         ) {
             return result;
         }
         shapes.forEach((x) => {
-            if (x === current || x.shape.shapeType !== ShapeType.Edge) return;
+            if (x === current || x.shape.shapeType !== ShapeTypes.edge) return;
             const key = this.getIntersectionKey(current, x);
             let arr = this._intersectionInfos.get(key);
             if (arr === undefined) {

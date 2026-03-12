@@ -7,9 +7,9 @@ import {
     property,
     SelectShapeStep,
     type ShapeNode,
-    ShapeType,
+    ShapeTypes,
     Transaction,
-    VisualState,
+    VisualStates,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -66,19 +66,19 @@ export class SimplifyShapeCommand extends MultistepCommand {
 
     protected override getSteps() {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 shapeFilter: {
                     allow: (shape) => {
                         return (
-                            shape.shapeType === ShapeType.Solid ||
-                            shape.shapeType === ShapeType.Compound ||
-                            shape.shapeType === ShapeType.CompoundSolid ||
-                            shape.shapeType === ShapeType.Shell ||
-                            shape.shapeType === ShapeType.Face
+                            shape.shapeType === ShapeTypes.solid ||
+                            shape.shapeType === ShapeTypes.compound ||
+                            shape.shapeType === ShapeTypes.compoundSolid ||
+                            shape.shapeType === ShapeTypes.shell ||
+                            shape.shapeType === ShapeTypes.face
                         );
                     },
                 },
-                selectedState: VisualState.faceTransparent,
+                selectedState: VisualStates.faceTransparent,
             }),
         ];
     }

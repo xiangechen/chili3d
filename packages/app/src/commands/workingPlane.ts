@@ -4,7 +4,7 @@
 import {
     AsyncController,
     command,
-    Dimension,
+    Dimensions,
     I18n,
     type IApplication,
     type ICommand,
@@ -19,9 +19,8 @@ import {
     PubSub,
     property,
     SelectableItems,
-    SelectMode,
     SelectShapeStep,
-    ShapeType,
+    ShapeTypes,
     XYZ,
 } from "@chili3d/core";
 import { div, RadioGroup } from "@chili3d/element";
@@ -29,7 +28,7 @@ import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
     @property("dialog.title.selectWorkingPlane")
-    planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], SelectMode.radio, ["XOY"]);
+    planes: SelectableItems<string> = new SelectableItems(["XOY", "YOZ", "ZOX"], "radio", ["XOY"]);
 }
 
 @command({
@@ -71,7 +70,7 @@ export class AlignToPlane implements ICommand {
         if (!view) return;
         view.document.selection.clearSelection();
         const controller = new AsyncController();
-        const data = await new SelectShapeStep(ShapeType.Face, "prompt.select.faces").execute(
+        const data = await new SelectShapeStep(ShapeTypes.face, "prompt.select.faces").execute(
             view.document,
             controller,
         );
@@ -122,7 +121,7 @@ export class FromSection extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge, "prompt.select.edges"),
+            new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges"),
             new PointOnCurveStep("prompt.pickFistPoint", this.handlePointData, true),
         ];
     }
@@ -139,7 +138,7 @@ export class FromSection extends MultistepCommand {
         const curve = this.transformedCurve();
         return {
             curve,
-            dimension: Dimension.D1,
+            dimension: Dimensions.D1,
             preview: (point: XYZ | undefined) => {
                 if (!point) return [];
                 const project = curve.project(point).at(0);

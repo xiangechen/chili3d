@@ -4,7 +4,7 @@
 import {
     AngleStep,
     command,
-    Dimension,
+    Dimensions,
     type IStep,
     LengthAtPlaneStep,
     Matrix4,
@@ -69,7 +69,7 @@ export class Rotate extends TransformedCommand {
 
     private readonly getThirdPointData = (): PointSnapData => {
         return {
-            dimension: Dimension.D1D2,
+            dimension: Dimensions.D1D2,
             preview: this.anglePreview,
             plane: () => this.stepDatas[1].plane!,
             validator: (p) => {

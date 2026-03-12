@@ -21,7 +21,7 @@ import {
     type IVisualGeometry,
     type ShapeNode,
     ShapeSelectionHandler,
-    ShapeType,
+    ShapeTypes,
     Transaction,
     VisualConfig,
     type VisualShapeData,
@@ -80,7 +80,7 @@ export class Trim extends CancelableCommand {
 
 export class EdgeFilter implements IShapeFilter {
     allow(shape: IShape): boolean {
-        return shape.shapeType === ShapeType.Edge;
+        return shape.shapeType === ShapeTypes.edge;
     }
 }
 
@@ -110,12 +110,12 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
     }
 
     constructor(document: IDocument, controller: AsyncController) {
-        super(document, ShapeType.Shape, false, controller, new EdgeFilter());
+        super(document, ShapeTypes.shape, false, controller, new EdgeFilter());
     }
 
     protected override highlightDetecteds(view: IView, detecteds: VisualShapeData[]): void {
         this.cleanHighlights();
-        if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeType.Edge) return;
+        if (detecteds.length !== 1 || detecteds[0].shape.shapeType !== ShapeTypes.edge) return;
 
         const box = BoundingBox.transformed(detecteds[0].owner.boundingBox()!, detecteds[0].transform);
         const edges = this.filterByBoundingBox(box, view, detecteds[0].shape);

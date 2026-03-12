@@ -8,7 +8,7 @@ import {
     Component,
     ComponentNode,
     command,
-    Dimension,
+    Dimensions,
     GeometryNode,
     type IStep,
     LengthAtPlaneStep,
@@ -282,7 +282,7 @@ export class ArrayCommand extends MultistepCommand {
         this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
 
         return {
-            dimension: Dimension.D1D2,
+            dimension: Dimensions.D1D2,
             preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
             plane: () => plane,
             validators: [this.angleValidator(center, plane)],
@@ -326,7 +326,7 @@ export class ArrayCommand extends MultistepCommand {
 
     private readonly vectorArrayStepData = () => {
         return {
-            dimension: Dimension.D1,
+            dimension: Dimensions.D1,
             refPoint: () => this.stepDatas[0].point!,
             validator: (p: XYZ | undefined) =>
                 p !== undefined && p.distanceTo(this.stepDatas[0].point!) > Precision.Distance,

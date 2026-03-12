@@ -13,7 +13,8 @@ import {
     MeshUtils,
     type ShapeMeshRange,
     ShapeNode,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     ShapeTypeUtils,
     type VertexMeshData,
 } from "@chili3d/core";
@@ -217,7 +218,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         const shapes: (Mesh | LineSegments2 | Points | undefined)[] = [];
 
         const isWhole =
-            shapeType === ShapeType.Shape ||
+            shapeType === ShapeTypes.shape ||
             ShapeTypeUtils.hasCompound(shapeType) ||
             ShapeTypeUtils.hasCompoundSolid(shapeType) ||
             ShapeTypeUtils.hasSolid(shapeType);

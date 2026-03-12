@@ -9,7 +9,7 @@ import {
     PubSub,
     property,
     SelectShapeStep,
-    ShapeType,
+    ShapeTypes,
     Transaction,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
@@ -54,6 +54,6 @@ export class ThickSolidCommand extends MultistepCommand {
     }
 
     protected override getSteps(): IStep[] {
-        return [new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { multiple: true })];
+        return [new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", { multiple: true })];
     }
 }

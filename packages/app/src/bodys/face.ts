@@ -9,7 +9,7 @@ import {
     type IWire,
     ParameterShapeNode,
     Result,
-    ShapeType,
+    ShapeTypes,
     serializable,
     serialze,
 } from "@chili3d/core";
@@ -34,7 +34,7 @@ export class FaceNode extends ParameterShapeNode {
     }
 
     private isAllClosed(): boolean {
-        return this.shapes.every((shape) => shape.isClosed() || shape.shapeType === ShapeType.Wire);
+        return this.shapes.every((shape) => shape.isClosed() || shape.shapeType === ShapeTypes.wire);
     }
 
     private getWires(): IWire[] {
@@ -50,7 +50,7 @@ export class FaceNode extends ParameterShapeNode {
 
     private addClosedEdges(wires: IWire[]): void {
         for (const shape of this.shapes) {
-            if (shape.shapeType === ShapeType.Wire) {
+            if (shape.shapeType === ShapeTypes.wire) {
                 wires.push(shape as IWire);
             } else {
                 this.addUnclosedEdges(wires, [shape as IEdge]);

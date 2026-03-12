@@ -123,14 +123,7 @@ export class PropertyHistoryRecord implements IHistoryRecord {
     }
 }
 
-export enum NodeAction {
-    add,
-    remove,
-    move,
-    transfer,
-    insertAfter,
-    insertBefore,
-}
+export type NodeAction = "add" | "remove" | "move" | "transfer" | "insertAfter" | "insertBefore";
 
 export interface NodeRecord {
     node: INode;
@@ -150,7 +143,7 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
 
     dispose(): void {
         this.records.forEach((record) => {
-            if (record.action === NodeAction.remove) {
+            if (record.action === "remove") {
                 record.node.dispose();
             }
         });
@@ -159,22 +152,22 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
 
     private handleUndo(record: NodeRecord): void {
         switch (record.action) {
-            case NodeAction.add:
+            case "add":
                 record.newParent?.remove(record.node);
                 break;
-            case NodeAction.remove:
+            case "remove":
                 record.oldParent?.add(record.node);
                 break;
-            case NodeAction.transfer:
+            case "transfer":
                 record.oldParent?.add(record.node);
                 break;
-            case NodeAction.move:
+            case "move":
                 record.newParent?.move(record.node, record.oldParent!, record.oldPrevious);
                 break;
-            case NodeAction.insertAfter:
+            case "insertAfter":
                 record.newParent?.remove(record.node);
                 break;
-            case NodeAction.insertBefore:
+            case "insertBefore":
                 record.newParent?.remove(record.node);
                 break;
         }
@@ -182,22 +175,22 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
 
     private handleRedo(record: NodeRecord): void {
         switch (record.action) {
-            case NodeAction.add:
+            case "add":
                 record.newParent?.add(record.node);
                 break;
-            case NodeAction.remove:
+            case "remove":
                 record.oldParent?.remove(record.node);
                 break;
-            case NodeAction.transfer:
+            case "transfer":
                 record.oldParent?.transfer(record.node);
                 break;
-            case NodeAction.move:
+            case "move":
                 record.oldParent?.move(record.node, record.newParent!, record.newPrevious);
                 break;
-            case NodeAction.insertAfter:
+            case "insertAfter":
                 record.newParent?.insertAfter(record.newPrevious, record.node);
                 break;
-            case NodeAction.insertBefore:
+            case "insertBefore":
                 record.newParent?.insertBefore(record.newPrevious?.nextSibling, record.node);
                 break;
         }

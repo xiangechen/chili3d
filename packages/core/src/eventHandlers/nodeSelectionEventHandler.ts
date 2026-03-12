@@ -5,15 +5,15 @@ import type { IDocument } from "../document";
 import type { AsyncController } from "../foundation";
 import type { INode, VisualNode } from "../model";
 import type { INodeFilter } from "../selectionFilter";
-import { ShapeType } from "../shape";
-import { type IView, type IVisualObject, VisualState } from "../visual";
+import { ShapeTypes } from "../shape";
+import { type IView, type IVisualObject, VisualStates } from "../visual";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export class NodeSelectionHandler extends SelectionHandler {
     private _highlights: IVisualObject[] | undefined;
     private _detectAtMouse: IVisualObject[] | undefined;
     private _lockDetected: IVisualObject | undefined; // 用于切换捕获的对象
-    protected highlighState = VisualState.edgeHighlight;
+    protected highlighState = VisualStates.edgeHighlight;
 
     nodes(): VisualNode[] {
         return this.document.selection.getSelectedNodes() as VisualNode[];
@@ -87,7 +87,7 @@ export class NodeSelectionHandler extends SelectionHandler {
     private highlightDetecteds(view: IView, detecteds: IVisualObject[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
-            view.document.visual.highlighter.addState(x, this.highlighState, ShapeType.Shape);
+            view.document.visual.highlighter.addState(x, this.highlighState, ShapeTypes.shape);
         });
         this._highlights = detecteds;
         view.update();
@@ -95,7 +95,7 @@ export class NodeSelectionHandler extends SelectionHandler {
 
     protected override cleanHighlights(): void {
         this._highlights?.forEach((x) => {
-            this.document.visual.highlighter.removeState(x, this.highlighState, ShapeType.Shape);
+            this.document.visual.highlighter.removeState(x, this.highlighState, ShapeTypes.shape);
         });
         this._highlights = undefined;
     }

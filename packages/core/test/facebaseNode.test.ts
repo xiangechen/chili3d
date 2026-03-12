@@ -1,14 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { EdgeMeshData, IShape, IShapeMeshData, Serialized, XYZLike } from "../src";
-import { Matrix4, Orientation, type Plane, PropertyUtils, Result, ShapeType } from "../src";
+import type { EdgeMeshData, IShape, IShapeMeshData, Serialized, ShapeType, XYZLike } from "../src";
+import { Matrix4, type Orientation, type Plane, PropertyUtils, Result, ShapeTypes } from "../src";
 import { FacebaseNode } from "../src/model/facebaseNode";
 import { TestDocument } from "./testDocument";
 
 // Mock shape implementation for testing
 class MockShape implements IShape {
-    readonly shapeType: ShapeType = ShapeType.Compound;
+    readonly shapeType: ShapeType = ShapeTypes.compound;
     private _id: string = "mock-shape-id";
 
     get id(): string {
@@ -56,7 +56,7 @@ class MockShape implements IShape {
     }
 
     orientation(): Orientation {
-        return Orientation.FORWARD;
+        return "forward";
     }
 
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[] {

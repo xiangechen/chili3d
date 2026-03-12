@@ -5,7 +5,7 @@ import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
 import type { Navigation3DType } from "./navigation";
 import { type SerializedProperties, Serializer, serialze } from "./serialize";
-import { ObjectSnapType } from "./snapType";
+import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "./snapType";
 
 export const DefaultLightEdgeColor = 0x333333;
 export const DefaultDarkEdgeColor = 0xeeeeee;
@@ -52,13 +52,15 @@ export class Config extends Observable {
     get snapType() {
         return this.getPrivateValue(
             "snapType",
-            ObjectSnapType.midPoint |
-                ObjectSnapType.endPoint |
-                ObjectSnapType.center |
-                ObjectSnapType.perpendicular |
-                ObjectSnapType.intersection |
-                ObjectSnapType.nearest |
-                ObjectSnapType.vertex,
+            ObjectSnapTypeUtils.combine(
+                ObjectSnapTypes.midPoint,
+                ObjectSnapTypes.endPoint,
+                ObjectSnapTypes.center,
+                ObjectSnapTypes.perpendicular,
+                ObjectSnapTypes.intersection,
+                ObjectSnapTypes.nearest,
+                ObjectSnapTypes.vertex,
+            ),
         );
     }
     set snapType(snapType: ObjectSnapType) {

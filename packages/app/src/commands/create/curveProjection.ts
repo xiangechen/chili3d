@@ -11,7 +11,8 @@ import {
     type IWire,
     property,
     SelectShapeStep,
-    ShapeType,
+    type ShapeType,
+    ShapeTypes,
     XYZ,
 } from "@chili3d/core";
 import { CreateCommand } from "../createCommand";
@@ -55,8 +56,8 @@ export class CurveProjectionCommand extends CreateCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Edge | ShapeType.Wire, "prompt.select.shape"),
-            new SelectShapeStep(ShapeType.Face, "prompt.select.faces", { keepSelection: true }),
+            new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.shape"),
+            new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", { keepSelection: true }),
         ];
     }
 }

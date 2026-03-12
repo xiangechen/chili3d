@@ -3,8 +3,8 @@
 
 import { I18n } from "../../i18n";
 import type { XYZ } from "../../math";
-import { type IEdge, type IVertex, ShapeType } from "../../shape";
-import { ObjectSnapType, ObjectSnapTypeUtils } from "../../snapType";
+import { type IEdge, type IVertex, ShapeTypes } from "../../shape";
+import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import type { IView, VisualShapeData } from "../../visual";
 import type { SnapResult } from "../snap";
 
@@ -19,9 +19,9 @@ export class FeaturePointStrategy {
         }
 
         const infos: SnapResult[] = [];
-        if (shape.shape.shapeType === ShapeType.Vertex) {
+        if (shape.shape.shapeType === ShapeTypes.vertex) {
             this.getVertexFeaturePoints(view, shape, infos);
-        } else if (shape.shape.shapeType === ShapeType.Edge) {
+        } else if (shape.shape.shapeType === ShapeTypes.edge) {
             this.getEdgeFeaturePoints(view, shape, infos);
         }
         this._featureInfos.set(shape, infos);
@@ -29,7 +29,7 @@ export class FeaturePointStrategy {
     }
 
     private getVertexFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
-        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.vertex)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.vertex)) {
             const point = shape.transform.ofPoint((shape.shape as IVertex).point());
             infos.push({
                 view,
@@ -53,11 +53,11 @@ export class FeaturePointStrategy {
                 shapes: [shape],
             });
 
-        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.endPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.endPoint)) {
             addPoint(start, I18n.translate("snap.end"));
             addPoint(end, I18n.translate("snap.end"));
         }
-        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapType.midPoint)) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.midPoint)) {
             const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, I18n.translate("snap.mid"));
         }

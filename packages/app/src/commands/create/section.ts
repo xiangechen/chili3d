@@ -7,8 +7,8 @@ import {
     I18n,
     type IStep,
     SelectShapeStep,
-    ShapeType,
-    VisualState,
+    ShapeTypes,
+    VisualStates,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
 
@@ -28,10 +28,10 @@ export class Section extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", {
-                selectedState: VisualState.faceTransparent,
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
+                selectedState: VisualStates.faceTransparent,
             }),
-            new SelectShapeStep(ShapeType.Shape, "prompt.select.shape", { keepSelection: true }),
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", { keepSelection: true }),
         ];
     }
 }

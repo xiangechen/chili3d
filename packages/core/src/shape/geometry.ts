@@ -4,10 +4,7 @@
 import type { IDisposable } from "../foundation";
 import type { Matrix4 } from "../math";
 
-export enum GeometryType {
-    Curve,
-    Surface,
-}
+export type GeometryType = "curve" | "surface";
 
 export interface IGeometry extends IDisposable {
     get geometryType(): GeometryType;

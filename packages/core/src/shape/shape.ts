@@ -8,12 +8,7 @@ import type { EdgeMeshData, IShapeMeshData } from "./meshData";
 import type { ShapeType } from "./shapeType";
 import type { ISurface } from "./surface";
 
-export enum Orientation {
-    FORWARD,
-    REVERSED,
-    INTERNAL,
-    EXTERNAL,
-}
+export type Orientation = "forward" | "reversed" | "internal" | "external";
 
 export interface IShape extends IDisposable {
     readonly shapeType: ShapeType;
@@ -72,11 +67,7 @@ export interface IEdge extends IShape {
     trim(start: number, end: number): IEdge;
 }
 
-export enum JoinType {
-    arc,
-    tangent,
-    intersection,
-}
+export type JoinType = "arc" | "tangent" | "intersection";
 
 export interface IWire extends IShape {
     toFace(): Result<IFace>;

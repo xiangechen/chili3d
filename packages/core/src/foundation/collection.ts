@@ -3,29 +3,24 @@
 
 import type { IDisposable } from "./disposable";
 
-export enum CollectionAction {
-    add,
-    remove,
-    move,
-    replace,
-}
+export type CollectionAction = "add" | "remove" | "move" | "replace";
 
 export type CollectionChangedArgs =
     | {
-          action: CollectionAction.add;
+          action: "add";
           items: any[];
       }
     | {
-          action: CollectionAction.remove;
+          action: "remove";
           items: any[];
       }
     | {
-          action: CollectionAction.move;
+          action: "move";
           from: number;
           to: number;
       }
     | {
-          action: CollectionAction.replace;
+          action: "replace";
           index: number;
           item: any;
           items: any[];
@@ -48,7 +43,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         if (items.length === 0) return;
         this._items.push(...items);
         this.notifyChange({
-            action: CollectionAction.add,
+            action: "add",
             items,
         });
     }
@@ -58,7 +53,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         const itemSet = new Set(items);
         this._items = this._items.filter((item) => !itemSet.has(item));
         this.notifyChange({
-            action: CollectionAction.remove,
+            action: "remove",
             items,
         });
     }
@@ -69,7 +64,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         const items = this._items.splice(from, 1);
         this._items.splice(from < to ? to - 1 : to, 0, ...items);
         this.notifyChange({
-            action: CollectionAction.move,
+            action: "move",
             from,
             to,
         });
@@ -84,7 +79,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         const items = this.items();
         this._items = [];
         this.notifyChange({
-            action: CollectionAction.remove,
+            action: "remove",
             items,
         });
     }
@@ -99,7 +94,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         const item = this._items[index];
         this._items.splice(index, 1, ...items);
         this.notifyChange({
-            action: CollectionAction.replace,
+            action: "replace",
             index,
             item,
             items,
@@ -172,11 +167,7 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
     }
 }
 
-export enum SelectMode {
-    check,
-    radio,
-    combo,
-}
+export type SelectMode = "check" | "radio" | "combo";
 
 export class SelectableItems<T> {
     readonly items: ReadonlyArray<T>;
@@ -199,7 +190,7 @@ export class SelectableItems<T> {
 
     constructor(
         items: T[],
-        readonly mode: SelectMode = SelectMode.radio,
+        readonly mode: SelectMode = "radio",
         selectedItems?: T[],
     ) {
         this.items = items;

@@ -5,7 +5,7 @@ import type { IDocument } from "../document";
 import type { AsyncController } from "../foundation";
 import type { INodeFilter, IShapeFilter } from "../selectionFilter";
 import type { IShape, ShapeType } from "../shape";
-import { type IView, type VisualShapeData, VisualState } from "../visual";
+import { type IView, type VisualShapeData, type VisualState, VisualStates } from "../visual";
 import { SelectionHandler } from "./selectionEventHandler";
 
 export abstract class ShapeSelectionHandler extends SelectionHandler {
@@ -13,7 +13,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     private _detectAtMouse: VisualShapeData[] | undefined;
     private _lockDetected: IShape | undefined;
 
-    highlightState = VisualState.edgeHighlight;
+    highlightState: VisualState = VisualStates.edgeHighlight;
 
     constructor(
         document: IDocument,
@@ -110,7 +110,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     private readonly _shapes: Map<IShape, VisualShapeData> = new Map();
-    selectedState: VisualState = VisualState.edgeSelected;
+    selectedState: VisualState = VisualStates.edgeSelected;
 
     constructor(
         document: IDocument,

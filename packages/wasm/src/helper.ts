@@ -2,16 +2,17 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    Continuity,
-    CurveType,
+    type Continuity,
+    type CurveType,
     gc,
-    JoinType,
+    type JoinType,
     type Line,
     Matrix4,
-    Orientation,
+    type Orientation,
     Plane,
-    ShapeType,
-    SurfaceType,
+    type ShapeType,
+    ShapeTypes,
+    type SurfaceType,
     XYZ,
 } from "@chili3d/core";
 import type {
@@ -125,15 +126,15 @@ export function convertToMatrix(matrix: gp_Trsf): Matrix4 {
 export function getOrientation(shape: TopoDS_Shape): Orientation {
     switch (shape.getOrientation()) {
         case wasm.TopAbs_Orientation.TopAbs_FORWARD:
-            return Orientation.FORWARD;
+            return "forward";
         case wasm.TopAbs_Orientation.TopAbs_REVERSED:
-            return Orientation.REVERSED;
+            return "reversed";
         case wasm.TopAbs_Orientation.TopAbs_INTERNAL:
-            return Orientation.INTERNAL;
+            return "internal";
         case wasm.TopAbs_Orientation.TopAbs_EXTERNAL:
-            return Orientation.EXTERNAL;
+            return "external";
         default:
-            return Orientation.FORWARD;
+            return "forward";
     }
 }
 
@@ -144,45 +145,45 @@ export function getShapeType(shape: TopoDS_Shape): ShapeType {
 
     switch (shape.shapeType()) {
         case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-            return ShapeType.Compound;
+            return ShapeTypes.compound;
         case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-            return ShapeType.CompoundSolid;
+            return ShapeTypes.compoundSolid;
         case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
-            return ShapeType.Solid;
+            return ShapeTypes.solid;
         case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
-            return ShapeType.Shell;
+            return ShapeTypes.shell;
         case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
-            return ShapeType.Face;
+            return ShapeTypes.face;
         case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
-            return ShapeType.Wire;
+            return ShapeTypes.wire;
         case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
-            return ShapeType.Edge;
+            return ShapeTypes.edge;
         case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
-            return ShapeType.Vertex;
+            return ShapeTypes.vertex;
         default:
-            return ShapeType.Shape;
+            return ShapeTypes.shape;
     }
 }
 
 export function getShapeEnum(shapeType: ShapeType): TopAbs_ShapeEnum {
     switch (shapeType) {
-        case ShapeType.Compound:
+        case ShapeTypes.compound:
             return wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND;
-        case ShapeType.CompoundSolid:
+        case ShapeTypes.compoundSolid:
             return wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID;
-        case ShapeType.Solid:
+        case ShapeTypes.solid:
             return wasm.TopAbs_ShapeEnum.TopAbs_SOLID;
-        case ShapeType.Shell:
+        case ShapeTypes.shell:
             return wasm.TopAbs_ShapeEnum.TopAbs_SHELL;
-        case ShapeType.Face:
+        case ShapeTypes.face:
             return wasm.TopAbs_ShapeEnum.TopAbs_FACE;
-        case ShapeType.Wire:
+        case ShapeTypes.wire:
             return wasm.TopAbs_ShapeEnum.TopAbs_WIRE;
-        case ShapeType.Edge:
+        case ShapeTypes.edge:
             return wasm.TopAbs_ShapeEnum.TopAbs_EDGE;
-        case ShapeType.Vertex:
+        case ShapeTypes.vertex:
             return wasm.TopAbs_ShapeEnum.TopAbs_VERTEX;
-        case ShapeType.Shape:
+        case ShapeTypes.shape:
             return wasm.TopAbs_ShapeEnum.TopAbs_SHAPE;
         default:
             throw new Error("Unknown shape type: " + shapeType);
@@ -218,11 +219,11 @@ export function getActualShape(shape: TopoDS_Shape): TopoDS_Shape {
 
 export function getJoinType(joinType: JoinType) {
     switch (joinType) {
-        case JoinType.arc:
+        case "arc":
             return wasm.GeomAbs_JoinType.GeomAbs_Arc;
-        case JoinType.intersection:
+        case "intersection":
             return wasm.GeomAbs_JoinType.GeomAbs_Intersection;
-        case JoinType.tangent:
+        case "tangent":
             return wasm.GeomAbs_JoinType.GeomAbs_Tangent;
         default:
             throw new Error("Unknown join type: " + joinType);
@@ -231,34 +232,34 @@ export function getJoinType(joinType: JoinType) {
 
 export function getCurveType(curve: any): CurveType {
     const isType = (type: string) => wasm.Transient.isInstance(curve, type);
-    if (isType("Geom_Line")) return CurveType.Line;
-    else if (isType("Geom_Circle")) return CurveType.Circle;
-    else if (isType("Geom_Ellipse")) return CurveType.Ellipse;
-    else if (isType("Geom_Hyperbola")) return CurveType.Hyperbola;
-    else if (isType("Geom_Parabola")) return CurveType.Parabola;
-    else if (isType("Geom_BezierCurve")) return CurveType.BezierCurve;
-    else if (isType("Geom_BSplineCurve")) return CurveType.BSplineCurve;
-    else if (isType("Geom_OffsetCurve")) return CurveType.OffsetCurve;
-    else if (isType("Geom_TrimmedCurve")) return CurveType.TrimmedCurve;
+    if (isType("Geom_Line")) return "line";
+    else if (isType("Geom_Circle")) return "circle";
+    else if (isType("Geom_Ellipse")) return "ellipse";
+    else if (isType("Geom_Hyperbola")) return "hyperbola";
+    else if (isType("Geom_Parabola")) return "parabola";
+    else if (isType("Geom_BezierCurve")) return "bezierCurve";
+    else if (isType("Geom_BSplineCurve")) return "bsplineCurve";
+    else if (isType("Geom_OffsetCurve")) return "offsetCurve";
+    else if (isType("Geom_TrimmedCurve")) return "trimmedCurve";
 
     throw new Error("Unknown curve type");
 }
 
 export function getSurfaceType(surface: any): SurfaceType {
     const isType = (type: string) => wasm.Transient.isInstance(surface, type);
-    if (isType("GeomPlate_Surface")) return SurfaceType.Plate;
-    else if (isType("Geom_Plane")) return SurfaceType.Plane;
-    else if (isType("Geom_SurfaceOfLinearExtrusion")) return SurfaceType.Extrusion;
-    else if (isType("Geom_SurfaceOfRevolution")) return SurfaceType.Revolution;
-    else if (isType("Geom_OffsetSurface")) return SurfaceType.Offset;
-    else if (isType("Geom_BSplineSurface")) return SurfaceType.BSpline;
-    else if (isType("Geom_BezierSurface")) return SurfaceType.Bezier;
-    else if (isType("Geom_CylindricalSurface")) return SurfaceType.Cylinder;
-    else if (isType("Geom_ConicalSurface")) return SurfaceType.Conical;
-    else if (isType("Geom_SphericalSurface")) return SurfaceType.Spherical;
-    else if (isType("Geom_RectangularTrimmedSurface")) return SurfaceType.RectangularTrimmed;
-    else if (isType("Geom_ToroidalSurface")) return SurfaceType.Toroidal;
-    else if (isType("ShapeExtent_CompositeSurface")) return SurfaceType.Composite;
+    if (isType("GeomPlate_Surface")) return "plate";
+    else if (isType("Geom_Plane")) return "plane";
+    else if (isType("Geom_SurfaceOfLinearExtrusion")) return "extrusion";
+    else if (isType("Geom_SurfaceOfRevolution")) return "revolution";
+    else if (isType("Geom_OffsetSurface")) return "offset";
+    else if (isType("Geom_BSplineSurface")) return "bspline";
+    else if (isType("Geom_BezierSurface")) return "bezier";
+    else if (isType("Geom_CylindricalSurface")) return "cylinder";
+    else if (isType("Geom_ConicalSurface")) return "conical";
+    else if (isType("Geom_SphericalSurface")) return "spherical";
+    else if (isType("Geom_RectangularTrimmedSurface")) return "rectangularTrimmed";
+    else if (isType("Geom_ToroidalSurface")) return "toroidal";
+    else if (isType("ShapeExtent_CompositeSurface")) return "composite";
 
     throw new Error("Unknown surface type");
 }
@@ -266,19 +267,19 @@ export function getSurfaceType(surface: any): SurfaceType {
 export function convertToContinuity(cni: GeomAbs_Shape) {
     switch (cni) {
         case wasm.GeomAbs_Shape.GeomAbs_C0:
-            return Continuity.C0;
+            return "c0";
         case wasm.GeomAbs_Shape.GeomAbs_G1:
-            return Continuity.G1;
+            return "g1";
         case wasm.GeomAbs_Shape.GeomAbs_C1:
-            return Continuity.C1;
+            return "c1";
         case wasm.GeomAbs_Shape.GeomAbs_G2:
-            return Continuity.G2;
+            return "g2";
         case wasm.GeomAbs_Shape.GeomAbs_C2:
-            return Continuity.C2;
+            return "c2";
         case wasm.GeomAbs_Shape.GeomAbs_C3:
-            return Continuity.C3;
+            return "c3";
         case wasm.GeomAbs_Shape.GeomAbs_CN:
-            return Continuity.CN;
+            return "cn";
         default:
             throw new Error("unknown continuity");
     }
@@ -286,19 +287,19 @@ export function convertToContinuity(cni: GeomAbs_Shape) {
 
 export function convertFromContinuity(continuity: Continuity) {
     switch (continuity) {
-        case Continuity.C0:
+        case "c0":
             return wasm.GeomAbs_Shape.GeomAbs_C0;
-        case Continuity.G1:
+        case "g1":
             return wasm.GeomAbs_Shape.GeomAbs_G1;
-        case Continuity.C1:
+        case "c1":
             return wasm.GeomAbs_Shape.GeomAbs_C1;
-        case Continuity.G2:
+        case "g2":
             return wasm.GeomAbs_Shape.GeomAbs_G2;
-        case Continuity.C2:
+        case "c2":
             return wasm.GeomAbs_Shape.GeomAbs_C2;
-        case Continuity.C3:
+        case "c3":
             return wasm.GeomAbs_Shape.GeomAbs_C3;
-        case Continuity.CN:
+        case "cn":
             return wasm.GeomAbs_Shape.GeomAbs_CN;
         default:
             throw new Error("unknown continuity");

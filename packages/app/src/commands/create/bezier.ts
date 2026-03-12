@@ -4,7 +4,7 @@
 import {
     AsyncController,
     command,
-    Dimension,
+    Dimensions,
     EditableShapeNode,
     type GeometryNode,
     I18n,
@@ -65,7 +65,7 @@ export class BezierCommand extends CreateCommand {
     private readonly getNextData = (): PointSnapData => {
         return {
             refPoint: () => this.stepDatas.at(-1)!.point!,
-            dimension: Dimension.D1D2D3,
+            dimension: Dimensions.D1D2D3,
             validator: this.validator,
             preview: this.preview,
             featurePoints: [
