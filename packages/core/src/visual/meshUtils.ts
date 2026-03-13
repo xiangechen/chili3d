@@ -2,9 +2,38 @@
 // See LICENSE file in the project root for full license information.
 
 import { MathUtils, type Matrix4 } from "../math";
-import { concatTypedArrays, type EdgeMeshData, type FaceMeshData, type Mesh } from "../shape";
+import {
+    concatTypedArrays,
+    type EdgeMeshData,
+    type FaceMeshData,
+    type Mesh,
+    MeshDataUtils,
+    type ShapeMeshData,
+} from "../shape";
 
 export class MeshUtils {
+    static transformMesh<T extends ShapeMeshData>(data: T, matrix: Matrix4): T {
+        if (MeshDataUtils.isVertexMesh(data)) {
+            return {
+                ...data,
+                position: new Float32Array(matrix.ofPoints(data.position)),
+            };
+        } else if (MeshDataUtils.isEdgeMesh(data)) {
+            return {
+                ...data,
+                position: new Float32Array(matrix.ofPoints(data.position)),
+            };
+        } else if (MeshDataUtils.isFaceMesh(data)) {
+            return {
+                ...data,
+                position: new Float32Array(matrix.ofPoints(data.position)),
+                normal: new Float32Array(matrix.ofVectors(data.normal)),
+            };
+        }
+
+        throw new Error("Invalid Mesh Type");
+    }
+
     static setFaceMeshData(
         data: FaceMeshData,
         other: FaceMeshData | undefined,
