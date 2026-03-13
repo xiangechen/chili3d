@@ -279,7 +279,9 @@ export class ArrayCommand extends MultistepCommand {
         const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
         const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
-        this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
+        this._planeAngle = new PlaneAngle(
+            new Plane({ origin: center, normal: plane.normal, xvec: p1.sub(center) }),
+        );
 
         return {
             dimension: Dimensions.D1D2,
@@ -400,8 +402,8 @@ export class ArrayCommand extends MultistepCommand {
 
         const ray =
             index === 2
-                ? new Line(this.stepDatas[1].point!, yvec)
-                : new Line(this.stepDatas[1].point!, normal);
+                ? new Line({ point: this.stepDatas[1].point!, direction: yvec })
+                : new Line({ point: this.stepDatas[1].point!, direction: normal });
         return { ray, yvec, normal, xvec };
     }
 
@@ -410,10 +412,15 @@ export class ArrayCommand extends MultistepCommand {
 
         Transaction.execute(this.document, "Array", () => {
             if (this.isGroup) {
-                const component = new Component("Array", nodes);
+                const component = new Component({ name: "Array", nodes });
                 this.document.modelManager.components.push(component);
                 this.document.modelManager.addNode(
-                    new ComponentNode(this.document, "Array", component.id, component.origin),
+                    new ComponentNode({
+                        document: this.document,
+                        name: "Array",
+                        componentId: component.id,
+                        insert: component.origin,
+                    }),
                 );
             } else {
                 this.document.modelManager.addNode(...nodes);

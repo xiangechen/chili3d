@@ -46,7 +46,12 @@ export class Explode extends MultistepCommand {
     private explodeShapeNode(x: ShapeNode) {
         const subShapes = x.shape.value.iterShape();
         if (subShapes.length === 1) {
-            const subShapeNode = new EditableShapeNode(this.document, x.name, subShapes[0], x.materialId);
+            const subShapeNode = new EditableShapeNode({
+                document: this.document,
+                name: x.name,
+                shape: subShapes[0],
+                materialId: x.materialId,
+            });
             subShapeNode.transform = x.transform;
             x.parent?.insertAfter(x.previousSibling, subShapeNode);
         } else {
@@ -57,14 +62,18 @@ export class Explode extends MultistepCommand {
     }
 
     private groupShapes(node: ShapeNode, subShapes: IShape[]) {
-        const folder = new GroupNode(this.document, node.name);
+        const folder = new GroupNode({ document: this.document, name: node.name });
         folder.transform = node.transform;
         node.parent?.insertAfter(node.previousSibling, folder);
 
         let i = 1;
         for (const subShape of subShapes) {
             const name = `${ShapeTypeUtils.stringValue(subShape.shapeType)} ${i++}`;
-            const subShapeNode = new EditableShapeNode(this.document, name, subShape);
+            const subShapeNode = new EditableShapeNode({
+                document: this.document,
+                name,
+                shape: subShape,
+            });
             folder.add(subShapeNode);
         }
     }
@@ -81,7 +90,11 @@ export class Explode extends MultistepCommand {
 
     private explodeMultiShapeNode(x: MultiShapeNode) {
         for (const shape of x.shapes) {
-            const node = new EditableShapeNode(this.document, x.name, shape.transformed(x.transform));
+            const node = new EditableShapeNode({
+                document: this.document,
+                name: x.name,
+                shape: shape.transformed(x.transform),
+            });
             x.parent?.insertAfter(x.previousSibling, node);
         }
 

@@ -5,27 +5,44 @@ import { Line, Plane, Ray, XYZ } from "../src";
 
 describe("test plane", () => {
     test("test constructor", () => {
-        expect(() => new Plane(XYZ.zero, XYZ.unitX, XYZ.unitX)).toThrow();
-        expect(() => new Plane(XYZ.zero, XYZ.zero, XYZ.unitY)).toThrow();
-        expect(() => new Plane(XYZ.zero, XYZ.unitX, XYZ.zero)).toThrow();
+        expect(() => new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitX })).toThrow();
+        expect(() => new Plane({ origin: XYZ.zero, normal: XYZ.zero, xvec: XYZ.unitY })).toThrow();
+        expect(() => new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.zero })).toThrow();
     });
 
     test("test intersect", () => {
-        const plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
-        expect(plane.intersectLine(new Line(XYZ.unitZ, XYZ.unitX))).toBeUndefined();
-        expect(plane.intersectLine(new Line(XYZ.unitZ, XYZ.unitZ.reverse()))).toStrictEqual(XYZ.zero);
-        expect(plane.intersectLine(new Line(XYZ.unitX, XYZ.unitZ.add(XYZ.unitX)))).toStrictEqual(XYZ.unitX);
-        expect(plane.intersectLine(new Line(new XYZ(1, 1, 1), new XYZ(-1, 0, -1)))).toStrictEqual(
-            new XYZ(0, 1, 0),
-        );
-        expect(plane.intersectLine(new Line(new XYZ(1, 1, 1), new XYZ(1, 0, 1)))).toStrictEqual(
-            new XYZ(0, 1, 0),
-        );
-        expect(plane.intersectRay(new Ray(new XYZ(1, 1, 1), new XYZ(1, 0, 1)))).toBeUndefined();
+        const plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitZ, xvec: XYZ.unitX });
+        expect(plane.intersectLine(new Line({ point: XYZ.unitZ, direction: XYZ.unitX }))).toBeUndefined();
+        expect(
+            plane.intersectLine(new Line({ point: XYZ.unitZ, direction: XYZ.unitZ.reverse() })),
+        ).toStrictEqual(XYZ.zero);
+        expect(
+            plane.intersectLine(new Line({ point: XYZ.unitX, direction: XYZ.unitZ.add(XYZ.unitX) })),
+        ).toStrictEqual(XYZ.unitX);
+        expect(
+            plane.intersectLine(
+                new Line({
+                    point: new XYZ({ x: 1, y: 1, z: 1 }),
+                    direction: new XYZ({ x: -1, y: 0, z: -1 }),
+                }),
+            ),
+        ).toStrictEqual(new XYZ({ x: 0, y: 1, z: 0 }));
+        expect(
+            plane.intersectLine(
+                new Line({ point: new XYZ({ x: 1, y: 1, z: 1 }), direction: new XYZ({ x: 1, y: 0, z: 1 }) }),
+            ),
+        ).toStrictEqual(new XYZ({ x: 0, y: 1, z: 0 }));
+        expect(
+            plane.intersectRay(
+                new Ray({ point: new XYZ({ x: 1, y: 1, z: 1 }), direction: new XYZ({ x: 1, y: 0, z: 1 }) }),
+            ),
+        ).toBeUndefined();
     });
 
     test("test project", () => {
-        expect(Plane.XY.project(new XYZ(0, 0, 0))).toStrictEqual(new XYZ(0, 0, 0));
-        expect(Plane.XY.project(new XYZ(100, 100, 100))).toStrictEqual(new XYZ(100, 100, 0));
+        expect(Plane.XY.project(new XYZ({ x: 0, y: 0, z: 0 }))).toStrictEqual(new XYZ({ x: 0, y: 0, z: 0 }));
+        expect(Plane.XY.project(new XYZ({ x: 100, y: 100, z: 100 }))).toStrictEqual(
+            new XYZ({ x: 100, y: 100, z: 0 }),
+        );
     });
 });

@@ -14,6 +14,13 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface RectOptions {
+    document: IDocument;
+    plane: Plane;
+    dx: number;
+    dy: number;
+}
+
 @serializable(["document", "plane", "dx", "dy"])
 export class RectNode extends FacebaseNode {
     override display(): I18nKeys {
@@ -43,11 +50,11 @@ export class RectNode extends FacebaseNode {
         return this.getPrivateValue("plane");
     }
 
-    constructor(document: IDocument, plane: Plane, dx: number, dy: number) {
-        super(document);
-        this.setPrivateValue("plane", plane);
-        this.setPrivateValue("dx", dx);
-        this.setPrivateValue("dy", dy);
+    constructor(options: RectOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("plane", options.plane);
+        this.setPrivateValue("dx", options.dx);
+        this.setPrivateValue("dy", options.dy);
     }
 
     generateShape(): Result<IShape, string> {

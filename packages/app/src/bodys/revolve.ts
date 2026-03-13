@@ -12,6 +12,13 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface RevolveOptions {
+    document: IDocument;
+    profile: IShape;
+    axis: Line;
+    angle: number;
+}
+
 @serializable(["document", "profile", "axis", "angle"])
 export class RevolvedNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -42,11 +49,11 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("angle", value);
     }
 
-    constructor(document: IDocument, profile: IShape, axis: Line, angle: number) {
-        super(document);
-        this.setPrivateValue("profile", profile);
-        this.setPrivateValue("axis", axis);
-        this.setPrivateValue("angle", angle);
+    constructor(options: RevolveOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("profile", options.profile);
+        this.setPrivateValue("axis", options.axis);
+        this.setPrivateValue("angle", options.angle);
     }
 
     override generateShape(): Result<IShape> {

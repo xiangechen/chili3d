@@ -8,10 +8,10 @@ describe("test NodeLinkedList", () => {
     const doc: IDocument = new TestDocument() as any;
 
     test("test add and remove", () => {
-        const l1 = new FolderNode(doc, "l1");
-        const l2 = new FolderNode(doc, "l2");
-        const l3 = new FolderNode(doc, "l3");
-        const l4 = new FolderNode(doc, "l4");
+        const l1 = new FolderNode({ document: doc, name: "l1" });
+        const l2 = new FolderNode({ document: doc, name: "l2" });
+        const l3 = new FolderNode({ document: doc, name: "l3" });
+        const l4 = new FolderNode({ document: doc, name: "l4" });
 
         l1.add(l2);
         expect(l1.firstChild).toEqual(l2);
@@ -49,10 +49,10 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test insert before", () => {
-        const l1 = new FolderNode(doc, "l1");
-        const l2 = new FolderNode(doc, "l2");
-        const l3 = new FolderNode(doc, "l3");
-        const l4 = new FolderNode(doc, "l4");
+        const l1 = new FolderNode({ document: doc, name: "l1" });
+        const l2 = new FolderNode({ document: doc, name: "l2" });
+        const l3 = new FolderNode({ document: doc, name: "l3" });
+        const l4 = new FolderNode({ document: doc, name: "l4" });
 
         l1.insertBefore(undefined, l2);
         expect(l1.firstChild).toBe(l2);
@@ -74,11 +74,11 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test insert after", () => {
-        const l1 = new FolderNode(doc, "l1");
-        const l2 = new FolderNode(doc, "l2");
-        const l3 = new FolderNode(doc, "l3");
-        const l4 = new FolderNode(doc, "l4");
-        const l5 = new FolderNode(doc, "l5");
+        const l1 = new FolderNode({ document: doc, name: "l1" });
+        const l2 = new FolderNode({ document: doc, name: "l2" });
+        const l3 = new FolderNode({ document: doc, name: "l3" });
+        const l4 = new FolderNode({ document: doc, name: "l4" });
+        const l5 = new FolderNode({ document: doc, name: "l5" });
 
         l1.insertAfter(undefined, l2);
         expect(l1.firstChild).toEqual(l2);
@@ -107,12 +107,12 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test moveTo", () => {
-        const l1 = new FolderNode(doc, "l1");
-        const l2 = new FolderNode(doc, "l2");
-        const l3 = new FolderNode(doc, "l3");
-        const l4 = new FolderNode(doc, "l4");
-        const l5 = new FolderNode(doc, "l5");
-        const l6 = new FolderNode(doc, "l6");
+        const l1 = new FolderNode({ document: doc, name: "l1" });
+        const l2 = new FolderNode({ document: doc, name: "l2" });
+        const l3 = new FolderNode({ document: doc, name: "l3" });
+        const l4 = new FolderNode({ document: doc, name: "l4" });
+        const l5 = new FolderNode({ document: doc, name: "l5" });
+        const l6 = new FolderNode({ document: doc, name: "l6" });
 
         l1.add(l2, l4);
         l2.add(l3);
@@ -134,7 +134,7 @@ describe("test NodeLinkedList", () => {
     });
 
     test("test undo redo", () => {
-        const l1 = new FolderNode(doc, "l1");
+        const l1 = new FolderNode({ document: doc, name: "l1" });
 
         // add undo redo
         doc.modelManager.rootNode.add(l1);
@@ -156,8 +156,8 @@ describe("test NodeLinkedList", () => {
         expect(doc.modelManager.rootNode.firstChild).toBeUndefined();
         doc.modelManager.rootNode.remove(l1);
 
-        const l2 = new FolderNode(doc, "l2");
-        const l3 = new FolderNode(doc, "l3");
+        const l2 = new FolderNode({ document: doc, name: "l2" });
+        const l3 = new FolderNode({ document: doc, name: "l3" });
         // insertAfter undo redo
         doc.modelManager.rootNode.add(l1, l3);
         doc.modelManager.rootNode.insertAfter(l1, l2);
@@ -207,9 +207,9 @@ describe("test NodeLinkedList", () => {
         expect(l1.previousSibling).toBe(l2);
         doc.modelManager.rootNode.remove(l1, l2);
 
-        const l4 = new FolderNode(doc, "l4");
-        const l5 = new FolderNode(doc, "l5");
-        const l6 = new FolderNode(doc, "l6");
+        const l4 = new FolderNode({ document: doc, name: "l4" });
+        const l5 = new FolderNode({ document: doc, name: "l5" });
+        const l6 = new FolderNode({ document: doc, name: "l6" });
         doc.modelManager.rootNode.add(l1, l2);
         l1.add(l3, l4);
         l2.add(l5);

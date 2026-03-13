@@ -172,7 +172,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
 
     project(point: XYZ): XYZ[] {
         return wasm.Curve.projects(this.curve, point)
-            .map((p) => new XYZ(p.x, p.y, p.z))
+            .map((p) => new XYZ(p))
             .toSorted((a, b) => a.distanceTo(point) - b.distanceTo(point));
     }
 

@@ -21,7 +21,7 @@ describe("converter test", () => {
         expect(converter.convertBack(c.value).value.x).toBe(1);
         expect(converter.convertBack("1").isOk).toBe(false);
         expect(converter.convertBack("1, 1, 1, 1").isOk).toBe(false);
-        expect(converter.convertBack("1, 1, 1").value).toStrictEqual(new XYZ(1, 1, 1));
+        expect(converter.convertBack("1, 1, 1").value).toStrictEqual(new XYZ({ x: 1, y: 1, z: 1 }));
     });
 
     test("test NumberConverter", () => {

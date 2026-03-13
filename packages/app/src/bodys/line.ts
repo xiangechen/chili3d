@@ -13,6 +13,12 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface LineOptions {
+    document: IDocument;
+    start: XYZ;
+    end: XYZ;
+}
+
 @serializable(["document", "start", "end"])
 export class LineNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -37,10 +43,10 @@ export class LineNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("end", pnt);
     }
 
-    constructor(document: IDocument, start: XYZ, end: XYZ) {
-        super(document);
-        this.setPrivateValue("start", start);
-        this.setPrivateValue("end", end);
+    constructor(options: LineOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("start", options.start);
+        this.setPrivateValue("end", options.end);
     }
 
     generateShape(): Result<IShape, string> {

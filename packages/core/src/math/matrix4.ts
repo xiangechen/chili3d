@@ -7,14 +7,22 @@ import type { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
 import { XYZ, type XYZLike } from "./xyz";
 
+export interface Matrix4Options {
+    array: Float32Array | ArrayLike<number>;
+}
+
 /**
  * Matrix in column-major order
  */
-@serializable(["array"], (array: Float32Array) => {
-    return Matrix4.fromArray(array);
+@serializable(["array"], (options: { array: Float32Array }) => {
+    return new Matrix4(options);
 })
 export class Matrix4 {
-    private readonly _array: Float32Array = new Float32Array(16);
+    private readonly _array: Float32Array;
+
+    constructor(options: Matrix4Options) {
+        this._array = new Float32Array(options.array);
+    }
     @serialze()
     get array(): ReadonlyArray<number> {
         return [...this._array];
@@ -45,11 +53,11 @@ export class Matrix4 {
     }
 
     public add(other: Matrix4): Matrix4 {
-        const result = new Matrix4();
+        const array = new Float32Array(16);
         for (let index = 0; index < 16; index++) {
-            result._array[index] = this._array[index] + other._array[index];
+            array[index] = this._array[index] + other._array[index];
         }
-        return result;
+        return new Matrix4({ array });
     }
 
     public invert(): Matrix4 | undefined {
@@ -118,11 +126,11 @@ export class Matrix4 {
     }
 
     public static fromArray(array: ArrayLike<number>): Matrix4 {
-        const result = new Matrix4();
+        const result = new Float32Array(16);
         for (let index = 0; index < 16; index++) {
-            result._array[index] = array[index];
+            result[index] = array[index];
         }
-        return result;
+        return new Matrix4({ array: result });
     }
 
     public static identity(): Matrix4 {
@@ -206,28 +214,28 @@ export class Matrix4 {
     }
 
     public transpose(): Matrix4 {
-        const result = new Matrix4();
-        result._array[0] = this._array[0];
-        result._array[1] = this._array[4];
-        result._array[2] = this._array[8];
-        result._array[3] = this._array[12];
+        const result = new Float32Array(16);
+        result[0] = this._array[0];
+        result[1] = this._array[4];
+        result[2] = this._array[8];
+        result[3] = this._array[12];
 
-        result._array[4] = this._array[1];
-        result._array[5] = this._array[5];
-        result._array[6] = this._array[9];
-        result._array[7] = this._array[13];
+        result[4] = this._array[1];
+        result[5] = this._array[5];
+        result[6] = this._array[9];
+        result[7] = this._array[13];
 
-        result._array[8] = this._array[2];
-        result._array[9] = this._array[6];
-        result._array[10] = this._array[10];
-        result._array[11] = this._array[14];
+        result[8] = this._array[2];
+        result[9] = this._array[6];
+        result[10] = this._array[10];
+        result[11] = this._array[14];
 
-        result._array[12] = this._array[3];
-        result._array[13] = this._array[7];
-        result._array[14] = this._array[11];
-        result._array[15] = this._array[15];
+        result[12] = this._array[3];
+        result[13] = this._array[7];
+        result[14] = this._array[11];
+        result[15] = this._array[15];
 
-        return result;
+        return new Matrix4({ array: result });
     }
 
     ofPoints(points: ArrayLike<number>): number[] {
@@ -260,12 +268,12 @@ export class Matrix4 {
 
     public ofPoint(point: XYZLike): XYZ {
         const result = this.ofPoints([point.x, point.y, point.z]);
-        return new XYZ(result[0], result[1], result[2]);
+        return new XYZ({ x: result[0], y: result[1], z: result[2] });
     }
 
     public ofVector(vector: XYZLike): XYZ {
         const result = this.ofVectors([vector.x, vector.y, vector.z]);
-        return new XYZ(result[0], result[1], result[2]);
+        return new XYZ({ x: result[0], y: result[1], z: result[2] });
     }
 
     public ofVectors(vectors: ArrayLike<number>): number[] {
@@ -289,14 +297,14 @@ export class Matrix4 {
     }
 
     public translationPart(): XYZ {
-        return new XYZ(this._array[12], this._array[13], this._array[14]);
+        return new XYZ({ x: this._array[12], y: this._array[13], z: this._array[14] });
     }
 
     public getScale(): XYZ {
         const x = Math.hypot(this._array[0], this._array[1], this._array[2]);
         const y = Math.hypot(this._array[4], this._array[5], this._array[6]);
         const z = Math.hypot(this._array[8], this._array[9], this._array[10]);
-        return new XYZ(x, y, z);
+        return new XYZ({ x, y, z });
     }
 
     public getEulerAngles(): { pitch: number; yaw: number; roll: number } {

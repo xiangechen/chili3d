@@ -115,9 +115,9 @@ export class Serializer {
         const { ctor, ctorParamNames, deserialize } = reflectMap.get(className)!;
         const parameters = Serializer.deserilizeParameters(document, ctorParamNames, properties, className);
         if (deserialize) {
-            return deserialize(...ctorParamNames.map((x) => parameters[x]));
+            return deserialize(parameters);
         }
-        return new ctor(...ctorParamNames.map((x) => parameters[x]));
+        return new ctor(parameters);
     }
 
     static deserilizeParameters(

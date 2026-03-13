@@ -77,16 +77,20 @@ export class GroupCommand extends MultistepCommand {
                 node.transform = worldTransform;
             }
 
-            const component = new Component(definition.name, this.stepDatas[0].nodes!, definition.insert);
+            const component = new Component({
+                name: definition.name,
+                nodes: this.stepDatas[0].nodes!,
+                origin: definition.insert,
+            });
             this.document.modelManager.components.push(component);
 
             if (definition.convertInstance) {
-                const group = new ComponentNode(
-                    this.document,
-                    definition.name,
-                    component.id,
-                    component.origin,
-                );
+                const group = new ComponentNode({
+                    document: this.document,
+                    name: definition.name,
+                    componentId: component.id,
+                    insert: component.origin,
+                });
                 this.document.modelManager.rootNode.add(group);
             }
         });

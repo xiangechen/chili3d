@@ -88,10 +88,10 @@ describe("Component", () => {
 
     test("constructor should initialize with provided values", () => {
         const name = "TestComponent";
-        const origin = new XYZ(1, 2, 3);
+        const origin = new XYZ({ x: 1, y: 2, z: 3 });
         const id = "test-id";
 
-        const component = new Component(name, mockNodes, origin, id);
+        const component = new Component({ name, nodes: mockNodes, origin, id });
 
         expect(component.name).toBe(name);
         expect(component.nodes).toBe(mockNodes);
@@ -101,27 +101,27 @@ describe("Component", () => {
     });
 
     test("constructor should generate id when not provided", () => {
-        const component = new Component("Test", mockNodes);
+        const component = new Component({ name: "Test", nodes: mockNodes });
 
         expect(component.id).toBeDefined();
         expect(typeof component.id).toBe("string");
     });
 
     test("constructor should use default origin when not provided", () => {
-        const component = new Component("Test", mockNodes);
+        const component = new Component({ name: "Test", nodes: mockNodes });
 
         expect(component.origin).toBeDefined();
     });
 
     test("toString should return component name", () => {
-        const component = new Component("TestComponent", mockNodes);
+        const component = new Component({ name: "TestComponent", nodes: mockNodes });
 
         expect(component.toString()).toBe("TestComponent");
     });
 
     test("origin setter should update origin", () => {
-        const component = new Component("Test", mockNodes);
-        const newOrigin = new XYZ(5, 6, 7);
+        const component = new Component({ name: "Test", nodes: mockNodes });
+        const newOrigin = new XYZ({ x: 5, y: 6, z: 7 });
 
         component.origin = newOrigin;
 
@@ -130,13 +130,13 @@ describe("Component", () => {
 
     test("boundingBox should compute from nodes", () => {
         const mockNode1 = {
-            boundingBox: () => new BoundingBox(new XYZ(0, 0, 0), new XYZ(1, 1, 1)),
+            boundingBox: () => new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 1, y: 1, z: 1 })),
         };
         const mockNode2 = {
-            boundingBox: () => new BoundingBox(new XYZ(1, 1, 1), new XYZ(2, 2, 2)),
+            boundingBox: () => new BoundingBox(new XYZ({ x: 1, y: 1, z: 1 }), new XYZ({ x: 2, y: 2, z: 2 })),
         };
 
-        const component = new Component("Test", [mockNode1, mockNode2] as any);
+        const component = new Component({ name: "Test", nodes: [mockNode1, mockNode2] as any });
 
         const boundingBox = component.boundingBox;
         expect(boundingBox).toBeDefined();
@@ -149,7 +149,7 @@ describe("Component", () => {
     });
 
     test("boundingBox should return undefined for empty nodes", () => {
-        const component = new Component("Test", []);
+        const component = new Component({ name: "Test", nodes: [] });
 
         expect(component.boundingBox).toBeUndefined();
     });
@@ -159,11 +159,11 @@ describe("Component", () => {
         const mockNode = {
             boundingBox: () => {
                 callCount++;
-                return new BoundingBox(new XYZ(0, 0, 0), new XYZ(1, 1, 1));
+                return new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 1, y: 1, z: 1 }));
             },
         };
 
-        const component = new Component("Test", [mockNode] as any);
+        const component = new Component({ name: "Test", nodes: [mockNode] as any });
 
         const box1 = component.boundingBox;
         const box2 = component.boundingBox;
@@ -173,7 +173,7 @@ describe("Component", () => {
     });
 
     test("mesh should be cached", () => {
-        const component = new Component("Test", mockNodes);
+        const component = new Component({ name: "Test", nodes: mockNodes });
 
         const mesh1 = component.mesh;
         const mesh2 = component.mesh;
@@ -183,7 +183,7 @@ describe("Component", () => {
 
     test("mesh should be created with correct structure for nodes", () => {
         // Test that the mesh creation process works by checking the resulting mesh structure
-        const component = new Component("Test", []);
+        const component = new Component({ name: "Test", nodes: [] });
         const mesh = component.mesh;
 
         expect(mesh).toBeDefined();
@@ -204,9 +204,9 @@ describe("Component", () => {
             index: new Uint32Array([0, 1, 2, 1, 2, 3]), // 2 triangles
         } as any;
 
-        const meshNode = new MeshNode(doc, mesh, "TestMesh");
+        const meshNode = new MeshNode({ document: doc, mesh, name: "TestMesh" });
 
-        const component = new Component("Test", [meshNode]);
+        const component = new Component({ name: "Test", nodes: [meshNode] });
         const size = createComponentSize();
 
         component["getSize"]([meshNode], size);
@@ -222,17 +222,17 @@ describe("ComponentNode", () => {
 
     beforeEach(() => {
         doc = new TestDocument();
-        mockComponent = new Component("TestComponent", []);
+        mockComponent = new Component({ name: "TestComponent", nodes: [] });
         doc.modelManager.components.push(mockComponent);
     });
 
     test("constructor should initialize with provided values", () => {
         const name = "TestComponentNode";
         const componentId = mockComponent.id;
-        const insert = new XYZ(1, 2, 3);
+        const insert = new XYZ({ x: 1, y: 2, z: 3 });
         const id = "test-node-id";
 
-        const node = new ComponentNode(doc, name, componentId, insert, id);
+        const node = new ComponentNode({ document: doc, name, componentId, insert, id });
 
         expect(node.name).toBe(name);
         expect(node.componentId).toBe(componentId);
@@ -241,32 +241,52 @@ describe("ComponentNode", () => {
     });
 
     test("constructor should generate id when not provided", () => {
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.id).toBeDefined();
         expect(typeof node.id).toBe("string");
     });
 
     test("component should retrieve component from model manager", () => {
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.component).toBe(mockComponent);
         expect(mockComponent.instances).toContain(node);
     });
 
     test("component should throw error when component not found", () => {
-        const node = new ComponentNode(doc, "Test", "non-existent-id", new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: "non-existent-id",
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(() => node.component).toThrow("Component non-existent-id not found");
     });
 
     test("boundingBox should return transformed component bounding box", () => {
-        const mockBoundingBox = new BoundingBox(new XYZ(0, 0, 0), new XYZ(1, 1, 1));
+        const mockBoundingBox = new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 1, y: 1, z: 1 }));
         Object.defineProperty(mockComponent, "boundingBox", {
             get: () => mockBoundingBox,
         });
 
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
         // Set the transform to move the component by 1 unit in X direction
         node.transform = Matrix4.fromTranslation(1, 0, 0);
 
@@ -280,37 +300,62 @@ describe("ComponentNode", () => {
             get: () => undefined,
         });
 
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.boundingBox()).toBeUndefined();
     });
 
     test("display should return correct i18n key", () => {
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.display()).toBe("body.group");
     });
 
     test("component should retrieve component from model manager", () => {
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.component).toBe(mockComponent);
         expect(mockComponent.instances).toContain(node);
     });
 
     test("component should throw error when component not found", () => {
-        const node = new ComponentNode(doc, "Test", "non-existent-id", new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: "non-existent-id",
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(() => node.component).toThrow("Component non-existent-id not found");
     });
 
     test("boundingBox should return transformed component bounding box", () => {
-        const mockBoundingBox = new BoundingBox(new XYZ(0, 0, 0), new XYZ(1, 1, 1));
+        const mockBoundingBox = new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 1, y: 1, z: 1 }));
         Object.defineProperty(mockComponent, "boundingBox", {
             get: () => mockBoundingBox,
         });
 
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
         // Set the transform to move the component by 1 unit in X direction
         node.transform = Matrix4.fromTranslation(1, 0, 0);
 
@@ -324,13 +369,23 @@ describe("ComponentNode", () => {
             get: () => undefined,
         });
 
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.boundingBox()).toBeUndefined();
     });
 
     test("display should return correct i18n key", () => {
-        const node = new ComponentNode(doc, "Test", mockComponent.id, new XYZ(0, 0, 0));
+        const node = new ComponentNode({
+            document: doc,
+            name: "Test",
+            componentId: mockComponent.id,
+            insert: new XYZ({ x: 0, y: 0, z: 0 }),
+        });
 
         expect(node.display()).toBe("body.group");
     });

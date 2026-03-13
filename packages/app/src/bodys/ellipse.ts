@@ -13,6 +13,15 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface EllipseOptions {
+    document: IDocument;
+    normal: XYZ;
+    center: XYZ;
+    xvec: XYZ;
+    majorRadius: number;
+    minorRadius: number;
+}
+
 @serializable(["document", "normal", "center", "xvec", "majorRadius", "minorRadius"])
 export class EllipseNode extends FacebaseNode {
     override display(): I18nKeys {
@@ -55,20 +64,13 @@ export class EllipseNode extends FacebaseNode {
         return this.getPrivateValue("xvec");
     }
 
-    constructor(
-        document: IDocument,
-        normal: XYZ,
-        center: XYZ,
-        xvec: XYZ,
-        majorRadius: number,
-        minorRadius: number,
-    ) {
-        super(document);
-        this.setPrivateValue("normal", normal);
-        this.setPrivateValue("center", center);
-        this.setPrivateValue("xvec", xvec);
-        this.setPrivateValue("majorRadius", majorRadius);
-        this.setPrivateValue("minorRadius", minorRadius);
+    constructor(options: EllipseOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("normal", options.normal);
+        this.setPrivateValue("center", options.center);
+        this.setPrivateValue("xvec", options.xvec);
+        this.setPrivateValue("majorRadius", options.majorRadius);
+        this.setPrivateValue("minorRadius", options.minorRadius);
     }
 
     generateShape(): Result<IShape, string> {

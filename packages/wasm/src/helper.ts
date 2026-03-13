@@ -31,7 +31,7 @@ import type {
 } from "../lib/chili-wasm";
 
 export function toXYZ(p: gp_Pnt | gp_Dir | gp_Vec | Vector3): XYZ {
-    return new XYZ(p.x, p.y, p.z);
+    return new XYZ(p);
 }
 
 export function toDir(value: Vector3) {
@@ -64,7 +64,11 @@ export function toAx3(plane: Plane): gp_Ax3 {
 
 export function fromAx23(ax: gp_Ax2 | gp_Ax3): Plane {
     return gc((c) => {
-        return new Plane(toXYZ(c(ax.location())), toXYZ(c(ax.direction())), toXYZ(c(ax.xDirection())));
+        return new Plane({
+            origin: toXYZ(c(ax.location())),
+            normal: toXYZ(c(ax.direction())),
+            xvec: toXYZ(c(ax.xDirection())),
+        });
     });
 }
 

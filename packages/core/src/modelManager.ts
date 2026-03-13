@@ -35,7 +35,7 @@ export class ModelManager extends Observable {
         if (this._rootNode === value) return;
 
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
-        this._rootNode = value ?? new FolderNode(this.document, this.document.name);
+        this._rootNode = value ?? new FolderNode({ document: this.document, name: this.document.name });
         this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
@@ -59,7 +59,7 @@ export class ModelManager extends Observable {
     };
 
     initRootNode() {
-        return new FolderNode(this.document, this.document.name);
+        return new FolderNode({ document: this.document, name: this.document.name });
     }
 
     addNodeObserver(observer: OnNodeChanged) {

@@ -18,6 +18,14 @@ import {
 } from "@chili3d/core";
 import { WireFilletBuilder } from "./utils/WireFilletBuilder";
 
+export interface PipeOptions {
+    document: IDocument;
+    radius: number;
+    path: IWire | IEdge;
+    bendRadius?: number;
+    thickness?: number;
+}
+
 @serializable(["document", "radius", "path", "bendRadius", "thickness"])
 export class PipeNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -59,12 +67,18 @@ export class PipeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("thickness", value);
     }
 
-    constructor(document: IDocument, radius: number, path: IWire | IEdge) {
-        super(document);
-        if (!path) console.error("PipeNode: path is null");
-        if (radius <= 0) console.error("PipeNode: radius must be > 0", radius);
-        this.setPrivateValue("radius", radius);
-        this.setPrivateValue("path", this.ensureWire(path));
+    constructor(options: PipeOptions) {
+        super(options);
+        if (!options.path) console.error("PipeNode: path is null");
+        if (options.radius <= 0) console.error("PipeNode: radius must be > 0", options.radius);
+        this.setPrivateValue("radius", options.radius);
+        this.setPrivateValue("path", this.ensureWire(options.path));
+        if (options.bendRadius !== undefined) {
+            this.setPrivateValue("bendRadius", options.bendRadius);
+        }
+        if (options.thickness !== undefined) {
+            this.setPrivateValue("thickness", options.thickness);
+        }
     }
 
     private ensureWire(path: IEdge | IWire) {
@@ -115,7 +129,7 @@ export class PipeNode extends ParameterShapeNode {
             xVec = Plane.ZX.normal;
         }
 
-        const plane = new Plane(start, dir, xVec!);
+        const plane = new Plane({ origin: start, normal: dir, xvec: xVec! });
 
         const profileResult = this.document.application.shapeFactory.circle(
             plane.normal,

@@ -201,9 +201,9 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
                 .multiplyScalar(distance)
                 .add(this.cameraController.target);
             this.cameraController.camera.position.copy(position);
-            let up = new XYZ(0, 0, 1);
-            if (this._selectedAxis.axis === "z") up = new XYZ(0, 1, 0);
-            else if (this._selectedAxis.axis === "-z") up = new XYZ(0, -1, 0);
+            let up = new XYZ({ x: 0, y: 0, z: 1 });
+            if (this._selectedAxis.axis === "z") up = new XYZ({ x: 0, y: 1, z: 0 });
+            else if (this._selectedAxis.axis === "-z") up = new XYZ({ x: 0, y: -1, z: 0 });
             this.cameraController.lookAt(
                 this.cameraController.camera.position,
                 this.cameraController.target,

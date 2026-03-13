@@ -28,13 +28,23 @@ export class OccShapeConverter implements IShapeConverter {
         if (node.shape && !node.shape.isNull()) {
             const shape = OccShape.wrap(node.shape);
             const material = getMaterialId(folder.document, node.color as string);
-            folder.add(new EditableShapeNode(folder.document, node.name, shape, material));
+            folder.add(
+                new EditableShapeNode({
+                    document: folder.document,
+                    name: node.name,
+                    shape,
+                    materialId: material,
+                }),
+            );
         }
 
         children.forEach((child) => {
             collector(child);
             const subChildren = child.getChildren();
-            const childFolder = subChildren.length > 1 ? new GroupNode(folder.document, child.name) : folder;
+            const childFolder =
+                subChildren.length > 1
+                    ? new GroupNode({ document: folder.document, name: child.name })
+                    : folder;
 
             if (subChildren.length > 1) {
                 folder.add(childFolder);
@@ -69,7 +79,7 @@ export class OccShapeConverter implements IShapeConverter {
             const materialKey = materialColor;
 
             if (!materialMap.has(materialKey)) {
-                const material = new Material(document, materialKey, materialColor);
+                const material = new Material({ document, name: materialKey, color: materialColor });
                 document.modelManager.materials.push(material);
                 materialMap.set(materialKey, material.id);
             }
@@ -81,7 +91,7 @@ export class OccShapeConverter implements IShapeConverter {
             if (!node) {
                 return Result.err("can not convert");
             }
-            const folder = new GroupNode(document, "undefined");
+            const folder = new GroupNode({ document, name: "undefined" });
             this.addShapeNode(c, folder, node, node.getChildren(), getMaterialId);
             c(node);
             return Result.ok(folder);

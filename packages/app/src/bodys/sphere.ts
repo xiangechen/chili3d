@@ -13,6 +13,12 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface SphereNodeOptions {
+    document: IDocument;
+    center: XYZ;
+    radius: number;
+}
+
 @serializable(["document", "center", "radius"])
 export class SphereNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -37,10 +43,10 @@ export class SphereNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("radius", value);
     }
 
-    constructor(document: IDocument, center: XYZ, radius: number) {
-        super(document);
-        this.setPrivateValue("center", center);
-        this.setPrivateValue("radius", radius);
+    constructor(options: SphereNodeOptions) {
+        super(options);
+        this.setPrivateValue("center", options.center);
+        this.setPrivateValue("radius", options.radius);
     }
 
     generateShape(): Result<IShape> {

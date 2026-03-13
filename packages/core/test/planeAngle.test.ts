@@ -26,7 +26,7 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(1, 0, 0));
+            planeAngle.movePoint(new XYZ({ x: 1, y: 0, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(0);
         });
 
@@ -34,7 +34,7 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(0, 1, 0));
+            planeAngle.movePoint(new XYZ({ x: 0, y: 1, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(90);
         });
 
@@ -42,7 +42,7 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(-1, 0, 0));
+            planeAngle.movePoint(new XYZ({ x: -1, y: 0, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(180);
         });
 
@@ -50,7 +50,7 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(0, -1, 0));
+            planeAngle.movePoint(new XYZ({ x: 0, y: -1, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(270);
         });
 
@@ -58,7 +58,7 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(1, 1, 0));
+            planeAngle.movePoint(new XYZ({ x: 1, y: 1, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(45);
         });
 
@@ -66,8 +66,8 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(1, 0.1, 0));
-            planeAngle.movePoint(new XYZ(1, -0.1, 0));
+            planeAngle.movePoint(new XYZ({ x: 1, y: 0.1, z: 0 }));
+            planeAngle.movePoint(new XYZ({ x: 1, y: -0.1, z: 0 }));
 
             expect(planeAngle.angle).toBeLessThan(0);
         });
@@ -78,10 +78,10 @@ describe("PlaneAngle", () => {
             const plane = Plane.XY;
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(1, 0, 0));
+            planeAngle.movePoint(new XYZ({ x: 1, y: 0, z: 0 }));
             const angle1 = planeAngle.angle;
 
-            planeAngle.movePoint(new XYZ(0, 1, 0));
+            planeAngle.movePoint(new XYZ({ x: 0, y: 1, z: 0 }));
             const angle2 = planeAngle.angle;
 
             expect(angle2).not.toBe(angle1);
@@ -91,13 +91,17 @@ describe("PlaneAngle", () => {
 
     describe("plane with offset origin", () => {
         test("should handle plane with non-zero origin", () => {
-            const plane = new Plane(new XYZ(5, 5, 0), XYZ.unitZ, XYZ.unitX);
+            const plane = new Plane({
+                origin: new XYZ({ x: 5, y: 5, z: 0 }),
+                normal: XYZ.unitZ,
+                xvec: XYZ.unitX,
+            });
             const planeAngle = new PlaneAngle(plane);
 
-            planeAngle.movePoint(new XYZ(6, 5, 0));
+            planeAngle.movePoint(new XYZ({ x: 6, y: 5, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(0);
 
-            planeAngle.movePoint(new XYZ(5, 6, 0));
+            planeAngle.movePoint(new XYZ({ x: 5, y: 6, z: 0 }));
             expect(planeAngle.angle).toBeCloseTo(90);
         });
     });

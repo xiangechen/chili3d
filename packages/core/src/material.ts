@@ -7,8 +7,15 @@ import { XY } from "./math";
 import { property } from "./property";
 import { serializable, serialze } from "./serialize";
 
+export interface TextureOptions {
+    document: IDocument;
+}
+
 @serializable(["document"])
 export class Texture extends HistoryObservable {
+    constructor(options: TextureOptions) {
+        super(options.document);
+    }
     @serialze()
     @property("material.texture.image")
     get image(): string {
@@ -46,7 +53,7 @@ export class Texture extends HistoryObservable {
     @serialze()
     @property("material.texture.offset")
     get offset(): XY {
-        return this.getPrivateValue("offset", new XY(0, 0));
+        return this.getPrivateValue("offset", new XY({ x: 0, y: 0 }));
     }
     set offset(value: XY) {
         this.setProperty("offset", value);
@@ -55,14 +62,26 @@ export class Texture extends HistoryObservable {
     @serialze()
     @property("material.texture.repeat")
     get repeat(): XY {
-        return this.getPrivateValue("repeat", new XY(1, 1));
+        return this.getPrivateValue("repeat", new XY({ x: 1, y: 1 }));
     }
     set repeat(value: XY) {
         this.setProperty("repeat", value);
     }
 
     @serialze()
-    center: XY = new XY(0.5, 0.5);
+    get center(): XY {
+        return this.getPrivateValue("center", new XY({ x: 0.5, y: 0.5 }));
+    }
+    set center(value: XY) {
+        this.setProperty("center", value);
+    }
+}
+
+export interface MaterialOptions {
+    document: IDocument;
+    name: string;
+    color: number | string;
+    id?: string;
 }
 
 @serializable(["document", "name", "color", "id"])
@@ -106,29 +125,39 @@ export class Material extends HistoryObservable {
     @serialze()
     @property("material.map")
     get map(): Texture {
-        return this.getPrivateValue("map", new Texture(this.document));
+        return this.getPrivateValue("map", new Texture({ document: this.document }));
     }
     set map(value: Texture) {
         this.setProperty("map", value);
     }
 
-    constructor(document: IDocument, name: string, color: number | string, id: string = Id.generate()) {
-        super(document);
-        this.id = id;
-        this.setPrivateValue("name", name?.length > 0 ? name : "unnamed");
-        this.setPrivateValue("color", color);
+    constructor(options: MaterialOptions) {
+        super(options.document);
+        this.id = options.id ?? Id.generate();
+        this.setPrivateValue("name", options.name?.length > 0 ? options.name : "unnamed");
+        this.setPrivateValue("color", options.color);
     }
 
     clone(): Material {
-        const material = new Material(this.document, `${this.name} clone`, this.color);
+        const material = new Material({
+            document: this.document,
+            name: `${this.name} clone`,
+            color: this.color,
+        });
         material.setPrivateValue("map", this.map);
 
         return material;
     }
 }
 
+export interface PhongMaterialOptions extends MaterialOptions {}
+
 @serializable(["document", "name", "color", "id"])
 export class PhongMaterial extends Material {
+    constructor(options: PhongMaterialOptions) {
+        super(options);
+    }
+
     @serialze()
     @property("material.specular", { type: "color" })
     get specular(): number | string {
@@ -159,7 +188,7 @@ export class PhongMaterial extends Material {
     @serialze()
     @property("material.specularMap")
     get specularMap(): Texture {
-        return this.getPrivateValue("specularMap", new Texture(this.document));
+        return this.getPrivateValue("specularMap", new Texture({ document: this.document }));
     }
     set specularMap(value: Texture) {
         this.setProperty("specularMap", value);
@@ -168,7 +197,7 @@ export class PhongMaterial extends Material {
     @serialze()
     @property("material.bumpMap")
     get bumpMap(): Texture {
-        return this.getPrivateValue("bumpMap", new Texture(this.document));
+        return this.getPrivateValue("bumpMap", new Texture({ document: this.document }));
     }
     set bumpMap(value: Texture) {
         this.setProperty("bumpMap", value);
@@ -177,7 +206,7 @@ export class PhongMaterial extends Material {
     @serialze()
     @property("material.normalMap")
     get normalMap(): Texture {
-        return this.getPrivateValue("normalMap", new Texture(this.document));
+        return this.getPrivateValue("normalMap", new Texture({ document: this.document }));
     }
     set normalMap(value: Texture) {
         this.setProperty("normalMap", value);
@@ -186,15 +215,21 @@ export class PhongMaterial extends Material {
     @serialze()
     @property("material.emissiveMap")
     get emissiveMap(): Texture {
-        return this.getPrivateValue("emissiveMap", new Texture(this.document));
+        return this.getPrivateValue("emissiveMap", new Texture({ document: this.document }));
     }
     set emissiveMap(value: Texture) {
         this.setProperty("emissiveMap", value);
     }
 }
 
+export interface PhysicalMaterialOptions extends MaterialOptions {}
+
 @serializable(["document", "name", "color", "id"])
 export class PhysicalMaterial extends Material {
+    constructor(options: PhysicalMaterialOptions) {
+        super(options);
+    }
+
     @serialze()
     @property("material.metalness")
     get metalness(): number {
@@ -207,7 +242,7 @@ export class PhysicalMaterial extends Material {
     @serialze()
     @property("material.metalnessMap")
     get metalnessMap(): Texture {
-        return this.getPrivateValue("metalnessMap", new Texture(this.document));
+        return this.getPrivateValue("metalnessMap", new Texture({ document: this.document }));
     }
     set metalnessMap(value: Texture) {
         this.setProperty("metalnessMap", value);
@@ -225,7 +260,7 @@ export class PhysicalMaterial extends Material {
     @serialze()
     @property("material.roughnessMap")
     get roughnessMap(): Texture {
-        return this.getPrivateValue("roughnessMap", new Texture(this.document));
+        return this.getPrivateValue("roughnessMap", new Texture({ document: this.document }));
     }
     set roughnessMap(value: Texture) {
         this.setProperty("roughnessMap", value);
@@ -243,7 +278,7 @@ export class PhysicalMaterial extends Material {
     @serialze()
     @property("material.bumpMap")
     get bumpMap(): Texture {
-        return this.getPrivateValue("bumpMap", new Texture(this.document));
+        return this.getPrivateValue("bumpMap", new Texture({ document: this.document }));
     }
     set bumpMap(value: Texture) {
         this.setProperty("bumpMap", value);
@@ -252,7 +287,7 @@ export class PhysicalMaterial extends Material {
     @serialze()
     @property("material.normalMap")
     get normalMap(): Texture {
-        return this.getPrivateValue("normalMap", new Texture(this.document));
+        return this.getPrivateValue("normalMap", new Texture({ document: this.document }));
     }
     set normalMap(value: Texture) {
         this.setProperty("normalMap", value);
@@ -261,7 +296,7 @@ export class PhysicalMaterial extends Material {
     @serialze()
     @property("material.emissiveMap")
     get emissiveMap(): Texture {
-        return this.getPrivateValue("emissiveMap", new Texture(this.document));
+        return this.getPrivateValue("emissiveMap", new Texture({ document: this.document }));
     }
     set emissiveMap(value: Texture) {
         this.setProperty("emissiveMap", value);

@@ -50,6 +50,10 @@ export class Sphere extends CreateCommand {
 
     protected override geometryNode(): GeometryNode {
         const radius = this.stepDatas[0].point!.distanceTo(this.stepDatas[1].point!);
-        return new SphereNode(this.document, this.stepDatas[0].point!, radius);
+        return new SphereNode({
+            document: this.document,
+            center: this.stepDatas[0].point!,
+            radius,
+        });
     }
 }

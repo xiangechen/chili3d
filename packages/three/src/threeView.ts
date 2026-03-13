@@ -312,7 +312,7 @@ export class ThreeView extends Observable implements IView {
             console.error("Unsupported camera type: " + this.camera);
         }
 
-        return new Ray(ThreeHelper.toXYZ(origin), ThreeHelper.toXYZ(direction));
+        return new Ray({ point: ThreeHelper.toXYZ(origin), direction: ThreeHelper.toXYZ(direction) });
     }
 
     screenToWorld(mx: number, my: number): XYZ {
@@ -324,7 +324,7 @@ export class ThreeView extends Observable implements IView {
         const cx = this.width / 2;
         const cy = this.height / 2;
         const vec = new Vector3(point.x, point.y, point.z).project(this.camera);
-        return new XY(Math.round(cx * vec.x + cx), Math.round(-cy * vec.y + cy));
+        return new XY({ x: Math.round(cx * vec.x + cx), y: Math.round(-cy * vec.y + cy) });
     }
 
     direction(): XYZ {

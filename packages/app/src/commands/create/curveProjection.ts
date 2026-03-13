@@ -44,14 +44,14 @@ export class CurveProjectionCommand extends CreateCommand {
         const shape = this.transformdFirstShape(this.stepDatas[0]) as IEdge | IWire;
         const face = this.transformdFirstShape(this.stepDatas[1]) as IFace;
         const [x, y, z] = this.dir.split(",").map(Number);
-        const dir = new XYZ(x, y, z).normalize() as XYZ;
+        const dir = new XYZ({ x, y, z }).normalize() as XYZ;
 
         const curveProjection = this.application.shapeFactory.curveProjection(shape, face, dir);
-        return new EditableShapeNode(
-            this.document,
-            I18n.translate("command.convert.curveProjection"),
-            curveProjection.value,
-        );
+        return new EditableShapeNode({
+            document: this.document,
+            name: I18n.translate("command.convert.curveProjection"),
+            shape: curveProjection.value,
+        });
     }
 
     protected override getSteps(): IStep[] {

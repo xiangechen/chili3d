@@ -53,7 +53,13 @@ export class Pyramid extends RectCommandBase {
     protected override geometryNode(): GeometryNode {
         const rect = this.rectDataFromTwoSteps();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
-        return new PyramidNode(this.document, rect.plane, rect.dx, rect.dy, dz);
+        return new PyramidNode({
+            document: this.document,
+            plane: rect.plane,
+            dx: rect.dx,
+            dy: rect.dy,
+            dz,
+        });
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

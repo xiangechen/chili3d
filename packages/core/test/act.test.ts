@@ -10,11 +10,11 @@ describe("Act class tests", () => {
     describe("Constructor and basic properties", () => {
         test("should create Act instance with given values", () => {
             const name = "Test Act";
-            const cameraPosition = new XYZ(1, 2, 3);
-            const cameraTarget = new XYZ(4, 5, 6);
-            const cameraUp = new XYZ(0, 1, 0);
+            const cameraPosition = new XYZ({ x: 1, y: 2, z: 3 });
+            const cameraTarget = new XYZ({ x: 4, y: 5, z: 6 });
+            const cameraUp = new XYZ({ x: 0, y: 1, z: 0 });
 
-            const act = new Act(name, cameraPosition, cameraTarget, cameraUp);
+            const act = new Act({ name, cameraPosition, cameraTarget, cameraUp });
 
             expect(act.name).toBe(name);
             expect(act.cameraPosition).toEqual(cameraPosition);
@@ -26,7 +26,12 @@ describe("Act class tests", () => {
             const name = "Test Act";
             const zeroVector = XYZ.zero;
 
-            const act = new Act(name, zeroVector, zeroVector, zeroVector);
+            const act = new Act({
+                name,
+                cameraPosition: zeroVector,
+                cameraTarget: zeroVector,
+                cameraUp: zeroVector,
+            });
 
             expect(act.name).toBe(name);
             expect(act.cameraPosition).toEqual(zeroVector);
@@ -37,7 +42,12 @@ describe("Act class tests", () => {
 
     describe("Property setters and getters", () => {
         test("should set and get name property", () => {
-            const act = new Act("Initial", XYZ.zero, XYZ.zero, XYZ.zero);
+            const act = new Act({
+                name: "Initial",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
 
             expect(act.name).toBe("Initial");
 
@@ -46,8 +56,13 @@ describe("Act class tests", () => {
         });
 
         test("should set and get cameraPosition property", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
-            const newPosition = new XYZ(10, 20, 30);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
+            const newPosition = new XYZ({ x: 10, y: 20, z: 30 });
 
             expect(act.cameraPosition).toEqual(XYZ.zero);
 
@@ -56,8 +71,13 @@ describe("Act class tests", () => {
         });
 
         test("should set and get cameraTarget property", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
-            const newTarget = new XYZ(5, 10, 15);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
+            const newTarget = new XYZ({ x: 5, y: 10, z: 15 });
 
             expect(act.cameraTarget).toEqual(XYZ.zero);
 
@@ -66,8 +86,13 @@ describe("Act class tests", () => {
         });
 
         test("should set and get cameraUp property", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
-            const newUp = new XYZ(0, 1, 0);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
+            const newUp = new XYZ({ x: 0, y: 1, z: 0 });
 
             expect(act.cameraUp).toEqual(XYZ.zero);
 
@@ -79,9 +104,9 @@ describe("Act class tests", () => {
     describe("Static method fromView", () => {
         test("should create Act from view properties", () => {
             const mockCameraController: ICameraController = {
-                cameraPosition: new XYZ(1, 2, 3),
-                cameraTarget: new XYZ(4, 5, 6),
-                cameraUp: new XYZ(0, 1, 0),
+                cameraPosition: new XYZ({ x: 1, y: 2, z: 3 }),
+                cameraTarget: new XYZ({ x: 4, y: 5, z: 6 }),
+                cameraUp: new XYZ({ x: 0, y: 1, z: 0 }),
                 cameraType: "perspective",
                 fitContent: () => {},
                 lookAt: () => {},
@@ -112,7 +137,7 @@ describe("Act class tests", () => {
                 direction: () => XYZ.unitZ,
                 rayAt: () => ({}) as any,
                 screenToWorld: () => XYZ.zero,
-                worldToScreen: () => new XY(0, 0),
+                worldToScreen: () => new XY({ x: 0, y: 0 }),
                 resize: () => {},
                 setDom: () => {},
                 htmlText: () => ({ dispose: () => {} }),
@@ -139,14 +164,24 @@ describe("Act class tests", () => {
 
     describe("Observable functionality", () => {
         test("should inherit from Observable", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
 
             expect(typeof act.onPropertyChanged).toBe("function");
             expect(typeof act.removePropertyChanged).toBe("function");
         });
 
         test("should trigger property change events when properties change", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
             let callCount = 0;
             const mockCallback = () => {
                 callCount++;
@@ -157,13 +192,13 @@ describe("Act class tests", () => {
             act.name = "New Name";
             expect(callCount).toBe(1);
 
-            act.cameraPosition = new XYZ(1, 1, 1);
+            act.cameraPosition = new XYZ({ x: 1, y: 1, z: 1 });
             expect(callCount).toBe(2);
 
-            act.cameraTarget = new XYZ(2, 2, 2);
+            act.cameraTarget = new XYZ({ x: 2, y: 2, z: 2 });
             expect(callCount).toBe(3);
 
-            act.cameraUp = new XYZ(0, 1, 0);
+            act.cameraUp = new XYZ({ x: 0, y: 1, z: 0 });
             expect(callCount).toBe(4);
 
             act.removePropertyChanged(mockCallback);
@@ -172,7 +207,12 @@ describe("Act class tests", () => {
 
     describe("Serialization decorators", () => {
         test("should have correct serializable fields", () => {
-            const act = new Act("Test", XYZ.zero, XYZ.zero, XYZ.zero);
+            const act = new Act({
+                name: "Test",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
 
             // Test that the class has the @serializable decorator
             expect(Act.prototype.constructor.name).toBe("Act");
@@ -187,7 +227,12 @@ describe("Act class tests", () => {
 
     describe("Edge cases and validation", () => {
         test("should handle empty string name", () => {
-            const act = new Act("", XYZ.zero, XYZ.zero, XYZ.zero);
+            const act = new Act({
+                name: "",
+                cameraPosition: XYZ.zero,
+                cameraTarget: XYZ.zero,
+                cameraUp: XYZ.zero,
+            });
             expect(act.name).toBe("");
 
             act.name = "";
@@ -195,11 +240,16 @@ describe("Act class tests", () => {
         });
 
         test("should handle large coordinate values", () => {
-            const largePosition = new XYZ(1000000, -1000000, 500000);
-            const largeTarget = new XYZ(-500000, 750000, -250000);
-            const largeUp = new XYZ(0, 1, 0);
+            const largePosition = new XYZ({ x: 1000000, y: -1000000, z: 500000 });
+            const largeTarget = new XYZ({ x: -500000, y: 750000, z: -250000 });
+            const largeUp = new XYZ({ x: 0, y: 1, z: 0 });
 
-            const act = new Act("Large Coordinates", largePosition, largeTarget, largeUp);
+            const act = new Act({
+                name: "Large Coordinates",
+                cameraPosition: largePosition,
+                cameraTarget: largeTarget,
+                cameraUp: largeUp,
+            });
 
             expect(act.cameraPosition).toEqual(largePosition);
             expect(act.cameraTarget).toEqual(largeTarget);
@@ -207,11 +257,16 @@ describe("Act class tests", () => {
         });
 
         test("should handle floating point precision", () => {
-            const precisePosition = new XYZ(0.123456789, 0.987654321, 0.555555555);
-            const preciseTarget = new XYZ(1.111111111, 2.222222222, 3.333333333);
-            const preciseUp = new XYZ(0, 0.707106781, 0.707106781);
+            const precisePosition = new XYZ({ x: 0.123456789, y: 0.987654321, z: 0.555555555 });
+            const preciseTarget = new XYZ({ x: 1.111111111, y: 2.222222222, z: 3.333333333 });
+            const preciseUp = new XYZ({ x: 0, y: 0.707106781, z: 0.707106781 });
 
-            const act = new Act("Precise", precisePosition, preciseTarget, preciseUp);
+            const act = new Act({
+                name: "Precise",
+                cameraPosition: precisePosition,
+                cameraTarget: preciseTarget,
+                cameraUp: preciseUp,
+            });
 
             expect(act.cameraPosition.x).toBeCloseTo(0.123456789, 9);
             expect(act.cameraPosition.y).toBeCloseTo(0.987654321, 9);
@@ -221,24 +276,29 @@ describe("Act class tests", () => {
         });
 
         test("should handle same position and target", () => {
-            const samePoint = new XYZ(1, 1, 1);
-            const act = new Act("Same Point", samePoint, samePoint, XYZ.unitY);
+            const samePoint = new XYZ({ x: 1, y: 1, z: 1 });
+            const act = new Act({
+                name: "Same Point",
+                cameraPosition: samePoint,
+                cameraTarget: samePoint,
+                cameraUp: XYZ.unitY,
+            });
 
             expect(act.cameraPosition).toEqual(act.cameraTarget);
             expect(act.cameraPosition).toEqual(samePoint);
         });
 
         test("should handle negative values", () => {
-            const act = new Act(
-                "Negative Values",
-                new XYZ(-1, -2, -3),
-                new XYZ(-4, -5, -6),
-                new XYZ(0, -1, 0),
-            );
+            const act = new Act({
+                name: "Negative Values",
+                cameraPosition: new XYZ({ x: -1, y: -2, z: -3 }),
+                cameraTarget: new XYZ({ x: -4, y: -5, z: -6 }),
+                cameraUp: new XYZ({ x: 0, y: -1, z: 0 }),
+            });
 
-            expect(act.cameraPosition).toEqual(new XYZ(-1, -2, -3));
-            expect(act.cameraTarget).toEqual(new XYZ(-4, -5, -6));
-            expect(act.cameraUp).toEqual(new XYZ(0, -1, 0));
+            expect(act.cameraPosition).toEqual(new XYZ({ x: -1, y: -2, z: -3 }));
+            expect(act.cameraTarget).toEqual(new XYZ({ x: -4, y: -5, z: -6 }));
+            expect(act.cameraUp).toEqual(new XYZ({ x: 0, y: -1, z: 0 }));
         });
     });
 });

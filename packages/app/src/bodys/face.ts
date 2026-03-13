@@ -14,6 +14,11 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface FaceOptions {
+    document: IDocument;
+    shapes: IEdge[] | IWire[];
+}
+
 @serializable(["document", "shapes"])
 export class FaceNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -28,9 +33,9 @@ export class FaceNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("shapes", values);
     }
 
-    constructor(document: IDocument, shapes: IEdge[] | IWire[]) {
-        super(document);
-        this.setPrivateValue("shapes", shapes);
+    constructor(options: FaceOptions) {
+        super(options);
+        this.setPrivateValue("shapes", options.shapes);
     }
 
     private isAllClosed(): boolean {

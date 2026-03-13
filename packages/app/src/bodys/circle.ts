@@ -13,6 +13,13 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface CircleOptions {
+    document: IDocument;
+    normal: XYZ;
+    center: XYZ;
+    radius: number;
+}
+
 @serializable(["document", "normal", "center", "radius"])
 export class CircleNode extends FacebaseNode {
     override display(): I18nKeys {
@@ -42,11 +49,11 @@ export class CircleNode extends FacebaseNode {
         return this.getPrivateValue("normal");
     }
 
-    constructor(document: IDocument, normal: XYZ, center: XYZ, radius: number) {
-        super(document);
-        this.setPrivateValue("normal", normal);
-        this.setPrivateValue("center", center);
-        this.setPrivateValue("radius", radius);
+    constructor(options: CircleOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("normal", options.normal);
+        this.setPrivateValue("center", options.center);
+        this.setPrivateValue("radius", options.radius);
     }
 
     generateShape(): Result<IShape, string> {

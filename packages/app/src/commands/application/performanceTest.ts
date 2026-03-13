@@ -58,7 +58,12 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
             this.size * Math.random(),
             this.size * Math.random(),
         ).value;
-        const node = new EditableShapeNode(document, `box ${this.index++}`, box, material.id);
+        const node = new EditableShapeNode({
+            document,
+            name: `box ${this.index++}`,
+            shape: box,
+            materialId: material.id,
+        });
         document.modelManager.addNode(node);
     }
 }

@@ -32,7 +32,7 @@ export class Quaternion {
     rotateVector(vec3: XYZLike): XYZ {
         const q = new Quaternion(0, vec3.x, vec3.y, vec3.z);
         const r = this.multiply(q).multiply(this.conjugate());
-        return new XYZ(r.x, r.y, r.z);
+        return new XYZ({ x: r.x, y: r.y, z: r.z });
     }
 
     toAxes() {

@@ -28,11 +28,11 @@ export class OffsetCommand extends MultistepCommand {
     protected override executeMainTask() {
         const normal = this.getAxis().normal;
         const shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
-        const node = new EditableShapeNode(
-            this.document,
-            I18n.translate("command.create.offset"),
-            shape.value,
-        );
+        const node = new EditableShapeNode({
+            document: this.document,
+            name: I18n.translate("command.create.offset"),
+            shape: shape.value,
+        });
         this.document.modelManager.rootNode.add(node);
         this.document.visual.update();
     }

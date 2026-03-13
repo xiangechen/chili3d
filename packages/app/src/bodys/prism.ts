@@ -13,6 +13,12 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface PrismOptions {
+    document: IDocument;
+    section: IShape;
+    length: number;
+}
+
 @serializable(["document", "section", "length"])
 export class PrismNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -36,10 +42,10 @@ export class PrismNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("length", value);
     }
 
-    constructor(document: IDocument, face: IShape, length: number) {
-        super(document);
-        this.setPrivateValue("section", face);
-        this.setPrivateValue("length", length);
+    constructor(options: PrismOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("section", options.section);
+        this.setPrivateValue("length", options.length);
     }
 
     override generateShape(): Result<IShape> {

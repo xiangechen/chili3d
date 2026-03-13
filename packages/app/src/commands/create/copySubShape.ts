@@ -22,11 +22,11 @@ export class CopySubShapeCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             this.stepDatas[0].shapes.forEach((x) => {
                 const subShape = x.shape.clone();
-                const model = new EditableShapeNode(
-                    this.document,
-                    ShapeTypeUtils.stringValue(subShape.shapeType),
-                    subShape,
-                );
+                const model = new EditableShapeNode({
+                    document: this.document,
+                    name: ShapeTypeUtils.stringValue(subShape.shapeType),
+                    shape: subShape,
+                });
 
                 const node = x.owner.node;
                 model.transform = node.transform;

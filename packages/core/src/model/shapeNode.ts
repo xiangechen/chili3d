@@ -113,6 +113,14 @@ export class MultiShapeMesh implements IShapeMeshData {
     }
 }
 
+export interface MultiShapeNodeOptions {
+    document: IDocument;
+    name: string;
+    shapes: IShape[];
+    materialId?: string;
+    id?: string;
+}
+
 @serializable(["document", "name", "shapes", "materialId", "id"])
 export class MultiShapeNode extends GeometryNode {
     private readonly _shapes: IShape[];
@@ -121,15 +129,14 @@ export class MultiShapeNode extends GeometryNode {
         return this._shapes;
     }
 
-    constructor(
-        document: IDocument,
-        name: string,
-        shapes: IShape[],
-        materialId?: string,
-        id: string = Id.generate(),
-    ) {
-        super(document, name, materialId, id);
-        this._shapes = shapes;
+    constructor(options: MultiShapeNodeOptions) {
+        super({
+            document: options.document,
+            name: options.name,
+            materialId: options.materialId,
+            id: options.id,
+        });
+        this._shapes = options.shapes;
     }
 
     protected override createMesh(): IShapeMeshData {
@@ -145,6 +152,12 @@ export class MultiShapeNode extends GeometryNode {
     override display(): I18nKeys {
         return "body.multiShape";
     }
+}
+
+export interface ParameterShapeNodeOptions {
+    document: IDocument;
+    materialId?: string;
+    id?: string;
 }
 
 export abstract class ParameterShapeNode extends ShapeNode {
@@ -169,12 +182,25 @@ export abstract class ParameterShapeNode extends ShapeNode {
         return false;
     }
 
-    constructor(document: IDocument, materialId?: string, id?: string) {
-        super(document, undefined as any, materialId, id);
+    constructor(options: ParameterShapeNodeOptions) {
+        super({
+            document: options.document,
+            name: undefined as any,
+            materialId: options.materialId,
+            id: options.id,
+        });
         this.setPrivateValue("name", I18n.translate(this.display()));
     }
 
     protected abstract generateShape(): Result<IShape>;
+}
+
+export interface EditableShapeNodeOptions {
+    document: IDocument;
+    name: string;
+    shape: IShape | Result<IShape>;
+    materialId?: string | string[];
+    id?: string;
 }
 
 @serializable(["document", "name", "shape", "materialId", "id"])
@@ -192,14 +218,13 @@ export class EditableShapeNode extends ShapeNode {
         this.setShape(shape);
     }
 
-    constructor(
-        document: IDocument,
-        name: string,
-        shape: IShape | Result<IShape>,
-        materialId?: string | string[],
-        id?: string,
-    ) {
-        super(document, name, materialId, id);
-        this._shape = shape instanceof Result ? shape : Result.ok(shape);
+    constructor(options: EditableShapeNodeOptions) {
+        super({
+            document: options.document,
+            name: options.name,
+            materialId: options.materialId,
+            id: options.id,
+        });
+        this._shape = options.shape instanceof Result ? options.shape : Result.ok(options.shape);
     }
 }

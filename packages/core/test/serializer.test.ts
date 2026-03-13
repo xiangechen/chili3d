@@ -12,6 +12,10 @@ import {
 } from "../src";
 import { TestDocument } from "./testDocument";
 
+interface TestObjectOptions {
+    k1: string;
+}
+
 @serializable(["k1" as any])
 class TestObject {
     protected k2: string = "k2";
@@ -26,8 +30,8 @@ class TestObject {
     @serialze()
     public k6: string = "k6";
 
-    constructor(k1: string) {
-        this.k1 = k1;
+    constructor(options: TestObjectOptions) {
+        this.k1 = options.k1;
     }
 
     serialize(): Serialized {
@@ -36,7 +40,7 @@ class TestObject {
 }
 
 test("test Serializer", () => {
-    const obj = new TestObject("111");
+    const obj = new TestObject({ k1: "111" });
     const s = obj.serialize();
     expect("k1" in s.properties).toBeTruthy();
     expect("k4" in s.properties).toBeTruthy();
@@ -50,10 +54,10 @@ test("test Serializer", () => {
 test("test Node Serializer", () => {
     const doc: IDocument = new TestDocument() as any;
 
-    const n1 = new FolderNode(doc, "n1");
-    const n2 = new FolderNode(doc, "n2");
-    const n3 = new FolderNode(doc, "n3");
-    const n4 = new FolderNode(doc, "n4");
+    const n1 = new FolderNode({ document: doc, name: "n1" });
+    const n2 = new FolderNode({ document: doc, name: "n2" });
+    const n3 = new FolderNode({ document: doc, name: "n3" });
+    const n4 = new FolderNode({ document: doc, name: "n4" });
     n1.add(n2, n3);
     n2.add(n4);
     const s = NodeUtils.serializeNode(n1);

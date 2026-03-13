@@ -73,7 +73,7 @@ export class ShapeFactory implements IShapeFactory {
         if (!(curve instanceof OccCurve)) {
             throw new Error("Invalid curve");
         }
-        return new OccEdge(wasm.Edge.fromCurve(curve.curve));
+        return new OccEdge({ shape: wasm.Edge.fromCurve(curve.curve) });
     }
 
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape> {

@@ -13,6 +13,11 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface PolygonOptions {
+    document: IDocument;
+    points: XYZ[];
+}
+
 @serializable(["document", "points"])
 export class PolygonNode extends FacebaseNode {
     override display(): I18nKeys {
@@ -28,9 +33,9 @@ export class PolygonNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("points", value);
     }
 
-    constructor(document: IDocument, points: XYZ[]) {
-        super(document);
-        this.setPrivateValue("points", points);
+    constructor(options: PolygonOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("points", options.points);
     }
 
     generateShape(): Result<IShape, string> {

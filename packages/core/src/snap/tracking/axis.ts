@@ -10,7 +10,7 @@ export class Axis extends Line {
         direction: XYZ,
         readonly name: string,
     ) {
-        super(location, direction);
+        super({ point: location, direction });
     }
 
     static getAxiesAtPlane(location: XYZ, plane: Plane, containsZ: boolean) {

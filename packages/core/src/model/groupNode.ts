@@ -3,10 +3,16 @@
 
 import { Matrix4 } from "../math";
 import { serializable, serialze } from "../serialize";
-import { FolderNode } from "./folderNode";
+import { FolderNode, type FolderNodeOptions } from "./folderNode";
+
+export interface GroupNodeOptions extends FolderNodeOptions {}
 
 @serializable(["document", "name", "id"])
 export class GroupNode extends FolderNode {
+    constructor(options: GroupNodeOptions) {
+        super(options);
+    }
+
     @serialze()
     get transform(): Matrix4 {
         return this.getPrivateValue("transform", Matrix4.identity());

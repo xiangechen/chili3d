@@ -42,7 +42,12 @@ export class Circle extends CreateFaceableCommand {
     protected override geometryNode(): GeometryNode {
         const [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, p1, p2);
-        const body = new CircleNode(this.document, plane.normal, p1, plane.projectDistance(p1, p2));
+        const body = new CircleNode({
+            document: this.document,
+            normal: plane.normal,
+            center: p1,
+            radius: plane.projectDistance(p1, p2),
+        });
         body.isFace = this.isFace;
         return body;
     }

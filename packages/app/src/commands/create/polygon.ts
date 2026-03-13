@@ -31,10 +31,10 @@ export class Polygon extends CreateFaceableCommand {
     };
 
     protected override geometryNode(): GeometryNode {
-        const node = new PolygonNode(
-            this.document,
-            this.stepDatas.map((step) => step.point!),
-        );
+        const node = new PolygonNode({
+            document: this.document,
+            points: this.stepDatas.map((step) => step.point!),
+        });
         node.isFace = this.isFace;
         return node;
     }

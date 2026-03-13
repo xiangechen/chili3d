@@ -38,11 +38,11 @@ export class ThickSolidCommand extends MultistepCommand {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;
                 }
-                const model = new EditableShapeNode(
-                    this.document,
-                    I18n.translate("command.create.thickSolid"),
-                    subShape,
-                );
+                const model = new EditableShapeNode({
+                    document: this.document,
+                    name: I18n.translate("command.create.thickSolid"),
+                    shape: subShape,
+                });
 
                 const node = x.owner.node;
                 model.transform = node.transform;

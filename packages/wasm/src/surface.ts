@@ -109,7 +109,7 @@ export class OccSurface extends OccGeometry implements ISurface {
 
     project(point: XYZ): XYZ[] {
         return wasm.Surface.projectPoint(this.surface, point)
-            .map((p) => new XYZ(p.x, p.y, p.z))
+            .map((p) => new XYZ({ x: p.x, y: p.y, z: p.z }))
             .toSorted((a, b) => a.distanceTo(point) - b.distanceTo(point));
     }
 

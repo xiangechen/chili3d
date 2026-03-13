@@ -25,16 +25,16 @@ describe("test node", () => {
     const doc: IDocument = new TestDocument() as any;
 
     test("test get all nodes between two nodes", () => {
-        const n1 = new FolderNode(doc, "n1");
-        const n2 = new FolderNode(doc, "n2");
-        const n3 = new FolderNode(doc, "n3");
-        const n4 = new FolderNode(doc, "n4");
-        const n5 = new FolderNode(doc, "n5");
-        const n6 = new FolderNode(doc, "n6");
-        const n7 = new FolderNode(doc, "n7");
-        const n8 = new FolderNode(doc, "n8");
-        const n9 = new FolderNode(doc, "n9");
-        const n10 = new FolderNode(doc, "n10");
+        const n1 = new FolderNode({ document: doc, name: "n1" });
+        const n2 = new FolderNode({ document: doc, name: "n2" });
+        const n3 = new FolderNode({ document: doc, name: "n3" });
+        const n4 = new FolderNode({ document: doc, name: "n4" });
+        const n5 = new FolderNode({ document: doc, name: "n5" });
+        const n6 = new FolderNode({ document: doc, name: "n6" });
+        const n7 = new FolderNode({ document: doc, name: "n7" });
+        const n8 = new FolderNode({ document: doc, name: "n8" });
+        const n9 = new FolderNode({ document: doc, name: "n9" });
+        const n10 = new FolderNode({ document: doc, name: "n10" });
         const n11: INode = newNode("n11", "n11");
         // n1
         // ---n2
@@ -77,9 +77,9 @@ describe("test node utils", () => {
         });
 
         test("NodeUtils findNode functionality", () => {
-            const parentNode = new FolderNode(doc, "parent");
+            const parentNode = new FolderNode({ document: doc, name: "parent" });
             const child1 = newNode("child1");
-            const child2 = new FolderNode(doc, "child2");
+            const child2 = new FolderNode({ document: doc, name: "child2" });
             const child3 = newNode("targetChild");
             const child4 = newNode("targetChild2");
 
@@ -97,9 +97,9 @@ describe("test node utils", () => {
         });
 
         test("NodeUtils findNodes functionality", () => {
-            const parentNode = new FolderNode(doc, "parent");
+            const parentNode = new FolderNode({ document: doc, name: "parent" });
             const child1 = newNode("child1");
-            const child2 = new FolderNode(doc, "child2");
+            const child2 = new FolderNode({ document: doc, name: "child2" });
             const child3 = newNode("specialChild");
             const child4 = newNode("specialChild2");
 

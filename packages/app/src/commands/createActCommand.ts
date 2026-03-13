@@ -15,12 +15,12 @@ export class ActAlignCameraCommand implements ICommand {
         if (!view) return;
 
         view.document.acts.push(
-            new Act(
-                `${I18n.translate("ribbon.group.act")} ${index++}`,
-                view.cameraController.cameraPosition,
-                view.cameraController.cameraTarget,
-                view.cameraController.cameraUp,
-            ),
+            new Act({
+                name: `${I18n.translate("ribbon.group.act")} ${index++}`,
+                cameraPosition: view.cameraController.cameraPosition,
+                cameraTarget: view.cameraController.cameraTarget,
+                cameraUp: view.cameraController.cameraUp,
+            }),
         );
     }
 }

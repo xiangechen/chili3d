@@ -7,6 +7,12 @@ import { MathUtils } from "./mathUtils";
 
 export type XYZLike = { x: number; y: number; z: number };
 
+export interface XYZOptions {
+    x: number;
+    y: number;
+    z: number;
+}
+
 /**
  * Gets the component value of a vector at the specified index
  *
@@ -29,14 +35,14 @@ export function getVectorComponent(point: XYZLike, index: number) {
 
 @serializable(["x", "y", "z"])
 export class XYZ {
-    static readonly zero = Object.freeze(new XYZ(0, 0, 0));
-    static readonly unitX = Object.freeze(new XYZ(1, 0, 0));
-    static readonly unitY = Object.freeze(new XYZ(0, 1, 0));
-    static readonly unitZ = Object.freeze(new XYZ(0, 0, 1));
-    static readonly unitNX = Object.freeze(new XYZ(-1, 0, 0));
-    static readonly unitNY = Object.freeze(new XYZ(0, -1, 0));
-    static readonly unitNZ = Object.freeze(new XYZ(0, 0, -1));
-    static readonly one = Object.freeze(new XYZ(1, 1, 1));
+    static readonly zero = Object.freeze(new XYZ({ x: 0, y: 0, z: 0 }));
+    static readonly unitX = Object.freeze(new XYZ({ x: 1, y: 0, z: 0 }));
+    static readonly unitY = Object.freeze(new XYZ({ x: 0, y: 1, z: 0 }));
+    static readonly unitZ = Object.freeze(new XYZ({ x: 0, y: 0, z: 1 }));
+    static readonly unitNX = Object.freeze(new XYZ({ x: -1, y: 0, z: 0 }));
+    static readonly unitNY = Object.freeze(new XYZ({ x: 0, y: -1, z: 0 }));
+    static readonly unitNZ = Object.freeze(new XYZ({ x: 0, y: 0, z: -1 }));
+    static readonly one = Object.freeze(new XYZ({ x: 1, y: 1, z: 1 }));
 
     @serialze()
     readonly x: number;
@@ -45,12 +51,12 @@ export class XYZ {
     @serialze()
     readonly z: number;
 
-    constructor(x: number, y: number, z: number) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+    constructor(options: XYZOptions) {
+        this.x = options.x;
+        this.y = options.y;
+        this.z = options.z;
 
-        if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+        if (Number.isNaN(this.x) || Number.isNaN(this.y) || Number.isNaN(this.z)) {
             throw new Error("NaN in XYZ");
         }
     }
@@ -69,15 +75,15 @@ export class XYZ {
         const x = arr.at(0) ?? 0;
         const y = arr.at(1) ?? 0;
         const z = arr.at(2) ?? 0;
-        return new XYZ(x, y, z);
+        return new XYZ({ x, y, z });
     }
 
     cross(right: XYZLike): XYZ {
-        return new XYZ(
-            this.y * right.z - this.z * right.y,
-            this.z * right.x - this.x * right.z,
-            this.x * right.y - this.y * right.x,
-        );
+        return new XYZ({
+            x: this.y * right.z - this.z * right.y,
+            y: this.z * right.x - this.x * right.z,
+            z: this.x * right.y - this.y * right.x,
+        });
     }
 
     dot(right: XYZLike): number {
@@ -86,7 +92,7 @@ export class XYZ {
 
     divided(scalar: number): XYZ | undefined {
         if (Math.abs(scalar) < Precision.Float) return undefined;
-        return new XYZ(this.x / scalar, this.y / scalar, this.z / scalar);
+        return new XYZ({ x: this.x / scalar, y: this.y / scalar, z: this.z / scalar });
     }
 
     reverse(): XYZ {
@@ -94,24 +100,24 @@ export class XYZ {
         const y = MathUtils.almostEqual(this.y, 0) ? 0 : -this.y;
         const z = MathUtils.almostEqual(this.z, 0) ? 0 : -this.z;
 
-        return new XYZ(x, y, z);
+        return new XYZ({ x, y, z });
     }
 
     multiply(scalar: number): XYZ {
-        return new XYZ(this.x * scalar, this.y * scalar, this.z * scalar);
+        return new XYZ({ x: this.x * scalar, y: this.y * scalar, z: this.z * scalar });
     }
 
     sub(right: XYZLike): XYZ {
-        return new XYZ(this.x - right.x, this.y - right.y, this.z - right.z);
+        return new XYZ({ x: this.x - right.x, y: this.y - right.y, z: this.z - right.z });
     }
 
     add(right: XYZLike): XYZ {
-        return new XYZ(this.x + right.x, this.y + right.y, this.z + right.z);
+        return new XYZ({ x: this.x + right.x, y: this.y + right.y, z: this.z + right.z });
     }
 
     normalize(): XYZ | undefined {
         const d = this.length();
-        return d < Precision.Float ? undefined : new XYZ(this.x / d, this.y / d, this.z / d);
+        return d < Precision.Float ? undefined : new XYZ({ x: this.x / d, y: this.y / d, z: this.z / d });
     }
 
     distanceTo(right: XYZLike): number {
@@ -122,7 +128,7 @@ export class XYZ {
     }
 
     static center(p1: XYZLike, p2: XYZLike): XYZ {
-        return new XYZ((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
+        return new XYZ({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2, z: (p1.z + p2.z) / 2 });
     }
 
     lengthSq(): number {

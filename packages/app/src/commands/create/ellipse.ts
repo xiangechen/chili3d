@@ -78,7 +78,14 @@ export class Ellipse extends CreateFaceableCommand {
         const plane = this.stepDatas[1].plane!;
         const d1 = plane.projectDistance(p0, p1);
         const d2 = plane.projectDistance(p0, p2);
-        const body = new EllipseNode(this.document, plane.normal, p0, p1.sub(p0), d1, d2 > d1 ? d1 : d2);
+        const body = new EllipseNode({
+            document: this.document,
+            normal: plane.normal,
+            center: p0,
+            xvec: p1.sub(p0),
+            majorRadius: d1,
+            minorRadius: d2 > d1 ? d1 : d2,
+        });
         return body;
     }
 

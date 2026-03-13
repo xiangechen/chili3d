@@ -5,6 +5,11 @@ import { serializable, serialze } from "../serialize";
 import { Plane } from "./plane";
 import { XYZ } from "./xyz";
 
+export interface LineOptions {
+    point: XYZ;
+    direction: XYZ;
+}
+
 @serializable(["point", "direction"])
 export class Line {
     @serialze()
@@ -15,9 +20,9 @@ export class Line {
     @serialze()
     readonly direction: XYZ;
 
-    constructor(location: XYZ, direction: XYZ) {
-        this.point = location;
-        const n = direction.normalize();
+    constructor(options: LineOptions) {
+        this.point = options.point;
+        const n = options.direction.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("direction can not be zero");
         }
@@ -43,7 +48,7 @@ export class Line {
         const n = right.direction.cross(this.direction).normalize();
         if (n === undefined) return this.nearestToPoint(right.point);
         const normal = n.cross(right.direction).normalize()!;
-        const plane = new Plane(right.point, normal, n);
+        const plane = new Plane({ origin: right.point, normal, xvec: n });
         return plane.intersectLine(this)!;
     }
 

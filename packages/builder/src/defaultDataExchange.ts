@@ -67,7 +67,7 @@ export class DefaultDataExchange implements IDataExchange {
         if (!shape.isOk) {
             return Result.err(shape.error);
         }
-        return Result.ok(new EditableShapeNode(document, file.name, shape.value));
+        return Result.ok(new EditableShapeNode({ document, name: file.name, shape: shape.value }));
     }
 
     private async importStl(document: IDocument, file: File) {

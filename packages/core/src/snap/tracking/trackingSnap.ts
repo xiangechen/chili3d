@@ -158,7 +158,7 @@ export class TrackingSnap implements ISnap {
 
     private rayDistanceAtScreen(view: IView, x: number, y: number, axis: Line): number {
         const start = view.worldToScreen(axis.point);
-        const vector = new XY(x - start.x, y - start.y);
+        const vector = new XY({ x: x - start.x, y: y - start.y });
         if (vector.isEqualTo(XY.zero)) return 0;
         const end = view.worldToScreen(axis.point.add(axis.direction.multiply(100000)));
         if (start.distanceTo(end) < Precision.Float) return vector.length();

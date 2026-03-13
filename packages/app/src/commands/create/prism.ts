@@ -26,7 +26,7 @@ export class Prism extends CreateCommand {
         const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const { point, normal } = this.getAxis(shape);
         const dist = this.stepDatas[1].point!.sub(point).dot(normal);
-        return new PrismNode(this.document, shape, dist);
+        return new PrismNode({ document: this.document, section: shape, length: dist });
     }
 
     protected override getSteps(): IStep[] {

@@ -53,7 +53,7 @@ export class Box extends RectCommandBase {
     protected override geometryNode(): GeometryNode {
         const rect = this.rectDataFromTwoSteps();
         const dz = this.getHeight(rect.plane, this.stepDatas[2].point!);
-        return new BoxNode(this.document, rect.plane, rect.dx, rect.dy, dz);
+        return new BoxNode({ document: this.document, plane: rect.plane, dx: rect.dx, dy: rect.dy, dz });
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

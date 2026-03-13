@@ -8,11 +8,17 @@ import type { Matrix4 } from "./matrix4";
 import type { Ray } from "./ray";
 import { XYZ } from "./xyz";
 
+export interface PlaneOptions {
+    origin: XYZ;
+    normal: XYZ;
+    xvec: XYZ;
+}
+
 @serializable(["origin", "normal", "xvec"])
 export class Plane {
-    static readonly XY: Plane = new Plane(XYZ.zero, XYZ.unitZ, XYZ.unitX);
-    static readonly YZ: Plane = new Plane(XYZ.zero, XYZ.unitX, XYZ.unitY);
-    static readonly ZX: Plane = new Plane(XYZ.zero, XYZ.unitY, XYZ.unitZ);
+    static readonly XY: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitZ, xvec: XYZ.unitX });
+    static readonly YZ: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY });
+    static readonly ZX: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ });
 
     @serialze()
     readonly origin: XYZ;
@@ -24,10 +30,10 @@ export class Plane {
     @serialze()
     readonly xvec: XYZ;
     readonly yvec: XYZ;
-    constructor(origin: XYZ, normal: XYZ, xvec: XYZ) {
-        this.origin = origin;
-        const n = normal.normalize(),
-            x = xvec.normalize();
+    constructor(options: PlaneOptions) {
+        this.origin = options.origin;
+        const n = options.normal.normalize(),
+            x = options.xvec.normalize();
         if (n === undefined || n.isEqualTo(XYZ.zero)) {
             throw new Error("normal can not be zero");
         }
@@ -43,7 +49,7 @@ export class Plane {
     }
 
     translateTo(origin: XYZ) {
-        return new Plane(origin, this.normal, this.xvec);
+        return new Plane({ origin, normal: this.normal, xvec: this.xvec });
     }
 
     project(point: XYZ): XYZ {
@@ -56,7 +62,7 @@ export class Plane {
         const location = matrix.ofPoint(this.origin);
         const x = matrix.ofVector(this.xvec);
         const normal = matrix.ofVector(this.normal);
-        return new Plane(location, normal, x);
+        return new Plane({ origin: location, normal, xvec: x });
     }
 
     intersectLine(line: Line): XYZ | undefined {

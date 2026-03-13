@@ -91,7 +91,7 @@ abstract class ConvertCommand extends CancelableCommand {
 export class ConvertToWire extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const edges = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IEdge[];
-        const wireBody = new WireNode(document, edges);
+        const wireBody = new WireNode({ document, edges });
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
 
@@ -106,7 +106,7 @@ export class ConvertToWire extends ConvertCommand {
 export class ConvertToFace extends ConvertCommand {
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const edges = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IEdge[];
-        const wireBody = new FaceNode(document, edges);
+        const wireBody = new FaceNode({ document, shapes: edges });
         const shape = wireBody.generateShape();
         if (!shape.isOk) return Result.err(shape.error);
 
@@ -131,7 +131,7 @@ export class ConvertToShell extends ConvertCommand {
         faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 
-        const shell = new EditableShapeNode(document, "shell", shape);
+        const shell = new EditableShapeNode({ document, name: "shell", shape });
         return Result.ok(shell);
     }
 }
@@ -153,7 +153,7 @@ export class ConvertToSolid extends ConvertCommand {
         faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 
-        const solid = new EditableShapeNode(document, "solid", shape);
+        const solid = new EditableShapeNode({ document, name: "solid", shape });
         return Result.ok(solid);
     }
 }

@@ -153,7 +153,7 @@ export class TestNode extends ParameterShapeNode {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {
-        super(document);
+        super({ document });
     }
 
     protected override setProperty<K extends keyof this>(

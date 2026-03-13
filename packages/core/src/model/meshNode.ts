@@ -10,6 +10,14 @@ import { serializable, serialze } from "../serialize";
 import type { Mesh } from "../shape";
 import { VisualNode } from "./visualNode";
 
+export interface MeshNodeOptions {
+    document: IDocument;
+    mesh: Mesh;
+    name: string;
+    materialId?: string | string[];
+    id?: string;
+}
+
 @serializable(["document", "mesh", "name", "id"])
 export class MeshNode extends VisualNode {
     override display(): I18nKeys {
@@ -34,16 +42,13 @@ export class MeshNode extends VisualNode {
         this.setProperty("mesh", value);
     }
 
-    constructor(
-        document: IDocument,
-        mesh: Mesh,
-        name: string,
-        materialId?: string | string[],
-        id: string = Id.generate(),
-    ) {
-        super(document, name, id);
-        this._mesh = mesh;
-        this.setPrivateValue("materialId", materialId ?? document.modelManager.materials.at(0)?.id ?? "");
+    constructor(options: MeshNodeOptions) {
+        super(options.document, options.name, options.id ?? Id.generate());
+        this._mesh = options.mesh;
+        this.setPrivateValue(
+            "materialId",
+            options.materialId ?? options.document.modelManager.materials.at(0)?.id ?? "",
+        );
     }
 
     override boundingBox(): BoundingBox | undefined {

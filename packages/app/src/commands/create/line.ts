@@ -31,7 +31,11 @@ export class Line extends CreateCommand {
     }
 
     protected override geometryNode(): GeometryNode {
-        return new LineNode(this.document, this.stepDatas[0].point!, this.stepDatas[1].point!);
+        return new LineNode({
+            document: this.document,
+            start: this.stepDatas[0].point!,
+            end: this.stepDatas[1].point!,
+        });
     }
 
     getSteps(): IStep[] {

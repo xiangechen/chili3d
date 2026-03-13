@@ -14,6 +14,13 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface SweepOptions {
+    document: IDocument;
+    profile: (IWire | IEdge)[];
+    path: IWire | IEdge;
+    round: boolean;
+}
+
 @serializable(["document", "profile", "path", "round"])
 export class SweepedNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -44,14 +51,14 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("round", value);
     }
 
-    constructor(document: IDocument, profile: (IWire | IEdge)[], path: IWire | IEdge, round: boolean) {
-        super(document);
+    constructor(options: SweepOptions) {
+        super({ document: options.document });
         this.setPrivateValue(
             "profile",
-            profile.map((p) => this.ensureWire(p)),
+            options.profile.map((p) => this.ensureWire(p)),
         );
-        this.setPrivateValue("path", this.ensureWire(path));
-        this.setPrivateValue("round", round);
+        this.setPrivateValue("path", this.ensureWire(options.path));
+        this.setPrivateValue("round", options.round);
     }
 
     private ensureWire(path: IEdge | IWire) {

@@ -13,6 +13,14 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface PyramidNodeOptions {
+    document: IDocument;
+    plane: Plane;
+    dx: number;
+    dy: number;
+    dz: number;
+}
+
 @serializable(["document", "plane", "dx", "dy", "dz"])
 export class PyramidNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -51,12 +59,12 @@ export class PyramidNode extends ParameterShapeNode {
         return this.getPrivateValue("plane");
     }
 
-    constructor(document: IDocument, plane: Plane, dx: number, dy: number, dz: number) {
-        super(document);
-        this.setPrivateValue("plane", plane);
-        this.setPrivateValue("dx", dx);
-        this.setPrivateValue("dy", dy);
-        this.setPrivateValue("dz", dz);
+    constructor(options: PyramidNodeOptions) {
+        super(options);
+        this.setPrivateValue("plane", options.plane);
+        this.setPrivateValue("dx", options.dx);
+        this.setPrivateValue("dy", options.dy);
+        this.setPrivateValue("dz", options.dz);
     }
 
     generateShape(): Result<IShape> {

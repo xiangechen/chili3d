@@ -28,7 +28,7 @@ export abstract class BooleanOperate extends MultistepCommand {
                 PubSub.default.pub("showToast", "error.default:{0}", "boolean failed");
                 return;
             }
-            const node = new BooleanNode(this.document, booleanShape.value);
+            const node = new BooleanNode({ document: this.document, booleanShape: booleanShape.value });
             this.document.modelManager.rootNode.add(node);
             this.stepDatas.forEach((x) => {
                 x.nodes?.forEach((n) => n.parent?.remove(n));

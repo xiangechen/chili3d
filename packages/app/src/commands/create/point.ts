@@ -11,7 +11,7 @@ import { CreateCommand } from "../createCommand";
 })
 export class Point extends CreateCommand {
     protected override geometryNode(): GeometryNode {
-        return new PointNode(this.document, this.stepDatas[0].point!);
+        return new PointNode({ document: this.document, position: this.stepDatas[0].point! });
     }
 
     getSteps(): IStep[] {

@@ -13,6 +13,14 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface CylinderNodeOptions {
+    document: IDocument;
+    normal: XYZ;
+    center: XYZ;
+    radius: number;
+    dz: number;
+}
+
 @serializable(["document", "normal", "center", "radius", "dz"])
 export class CylinderNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -51,12 +59,12 @@ export class CylinderNode extends ParameterShapeNode {
         return this.getPrivateValue("normal");
     }
 
-    constructor(document: IDocument, normal: XYZ, center: XYZ, radius: number, dz: number) {
-        super(document);
-        this.setPrivateValue("normal", normal);
-        this.setPrivateValue("center", center);
-        this.setPrivateValue("radius", radius);
-        this.setPrivateValue("dz", dz);
+    constructor(options: CylinderNodeOptions) {
+        super(options);
+        this.setPrivateValue("normal", options.normal);
+        this.setPrivateValue("center", options.center);
+        this.setPrivateValue("radius", options.radius);
+        this.setPrivateValue("dz", options.dz);
     }
 
     generateShape(): Result<IShape> {

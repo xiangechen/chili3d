@@ -36,8 +36,11 @@ export class Revolve extends CreateCommand {
         const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const edge = (this.stepDatas[1].shapes[0].shape as IEdge).curve.basisCurve as ILine;
         const transform = this.stepDatas[1].shapes[0].transform;
-        const axis = new Line(transform.ofPoint(edge.value(0)), transform.ofVector(edge.direction));
-        return new RevolvedNode(this.document, shape, axis, this.angle);
+        const axis = new Line({
+            point: transform.ofPoint(edge.value(0)),
+            direction: transform.ofVector(edge.direction),
+        });
+        return new RevolvedNode({ document: this.document, profile: shape, axis, angle: this.angle });
     }
 
     protected override getSteps(): IStep[] {

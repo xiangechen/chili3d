@@ -92,13 +92,13 @@ export class Cone extends CreateCommand {
         const plane = this.stepDatas[1].plane!;
         const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
         const height = this.getHeight(plane, this.stepDatas[2].point!);
-        return new ConeNode(
-            this.document,
-            height < 0 ? plane.normal.reverse() : plane.normal,
-            this.stepDatas[0].point!,
+        return new ConeNode({
+            document: this.document,
+            normal: height < 0 ? plane.normal.reverse() : plane.normal,
+            center: this.stepDatas[0].point!,
             radius,
-            Math.abs(height),
-        );
+            dz: Math.abs(height),
+        });
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

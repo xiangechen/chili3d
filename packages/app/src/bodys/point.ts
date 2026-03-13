@@ -13,6 +13,11 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface PointOptions {
+    document: IDocument;
+    position: XYZ;
+}
+
 @serializable(["document", "position"])
 export class PointNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -28,9 +33,9 @@ export class PointNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("position", pnt);
     }
 
-    constructor(document: IDocument, position: XYZ) {
-        super(document);
-        this.setPrivateValue("position", position);
+    constructor(options: PointOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("position", options.position);
     }
 
     generateShape(): Result<IShape, string> {

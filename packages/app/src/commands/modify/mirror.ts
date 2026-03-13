@@ -24,7 +24,7 @@ export class Mirror extends TransformedCommand {
         const xvec = this.stepDatas[0].view.workplane.normal;
         const yvec = point.sub(center);
         const normal = yvec.cross(xvec);
-        const plane = new Plane(center, normal, xvec);
+        const plane = new Plane({ origin: center, normal, xvec });
         return Matrix4.createMirrorWithPlane(plane);
     }
 

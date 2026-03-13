@@ -42,13 +42,17 @@ export class Split extends MultistepCommand {
                 let i = 1;
                 old.parent?.add(
                     ...subShapes.map((x) => {
-                        const model = new EditableShapeNode(this.document, old.name + i++, x);
+                        const model = new EditableShapeNode({
+                            document: this.document,
+                            name: old.name + i++,
+                            shape: x,
+                        });
                         model.transform = old.transform;
                         return model;
                     }),
                 );
             } else {
-                const model = new EditableShapeNode(this.document, old.name, shape);
+                const model = new EditableShapeNode({ document: this.document, name: old.name, shape });
                 model.transform = old.transform;
                 old.parent?.add(model);
             }

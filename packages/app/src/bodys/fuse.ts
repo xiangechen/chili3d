@@ -11,6 +11,12 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface FuseOptions {
+    document: IDocument;
+    bottom: IShape;
+    top: IShape;
+}
+
 @serializable(["document", "bottom", "top"])
 export class FuseNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -33,10 +39,10 @@ export class FuseNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("top", value);
     }
 
-    constructor(document: IDocument, bottom: IShape, top: IShape) {
-        super(document);
-        this.setPrivateValue("bottom", bottom);
-        this.setPrivateValue("top", top);
+    constructor(options: FuseOptions) {
+        super(options);
+        this.setPrivateValue("bottom", options.bottom);
+        this.setPrivateValue("top", options.top);
     }
 
     override generateShape(): Result<IShape> {

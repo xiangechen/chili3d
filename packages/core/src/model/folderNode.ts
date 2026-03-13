@@ -6,6 +6,12 @@ import { Id, Logger, type NodeRecord } from "../foundation";
 import { serializable } from "../serialize";
 import { type INode, type INodeLinkedList, Node } from "./node";
 
+export interface FolderNodeOptions {
+    document: IDocument;
+    name: string;
+    id?: string;
+}
+
 @serializable(["document", "name", "id"])
 export class FolderNode extends Node implements INodeLinkedList {
     private _count: number = 0;
@@ -25,8 +31,8 @@ export class FolderNode extends Node implements INodeLinkedList {
         return this._count;
     }
 
-    constructor(document: IDocument, name: string, id: string = Id.generate()) {
-        super(document, name, id);
+    constructor(options: FolderNodeOptions) {
+        super(options.document, options.name, options.id ?? Id.generate());
     }
 
     add(...items: INode[]): void {

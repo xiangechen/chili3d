@@ -52,7 +52,7 @@ export class Pipe extends MultistepCommand {
         if (!pathResult.isOk) return;
         const path = pathResult.value;
 
-        const node = new PipeNode(this.document, this.radius, path);
+        const node = new PipeNode({ document: this.document, radius: this.radius, path });
         // Add to document
         this.document.modelManager.addNode(node);
         this.document.selection.setSelection([node], false);

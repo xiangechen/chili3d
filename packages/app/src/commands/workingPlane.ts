@@ -84,7 +84,7 @@ export class AlignToPlane implements ICommand {
         if (!normal.isParallelTo(XYZ.unitZ)) {
             xvec = XYZ.unitZ.cross(normal).normalize()!;
         }
-        view.workplane = new Plane(point, normal, xvec);
+        view.workplane = new Plane({ origin: point, normal, xvec });
     }
 }
 
@@ -101,7 +101,7 @@ export class FromSection extends MultistepCommand {
         if (parameter === undefined) return;
         const direction = curve.d1(parameter).vec.normalize()!;
         const xvec: XYZ = this.findXVec(direction);
-        const plane = new Plane(point, direction, xvec);
+        const plane = new Plane({ origin: point, normal: direction, xvec });
         const view = this.application.activeView;
         if (!view) return;
         view.workplane = plane;
@@ -111,7 +111,7 @@ export class FromSection extends MultistepCommand {
         let xvec: XYZ;
         if (direction.isEqualTo(XYZ.unitZ)) {
             xvec = XYZ.unitX;
-        } else if (direction.isEqualTo(new XYZ(0, 0, -1))) {
+        } else if (direction.isEqualTo(new XYZ({ x: 0, y: 0, z: -1 }))) {
             xvec = XYZ.unitY;
         } else {
             xvec = direction.cross(XYZ.unitZ).normalize()!;

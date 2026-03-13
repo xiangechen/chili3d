@@ -60,7 +60,7 @@ describe("test meshData", () => {
 
     describe("MeshGroup", () => {
         test("constructor should set properties", () => {
-            const group = new MeshGroup(10, 20, 5);
+            const group = new MeshGroup({ start: 10, count: 20, materialIndex: 5 });
             expect(group.start).toBe(10);
             expect(group.count).toBe(20);
             expect(group.materialIndex).toBe(5);
@@ -143,7 +143,7 @@ describe("test meshData", () => {
 
         describe("createVertexMesh", () => {
             test("should create vertex mesh with correct properties", () => {
-                const point = new XYZ(1, 2, 3);
+                const point = new XYZ({ x: 1, y: 2, z: 3 });
                 const size = 10;
                 const color = 0x00ff00;
                 const result = MeshDataUtils.createVertexMesh(point, size, color);
@@ -156,8 +156,8 @@ describe("test meshData", () => {
 
         describe("createEdgeMesh", () => {
             test("should create edge mesh with correct properties", () => {
-                const start = new XYZ(0, 0, 0);
-                const end = new XYZ(1, 2, 3);
+                const start = new XYZ({ x: 0, y: 0, z: 0 });
+                const end = new XYZ({ x: 1, y: 2, z: 3 });
                 const color = 0xff0000;
                 const lineType: LineType = "dash";
                 const result = MeshDataUtils.createEdgeMesh(start, end, color, lineType);

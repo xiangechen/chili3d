@@ -49,7 +49,7 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
         const result = { point: refPoint, view, shapes: [] };
 
         if (isAbsolute) {
-            result.point = new XYZ(dims[0], dims[1], dims[2]);
+            result.point = new XYZ({ x: dims[0], y: dims[1], z: dims[2] });
         } else if (dims.length === 1 && this._snaped?.point) {
             result.point = this.calculatePointFromDistance(refPoint, dims[0]);
         } else if (dims.length > 1) {

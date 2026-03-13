@@ -44,9 +44,12 @@ import {
 import type {
     EdgeMeshData as OccEdgeMeshData,
     FaceMeshData as OccFaceMeshData,
+    TopoDS_Compound,
+    TopoDS_CompSolid,
     TopoDS_Edge,
     TopoDS_Face,
     TopoDS_Shape,
+    TopoDS_Shell,
     TopoDS_Solid,
     TopoDS_Vertex,
     TopoDS_Wire,
@@ -65,6 +68,11 @@ import {
 } from "./helper";
 import { OccSurface } from "./surface";
 
+export interface OccShapeOptions {
+    shape: TopoDS_Shape;
+    id?: string;
+}
+
 function occShapeSerialize(target: OccShape): SerializedProperties<OccShape> {
     return {
         shape: wasm.Converter.convertToBrep(target.shape),
@@ -72,8 +80,8 @@ function occShapeSerialize(target: OccShape): SerializedProperties<OccShape> {
     };
 }
 
-function occShapeDeserialize(shape: string, id: string) {
-    return OccShape.wrap(wasm.Converter.convertFromBrep(shape), id) as OccShape;
+function occShapeDeserialize(options: { shape: string; id?: string }) {
+    return OccShape.wrap(wasm.Converter.convertFromBrep(options.shape), options.id) as OccShape;
 }
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
@@ -106,10 +114,10 @@ export class OccShape implements IShape {
         });
     }
 
-    constructor(shape: TopoDS_Shape, id?: string) {
-        this.id = id ?? Id.generate();
-        this._shape = shape;
-        this.shapeType = getShapeType(shape);
+    constructor(options: OccShapeOptions) {
+        this.id = options.id ?? Id.generate();
+        this._shape = options.shape;
+        this.shapeType = getShapeType(options.shape);
     }
 
     static wrap(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
@@ -119,23 +127,23 @@ export class OccShape implements IShape {
 
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                return new OccCompound(wasm.TopoDS.compound(shape), id);
+                return new OccCompound({ shape: wasm.TopoDS.compound(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                return new OccCompSolid(wasm.TopoDS.compsolid(shape), id);
+                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
-                return new OccSolid(wasm.TopoDS.solid(shape), id);
+                return new OccSolid({ shape: wasm.TopoDS.solid(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
-                return new OccShell(wasm.TopoDS.shell(shape), id);
+                return new OccShell({ shape: wasm.TopoDS.shell(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
-                return new OccFace(wasm.TopoDS.face(shape), id);
+                return new OccFace({ shape: wasm.TopoDS.face(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
-                return new OccWire(wasm.TopoDS.wire(shape), id);
+                return new OccWire({ shape: wasm.TopoDS.wire(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
-                return new OccEdge(wasm.TopoDS.edge(shape), id);
+                return new OccEdge({ shape: wasm.TopoDS.edge(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                return new OccVertex(wasm.TopoDS.vertex(shape), id);
+                return new OccVertex({ shape: wasm.TopoDS.vertex(shape), id });
             default:
-                return new OccShape(shape, id);
+                return new OccShape({ shape, id });
         }
     }
 
@@ -290,18 +298,28 @@ export class OccShape implements IShape {
     }
 }
 
+export interface OccVertexOptions {
+    shape: TopoDS_Vertex;
+    id?: string;
+}
+
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccVertex extends OccShape implements IVertex {
     readonly vertex: TopoDS_Vertex;
 
-    constructor(shape: TopoDS_Vertex, id?: string) {
-        super(shape, id);
-        this.vertex = shape;
+    constructor(options: OccVertexOptions) {
+        super(options);
+        this.vertex = options.shape;
     }
 
     point(): XYZ {
         return toXYZ(wasm.Vertex.point(this.vertex));
     }
+}
+
+export interface OccEdgeOptions {
+    shape: TopoDS_Edge;
+    id?: string;
 }
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
@@ -311,9 +329,9 @@ export class OccEdge extends OccShape implements IEdge {
         return this._edge;
     }
 
-    constructor(shape: TopoDS_Edge, id?: string) {
-        super(shape, id);
-        this._edge = shape;
+    constructor(options: OccEdgeOptions) {
+        super(options);
+        this._edge = options.shape;
     }
 
     update(curve: ICurve): void {
@@ -381,7 +399,7 @@ export class OccEdge extends OccShape implements IEdge {
 
     trim(start: number, end: number): IEdge {
         const newEdge = wasm.Edge.trim(this.edge, start, end);
-        return new OccEdge(newEdge);
+        return new OccEdge({ shape: newEdge });
     }
 
     protected override disposeInternal(): void {
@@ -393,13 +411,18 @@ export class OccEdge extends OccShape implements IEdge {
     }
 }
 
+export interface OccWireOptions {
+    shape: TopoDS_Wire;
+    id?: string;
+}
+
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccWire extends OccShape implements IWire {
-    constructor(
-        readonly wire: TopoDS_Wire,
-        id?: string,
-    ) {
-        super(wire, id);
+    readonly wire: TopoDS_Wire;
+
+    constructor(options: OccWireOptions) {
+        super(options);
+        this.wire = options.shape;
     }
 
     edgeLoop(): IEdge[] {
@@ -411,7 +434,7 @@ export class OccWire extends OccShape implements IWire {
         if (face.isNull()) {
             return Result.err("To face failed");
         }
-        return Result.ok(new OccFace(face));
+        return Result.ok(new OccFace({ shape: face }));
     }
 
     offset(distance: number, joinType: JoinType): Result<IShape> {
@@ -426,13 +449,18 @@ export class OccWire extends OccShape implements IWire {
     }
 }
 
+export interface OccFaceOptions {
+    shape: TopoDS_Face;
+    id?: string;
+}
+
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccFace extends OccShape implements IFace {
-    constructor(
-        readonly face: TopoDS_Face,
-        id?: string,
-    ) {
-        super(face, id);
+    readonly face: TopoDS_Face;
+
+    constructor(options: OccFaceOptions) {
+        super(options);
+        this.face = options.shape;
     }
 
     area(): number {
@@ -448,7 +476,7 @@ export class OccFace extends OccShape implements IFace {
         });
     }
     outerWire(): IWire {
-        return new OccWire(wasm.Face.outerWire(this.face));
+        return new OccWire({ shape: wasm.Face.outerWire(this.face) });
     }
     surface(): ISurface {
         return gc((c) => {
@@ -468,16 +496,30 @@ export class OccFace extends OccShape implements IFace {
     }
 }
 
+export interface OccShellOptions {
+    shape: TopoDS_Shell;
+    id?: string;
+}
+
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
-export class OccShell extends OccShape implements IShell {}
+export class OccShell extends OccShape implements IShell {
+    constructor(options: OccShellOptions) {
+        super(options);
+    }
+}
+
+export interface OccSolidOptions {
+    shape: TopoDS_Solid;
+    id?: string;
+}
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
 export class OccSolid extends OccShape implements ISolid {
-    constructor(
-        readonly solid: TopoDS_Solid,
-        id?: string,
-    ) {
-        super(solid, id);
+    readonly solid: TopoDS_Solid;
+
+    constructor(options: OccSolidOptions) {
+        super(options);
+        this.solid = options.shape;
     }
 
     volume(): number {
@@ -485,25 +527,57 @@ export class OccSolid extends OccShape implements ISolid {
     }
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
-export class OccCompSolid extends OccShape implements ICompoundSolid {}
+export interface OccCompSolidOptions {
+    shape: TopoDS_CompSolid;
+    id?: string;
+}
 
 @serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
-export class OccCompound extends OccShape implements ICompound {}
+export class OccCompSolid extends OccShape implements ICompoundSolid {
+    constructor(options: OccCompSolidOptions) {
+        super(options);
+    }
+}
+
+export interface OccCompoundOptions {
+    shape: TopoDS_Compound;
+    id?: string;
+}
+
+@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+export class OccCompound extends OccShape implements ICompound {
+    constructor(options: OccCompoundOptions) {
+        super(options);
+    }
+}
+
+export interface OccSubVertexShapeOptions {
+    parent: IShape;
+    shape: TopoDS_Vertex;
+    index: number;
+    id?: string;
+}
 
 export class OccSubVertexShape extends OccVertex implements ISubVertexShape {
     override get mesh(): IShapeMeshData {
         throw new Error("Method not implemented.");
     }
 
-    constructor(
-        readonly parent: IShape,
-        vertex: TopoDS_Vertex,
-        readonly index: number,
-        id?: string,
-    ) {
-        super(vertex, id);
+    readonly parent: IShape;
+    readonly index: number;
+
+    constructor(options: OccSubVertexShapeOptions) {
+        super(options);
+        this.parent = options.parent;
+        this.index = options.index;
     }
+}
+
+export interface OccSubEdgeShapeOptions {
+    parent: IShape;
+    shape: TopoDS_Edge;
+    index: number;
+    id?: string;
 }
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
@@ -511,14 +585,21 @@ export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
         throw new Error("Method not implemented.");
     }
 
-    constructor(
-        readonly parent: IShape,
-        edge: TopoDS_Edge,
-        readonly index: number,
-        id?: string,
-    ) {
-        super(edge, id);
+    readonly parent: IShape;
+    readonly index: number;
+
+    constructor(options: OccSubEdgeShapeOptions) {
+        super(options);
+        this.parent = options.parent;
+        this.index = options.index;
     }
+}
+
+export interface OccSubFaceShapeOptions {
+    parent: IShape;
+    shape: TopoDS_Face;
+    index: number;
+    id?: string;
 }
 
 export class OccSubFaceShape extends OccFace implements ISubFaceShape {
@@ -526,13 +607,13 @@ export class OccSubFaceShape extends OccFace implements ISubFaceShape {
         throw new Error("Method not implemented.");
     }
 
-    constructor(
-        readonly parent: IShape,
-        face: TopoDS_Face,
-        readonly index: number,
-        id?: string,
-    ) {
-        super(face, id);
+    readonly parent: IShape;
+    readonly index: number;
+
+    constructor(options: OccSubFaceShapeOptions) {
+        super(options);
+        this.parent = options.parent;
+        this.index = options.index;
     }
 }
 
@@ -569,7 +650,15 @@ export class Mesher implements IShapeMeshData, IDisposable {
                 position: new Float32Array(point.toArray()),
                 color: VisualConfig.defaultEdgeColor,
                 range: [
-                    { start: 0, count: 1, shape: new OccSubVertexShape(this.shape, this.shape.shape, 0) },
+                    {
+                        start: 0,
+                        count: 1,
+                        shape: new OccSubVertexShape({
+                            parent: this.shape,
+                            shape: this.shape.shape,
+                            index: 0,
+                        }),
+                    },
                 ],
                 size: 3,
             };
@@ -635,7 +724,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: new OccSubEdgeShape(this.shape, data.edges[i], i),
+                shape: new OccSubEdgeShape({ parent: this.shape, shape: data.edges[i], index: i }),
             });
         }
         return result;
@@ -647,7 +736,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: new OccSubFaceShape(this.shape, data.faces[i], i),
+                shape: new OccSubFaceShape({ parent: this.shape, shape: data.faces[i], index: i }),
             });
         }
         return result;

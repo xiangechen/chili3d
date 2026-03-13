@@ -11,6 +11,11 @@ import {
     serialze,
 } from "@chili3d/core";
 
+export interface BooleanOptions {
+    document: IDocument;
+    booleanShape: IShape;
+}
+
 @serializable(["document", "booleanShape"])
 export class BooleanNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -22,9 +27,9 @@ export class BooleanNode extends ParameterShapeNode {
         return this.getPrivateValue("booleanShape");
     }
 
-    constructor(document: IDocument, shape: IShape) {
-        super(document);
-        this.setPrivateValue("booleanShape", shape);
+    constructor(options: BooleanOptions) {
+        super(options);
+        this.setPrivateValue("booleanShape", options.booleanShape);
     }
 
     override generateShape(): Result<IShape> {

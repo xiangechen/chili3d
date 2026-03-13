@@ -16,7 +16,7 @@ describe("Material classes", () => {
         let texture: Texture;
 
         beforeEach(() => {
-            texture = new Texture(document);
+            texture = new Texture({ document });
         });
 
         describe("image property", () => {
@@ -59,7 +59,7 @@ describe("Material classes", () => {
 
         describe("offset property", () => {
             test("should set and get offset value", () => {
-                const offset = new XY(0.5, 0.25);
+                const offset = new XY({ x: 0.5, y: 0.25 });
                 texture.offset = offset;
                 expect(texture.offset).toEqual(offset);
             });
@@ -67,7 +67,7 @@ describe("Material classes", () => {
 
         describe("repeat property", () => {
             test("should set and get repeat value", () => {
-                const repeat = new XY(2, 3);
+                const repeat = new XY({ x: 2, y: 3 });
                 texture.repeat = repeat;
                 expect(texture.repeat).toEqual(repeat);
             });
@@ -78,7 +78,7 @@ describe("Material classes", () => {
         let material: Material;
 
         beforeEach(() => {
-            material = new Material(document, "TestMaterial", 0xff0000, "test-id");
+            material = new Material({ document, name: "TestMaterial", color: 0xff0000, id: "test-id" });
         });
 
         describe("constructor", () => {
@@ -89,18 +89,18 @@ describe("Material classes", () => {
             });
 
             test("should generate default id when not provided", () => {
-                const mat = new Material(document, "TestMaterial", 0xff0000);
+                const mat = new Material({ document, name: "TestMaterial", color: 0xff0000 });
                 expect(mat.id).toBeDefined();
                 expect(mat.id.length).toBeGreaterThan(0);
             });
 
             test("should use 'unnamed' when empty name provided", () => {
-                const mat = new Material(document, "", 0xff0000);
+                const mat = new Material({ document, name: "", color: 0xff0000 });
                 expect(mat.name).toBe("unnamed");
             });
 
             test("should use 'unnamed' when null name provided", () => {
-                const mat = new Material(document, null as any, 0xff0000);
+                const mat = new Material({ document, name: null as any, color: 0xff0000 });
                 expect(mat.name).toBe("unnamed");
             });
 
@@ -147,7 +147,7 @@ describe("Material classes", () => {
 
         describe("map property", () => {
             test("should set and get map texture", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 material.map = texture;
                 expect(material.map).toBe(texture);
             });
@@ -161,7 +161,7 @@ describe("Material classes", () => {
             test("should create a clone with correct properties", () => {
                 material.name = "Original";
                 material.color = 0x123456;
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 material.map = texture;
 
                 const clone = material.clone();
@@ -179,7 +179,12 @@ describe("Material classes", () => {
         let phongMaterial: PhongMaterial;
 
         beforeEach(() => {
-            phongMaterial = new PhongMaterial(document, "PhongMaterial", 0xff0000, "phong-id");
+            phongMaterial = new PhongMaterial({
+                document,
+                name: "PhongMaterial",
+                color: 0xff0000,
+                id: "phong-id",
+            });
         });
 
         describe("constructor", () => {
@@ -223,25 +228,25 @@ describe("Material classes", () => {
 
         describe("texture maps", () => {
             test("should set and get specularMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 phongMaterial.specularMap = texture;
                 expect(phongMaterial.specularMap).toBe(texture);
             });
 
             test("should set and get bumpMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 phongMaterial.bumpMap = texture;
                 expect(phongMaterial.bumpMap).toBe(texture);
             });
 
             test("should set and get normalMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 phongMaterial.normalMap = texture;
                 expect(phongMaterial.normalMap).toBe(texture);
             });
 
             test("should set and get emissiveMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 phongMaterial.emissiveMap = texture;
                 expect(phongMaterial.emissiveMap).toBe(texture);
             });
@@ -259,7 +264,12 @@ describe("Material classes", () => {
         let physicalMaterial: PhysicalMaterial;
 
         beforeEach(() => {
-            physicalMaterial = new PhysicalMaterial(document, "PhysicalMaterial", 0xff0000, "physical-id");
+            physicalMaterial = new PhysicalMaterial({
+                document,
+                name: "PhysicalMaterial",
+                color: 0xff0000,
+                id: "physical-id",
+            });
         });
 
         describe("constructor", () => {
@@ -314,31 +324,31 @@ describe("Material classes", () => {
 
         describe("texture maps", () => {
             test("should set and get metalnessMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 physicalMaterial.metalnessMap = texture;
                 expect(physicalMaterial.metalnessMap).toBe(texture);
             });
 
             test("should set and get roughnessMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 physicalMaterial.roughnessMap = texture;
                 expect(physicalMaterial.roughnessMap).toBe(texture);
             });
 
             test("should set and get bumpMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 physicalMaterial.bumpMap = texture;
                 expect(physicalMaterial.bumpMap).toBe(texture);
             });
 
             test("should set and get normalMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 physicalMaterial.normalMap = texture;
                 expect(physicalMaterial.normalMap).toBe(texture);
             });
 
             test("should set and get emissiveMap", () => {
-                const texture = new Texture(document);
+                const texture = new Texture({ document });
                 physicalMaterial.emissiveMap = texture;
                 expect(physicalMaterial.emissiveMap).toBe(texture);
             });
@@ -355,25 +365,25 @@ describe("Material classes", () => {
 
     describe("Inheritance", () => {
         test("PhongMaterial should inherit from Material", () => {
-            const phongMaterial = new PhongMaterial(document, "Test", 0xff0000);
+            const phongMaterial = new PhongMaterial({ document, name: "Test", color: 0xff0000 });
             expect(phongMaterial).toBeInstanceOf(Material);
             expect(phongMaterial).toBeInstanceOf(PhongMaterial);
         });
 
         test("PhysicalMaterial should inherit from Material", () => {
-            const physicalMaterial = new PhysicalMaterial(document, "Test", 0xff0000);
+            const physicalMaterial = new PhysicalMaterial({ document, name: "Test", color: 0xff0000 });
             expect(physicalMaterial).toBeInstanceOf(Material);
             expect(physicalMaterial).toBeInstanceOf(PhysicalMaterial);
         });
 
         test("PhongMaterial should have access to Material properties", () => {
-            const phongMaterial = new PhongMaterial(document, "Test", 0xff0000);
+            const phongMaterial = new PhongMaterial({ document, name: "Test", color: 0xff0000 });
             phongMaterial.opacity = 0.5;
             expect(phongMaterial.opacity).toBe(0.5);
         });
 
         test("PhysicalMaterial should have access to Material properties", () => {
-            const physicalMaterial = new PhysicalMaterial(document, "Test", 0xff0000);
+            const physicalMaterial = new PhysicalMaterial({ document, name: "Test", color: 0xff0000 });
             physicalMaterial.opacity = 0.7;
             expect(physicalMaterial.opacity).toBe(0.7);
         });

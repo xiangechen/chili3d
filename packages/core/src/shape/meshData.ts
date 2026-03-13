@@ -7,6 +7,12 @@ import { serializable, serialze } from "../serialize";
 import type { LineType } from "./lineType";
 import type { ISubShape } from "./shape";
 
+export interface MeshGroupOptions {
+    start: number;
+    count: number;
+    materialIndex: number;
+}
+
 @serializable(["start", "count", "materialIndex"])
 export class MeshGroup {
     @serialze()
@@ -16,17 +22,36 @@ export class MeshGroup {
     @serialze()
     materialIndex: number;
 
-    constructor(start: number, count: number, materialIndex: number) {
-        this.start = start;
-        this.count = count;
-        this.materialIndex = materialIndex;
+    constructor(options: MeshGroupOptions) {
+        this.start = options.start;
+        this.count = options.count;
+        this.materialIndex = options.materialIndex;
     }
 }
 
 export type MeshType = "surface" | "linesegments";
 
+export interface MeshOptions {
+    meshType?: MeshType;
+    position?: Float32Array;
+    normal?: Float32Array;
+    index?: Uint32Array;
+    color?: number | number[];
+    uv?: Float32Array;
+    groups?: MeshGroup[];
+}
+
 @serializable([])
 export class Mesh {
+    constructor(options?: MeshOptions) {
+        this.meshType = options?.meshType ?? "linesegments";
+        this.position = options?.position;
+        this.normal = options?.normal;
+        this.index = options?.index;
+        this.color = options?.color ?? 0xfff;
+        this.uv = options?.uv;
+        this.groups = options?.groups ?? [];
+    }
     static createSurface(positionSize: number, indexSize: number) {
         const mesh = new Mesh();
         mesh.meshType = "surface";

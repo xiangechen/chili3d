@@ -13,9 +13,9 @@ export class ViewUtils {
             const direction = view.direction();
             const dot = vector.dot(direction);
             const location = point.sub(direction.multiply(dot));
-            return new Line(location, direction);
+            return new Line({ point: location, direction });
         } else {
-            return new Line(cameraPosition, vector);
+            return new Line({ point: cameraPosition, direction: vector });
         }
     }
 
@@ -32,7 +32,7 @@ export class ViewUtils {
         const direction = view.direction();
         if (Math.abs(direction.dot(plane.normal)) < Precision.Float) {
             const left = direction.cross(view.up());
-            return new Plane(plane.origin, direction, left);
+            return new Plane({ origin: plane.origin, normal: direction, xvec: left });
         }
         return plane;
     }
@@ -41,14 +41,14 @@ export class ViewUtils {
         const direction = view.direction();
         if (Math.abs(direction.dot(view.workplane.normal)) < Precision.Float) {
             const left = direction.cross(view.up());
-            return new Plane(start, direction, left);
+            return new Plane({ origin: start, normal: direction, xvec: left });
         }
 
         const ray = ViewUtils.rayFromEye(view, end);
         const planes = [
-            new Plane(start, XYZ.unitZ, XYZ.unitX),
-            new Plane(start, XYZ.unitX, XYZ.unitY),
-            new Plane(start, XYZ.unitY, XYZ.unitZ),
+            new Plane({ origin: start, normal: XYZ.unitZ, xvec: XYZ.unitX }),
+            new Plane({ origin: start, normal: XYZ.unitX, xvec: XYZ.unitY }),
+            new Plane({ origin: start, normal: XYZ.unitY, xvec: XYZ.unitZ }),
         ];
 
         const distances = planes.map((p) => p.intersectLine(ray)?.distanceTo(start));

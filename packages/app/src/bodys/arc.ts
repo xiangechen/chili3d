@@ -13,6 +13,14 @@ import {
     type XYZ,
 } from "@chili3d/core";
 
+export interface ArcOptions {
+    document: IDocument;
+    normal: XYZ;
+    center: XYZ;
+    start: XYZ;
+    angle: number;
+}
+
 @serializable(["document", "normal", "center", "start", "angle"])
 export class ArcNode extends ParameterShapeNode {
     override display(): I18nKeys {
@@ -48,12 +56,12 @@ export class ArcNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("angle", value);
     }
 
-    constructor(document: IDocument, normal: XYZ, center: XYZ, start: XYZ, angle: number) {
-        super(document);
-        this.setPrivateValue("normal", normal);
-        this.setPrivateValue("center", center);
-        this.setPrivateValue("start", start);
-        this.setPrivateValue("angle", angle);
+    constructor(options: ArcOptions) {
+        super({ document: options.document });
+        this.setPrivateValue("normal", options.normal);
+        this.setPrivateValue("center", options.center);
+        this.setPrivateValue("start", options.start);
+        this.setPrivateValue("angle", options.angle);
     }
 
     generateShape(): Result<IShape, string> {

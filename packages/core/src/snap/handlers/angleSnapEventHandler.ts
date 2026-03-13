@@ -32,7 +32,7 @@ export class AngleSnapEventHandler extends SnapEventHandler<PointSnapData> {
         super(document, controller, [objectSnap, trackingSnap, workplaneSnap], snapPointData);
 
         const xvec = p1.sub(center()).normalize()!;
-        this.plane = new Plane(center(), snapPointData.plane().normal, xvec);
+        this.plane = new Plane({ origin: center(), normal: snapPointData.plane().normal, xvec });
         this.planeAngle = new PlaneAngle(this.plane);
         snapPointData.prompt ??= this.formatAnglePrompt;
     }

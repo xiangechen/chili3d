@@ -5,6 +5,12 @@ import { serializable, serialze } from "../serialize";
 import type { IEqualityComparer } from "./equalityComparer";
 import { Logger } from "./logger";
 
+export interface ResultOptions<T, E = string> {
+    isOk: boolean;
+    value: T | undefined;
+    error: E | undefined;
+}
+
 @serializable(["isOk", "value", "error"])
 export class Result<T, E = string> {
     readonly #isOk: boolean;
@@ -28,10 +34,10 @@ export class Result<T, E = string> {
         return this.#error!;
     }
 
-    constructor(isOk: boolean, value: T | undefined, error: E | undefined) {
-        this.#isOk = isOk;
-        this.#value = value;
-        this.#error = error;
+    constructor(options: ResultOptions<T, E>) {
+        this.#isOk = options.isOk;
+        this.#value = options.value;
+        this.#error = options.error;
     }
 
     parse<U>(): Result<U, E> {
@@ -51,11 +57,11 @@ export class Result<T, E = string> {
     }
 
     static ok<T>(value: T): Result<T, never> {
-        return new Result(true, value, undefined) as any;
+        return new Result({ isOk: true, value, error: undefined }) as any;
     }
 
     static err<E>(error: E): Result<any, E> {
-        return new Result(false, undefined, error) as any;
+        return new Result({ isOk: false, value: undefined, error }) as any;
     }
 }
 

@@ -34,7 +34,7 @@ export class MaterialDataContent extends Observable {
 
     addMaterial() {
         this.document.modelManager.materials.push(
-            new Material(this.document, `Material ${count++}`, 0xdddddd),
+            new Material({ document: this.document, name: `Material ${count++}`, color: 0xdddddd }),
         );
     }
 

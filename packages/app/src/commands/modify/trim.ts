@@ -72,7 +72,14 @@ export class Trim extends CancelableCommand {
         selected.segments.retainSegments.forEach((segment) => {
             const curve = selected.curve.trim(segment.start, segment.end);
             const newEdge = this.document.application.shapeFactory.edge(curve);
-            model?.parent?.add(new EditableShapeNode(this.document, model.name, newEdge, materialId));
+            model?.parent?.add(
+                new EditableShapeNode({
+                    document: this.document,
+                    name: model.name,
+                    shape: newEdge,
+                    materialId,
+                }),
+            );
         });
         model?.parent?.remove(model);
     }

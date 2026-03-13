@@ -91,13 +91,13 @@ export class Cylinder extends CreateCommand {
         const plane = this.stepDatas[1].plane!;
         const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
         const dz = this.getHeight(plane, this.stepDatas[2].point!);
-        return new CylinderNode(
-            this.document,
-            dz < 0 ? plane.normal.reverse() : plane.normal,
-            this.stepDatas[0].point!,
+        return new CylinderNode({
+            document: this.document,
+            normal: dz < 0 ? plane.normal.reverse() : plane.normal,
+            center: this.stepDatas[0].point!,
             radius,
-            Math.abs(dz),
-        );
+            dz: Math.abs(dz),
+        });
     }
 
     private getHeight(plane: Plane, point: XYZ): number {

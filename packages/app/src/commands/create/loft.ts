@@ -93,7 +93,9 @@ export class LoftCommand extends CancelableCommand {
                 this.displayVisual();
             }
 
-            this.document.modelManager.addNode(new EditableShapeNode(this.document, "loft", this.shape));
+            this.document.modelManager.addNode(
+                new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
+            );
         } finally {
             this._continuity.removePropertyChanged(this.handleContinuityChange);
             this.clearVisual();

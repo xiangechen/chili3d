@@ -13,7 +13,7 @@ export class BoundingBox {
         readonly max: XYZLike,
     ) {}
 
-    static readonly zero = new BoundingBox(new XYZ(0, 0, 0), new XYZ(0, 0, 0));
+    static readonly zero = new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 0, y: 0, z: 0 }));
 
     static transformed(box: BoundingBox, matrix: Matrix4) {
         const min = matrix.ofPoint(box.min);
@@ -31,7 +31,7 @@ export class BoundingBox {
         const y = (box.min.y + box.max.y) / 2;
         const z = (box.min.z + box.max.z) / 2;
 
-        return new XYZ(x, y, z);
+        return new XYZ({ x, y, z });
     }
 
     static expand(box: BoundingBox, value: number) {

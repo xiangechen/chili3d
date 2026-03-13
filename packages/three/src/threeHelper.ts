@@ -38,7 +38,7 @@ export class ThreeHelper {
     }
 
     static toXYZ(vector: Vector3): XYZ {
-        return new XYZ(vector.x, vector.y, vector.z);
+        return new XYZ(vector);
     }
 
     static fromXYZ(vector: Vector3Like): Vector3 {

@@ -56,7 +56,9 @@ export class Arc extends CreateCommand {
         const [center, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, center, p1);
         const points: ShapeMeshData[] = [this.meshPoint(center), this.meshPoint(p1)];
-        this._planeAngle = new PlaneAngle(new Plane(center, plane.normal, p1.sub(center)));
+        this._planeAngle = new PlaneAngle(
+            new Plane({ origin: center, normal: plane.normal, xvec: p1.sub(center) }),
+        );
         return {
             dimension: Dimensions.D1D2,
             preview: (point: XYZ | undefined) => this.anglePreview(point, center, p1, points),
@@ -97,7 +99,13 @@ export class Arc extends CreateCommand {
         const [p0, p1] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
         const plane = this.stepDatas[1].plane ?? this.findPlane(this.stepDatas[1].view, p0, p1);
         this._planeAngle?.movePoint(this.stepDatas[2].point!);
-        return new ArcNode(this.document, plane.normal, p0, p1, this._planeAngle!.angle);
+        return new ArcNode({
+            document: this.document,
+            normal: plane.normal,
+            center: p0,
+            start: p1,
+            angle: this._planeAngle!.angle,
+        });
     }
 
     private readonly circlePreview = (end: XYZ | undefined) => {

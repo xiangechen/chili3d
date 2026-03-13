@@ -28,7 +28,7 @@ export interface RectData {
 }
 
 export function getReactData(atPlane: Plane, start: XYZ, end: XYZ): RectData {
-    const plane = new Plane(start, atPlane.normal, atPlane.xvec);
+    const plane = new Plane({ origin: start, normal: atPlane.normal, xvec: atPlane.xvec });
     const vector = end.sub(start);
     const dx = vector.dot(plane.xvec);
     const dy = vector.dot(plane.yvec);
@@ -107,7 +107,7 @@ export class Rect extends RectCommandBase {
 
     protected override geometryNode(): GeometryNode {
         const { plane, dx, dy } = this.rectDataFromTwoSteps();
-        const node = new RectNode(this.document, plane, dx, dy);
+        const node = new RectNode({ document: this.document, plane, dx, dy });
         node.isFace = this.isFace;
         return node;
     }

@@ -40,8 +40,16 @@ export class Break extends MultistepCommand {
             const edge2 = this.document.application.shapeFactory.edge(curve2);
 
             const model = this.stepDatas[0].nodes![0] as ShapeNode;
-            const model1 = new EditableShapeNode(this.document, `${model.name}_1`, shape);
-            const model2 = new EditableShapeNode(this.document, `${model.name}_2`, edge2);
+            const model1 = new EditableShapeNode({
+                document: this.document,
+                name: `${model.name}_1`,
+                shape,
+            });
+            const model2 = new EditableShapeNode({
+                document: this.document,
+                name: `${model.name}_2`,
+                shape: edge2,
+            });
             model1.transform = model.transform;
             model2.transform = model.transform;
             model.parent?.insertAfter(model, model1);

@@ -24,7 +24,12 @@ export class RemoveSubShapesCommand extends MultistepCommand {
             const subShapes = this.stepDatas.at(-1)!.shapes.map((x) => x.shape);
             const shape = this.document.application.shapeFactory.removeSubShape(node.shape.value, subShapes);
 
-            const model = new EditableShapeNode(this.document, node.name, shape, node.materialId);
+            const model = new EditableShapeNode({
+                document: this.document,
+                name: node.name,
+                shape,
+                materialId: node.materialId,
+            });
             model.transform = node.transform;
 
             node.parent?.insertAfter(node.previousSibling, model);

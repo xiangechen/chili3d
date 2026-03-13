@@ -30,7 +30,11 @@ export class Sew extends MultistepCommand {
                 return;
             }
 
-            const node = new EditableShapeNode(this.document, "sewed", result.value);
+            const node = new EditableShapeNode({
+                document: this.document,
+                name: "sewed",
+                shape: result.value,
+            });
             this.document.modelManager.rootNode.add(node);
 
             this.stepDatas[0].nodes?.[0]?.parent?.remove(this.stepDatas[0].nodes![0]);

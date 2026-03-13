@@ -109,7 +109,7 @@ describe("FacebaseNode", () => {
 
     beforeEach(() => {
         doc = new TestDocument();
-        node = new TestFacebaseNode(doc);
+        node = new TestFacebaseNode({ document: doc });
     });
 
     afterEach(() => {

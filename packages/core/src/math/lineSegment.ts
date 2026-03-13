@@ -5,6 +5,11 @@ import { Precision } from "../foundation/precision";
 import { serializable, serialze } from "../serialize";
 import type { XYZ } from "./xyz";
 
+export interface LineSegmentOptions {
+    start: XYZ;
+    end: XYZ;
+}
+
 @serializable(["start", "end"])
 export class LineSegment {
     @serialze()
@@ -13,11 +18,11 @@ export class LineSegment {
     @serialze()
     readonly end: XYZ;
 
-    constructor(start: XYZ, end: XYZ) {
-        this.start = start;
-        this.end = end;
+    constructor(options: LineSegmentOptions) {
+        this.start = options.start;
+        this.end = options.end;
 
-        if (start.isEqualTo(end)) {
+        if (options.start.isEqualTo(options.end)) {
             throw new Error("start and end can not be equal");
         }
     }

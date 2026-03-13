@@ -123,7 +123,7 @@ describe("shapeNode", () => {
                     return { edges: undefined, faces: undefined, vertexs: undefined };
                 }
             };
-            node = new node(doc, "test", "mat1");
+            node = new node({ document: doc, name: "test", materialId: "mat1" });
         });
 
         describe("shape property", () => {
@@ -240,19 +240,31 @@ describe("shapeNode", () => {
         });
 
         test("should initialize with shapes", () => {
-            const node = new ShapeNodeClasses.MultiShapeNode(doc, "multi", shapes);
+            const node = new ShapeNodeClasses.MultiShapeNode({
+                document: doc,
+                name: "multi",
+                shapes: shapes,
+            });
             expect(node.shapes).toEqual(shapes);
         });
 
         test("should create mesh from multiple shapes", () => {
-            const node = new ShapeNodeClasses.MultiShapeNode(doc, "multi", shapes);
+            const node = new ShapeNodeClasses.MultiShapeNode({
+                document: doc,
+                name: "multi",
+                shapes: shapes,
+            });
             const mesh = (node as any).createMesh();
 
             expect(mesh).toBeDefined();
         });
 
         test("should return correct display key", () => {
-            const node = new ShapeNodeClasses.MultiShapeNode(doc, "multi", shapes);
+            const node = new ShapeNodeClasses.MultiShapeNode({
+                document: doc,
+                name: "multi",
+                shapes: shapes,
+            });
             expect(node.display()).toBe("body.multiShape");
         });
     });
@@ -270,7 +282,7 @@ describe("shapeNode", () => {
                     return "test.parameterShape";
                 }
             };
-            node = new node(doc);
+            node = new node({ document: doc });
         });
 
         test("should generate shape on first access", () => {
@@ -301,7 +313,11 @@ describe("shapeNode", () => {
         let node: any;
 
         beforeEach(() => {
-            node = new ShapeNodeClasses.EditableShapeNode(doc, "editable", mockShape);
+            node = new ShapeNodeClasses.EditableShapeNode({
+                document: doc,
+                name: "editable",
+                shape: mockShape,
+            });
         });
 
         test("should initialize with shape", () => {
@@ -311,7 +327,11 @@ describe("shapeNode", () => {
 
         test("should initialize with shape result", () => {
             const shapeResult = Result.ok(mockShape);
-            const node2 = new ShapeNodeClasses.EditableShapeNode(doc, "editable", shapeResult);
+            const node2 = new ShapeNodeClasses.EditableShapeNode({
+                document: doc,
+                name: "editable",
+                shape: shapeResult,
+            });
             expect(node2.shape).toBe(shapeResult);
         });
 

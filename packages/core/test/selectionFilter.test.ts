@@ -36,10 +36,14 @@ describe("ShapeNodeFilter", () => {
         } as unknown as IShape;
 
         // Create real ShapeNode
-        shapeNode = new EditableShapeNode(doc, "test-shape-node", Result.ok(mockShape));
+        shapeNode = new EditableShapeNode({
+            document: doc,
+            name: "test-shape-node",
+            shape: Result.ok(mockShape),
+        });
 
         // Create real non-ShapeNode
-        nonShapeNode = new FolderNode(doc, "test-folder");
+        nonShapeNode = new FolderNode({ document: doc, name: "test-folder" });
     });
 
     test("should allow ShapeNode without shape filter", () => {
@@ -81,7 +85,11 @@ describe("ShapeNodeFilter", () => {
     });
 
     test("should allow ShapeNode when shape is not ok", () => {
-        const shapeNodeWithBadShape = new EditableShapeNode(doc, "bad-shape-node", Result.err("Shape error"));
+        const shapeNodeWithBadShape = new EditableShapeNode({
+            document: doc,
+            name: "bad-shape-node",
+            shape: Result.err("Shape error"),
+        });
 
         const filter = new ShapeNodeFilter();
         expect(filter.allow(shapeNodeWithBadShape)).toBe(true);
@@ -95,7 +103,11 @@ describe("ShapeNodeFilter", () => {
                 return true;
             },
         };
-        const shapeNodeWithBadShape = new EditableShapeNode(doc, "bad-shape-node", Result.err("Shape error"));
+        const shapeNodeWithBadShape = new EditableShapeNode({
+            document: doc,
+            name: "bad-shape-node",
+            shape: Result.err("Shape error"),
+        });
 
         const filter = new ShapeNodeFilter(mockShapeFilter);
         filter.allow(shapeNodeWithBadShape);
