@@ -9,6 +9,7 @@ import {
     type IApplication,
     type IDocument,
     Id,
+    InternalClassName,
     type ISelection,
     type IVisual,
     Logger,
@@ -58,15 +59,13 @@ export class Document extends Observable implements IDocument {
 
     serialize(): Serialized {
         const serialized = {
-            classKey: "Document",
+            [InternalClassName]: "Document",
             version: __DOCUMENT_VERSION__,
-            properties: {
-                id: this.id,
-                name: this.name,
-                models: this.modelManager.serialize(),
-                acts: this.acts.map((x) => Serializer.serializeObject(x)),
-                userData: this.userData,
-            },
+            id: this.id,
+            name: this.name,
+            models: this.modelManager.serialize(),
+            acts: this.acts.map((x) => Serializer.serializeObject(x)),
+            userData: this.userData,
         };
         return serialized;
     }
@@ -134,16 +133,14 @@ export class Document extends Observable implements IDocument {
             );
             return undefined;
         }
-        const document = new Document(app, data.properties["name"], data.properties["id"]);
+        const document = new Document(app, data["name"], data["id"]);
         document.history.disabled = true;
-        document.acts.push(
-            ...data.properties["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)),
-        );
-        if (data.properties["userData"]) {
-            document.userData = data.properties["userData"];
+        document.acts.push(...data["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)));
+        if (data["userData"]) {
+            document.userData = data["userData"];
         }
 
-        await document.modelManager.deserialize(data.properties["models"]);
+        await document.modelManager.deserialize(data["models"]);
         document.history.disabled = false;
         return document;
     }

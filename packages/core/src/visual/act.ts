@@ -3,7 +3,7 @@
 
 import { Observable } from "../foundation";
 import type { XYZ } from "../math";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { IView } from "./view";
 
 export interface ActOptions {
@@ -13,9 +13,9 @@ export interface ActOptions {
     cameraUp: XYZ;
 }
 
-@serializable(["name", "cameraPosition", "cameraTarget", "cameraUp"])
+@serializable()
 export class Act extends Observable {
-    @serialze()
+    @serialize()
     public get name() {
         return this.getPrivateValue("name");
     }
@@ -23,7 +23,7 @@ export class Act extends Observable {
         this.setProperty("name", value);
     }
 
-    @serialze()
+    @serialize()
     public get cameraPosition() {
         return this.getPrivateValue("cameraPosition");
     }
@@ -31,7 +31,7 @@ export class Act extends Observable {
         this.setProperty("cameraPosition", value);
     }
 
-    @serialze()
+    @serialize()
     public get cameraTarget() {
         return this.getPrivateValue("cameraTarget");
     }
@@ -39,7 +39,7 @@ export class Act extends Observable {
         this.setProperty("cameraTarget", value);
     }
 
-    @serialze()
+    @serialize()
     public get cameraUp() {
         return this.getPrivateValue("cameraUp");
     }

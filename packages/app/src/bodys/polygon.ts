@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -18,13 +18,13 @@ export interface PolygonOptions {
     points: XYZ[];
 }
 
-@serializable(["document", "points"])
+@serializable()
 export class PolygonNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.polygon";
     }
 
-    @serialze()
+    @serialize()
     @property("polygon.points")
     get points() {
         return this.getPrivateValue("points");

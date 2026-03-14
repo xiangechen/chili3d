@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -22,13 +22,13 @@ export interface EllipseOptions {
     minorRadius: number;
 }
 
-@serializable(["document", "normal", "center", "xvec", "majorRadius", "minorRadius"])
+@serializable()
 export class EllipseNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.ellipse";
     }
 
-    @serialze()
+    @serialize()
     @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
@@ -37,7 +37,7 @@ export class EllipseNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @serialze()
+    @serialize()
     @property("ellipse.majorRadius")
     get majorRadius() {
         return this.getPrivateValue("majorRadius");
@@ -45,7 +45,7 @@ export class EllipseNode extends FacebaseNode {
     set majorRadius(radius: number) {
         this.setPropertyEmitShapeChanged("majorRadius", radius);
     }
-    @serialze()
+    @serialize()
     @property("ellipse.minorRadius")
     get minorRadius() {
         return this.getPrivateValue("minorRadius");
@@ -54,12 +54,12 @@ export class EllipseNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("minorRadius", radius);
     }
 
-    @serialze()
+    @serialize()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
 
-    @serialze()
+    @serialize()
     get xvec(): XYZ {
         return this.getPrivateValue("xvec");
     }

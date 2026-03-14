@@ -10,7 +10,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface PyramidNodeOptions {
@@ -21,13 +21,13 @@ export interface PyramidNodeOptions {
     dz: number;
 }
 
-@serializable(["document", "plane", "dx", "dy", "dz"])
+@serializable()
 export class PyramidNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.pyramid";
     }
 
-    @serialze()
+    @serialize()
     @property("box.dx")
     get dx() {
         return this.getPrivateValue("dx");
@@ -36,7 +36,7 @@ export class PyramidNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @serialze()
+    @serialize()
     @property("box.dy")
     get dy() {
         return this.getPrivateValue("dy");
@@ -45,7 +45,7 @@ export class PyramidNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @serialze()
+    @serialize()
     @property("box.dz")
     get dz() {
         return this.getPrivateValue("dz");
@@ -54,7 +54,7 @@ export class PyramidNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dz", dz);
     }
 
-    @serialze()
+    @serialize()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }

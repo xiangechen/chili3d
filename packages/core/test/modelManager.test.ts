@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, Id, type INode, type ModelManager, type OnNodeChanged } from "../src";
+import { FolderNode, Id, type INode, InternalClassName, type ModelManager, type OnNodeChanged } from "../src";
 import { TestDocument } from "./testDocument";
 
 function newNode(name: string, id?: string): INode {
@@ -297,7 +297,9 @@ describe("ModelManager", () => {
         test("should deserialize components, materials, and nodes", async () => {
             const data = {
                 components: [],
-                nodes: [{ classKey: "FolderNode", properties: { name: "root", id: Id.generate() } }],
+                nodes: [
+                    { [InternalClassName]: "FolderNode", properties: { name: "root", id: Id.generate() } },
+                ],
                 materials: [],
             };
 

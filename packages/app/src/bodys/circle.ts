@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -20,13 +20,13 @@ export interface CircleOptions {
     radius: number;
 }
 
-@serializable(["document", "normal", "center", "radius"])
+@serializable()
 export class CircleNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.circle";
     }
 
-    @serialze()
+    @serialize()
     @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
@@ -35,7 +35,7 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @serialze()
+    @serialize()
     @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
@@ -44,7 +44,7 @@ export class CircleNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("radius", radius);
     }
 
-    @serialze()
+    @serialize()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }

@@ -11,7 +11,7 @@ import {
     type Result,
     ShapeTypes,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface SweepOptions {
@@ -21,13 +21,13 @@ export interface SweepOptions {
     round: boolean;
 }
 
-@serializable(["document", "profile", "path", "round"])
+@serializable()
 export class SweepedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sweep";
     }
 
-    @serialze()
+    @serialize()
     get profile() {
         return this.getPrivateValue("profile");
     }
@@ -35,7 +35,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
-    @serialze()
+    @serialize()
     get path() {
         return this.getPrivateValue("path");
     }
@@ -43,7 +43,7 @@ export class SweepedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("path", value);
     }
 
-    @serialze()
+    @serialize()
     get round() {
         return this.getPrivateValue("round");
     }

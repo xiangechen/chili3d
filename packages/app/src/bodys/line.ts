@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -19,13 +19,13 @@ export interface LineOptions {
     end: XYZ;
 }
 
-@serializable(["document", "start", "end"])
+@serializable()
 export class LineNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.line";
     }
 
-    @serialze()
+    @serialize()
     @property("line.start")
     get start() {
         return this.getPrivateValue("start");
@@ -34,7 +34,7 @@ export class LineNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("start", pnt);
     }
 
-    @serialze()
+    @serialize()
     @property("line.end")
     get end() {
         return this.getPrivateValue("end");

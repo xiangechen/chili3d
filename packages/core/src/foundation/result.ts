@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { IEqualityComparer } from "./equalityComparer";
 import { Logger } from "./logger";
 
@@ -11,24 +11,24 @@ export interface ResultOptions<T, E = string> {
     error: E | undefined;
 }
 
-@serializable(["isOk", "value", "error"])
+@serializable()
 export class Result<T, E = string> {
     readonly #isOk: boolean;
     readonly #value: T | undefined;
     readonly #error: E | undefined;
 
-    @serialze()
+    @serialize()
     get isOk(): boolean {
         return this.#isOk;
     }
 
-    @serialze()
+    @serialize()
     get value(): T {
         if (!this.#isOk) Logger.warn("Result is error");
         return this.#value!;
     }
 
-    @serialze()
+    @serialize()
     get error(): E {
         if (this.#isOk) Logger.warn("Result is ok");
         return this.#error!;

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import { MathUtils } from "./mathUtils";
 import type { Plane } from "./plane";
 import { Quaternion } from "./quaternion";
@@ -14,16 +14,14 @@ export interface Matrix4Options {
 /**
  * Matrix in column-major order
  */
-@serializable(["array"], (options: { array: Float32Array }) => {
-    return new Matrix4(options);
-})
+@serializable()
 export class Matrix4 {
     private readonly _array: Float32Array;
 
     constructor(options: Matrix4Options) {
         this._array = new Float32Array(options.array);
     }
-    @serialze()
+    @serialize({ readonly: true })
     get array(): ReadonlyArray<number> {
         return [...this._array];
     }

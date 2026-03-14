@@ -5,7 +5,7 @@ import type { IDocument } from "../document";
 import { Id, PropertyHistoryRecord, Transaction } from "../foundation";
 import { BoundingBox } from "../math";
 import { property } from "../property";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { FaceMeshData, IShapeMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { VisualNode } from "./visualNode";
@@ -15,12 +15,12 @@ export interface FaceMaterialPairOptions {
     materialIndex: number;
 }
 
-@serializable(["faceIndex", "materialIndex"])
+@serializable()
 export class FaceMaterialPair {
-    @serialze()
+    @serialize()
     faceIndex: number;
 
-    @serialze()
+    @serialize()
     materialIndex: number;
     constructor(options: FaceMaterialPairOptions) {
         this.faceIndex = options.faceIndex;
@@ -36,7 +36,7 @@ export interface GeometryNodeOptions {
 }
 
 export abstract class GeometryNode extends VisualNode {
-    @serialze()
+    @serialize()
     @property("common.material", { type: "materialId" })
     get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
@@ -47,7 +47,7 @@ export abstract class GeometryNode extends VisualNode {
 
     protected _originFaceMesh?: FaceMeshData;
 
-    @serialze()
+    @serialize()
     get faceMaterialPair(): FaceMaterialPair[] {
         return this.getPrivateValue("faceMaterialPair", []);
     }

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import { Line } from "./line";
 import { XYZ } from "./xyz";
 
@@ -10,14 +10,14 @@ export interface RayOptions {
     direction: XYZ;
 }
 
-@serializable(["point", "direction"])
+@serializable()
 export class Ray {
-    @serialze()
+    @serialize({ readonly: true })
     readonly point: XYZ;
     /**
      * unit vector
      */
-    @serialze()
+    @serialize({ readonly: true })
     readonly direction: XYZ;
 
     constructor(options: RayOptions) {

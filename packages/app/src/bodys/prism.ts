@@ -10,7 +10,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface PrismOptions {
@@ -19,13 +19,13 @@ export interface PrismOptions {
     length: number;
 }
 
-@serializable(["document", "section", "length"])
+@serializable()
 export class PrismNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.prism";
     }
 
-    @serialze()
+    @serialize()
     get section(): IShape {
         return this.getPrivateValue("section");
     }
@@ -33,7 +33,7 @@ export class PrismNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("section", value);
     }
 
-    @serialze()
+    @serialize()
     @property("common.length")
     get length(): number {
         return this.getPrivateValue("length");

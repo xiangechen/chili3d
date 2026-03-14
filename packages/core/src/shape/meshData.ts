@@ -3,7 +3,7 @@
 
 import { VisualConfig } from "../config";
 import type { Matrix4, XYZ } from "../math";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { LineType } from "./lineType";
 import type { ISubShape } from "./shape";
 
@@ -13,13 +13,13 @@ export interface MeshGroupOptions {
     materialIndex: number;
 }
 
-@serializable(["start", "count", "materialIndex"])
+@serializable()
 export class MeshGroup {
-    @serialze()
+    @serialize()
     start: number;
-    @serialze()
+    @serialize()
     count: number;
-    @serialze()
+    @serialize()
     materialIndex: number;
 
     constructor(options: MeshGroupOptions) {
@@ -41,7 +41,7 @@ export interface MeshOptions {
     groups?: MeshGroup[];
 }
 
-@serializable([])
+@serializable()
 export class Mesh {
     constructor(options?: MeshOptions) {
         this.meshType = options?.meshType ?? "linesegments";
@@ -69,25 +69,25 @@ export class Mesh {
         return mesh;
     }
 
-    @serialze()
+    @serialize()
     meshType: MeshType = "linesegments";
 
-    @serialze()
+    @serialize()
     position: Float32Array | undefined;
 
-    @serialze()
+    @serialize()
     normal: Float32Array | undefined = undefined;
 
-    @serialze()
+    @serialize()
     index: Uint32Array | undefined = undefined;
 
-    @serialze()
+    @serialize()
     color: number | number[] = 0xfff;
 
-    @serialze()
+    @serialize()
     uv: Float32Array | undefined = undefined;
 
-    @serialze()
+    @serialize()
     groups: MeshGroup[] = [];
 }
 

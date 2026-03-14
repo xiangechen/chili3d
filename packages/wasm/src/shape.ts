@@ -32,7 +32,8 @@ import {
     type Orientation,
     Plane,
     Result,
-    type SerializedProperties,
+    type Serialized,
+    type SerializedData,
     type ShapeMeshRange,
     type ShapeType,
     serializable,
@@ -73,18 +74,24 @@ export interface OccShapeOptions {
     id?: string;
 }
 
-function occShapeSerialize(target: OccShape): SerializedProperties<OccShape> {
+function occShapeSerialize(target: OccShape): SerializedData {
     return {
         shape: wasm.Converter.convertToBrep(target.shape),
         id: target.id,
     };
 }
 
-function occShapeDeserialize(options: { shape: string; id?: string }) {
-    return OccShape.wrap(wasm.Converter.convertFromBrep(options.shape), options.id) as OccShape;
+function occShapeDeserialize(_document: any, properties: Serialized) {
+    return OccShape.wrap(
+        wasm.Converter.convertFromBrep(properties["shape"] as string),
+        properties["id"] as string,
+    ) as OccShape;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccShape implements IShape {
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
@@ -303,7 +310,10 @@ export interface OccVertexOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccVertex extends OccShape implements IVertex {
     readonly vertex: TopoDS_Vertex;
 
@@ -322,7 +332,10 @@ export interface OccEdgeOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccEdge extends OccShape implements IEdge {
     private _edge: TopoDS_Edge;
     get edge(): TopoDS_Edge {
@@ -416,7 +429,10 @@ export interface OccWireOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccWire extends OccShape implements IWire {
     readonly wire: TopoDS_Wire;
 
@@ -454,7 +470,10 @@ export interface OccFaceOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccFace extends OccShape implements IFace {
     readonly face: TopoDS_Face;
 
@@ -501,7 +520,10 @@ export interface OccShellOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccShell extends OccShape implements IShell {
     constructor(options: OccShellOptions) {
         super(options);
@@ -513,7 +535,10 @@ export interface OccSolidOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccSolid extends OccShape implements ISolid {
     readonly solid: TopoDS_Solid;
 
@@ -532,7 +557,10 @@ export interface OccCompSolidOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccCompSolid extends OccShape implements ICompoundSolid {
     constructor(options: OccCompSolidOptions) {
         super(options);
@@ -544,7 +572,10 @@ export interface OccCompoundOptions {
     id?: string;
 }
 
-@serializable(["shape", "id"], occShapeDeserialize, occShapeSerialize)
+@serializable({
+    deserialize: occShapeDeserialize,
+    serialize: occShapeSerialize,
+})
 export class OccCompound extends OccShape implements ICompound {
     constructor(options: OccCompoundOptions) {
         super(options);

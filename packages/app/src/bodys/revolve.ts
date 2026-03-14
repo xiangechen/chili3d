@@ -9,7 +9,7 @@ import {
     ParameterShapeNode,
     type Result,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface RevolveOptions {
@@ -19,13 +19,13 @@ export interface RevolveOptions {
     angle: number;
 }
 
-@serializable(["document", "profile", "axis", "angle"])
+@serializable()
 export class RevolvedNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.revol";
     }
 
-    @serialze()
+    @serialize()
     get profile() {
         return this.getPrivateValue("profile");
     }
@@ -33,7 +33,7 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("profile", value);
     }
 
-    @serialze()
+    @serialize()
     get axis() {
         return this.getPrivateValue("axis");
     }
@@ -41,7 +41,7 @@ export class RevolvedNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("axis", value);
     }
 
-    @serialze()
+    @serialize()
     get angle() {
         return this.getPrivateValue("angle");
     }

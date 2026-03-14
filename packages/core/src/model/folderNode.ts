@@ -12,7 +12,7 @@ export interface FolderNodeOptions {
     id?: string;
 }
 
-@serializable(["document", "name", "id"])
+@serializable()
 export class FolderNode extends Node implements INodeLinkedList {
     private _count: number = 0;
     private _firstChild: INode | undefined;

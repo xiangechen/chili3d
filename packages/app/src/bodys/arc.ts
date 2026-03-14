@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -21,13 +21,13 @@ export interface ArcOptions {
     angle: number;
 }
 
-@serializable(["document", "normal", "center", "start", "angle"])
+@serializable()
 export class ArcNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.arc";
     }
 
-    @serialze()
+    @serialize()
     @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
@@ -36,18 +36,18 @@ export class ArcNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @serialze()
+    @serialize()
     @property("arc.start")
     get start(): XYZ {
         return this.getPrivateValue("start");
     }
 
-    @serialze()
+    @serialize()
     get normal(): XYZ {
         return this.getPrivateValue("normal");
     }
 
-    @serialze()
+    @serialize()
     @property("arc.angle")
     get angle() {
         return this.getPrivateValue("angle");

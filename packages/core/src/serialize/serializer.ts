@@ -4,23 +4,20 @@
 import type { IDocument } from "../document";
 import { Observable } from "../foundation/observer";
 
-export interface ISerialize {
-    serialize(): Serialized;
-}
-
-export type Serialized = {
-    classKey: string;
-    properties: SerializedProperties<any>;
+export type PropertyInfo = {
+    name: string;
+    readonly?: boolean;
 };
 
-export type SerializedProperties<T> = {
-    [P in keyof T]?: any;
-};
+export const InternalClassName = "__cla$$__";
+
+export type SerializedData = { [x: string]: any };
+
+export type Serialized = { [InternalClassName]: string } & SerializedData;
 
 export interface RefelectData {
     ctor: new (...args: any[]) => any;
-    ctorParamNames: string[];
-    serialize?: (target: any) => SerializedProperties<any>;
+    serialize?: (target: any) => SerializedData;
     deserialize?: (...args: any[]) => any;
 }
 
@@ -39,7 +36,6 @@ export function registerTypeArray(
 ): RefelectData {
     return {
         ctor: TypeArray,
-        ctorParamNames: ["buffer"],
         serialize: (target: Float16Array | Uint32Array) => {
             return {
                 buffer: Array.from(target),
@@ -51,34 +47,40 @@ export function registerTypeArray(
     };
 }
 
-const propertiesMap = new Map<new (...args: any[]) => any, Set<string>>();
+const propertiesMap = new Map<new (...args: any[]) => any, Array<PropertyInfo>>();
 const reflectMap = new Map<string, RefelectData>();
 reflectMap.set("Float32Array", registerTypeArray(Float32Array));
 reflectMap.set("Uint32Array", registerTypeArray(Uint32Array));
 
-export function serializable<T>(
-    ctorParamNames: (keyof T & string)[],
-    deserialize?: (...args: any[]) => T,
-    serialize?: (target: T) => SerializedProperties<T>,
-) {
-    return (target: new (...args: any[]) => T) => {
+export function serializable<T>(options?: {
+    deserialize?: (...args: any[]) => T;
+    serialize?: (target: T) => SerializedData;
+}) {
+    return (target: new (options: any) => T) => {
         registerReflect({
             ctor: target,
-            ctorParamNames,
-            serialize,
-            deserialize,
+            ...options,
         });
     };
 }
 
-export function serialze() {
+/**
+ * Set the property to be serialized
+ *
+ * @param options additional options, if property is readonly, the readonly option should be set to true. e.g. `@serialze({ readonly: true })`
+ * @returns
+ */
+export function serialize(options?: Omit<PropertyInfo, "name">) {
     return (target: any, property: string) => {
-        let keys = propertiesMap.get(target);
-        if (keys === undefined) {
-            keys = new Set();
-            propertiesMap.set(target, keys);
+        let props = propertiesMap.get(target);
+        if (props === undefined) {
+            props = [];
+            propertiesMap.set(target, props);
         }
-        keys.add(property);
+        props.push({
+            name: property,
+            ...options,
+        });
     };
 }
 
@@ -96,44 +98,39 @@ export class Serializer {
      * @returns Deserialized object
      */
     public static deserializeObject(document: IDocument, data: Serialized) {
-        const instance = Serializer.deserializeInstance(document, data.classKey, data.properties);
+        const instance = Serializer.deserializeInstance(document, data);
         Serializer.deserializeProperties(document, instance, data);
         return instance;
     }
 
-    static deserializeInstance(
-        document: IDocument,
-        className: string,
-        properties: SerializedProperties<any>,
-    ) {
-        if (!reflectMap.has(className)) {
+    static deserializeInstance(document: IDocument, data: Serialized) {
+        const className = data[InternalClassName];
+        if (!className) {
+            console.warn(`${data} cannot be deserialize.`);
+            return data;
+        }
+
+        if (!reflectMap.has(data[InternalClassName])) {
             throw new Error(
-                `${className} cannot be deserialize. Did you forget to add the decorator @Serializer.register?`,
+                `${data[InternalClassName]} cannot be deserialize. Did you forget to add the decorator @Serializer.register?`,
             );
         }
 
-        const { ctor, ctorParamNames, deserialize } = reflectMap.get(className)!;
-        const parameters = Serializer.deserilizeParameters(document, ctorParamNames, properties, className);
+        const { ctor, deserialize } = reflectMap.get(className)!;
+        const parameters = Serializer.deserilizeParameters(document, ctor.prototype, data);
         if (deserialize) {
             return deserialize(parameters);
         }
         return new ctor(parameters);
     }
 
-    static deserilizeParameters(
-        document: IDocument,
-        ctorParamNames: any[],
-        properties: SerializedProperties<any>,
-        className: string,
-    ) {
-        const parameters: SerializedProperties<any> = {};
-        parameters["document"] = document;
-        for (const key of ctorParamNames) {
-            if (key in properties) {
-                parameters[key] = Serializer.deserialValue(document, properties[key]);
-            } else if (key !== "document") {
-                parameters[key] = undefined;
-                console.warn(`${className} constructor parameter ${key} is missing`);
+    static deserilizeParameters(document: IDocument, prototype: any, data: Serialized) {
+        const parameters: Record<string, any> = { document };
+
+        const props = propertiesMap.get(prototype) ?? [];
+        for (const prop of props) {
+            if (prop.readonly) {
+                parameters[prop.name] = Serializer.deserialValue(document, data[prop.name]);
             }
         }
         return parameters;
@@ -151,53 +148,59 @@ export class Serializer {
                 return typeof v === "object" ? Serializer.deserializeObject(document, v) : v;
             });
         }
-        return (value as Serialized).classKey ? Serializer.deserializeObject(document, value) : value;
+        return (value as Serialized)[InternalClassName]
+            ? Serializer.deserializeObject(document, value)
+            : value;
     }
 
-    static deserializeProperties(document: IDocument, instance: any, data: Serialized, ignores?: string[]) {
-        const { ctorParamNames } = reflectMap.get(data.classKey)!;
-        const filter = (key: string) => {
-            return !ctorParamNames.includes(key) && !ignores?.includes(key);
-        };
-        const keys = Object.keys(data.properties).filter(filter);
+    static deserializeProperties(document: IDocument, instance: any, data: Serialized) {
+        const readonlyProps = new Set(
+            propertiesMap
+                .get(Object.getPrototypeOf(instance))
+                ?.filter((x) => x.readonly)
+                .map((x) => x.name),
+        );
+
+        const keys = Object.keys(data).filter((x) => !readonlyProps.has(x));
         for (const key of keys) {
             if (instance instanceof Observable) {
                 instance.setPrivateValue(
                     key as keyof Observable,
-                    Serializer.deserialValue(document, data.properties[key]),
+                    Serializer.deserialValue(document, data[key]),
                 );
             } else {
-                instance[key] = Serializer.deserialValue(document, data.properties[key]);
+                instance[key] = Serializer.deserialValue(document, data[key]);
             }
         }
     }
 
     static serializeObject(target: object): Serialized {
-        const classKey = target.constructor.name;
-        if (!reflectMap.has(classKey)) {
+        const className = target.constructor.name;
+        if (!reflectMap.has(className)) {
             console.log(target);
 
             throw new Error(
                 `Type ${target.constructor.name} is not registered, please add the @Serializer.register decorator.`,
             );
         }
-        const data = reflectMap.get(classKey)!;
+        const data = reflectMap.get(className)!;
         const properties = data.serialize?.(target) ?? Serializer.serializeProperties(target);
         return {
-            classKey,
-            properties,
+            ...properties,
+            [InternalClassName]: className,
         };
     }
 
     static serializeProperties(target: object) {
-        const data: SerializedProperties<any> = {};
-        const keys = Serializer.getAllKeysOfPrototypeChain(target, propertiesMap);
-        for (const key of keys) {
-            const value = (target as any)[key];
+        const data: Record<string, any> = {};
+
+        const props = Serializer.getAllKeysOfPrototypeChain(target, propertiesMap);
+        for (const prop of props) {
+            const value = (target as any)[prop.name];
             if (Array.isArray(value)) {
-                data[key] = value.map((v) => Serializer.serializePropertyValue(v));
+                data[prop.name] = value.map((v) => Serializer.serializePropertyValue(v));
             } else {
-                data[key] = Serializer.serializePropertyValue(value);
+                data[prop.name] = Serializer.serializePropertyValue(value);
             }
         }
         return data;
@@ -216,9 +219,9 @@ export class Serializer {
 
     private static getAllKeysOfPrototypeChain(
         target: object,
-        map: Map<new (...args: any[]) => any, Set<string>>,
+        map: Map<new (...args: any[]) => any, Array<PropertyInfo>>,
     ) {
-        const keys: string[] = [];
+        const keys: PropertyInfo[] = [];
         let prototype = Object.getPrototypeOf(target);
         while (prototype !== null) {
             const k = map.get(prototype);

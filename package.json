@@ -2,7 +2,7 @@
     "name": "chili3d",
     "version": "0.7.0-beta",
     "description": "",
-    "documentVersion": "0.7",
+    "documentVersion": "0.7.1",
     "author": "仙阁",
     "scripts": {
         "build": "rspack build",

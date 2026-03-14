@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation/precision";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { XYZ } from "./xyz";
 
 export interface LineSegmentOptions {
@@ -10,12 +10,12 @@ export interface LineSegmentOptions {
     end: XYZ;
 }
 
-@serializable(["start", "end"])
+@serializable()
 export class LineSegment {
-    @serialze()
+    @serialize({ readonly: true })
     readonly start: XYZ;
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly end: XYZ;
 
     constructor(options: LineSegmentOptions) {

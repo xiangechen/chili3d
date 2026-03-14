@@ -6,6 +6,7 @@ import {
     type IApplication,
     type IDataExchange,
     type IDocument,
+    InternalClassName,
     type IPluginManager,
     type IShapeFactory,
     type IStorage,
@@ -161,19 +162,19 @@ describe("Document", () => {
         test("should serialize document correctly", () => {
             const serialized = document.serialize();
 
-            expect(serialized.classKey).toBe("Document");
-            expect(serialized.properties["id"]).toBe(document.id);
-            expect(serialized.properties["name"]).toBe(document.name);
-            expect(serialized.properties["models"]).toBeDefined();
-            expect(serialized.properties["acts"]).toEqual([]);
-            expect(serialized.properties["userData"]).toBeDefined();
+            expect(serialized[InternalClassName]).toBe("Document");
+            expect(serialized["id"]).toBe(document.id);
+            expect(serialized["name"]).toBe(document.name);
+            expect(serialized["models"]).toBeDefined();
+            expect(serialized["acts"]).toEqual([]);
+            expect(serialized["userData"]).toBeDefined();
         });
 
         test("should include userData in serialization", () => {
             document.userData = { key: "value" };
             const serialized = document.serialize();
 
-            expect(serialized.properties["userData"]).toEqual({ key: "value" });
+            expect(serialized["userData"]).toEqual({ key: "value" });
         });
     });
 
@@ -210,7 +211,7 @@ describe("Document", () => {
         test("should preserve userData after serialize", () => {
             document.userData = { test: "data" };
             const serialized = document.serialize();
-            expect(serialized.properties["userData"]).toEqual({ test: "data" });
+            expect(serialized["userData"]).toEqual({ test: "data" });
         });
     });
 });

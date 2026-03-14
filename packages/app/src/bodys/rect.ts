@@ -10,7 +10,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -21,13 +21,13 @@ export interface RectOptions {
     dy: number;
 }
 
-@serializable(["document", "plane", "dx", "dy"])
+@serializable()
 export class RectNode extends FacebaseNode {
     override display(): I18nKeys {
         return "body.rect";
     }
 
-    @serialze()
+    @serialize()
     @property("rect.dx")
     get dx() {
         return this.getPrivateValue("dx");
@@ -36,7 +36,7 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @serialze()
+    @serialize()
     @property("rect.dy")
     get dy() {
         return this.getPrivateValue("dy");
@@ -45,7 +45,7 @@ export class RectNode extends FacebaseNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @serialze()
+    @serialize()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }

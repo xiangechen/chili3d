@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -18,13 +18,13 @@ export interface PointOptions {
     position: XYZ;
 }
 
-@serializable(["document", "position"])
+@serializable()
 export class PointNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.point";
     }
 
-    @serialze()
+    @serialize()
     @property("point.position")
     get position() {
         return this.getPrivateValue("position");

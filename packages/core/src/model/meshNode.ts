@@ -6,7 +6,7 @@ import { Id } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import { BoundingBox } from "../math";
 import { property } from "../property";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { Mesh } from "../shape";
 import { VisualNode } from "./visualNode";
 
@@ -18,13 +18,13 @@ export interface MeshNodeOptions {
     id?: string;
 }
 
-@serializable(["document", "mesh", "name", "id"])
+@serializable()
 export class MeshNode extends VisualNode {
     override display(): I18nKeys {
         return "body.meshNode";
     }
 
-    @serialze()
+    @serialize()
     @property("common.material", { type: "materialId" })
     get materialId(): string | string[] {
         return this.getPrivateValue("materialId");
@@ -34,7 +34,7 @@ export class MeshNode extends VisualNode {
     }
 
     protected _mesh: Mesh;
-    @serialze()
+    @serialize()
     get mesh(): Mesh {
         return this._mesh;
     }

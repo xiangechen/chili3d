@@ -10,7 +10,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -22,13 +22,13 @@ export interface BoxNodeOptions {
     dz: number;
 }
 
-@serializable(["document", "plane", "dx", "dy", "dz"])
+@serializable()
 export class BoxNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.box";
     }
 
-    @serialze()
+    @serialize()
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }
@@ -41,7 +41,7 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("plane", this.plane.translateTo(value));
     }
 
-    @serialze()
+    @serialize()
     @property("box.dx")
     get dx() {
         return this.getPrivateValue("dx");
@@ -50,7 +50,7 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dx", dx);
     }
 
-    @serialze()
+    @serialize()
     @property("box.dy")
     get dy() {
         return this.getPrivateValue("dy");
@@ -59,7 +59,7 @@ export class BoxNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("dy", dy);
     }
 
-    @serialze()
+    @serialize()
     @property("box.dz")
     get dz() {
         return this.getPrivateValue("dz");

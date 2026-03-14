@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
 export type XYLike = { x: number; y: number };
@@ -12,15 +12,15 @@ export interface XYOptions {
     y: number;
 }
 
-@serializable(["x", "y"])
+@serializable()
 export class XY {
     static readonly zero = new XY({ x: 0, y: 0 });
     static readonly unitX = new XY({ x: 1, y: 0 });
     static readonly unitY = new XY({ x: 0, y: 1 });
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly x: number;
-    @serialze()
+    @serialize({ readonly: true })
     readonly y: number;
 
     constructor(options: XYOptions) {

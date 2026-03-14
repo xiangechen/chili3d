@@ -121,12 +121,6 @@ export class TestEdge implements IEdge {
             vertexs: undefined,
         };
     }
-    serialize(): Serialized {
-        return {
-            classKey: "Shape",
-            properties: {},
-        };
-    }
     orientation(): Orientation {
         return "forward";
     }

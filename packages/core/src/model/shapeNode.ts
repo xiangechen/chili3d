@@ -3,10 +3,10 @@
 
 import { VisualConfig } from "../config";
 import type { IDocument } from "../document";
-import { Id, type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
+import { type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, VertexMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
@@ -121,10 +121,10 @@ export interface MultiShapeNodeOptions {
     id?: string;
 }
 
-@serializable(["document", "name", "shapes", "materialId", "id"])
+@serializable()
 export class MultiShapeNode extends GeometryNode {
     private readonly _shapes: IShape[];
-    @serialze()
+    @serialize()
     get shapes(): ReadonlyArray<IShape> {
         return this._shapes;
     }
@@ -203,13 +203,13 @@ export interface EditableShapeNodeOptions {
     id?: string;
 }
 
-@serializable(["document", "name", "shape", "materialId", "id"])
+@serializable()
 export class EditableShapeNode extends ShapeNode {
     override display(): I18nKeys {
         return "body.editableShape";
     }
 
-    @serialze()
+    @serialize()
     override get shape() {
         return this._shape;
     }

@@ -8,7 +8,7 @@ import {
     type Serialized,
     Serializer,
     serializable,
-    serialze,
+    serialize,
 } from "../src";
 import { TestDocument } from "./testDocument";
 
@@ -16,18 +16,18 @@ interface TestObjectOptions {
     k1: string;
 }
 
-@serializable(["k1" as any])
+@serializable()
 class TestObject {
     protected k2: string = "k2";
     public k3: string = "k3";
 
-    @serialze()
+    @serialize()
     private k1: string;
-    @serialze()
+    @serialize()
     private k4: string = "k4";
-    @serialze()
+    @serialize()
     protected k5: string = "k5";
-    @serialze()
+    @serialize()
     public k6: string = "k6";
 
     constructor(options: TestObjectOptions) {
@@ -42,11 +42,11 @@ class TestObject {
 test("test Serializer", () => {
     const obj = new TestObject({ k1: "111" });
     const s = obj.serialize();
-    expect("k1" in s.properties).toBeTruthy();
-    expect("k4" in s.properties).toBeTruthy();
-    expect("k5" in s.properties).toBeTruthy();
-    expect("k6" in s.properties).toBeTruthy();
-    s.properties["k1"] = "222";
+    expect("k1" in s).toBeTruthy();
+    expect("k4" in s).toBeTruthy();
+    expect("k5" in s).toBeTruthy();
+    expect("k6" in s).toBeTruthy();
+    s["k1"] = "222";
     const obj2 = Serializer.deserializeObject({} as any, s);
     expect(obj2.k1).toBe("222");
 });

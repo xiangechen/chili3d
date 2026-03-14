@@ -4,7 +4,7 @@
 import type { IDocument } from "../document";
 import { HistoryObservable, type IDisposable, Id, type IPropertyChanged } from "../foundation";
 import { property } from "../property";
-import { type Serialized, Serializer, serialze } from "../serialize";
+import { type Serialized, Serializer, serialize } from "../serialize";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
@@ -34,7 +34,7 @@ export abstract class Node extends HistoryObservable implements INode {
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly id: string;
 
     constructor(document: IDocument, name: string, id: string) {
@@ -43,7 +43,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setPrivateValue("name", name || "untitled");
     }
 
-    @serialze()
+    @serialize()
     @property("common.name")
     get name() {
         return this.getPrivateValue("name");
@@ -52,7 +52,7 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setProperty("name", value);
     }
 
-    @serialze()
+    @serialize()
     get visible(): boolean {
         return this.getPrivateValue("visible", true);
     }
@@ -79,8 +79,8 @@ export abstract class Node extends HistoryObservable implements INode {
         try {
             this.document.history.disabled = true;
             const serialized = Serializer.serializeObject(this);
-            serialized.properties["id"] = Id.generate();
-            serialized.properties["name"] = `${this.name}_copy`;
+            serialized["id"] = Id.generate();
+            serialized["name"] = `${this.name}_copy`;
             return Serializer.deserializeObject(this.document, serialized) as this;
         } finally {
             this.document.history.disabled = oldValue;
@@ -298,7 +298,7 @@ export class NodeUtils {
         nodes.forEach((n) => {
             const node = Serializer.deserializeObject(document, n);
             if (NodeUtils.isLinkedListNode(node)) {
-                nodeMap.set(n.properties["id"], node);
+                nodeMap.set(n["id"], node);
             }
             const parentId = (n as any)["parentId"];
             if (!parentId) return;
@@ -308,6 +308,6 @@ export class NodeUtils {
                 console.warn("parent not found: " + parentId);
             }
         });
-        return Promise.resolve(nodeMap.get(nodes[0].properties["id"]));
+        return Promise.resolve(nodeMap.get(nodes[0]["id"]));
     }
 }

@@ -11,7 +11,7 @@ import {
     Result,
     ShapeTypes,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface FaceOptions {
@@ -19,13 +19,13 @@ export interface FaceOptions {
     shapes: IEdge[] | IWire[];
 }
 
-@serializable(["document", "shapes"])
+@serializable()
 export class FaceNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.face";
     }
 
-    @serialze()
+    @serialize()
     get shapes(): IEdge[] | IWire[] {
         return this.getPrivateValue("shapes");
     }

@@ -3,13 +3,13 @@
 
 import type { I18nKeys } from "../i18n";
 import { type BoundingBox, Matrix4 } from "../math";
-import { serialze } from "../serialize";
+import { serialize } from "../serialize";
 import { Node } from "./node";
 
 export abstract class VisualNode extends Node {
     abstract display(): I18nKeys;
 
-    @serialze()
+    @serialize()
     get transform(): Matrix4 {
         return this.getPrivateValue("transform", Matrix4.identity());
     }

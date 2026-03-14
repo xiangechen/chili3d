@@ -9,7 +9,7 @@ import {
     ParameterShapeNode,
     type Result,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 
 export interface WireOptions {
@@ -17,13 +17,13 @@ export interface WireOptions {
     edges: IEdge[];
 }
 
-@serializable(["document", "edges"])
+@serializable()
 export class WireNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.wire";
     }
 
-    @serialze()
+    @serialize()
     get edges(): IEdge[] {
         return this.getPrivateValue("edges");
     }

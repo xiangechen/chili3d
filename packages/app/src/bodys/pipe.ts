@@ -14,7 +14,7 @@ import {
     Result,
     ShapeTypes,
     serializable,
-    serialze,
+    serialize,
 } from "@chili3d/core";
 import { WireFilletBuilder } from "./utils/WireFilletBuilder";
 
@@ -26,13 +26,13 @@ export interface PipeOptions {
     thickness?: number;
 }
 
-@serializable(["document", "radius", "path", "bendRadius", "thickness"])
+@serializable()
 export class PipeNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.pipe" as I18nKeys;
     }
 
-    @serialze()
+    @serialize()
     @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");
@@ -41,7 +41,7 @@ export class PipeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("radius", value);
     }
 
-    @serialze()
+    @serialize()
     get path() {
         return this.getPrivateValue("path");
     }
@@ -49,7 +49,7 @@ export class PipeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("path", value);
     }
 
-    @serialze()
+    @serialize()
     @property("pipe.bendRadius")
     get bendRadius() {
         return this.getPrivateValue("bendRadius", 0);
@@ -58,7 +58,7 @@ export class PipeNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("bendRadius", value);
     }
 
-    @serialze()
+    @serialize()
     @property("option.command.thickness")
     get thickness() {
         return this.getPrivateValue("thickness", 0);

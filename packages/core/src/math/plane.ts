@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import type { Line } from "./line";
 import { MathUtils } from "./mathUtils";
 import type { Matrix4 } from "./matrix4";
@@ -14,20 +14,20 @@ export interface PlaneOptions {
     xvec: XYZ;
 }
 
-@serializable(["origin", "normal", "xvec"])
+@serializable()
 export class Plane {
     static readonly XY: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitZ, xvec: XYZ.unitX });
     static readonly YZ: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY });
     static readonly ZX: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ });
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly origin: XYZ;
     /**
      * unit vector
      */
-    @serialze()
+    @serialize({ readonly: true })
     readonly normal: XYZ;
-    @serialze()
+    @serialize({ readonly: true })
     readonly xvec: XYZ;
     readonly yvec: XYZ;
     constructor(options: PlaneOptions) {

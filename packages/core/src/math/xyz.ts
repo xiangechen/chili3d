@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "../foundation";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import { MathUtils } from "./mathUtils";
 
 export type XYZLike = { x: number; y: number; z: number };
@@ -33,7 +33,7 @@ export function getVectorComponent(point: XYZLike, index: number) {
     throw new Error("index out of range");
 }
 
-@serializable(["x", "y", "z"])
+@serializable()
 export class XYZ {
     static readonly zero = Object.freeze(new XYZ({ x: 0, y: 0, z: 0 }));
     static readonly unitX = Object.freeze(new XYZ({ x: 1, y: 0, z: 0 }));
@@ -44,11 +44,11 @@ export class XYZ {
     static readonly unitNZ = Object.freeze(new XYZ({ x: 0, y: 0, z: -1 }));
     static readonly one = Object.freeze(new XYZ({ x: 1, y: 1, z: 1 }));
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly x: number;
-    @serialze()
+    @serialize({ readonly: true })
     readonly y: number;
-    @serialze()
+    @serialize({ readonly: true })
     readonly z: number;
 
     constructor(options: XYZOptions) {

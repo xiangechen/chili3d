@@ -2,7 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import type { EdgeMeshData, IShape, IShapeMeshData, Serialized, ShapeType, XYZLike } from "../src";
-import { Matrix4, type Orientation, type Plane, PropertyUtils, Result, ShapeTypes } from "../src";
+import {
+    InternalClassName,
+    Matrix4,
+    type Orientation,
+    type Plane,
+    PropertyUtils,
+    Result,
+    ShapeTypes,
+} from "../src";
 import { FacebaseNode } from "../src/model/facebaseNode";
 import { TestDocument } from "./testDocument";
 
@@ -146,16 +154,14 @@ describe("FacebaseNode", () => {
             node.isFace = true;
 
             const serialized: Serialized = {
-                classKey: "TestFacebaseNode",
-                properties: {
-                    isFace: node.isFace,
-                    id: node.id,
-                    name: node.name,
-                    materialId: undefined,
-                },
+                [InternalClassName]: "TestFacebaseNode",
+                isFace: node.isFace,
+                id: node.id,
+                name: node.name,
+                materialId: undefined,
             };
 
-            expect(serialized.properties["isFace"]).toBe(true);
+            expect(serialized["isFace"]).toBe(true);
         });
 
         test("should handle missing isFace in deserialization", () => {

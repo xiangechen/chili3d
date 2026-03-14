@@ -6,7 +6,7 @@ import { Id } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import { BoundingBox, Matrix4, type XYZ } from "../math";
 import { property } from "../property";
-import { serializable, serialze } from "../serialize";
+import { serializable, serialize } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { MeshNode } from "./meshNode";
@@ -75,25 +75,25 @@ export interface ComponentOptions {
     id?: string;
 }
 
-@serializable(["name", "nodes", "origin", "id"])
+@serializable()
 export class Component {
     private readonly _nodes: ReadonlyArray<VisualNode>;
-    @serialze()
+    @serialize()
     get nodes(): ReadonlyArray<VisualNode> {
         return this._nodes;
     }
 
     private readonly _name: string;
-    @serialze()
+    @serialize()
     get name(): string {
         return this._name;
     }
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly id: string;
 
     private _origin: XYZ;
-    @serialze()
+    @serialize()
     get origin(): XYZ {
         return this._origin;
     }
@@ -273,7 +273,7 @@ export interface ComponentNodeOptions {
     id?: string;
 }
 
-@serializable(["document", "name", "componentId", "insert", "id"])
+@serializable()
 export class ComponentNode extends VisualNode {
     override display(): I18nKeys {
         return "body.group";
@@ -300,10 +300,10 @@ export class ComponentNode extends VisualNode {
         return this._component;
     }
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly componentId: string;
 
-    @serialze()
+    @serialize({ readonly: true })
     readonly insert: XYZ;
 
     constructor(options: ComponentNodeOptions) {

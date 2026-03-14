@@ -9,7 +9,7 @@ import {
     property,
     type Result,
     serializable,
-    serialze,
+    serialize,
     type XYZ,
 } from "@chili3d/core";
 
@@ -19,13 +19,13 @@ export interface SphereNodeOptions {
     radius: number;
 }
 
-@serializable(["document", "center", "radius"])
+@serializable()
 export class SphereNode extends ParameterShapeNode {
     override display(): I18nKeys {
         return "body.sphere";
     }
 
-    @serialze()
+    @serialize()
     @property("circle.center")
     get center() {
         return this.getPrivateValue("center");
@@ -34,7 +34,7 @@ export class SphereNode extends ParameterShapeNode {
         this.setPropertyEmitShapeChanged("center", center);
     }
 
-    @serialze()
+    @serialize()
     @property("circle.radius")
     get radius() {
         return this.getPrivateValue("radius");

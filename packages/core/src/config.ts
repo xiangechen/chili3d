@@ -4,7 +4,7 @@
 import { ObjectStorage, Observable } from "./foundation";
 import { I18n } from "./i18n";
 import type { Navigation3DType } from "./navigation";
-import { type SerializedProperties, Serializer, serialze } from "./serialize";
+import { type SerializedData, Serializer, serialize } from "./serialize";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "./snapType";
 
 export const DefaultLightEdgeColor = 0x333333;
@@ -88,7 +88,7 @@ export class Config extends Observable {
         this.setProperty("dynamicWorkplane", value);
     }
 
-    @serialze()
+    @serialize()
     get language() {
         return this.getPrivateValue("language", I18n.defaultLanguage());
     }
@@ -96,7 +96,7 @@ export class Config extends Observable {
         this.setProperty("language", value);
     }
 
-    @serialze()
+    @serialize()
     get navigation3D() {
         return this.getPrivateValue("navigation3D", "Chili3d");
     }
@@ -104,7 +104,7 @@ export class Config extends Observable {
         this.setProperty("navigation3D", value);
     }
 
-    @serialze()
+    @serialize()
     get themeMode() {
         return this.getPrivateValue("themeMode", "system");
     }
@@ -120,7 +120,7 @@ export class Config extends Observable {
         });
     }
 
-    @serialze()
+    @serialize()
     get trustedDomains() {
         return this.getPrivateValue("trustedDomains", []);
     }
@@ -143,7 +143,7 @@ export class Config extends Observable {
     }
 
     readFromStorage() {
-        const data = ObjectStorage.default.value<SerializedProperties<Config>>(this.storageKey);
+        const data = ObjectStorage.default.value<SerializedData>(this.storageKey);
         for (const key in data) {
             const thisKey = key as keyof Config;
             this.setPrivateValue(thisKey, (data as any)[key]);

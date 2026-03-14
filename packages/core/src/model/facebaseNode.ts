@@ -2,11 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import { property } from "../property";
-import { serialze } from "../serialize";
+import { serialize } from "../serialize";
 import { ParameterShapeNode } from "./shapeNode";
 
 export abstract class FacebaseNode extends ParameterShapeNode {
-    @serialze()
+    @serialize()
     @property("option.command.isFace")
     get isFace() {
         return this.getPrivateValue("isFace", false);
