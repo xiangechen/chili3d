@@ -162,7 +162,7 @@ export class RibbonUI extends HTMLElement {
                     new ViewActiveConverter(view, style.tab, style.active),
                 ),
                 onclick: () => {
-                    this.dataContent.activeView = view;
+                    this.app.activeView = view;
                 },
             },
             div({ className: style.name }, span({ textContent: new Binding(view.document, "name") })),
