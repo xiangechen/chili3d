@@ -8,7 +8,6 @@ Chili3D is a 3D CAD/WebGL application framework with WebAssembly integration. It
 
 - **Tech Stack**: TypeScript, Rspack, Biome, Rstest, C++/Emscripten, Three.js
 - **Architecture**: Modular monorepo with package-based organization
-- **Target**: Modern web browsers with WebGL support
 
 ## Build Commands
 
@@ -22,56 +21,23 @@ npm run preview      # Preview production build
 npm run build:wasm   # Build C++ WASM module with CMake
 npm run setup:wasm   # Setup WASM dependencies
 
-# TypeScript Declaration Files
-npm run build:types  # Generate .d.ts files for npm packages
-
 # Code Quality
-npm run check        # Biome linting and auto-fix (run this before commits!)
+npm run check        # Biome linting and auto-fix (run before commits!)
 npm run format       # Format all code (Biome + clang-format)
 
 # Testing
 npm run test         # Run all tests with Rstest
 npm run testc        # Run tests with coverage
-npx rstest xyz.test.ts   # Run single test file (pattern matching supported)
-npx rstest -t "should do"      # Run tests matching pattern
-npx rstest packages/chili-core/test/  # Run all tests in directory
+npx rstest path/to/file.test.ts       # Run single test file
+npx rstest -t "test name"             # Run tests matching pattern
+npx rstest packages/core/test/        # Run all tests in directory
 ```
-
-## Publishing Packages
-
-To publish `@chili3d/core` and `@chili3d/element` packages to npm:
-
-1. Generate TypeScript declaration files:
-
-    ```bash
-    npm run build:types
-    ```
-
-2. Publish stable version:
-
-    ```bash
-    cd types/packages/core
-    npm publish
-
-    cd types/packages/element
-    npm publish
-    ```
-
-3. Publish beta version (add `--tag beta`):
-
-    ```bash
-    cd types/packages/core
-    npm publish --tag beta
-
-    cd types/packages/element
-    npm publish --tag beta
-    ```
 
 ## Code Style Guidelines
 
 ### TypeScript/JavaScript
 
-**Formatting (Biome)**:
+**Biome Configuration** (biome.json):
 - Indentation: 4 spaces
 - Line width: 110 characters
 - Quotes: Double quotes
@@ -80,46 +46,41 @@ To publish `@chili3d/core` and `@chili3d/element` packages to npm:
 
 **Import Conventions**:
 ```typescript
-// Package imports (use package names, not relative paths for internal packages)
+// Internal packages - use package names, not relative paths
 import { AppBuilder } from "@chili3d/builder";
 import { type IApplication, Logger } from "@chili3d/core";
 
-// Type imports prefixed with 'type'
+// Type-only imports
 import type { ICommand } from "./command";
-import type { IDataExchange } from "./dataExchange";
 
-// Standard library and external packages
-import { EventEmitter } from "events";
+// External packages
 import * as THREE from "three";
 ```
 
-**File Headers**: Every source file must include:
+**File Headers** (required):
 ```typescript
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 ```
 
 **Naming Conventions**:
-- Interfaces: `IName` (e.g., `IApplication`, `IDocument`)
-- Classes: `PascalCase` (e.g., `Application`, `Document`)
+- Interfaces: `IName` (e.g., `IApplication`)
+- Classes: `PascalCase` (e.g., `Application`)
 - Functions/Variables: `camelCase`
 - Constants: `UPPER_SNAKE_CASE`
-- Files: `kebabCase.ts` or `kebabCase.test.ts`
+- Files: `kebab-case.ts` or `kebab-case.test.ts`
 
 **Error Handling**:
 - Use `Result<T>` pattern for operations that can fail
 - Prefer async/await over promises
-- Always handle errors in async functions
-- Use proper TypeScript types, avoid `any` (Biome will warn)
+- Avoid `any` type (Biome warns)
 
 ### C++ (WebAssembly)
 
-**Style**: WebKit style with clang-format
-- Formatting: `clang-format --style=Webkit --sort-includes`
+- Style: WebKit with clang-format
 - Standard: C++17
-- License header: LGPL-3.0 (different from TypeScript code)
+- License header: LGPL-3.0 (different from TypeScript)
 
-**File Headers**:
 ```cpp
 // Part of the Chili3d Project, under the LGPL-3.0 License.
 // See LICENSE-chili-wasm.text file in the project root for full license information.
@@ -128,7 +89,6 @@ import * as THREE from "three";
 ## Testing Guidelines
 
 **Framework**: Rstest with Happy-DOM
-**Test Environment**: DOM simulation for web components
 
 **Test Structure**:
 ```typescript
@@ -140,136 +100,74 @@ import { TestDocument } from "../src/test-utils";
 
 describe("FeatureName", () => {
     test("should do something", () => {
-        // Arrange
         const doc = new TestDocument();
-        
-        // Act
         const result = someFunction();
-        
-        // Assert
         expect(result).toEqual(expectedValue);
     });
 });
 ```
 
-**Test Patterns**:
-- Use `describe` blocks for logical grouping
-- Follow Arrange-Act-Assert pattern
-- Mock DOM APIs with Happy-DOM
-- Use `TestDocument` for document testing utilities
-- Test both positive and negative cases
-
 ## Package Architecture
 
-**Core Packages** (directory → npm package name):
+| Directory | Package Name |
+|-----------|--------------|
+| `app` | `@chili3d/app` |
+| `builder` | `@chili3d/builder` |
+| `core` | `@chili3d/core` |
+| `element` | `@chili3d/element` |
+| `i18n` | `@chili3d/i18n` |
+| `storage` | `@chili3d/storage` |
+| `three` | `@chili3d/three` |
+| `ui` | `@chili3d/ui` |
+| `wasm` | `@chili3d/wasm` |
+| `web` | `@chili3d/web` |
 
-| Directory | Package Name | Description |
-|-----------|--------------|-------------|
-| `app` | `@chili3d/app` | Main application package |
-| `builder` | `@chili3d/builder` | Application builder pattern |
-| `core` | `@chili3d/core` | Core interfaces and utilities |
-| `element` | `@chili3d/element` | Basic elements and primitives |
-| `i18n` | `@chili3d/i18n` | Internationalization |
-| `storage` | `@chili3d/storage` | Data persistence |
-| `three` | `@chili3d/three` | Three.js 3D rendering integration |
-| `ui` | `@chili3d/ui` | UI components |
-| `wasm` | `@chili3d/wasm` | WebAssembly bindings |
-| `web` | `@chili3d/web` | Web application entry point |
-
-**Plugin Examples**:
-- `plugins/helloworld-js` - JavaScript plugin example
-- `plugins/helloworld-ts` - TypeScript plugin example
-
-**Module Resolution**:
-- Use package names for internal imports, not relative paths
-- Import main app as `import { ... } from "@chili3d/app";`
-- Import other packages as `import { ... } from "@chili3d/xxx";`
-- Export everything from package index files
-- TypeScript path resolution handles the mapping
+**Module Resolution**: Use package names for internal imports, not relative paths.
 
 ## Git Commit Guidelines
 
-### Commit Message Format
+Format: `<type>(<scope>): <description>`
 
-Follow conventional commits with strict formatting:
+**Types** (with emoji):
+- ✨ `feat`: New feature
+- 🐛 `fix`: Bug fix
+- 📝 `docs`: Documentation
+- 💄 `style`: Code style (formatting, semicolons)
+- ♻️ `refactor`: Code refactoring
+- ✅ `test`: Add/update tests
+- 🔧 `chore`: Build, deps, maintenance
 
+**Scope**: Package name (e.g., core, three, ui, wasm)
+
+Examples:
 ```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
+✨ feat(core): add observable collection for reactive data binding
+🐛 fix(three): resolve texture loading error in WebGL renderer
+✅ test(core): add unit tests for result pattern error handling
+📝 docs(readme): update installation instructions
+♻️ refactor(ui): extract button component
+🔧 chore(deps): upgrade typescript to 5.9.3
 ```
-
-**Types**:
-- `feat`: New feature
-- `fix`: Bug fix  
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, missing semicolons, etc.)
-- `refactor`: Code refactoring without functional changes
-- `test`: Adding or updating tests
-- `chore`: Build process, dependencies, or other maintenance
-
-**Scope**: Use package name (e.g., `core`, `three`, `ui`, `wasm`)
-
-**Examples**:
-```
-feat(core): add observable collection for reactive data binding
-
-fix(three): resolve texture loading error in WebGL renderer
-
-docs(readme): update installation instructions for Windows
-
-refactor(ui): extract button component into separate module
-
-test(core): add unit tests for result pattern error handling
-
-chore(deps): upgrade typescript to 5.9.3
-
-fix(wasm): memory leak in geometry converter
-```
-
-### Commit Workflow
-
-1. **Stage changes**: `git add .` or stage specific files
-2. **Pre-commit hooks**: Automatically run `npm run check` via lint-staged
-3. **Write commit message**: Follow the format above
-4. **Push**: Ensure tests pass with `npm run test`
-
-**Pre-commit Quality Checks**:
-- Biome linting and auto-fix for all TypeScript/JavaScript files
-- clang-format formatting for all C++ files
-- Automatic import organization
 
 ## Development Workflow
 
-1. **Before committing**: Always run `npm run check` to lint and auto-fix
-2. **Testing**: Run `npm run test` before pushing
-3. **WASM changes**: Run `npm run build:wasm` after C++ modifications
-4. **Format**: Use `npm run format` for comprehensive formatting
-5. **Commit**: Follow conventional commit message format
+1. Run `npm run check` before committing
+2. Run `npm run test` before pushing
+3. Run `npm run build:wasm` after C++ modifications
+4. Use `npm run format` for comprehensive formatting
 
 ## Important Notes
 
-- **Biome** handles both linting and formatting - no need for separate tools
-- **Rstest** is the testing framework, not Jest or Vitest
-- **Rspack** is used instead of Webpack for builds
-- **C++ code** has different license (LGPL-3.0) than TypeScript (AGPL-3.0)
-- **CSS Modules** are enabled and should be used for component styles
-- **Git hooks** automatically run linting on commit via lint-staged
+- **Biome**: Handles linting and formatting (no separate tools needed)
+- **Rstest**: Testing framework (not Jest/Vitest)
+- **Rspack**: Build tool (not Webpack)
+- **C++ license**: LGPL-3.0 (TypeScript is AGPL-3.0)
+- **CSS**: Use CSS Modules for component styles
 
 ## Common Patterns
 
-**Observer Pattern**: Use `ObservableCollection` for reactive collections
-**Command Pattern**: Implement `ICommand` for user actions
-**Factory Pattern**: Use factories for creating shapes and visuals
-**Result Pattern**: Return `Result<T>` instead of throwing exceptions
-**Dependency Injection**: Use service container for dependencies
-
-## Performance Considerations
-
-- WebAssembly operations are expensive - batch when possible
-- Three.js objects should be disposed properly
-- Use memoization for expensive computations
-- Implement proper cleanup in disposable objects
-- Avoid unnecessary DOM manipulations
+- **Result Pattern**: Return `Result<T>` instead of throwing exceptions
+- **ObservableCollection**: For reactive collections
+- **ICommand**: For user actions
+- **Factory**: For creating shapes and visuals
+- **Dependency Injection**: Use service container
