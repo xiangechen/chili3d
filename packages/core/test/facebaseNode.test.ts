@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { EdgeMeshData, IShape, IShapeMeshData, Serialized, ShapeType, XYZLike } from "../src";
+import type {
+    BoundingBox,
+    EdgeMeshData,
+    IShape,
+    IShapeMeshData,
+    OrientedBoundingBox,
+    Serialized,
+    ShapeType,
+    XYZLike,
+} from "../src";
 import {
     InternalClassName,
     Matrix4,
@@ -32,6 +41,14 @@ class MockShape implements IShape {
 
     transformedMul(matrix: Matrix4): IShape {
         return this;
+    }
+
+    boundingBox(): BoundingBox {
+        throw new Error("Method not implemented.");
+    }
+
+    orientedBoundingBox(): OrientedBoundingBox {
+        throw new Error("Method not implemented.");
     }
 
     edgesMeshPosition(): EdgeMeshData {

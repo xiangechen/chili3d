@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     type EdgeMeshData,
     type FaceMeshData,
     gc,
@@ -30,6 +31,7 @@ import {
     MathUtils,
     type Matrix4,
     type Orientation,
+    type OrientedBoundingBox,
     Plane,
     Result,
     type Serialized,
@@ -93,6 +95,9 @@ function occShapeDeserialize(_document: any, properties: Serialized) {
     serialize: occShapeSerialize,
 })
 export class OccShape implements IShape {
+    private _boundingBox: BoundingBox | undefined;
+    private _orientedBoundingBox: OrientedBoundingBox | undefined;
+
     readonly shapeType: ShapeType;
     protected _mesh: IShapeMeshData | undefined;
     get mesh(): IShapeMeshData {
@@ -117,6 +122,21 @@ export class OccShape implements IShape {
         gc((c) => {
             const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
             this._shape.setLocation(location, false);
+
+            if (this._boundingBox) {
+                this._boundingBox = BoundingBox.transformed(this._boundingBox, matrix);
+            }
+            if (this._orientedBoundingBox) {
+                this._orientedBoundingBox = {
+                    center: {
+                        location: matrix.ofPoint(this._orientedBoundingBox.center.location),
+                        xDirection: matrix.ofVector(this._orientedBoundingBox.center.xDirection),
+                        direction: matrix.ofVector(this._orientedBoundingBox.center.direction),
+                    },
+                    size: this._orientedBoundingBox.size,
+                };
+            }
+
             this.onTransformChanged();
         });
     }
@@ -154,6 +174,20 @@ export class OccShape implements IShape {
         }
     }
 
+    boundingBox(): BoundingBox {
+        if (!this._boundingBox) {
+            this._boundingBox = wasm.Shape.boundingBox(this.shape, this._mesh !== undefined);
+        }
+        return this._boundingBox;
+    }
+
+    orientedBoundingBox(): OrientedBoundingBox {
+        if (!this._orientedBoundingBox) {
+            this._orientedBoundingBox = wasm.Shape.orientedBoundingBox(this.shape, this._mesh !== undefined);
+        }
+        return this._orientedBoundingBox;
+    }
+
     transformed(matrix: Matrix4): IShape {
         return gc((c) => {
             const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
@@ -178,7 +212,7 @@ export class OccShape implements IShape {
     }
 
     edgesMeshPosition(): EdgeMeshData {
-        const occMesher = new wasm.Mesher(this.shape, 0.005);
+        const occMesher = new wasm.Mesher(this.shape, 0.005, true);
         const position = occMesher.edgesMeshPosition();
         occMesher.delete();
         return {
@@ -709,7 +743,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
         this._isMeshed = true;
 
         gc((c) => {
-            const occMesher = c(new wasm.Mesher(this.shape.shape, 0.005));
+            const occMesher = c(new wasm.Mesher(this.shape.shape, 0.005, true));
             const meshData = c(occMesher.mesh());
             const faceMeshData = c(meshData.faceMeshData);
             const edgeMeshData = c(meshData.edgeMeshData);

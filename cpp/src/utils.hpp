@@ -22,4 +22,4 @@ ProjectPointResult projectOrNearestCP(const Geom_Curve* curve, const gp_Pnt& pnt
 TopTools_SequenceOfShape shapeArrayToSequenceOfShape(const ShapeArray& shapes);
 TopTools_ListOfShape shapeArrayToListOfShape(const ShapeArray& shapes);
 
-double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection);
+double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection, bool useTriangulation);

@@ -219,10 +219,15 @@ class Mesher {
     double lineDeflection;
 
 public:
-    Mesher(const TopoDS_Shape& shape, double lineDeflection)
+    Mesher(const TopoDS_Shape& shape, double lineDeflection, bool useBoxRatio)
         : shape(shape)
     {
-        this->lineDeflection = boundingBoxRatio(shape, lineDeflection);
+        if (useBoxRatio) {
+            this->lineDeflection = boundingBoxRatio(shape, lineDeflection, false);
+        } else {
+            this->lineDeflection = lineDeflection;
+        }
+        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, ANGLE_DEFLECTION, true);
     }
 
     NumberArray edgesMeshPosition()
@@ -240,8 +245,6 @@ public:
 
     MeshData mesh()
     {
-        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, ANGLE_DEFLECTION, true);
-
         std::unordered_map<TopoDS_Face, Handle(Poly_Triangulation)> facePolyMap;
         auto faceMeshData = meshFaces(facePolyMap);
         auto edgeMeshData = meshEdges(facePolyMap);
@@ -297,17 +300,12 @@ public:
             NumberArray(val::array(mesher.uv)), NumberArray(val::array(mesher.index)),
             NumberArray(val::array(mesher.group)), FaceArray(val::array(mesher.faces)) };
     }
-
-    ~Mesher()
-    {
-        BRepTools::Clean(shape, true);
-    }
 };
 
 EMSCRIPTEN_BINDINGS(Mesher)
 {
     class_<Mesher>("Mesher")
-        .constructor<TopoDS_Shape, double>()
+        .constructor<TopoDS_Shape, double, bool>()
         .function("mesh", &Mesher::mesh)
         .function("edgesMeshPosition", &Mesher::edgesMeshPosition);
 

@@ -173,6 +173,16 @@ struct Pln {
     }
 };
 
+struct BoundingBox {
+    Vector3 min;
+    Vector3 max;
+};
+
+struct OrientedBoundingBox {
+    Ax3 center;
+    Vector3 size;
+};
+
 struct ProjectPointResult {
     Vector3 point;
     double distance;

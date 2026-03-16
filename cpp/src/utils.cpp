@@ -75,10 +75,10 @@ ProjectPointResult projectOrNearestCP(const Geom_Curve* curve, const gp_Pnt& pnt
     return nearestEnd(curve, pnt);
 }
 
-double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection)
+double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection, bool useTriangulation)
 {
     Bnd_Box boundingBox;
-    BRepBndLib::Add(shape, boundingBox, false);
+    BRepBndLib::Add(shape, boundingBox, useTriangulation);
     if (boundingBox.IsVoid()) {
         return linearDeflection;
     }

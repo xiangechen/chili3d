@@ -7,6 +7,17 @@ import type { LineSegment } from "./lineSegment";
 import type { Matrix4 } from "./matrix4";
 import { getVectorComponent, XYZ, type XYZLike } from "./xyz";
 
+export type Ax3 = {
+    location: XYZLike;
+    direction: XYZLike;
+    xDirection: XYZLike;
+};
+
+export type OrientedBoundingBox = {
+    center: Ax3;
+    size: XYZLike;
+};
+
 export class BoundingBox {
     constructor(
         readonly min: XYZLike,

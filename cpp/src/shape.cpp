@@ -8,6 +8,7 @@
 #include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
@@ -22,6 +23,7 @@
 #include <BRepTools_WireExplorer.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <Bnd_OBB.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GProp_GProps.hxx>
 #include <GeomAbs_JoinType.hxx>
@@ -57,10 +59,37 @@ using namespace emscripten;
 
 class Shape {
 public:
+    static BoundingBox boundingBox(const TopoDS_Shape& shape, bool useTriangulation)
+    {
+        Bnd_Box obx;
+        BRepBndLib::Add(shape, obx, useTriangulation);
+
+        return BoundingBox {
+            Vector3::fromPnt(obx.CornerMin()),
+            Vector3::fromPnt(obx.CornerMax())
+        };
+    }
+
+    static OrientedBoundingBox orientedBoundingBox(const TopoDS_Shape& shape, bool useTriangulation)
+    {
+        Bnd_OBB obb;
+        BRepBndLib::AddOBB(shape, obb, useTriangulation);
+
+        return OrientedBoundingBox {
+            Ax3::fromAx3(obb.Position()),
+            Vector3 { obb.XHSize(), obb.YHSize(), obb.ZHSize() }
+        };
+    }
+
     static TopoDS_Shape clone(const TopoDS_Shape& shape)
     {
         BRepBuilderAPI_Copy copy(shape);
         return copy.Shape();
+    }
+
+    static void clean(TopoDS_Shape& shape)
+    {
+        BRepTools::Clean(shape, true);
     }
 
     static bool isClosed(const TopoDS_Shape& shape)
@@ -406,6 +435,9 @@ public:
 EMSCRIPTEN_BINDINGS(Shape)
 {
     class_<Shape>("Shape")
+        .class_function("boundingBox", &Shape::boundingBox)
+        .class_function("orientedBoundingBox", &Shape::orientedBoundingBox)
+        .class_function("clean", &Shape::clean)
         .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)

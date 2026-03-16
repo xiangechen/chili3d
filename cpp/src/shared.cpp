@@ -38,12 +38,14 @@ EMSCRIPTEN_BINDINGS(Shared)
     register_optional<std::string>();
 
     value_object<Domain>("Domain").field("start", &Domain::start).field("end", &Domain::end);
-    ;
-
     value_object<UV>("UV").field("u", &UV::u).field("v", &UV::v);
-    ;
-
     value_object<Vector3>("Vector3").field("x", &Vector3::x).field("y", &Vector3::y).field("z", &Vector3::z);
+    value_object<BoundingBox>("BoundingBox")
+        .field("min", &BoundingBox::min)
+        .field("max", &BoundingBox::max);
+    value_object<OrientedBoundingBox>("OrientedBoundingBox")
+        .field("center", &OrientedBoundingBox::center)
+        .field("size", &OrientedBoundingBox::size);
 
     value_object<PointAndParameter>("PointAndParameter")
         .field("point", &PointAndParameter::point)
