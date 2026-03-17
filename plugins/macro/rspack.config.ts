@@ -1,4 +1,6 @@
 import { defineConfig } from "@rspack/cli";
+import rspack from "@rspack/core";
+import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
 
 export default defineConfig({
     devtool: false,
@@ -56,6 +58,7 @@ export default defineConfig({
         avoidEntryIife: true,
         splitChunks: false,
         minimize: true,
+        minimizer: [new rspack.LightningCssMinimizerRspackPlugin()],
     },
     output: {
         clean: true,
@@ -68,4 +71,11 @@ export default defineConfig({
         chunkLoading: "import",
         workerChunkLoading: "import",
     },
+    plugins: [
+        new TsCheckerRspackPlugin(),
+        new rspack.CircularDependencyRspackPlugin({
+            failOnError: true,
+            exclude: /node_modules/,
+        }),
+    ],
 });

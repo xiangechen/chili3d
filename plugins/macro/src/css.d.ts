@@ -1,4 +1,4 @@
 declare module "*.module.css" {
-    const classes: { readonly [key: string]: string };
+    const classes: any;
     export default classes;
 }
