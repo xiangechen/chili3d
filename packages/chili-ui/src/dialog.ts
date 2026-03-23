@@ -37,6 +37,9 @@ export class Dialog {
             ),
         );
 
+        dialog.onclose = () => {
+            callback?.(DialogResult.cancel);
+        };
         dialog.showModal();
     }
 }
