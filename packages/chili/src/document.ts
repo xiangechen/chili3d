@@ -33,11 +33,11 @@ import {
 import { Selection } from "./selection";
 
 export class Document extends Observable implements IDocument {
-    readonly components: Component[] = [];
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
     readonly acts = new ObservableCollection<Act>();
+    readonly components = new ObservableCollection<Component>();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
     private readonly _nodeChangedObservers = new Set<INodeChangedObserver>();
@@ -91,6 +91,7 @@ export class Document extends Observable implements IDocument {
         this.visual = application.visualFactory.create(this);
         this.selection = new Selection(this);
         this.materials.onCollectionChanged(this.handleMaterialChanged);
+        this.components.onCollectionChanged(this.handleComponentChanged);
         application.documents.add(this);
 
         Logger.info(`new document: ${name}`);
@@ -161,6 +162,7 @@ export class Document extends Observable implements IDocument {
         this.application.activeView = this.application.views.at(0);
         this.application.documents.delete(this);
         this.materials.removeCollectionChanged(this.handleMaterialChanged);
+        this.components.removeCollectionChanged(this.handleComponentChanged);
         PubSub.default.pub("documentClosed", this);
 
         Logger.info(`document: ${this.name} closed`);
@@ -227,6 +229,24 @@ export class Document extends Observable implements IDocument {
                 dispose() {},
                 undo: () => this.materials.push(...args.items),
                 redo: () => this.materials.remove(...args.items),
+            });
+        }
+    };
+
+    private readonly handleComponentChanged = (args: CollectionChangedArgs) => {
+        if (args.action === CollectionAction.add) {
+            Transaction.add(this, {
+                name: "ComponentChanged",
+                dispose() {},
+                undo: () => this.components.remove(...args.items),
+                redo: () => this.components.push(...args.items),
+            });
+        } else if (args.action === CollectionAction.remove) {
+            Transaction.add(this, {
+                name: "ComponentChanged",
+                dispose() {},
+                undo: () => this.components.push(...args.items),
+                redo: () => this.components.remove(...args.items),
             });
         }
     };
