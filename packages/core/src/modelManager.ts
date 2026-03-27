@@ -21,7 +21,7 @@ export type OnNodeChanged = (records: NodeRecord[]) => void;
 export class ModelManager extends Observable {
     private readonly _nodeChangedObservers = new Set<OnNodeChanged>();
 
-    readonly components: Component[] = [];
+    readonly components: ObservableCollection<Component> = new ObservableCollection();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
     private _rootNode: INodeLinkedList | undefined;
@@ -50,6 +50,7 @@ export class ModelManager extends Observable {
     constructor(readonly document: IDocument) {
         super();
         this.materials.onCollectionChanged(this.handleMaterialChanged);
+        this.components.onCollectionChanged(this.handleComponentChanged);
     }
 
     private readonly handleRootNodeNameChanged = (prop: string) => {
@@ -118,6 +119,7 @@ export class ModelManager extends Observable {
         super.disposeInternal();
         this._nodeChangedObservers.clear();
         this.materials.removeCollectionChanged(this.handleMaterialChanged);
+        this.components.removeCollectionChanged(this.handleComponentChanged);
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
         this._rootNode?.dispose();
         this.materials.forEach((x) => x.dispose());
@@ -140,6 +142,24 @@ export class ModelManager extends Observable {
                 dispose() {},
                 undo: () => this.materials.push(...args.items),
                 redo: () => this.materials.remove(...args.items),
+            });
+        }
+    };
+
+    private readonly handleComponentChanged = (args: CollectionChangedArgs) => {
+        if (args.action === "add") {
+            Transaction.add(this.document, {
+                name: "ComponentChanged",
+                dispose() {},
+                undo: () => this.components.remove(...args.items),
+                redo: () => this.components.push(...args.items),
+            });
+        } else if (args.action === "remove") {
+            Transaction.add(this.document, {
+                name: "ComponentChanged",
+                dispose() {},
+                undo: () => this.components.push(...args.items),
+                redo: () => this.components.remove(...args.items),
             });
         }
     };
