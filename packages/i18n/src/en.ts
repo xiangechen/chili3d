@@ -30,6 +30,7 @@ export default {
         "body.pipe": "Pipe",
         "body.point": "Point",
         "body.polygon": "Pline",
+        "body.regularPolygon": "Regular Polygon",
         "body.prism": "Prism",
         "body.pyramid": "Pyramid",
         "body.rect": "Rectangle",
@@ -70,6 +71,7 @@ export default {
         "command.create.pipe": "Pipe",
         "command.create.point": "Point",
         "command.create.polygon": "Pline",
+        "command.create.regularPolygon": "Regular Polygon",
         "command.create.pyramid": "Pyramid",
         "command.create.rect": "Rectangle",
         "command.create.revol": "Revolve",
@@ -208,6 +210,7 @@ export default {
         "option.command.thickness": "Thickness",
         "point.position": "Position",
         "polygon.points": "Points",
+        "regularPolygon.sides": "Number of Sides",
         "pipe.bendRadius": "Bend Radius",
         "pipe.bendType": "Bend Type",
         "prompt.default{0}{1}":
