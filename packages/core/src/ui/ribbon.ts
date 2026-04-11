@@ -75,16 +75,12 @@ export class Ribbon extends Observable {
     readonly quickCommands = new ObservableCollection<CommandKeys>();
     readonly tabs = new ObservableCollection<RibbonTab>();
     private _activeTab: RibbonTab;
-    private _activeView: IView | undefined;
 
     constructor(quickCommands: CommandKeys[], tabs: RibbonTab[]) {
         super();
         this.quickCommands.push(...quickCommands);
         this.tabs.push(...tabs);
         this._activeTab = tabs[0];
-        PubSub.default.sub("activeViewChanged", (v) => {
-            this.activeView = v;
-        });
     }
 
     combineRibbonTab(tabProfile: RibbonTabProfile) {
@@ -120,12 +116,5 @@ export class Ribbon extends Observable {
     }
     set activeTab(value: RibbonTab) {
         this.setProperty("activeTab", value);
-    }
-
-    get activeView() {
-        return this._activeView;
-    }
-    set activeView(value: IView | undefined) {
-        this.setProperty("activeView", value);
     }
 }

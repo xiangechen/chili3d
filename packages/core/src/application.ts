@@ -4,7 +4,7 @@
 import type { ICommand } from "./command";
 import type { IDataExchange } from "./dataExchange";
 import type { IDocument } from "./document";
-import type { IStorage, ObservableCollection } from "./foundation";
+import type { IPropertyChanged, IStorage, ObservableCollection } from "./foundation";
 import type { IPluginManager } from "./plugin";
 import type { Serialized } from "./serialize";
 import type { IService } from "./service";
@@ -12,7 +12,7 @@ import type { IShapeFactory } from "./shape";
 import type { IWindow } from "./ui/window";
 import type { IView, IVisualFactory } from "./visual";
 
-export interface IApplication {
+export interface IApplication extends IPropertyChanged {
     readonly mainWindow?: IWindow;
     readonly dataExchange: IDataExchange;
     readonly visualFactory: IVisualFactory;

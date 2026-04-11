@@ -157,7 +157,7 @@ export class RibbonUI extends HTMLElement {
         return div(
             {
                 className: new Binding(
-                    this.dataContent,
+                    this.app,
                     "activeView",
                     new ViewActiveConverter(view, style.tab, style.active),
                 ),

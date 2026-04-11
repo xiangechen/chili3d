@@ -24,6 +24,7 @@ import {
     PubSub,
     type Serialized,
     setCurrentApplication,
+    Observable,
 } from "@chili3d/core";
 import { Document } from "./document";
 import { PluginManager } from "./pluginManager";
@@ -38,7 +39,7 @@ export interface ApplicationOptions {
     mainWindow?: IWindow;
 }
 
-export class Application implements IApplication {
+export class Application extends Observable implements IApplication {
     readonly dataExchange: IDataExchange;
     readonly visualFactory: IVisualFactory;
     readonly shapeFactory: IShapeFactory;
@@ -46,23 +47,28 @@ export class Application implements IApplication {
     readonly storage: IStorage;
     readonly mainWindow?: IWindow;
     readonly pluginManager: IPluginManager;
-
     readonly views = new ObservableCollection<IView>();
     readonly documents: Set<IDocument> = new Set<IDocument>();
 
-    executingCommand: ICommand | undefined;
+    get executingCommand(): ICommand | undefined {
+        return this.getPrivateValue("executingCommand", undefined);
+    }
+    set executingCommand(value: ICommand | undefined) {
+        this.setProperty("executingCommand", value);
+    }
 
-    private _activeView: IView | undefined;
     get activeView(): IView | undefined {
-        return this._activeView;
+        return this.getPrivateValue("activeView", undefined);
     }
     set activeView(value: IView | undefined) {
-        if (this._activeView === value) return;
-        this._activeView = value;
-        PubSub.default.pub("activeViewChanged", value);
+        this.setProperty("activeView", value, () => {
+            PubSub.default.pub("activeViewChanged", value);
+        });
     }
 
     constructor(option: ApplicationOptions) {
+        super();
+
         if (getCurrentApplication() !== undefined) {
             throw new Error("Only one application can be created");
         }
