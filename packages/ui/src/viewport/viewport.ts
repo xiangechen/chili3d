@@ -7,6 +7,7 @@ import {
     type CameraType,
     I18n,
     type IConverter,
+    IEventHandler,
     type IView,
     Localize,
     PubSub,
@@ -281,7 +282,7 @@ export class Viewport extends HTMLElement {
     }
 
     private initEvent() {
-        const events: [keyof HTMLElementEventMap, (view: IView, e: any) => any][] = [
+        const events: [keyof HTMLElementEventMap, (e: any) => any][] = [
             ["pointerdown", this.pointerDown],
             ["pointermove", this.pointerMove],
             ["pointerout", this.pointerOut],
@@ -293,10 +294,10 @@ export class Viewport extends HTMLElement {
         });
     }
 
-    private addEventListenerHandler(type: keyof HTMLElementEventMap, handler: (view: IView, e: any) => any) {
+    private addEventListenerHandler(type: keyof HTMLElementEventMap, handler: (e: any) => any) {
         const listener = (e: any) => {
             e.preventDefault();
-            handler(this.view, e);
+            handler(e);
         };
         this.addEventListener(type, listener);
         this._eventCaches.push([type, listener]);
@@ -309,48 +310,44 @@ export class Viewport extends HTMLElement {
         this._eventCaches.length = 0;
     }
 
-    private readonly pointerMove = (view: IView, event: PointerEvent) => {
+    private readonly handleEvent = (eventName: Exclude<keyof IEventHandler, "isEnabled" | "dispose">, event: PointerEvent | WheelEvent) => {
+        if (this.view.document.visual.eventHandler.isEnabled)
+            this.view.document.visual.eventHandler[eventName]?.(this.view, event as any);
+        if (this.view.document.visual.viewHandler.isEnabled)
+            this.view.document.visual.viewHandler[eventName]?.(this.view, event as any);
+    }
+
+    private readonly pointerMove = (event: PointerEvent) => {
         if (this._flyout) {
             this._flyout.style.top = event.offsetY + "px";
             this._flyout.style.left = event.offsetX + "px";
         }
-        if (view.document.visual.eventHandler.isEnabled)
-            view.document.visual.eventHandler.pointerMove(view, event);
-        if (view.document.visual.viewHandler.isEnabled)
-            view.document.visual.viewHandler.pointerMove(view, event);
+
+        this.handleEvent("pointerMove", event);
     };
 
-    private readonly pointerDown = (view: IView, event: PointerEvent) => {
+    private readonly pointerDown = (event: PointerEvent) => {
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
 
-        view.document.application.activeView = view;
-        if (view.document.visual.eventHandler.isEnabled)
-            view.document.visual.eventHandler.pointerDown(view, event);
-        if (view.document.visual.viewHandler.isEnabled)
-            view.document.visual.viewHandler.pointerDown(view, event);
+        if (this.view.document.application.activeView !== this.view) {
+            this.view.document.application.activeView = this.view;
+        }
+
+        this.handleEvent("pointerDown", event);
     };
 
-    private readonly pointerUp = (view: IView, event: PointerEvent) => {
-        if (view.document.visual.eventHandler.isEnabled)
-            view.document.visual.eventHandler.pointerUp(view, event);
-        if (view.document.visual.viewHandler.isEnabled)
-            view.document.visual.viewHandler.pointerUp(view, event);
+    private readonly pointerUp = (event: PointerEvent) => {
+        this.handleEvent("pointerUp", event);
     };
 
-    private readonly pointerOut = (view: IView, event: PointerEvent) => {
-        if (view.document.visual.eventHandler.isEnabled)
-            view.document.visual.eventHandler.pointerOut?.(view, event);
-        if (view.document.visual.viewHandler.isEnabled)
-            view.document.visual.viewHandler.pointerOut?.(view, event);
+    private readonly pointerOut = (event: PointerEvent) => {
+        this.handleEvent("pointerOut", event);
     };
 
-    private readonly mouseWheel = (view: IView, event: WheelEvent) => {
-        if (view.document.visual.eventHandler.isEnabled)
-            view.document.visual.eventHandler.mouseWheel?.(view, event);
-        if (view.document.visual.viewHandler.isEnabled)
-            view.document.visual.viewHandler.mouseWheel?.(view, event);
+    private readonly mouseWheel = (event: WheelEvent) => {
+        this.handleEvent("mouseWheel", event);
     };
 }
 

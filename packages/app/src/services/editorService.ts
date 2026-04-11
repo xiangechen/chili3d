@@ -40,7 +40,7 @@ export class EditorService implements IService {
             this.editHandler = this.factory(document, selected);
             document.visual.eventHandler = this.editHandler;
         } else {
-            document.visual.resetEventHandler();
+            document.visual.eventHandler = document.visual.defaultEventHandler;
         }
     };
 }

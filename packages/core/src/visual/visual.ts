@@ -13,12 +13,11 @@ import type { IVisualContext } from "./visualContext";
 export interface IVisual extends IDisposable {
     readonly document: IDocument;
     readonly context: IVisualContext;
-    readonly viewHandler: IEventHandler;
     readonly highlighter: IHighlighter;
     readonly meshExporter: IMeshExporter;
     update(): void;
+    viewHandler: IEventHandler;
+    defaultEventHandler: IEventHandler;
     eventHandler: IEventHandler;
-    resetEventHandler(): void;
-    isExcutingHandler(): boolean;
     createView(name: string, workplane: Plane): IView;
 }
