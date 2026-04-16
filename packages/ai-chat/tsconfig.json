@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "strict": true,
+        "noImplicitOverride": true,
+        "noUnusedLocals": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "experimentalDecorators": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "types": ["vite/client"]
+    },
+    "include": ["src", "vite.config.ts", "index.html"]
+}

@@ -10,6 +10,7 @@ import {
     type Ribbon,
 } from "@chili3d/core";
 import { div } from "@chili3d/element";
+import { attachAiSidebar } from "./aiSidebar";
 import style from "./editor.module.css";
 import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";
@@ -56,15 +57,22 @@ export class Editor extends HTMLElement {
                 onmousedown: (e: MouseEvent) => this._startSidebarResize(e),
             }),
         );
+        const contentRow = div({ className: style.content }, this._sidebarEl, this._viewportContainer);
         this.append(
             div(
                 { className: style.root },
                 new RibbonUI(this.app, this.ribbonContent),
-                div({ className: style.content }, this._sidebarEl, this._viewportContainer),
+                contentRow,
                 new Statusbar(style.statusbar),
             ),
         );
         this.app.mainWindow?.appendChild(this);
+        // Optional AI chat add-on (opt-in via localStorage). No-op when disabled.
+        attachAiSidebar({
+            contentRow,
+            viewportContainer: this._viewportContainer,
+            mainWindow: this.app.mainWindow,
+        });
     }
 
     private _startSidebarResize(e: MouseEvent) {

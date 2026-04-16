@@ -17,5 +17,5 @@
         "types": ["@rstest/core/globals"]
     },
     "include": ["packages"],
-    "exclude": ["packages/chili-occ/occ-wasm", "packages/chili-wasm/lib"]
+    "exclude": ["packages/chili-occ/occ-wasm", "packages/chili-wasm/lib", "packages/ai-chat"]
 }

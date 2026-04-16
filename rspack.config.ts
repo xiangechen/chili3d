@@ -64,7 +64,10 @@ export default defineConfig({
                 {
                     from: "./public",
                     globOptions: {
-                        ignore: ["**/**/index.html"],
+                        // Only ignore the root template — nested index.html
+                        // files (e.g. the chat iframe at /chat/index.html)
+                        // need to ship.
+                        ignore: ["**/public/index.html"],
                     },
                 },
             ],

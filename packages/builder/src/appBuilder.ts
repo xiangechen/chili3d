@@ -39,6 +39,10 @@ export class AppBuilder {
 
             (globalThis as any).Chili3dCore = await import("@chili3d/core");
             (globalThis as any).Chili3dElement = await import("@chili3d/element");
+            // Exposed so the same-origin AI chat iframe can reach node
+            // constructors (BoxNode, SphereNode, ...) and the live
+            // Application instance without re-bundling chili3d.
+            (globalThis as any).Chili3dApp = await import("@chili3d/app");
         });
     }
 
@@ -118,6 +122,9 @@ export class AppBuilder {
         const app = this.createApp();
         await this._window?.init(app);
         await this.loadDefaultPlugins(app);
+
+        // Exposed for the AI chat iframe and external automation harnesses.
+        (globalThis as any).chili3dApp = app;
 
         Logger.info("Application build completed");
 

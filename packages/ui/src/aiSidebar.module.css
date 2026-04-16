@@ -1,0 +1,64 @@
+.aiSidebar {
+    display: flex;
+    flex-direction: row;
+    min-width: 260px;
+    max-width: 60%;
+    position: relative;
+    background-color: var(--background-color);
+    border-left: 1px solid var(--border-color, #333);
+    flex: 0 0 auto;
+}
+
+.aiSidebarResizer {
+    width: 6px;
+    cursor: ew-resize;
+    flex: 0 0 6px;
+    background: var(--resizer-gradient);
+    transition: background 0.2s;
+}
+.aiSidebarResizer:hover {
+    background: var(--resizer-gradient-hover);
+}
+
+.aiIframe {
+    flex: 1 1 auto;
+    border: none;
+    width: 100%;
+    height: 100%;
+    background: #1e1e1e;
+}
+
+.aiIframeOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+}
+
+.aiToggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    border: 1px solid var(--border-color, #555);
+    background: rgba(30, 30, 30, 0.85);
+    color: #ddd;
+    border-radius: 6px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.aiToggle svg {
+    display: block;
+}
+.aiToggle:hover {
+    background: rgba(50, 50, 50, 0.95);
+}
+.aiToggleActive {
+    background: #4aa3ff;
+    color: #0b1220;
+    border-color: #4aa3ff;
+}
