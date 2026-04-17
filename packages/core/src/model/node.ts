@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
-import { HistoryObservable, type IDisposable, Id, type IPropertyChanged } from "../foundation";
+import { HistoryObservable, type IDisposable, type IPropertyChanged, Id } from "../foundation";
 import { property } from "../property";
 import { type Serialized, Serializer, serialize } from "../serialize";
 
@@ -34,7 +34,7 @@ export abstract class Node extends HistoryObservable implements INode {
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly id: string;
 
     constructor(document: IDocument, name: string, id: string) {

@@ -92,7 +92,7 @@ export class Material extends HistoryObservable {
     @serialize()
     transparent = true;
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly id: string;
 
     @serialize()

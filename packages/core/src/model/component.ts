@@ -89,7 +89,7 @@ export class Component {
         return this._name;
     }
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly id: string;
 
     private _origin: XYZ;
@@ -300,10 +300,10 @@ export class ComponentNode extends VisualNode {
         return this._component;
     }
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly componentId: string;
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly insert: XYZ;
 
     constructor(options: ComponentNodeOptions) {

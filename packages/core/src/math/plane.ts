@@ -20,14 +20,14 @@ export class Plane {
     static readonly YZ: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY });
     static readonly ZX: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ });
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly origin: XYZ;
     /**
      * unit vector
      */
-    @serialize({ readonly: true })
+    @serialize()
     readonly normal: XYZ;
-    @serialize({ readonly: true })
+    @serialize()
     readonly xvec: XYZ;
     readonly yvec: XYZ;
     constructor(options: PlaneOptions) {

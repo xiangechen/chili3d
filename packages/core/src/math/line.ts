@@ -12,12 +12,12 @@ export interface LineOptions {
 
 @serializable()
 export class Line {
-    @serialize({ readonly: true })
+    @serialize()
     readonly point: XYZ;
     /**
      * unit vector
      */
-    @serialize({ readonly: true })
+    @serialize()
     readonly direction: XYZ;
 
     constructor(options: LineOptions) {

@@ -12,12 +12,12 @@ export interface RayOptions {
 
 @serializable()
 export class Ray {
-    @serialize({ readonly: true })
+    @serialize()
     readonly point: XYZ;
     /**
      * unit vector
      */
-    @serialize({ readonly: true })
+    @serialize()
     readonly direction: XYZ;
 
     constructor(options: RayOptions) {

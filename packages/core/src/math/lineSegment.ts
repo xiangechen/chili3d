@@ -12,10 +12,10 @@ export interface LineSegmentOptions {
 
 @serializable()
 export class LineSegment {
-    @serialize({ readonly: true })
+    @serialize()
     readonly start: XYZ;
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly end: XYZ;
 
     constructor(options: LineSegmentOptions) {

@@ -44,11 +44,11 @@ export class XYZ {
     static readonly unitNZ = Object.freeze(new XYZ({ x: 0, y: 0, z: -1 }));
     static readonly one = Object.freeze(new XYZ({ x: 1, y: 1, z: 1 }));
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly x: number;
-    @serialize({ readonly: true })
+    @serialize()
     readonly y: number;
-    @serialize({ readonly: true })
+    @serialize()
     readonly z: number;
 
     constructor(options: XYZOptions) {

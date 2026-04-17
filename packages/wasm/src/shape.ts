@@ -83,7 +83,7 @@ function occShapeSerialize(target: OccShape): SerializedData {
     };
 }
 
-function occShapeDeserialize(_document: any, properties: Serialized) {
+function occShapeDeserialize(properties: Serialized) {
     return OccShape.wrap(
         wasm.Converter.convertFromBrep(properties["shape"] as string),
         properties["id"] as string,

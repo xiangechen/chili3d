@@ -18,9 +18,9 @@ export class XY {
     static readonly unitX = new XY({ x: 1, y: 0 });
     static readonly unitY = new XY({ x: 0, y: 1 });
 
-    @serialize({ readonly: true })
+    @serialize()
     readonly x: number;
-    @serialize({ readonly: true })
+    @serialize()
     readonly y: number;
 
     constructor(options: XYOptions) {

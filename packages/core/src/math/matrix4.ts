@@ -21,7 +21,7 @@ export class Matrix4 {
     constructor(options: Matrix4Options) {
         this._array = new Float32Array(options.array);
     }
-    @serialize({ readonly: true })
+    @serialize()
     get array(): ReadonlyArray<number> {
         return [...this._array];
     }
