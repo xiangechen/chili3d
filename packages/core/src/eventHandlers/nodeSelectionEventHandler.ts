@@ -35,7 +35,7 @@ export class NodeSelectionHandler extends SelectionHandler {
         }
         const models = this._highlights
             .map((x) => view.document.visual.context.getNode(x))
-            .filter((x): x is INode => x !== undefined);
+            .filter((x) => x !== undefined);
         this.document.selection.setSelection(models, this.toggleSelect(event));
         return models.length;
     }

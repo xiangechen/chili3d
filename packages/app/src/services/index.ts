@@ -2,5 +2,4 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./commandService";
-export * from "./editorService";
 export * from "./hotkeyService";

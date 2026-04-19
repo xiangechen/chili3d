@@ -10,6 +10,7 @@ import {
     type ISelection,
     type IView,
     ModelManager,
+    NodeSelectionHandler,
     ObservableCollection,
     type PropertyChangedHandler,
     type Serialized,
@@ -55,7 +56,7 @@ export class TestDocument implements IDocument {
     constructor() {
         this.name = "test";
         this.id = "test";
-        this.visual = new ThreeVisual(this);
+        this.visual = new ThreeVisual(this, new NodeSelectionHandler(this, true));
         this.history = new History();
         this.selection = {} as any;
         this.application = { views: [] } as any;

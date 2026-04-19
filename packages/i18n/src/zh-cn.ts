@@ -251,6 +251,7 @@ export default {
         "ribbon.group.tools": "工具",
         "ribbon.group.workingPlane": "工作平面",
         "ribbon.tab.draw": "绘图",
+        "ribbon.tab.edit": "编辑",
         "ribbon.tab.file": "文件",
         "ribbon.tab.startup": "开始",
         "ribbon.tab.tools": "工具",

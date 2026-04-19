@@ -6,6 +6,7 @@ import {
     type HtmlTextOptions,
     type IDisposable,
     type IDocument,
+    INode,
     type INodeFilter,
     type IShape,
     type IShapeFilter,
@@ -35,7 +36,12 @@ import { div, span, svg } from "@chili3d/element";
 import {
     DirectionalLight,
     type Intersection,
-    type Object3D,
+    Line,
+    LineSegments,
+    Material,
+    Mesh,
+    MeshBasicMaterial,
+    Object3D,
     OrthographicCamera,
     PerspectiveCamera,
     Raycaster,
@@ -56,6 +62,21 @@ import style from "./threeView.module.css";
 import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+
+const isolateFaceMaterial = new MeshBasicMaterial({
+    color: 0x6a6a6a,
+    transparent: true,
+    opacity: 0.5,
+});
+const isolateLineMaterial = new LineMaterial({
+    color: 0x6a6a6a,
+    transparent: true,
+    opacity: 0.5,
+});
+export type IsolatedType = { nodes: INode[], state: "hidden" } 
+    | { nodes: INode[], state: "transparent", map: Map<Mesh, Material> }
 
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
@@ -70,6 +91,7 @@ export class ThreeView extends Observable implements IView {
 
     readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 2);
+    private isolatedCache?: IsolatedType
 
     get name(): string {
         return this.getPrivateValue("name");
@@ -223,13 +245,13 @@ export class ThreeView extends Observable implements IView {
             options?.hideDelete === true
                 ? ""
                 : svg({
-                      className: style.delete,
-                      icon: "icon-times",
-                      onclick: (e) => {
-                          e.stopPropagation();
-                          dispose();
-                      },
-                  }),
+                    className: style.delete,
+                    icon: "icon-times",
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        dispose();
+                    },
+                }),
         );
     }
 
@@ -340,6 +362,82 @@ export class ThreeView extends Observable implements IView {
     private mouseToWorld(mx: number, my: number, z: number = 0.5) {
         const { x, y } = this.screenToCameraRect(mx, my);
         return new Vector3(x, y, z).unproject(this.camera);
+    }
+
+    isolateNodes(nodes: INode[], otherState: "transparent" | "hidden") {
+        this.cancelIsolateNodes();
+
+        if (otherState === "transparent") {
+            this.isolateNodesByTransparent(nodes);
+        } else if (otherState === "hidden") {
+            this.isolateNodesByHidden(nodes);
+        }
+    }
+
+    private isolateNodesByHidden(nodes: INode[]) {
+        const visuals = nodes.map((x) => this.content.getVisual(x)).filter((x) => x !== undefined) as IVisualObject[];
+        for (const shape of visuals) {
+            if (shape instanceof Object3D) {
+                shape.layers.set(Constants.Layers.Isolation);
+                shape.children.forEach((x) => {
+                    x.layers.set(Constants.Layers.Isolation);
+                });
+            }
+        }
+
+        this.cameraController.camera.layers.disableAll();
+        this.cameraController.camera.layers.enable(Constants.Layers.Default);
+        this.cameraController.camera.layers.enable(Constants.Layers.Isolation);
+        this.isolatedCache = { nodes, state: "hidden" };
+    }
+
+    private isolateNodesByTransparent(nodes: INode[]) {
+        const visuals = nodes.map((x) => this.content.getVisual(x)).filter((x) => x !== undefined) as IVisualObject[];
+        const map = new Map<Mesh, Material>();
+        for (const shape of this.content.visuals()) {
+            if (visuals.includes(shape)) continue;
+
+            if (shape instanceof Object3D) {
+                shape.traverse(x => {
+                    if (x instanceof LineSegments2 || x instanceof Line2) {
+                        map.set(x, x.material);
+                        x.material = isolateLineMaterial;
+                    } else if (x instanceof Mesh) {
+                        map.set(x, x.material);
+                        x.material = isolateFaceMaterial;
+                    }
+                });
+            }
+        }
+        this.isolatedCache = { nodes, state: "transparent", map };
+    }
+
+    cancelIsolateNodes() {
+        if (this.isolatedCache?.state === "transparent") {
+            for (const [mesh, material] of this.isolatedCache.map) {
+                mesh.material = material;
+            }
+        } else if (this.isolatedCache?.state === "hidden") {
+            const shapes = this.isolatedCache.nodes.map((x) => this.content.getVisual(x)).filter((x) => x !== undefined) as IVisualObject[];
+            for (const shape of shapes) {
+                if (shape instanceof Object3D) {
+                    shape.layers.set(Constants.Layers.Default);
+                    shape.children.forEach((x) => {
+                        if (x instanceof LineSegments2 || x instanceof Line2 || x instanceof Line || x instanceof LineSegments) {
+                            x.layers.set(Constants.Layers.Wireframe);
+                        } else if (x instanceof Mesh) {
+                            x.layers.set(Constants.Layers.Solid);
+                        } else {
+                            throw new Error("Unsupported object type: " + x);
+                        }
+                    })
+                }
+            }
+
+            this.cameraController.camera.layers.enableAll();
+        }
+
+        this.isolatedCache = undefined;
     }
 
     detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[] {

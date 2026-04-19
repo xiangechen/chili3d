@@ -1,22 +1,20 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Application, CommandService, EditEventHandler, EditorService, HotkeyService } from "@chili3d/app";
+import { Application, CommandService, HotkeyService, ShowPropertyEventHandler } from "@chili3d/app";
 import {
     Config,
     Constants,
     I18n,
     type IApplication,
     type IDataExchange,
-    type IDocument,
-    type INode,
     type IService,
     type IShapeFactory,
     type IStorage,
     type IVisualFactory,
     type IWindow,
     type Locale,
-    Logger,
+    Logger
 } from "@chili3d/core";
 import { DefaultDataExchange } from "./defaultDataExchange";
 
@@ -88,7 +86,7 @@ export class AppBuilder {
             Logger.info("initializing three");
 
             const three = await import("@chili3d/three");
-            this._visualFactory = new three.ThreeVisulFactory();
+            this._visualFactory = new three.ThreeVisulFactory((d) => new ShowPropertyEventHandler(d));
         });
         return this;
     }
@@ -172,9 +170,6 @@ export class AppBuilder {
         return [
             new CommandService(),
             new HotkeyService(),
-            new EditorService((document: IDocument, selected: INode[]) => {
-                return new EditEventHandler(document, selected);
-            }),
         ];
     }
 }

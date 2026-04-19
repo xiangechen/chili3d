@@ -2,31 +2,37 @@
 // See LICENSE file in the project root for full license information.
 
 import type { CommandKeys } from "../command";
-import { PubSub } from "../foundation";
 import { ObservableCollection } from "../foundation/collection";
 import { Observable } from "../foundation/observer";
 import type { I18nKeys } from "../i18n";
-import type { IView } from "../visual/view";
 import type { Button } from "./button";
+
+export type RibbonTabKeys = {
+    [P in I18nKeys]: P extends `ribbon.tab.${infer _}` ? P : never;
+}[I18nKeys];
+
+export type RibbonGroupKeys = {
+    [P in I18nKeys]: P extends `ribbon.group.${infer _}` ? P : never;
+}[I18nKeys];
 
 export type RibbonCommand = CommandKeys | ObservableCollection<CommandKeys> | Button;
 
 export type RibbonGroupProfile = {
-    groupName: I18nKeys;
+    groupName: RibbonGroupKeys;
     items: (CommandKeys | CommandKeys[])[];
 };
 
 export class RibbonGroup extends Observable {
     readonly items: ObservableCollection<RibbonCommand>;
 
-    get groupName(): I18nKeys {
+    get groupName(): RibbonGroupKeys {
         return this.getPrivateValue("groupName");
     }
-    set groupName(value: I18nKeys) {
+    set groupName(value: RibbonGroupKeys) {
         this.setProperty("groupName", value);
     }
 
-    constructor(groupName: I18nKeys, ...items: RibbonCommand[]) {
+    constructor(groupName: RibbonGroupKeys, ...items: RibbonCommand[]) {
         super();
         this.setPrivateValue("groupName", groupName);
         this.items = new ObservableCollection<RibbonCommand>(...items);
@@ -43,21 +49,21 @@ export class RibbonGroup extends Observable {
 }
 
 export type RibbonTabProfile = {
-    tabName: I18nKeys;
+    tabName: RibbonTabKeys;
     groups: RibbonGroupProfile[];
 };
 
 export class RibbonTab extends Observable {
     readonly groups = new ObservableCollection<RibbonGroup>();
 
-    get tabName(): I18nKeys {
+    get tabName(): RibbonTabKeys {
         return this.getPrivateValue("tabName");
     }
-    set tabName(value: I18nKeys) {
+    set tabName(value: RibbonTabKeys) {
         this.setProperty("tabName", value);
     }
 
-    constructor(tabName: I18nKeys, ...groups: RibbonGroup[]) {
+    constructor(tabName: RibbonTabKeys, ...groups: RibbonGroup[]) {
         super();
         this.setPrivateValue("tabName", tabName);
         this.groups.push(...groups);
@@ -74,13 +80,13 @@ export class RibbonTab extends Observable {
 export class Ribbon extends Observable {
     readonly quickCommands = new ObservableCollection<CommandKeys>();
     readonly tabs = new ObservableCollection<RibbonTab>();
-    private _activeTab: RibbonTab;
+    private preTab: RibbonTabKeys = "ribbon.tab.startup";
 
     constructor(quickCommands: CommandKeys[], tabs: RibbonTab[]) {
         super();
         this.quickCommands.push(...quickCommands);
         this.tabs.push(...tabs);
-        this._activeTab = tabs[0];
+        this.setPrivateValue("activeTab", tabs[0]);
     }
 
     combineRibbonTab(tabProfile: RibbonTabProfile) {
@@ -105,16 +111,53 @@ export class Ribbon extends Observable {
         }
     }
 
-    addRibbonCommand(tabName: I18nKeys, groupName: I18nKeys, command: CommandKeys | Button) {
+    addRibbonCommand(tabName: RibbonTabKeys, groupName: RibbonGroupKeys, command: CommandKeys | Button) {
         const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabName);
         const group = tab?.groups.find((p: RibbonGroup) => p.groupName === groupName);
         group?.items.push(command);
     }
 
     get activeTab() {
-        return this._activeTab;
+        return this.getPrivateValue("activeTab");
     }
     set activeTab(value: RibbonTab) {
         this.setProperty("activeTab", value);
+    }
+
+    setActiveTab(tabName: RibbonTabKeys) {
+        const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabName);
+        if (!tab) {
+            console.error(`Can't find tab ${tabName}`);
+            return;
+        }
+
+        this.activeTab = tab;
+    }
+
+    openEditTab() {
+        this.preTab = this.activeTab.tabName;
+        this.editableTabs = this.editableTabs.concat(["ribbon.tab.edit"]);
+        this.hiddenTabs = this.hiddenTabs.filter((x) => x !== "ribbon.tab.edit");
+        this.setActiveTab("ribbon.tab.edit");
+    }
+
+    closeEditTab() {
+        this.editableTabs = this.editableTabs.filter(x => x !== "ribbon.tab.edit");
+        this.hiddenTabs = this.hiddenTabs.concat(["ribbon.tab.edit"]);
+        this.setActiveTab(this.preTab);
+    }
+
+    get editableTabs(): ReadonlyArray<RibbonTabKeys>  {
+        return this.getPrivateValue("editableTabs", []);
+    }
+    set editableTabs(value: RibbonTabKeys[]) {
+        this.setProperty("editableTabs", value);
+    }
+
+    get hiddenTabs(): ReadonlyArray<RibbonTabKeys> {
+        return this.getPrivateValue("hiddenTabs", ["ribbon.tab.edit"]);
+    }
+    set hiddenTabs(value: RibbonTabKeys[]) {
+        this.setProperty("hiddenTabs", value);
     }
 }

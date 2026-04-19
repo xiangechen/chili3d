@@ -246,6 +246,7 @@ export const I18N_KEYS = [
     "ribbon.group.tools",
     "ribbon.group.workingPlane",
     "ribbon.tab.draw",
+    "ribbon.tab.edit",
     "ribbon.tab.file",
     "ribbon.tab.startup",
     "ribbon.tab.tools",

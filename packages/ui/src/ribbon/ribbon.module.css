@@ -241,6 +241,13 @@
     }
 }
 
+.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+    user-select: none;
+    cursor: default;
+}
+
 .commandContextPanel {
     display: flex;
     flex-direction: row;

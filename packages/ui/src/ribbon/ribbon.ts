@@ -20,6 +20,7 @@ import {
     type RibbonCommand,
     type RibbonGroup,
     type RibbonTab,
+    RibbonTabKeys,
 } from "@chili3d/core";
 import { a, collection, createIcon, div, label, span, svg } from "@chili3d/element";
 import { CommandContext } from "./commandContext";
@@ -69,11 +70,11 @@ class ActivedRibbonTabConverter implements IConverter<RibbonTab> {
     }
 }
 
-class DisplayConverter implements IConverter<RibbonTab> {
-    constructor(readonly tab: RibbonTab) {}
+class DisplayConverter<T> implements IConverter<T> {
+    constructor(readonly predicate: (value: T) => boolean) {}
 
-    convert(value: RibbonTab): Result<string> {
-        return Result.ok(this.tab === value ? "" : "none");
+    convert(value: T): Result<string> {
+        return Result.ok(this.predicate(value) ? "" : "none");
     }
 }
 
@@ -88,6 +89,28 @@ export class RibbonUI extends HTMLElement {
         super();
         this.className = style.root;
         this.append(this.header(), this.ribbonTabs(), this._commandContext);
+        app.mainWindow?.ribbon.onPropertyChanged(this.handleRibbonChanged)
+    }
+
+    private readonly handleRibbonChanged = (key: keyof Ribbon) => {
+        if (key === "editableTabs") {
+            if (this.dataContent.editableTabs.length > 0) {
+                const groups = this.querySelectorAll(`.${style.groupPanel}`);
+                for (const group of groups) {
+                    const tab = (group as HTMLElement).dataset["tab"] as RibbonTabKeys;
+                    if (this.dataContent.editableTabs.includes(tab)) {
+                        group.classList.remove(style.disabled);
+                    } else {
+                        group.classList.add(style.disabled)
+                    }
+                }
+            } else {
+                const groups = this.querySelectorAll(`.${style.disabled}`);
+                for (const group of groups) {
+                    group.classList.remove(style.disabled);
+                }
+            }
+        }
     }
 
     private header() {
@@ -128,6 +151,9 @@ export class RibbonUI extends HTMLElement {
                 return label({
                     className: new Binding(this.dataContent, "activeTab", converter),
                     textContent: new Localize(tab.tabName),
+                    style: {
+                        display: new Binding(this.dataContent, "hiddenTabs", new DisplayConverter((hiddens: RibbonTabKeys[]) => !hiddens.includes(tab.tabName))),
+                    },
                     onclick: () => {
                         this.dataContent.activeTab = tab;
                     },
@@ -198,9 +224,10 @@ export class RibbonUI extends HTMLElement {
     private ribbonTab(tab: RibbonTab) {
         return collection({
             className: style.groupPanel,
+            dataset: { tab: tab.tabName },
             sources: tab.groups,
             style: {
-                display: new Binding(this.dataContent, "activeTab", new DisplayConverter(tab)),
+                display: new Binding(this.dataContent, "activeTab", new DisplayConverter((tb: RibbonTab) => tab === tb)),
             },
             template: (group: RibbonGroup) => this.ribbonGroup(group),
         });

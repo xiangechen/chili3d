@@ -5,6 +5,7 @@ import type { IDocument } from "../document";
 import type { IDisposable, IPropertyChanged } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import type { Plane, Ray, XY, XYLike, XYZ, XYZLike } from "../math";
+import { INode } from "../model";
 import type { INodeFilter, IShapeFilter } from "../selectionFilter";
 import type { ShapeType } from "../shape";
 import type { ICameraController } from "./cameraController";
@@ -48,6 +49,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
+    isolateNodes(nodes: INode[], otherState: "transparent" | "hidden"): void;
+    cancelIsolateNodes(nodes: INode[]): void;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
     htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable;

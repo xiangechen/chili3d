@@ -2,15 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    isDisposable,
     type IDocument,
     type IEventHandler,
     type IMeshExporter,
     type IVisual,
-    isDisposable,
-    Logger,
-    type Plane,
+    type Plane
 } from "@chili3d/core";
-import { NodeSelectionHandler } from "@chili3d/core/src/eventHandlers";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeMeshExporter } from "./meshExporter";
 import { ThreeHighlighter } from "./threeHighlighter";
@@ -30,18 +28,14 @@ export class ThreeVisual implements IVisual {
     eventHandler: IEventHandler;
     defaultEventHandler: IEventHandler;
 
-    constructor(readonly document: IDocument) {
+    constructor(readonly document: IDocument, defaultEventHandler: IEventHandler) {
         this.scene = this.initScene();
-        this.defaultEventHandler = this.createDefaultSelectionHandler(document);
+        this.defaultEventHandler = defaultEventHandler;
         this.viewHandler = new ThreeViewHandler();
         this.context = new ThreeVisualContext(this, this.scene);
         this.highlighter = new ThreeHighlighter(this.context);
         this.meshExporter = new ThreeMeshExporter(this.context);
         this.eventHandler = this.defaultEventHandler;
-    }
-
-    protected createDefaultSelectionHandler(document: IDocument) {
-        return new NodeSelectionHandler(document, true);
     }
 
     initScene() {

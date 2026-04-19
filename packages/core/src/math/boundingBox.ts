@@ -267,4 +267,12 @@ export class BoundingBox {
         }
         return new BoundingBox(min, max);
     }
+
+    static maxSize(box: BoundingBox): number {
+        return Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+    }
+
+    static minSize(box: BoundingBox) {
+        return Math.min(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+    }
 }

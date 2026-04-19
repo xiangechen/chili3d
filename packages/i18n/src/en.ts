@@ -252,6 +252,7 @@ export default {
         "ribbon.group.tools": "Tools",
         "ribbon.group.workingPlane": "Working Plane",
         "ribbon.tab.draw": "Sketch",
+        "ribbon.tab.edit": "Edit",
         "ribbon.tab.file": "File",
         "ribbon.tab.startup": "Startup",
         "ribbon.tab.tools": "Tools",

@@ -79,7 +79,11 @@ export class ThreeGeometryFactory {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
         const material = ThreeGeometryFactory.createEdgeMaterial(data);
         ThreeGeometryFactory.setColor(buff, data, material);
-        return new LineSegments2(buff, material).computeLineDistances();
+        const segment = new LineSegments2(buff, material);
+        if (data.lineType === "dash") {
+            segment.computeLineDistances();
+        }
+        return segment;
     }
 
     static createEdgeMaterial(data: EdgeMeshData) {
@@ -91,9 +95,10 @@ export class ThreeGeometryFactory {
         });
         if (data.lineType === "dash") {
             material.dashed = true;
-            material.dashScale = 100;
-            material.dashSize = 100;
-            material.gapSize = 100;
+            material.dashScale = 1;
+            material.dashSize = 30;
+            material.gapSize = 30;
+            material.defines["USE_DASH"] = "";
         }
         return material;
     }
