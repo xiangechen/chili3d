@@ -79,16 +79,15 @@ export class HotkeyService implements IService {
     };
 
     protected canHandleKey(e: KeyboardEvent): boolean {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+            return false;
+        }
         return true;
     }
 
     private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
         if (!this.canHandleKey(e)) return;
-
-        const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-            return;
-        }
 
         const visual = this.app?.activeView?.document?.visual;
         const view = this.app?.activeView;
@@ -100,11 +99,6 @@ export class HotkeyService implements IService {
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
         if (!this.canHandleKey(e)) return;
-
-        const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-            return;
-        }
 
         const keys: Keys = {
             key: e.key.toLowerCase(),
