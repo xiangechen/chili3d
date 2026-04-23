@@ -116,7 +116,8 @@ export abstract class SelectionHandler implements IEventHandler {
 
     pointerUp(view: IView, event: PointerEvent): void {
         event.preventDefault();
-        if (this.mouse.isDown && event.button === 0 && event.isPrimary) {
+
+        if (this.mouse.isDown && event.isPrimary) {
             this.mouse.isDown = false;
             this.removeRect(view);
             const count = this.select(view, event);
