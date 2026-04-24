@@ -64,7 +64,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
             view.document.visual.highlighter.addState(
                 x.owner,
                 this.highlightState,
-                this.shapeType,
+                x.shape.shapeType,
                 ...x.indexes,
             );
         });
@@ -77,7 +77,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
             x.owner.node.document.visual.highlighter.removeState(
                 x.owner,
                 this.highlightState,
-                this.shapeType,
+                x.shape.shapeType,
                 ...x.indexes,
             );
         });
@@ -162,7 +162,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
         shape.owner.node.document.visual.highlighter.addState(
             shape.owner,
             this.selectedState,
-            this.shapeType,
+            shape.shape.shapeType,
             ...shape.indexes,
         );
         this._shapes.set(shape.shape, shape);
