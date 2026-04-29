@@ -29,13 +29,8 @@ export abstract class ShapeNode extends GeometryNode {
             return;
         }
 
-        const oldShape = this._shape;
-        this._shape = shape;
         this._mesh = undefined;
-
-        this.emitPropertyChanged("shape", oldShape);
-
-        oldShape.unchecked()?.dispose();
+        this.setProperty("shape", shape);
     }
 
     protected override createMesh(): IShapeMeshData {

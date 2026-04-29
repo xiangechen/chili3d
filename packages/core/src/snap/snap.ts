@@ -18,6 +18,8 @@ export interface SnapData {
         prompt: string;
         when?: () => boolean;
     }[];
+    beforeExecute?: () => void;
+    afterExecute?: () => void;
 }
 
 export interface SnapResult {
