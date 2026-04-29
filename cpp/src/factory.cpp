@@ -17,6 +17,7 @@
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepFeat_MakePrism.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
@@ -38,6 +39,7 @@
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 
 using namespace emscripten;
 
@@ -237,6 +239,29 @@ public:
             return ShapeResult { TopoDS_Shape(), false, "Failed to create prism" };
         }
         return ShapeResult { prism.Shape(), true, "" };
+    }
+
+    static ShapeResult pushPull(const TopoDS_Shape &sbase, const TopoDS_Shape &pbase, const Vector3 &vec)
+    {
+        gp_Vec v = Vector3::toVec(vec);
+        gp_Trsf trsf;
+        trsf.SetTranslation(v);
+        BRepBuilderAPI_Transform transform(trsf);
+        transform.Perform(pbase);
+        gp_Dir dir(v);
+        auto sur = BRep_Tool::Surface(TopoDS::Face(pbase));
+        auto plane = Handle_Geom_Plane::DownCast(sur);
+        auto method = plane->Pln().Axis().Direction().Dot(dir) > 0 ? 1 : 0;
+        if (pbase.Orientation() == TopAbs_REVERSED) {
+            method = 1 - method;
+        }
+        BRepFeat_MakePrism prism(sbase, pbase, TopoDS::Face(transform.Shape()), dir, method, false);
+        prism.Perform(v.Magnitude());
+        if (!prism.IsDone())
+        {
+            return ShapeResult{TopoDS_Shape(), false, "Failed to create prism"};
+        }
+        return ShapeResult{prism.Shape(), true, ""};
     }
 
     static ShapeResult polygon(const Vector3Array& points)
@@ -587,6 +612,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("sweep", &ShapeFactory::sweep)
         .class_function("revolve", &ShapeFactory::revolve)
         .class_function("prism", &ShapeFactory::prism)
+        .class_function("pushPull", &ShapeFactory::pushPull)
         .class_function("polygon", &ShapeFactory::polygon)
         .class_function("circle", &ShapeFactory::circle)
         .class_function("arc", &ShapeFactory::arc)

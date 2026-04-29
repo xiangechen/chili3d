@@ -35,6 +35,7 @@ export interface IShapeFactory {
     pyramid(plane: Plane, dx: number, dy: number, dz: number): Result<ISolid>;
     wire(edges: IEdge[]): Result<IWire>;
     prism(shape: IShape, vec: XYZ): Result<IShape>;
+    pushPull(shape: IShape, face: IShape, vec: XYZ): Result<IShape>;
     fuse(bottom: IShape, top: IShape): Result<IShape>;
     sweep(profile: IShape[], path: IWire, isRoundCorner: boolean): Result<IShape>;
     revolve(profile: IShape, axis: Line, angle: number): Result<IShape>;

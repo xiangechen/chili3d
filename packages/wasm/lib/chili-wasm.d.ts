@@ -595,6 +595,7 @@ interface EmbindModule {
     ellipse(_0: Vector3, _1: Vector3, _2: Vector3, _3: number, _4: number): ShapeResult;
     cylinder(_0: Vector3, _1: Vector3, _2: number, _3: number): ShapeResult;
     prism(_0: TopoDS_Shape, _1: Vector3): ShapeResult;
+    pushPull(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: Vector3): ShapeResult;
     circle(_0: Vector3, _1: Vector3, _2: number): ShapeResult;
     arc(_0: Vector3, _1: Vector3, _2: Vector3, _3: number): ShapeResult;
     point(_0: Vector3): ShapeResult;

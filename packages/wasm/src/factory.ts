@@ -252,6 +252,12 @@ export class ShapeFactory implements IShapeFactory {
         }
         return convertShapeResult(wasm.ShapeFactory.prism(ensureOccShape(shape)[0], vec));
     }
+    pushPull(shape: IShape, face: IShape, vec: XYZ): Result<IShape> {
+        if (vec.length() === 0) {
+            return Result.err(`The vector length is 0, the prism cannot be created.`);
+        }
+        return convertShapeResult(wasm.ShapeFactory.pushPull(ensureOccShape(shape)[0], ensureOccShape(face)[0], vec));
+    }
     fuse(bottom: IShape, top: IShape): Result<IShape> {
         return convertShapeResult(wasm.ShapeFactory.booleanFuse(ensureOccShape(bottom), ensureOccShape(top)));
     }
