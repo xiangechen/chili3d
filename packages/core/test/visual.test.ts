@@ -52,6 +52,7 @@ describe("isVisualGeometry", () => {
         visible = true;
         transform = mockMatrix;
         disposed = false;
+        locked = false;
 
         get geometryNode(): GeometryNode {
             return mockGeometryNode;
@@ -74,6 +75,7 @@ describe("isVisualGeometry", () => {
         visible = true;
         transform = mockMatrix;
         disposed = false;
+        locked = false;
 
         worldTransform(): Matrix4 {
             return mockMatrix;
@@ -103,6 +105,7 @@ describe("isVisualGeometry", () => {
             visible: true,
             transform: mockMatrix,
             geometryNode: undefined,
+            locked: false,
             worldTransform: () => mockMatrix,
             boundingBox: () => undefined,
             dispose: () => {},
@@ -126,6 +129,7 @@ describe("isVisualGeometry", () => {
             visible: true,
             transform: mockMatrix,
             geometryNode: null,
+            locked: false,
             worldTransform: () => mockMatrix,
             boundingBox: () => undefined,
             dispose: () => {},

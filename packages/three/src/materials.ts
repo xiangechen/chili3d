@@ -81,3 +81,22 @@ export const faceColoredMaterial = new MeshLambertMaterial({
     side: DoubleSide,
     color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
 });
+
+export const highlightFaceMaterial = new MeshLambertMaterial({
+    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
+    side: DoubleSide,
+    transparent: true,
+    opacity: 0.56,
+});
+
+export const lockFaceMaterial = new MeshLambertMaterial({
+    color: 0x6a6a6a,
+    transparent: true,
+    opacity: 0.5,
+});
+
+export const lockLineMaterial = new LineMaterial({
+    color: 0x6a6a6a,
+    transparent: true,
+    opacity: 0.5,
+});

@@ -33,19 +33,32 @@ import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import { defaultEdgeMaterial, hilightEdgeMaterial } from "./common";
 import { Constants } from "./constants";
 import type { IHighlightable } from "./highlightable";
+import { defaultEdgeMaterial, highlightFaceMaterial, hilightEdgeMaterial, lockFaceMaterial, lockLineMaterial } from "./materials";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeVisualContext } from "./threeVisualContext";
 
-const HighlightFaceMaterial = new MeshLambertMaterial({
-    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
-    side: DoubleSide,
-    transparent: true,
-    opacity: 0.56,
-});
+function setLocked(obj: Object3D, isLocked: boolean) {
+    if (isLocked) {
+        obj.traverse(x => {
+            if (x instanceof LineSegments2 || x instanceof Line2) {
+                x.userData["oldMaterial"] = x.material;
+                x.material = lockLineMaterial;
+            } else if (x instanceof Mesh) {
+                x.userData["oldMaterial"] = x.material;
+                x.material = lockFaceMaterial;
+            }
+        });
+    } else {
+        obj.traverse(x => {
+            if (!x.userData["oldMaterial"]) return;
+            (x as any).material = x.userData["oldMaterial"]
+            delete x.userData["oldMaterial"];
+        });
+    }
+}
 
 export abstract class ThreeVisualObject extends Object3D implements IVisualObject {
     get transform() {
@@ -58,6 +71,17 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
     private _node: VisualNode;
     get node(): VisualNode {
         return this._node;
+    }
+
+    private _locked: boolean = false;
+    get locked(): boolean {
+        return this._locked;
+    }
+    set locked(value: boolean) {
+        if (this._locked === value) return;
+
+        this._locked = value;
+        setLocked(this, value);
     }
 
     worldTransform(): Matrix4 {
@@ -125,7 +149,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
 
     highlight() {
         if (this._mesh instanceof Mesh) {
-            this._mesh.material = HighlightFaceMaterial;
+            this._mesh.material = highlightFaceMaterial;
         }
 
         if (this._mesh instanceof LineSegments2) {
@@ -256,6 +280,17 @@ export class GroupVisualObject extends Group implements IVisualObject {
 
     worldTransform(): Matrix4 {
         return ThreeHelper.toMatrix(this.matrixWorld);
+    }
+
+    private _locked: boolean = false;
+    get locked(): boolean {
+        return this._locked;
+    }
+    set locked(value: boolean) {
+        if (this._locked === value) return;
+
+        this._locked = value;
+        setLocked(this, value);
     }
 
     constructor(private readonly groupNode: GroupNode) {

@@ -150,10 +150,10 @@ describe("Act class tests", () => {
                 removePropertyChanged: () => { },
                 clearPropertyChanged: () => { },
                 dispose: () => { },
-                isolateNodes: function (nodes: INode[], otherState: "transparent" | "hidden"): void {
+                isolate: function (nodes: INode[]): void {
                     throw new Error("Function not implemented.");
                 },
-                cancelIsolateNodes: function (nodes: INode[]): void {
+                unisolate: function (): void {
                     throw new Error("Function not implemented.");
                 }
             };

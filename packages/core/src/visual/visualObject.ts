@@ -4,6 +4,7 @@
 import type { BoundingBox, GeometryNode, IDisposable, Matrix4, VisualNode } from "@chili3d/core";
 
 export interface IVisualObject extends IDisposable {
+    locked: boolean;
     visible: boolean;
     transform: Matrix4;
     worldTransform(): Matrix4;

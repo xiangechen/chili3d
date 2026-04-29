@@ -49,8 +49,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;
     worldToScreen(point: XYZ): XY;
-    isolateNodes(nodes: INode[], otherState: "transparent" | "hidden"): void;
-    cancelIsolateNodes(nodes: INode[]): void;
+    isolate(nodes: INode[]): void;
+    unisolate(): void;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
     htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable;

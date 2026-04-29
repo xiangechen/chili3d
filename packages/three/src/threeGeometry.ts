@@ -22,8 +22,8 @@ import { type Material, Mesh, type MeshLambertMaterial, Points, type PointsMater
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import { defaultEdgeMaterial, defaultVertexMaterial } from "./common";
 import { Constants } from "./constants";
+import { defaultEdgeMaterial, defaultVertexMaterial, lockFaceMaterial, lockLineMaterial } from "./materials";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeVisualContext } from "./threeVisualContext";
@@ -142,8 +142,8 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     removeTemperaryMaterial(): void {
         if (this._vertexs) this._vertexs.material = defaultVertexMaterial;
-        if (this._edges) this._edges.material = defaultEdgeMaterial;
-        if (this._faces) this._faces.material = this._faceMaterial;
+        if (this._edges && this._edges.material !== lockLineMaterial) this._edges.material = defaultEdgeMaterial;
+        if (this._faces && this._faces.material !== lockFaceMaterial) this._faces.material = this._faceMaterial;
     }
 
     cloneSubEdge(index: number) {
