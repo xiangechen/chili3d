@@ -20,6 +20,7 @@ export interface SnapData {
     }[];
     beforeExecute?: () => void;
     afterExecute?: () => void;
+    onKeyDown?: (key: string, update: () => void) => void;
 }
 
 export interface SnapResult {

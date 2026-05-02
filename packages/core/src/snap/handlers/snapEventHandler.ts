@@ -241,6 +241,12 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
+        this.data.onKeyDown?.(event.key, () => {
+            this.removeTempShapes();
+            this.showTempShape(this._snaped?.point);
+            view.document.visual.update()
+        });
+
         switch (event.key) {
             case "Escape":
                 this._snaped = undefined;
