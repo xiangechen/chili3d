@@ -112,3 +112,14 @@ TopTools_ListOfShape shapeArrayToListOfShape(const ShapeArray& shapes)
     }
     return result;
 }
+
+TopTools_MapOfShape shapeArrayToMapOfShape(const ShapeArray &shapes)
+{
+    std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
+    TopTools_MapOfShape result;
+    for (auto &s : shapeVector)
+    {
+        result.Add(s);
+    }
+    return result;
+}

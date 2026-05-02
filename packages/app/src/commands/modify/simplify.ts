@@ -45,6 +45,7 @@ export class SimplifyShapeCommand extends MultistepCommand {
                 shape,
                 this.removeEdges,
                 this.removeFaces,
+                []
             );
 
             if (!simplifiedShape.isOk) {

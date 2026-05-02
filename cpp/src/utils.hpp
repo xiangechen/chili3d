@@ -5,6 +5,7 @@
 
 #include <Geom_Curve.hxx>
 #include <TopTools_ListOfShape.hxx>
+#include <TopTools_MapOfShape.hxx>
 #include <TopTools_SequenceOfShape.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Pnt.hxx>
@@ -21,5 +22,6 @@ ProjectPointResult projectOrNearestCP(const Geom_Curve* curve, const gp_Pnt& pnt
 
 TopTools_SequenceOfShape shapeArrayToSequenceOfShape(const ShapeArray& shapes);
 TopTools_ListOfShape shapeArrayToListOfShape(const ShapeArray& shapes);
+TopTools_MapOfShape shapeArrayToMapOfShape(const ShapeArray &shapes);
 
-double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection, bool useTriangulation);
+double boundingBoxRatio(const TopoDS_Shape &shape, double linearDeflection, bool useTriangulation);

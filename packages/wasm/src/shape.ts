@@ -73,20 +73,17 @@ import { OccSurface } from "./surface";
 
 export interface OccShapeOptions {
     shape: TopoDS_Shape;
-    id?: string;
 }
 
 function occShapeSerialize(target: OccShape): SerializedData {
     return {
         shape: wasm.Converter.convertToBrep(target.shape),
-        id: target.id,
     };
 }
 
 function occShapeDeserialize(properties: Serialized) {
     return OccShape.wrap(
         wasm.Converter.convertFromBrep(properties["shape"] as string),
-        properties["id"] as string,
     ) as OccShape;
 }
 
@@ -110,7 +107,7 @@ export class OccShape implements IShape {
         return this._shape;
     }
 
-    id: string;
+    readonly id: string;
 
     get matrix(): Matrix4 {
         return gc((c) => {
@@ -142,35 +139,35 @@ export class OccShape implements IShape {
     }
 
     constructor(options: OccShapeOptions) {
-        this.id = options.id ?? Id.generate();
+        this.id = wasm.Shape.ptr(options.shape).toString();
         this._shape = options.shape;
         this.shapeType = getShapeType(options.shape);
     }
 
-    static wrap(shape: TopoDS_Shape, id: string = Id.generate()): IShape {
+    static wrap(shape: TopoDS_Shape): IShape {
         if (shape.isNull()) {
             throw new Error("Shape is null");
         }
 
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                return new OccCompound({ shape: wasm.TopoDS.compound(shape), id });
+                return new OccCompound({ shape: wasm.TopoDS.compound(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape), id });
+                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
-                return new OccSolid({ shape: wasm.TopoDS.solid(shape), id });
+                return new OccSolid({ shape: wasm.TopoDS.solid(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
-                return new OccShell({ shape: wasm.TopoDS.shell(shape), id });
+                return new OccShell({ shape: wasm.TopoDS.shell(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
-                return new OccFace({ shape: wasm.TopoDS.face(shape), id });
+                return new OccFace({ shape: wasm.TopoDS.face(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
-                return new OccWire({ shape: wasm.TopoDS.wire(shape), id });
+                return new OccWire({ shape: wasm.TopoDS.wire(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
-                return new OccEdge({ shape: wasm.TopoDS.edge(shape), id });
+                return new OccEdge({ shape: wasm.TopoDS.edge(shape)});
             case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                return new OccVertex({ shape: wasm.TopoDS.vertex(shape), id });
+                return new OccVertex({ shape: wasm.TopoDS.vertex(shape)});
             default:
-                return new OccShape({ shape, id });
+                return new OccShape({ shape });
         }
     }
 

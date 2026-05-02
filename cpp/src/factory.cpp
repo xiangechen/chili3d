@@ -457,15 +457,15 @@ public:
     }
 
     static ShapeResult simplifyShape(
-        const TopoDS_Shape& shape,
+        const TopoDS_Shape &shape,
         const Standard_Boolean theUnifyEdges,
-        const Standard_Boolean theUnifyFaces)
+        const Standard_Boolean theUnifyFaces,
+        const ShapeArray &keepShapes)
     {
-        if (!theUnifyEdges && !theUnifyFaces) {
-            return ShapeResult { shape, true, "" };
-        }
+        TopTools_MapOfShape keepShapesList = shapeArrayToMapOfShape(keepShapes);
 
         ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, Standard_True);
+        anUnifier.KeepShapes(keepShapesList);
         anUnifier.Build();
 
         return ShapeResult { anUnifier.Shape(), true, "" };

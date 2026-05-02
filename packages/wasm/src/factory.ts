@@ -294,7 +294,7 @@ export class ShapeFactory implements IShapeFactory {
             return Result.err(fused.error);
         }
 
-        return convertShapeResult(wasm.ShapeFactory.simplifyShape(fused.shape, true, true));
+        return convertShapeResult(wasm.ShapeFactory.simplifyShape(fused.shape, true, true, []));
     }
     sewing(shape1: IShape, shape2: IShape): Result<IShape> {
         const [occShape1, occShape2] = ensureOccShape([shape1, shape2]);
@@ -351,9 +351,9 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
-    simplifyShape(shape: IShape, removeEdges: boolean, removeFaces: boolean): Result<IShape> {
+    simplifyShape(shape: IShape, removeEdges: boolean, removeFaces: boolean, keepShapes: IShape[]): Result<IShape> {
         return convertShapeResult(
-            wasm.ShapeFactory.simplifyShape(ensureOccShape(shape)[0], removeEdges, removeFaces),
+            wasm.ShapeFactory.simplifyShape(ensureOccShape(shape)[0], removeEdges, removeFaces, ensureOccShape(keepShapes)),
         );
     }
 }

@@ -59,6 +59,11 @@ using namespace emscripten;
 
 class Shape {
 public:
+    static size_t ptr(const TopoDS_Shape &shape)
+    {
+        return size_t(shape.TShape().get());
+    }
+
     static BoundingBox boundingBox(const TopoDS_Shape& shape, bool useTriangulation)
     {
         Bnd_Box obx;
@@ -435,6 +440,7 @@ public:
 EMSCRIPTEN_BINDINGS(Shape)
 {
     class_<Shape>("Shape")
+        .class_function("ptr", &Shape::ptr)
         .class_function("boundingBox", &Shape::boundingBox)
         .class_function("orientedBoundingBox", &Shape::orientedBoundingBox)
         .class_function("clean", &Shape::clean)
