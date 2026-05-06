@@ -262,6 +262,8 @@ export default {
         "snap.mid": "Middle",
         "snap.nearest": "Nearest",
         "snap.perpendicular": "Perpendicular",
+        "snap.onCurve": "On the Curve",
+        "snap.onSurface": "On the surface",
         "statusBar.snap": "Snap",
         "statusBar.tracking": "Tracking",
         "toast.command.{0}excuting": "Command {0} is runing",

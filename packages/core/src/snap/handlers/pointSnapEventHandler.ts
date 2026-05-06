@@ -10,7 +10,7 @@ import type { ICurve, ShapeType } from "../../shape";
 import type { IView } from "../../visual";
 import { type Dimension, DimensionUtils } from "../dimension";
 import type { ISnap, SnapData, SnapResult } from "../snap";
-import { AxisSnap, ObjectSnap, PlaneSnap, PointOnCurveSnap, WorkplaneSnap } from "../snaps";
+import { AxisSnap, ObjectSnap, PlaneSnap, PointOnCurveSnap, SurfaceSnap, WorkplaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
 import { SnapEventHandler } from "./snapEventHandler";
 
@@ -40,7 +40,8 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
             ? new PlaneSnap(pointData.plane, pointData.refPoint)
             : new WorkplaneSnap(pointData.refPoint);
         const trackingSnap = new TrackingSnap(pointData.refPoint, true);
-        return [objectSnap, trackingSnap, workplaneSnap];
+        const surfaceSnap = new SurfaceSnap();
+        return [objectSnap, trackingSnap, surfaceSnap, workplaneSnap];
     }
 
     protected getPointFromInput(view: IView, text: string): SnapResult {
@@ -121,8 +122,9 @@ export class SnapPointOnCurveEventHandler extends SnapEventHandler<SnapPointOnCu
     constructor(document: IDocument, controller: AsyncController, pointData: SnapPointOnCurveData) {
         const objectSnap = new ObjectSnap(Config.instance.snapType);
         const snap = new PointOnCurveSnap(pointData);
+        const surfaceSnape = new SurfaceSnap();
         const workplaneSnap = new WorkplaneSnap();
-        super(document, controller, [objectSnap, snap, workplaneSnap], pointData);
+        super(document, controller, [objectSnap, snap, surfaceSnape, workplaneSnap], pointData);
     }
 
     protected override getPointFromInput(view: IView, text: string): SnapResult {

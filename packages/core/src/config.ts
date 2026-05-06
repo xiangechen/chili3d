@@ -47,7 +47,7 @@ export class Config extends Observable {
         return Config.#instance;
     }
 
-    readonly SnapDistance: number = 5;
+    readonly SnapDistance: number = 10;
 
     get snapType() {
         return this.getPrivateValue(
@@ -58,7 +58,8 @@ export class Config extends Observable {
                 ObjectSnapTypes.center,
                 ObjectSnapTypes.perpendicular,
                 ObjectSnapTypes.intersection,
-                ObjectSnapTypes.nearest,
+                ObjectSnapTypes.onCurve,
+                ObjectSnapTypes.onSurface,
                 ObjectSnapTypes.vertex,
             ),
         );

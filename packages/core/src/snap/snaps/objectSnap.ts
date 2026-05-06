@@ -4,7 +4,7 @@
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
 import { I18n } from "../../i18n";
-import type { XYZ } from "../../math";
+import { Line, Ray, type XYZ } from "../../math";
 import { CurveUtils, type ICircle, type IEdge, MeshDataUtils, ShapeTypes } from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IView, type IVisualContext, screenDistance, type VisualShapeData } from "../../visual";
@@ -93,20 +93,27 @@ export class ObjectSnap extends BaseSnap {
         const featurePoints = this._featureStrategy.getFeaturePoints(view, shapes[0]);
         const perpendiculars = this.findPerpendicular(view, shapes[0]);
         const intersections = this.getIntersections(view, shapes[0], shapes);
-        const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
+        let ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
             this.sortSnaps(view, x, y, a, b),
         );
 
-        if (ordered.length === 0) return undefined;
-
-        const dist = screenDistance(view, x, y, ordered[0].point!);
-        if (dist < Config.instance.SnapDistance) {
-            this.hilighted(view, ordered[0].shapes);
-            return ordered[0];
-        } else {
-            this._lastDetected = [view, ordered[0]];
+        if (ordered.length === 0) {
             return undefined;
         }
+
+        if (screenDistance(view, x, y, ordered[0].point!) < Config.instance.SnapDistance) {
+            this.hilighted(view, ordered[0].shapes);
+            return ordered[0];
+        }
+
+        const nearest = this.findNearestPointAtEdgeCurve(view, shapes[0], view.rayAt(x, y));
+        if (nearest && screenDistance(view, x, y, nearest.point!) < Config.instance.SnapDistance) {
+            this.hilighted(view, nearest.shapes);
+            return nearest;
+        }
+
+        this._lastDetected = [view, ordered[0]];
+        return undefined;
     }
 
     private displayHint(view: IView, shape: SnapResult) {
@@ -253,5 +260,29 @@ export class ObjectSnap extends BaseSnap {
                 shapes: [s1, s2],
             };
         });
+    }
+
+    private findNearestPointAtEdgeCurve(view: IView, shape: VisualShapeData, ray: Ray): SnapResult | undefined {
+        if (!ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.onCurve)) {
+            return undefined;
+        }
+        if (shape.shape.shapeType === ShapeTypes.edge) {
+            const curve = (shape.shape as IEdge).curve;
+            const transform = shape.transform;
+            const point = curve.nearestExtrema(new Line({
+                point: transform.invert()!.ofPoint(ray.point),
+                direction: transform.invert()!.ofVector(ray.direction),
+            }))?.p1;
+            
+            if (point === undefined) return undefined;
+            return {
+                view,
+                point: transform.ofPoint(point),
+                info: I18n.translate("snap.onCurve"),
+                shapes: [shape],
+            };
+        }
+
+        return undefined;
     }
 }

@@ -60,7 +60,7 @@ export class Flyout extends HTMLElement {
             this._input.onCancelled(this.clearInput);
             this._input.onCompleted(this.clearInput);
             this.append(this._input);
-            this._input.focus();
+            setTimeout(() => this._input?.focus());
         }
     };
 
