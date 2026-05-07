@@ -56,9 +56,9 @@ export class GeometryState {
     }
 
     private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
-        if (ShapeTypeUtils.isWhole(type)) {
+        if (index.length === 0 || ShapeTypeUtils.isWhole(type)) {
             this.setWholeState(method, state, type);
-        } else if (index.length > 0) {
+        } else {
             this.setSubGeometryState(method, state, type, index);
         }
     }
