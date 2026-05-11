@@ -32,7 +32,7 @@ export class SnapLengthAtAxisHandler extends SnapEventHandler<LengthAtAxisSnapDa
     protected getPointFromInput(view: IView, text: string): SnapResult {
         const dist = this.calculateDistance(Number(text));
         const point = this.calculatePoint(dist);
-        return { view, point, distance: dist, shapes: [] };
+        return { view, point, distance: dist, shapes: [], type: "input" };
     }
 
     private calculateDistance(inputValue: number): number {
@@ -84,7 +84,7 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
     protected getPointFromInput(view: IView, text: string): SnapResult {
         const plane = this.workplane ?? view.workplane;
         const point = this.calculatePoint(text, plane);
-        return { point, view, shapes: [], plane };
+        return { point, view, shapes: [], plane, type: "input" };
     }
 
     private calculatePoint(text: string, plane: Plane): XYZ {

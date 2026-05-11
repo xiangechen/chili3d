@@ -25,6 +25,7 @@ export abstract class PlaneSnapBase implements ISnap {
             point,
             distance,
             shapes: [],
+            type: "onSurface",
         };
     }
 }

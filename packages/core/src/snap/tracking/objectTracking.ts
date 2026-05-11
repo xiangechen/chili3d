@@ -4,12 +4,13 @@
 import { VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
 import { type IView, ViewUtils } from "../../visual";
-import type { SnapResult } from "../snap";
+import type { SnapResult, SnapType } from "../snap";
 import { Axis } from "./axis";
 import { TrackingBase } from "./trackingBase";
 
 export interface ObjectTrackingAxis {
     axes: Axis[];
+    snapType: SnapType;
     objectName: string | undefined;
 }
 
@@ -38,15 +39,17 @@ export class ObjectTracking extends TrackingBase {
         this.trackings.get(view.document)?.map((x) => {
             const plane = ViewUtils.ensurePlane(view, view.workplane);
             const axes = Axis.getAxiesAtPlane(x.snap.point!, plane, this.trackingZ);
-            result.push({ axes, objectName: x.snap.info });
+            result.push({ axes, objectName: x.snap.info, snapType: x.snap.type });
         });
         return result;
     }
 
     showTrackingAtTimeout(document: IDocument, snap?: SnapResult) {
-        if (snap !== undefined && this.snapping === snap) return;
-        this.snapping = snap;
         this.clearTimer();
+        if (snap !== undefined && this.snapping === snap) return;
+        if (snap?.type === "nearCurve" || snap?.type === "onSurface") return;
+
+        this.snapping = snap;
         if (!snap) return;
         this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }

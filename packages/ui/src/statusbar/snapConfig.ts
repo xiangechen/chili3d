@@ -38,7 +38,7 @@ const SnapTypes: Array<{
         },
         {
             type: ObjectSnapTypes.onCurve,
-            display: "snap.onCurve",
+            display: "snap.nearCurve",
         },
         {
             type: ObjectSnapTypes.onSurface,

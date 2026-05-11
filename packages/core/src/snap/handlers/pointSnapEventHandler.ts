@@ -47,7 +47,7 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     protected getPointFromInput(view: IView, text: string): SnapResult {
         const [dims, isAbsolute] = this.parseInputDimensions(text);
         const refPoint = this.getRefPoint() ?? XYZ.zero;
-        const result = { point: refPoint, view, shapes: [] };
+        const result: SnapResult = { point: refPoint, view, shapes: [], type: "input" };
 
         if (isAbsolute) {
             result.point = new XYZ({ x: dims[0], y: dims[1], z: dims[2] });
@@ -130,7 +130,7 @@ export class SnapPointOnCurveEventHandler extends SnapEventHandler<SnapPointOnCu
     protected override getPointFromInput(view: IView, text: string): SnapResult {
         const length = this.data.curve.length();
         const parameter = Number(text) / length;
-        return { point: this.data.curve.value(parameter), view, shapes: [] };
+        return { point: this.data.curve.value(parameter), view, shapes: [], type: "input" };
     }
 
     protected override inputError(text: string) {
@@ -148,7 +148,7 @@ export class SnapPointOnAxisEventHandler extends SnapEventHandler<SnapPointOnAxi
     protected override getPointFromInput(view: IView, text: string): SnapResult {
         const parameter = Number(text);
         const point = this.data.ray.point.add(this.data.ray.direction.multiply(parameter));
-        return { point, view, shapes: [] };
+        return { point, view, shapes: [], type: "input" };
     }
 
     protected override inputError(text: string) {

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
+import { I18nKeys } from "../i18n";
 import type { Plane, XYZ } from "../math";
 import type { VisualNode } from "../model";
 import type { IShapeFilter } from "../selectionFilter";
@@ -20,11 +21,14 @@ export interface SnapData {
     }[];
     beforeExecute?: () => void;
     afterExecute?: () => void;
-    onKeyDown?: (key: string, update: () => void) => void;
+    onKeyDown?: (key: KeyboardEvent, update: () => void) => void;
 }
+
+export type SnapType = "node" | "shape" | "vertex" | "center" | "end" | "perpendicular" | "intersection" | "nearCurve" | "trace" | "traceIntersect" | "onSurface" | "middle" | "axis" | "feature" | "input" | "angle";
 
 export interface SnapResult {
     view: IView;
+    type: SnapType;
     point?: XYZ;
     info?: string;
     distance?: number;

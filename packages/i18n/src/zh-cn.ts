@@ -261,7 +261,7 @@ export default {
         "snap.mid": "中点",
         "snap.nearest": "最近点",
         "snap.perpendicular": "垂点",
-        "snap.onCurve": "在边线上",
+        "snap.nearCurve": "在边线上",
         "snap.onSurface": "在面上",
         "statusBar.snap": "捕捉",
         "statusBar.tracking": "追踪",

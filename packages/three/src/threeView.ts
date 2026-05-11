@@ -2,10 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Config,
     debounce,
     type HtmlTextOptions,
     type IDisposable,
     type IDocument,
+    IFace,
     INode,
     type INodeFilter,
     type IShape,
@@ -520,9 +522,21 @@ export class ThreeView extends Observable implements IView {
         nodeFilter?: INodeFilter,
     ): VisualShapeData[] {
         const intersections = this.findIntersectedShapes(shapeType, mx, my);
-        return ShapeTypeUtils.isWhole(shapeType)
-            ? this.detectThreeShapes(intersections, shapeFilter, nodeFilter)
-            : this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
+        if (ShapeTypeUtils.isWhole(shapeType)) {
+            return this.detectThreeShapes(intersections, shapeFilter, nodeFilter);
+        }
+        const subs = this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
+        if (subs.length > 1 && subs[0].shape.shapeType === ShapeTypes.face) {
+            const i = subs.findIndex(x => x.shape.shapeType === ShapeTypes.edge);
+            if (i < 0) return subs;
+
+            const nearest = (subs[0].shape as IFace).surface().nearestPoint(subs[i].point!);
+            if (nearest![0].distanceTo(subs[i].point!) < 0.001) { // edge on face
+                const v = subs.splice(i, 1);
+                subs.splice(0, 0, ...v);
+            }
+        }
+        return subs;
     }
 
     private detectThreeShapes(
@@ -691,14 +705,15 @@ export class ThreeView extends Observable implements IView {
     private initIntersectableShapes(shapeType: ShapeType) {
         const shapes: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
-            if (!x.visible) return;
-            if (x instanceof ThreeVisualObject) shapes.push(...x.subShapeVisual(shapeType));
+            if (x instanceof ThreeVisualObject && x.node.visible) {
+                shapes.push(...x.subShapeVisual(shapeType));
+            }
         });
         return shapes;
     }
 
     private initRaycaster(mx: number, my: number) {
-        const threshold = Constants.RaycasterThreshold;
+        const threshold = Config.instance.SnapDistance;
         const { x, y } = this.screenToCameraRect(mx, my);
         const mousePos = new Vector2(x, y);
 

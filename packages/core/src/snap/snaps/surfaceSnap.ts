@@ -3,7 +3,7 @@
 
 import { Config } from "../../config";
 import { I18n } from "../../i18n";
-import { ShapeTypes } from "../../shape";
+import { IFace, ShapeTypes } from "../../shape";
 import { ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { ISnap, MouseAndDetected, SnapResult } from "../snap";
 
@@ -16,10 +16,11 @@ export class SurfaceSnap implements ISnap {
             return undefined;
         }
         return {
-            shapes: shapes,
-            point: shapes[0].point,
+            shapes,
+            point: (shapes[0].shape as IFace).surface().project(shapes[0].point!)[0],
             view: data.view,
-            info: I18n.translate("snap.onSurface")
+            info: I18n.translate("snap.onSurface"),
+            type: "onSurface"
         }
     }
     

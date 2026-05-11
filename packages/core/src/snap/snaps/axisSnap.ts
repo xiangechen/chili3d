@@ -35,6 +35,7 @@ export class AxisSnap implements ISnap {
             point,
             distance: dot,
             shapes: [],
+            type: "axis"
         };
     }
 

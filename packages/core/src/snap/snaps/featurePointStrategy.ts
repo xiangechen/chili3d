@@ -1,12 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n } from "../../i18n";
+import { I18n, I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
 import { type IEdge, type IVertex, ShapeTypes } from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import type { IView, VisualShapeData } from "../../visual";
-import type { SnapResult } from "../snap";
+import type { SnapResult, SnapType } from "../snap";
 
 export class FeaturePointStrategy {
     private readonly _featureInfos: Map<VisualShapeData, SnapResult[]> = new Map();
@@ -36,6 +36,7 @@ export class FeaturePointStrategy {
                 point,
                 info: I18n.translate("vertex.point"),
                 shapes: [shape],
+                type: "vertex"
             });
         }
     }
@@ -45,21 +46,22 @@ export class FeaturePointStrategy {
         const start = curve.value(curve.firstParameter());
         const end = curve.value(curve.lastParameter());
 
-        const addPoint = (point: XYZ, info: string) =>
+        const addPoint = (point: XYZ, info: I18nKeys, type: SnapType) =>
             infos.push({
                 view,
                 point: shape.transform.ofPoint(point),
-                info,
+                type,
+                info: I18n.translate(info),
                 shapes: [shape],
             });
 
         if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.endPoint)) {
-            addPoint(start, I18n.translate("snap.end"));
-            addPoint(end, I18n.translate("snap.end"));
+            addPoint(start, "snap.end", "end");
+            addPoint(end, "snap.end", "end");
         }
         if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.midPoint)) {
             const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
-            addPoint(mid, I18n.translate("snap.mid"));
+            addPoint(mid, "snap.mid", "middle");
         }
     }
 

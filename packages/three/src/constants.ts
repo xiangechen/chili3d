@@ -2,7 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 export class Constants {
-    static readonly RaycasterThreshold = 10;
     static readonly Layers = Object.freeze({
         Default: 0,
         Wireframe: 1,

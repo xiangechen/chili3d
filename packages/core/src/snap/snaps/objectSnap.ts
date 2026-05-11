@@ -182,6 +182,7 @@ export class ObjectSnap extends BaseSnap {
                     point: center,
                     info: I18n.translate("snap.center"),
                     shapes: [shape],
+                    type: "center",
                 },
             ],
             displays: [id],
@@ -215,6 +216,7 @@ export class ObjectSnap extends BaseSnap {
                 point: transform.ofPoint(point),
                 info: I18n.translate("snap.perpendicular"),
                 shapes: [shape],
+                type: "perpendicular"
             });
         }
 
@@ -258,6 +260,7 @@ export class ObjectSnap extends BaseSnap {
                 point: point.point,
                 info: I18n.translate("snap.intersection"),
                 shapes: [s1, s2],
+                type: "intersection"
             };
         });
     }
@@ -278,8 +281,9 @@ export class ObjectSnap extends BaseSnap {
             return {
                 view,
                 point: transform.ofPoint(point),
-                info: I18n.translate("snap.onCurve"),
+                info: I18n.translate("snap.nearCurve"),
                 shapes: [shape],
+                type: "nearCurve"
             };
         }
 

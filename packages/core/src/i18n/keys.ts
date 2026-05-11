@@ -256,7 +256,7 @@ export const I18N_KEYS = [
     "snap.mid",
     "snap.nearest",
     "snap.perpendicular",
-    "snap.onCurve",
+    "snap.nearCurve",
     "snap.onSurface",
     "statusBar.snap",
     "statusBar.tracking",

@@ -67,6 +67,7 @@ export class SelectShapeStep extends SelectStep {
             view: document.application.activeView!,
             shapes,
             nodes: shapes.map((x) => x.owner.node),
+            type: "shape"
         };
     }
 }
@@ -96,7 +97,8 @@ export class SelectNodeStep implements IStep {
                 view: document.application.activeView!,
                 shapes: [],
                 nodes,
-            };
+                type: "node"
+            } satisfies SnapResult;
         }).finally(() => {
             document.selection.nodeFilter = nodeFilter;
         });
@@ -119,6 +121,7 @@ export class GetOrSelectNodeStep extends SelectNodeStep {
                 view: document.application.activeView!,
                 shapes: [],
                 nodes: selected as ShapeNode[],
+                type: "node"
             });
         }
 

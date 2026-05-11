@@ -5,10 +5,10 @@ import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
 import { Precision } from "../../foundation";
 import { I18n } from "../../i18n";
-import { type Line, XY, type XYZ } from "../../math";
+import { type Line, MathUtils, XY, type XYZ } from "../../math";
 import { type ISubEdgeShape, MeshDataUtils, ShapeTypes } from "../../shape";
 import { type IView, screenDistance } from "../../visual";
-import type { ISnap, MouseAndDetected, SnapResult } from "../";
+import type { ISnap, MouseAndDetected, SnapResult, SnapType } from "../";
 import type { Axis } from "./axis";
 import { AxisTracking } from "./axisTracking";
 import { ObjectTracking } from "./objectTracking";
@@ -19,6 +19,7 @@ export interface TrackingData {
     isObjectTracking: boolean;
     distance: number;
     info: string;
+    snapType: SnapType
 }
 
 export class TrackingSnap implements ISnap {
@@ -65,22 +66,29 @@ export class TrackingSnap implements ISnap {
             : undefined;
     }
 
-    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapResult {
+    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapResult | undefined {
+        if (trackingDatas.length === 0) return undefined;
+
         const lines: number[] = trackingDatas
             .map((x) => this.showTempLine(view, x.axis.point, point))
             .filter((id) => id !== undefined);
         this._tempLines.set(view, lines);
 
         let info: string | undefined;
-        let distance: number | undefined;
+        let distance = point.distanceTo(trackingDatas[0].axis.point);
+        if (MathUtils.almostEqual(distance, 0)) return undefined;
+
         if (trackingDatas.length === 1) {
-            distance = point.distanceTo(trackingDatas[0].axis.point);
             info = trackingDatas[0].axis.name;
         } else if (trackingDatas.length === 2) {
+            if (MathUtils.almostEqual(point.distanceTo(trackingDatas[1].axis.point), 0)) {
+                return undefined;
+            }
+
             info = I18n.translate("snap.intersection");
         }
         const refPoint = trackingDatas[0].axis.point;
-        return { view, point, info, shapes: [], refPoint, distance };
+        return { view, point, info, shapes: [], refPoint, distance, type: "trace" };
     }
 
     private showTempLine(view: IView, start: XYZ, end: XYZ): number | undefined {
@@ -108,6 +116,7 @@ export class TrackingSnap implements ISnap {
             point: point.intersect,
             info: I18n.translate("snap.intersection"),
             shapes: [data.shapes[0]],
+            type: "traceIntersect"
         };
     }
 
@@ -127,16 +136,16 @@ export class TrackingSnap implements ISnap {
         const data: TrackingData[] = [];
         if (this.referencePoint) {
             const axies = this._axisTracking.getAxes(view, this.referencePoint());
-            data.push(...this.getSnapedFromAxes(axies, view, x, y));
+            data.push(...this.getSnapedFromAxes(axies, view, x, y, "axis"));
         }
         const objectTrackingRays = this._objectTracking.getTrackingRays(view);
         objectTrackingRays.forEach((a) => {
-            data.push(...this.getSnapedFromAxes(a.axes, view, x, y, a.objectName));
+            data.push(...this.getSnapedFromAxes(a.axes, view, x, y, a.snapType, a.objectName));
         });
         return data;
     }
 
-    private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapedName?: string) {
+    private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapType: SnapType, snapedName?: string) {
         const result: TrackingData[] = [];
         for (const axis of axes) {
             const distance = this.rayDistanceAtScreen(view, x, y, axis);
@@ -150,6 +159,7 @@ export class TrackingSnap implements ISnap {
                     point,
                     info: snapedName ?? axis.name,
                     isObjectTracking: snapedName !== undefined,
+                    snapType
                 });
             }
         }

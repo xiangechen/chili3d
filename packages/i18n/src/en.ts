@@ -262,7 +262,7 @@ export default {
         "snap.mid": "Middle",
         "snap.nearest": "Nearest",
         "snap.perpendicular": "Perpendicular",
-        "snap.onCurve": "On the Curve",
+        "snap.nearCurve": "On the Curve",
         "snap.onSurface": "On the surface",
         "statusBar.snap": "Snap",
         "statusBar.tracking": "Tracking",
