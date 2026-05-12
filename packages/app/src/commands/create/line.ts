@@ -20,11 +20,9 @@ import { CreateCommand } from "../createCommand";
     icon: "icon-line",
 })
 export class Line extends CreateCommand {
-    @property("option.command.isConnected", {
-        dependencies: [{ property: "repeatOperation", value: true }],
-    })
+    @property("option.command.isConnected")
     get isContinue() {
-        return this.getPrivateValue("isContinue", false);
+        return this.getPrivateValue("isContinue", true);
     }
     set isContinue(value: boolean) {
         this.setProperty("isContinue", value);
@@ -36,6 +34,11 @@ export class Line extends CreateCommand {
             start: this.stepDatas[0].point!,
             end: this.stepDatas[1].point!,
         });
+    }
+
+    protected override executeMainTask(): void {
+        super.executeMainTask();
+        this.repeatOperation = true;
     }
 
     getSteps(): IStep[] {

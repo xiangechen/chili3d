@@ -63,7 +63,6 @@ export abstract class CancelableCommand extends Observable implements ICanclable
         }
     }
 
-    @property("option.command.repeat")
     get repeatOperation() {
         return this.getPrivateValue("repeatOperation", false);
     }
