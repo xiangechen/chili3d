@@ -17,7 +17,7 @@ export class SurfaceSnap implements ISnap {
         }
         return {
             shapes,
-            point: (shapes[0].shape as IFace).surface().project(shapes[0].point!)[0],
+            point: (shapes[0].shape.transformedMul(shapes[0].transform) as IFace).surface().project(shapes[0].point!)[0],
             view: data.view,
             info: I18n.translate("snap.onSurface"),
             type: "onSurface"

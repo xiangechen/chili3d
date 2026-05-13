@@ -99,7 +99,7 @@ export abstract class MultistepCommand extends CancelableCommand {
         return edgeMesh;
     }
 
-    protected readonly findPlane = (view: IView, origin: XYZ, point: XYZ | undefined) => {
+    protected findPlane(view: IView, origin: XYZ, point: XYZ | undefined) {
         if (point === undefined || !Config.instance.dynamicWorkplane) {
             return view.workplane.translateTo(origin);
         }
