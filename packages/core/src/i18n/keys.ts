@@ -26,7 +26,7 @@ export const I18N_KEYS = [
     "body.polygon",
     "body.pipe",
     "body.regularPolygon",
-    "body.prism",
+    "body.extrude",
     "body.pyramid",
     "body.rect",
     "body.revol",

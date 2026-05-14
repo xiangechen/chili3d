@@ -31,7 +31,7 @@ export default {
         "body.point": "Point",
         "body.polygon": "Pline",
         "body.regularPolygon": "Regular Polygon",
-        "body.prism": "Prism",
+        "body.extrude": "Prism",
         "body.pyramid": "Pyramid",
         "body.rect": "Rectangle",
         "body.revol": "Revolve",

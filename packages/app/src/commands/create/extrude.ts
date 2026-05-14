@@ -5,6 +5,7 @@ import {
     command,
     type GeometryNode,
     GeometryUtils,
+    type IFace,
     type IShape,
     type IStep,
     type LengthAtAxisSnapData,
@@ -14,19 +15,19 @@ import {
     type ShapeType,
     ShapeTypes,
 } from "@chili3d/core";
-import { PrismNode } from "../../bodys";
+import { ExtrudeNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
 
 @command({
     key: "create.extrude",
     icon: "icon-prism",
 })
-export class Prism extends CreateCommand {
+export class ExtrudeCommand extends CreateCommand {
     protected override geometryNode(): GeometryNode {
         const shape = this.transformdFirstShape(this.stepDatas[0], false);
         const { point, normal } = this.getAxis(shape);
         const dist = this.stepDatas[1].point!.sub(point).dot(normal);
-        return new PrismNode({ document: this.document, section: shape, length: dist });
+        return new ExtrudeNode({ document: this.document, section: shape, length: dist });
     }
 
     protected override getSteps(): IStep[] {
@@ -50,6 +51,12 @@ export class Prism extends CreateCommand {
                 const dist = p.sub(point).dot(normal);
                 if (Math.abs(dist) < Precision.Float) return [];
                 const vec = normal.multiply(dist);
+                if (shape.shapeType === ShapeTypes.face) {
+                    const sur = (shape as IFace).surface();
+                    if (!sur.isPlanar()) {
+                        return [this.meshCreatedShape("makeThickSolidBySimple", shape, dist)];
+                    }
+                }
                 return [this.meshCreatedShape("prism", shape, vec)];
             },
         };

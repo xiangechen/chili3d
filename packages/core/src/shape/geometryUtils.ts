@@ -83,7 +83,7 @@ export class GeometryUtils {
 
     static normal(shape: IFace | IWire | IEdge): XYZ {
         if (shape.shapeType === ShapeTypes.face) {
-            return (shape as IFace).normal(0, 0)[1];
+            return (shape as IFace).normal(0.5, 0.5)[1].normalize()!;
         }
 
         if (shape.shapeType === ShapeTypes.edge) {
