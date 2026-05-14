@@ -13,12 +13,22 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.line",
                     "create.rect",
                     "create.extrude",
-                    "create.regularPolygon",
-                    ["create.point", "create.arc", "create.circle"],
+                    {
+                        type: "split",
+                        items: ["create.circle", "create.arc", "create.ellipse"],
+                    },
+                    {
+                        type: "split",
+                        items: [
+                            "create.box",
+                            "create.sphere",
+                            "create.cylinder",
+                            "create.cone",
+                            "create.pyramid",
+                        ],
+                    },
+                    ["create.regularPolygon", "create.polygon", "create.bezier"],
                     ["create.loft", "create.sweep", "create.revol"],
-                    ["create.ellipse", "create.bezier", "create.polygon"],
-                    ["create.box", "create.pyramid", "create.cylinder"],
-                    ["create.cone", "create.sphere", "create.thickSolid"],
                 ],
             },
             {
@@ -79,6 +89,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             {
                 groupName: "ribbon.group.2d",
                 items: [
+                    "create.point",
                     "create.line",
                     "create.rect",
                     "create.circle",

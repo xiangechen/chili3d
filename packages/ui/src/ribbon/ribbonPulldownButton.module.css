@@ -1,0 +1,125 @@
+.pulldown {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px;
+    margin: 4px;
+    border-radius: 4px;
+    min-width: 42px;
+    max-width: 100px;
+    width: auto;
+    min-height: 48px;
+    height: auto;
+    cursor: default;
+    user-select: none;
+    position: relative;
+}
+
+.pulldown:hover {
+    opacity: 0.85;
+    background-color: var(--hover-background-color);
+}
+
+.pulldownSmall {
+    display: flex;
+    flex-direction: row;
+    justify-items: top;
+    padding: 4px;
+    margin: 0px 4px;
+    cursor: default;
+    user-select: none;
+    position: relative;
+    border-radius: 4px;
+}
+
+.pulldownSmall:hover {
+    opacity: 0.85;
+    background-color: var(--hover-background-color);
+}
+
+.text {
+    color: var(--foreground-color);
+    font-size: 12px;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    width: 100%;
+    display: block;
+}
+
+.smallText {
+    color: var(--foreground-color);
+    font-size: 12px;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    width: 100%;
+    display: block;
+}
+
+.arrow {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--foreground-color);
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+
+.smallArrow {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid var(--foreground-color);
+    margin-left: 6px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.dropdown {
+    position: fixed;
+    z-index: 1001;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 160px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.dropdownItem {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: default;
+    user-select: none;
+}
+
+.dropdownItem:hover {
+    background-color: var(--hover-background-color);
+}
+
+.dropdownIcon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.dropdownText {
+    color: var(--foreground-color);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.dropdownSeparator {
+    height: 1px;
+    margin: 4px 8px;
+    background-color: var(--border-color);
+}

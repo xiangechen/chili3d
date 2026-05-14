@@ -1,0 +1,179 @@
+.split {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2px;
+    margin: 4px;
+    border-radius: 4px;
+    min-width: 42px;
+    max-width: 100px;
+    width: auto;
+    min-height: 48px;
+    height: auto;
+    cursor: default;
+    user-select: none;
+    position: relative;
+}
+
+.split:active {
+    background-color: var(--active-background-color);
+}
+
+.splitSmall {
+    display: flex;
+    flex-direction: row;
+    justify-items: top;
+    padding: 2px;
+    margin: 0px 4px;
+    cursor: default;
+    user-select: none;
+    position: relative;
+    border-radius: 4px;
+}
+
+.splitSmall:active {
+    background-color: var(--active-background-color);
+}
+
+.mainArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 2px 2px 0px 2px;
+    border-radius: 4px 4px 0 0;
+}
+
+.mainArea:hover {
+    background-color: var(--hover-background-color);
+}
+
+.mainArea:active {
+    background-color: var(--active-background-color);
+}
+
+.smallMainArea {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px 0 0 4px;
+}
+
+.smallMainArea:hover {
+    background-color: var(--hover-background-color);
+}
+
+.smallMainArea:active {
+    background-color: var(--active-background-color);
+}
+
+.arrowButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 5px 0;
+    border-radius: 0 0 4px 4px;
+}
+
+.arrowButton:hover {
+    background-color: var(--hover-background-color);
+}
+
+.arrowButton:active {
+    background-color: var(--active-background-color);
+}
+
+.smallArrowButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    border-radius: 0 4px 4px 0;
+}
+
+.smallArrowButton:hover {
+    background-color: var(--hover-background-color);
+}
+
+.smallArrowButton:active {
+    background-color: var(--active-background-color);
+}
+
+.arrow {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--foreground-color);
+    flex-shrink: 0;
+}
+
+.smallArrow {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid var(--foreground-color);
+    flex-shrink: 0;
+}
+
+.text {
+    color: var(--foreground-color);
+    font-size: 12px;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    width: 100%;
+    display: block;
+}
+
+.smallText {
+    color: var(--foreground-color);
+    font-size: 12px;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    width: 100%;
+    display: block;
+}
+
+.dropdown {
+    position: fixed;
+    z-index: 1001;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 160px;
+    overflow: hidden;
+}
+
+.dropdownItem {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px;
+    cursor: default;
+    user-select: none;
+}
+
+.dropdownItem:hover {
+    background-color: var(--hover-background-color);
+}
+
+.dropdownIcon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.dropdownText {
+    color: var(--foreground-color);
+    font-size: 12px;
+    white-space: nowrap;
+}

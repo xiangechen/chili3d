@@ -20,7 +20,7 @@ import {
 import { createIcon, label } from "@chili3d/element";
 import style from "./ribbonButton.module.css";
 
-export class RibbonButton extends HTMLElement {
+export class RibbonPushButton extends HTMLElement {
     #shortcut?: string;
     get shortcut() {
         return this.#shortcut;
@@ -48,7 +48,7 @@ export class RibbonButton extends HTMLElement {
             return new RibbonToggleButton(data, size);
         }
 
-        return new RibbonButton(data.key, data.icon, size, () => {
+        return new RibbonPushButton(data.key, data.icon, size, () => {
             PubSub.default.pub("executeCommand", commandName);
         });
     }
@@ -90,7 +90,7 @@ export class RibbonButton extends HTMLElement {
     }
 }
 
-customElements.define("ribbon-button", RibbonButton);
+customElements.define("ribbon-button", RibbonPushButton);
 
 class ToggleConverter implements IConverter {
     constructor(
@@ -102,7 +102,7 @@ class ToggleConverter implements IConverter {
     }
 }
 
-export class RibbonToggleButton extends RibbonButton {
+export class RibbonToggleButton extends RibbonPushButton {
     constructor(data: CommandData, size: ButtonSize) {
         super(data.key, data.icon, size, () => {
             PubSub.default.pub("executeCommand", data.key);

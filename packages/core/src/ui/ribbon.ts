@@ -5,7 +5,7 @@ import type { CommandKeys } from "../command";
 import { ObservableCollection } from "../foundation/collection";
 import { Observable } from "../foundation/observer";
 import type { I18nKeys } from "../i18n";
-import type { Button } from "./button";
+import type { PulldownButton, PushButton, SplitButton } from "./button";
 
 export type RibbonTabKeys = {
     [P in I18nKeys]: P extends `ribbon.tab.${infer _}` ? P : never;
@@ -15,11 +15,16 @@ export type RibbonGroupKeys = {
     [P in I18nKeys]: P extends `ribbon.group.${infer _}` ? P : never;
 }[I18nKeys];
 
-export type RibbonCommand = CommandKeys | ObservableCollection<CommandKeys> | Button;
+export type RibbonCommand =
+    | CommandKeys
+    | ObservableCollection<CommandKeys>
+    | PushButton
+    | PulldownButton
+    | SplitButton;
 
 export type RibbonGroupProfile = {
     groupName: RibbonGroupKeys;
-    items: (CommandKeys | CommandKeys[])[];
+    items: (RibbonCommand | CommandKeys[])[];
 };
 
 export class RibbonGroup extends Observable {
@@ -111,7 +116,7 @@ export class Ribbon extends Observable {
         }
     }
 
-    addRibbonCommand(tabName: RibbonTabKeys, groupName: RibbonGroupKeys, command: CommandKeys | Button) {
+    addRibbonCommand(tabName: RibbonTabKeys, groupName: RibbonGroupKeys, command: RibbonCommand) {
         const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabName);
         const group = tab?.groups.find((p: RibbonGroup) => p.groupName === groupName);
         group?.items.push(command);
@@ -142,12 +147,12 @@ export class Ribbon extends Observable {
     }
 
     closeEditTab() {
-        this.editableTabs = this.editableTabs.filter(x => x !== "ribbon.tab.edit");
+        this.editableTabs = this.editableTabs.filter((x) => x !== "ribbon.tab.edit");
         this.hiddenTabs = this.hiddenTabs.concat(["ribbon.tab.edit"]);
         this.setActiveTab(this.preTab);
     }
 
-    get editableTabs(): ReadonlyArray<RibbonTabKeys>  {
+    get editableTabs(): ReadonlyArray<RibbonTabKeys> {
         return this.getPrivateValue("editableTabs", []);
     }
     set editableTabs(value: RibbonTabKeys[]) {

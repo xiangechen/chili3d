@@ -20,12 +20,14 @@ import {
     type RibbonCommand,
     type RibbonGroup,
     type RibbonTab,
-    RibbonTabKeys,
+    type RibbonTabKeys,
 } from "@chili3d/core";
 import { a, collection, createIcon, div, label, span, svg } from "@chili3d/element";
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
-import { RibbonButton } from "./ribbonButton";
+import { RibbonPushButton } from "./ribbonButton";
+import { RibbonPulldownButton } from "./ribbonPulldownButton";
+import { RibbonSplitButton } from "./ribbonSplitButton";
 import { RibbonStack } from "./ribbonStack";
 
 export const QuickButton = (command: ICommand) => {
@@ -89,7 +91,7 @@ export class RibbonUI extends HTMLElement {
         super();
         this.className = style.root;
         this.append(this.header(), this.ribbonTabs(), this._commandContext);
-        app.mainWindow?.ribbon.onPropertyChanged(this.handleRibbonChanged)
+        app.mainWindow?.ribbon.onPropertyChanged(this.handleRibbonChanged);
     }
 
     private readonly handleRibbonChanged = (key: keyof Ribbon) => {
@@ -101,7 +103,7 @@ export class RibbonUI extends HTMLElement {
                     if (this.dataContent.editableTabs.includes(tab)) {
                         group.classList.remove(style.disabled);
                     } else {
-                        group.classList.add(style.disabled)
+                        group.classList.add(style.disabled);
                     }
                 }
             } else {
@@ -111,7 +113,7 @@ export class RibbonUI extends HTMLElement {
                 }
             }
         }
-    }
+    };
 
     private header() {
         return div({ className: style.titleBar }, this.leftPanel(), this.centerPanel(), this.rightPanel());
@@ -152,7 +154,13 @@ export class RibbonUI extends HTMLElement {
                     className: new Binding(this.dataContent, "activeTab", converter),
                     textContent: new Localize(tab.tabName),
                     style: {
-                        display: new Binding(this.dataContent, "hiddenTabs", new DisplayConverter((hiddens: RibbonTabKeys[]) => !hiddens.includes(tab.tabName))),
+                        display: new Binding(
+                            this.dataContent,
+                            "hiddenTabs",
+                            new DisplayConverter(
+                                (hiddens: RibbonTabKeys[]) => !hiddens.includes(tab.tabName),
+                            ),
+                        ),
                     },
                     onclick: () => {
                         this.dataContent.activeTab = tab;
@@ -227,7 +235,11 @@ export class RibbonUI extends HTMLElement {
             dataset: { tab: tab.tabName },
             sources: tab.groups,
             style: {
-                display: new Binding(this.dataContent, "activeTab", new DisplayConverter((tb: RibbonTab) => tab === tb)),
+                display: new Binding(
+                    this.dataContent,
+                    "activeTab",
+                    new DisplayConverter((tb: RibbonTab) => tab === tb),
+                ),
             },
             template: (group: RibbonGroup) => this.ribbonGroup(group),
         });
@@ -247,16 +259,22 @@ export class RibbonUI extends HTMLElement {
 
     private ribbonButton(item: RibbonCommand) {
         if (typeof item === "string") {
-            return RibbonButton.fromCommandName(item, "large")!;
+            return RibbonPushButton.fromCommandName(item, "large")!;
         } else if (item instanceof ObservableCollection) {
             const stack = new RibbonStack();
             item.forEach((b) => {
-                const button = RibbonButton.fromCommandName(b, "small");
+                const button = RibbonPushButton.fromCommandName(b, "small");
                 if (button) stack.append(button);
             });
             return stack;
+        } else if (item.type === "push") {
+            return new RibbonPushButton(item.command, item.icon, "large", item.onClick, item.display);
+        } else if (item.type === "pulldown") {
+            return new RibbonPulldownButton(item, "large");
+        } else if (item.type === "split") {
+            return new RibbonSplitButton(item, "large");
         } else {
-            return new RibbonButton(item.command, item.icon, "large", item.onClick, item.display);
+            throw new Error("unknown ribbon button type");
         }
     }
 
@@ -274,8 +292,8 @@ export class RibbonUI extends HTMLElement {
 
     private readonly handleConfigChanged = (prop: keyof Config) => {
         if (prop === "navigation3D") {
-            this.querySelectorAll(customElements.getName(RibbonButton)!).forEach((x) => {
-                (x as RibbonButton).updateShortcut();
+            this.querySelectorAll(customElements.getName(RibbonPushButton)!).forEach((x) => {
+                (x as RibbonPushButton).updateShortcut();
             });
         }
     };
