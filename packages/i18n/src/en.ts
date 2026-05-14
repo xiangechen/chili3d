@@ -54,6 +54,8 @@ export default {
         "command.convert.toSolid": "To Solid",
         "command.convert.toWire": "To Wire",
         "command.create.arc": "Arc",
+        "command.create.arc2point": "2-Point Arc",
+        "command.create.arc3point": "3-Point Arc",
         "command.create.bezier": "Bezier",
         "command.create.box": "Box",
         "command.create.circle": "Circle",
@@ -216,6 +218,9 @@ export default {
         "prompt.default{0}{1}":
             "{0} to pan the view, {1} to rotate the view, Mouse wheel to scroll the zoom view",
         "prompt.deleteDocument{0}": "Do you want to delete {0}?",
+        "prompt.pickArcBulge": "pick bulge point, ESC key to cancel",
+        "prompt.pickArcEnd": "pick end point, ESC key to cancel",
+        "prompt.pickArcMid": "pick point on arc, ESC key to cancel",
         "prompt.pickCircleCenter": "pick center, ESC key to cancel",
         "prompt.pickFistPoint": "Pick first point, ESC key to cancel",
         "prompt.pickNextPoint": "pick next point, ESC key to cancel",

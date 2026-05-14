@@ -2,6 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./arc";
+export * from "./arc2point";
+export * from "./arc3point";
 export * from "./bezier";
 export * from "./box";
 export * from "./circle";
