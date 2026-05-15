@@ -1,64 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type ButtonSize,
-    type CommandIcon,
-    type CommandKeys,
-    CommandStore,
-    type I18nKeys,
-    Localize,
-    PubSub,
-    type PushButton,
-    type SplitButton,
-} from "@chili3d/core";
+import { type ButtonSize, Localize, type SplitButton } from "@chili3d/core";
 import { createIcon, div, label } from "@chili3d/element";
+import { createDropdownItem, DropdownController, getItemData } from "./dropdownController";
 import buttonStyle from "./ribbonButton.module.css";
 import style from "./ribbonSplitButton.module.css";
 
-function getItemData(item: PushButton | CommandKeys) {
-    if (typeof item === "string") {
-        const data = CommandStore.getComandData(item);
-        return {
-            command: item,
-            icon: data?.icon ?? ("icon-command" as CommandIcon),
-            display: (data ? `command.${data.key}` : item) as I18nKeys,
-            onClick: () => PubSub.default.pub("executeCommand", item),
-        };
-    }
-    return {
-        command: item.command,
-        icon: item.icon as CommandIcon,
-        display: item.display ?? (`command.${item.command}` as I18nKeys),
-        onClick: item.onClick,
-    };
-}
-
-function createDropdownItem(item: PushButton | CommandKeys, onSelect: () => void): HTMLElement {
-    const data = getItemData(item);
-    const icon = data.icon ? createIcon(data.icon) : div();
-    icon.classList.add(style.dropdownIcon);
-    return div(
-        {
-            className: style.dropdownItem,
-            onclick: (e) => {
-                e.stopPropagation();
-                PubSub.default.pub("executeCommand", data?.command);
-                onSelect();
-            },
-        },
-        icon,
-        label({
-            className: style.dropdownText,
-            textContent: new Localize(data ? `command.${data.command}` : (item as I18nKeys)),
-        }),
-    );
-}
-
 export class RibbonSplitButton extends HTMLElement {
     #primaryIndex = 0;
-    #dropdown?: HTMLElement;
-    #isOpen = false;
+    #dropdown = new DropdownController(style.dropdown);
     #iconEl?: Element;
     #textEl?: Element;
 
@@ -71,7 +22,7 @@ export class RibbonSplitButton extends HTMLElement {
     }
 
     dispose(): void {
-        this.closeDropdown();
+        this.#dropdown.dispose();
     }
 
     private initHTML() {
@@ -107,8 +58,8 @@ export class RibbonSplitButton extends HTMLElement {
                     className: isLarge ? style.arrowButton : style.smallArrowButton,
                     onclick: (e) => {
                         e.stopPropagation();
-                        if (this.#isOpen) {
-                            this.closeDropdown();
+                        if (this.#dropdown.isOpened) {
+                            this.#dropdown.close();
                         } else {
                             this.openDropdown();
                         }
@@ -126,35 +77,26 @@ export class RibbonSplitButton extends HTMLElement {
     }
 
     private openDropdown() {
-        if (this.#isOpen || this.data.items.length === 0) return;
+        if (this.#dropdown.isOpened || this.data.items.length === 0) return;
 
-        this.#dropdown = div(
-            { className: style.dropdown },
-            ...this.data.items.map((item, i) =>
-                createDropdownItem(item, () => {
-                    this.switchPrimary(i);
-                    this.closeDropdown();
-                }),
-            ),
-        );
-
-        document.body.appendChild(this.#dropdown);
-        this.positionDropdown();
-        this.#isOpen = true;
-
-        document.addEventListener("click", this.onOutsideClick, true);
-        document.addEventListener("keydown", this.onKeyDown);
-    }
-
-    private closeDropdown() {
-        if (!this.#isOpen) return;
-
-        this.#dropdown?.remove();
-        this.#dropdown = undefined;
-        this.#isOpen = false;
-
-        document.removeEventListener("click", this.onOutsideClick, true);
-        document.removeEventListener("keydown", this.onKeyDown);
+        this.#dropdown.open(this, (dropdown) => {
+            for (const [i, item] of this.data.items.entries()) {
+                dropdown.append(
+                    createDropdownItem(
+                        item,
+                        () => {
+                            this.switchPrimary(i);
+                            this.#dropdown.close();
+                        },
+                        {
+                            item: style.dropdownItem,
+                            icon: style.dropdownIcon,
+                            text: style.dropdownText,
+                        },
+                    ),
+                );
+            }
+        });
     }
 
     private switchPrimary(index: number) {
@@ -182,25 +124,6 @@ export class RibbonSplitButton extends HTMLElement {
             this.#textEl = newText;
         }
     }
-
-    private positionDropdown() {
-        if (!this.#dropdown) return;
-        const rect = this.getBoundingClientRect();
-        this.#dropdown.style.top = `${rect.bottom + 2}px`;
-        this.#dropdown.style.left = `${rect.left}px`;
-    }
-
-    private readonly onOutsideClick = (e: Event) => {
-        if (this.#dropdown && !this.#dropdown.contains(e.target as Node)) {
-            this.closeDropdown();
-        }
-    };
-
-    private readonly onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-            this.closeDropdown();
-        }
-    };
 }
 
 customElements.define("ribbon-split-button", RibbonSplitButton);

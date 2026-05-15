@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDisposable } from "./disposable";
+import { Observable } from "./observer";
 
 export type CollectionAction = "add" | "remove" | "move" | "replace";
 
@@ -31,11 +32,12 @@ export interface ICollectionChanged {
     removeCollectionChanged(callback: (args: CollectionChangedArgs) => void): void;
 }
 
-export class ObservableCollection<T> implements ICollectionChanged, IDisposable {
+export class ObservableCollection<T> extends Observable implements ICollectionChanged, IDisposable {
     private readonly _callbacks = new Set<(args: CollectionChangedArgs) => void>();
     private _items: T[];
 
     constructor(...items: T[]) {
+        super();
         this._items = Array.from(items);
     }
 
@@ -107,6 +109,14 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
 
     private notifyChange(args: CollectionChangedArgs) {
         this._callbacks.forEach((callback) => callback(args));
+
+        if (args.action === "add") {
+            this.emitPropertyChanged("length", this.length - args.items.length);
+        } else if (args.action === "remove") {
+            this.emitPropertyChanged("length", this.length + args.items.length);
+        } else if (args.action === "replace") {
+            this.emitPropertyChanged("length", this.length - 1 + args.items.length);
+        }
     }
 
     forEach(callback: (item: T, index: number) => void) {
@@ -149,10 +159,6 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         return this._items.indexOf(item) !== -1;
     }
 
-    get count() {
-        return this._items.length;
-    }
-
     onCollectionChanged(callback: (args: CollectionChangedArgs) => void): void {
         this._callbacks.add(callback);
     }
@@ -161,7 +167,9 @@ export class ObservableCollection<T> implements ICollectionChanged, IDisposable 
         this._callbacks.delete(callback);
     }
 
-    dispose() {
+    override disposeInternal() {
+        super.disposeInternal();
+
         this._callbacks.clear();
         this._items.length = 0;
     }

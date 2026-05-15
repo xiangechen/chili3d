@@ -1,0 +1,115 @@
+.ribbonGroup {
+    position: relative;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    justify-items: center;
+    flex-shrink: 0;
+
+    .headerContainer {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        padding: 1px;
+        position: relative;
+
+        .header {
+            color: var(--foreground-color);
+            font-size: 12px;
+        }
+
+        .arrow {
+            padding: 4px 8px;
+            display: flex;
+            border-radius: 3px;
+            margin-left: 2px;
+            border: none;
+
+            &::after {
+                content: "";
+                width: 0;
+                height: 0;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid var(--foreground-color);
+                flex-shrink: 0;
+            }
+
+            &:hover {
+                background-color: var(--hover-background-color);
+            }
+
+            &:active {
+                background-color: var(--active-background-color);
+            }
+        }
+    }
+
+    .content {
+        height: 72px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-items: center;
+        overflow: hidden;
+    }
+}
+
+.ribbonGroup::after {
+    content: "";
+    position: absolute;
+    display: grid;
+    right: 0px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background-color: var(--border-color);
+}
+
+.collapsedDropdown {
+    position: fixed;
+    z-index: 1001;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 160px;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 8px;
+    gap: 8px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.collapsedDropdownItem {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    cursor: default;
+    user-select: none;
+    padding: 4px;
+    width: 72px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.collapsedDropdownItem:hover {
+    background-color: var(--hover-background-color);
+}
+
+.collapsedDropdownIcon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.collapsedDropdownText {
+    color: var(--foreground-color);
+    font-size: 12px;
+    white-space: nowrap;
+}

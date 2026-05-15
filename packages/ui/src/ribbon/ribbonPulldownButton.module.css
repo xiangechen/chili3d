@@ -117,9 +117,3 @@
     font-size: 12px;
     white-space: nowrap;
 }
-
-.dropdownSeparator {
-    height: 1px;
-    margin: 4px 8px;
-    background-color: var(--border-color);
-}

@@ -25,10 +25,12 @@ export type RibbonCommand =
 export type RibbonGroupProfile = {
     groupName: RibbonGroupKeys;
     items: (RibbonCommand | CommandKeys[])[];
+    collapsedItems?: CommandKeys[];
 };
 
 export class RibbonGroup extends Observable {
     readonly items: ObservableCollection<RibbonCommand>;
+    readonly collapsedItems: ObservableCollection<CommandKeys>;
 
     get groupName(): RibbonGroupKeys {
         return this.getPrivateValue("groupName");
@@ -37,19 +39,18 @@ export class RibbonGroup extends Observable {
         this.setProperty("groupName", value);
     }
 
-    constructor(groupName: RibbonGroupKeys, ...items: RibbonCommand[]) {
+    constructor(groupName: RibbonGroupKeys, items: RibbonCommand[], collapsedItems?: CommandKeys[]) {
         super();
         this.setPrivateValue("groupName", groupName);
         this.items = new ObservableCollection<RibbonCommand>(...items);
+        this.collapsedItems = new ObservableCollection<CommandKeys>(...(collapsedItems ?? []));
     }
 
     static fromProfile(profile: RibbonGroupProfile) {
-        return new RibbonGroup(
-            profile.groupName,
-            ...profile.items.map((item) => {
-                return Array.isArray(item) ? new ObservableCollection(...item) : item;
-            }),
-        );
+        const mapItems = (items: (RibbonCommand | CommandKeys[])[]) =>
+            items.map((item) => (Array.isArray(item) ? new ObservableCollection(...item) : item));
+
+        return new RibbonGroup(profile.groupName, mapItems(profile.items), profile.collapsedItems);
     }
 }
 

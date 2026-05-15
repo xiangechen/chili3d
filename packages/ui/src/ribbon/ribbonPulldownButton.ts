@@ -1,52 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type ButtonSize,
-    type CommandIcon,
-    type CommandKeys,
-    CommandStore,
-    type I18nKeys,
-    Localize,
-    PubSub,
-    type PulldownButton,
-    type PushButton,
-} from "@chili3d/core";
+import { type ButtonSize, type CommandIcon, Localize, type PulldownButton } from "@chili3d/core";
 import { createIcon, div, label } from "@chili3d/element";
+import { createDropdownItem, DropdownController } from "./dropdownController";
 import buttonStyle from "./ribbonButton.module.css";
 import style from "./ribbonPulldownButton.module.css";
 
-function createDropdownItem(item: PushButton | CommandKeys, onClose: () => void): HTMLElement {
-    const data =
-        typeof item === "string"
-            ? {
-                  command: item,
-                  icon: CommandStore.getComandData(item)?.icon,
-              }
-            : item;
-
-    const icon = data.icon ? createIcon(data.icon) : div();
-    icon.classList.add(style.dropdownIcon);
-    return div(
-        {
-            className: style.dropdownItem,
-            onclick: (e) => {
-                e.stopPropagation();
-                PubSub.default.pub("executeCommand", data.command);
-                onClose();
-            },
-        },
-        icon,
-        label({
-            className: style.dropdownText,
-            textContent: new Localize(data ? `command.${data.command}` : (item as I18nKeys)),
-        }),
-    );
-}
-
 export class RibbonPulldownButton extends HTMLElement {
-    #dropdown?: HTMLElement;
-    #isOpen = false;
+    #dropdown = new DropdownController(style.dropdown);
 
     constructor(
         readonly data: PulldownButton,
@@ -58,7 +20,7 @@ export class RibbonPulldownButton extends HTMLElement {
     }
 
     dispose(): void {
-        this.closeDropdown();
+        this.#dropdown.dispose();
         this.removeEventListener("click", this.toggleDropdown);
     }
 
@@ -79,58 +41,28 @@ export class RibbonPulldownButton extends HTMLElement {
 
     private readonly toggleDropdown = (e: Event) => {
         e.stopPropagation();
-        if (this.#isOpen) {
-            this.closeDropdown();
+        if (this.#dropdown.isOpened) {
+            this.#dropdown.close();
         } else {
             this.openDropdown();
         }
     };
 
     private openDropdown() {
-        if (this.#isOpen || this.data.items.length === 0) return;
+        if (this.#dropdown.isOpened || this.data.items.length === 0) return;
 
-        this.#dropdown = div({ className: style.dropdown });
-        for (const item of this.data.items) {
-            this.#dropdown.append(createDropdownItem(item, () => this.closeDropdown()));
-        }
-
-        document.body.appendChild(this.#dropdown);
-        this.positionDropdown();
-        this.#isOpen = true;
-
-        document.addEventListener("click", this.onOutsideClick, true);
-        document.addEventListener("keydown", this.onKeyDown);
+        this.#dropdown.open(this, (dropdown) => {
+            for (const item of this.data.items) {
+                dropdown.append(
+                    createDropdownItem(item, () => this.#dropdown.close(), {
+                        item: style.dropdownItem,
+                        icon: style.dropdownIcon,
+                        text: style.dropdownText,
+                    }),
+                );
+            }
+        });
     }
-
-    private closeDropdown() {
-        if (!this.#isOpen) return;
-
-        this.#dropdown?.remove();
-        this.#dropdown = undefined;
-        this.#isOpen = false;
-
-        document.removeEventListener("click", this.onOutsideClick, true);
-        document.removeEventListener("keydown", this.onKeyDown);
-    }
-
-    private positionDropdown() {
-        if (!this.#dropdown) return;
-        const rect = this.getBoundingClientRect();
-        this.#dropdown.style.top = `${rect.bottom + 2}px`;
-        this.#dropdown.style.left = `${rect.left}px`;
-    }
-
-    private readonly onOutsideClick = (e: Event) => {
-        if (this.#dropdown && !this.#dropdown.contains(e.target as Node)) {
-            this.closeDropdown();
-        }
-    };
-
-    private readonly onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-            this.closeDropdown();
-        }
-    };
 }
 
 customElements.define("ribbon-pulldown-button", RibbonPulldownButton);

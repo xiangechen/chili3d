@@ -13,11 +13,9 @@ import {
     type IView,
     Localize,
     Logger,
-    ObservableCollection,
     PubSub,
     Result,
     type Ribbon,
-    type RibbonCommand,
     type RibbonGroup,
     type RibbonTab,
     type RibbonTabKeys,
@@ -26,9 +24,7 @@ import { a, collection, createIcon, div, label, span, svg } from "@chili3d/eleme
 import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonPushButton } from "./ribbonButton";
-import { RibbonPulldownButton } from "./ribbonPulldownButton";
-import { RibbonSplitButton } from "./ribbonSplitButton";
-import { RibbonStack } from "./ribbonStack";
+import { RibbonGroupElement } from "./ribbonGroup";
 
 export const QuickButton = (command: ICommand) => {
     const data = CommandStore.getComandData(command);
@@ -241,41 +237,8 @@ export class RibbonUI extends HTMLElement {
                     new DisplayConverter((tb: RibbonTab) => tab === tb),
                 ),
             },
-            template: (group: RibbonGroup) => this.ribbonGroup(group),
+            template: (group: RibbonGroup) => new RibbonGroupElement(group),
         });
-    }
-
-    private ribbonGroup(group: RibbonGroup) {
-        return div(
-            { className: style.ribbonGroup },
-            collection({
-                sources: group.items,
-                className: style.content,
-                template: (item) => this.ribbonButton(item),
-            }),
-            label({ className: style.header, textContent: new Localize(group.groupName) }),
-        );
-    }
-
-    private ribbonButton(item: RibbonCommand) {
-        if (typeof item === "string") {
-            return RibbonPushButton.fromCommandName(item, "large")!;
-        } else if (item instanceof ObservableCollection) {
-            const stack = new RibbonStack();
-            item.forEach((b) => {
-                const button = RibbonPushButton.fromCommandName(b, "small");
-                if (button) stack.append(button);
-            });
-            return stack;
-        } else if (item.type === "push") {
-            return new RibbonPushButton(item.command, item.icon, "large", item.onClick, item.display);
-        } else if (item.type === "pulldown") {
-            return new RibbonPulldownButton(item, "large");
-        } else if (item.type === "split") {
-            return new RibbonSplitButton(item, "large");
-        } else {
-            throw new Error("unknown ribbon button type");
-        }
     }
 
     connectedCallback(): void {
