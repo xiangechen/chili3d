@@ -6,8 +6,9 @@ import type { IDocument } from "../document";
 import { type IEqualityComparer, Logger, PubSub, Result } from "../foundation";
 import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
+import { property } from "../property";
 import { serializable, serialize } from "../serialize";
-import type { EdgeMeshData, FaceMeshData, IShape, IShapeMeshData, VertexMeshData } from "../shape";
+import { ShapeTypeUtils, type EdgeMeshData, type FaceMeshData, type IShape, type IShapeMeshData, type VertexMeshData } from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
 
@@ -15,6 +16,16 @@ const SHAPE_UNDEFINED = "Shape not initialized";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
+    @property("common.type", {
+        converter: {
+            convert: (v: Result<IShape>) => {
+                if (!v.isOk) {
+                    return Result.err("Error:" + v.error);
+                }
+                return Result.ok(ShapeTypeUtils.stringValue(v.value.shapeType));
+            }
+        }
+    })
     get shape(): Result<IShape> {
         return this._shape;
     }

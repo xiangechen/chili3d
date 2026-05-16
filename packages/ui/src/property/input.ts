@@ -61,11 +61,10 @@ export class InputProperty extends PropertyBase {
     constructor(
         readonly document: IDocument,
         objects: any[],
-        readonly property: Property,
-        converter?: IConverter,
+        readonly property: Property
     ) {
         super(objects);
-        this.converter = converter ?? this.getConverter();
+        this.converter = property.converter ?? this.getConverter();
         const arrayConverter = new ArrayValueConverter(objects, property, this.converter);
         this.append(
             div(

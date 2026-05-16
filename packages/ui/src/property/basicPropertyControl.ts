@@ -10,8 +10,7 @@ import { MaterialProperty } from "./materialProperty";
 export function basicPropertyControl(
     document: IDocument,
     objs: any[],
-    prop: Property,
-    converter?: IConverter,
+    prop: Property
 ) {
     if (prop === undefined || objs.length === 0) return "";
 
@@ -25,7 +24,7 @@ export function basicPropertyControl(
 
     const value = objs[0][prop.name];
     if (["object", "string", "number"].includes(typeof value)) {
-        return new InputProperty(document, objs, prop, converter);
+        return new InputProperty(document, objs, prop);
     }
 
     if (typeof value === "boolean") {

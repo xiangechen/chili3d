@@ -61,7 +61,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     protected highlightDetecteds(view: IView, detecteds: VisualShapeData[]) {
         this.cleanHighlights();
         detecteds.forEach((x) => {
-            view.document.visual.highlighter.addState(
+            this.document.visual.highlighter.addState(
                 x.owner,
                 this.highlightState,
                 x.shape.shapeType,
@@ -74,7 +74,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 
     protected cleanHighlights() {
         this._highlights?.forEach((x) => {
-            x.owner.node.document.visual.highlighter.removeState(
+            this.document.visual.highlighter.removeState(
                 x.owner,
                 this.highlightState,
                 x.shape.shapeType,
@@ -150,7 +150,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
 
     private removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape.shape);
-        shape.owner.node.document.visual.highlighter.removeState(
+        this.document.visual.highlighter.removeState(
             shape.owner,
             this.selectedState,
             shape.shape.shapeType,
@@ -159,7 +159,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
     }
 
     private addSelected(shape: VisualShapeData) {
-        shape.owner.node.document.visual.highlighter.addState(
+        this.document.visual.highlighter.addState(
             shape.owner,
             this.selectedState,
             shape.shape.shapeType,

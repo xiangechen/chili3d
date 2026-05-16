@@ -5,7 +5,7 @@ import { type IConverter, type IDocument, type Property, Texture } from "@chili3
 import { basicPropertyControl } from "./basicPropertyControl";
 import { TextureProperty } from "./textureProperty";
 
-export function propertyControl(document: IDocument, objs: any[], prop: Property, converter?: IConverter) {
+export function propertyControl(document: IDocument, objs: any[], prop: Property) {
     if (prop === undefined || objs.length === 0) return "";
 
     const value = objs[0][prop.name];
@@ -13,5 +13,5 @@ export function propertyControl(document: IDocument, objs: any[], prop: Property
         return new TextureProperty(document, prop.display, value);
     }
 
-    return basicPropertyControl(document, objs, prop, converter);
+    return basicPropertyControl(document, objs, prop);
 }

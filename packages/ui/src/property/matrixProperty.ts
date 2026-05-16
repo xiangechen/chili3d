@@ -31,8 +31,8 @@ export class MatrixProperty extends PropertyBase {
                 {
                     name: "transform",
                     display: "transform.translation",
+                    converter: new TranslationConverter(this.first),
                 },
-                new TranslationConverter(this.first),
             ),
             new InputProperty(
                 document,
@@ -40,8 +40,8 @@ export class MatrixProperty extends PropertyBase {
                 {
                     name: "transform",
                     display: "transform.scale",
+                    converter: new ScalingConverter(this.first),
                 },
-                new ScalingConverter(this.first),
             ),
             new InputProperty(
                 document,
@@ -49,8 +49,8 @@ export class MatrixProperty extends PropertyBase {
                 {
                     name: "transform",
                     display: "transform.rotation",
+                    converter: new RotateConverter(this.first),
                 },
-                new RotateConverter(this.first),
             ),
         );
     }
