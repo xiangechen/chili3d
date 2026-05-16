@@ -684,14 +684,14 @@ export class ThreeView extends Observable implements IView {
     }
 
     private findIntersectedNodes(mx: number, my: number) {
-        const visuals: Object3D[] = [];
+        let visuals: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
-
             if (x instanceof ThreeVisualObject) {
                 visuals.push(...x.wholeVisual());
             }
         });
+        visuals = visuals.filter((x) => x !== undefined && x !== null);
 
         return this.initRaycaster(mx, my).intersectObjects(visuals, false);
     }
@@ -703,12 +703,13 @@ export class ThreeView extends Observable implements IView {
     }
 
     private initIntersectableShapes(shapeType: ShapeType) {
-        const shapes: Object3D[] = [];
+        let shapes: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
             if (x instanceof ThreeVisualObject && x.node.visible) {
                 shapes.push(...x.subShapeVisual(shapeType));
             }
         });
+        shapes = shapes.filter((x) => x !== undefined && x !== null);
         return shapes;
     }
 
