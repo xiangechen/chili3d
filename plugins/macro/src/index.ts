@@ -8,7 +8,7 @@ const MacroPlugin: Plugin = {
     commands: [MacroCommand],
     ribbons: [
         {
-            tabName: "ribbon.tab.tools",
+            tabName: "ribbon.tab.manager",
             groups: [
                 {
                     groupName: "ribbon.group.other",

@@ -26,7 +26,7 @@ const DemoPlugin = {
     commands: [HelloWorldJSCommand],
     ribbons: [
         {
-            tabName: "ribbon.tab.tools",
+            tabName: "ribbon.tab.manager",
             groups: [
                 {
                     groupName: "ribbon.group.other",
