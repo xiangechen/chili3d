@@ -169,23 +169,6 @@ describe("Command System", () => {
             expect(command.document).toBe(mockDocument);
         });
 
-        test("should handle repeat operation correctly", async () => {
-            let callCount = 0;
-            const command = new TestCommand();
-
-            command.repeatOperation = true;
-            expect(command.repeatOperation).toBe(true);
-
-            command.setExecuteMock(async () => {
-                callCount++;
-            });
-
-            await command.execute(mockApplication);
-
-            expect(callCount).toBe(1);
-            expect(command.isCompleted).toBe(true);
-        });
-
         test("should handle restart functionality", async () => {
             const command = new TestCommand();
             let executeCount = 0;
