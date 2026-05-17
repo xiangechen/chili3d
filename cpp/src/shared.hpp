@@ -15,11 +15,11 @@
 #include <gp_Vec.hxx>
 
 #define STR(x) #x
-#define REGISTER_HANDLE(T)                                       \
-    class_<Handle_##T>(STR(Handle_##T))                          \
-        .constructor<const T*>()                                 \
-        .function("get", &Handle_##T::get, allow_raw_pointers()) \
-        .function("isNull", &Handle_##T::IsNull)
+#define REGISTER_HANDLE(T)                                                   \
+    class_<opencascade::handle<T>>(STR(Handle_##T))                          \
+        .constructor<const T*>()                                             \
+        .function("get", &opencascade::handle<T>::get, allow_raw_pointers()) \
+        .function("isNull", &opencascade::handle<T>::IsNull)
 
 class Math {
 public:

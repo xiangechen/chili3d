@@ -12,7 +12,7 @@ set(CMAKE_INSTALL_PREFIX "${SOURCE_ROOT_DIR}/packages/wasm/lib")
 set (OcctToolkits
     # FoundationClasses
     TKernel TKMath
-    # ModelingData 
+    # ModelingData
     TKG2d TKG3d TKGeomBase TKBRep
     # ModelingAlgorithms
     TKGeomAlgo TKTopAlgo TKPrim TKBO TKBool TKHLR TKFillet TKOffset TKFeat TKMesh TKShHealing
@@ -24,20 +24,24 @@ set (OcctToolkits
     TKDE TKXSBase TKXCAF TKDESTEP TKDEIGES TKDESTL
 )
 
-set (OcctUsedPackages)
-foreach(toolkit ${OcctToolkits})
-    file (STRINGS build/occt/src/${toolkit}/PACKAGES OcctPackages)
-    list (APPEND OcctUsedPackages ${OcctPackages})
-endforeach()
-list (REMOVE_DUPLICATES OcctUsedPackages)
+include(build/occt/src/MODULES.cmake)
 
 set (OcctSourceFolders)
 set (OcctIncludeDirs)
-foreach(package ${OcctUsedPackages})
-    if (NOT package STREQUAL "")
-        list (APPEND OcctSourceFolders build/occt/src/${package}/*.c*)
-        list (APPEND OcctIncludeDirs build/occt/src/${package})
-    endif()
+foreach(module ${OCCT_LIST_OF_MODULES})
+    include(build/occt/src/${module}/TOOLKITS.cmake)
+    foreach(toolkit ${OcctToolkits})
+        list(FIND OCCT_${module}_LIST_OF_TOOLKITS ${toolkit} _idx)
+        if(_idx GREATER_EQUAL 0)
+            include(build/occt/src/${module}/${toolkit}/PACKAGES.cmake)
+            foreach(package ${OCCT_${toolkit}_LIST_OF_PACKAGES})
+                if (NOT package STREQUAL "")
+                    list (APPEND OcctSourceFolders build/occt/src/${module}/${toolkit}/${package}/*.c*)
+                    list (APPEND OcctIncludeDirs build/occt/src/${module}/${toolkit}/${package})
+                endif()
+            endforeach()
+        endif()
+    endforeach()
 endforeach()
 
 include(build/occt/adm/cmake/version.cmake)

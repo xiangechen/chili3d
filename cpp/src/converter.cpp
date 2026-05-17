@@ -61,7 +61,7 @@ std::string getLabelNameNoRef(const TDF_Label& label)
         return std::string();
     }
 
-    Standard_Integer utf8NameLength = nameAttribute->Get().LengthOfCString();
+    int utf8NameLength = nameAttribute->Get().LengthOfCString();
     char* nameBuf = new char[utf8NameLength + 1];
     nameAttribute->Get().ToUTF8CString(nameBuf);
     std::string name(nameBuf, utf8NameLength);
@@ -196,7 +196,7 @@ ShapeNode initShapeNode(const TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeToo
     return childShapeNode;
 }
 
-ShapeNode initGroupNode(const TopoDS_Shape& shape, const Handle_XCAFDoc_ShapeTool& shapeTool)
+ShapeNode initGroupNode(const TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeTool) & shapeTool)
 {
     ShapeNode groupNode = {
         .shape = std::nullopt, .color = std::nullopt, .children = {}, .name = getShapeName(shape, shapeTool)
@@ -205,8 +205,8 @@ ShapeNode initGroupNode(const TopoDS_Shape& shape, const Handle_XCAFDoc_ShapeToo
     return groupNode;
 }
 
-ShapeNode parseShape(TopoDS_Shape& shape, const Handle_XCAFDoc_ShapeTool& shapeTool,
-    const Handle_XCAFDoc_ColorTool& colorTool)
+ShapeNode parseShape(TopoDS_Shape& shape, const Handle(XCAFDoc_ShapeTool) & shapeTool,
+    const Handle(XCAFDoc_ColorTool) & colorTool)
 {
     if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
         auto node = initGroupNode(shape, shapeTool);

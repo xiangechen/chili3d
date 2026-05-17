@@ -17,6 +17,7 @@
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepFeat_MakePrism.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
@@ -39,7 +40,6 @@
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
 
 using namespace emscripten;
 
@@ -241,7 +241,7 @@ public:
         return ShapeResult { prism.Shape(), true, "" };
     }
 
-    static ShapeResult pushPull(const TopoDS_Shape &sbase, const TopoDS_Shape &pbase, const Vector3 &vec)
+    static ShapeResult pushPull(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase, const Vector3& vec)
     {
         gp_Vec v = Vector3::toVec(vec);
         gp_Trsf trsf;
@@ -250,18 +250,17 @@ public:
         transform.Perform(pbase);
         gp_Dir dir(v);
         auto sur = BRep_Tool::Surface(TopoDS::Face(pbase));
-        auto plane = Handle_Geom_Plane::DownCast(sur);
+        auto plane = Handle(Geom_Plane)::DownCast(sur);
         auto method = plane->Pln().Axis().Direction().Dot(dir) > 0 ? 1 : 0;
         if (pbase.Orientation() == TopAbs_REVERSED) {
             method = 1 - method;
         }
         BRepFeat_MakePrism prism(sbase, pbase, TopoDS::Face(transform.Shape()), dir, method, false);
         prism.Perform(v.Magnitude());
-        if (!prism.IsDone())
-        {
-            return ShapeResult{TopoDS_Shape(), false, "Failed to create prism"};
+        if (!prism.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create prism" };
         }
-        return ShapeResult{prism.Shape(), true, ""};
+        return ShapeResult { prism.Shape(), true, "" };
     }
 
     static ShapeResult polygon(const Vector3Array& points)
@@ -316,18 +315,18 @@ public:
     static ShapeResult bezier(const Vector3Array& points, const NumberArray& weights)
     {
         std::vector<Vector3> pts = vecFromJSArray<Vector3>(points);
-        TColgp_Array1OfPnt arrayofPnt(1, pts.size());
+        NCollection_Array1<gp_Pnt> arrayofPnt(1, pts.size());
         for (int i = 0; i < pts.size(); i++) {
             arrayofPnt.SetValue(i + 1, Vector3::toPnt(pts[i]));
         }
 
         std::vector<double> wts = vecFromJSArray<double>(weights);
-        TColStd_Array1OfReal arrayOfWeight(1, wts.size());
+        NCollection_Array1<double> arrayOfWeight(1, wts.size());
         for (int i = 0; i < wts.size(); i++) {
             arrayOfWeight.SetValue(i + 1, wts[i]);
         }
 
-        Handle_Geom_Curve curve = wts.size() > 0 ? new Geom_BezierCurve(arrayofPnt, arrayOfWeight) : new Geom_BezierCurve(arrayofPnt);
+        Handle(Geom_Curve) curve = wts.size() > 0 ? new Geom_BezierCurve(arrayofPnt, arrayOfWeight) : new Geom_BezierCurve(arrayofPnt);
         BRepBuilderAPI_MakeEdge edge(curve);
         if (!edge.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to create bezier" };
@@ -446,7 +445,7 @@ public:
 
     static ShapeResult makeThickSolidByJoin(const TopoDS_Shape& shape, const ShapeArray& shapes, double thickness)
     {
-        TopTools_ListOfShape shapesList = shapeArrayToListOfShape(shapes);
+        auto shapesList = shapeArrayToListOfShape(shapes);
 
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
         makeThickSolid.MakeThickSolidByJoin(shape, shapesList, thickness, 1e-6);
@@ -457,14 +456,14 @@ public:
     }
 
     static ShapeResult simplifyShape(
-        const TopoDS_Shape &shape,
-        const Standard_Boolean theUnifyEdges,
-        const Standard_Boolean theUnifyFaces,
-        const ShapeArray &keepShapes)
+        const TopoDS_Shape& shape,
+        const bool theUnifyEdges,
+        const bool theUnifyFaces,
+        const ShapeArray& keepShapes)
     {
-        TopTools_MapOfShape keepShapesList = shapeArrayToMapOfShape(keepShapes);
+        auto keepShapesList = shapeArrayToMapOfShape(keepShapes);
 
-        ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, Standard_True);
+        ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, true);
         anUnifier.KeepShapes(keepShapesList);
         anUnifier.Build();
 
@@ -474,8 +473,8 @@ public:
     static ShapeResult booleanOperate(BRepAlgoAPI_BooleanOperation& boolOperater, const ShapeArray& args,
         const ShapeArray& tools)
     {
-        TopTools_ListOfShape argsList = shapeArrayToListOfShape(args);
-        TopTools_ListOfShape toolsList = shapeArrayToListOfShape(tools);
+        auto argsList = shapeArrayToListOfShape(args);
+        auto toolsList = shapeArrayToListOfShape(tools);
 
         boolOperater.SetToFillHistory(false);
         boolOperater.SetArguments(argsList);
@@ -522,7 +521,7 @@ public:
     {
         std::vector<int> edgeVec = vecFromJSArray<int>(edges);
 
-        TopTools_IndexedMapOfShape edgeMap;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
 
         BRepFilletAPI_MakeFillet makeFillet(shape);
@@ -541,7 +540,7 @@ public:
     {
         std::vector<int> edgeVec = vecFromJSArray<int>(edges);
 
-        TopTools_IndexedMapOfShape edgeMap;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
 
         BRepFilletAPI_MakeChamfer makeChamfer(shape);

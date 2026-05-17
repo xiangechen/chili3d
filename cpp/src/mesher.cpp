@@ -115,8 +115,8 @@ public:
         this->group.push_back(this->position.size() / 3 - start);
     }
 
-    void pointByFaceTriangulation(const Handle_Poly_PolygonOnTriangulation& polygon,
-        const Handle_Poly_Triangulation& triangulation, const gp_Trsf& transform)
+    void pointByFaceTriangulation(const Handle(Poly_PolygonOnTriangulation) & polygon,
+        const Handle(Poly_Triangulation) & triangulation, const gp_Trsf& transform)
     {
         std::optional<gp_Pnt> prePnt = std::nullopt;
         auto nodeIndex = polygon->Nodes();
@@ -233,9 +233,9 @@ public:
     NumberArray edgesMeshPosition()
     {
         std::vector<float> position;
-        TopTools_IndexedMapOfShape edgeMap;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
         TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
-        for (TopTools_IndexedMapOfShape::Iterator anIt(edgeMap); anIt.More(); anIt.Next()) {
+        for (NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>::Iterator anIt(edgeMap); anIt.More(); anIt.Next()) {
             TopoDS_Edge edge = TopoDS::Edge(anIt.Value());
             pointByGCTangential(edge, this->lineDeflection, position);
         }
@@ -252,16 +252,16 @@ public:
         return MeshData { edgeMeshData, faceMeshData };
     }
 
-    EdgeMeshData meshEdges(std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation>& facePolyMap)
+    EdgeMeshData meshEdges(std::unordered_map<TopoDS_Face, Handle(Poly_Triangulation)>& facePolyMap)
     {
         EdgeMesher mesher(lineDeflection);
-        TopTools_IndexedDataMapOfShapeListOfShape mapEF;
+        NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher> mapEF;
         TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, mapEF);
         for (int ie = 1; ie <= mapEF.Extent(); ie++) {
             const TopoDS_Edge& aEdge = TopoDS::Edge(mapEF.FindKey(ie));
             mesher.edges.push_back(aEdge);
 
-            const TopTools_ListOfShape& aFaces = mapEF(ie);
+            const NCollection_List<TopoDS_Shape>& aFaces = mapEF(ie);
             if (aFaces.Extent() < 1) {
                 mesher.generateEdgeMesh(aEdge, nullptr);
             } else {
@@ -279,12 +279,12 @@ public:
             EdgeArray(val::array(mesher.edges)) };
     }
 
-    FaceMeshData meshFaces(std::unordered_map<TopoDS_Face, Handle_Poly_Triangulation>& facePolyMap)
+    FaceMeshData meshFaces(std::unordered_map<TopoDS_Face, Handle(Poly_Triangulation)>& facePolyMap)
     {
         FaceMesher mesher;
-        TopTools_IndexedMapOfShape faceMap;
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faceMap;
         TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
-        for (TopTools_IndexedMapOfShape::Iterator anIt(faceMap); anIt.More(); anIt.Next()) {
+        for (NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>::Iterator anIt(faceMap); anIt.More(); anIt.Next()) {
             auto face = TopoDS::Face(anIt.Value());
             mesher.faces.push_back(face);
             TopLoc_Location location;

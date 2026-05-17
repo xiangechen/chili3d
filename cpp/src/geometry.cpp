@@ -35,15 +35,15 @@ private:
     }
 
 public:
-    static Handle_Geom_Line makeLine(const Vector3& start, const Vector3& dir)
+    static Handle(Geom_Line) makeLine(const Vector3& start, const Vector3& dir)
     {
-        Handle_Geom_Line line = new Geom_Line(Vector3::toPnt(start), Vector3::toDir(dir));
+        Handle(Geom_Line) line = new Geom_Line(Vector3::toPnt(start), Vector3::toDir(dir));
         return line;
     }
 
-    static Handle_Geom_TrimmedCurve trim(const Geom_Curve* curve, double start, double end)
+    static Handle(Geom_TrimmedCurve) trim(const Geom_Curve* curve, double start, double end)
     {
-        Handle_Geom_TrimmedCurve trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
+        Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         return trimmedCurve;
     }
 
@@ -123,7 +123,7 @@ struct SurfaceBounds {
 
 class Surface {
 public:
-    static Handle_Geom_Curve projectCurve(const Geom_Surface* surface, const Geom_Curve* curve)
+    static Handle(Geom_Curve) projectCurve(const Geom_Surface* surface, const Geom_Curve* curve)
     {
         return GeomProjLib::Project(curve, surface);
     }
