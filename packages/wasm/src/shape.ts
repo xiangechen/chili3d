@@ -10,9 +10,9 @@ import {
     type ICompoundSolid,
     type ICurve,
     type IDisposable,
-    Id,
     type IEdge,
     type IFace,
+    isDisposable,
     type IShape,
     type IShapeMeshData,
     type IShell,
@@ -24,7 +24,6 @@ import {
     type ITrimmedCurve,
     type IVertex,
     type IWire,
-    isDisposable,
     type JoinType,
     Line,
     Logger,
@@ -34,15 +33,15 @@ import {
     type OrientedBoundingBox,
     Plane,
     Result,
+    serializable,
     type Serialized,
     type SerializedData,
     type ShapeMeshRange,
     type ShapeType,
-    serializable,
     type VertexMeshData,
     VisualConfig,
     type XYZ,
-    type XYZLike,
+    type XYZLike
 } from "@chili3d/core";
 import type {
     EdgeMeshData as OccEdgeMeshData,
@@ -270,10 +269,10 @@ export class OccShape implements IShape {
         return wasm.Shape.findSubShapes(this.shape, getShapeEnum(subshapeType)).map((x) => OccShape.wrap(x));
     }
 
-    iterShape(): IShape[] {
-        let subShape = wasm.Shape.iterShape(this.shape);
+    directSubShapes(): IShape[] {
+        let subShape = wasm.Shape.getDirectSubShapes(this.shape);
         if (subShape.length === 1 && subShape[0].shapeType() === this.shape.shapeType()) {
-            subShape = wasm.Shape.iterShape(subShape[0]);
+            subShape = wasm.Shape.getDirectSubShapes(subShape[0]);
         }
         return subShape.map((x) => OccShape.wrap(x));
     }

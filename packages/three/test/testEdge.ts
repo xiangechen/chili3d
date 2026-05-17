@@ -20,11 +20,10 @@ import {
     ParameterShapeNode,
     type Plane,
     Result,
-    type Serialized,
     type ShapeType,
     ShapeTypes,
     type XYZ,
-    type XYZLike,
+    type XYZLike
 } from "@chili3d/core";
 
 export class TestEdge implements IEdge {
@@ -80,7 +79,7 @@ export class TestEdge implements IEdge {
     findSubShapes(subshapeType: ShapeType): IShape[] {
         throw new Error("Method not implemented.");
     }
-    iterShape(): IShape[] {
+    directSubShapes(): IShape[] {
         throw new Error("Method not implemented.");
     }
     offset(distance: number, dir: XYZ): Result<IEdge> {

@@ -82,7 +82,7 @@ class MockShape implements IShape {
     findSubShapes(_subshapeType: any): IShape[] {
         return [];
     }
-    iterShape(): IShape[] {
+    directSubShapes(): IShape[] {
         return [this];
     }
     section(_shape: IShape | any): IShape {

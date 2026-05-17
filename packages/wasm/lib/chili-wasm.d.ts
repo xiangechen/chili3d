@@ -746,7 +746,7 @@ interface EmbindModule {
     sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
     findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
-    iterShape(_0: TopoDS_Shape): Array<TopoDS_Shape>;
+    getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
     splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;

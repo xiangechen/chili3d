@@ -92,7 +92,7 @@ class MockShape implements IShape {
         return [];
     }
 
-    iterShape(): IShape[] {
+    directSubShapes(): IShape[] {
         return [this];
     }
 

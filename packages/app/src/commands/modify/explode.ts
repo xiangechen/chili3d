@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    ComponentNode,
     command,
+    ComponentNode,
     EditableShapeNode,
     GetOrSelectNodeStep,
     GroupNode,
@@ -44,7 +44,7 @@ export class Explode extends MultistepCommand {
     }
 
     private explodeShapeNode(x: ShapeNode) {
-        const subShapes = x.shape.value.iterShape();
+        const subShapes = x.shape.value.directSubShapes();
         if (subShapes.length === 1) {
             const subShapeNode = new EditableShapeNode({
                 document: this.document,

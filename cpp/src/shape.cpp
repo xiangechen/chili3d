@@ -121,13 +121,13 @@ public:
         return ShapeArray(val::array(indexShape.cbegin(), indexShape.cend()));
     }
 
-    static ShapeArray iterShape(const TopoDS_Shape& shape)
+    static ShapeArray getDirectSubShapes(const TopoDS_Shape& shape)
     {
-        val new_array = val::array();
+        val subShapes = val::array();
         for (TopoDS_Iterator iter(shape); iter.More(); iter.Next()) {
-            new_array.call<void>("push", iter.Value());
+            subShapes.call<void>("push", iter.Value());
         }
-        return ShapeArray(new_array);
+        return ShapeArray(subShapes);
     }
 
     static TopoDS_Shape sectionSS(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
@@ -447,7 +447,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
-        .class_function("iterShape", &Shape::iterShape)
+        .class_function("getDirectSubShapes", &Shape::getDirectSubShapes)
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
