@@ -138,6 +138,7 @@ export const I18N_KEYS = [
     "common.opacity",
     "common.removeEdges",
     "common.removeFaces",
+    "common.shapeType",
     "common.theme.dark",
     "common.theme.light",
     "common.theme.system",

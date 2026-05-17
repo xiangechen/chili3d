@@ -143,6 +143,7 @@ export default {
         "common.opacity": "Opacity",
         "common.removeEdges": "Remove Edges",
         "common.removeFaces": "Remove Faces",
+        "common.shapeType": "Shape Type",
         "common.theme.dark": "Dark",
         "common.theme.light": "Light",
         "common.theme.system": "System",

@@ -16,18 +16,17 @@ const SHAPE_UNDEFINED = "Shape not initialized";
 
 export abstract class ShapeNode extends GeometryNode {
     protected _shape: Result<IShape> = Result.err(SHAPE_UNDEFINED);
-    @property("common.type", {
-        converter: {
-            convert: (v: Result<IShape>) => {
-                if (!v.isOk) {
-                    return Result.err("Error:" + v.error);
-                }
-                return Result.ok(ShapeTypeUtils.stringValue(v.value.shapeType));
-            }
-        }
-    })
     get shape(): Result<IShape> {
         return this._shape;
+    }
+
+    @property("common.shapeType")
+    get shapeType(): string {
+        if (!this._shape.isOk) {
+            return this._shape.error;
+        }
+
+        return ShapeTypeUtils.stringValue(this._shape.value.shapeType);
     }
 
     protected setShape(shape: Result<IShape>) {
@@ -225,12 +224,7 @@ export class EditableShapeNode extends ShapeNode {
     }
 
     constructor(options: EditableShapeNodeOptions) {
-        super({
-            document: options.document,
-            name: options.name,
-            materialId: options.materialId,
-            id: options.id,
-        });
+        super(options);
         this._shape = options.shape instanceof Result ? options.shape : Result.ok(options.shape);
     }
 }

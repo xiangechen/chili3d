@@ -143,6 +143,7 @@ export default {
         "common.opacity": "不透明度",
         "common.removeEdges": "移除边",
         "common.removeFaces": "移除面",
+        "common.shapeType": "形状类型",
         "common.theme.dark": "深色",
         "common.theme.light": "浅色",
         "common.theme.system": "系统",
