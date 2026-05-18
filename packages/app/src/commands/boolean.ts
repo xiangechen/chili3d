@@ -48,7 +48,7 @@ export abstract class BooleanOperate extends MultistepCommand {
             case "cut":
                 return this.application.shapeFactory.booleanCut([shape1], tools);
             default:
-                return this.application.shapeFactory.booleanFuse([shape1], tools);
+                return this.application.shapeFactory.booleanFuse([shape1], tools, true);
         }
     }
 

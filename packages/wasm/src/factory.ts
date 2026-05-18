@@ -288,10 +288,14 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.booleanCut(ensureOccShape(shape1), ensureOccShape(shape2)),
         );
     }
-    booleanFuse(shape1: IShape[], shape2: IShape[]): Result<IShape> {
+    booleanFuse(shape1: IShape[], shape2: IShape[], simplifyShape: boolean): Result<IShape> {
         const fused = wasm.ShapeFactory.booleanFuse(ensureOccShape(shape1), ensureOccShape(shape2));
         if (!fused.isOk) {
             return Result.err(fused.error);
+        }
+        
+        if (!simplifyShape) {
+            return convertShapeResult(fused);
         }
 
         return convertShapeResult(wasm.ShapeFactory.simplifyShape(fused.shape, true, true, []));
