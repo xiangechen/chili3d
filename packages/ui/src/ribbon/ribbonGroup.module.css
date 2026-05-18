@@ -51,9 +51,10 @@
         flex-shrink: 0;
         display: flex;
         flex-direction: row;
-        align-items: center;
+        align-items: stretch;
         justify-items: center;
         overflow: hidden;
+        padding: 2px 0;
     }
 }
 

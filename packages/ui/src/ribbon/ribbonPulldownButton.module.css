@@ -3,7 +3,8 @@
     flex-direction: column;
     align-items: center;
     padding: 4px;
-    margin: 4px;
+    margin: 0 4px;
+    justify-content: flex-start;
     border-radius: 4px;
     min-width: 42px;
     max-width: 100px;
@@ -65,7 +66,7 @@
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
     border-top: 5px solid var(--foreground-color);
-    margin-top: 5px;
+    margin-top: 3px;
     flex-shrink: 0;
 }
 
