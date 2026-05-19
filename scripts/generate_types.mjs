@@ -54,6 +54,8 @@ async function main() {
     }
 
     console.log("\nAll types generated successfully!");
+
+    console.log("Publish to npm with `npm publish --access public [--tag beta] ./types/<package>`");
 }
 
 await main();
