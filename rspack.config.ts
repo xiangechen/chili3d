@@ -21,6 +21,10 @@ export default defineConfig({
         },
         rules: [
             {
+                test: /\.css$/,
+                type: "css/auto",
+            },
+            {
                 test: /\.wasm$/,
                 type: "asset",
             },

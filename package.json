@@ -4,6 +4,7 @@
     "description": "",
     "documentVersion": "0.7.1",
     "author": "仙阁",
+    "type": "module",
     "scripts": {
         "build": "rspack build",
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
@@ -32,17 +33,18 @@
         "packages/*"
     ],
     "devDependencies": {
-        "@biomejs/biome": "2.3.12",
-        "@rspack/cli": "1.7.3",
-        "@rspack/core": "1.7.3",
-        "@rstest/core": "^0.8.0",
-        "@rstest/coverage-istanbul": "^0.2.0",
+        "@biomejs/biome": "^2.4.15",
+        "@rspack/cli": "^2.0.3",
+        "@rspack/core": "^2.0.3",
+        "@rspack/dev-server": "^2.0.0",
+        "@rstest/core": "^0.10.0",
+        "@rstest/coverage-istanbul": "^0.10.0",
         "clang-format": "^1.8.0",
-        "happy-dom": "^20.3.9",
-        "lint-staged": "16.2.7",
+        "happy-dom": "^20.9.0",
+        "lint-staged": "^17.0.5",
         "simple-git-hooks": "2.13.1",
-        "ts-checker-rspack-plugin": "^1.2.6",
-        "typescript": "5.9.3",
+        "ts-checker-rspack-plugin": "^1.3.0",
+        "typescript": "^6.0.3",
         "typescript-plugin-css-modules": "^5.2.0"
     },
     "dependencies": {
