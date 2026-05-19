@@ -93,7 +93,7 @@ export class RegularPolygon extends CreateFaceableCommand {
         return [this.meshPoint(this.stepDatas[0].point!), this.meshLine(point!, end), ...meshes];
     };
 
-    private getPlane(p1: XYZ, p2: XYZ) {
+    protected getPlane(p1: XYZ, p2: XYZ) {
         const plane = this.findPlane(this.stepDatas[0].view, p1, p2);
         const radiusVec = p2.sub(p1);
         const yvec = plane.normal.cross(radiusVec).normalize()!;
