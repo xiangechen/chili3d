@@ -10,7 +10,7 @@ import {
     type RibbonCommand,
     type RibbonGroup,
 } from "@chili3d/core";
-import { div, label } from "@chili3d/element";
+import { collection, div, label } from "@chili3d/element";
 import { createDropdownItem, DropdownController } from "./dropdownController";
 import { RibbonPushButton } from "./ribbonButton";
 import style from "./ribbonGroup.module.css";
@@ -62,7 +62,11 @@ export class RibbonGroupElement extends HTMLElement {
 
     private initHTML() {
         this.append(
-            div({ className: style.content }, ...this.group.items.map(createRibbonButton)),
+            collection({
+                className: style.content,
+                sources: this.group.items,
+                template: (item) => createRibbonButton(item),
+            }),
             div(
                 { className: style.headerContainer },
                 label({ className: style.header, textContent: new Localize(this.group.groupName) }),
