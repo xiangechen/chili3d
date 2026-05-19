@@ -12,10 +12,6 @@ export default defineConfig({
         "@chili3d/element": "Chili3dElement",
     },
     externalsType: "assign",
-    experiments: {
-        css: true,
-        outputModule: true,
-    },
     module: {
         parser: {
             "css/auto": {
@@ -23,6 +19,10 @@ export default defineConfig({
             },
         },
         rules: [
+            {
+                test: /\.css$/,
+                type: "css/auto",
+            },
             {
                 test: /\.wasm$/,
                 type: "asset",

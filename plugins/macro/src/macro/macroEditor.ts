@@ -22,7 +22,11 @@ const DefaultCode = `// Available variables:
 // const { document, cameraController } = app.activeView;
 // 
 // const box = app.shapeFactory.box(Plane.XY, 1000, 1000, 1000);
-// const node = new EditableShapeNode(document, "box1", box);
+// const node = new EditableShapeNode({
+//     document, 
+//     name: "box1",
+//     shape: box
+// });
 // document.modelManager.addNode(node);
 // cameraController.fitContent();
 // document.visual.update();

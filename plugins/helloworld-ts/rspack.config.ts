@@ -15,10 +15,6 @@ export default defineConfig({
         },
     ],
     externalsType: "assign",
-    experiments: {
-        css: true,
-        outputModule: true,
-    },
     module: {
         parser: {
             "css/auto": {
@@ -26,6 +22,10 @@ export default defineConfig({
             },
         },
         rules: [
+            {
+                test: /\.css$/,
+                type: "css/auto",
+            },
             {
                 test: /\.wasm$/,
                 type: "asset",
