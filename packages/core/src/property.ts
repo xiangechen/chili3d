@@ -20,6 +20,7 @@ export interface Property {
 }
 
 const PropertyKeyMap = new Map<object, Map<string | number | symbol, Property>>();
+const hiddenCommandPropertiesMap = new Map<object, Set<string | number | symbol>>();
 
 export function property(display: I18nKeys, parameters?: Omit<Property, "name" | "display">) {
     return (target: object, name: string) => {
@@ -28,6 +29,17 @@ export function property(display: I18nKeys, parameters?: Omit<Property, "name" |
         }
         PropertyKeyMap.get(target)?.set(name, { display, name, ...parameters });
     };
+}
+
+export function hideCommandProperty<T extends object>(target: T, props: (keyof T)[]) {
+    if (!hiddenCommandPropertiesMap.has(target)) {
+        hiddenCommandPropertiesMap.set(target, new Set(props));
+    } else {
+        const set = hiddenCommandPropertiesMap.get(target);
+        for (const prop of props) {
+            set!.add(prop);
+        }
+    }
 }
 
 export class PropertyUtils {
@@ -56,5 +68,12 @@ export class PropertyUtils {
         const map = PropertyKeyMap.get(target);
         if (map?.has(property)) return map.get(property);
         return PropertyUtils.getProperty(Object.getPrototypeOf(target), property);
+    }
+
+    static isHiddenProperty(target: any, property: string | number | symbol): boolean {
+        if (!target) return false;
+        const set = hiddenCommandPropertiesMap.get(target);
+        if (set?.has(property)) return true;
+        return PropertyUtils.isHiddenProperty(Object.getPrototypeOf(target), property);
     }
 }

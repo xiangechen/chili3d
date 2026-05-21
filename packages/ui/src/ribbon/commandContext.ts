@@ -93,8 +93,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
     }
 
     private setVisible(control: HTMLElement, property: Property) {
-        let visible = true;
-        if (property.dependencies) {
+        let visible = !PropertyUtils.isHiddenProperty(this.command, property.name);
+        if (visible && property.dependencies) {
             for (const d of property.dependencies) {
                 if ((this.command as any)[d.property] !== d.value) {
                     visible = false;
