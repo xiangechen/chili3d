@@ -58,6 +58,9 @@ class MockShape implements IShape {
     edgesMeshPosition(): EdgeMeshData {
         return this.mesh.edges!;
     }
+    extremaDistance(other: IShape): number {
+        return 0;
+    }
     isClosed(): boolean {
         return true;
     }

@@ -43,6 +43,10 @@ class MockShape implements IShape {
         return this;
     }
 
+    extremaDistance(other: IShape): number {
+        return 0;
+    }
+
     boundingBox(): BoundingBox {
         throw new Error("Method not implemented.");
     }

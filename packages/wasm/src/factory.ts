@@ -110,20 +110,44 @@ export class ShapeFactory implements IShapeFactory {
         if (!(shape instanceof OccShape)) {
             return Result.err("Not OccShape");
         }
-        const occFaces = faces.map((x) => {
-            if (!(x instanceof OccShape)) {
-                throw new Error("The OCC kernel only supports OCC geometries.");
-            }
-            if (x.shape.isNull()) {
-                throw new Error("The shape is null.");
-            }
-            return x.shape;
-        });
+        const occFaces = ensureOccShape(faces);
         const removed = wasm.Shape.removeFeature(shape.shape, occFaces);
-        if (removed.isNull()) {
+        if (!removed) {
             return Result.err("Can not remove");
         }
         return Result.ok(OccShape.wrap(removed));
+    }
+
+    removeChamfer(shape: IShape, faces: IFace[]) {
+        if (!(shape instanceof OccShape)) {
+            return Result.err("Not OccShape");
+        }
+        const occFaces = ensureOccShape(faces);
+        const edges = new wasm.ShapeVector();
+        const removed = wasm.Shape.removeChamfer(shape.shape, occFaces, edges);
+        if (!removed) {
+            return Result.err("Can not remove");
+        }
+
+        const newEdges: OccEdge[] = [];
+        const visited = new Set();
+        for (let i = 0; i < edges.size(); i++) {
+            const ts = edges.get(i);
+            if (
+                !ts ||
+                ts.shapeType() !== wasm.TopAbs_ShapeEnum.TopAbs_EDGE ||
+                visited.has(wasm.Shape.ptr(ts))
+            )
+                continue;
+
+            newEdges.push(OccShape.wrap(ts) as OccEdge);
+        }
+        edges.delete();
+
+        return Result.ok({
+            shape: OccShape.wrap(removed),
+            newEdges,
+        });
     }
 
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape {
@@ -256,7 +280,9 @@ export class ShapeFactory implements IShapeFactory {
         if (vec.length() === 0) {
             return Result.err(`The vector length is 0, the prism cannot be created.`);
         }
-        return convertShapeResult(wasm.ShapeFactory.pushPull(ensureOccShape(shape)[0], ensureOccShape(face)[0], vec));
+        return convertShapeResult(
+            wasm.ShapeFactory.pushPull(ensureOccShape(shape)[0], ensureOccShape(face)[0], vec),
+        );
     }
     fuse(bottom: IShape, top: IShape): Result<IShape> {
         return convertShapeResult(wasm.ShapeFactory.booleanFuse(ensureOccShape(bottom), ensureOccShape(top)));
@@ -293,7 +319,7 @@ export class ShapeFactory implements IShapeFactory {
         if (!fused.isOk) {
             return Result.err(fused.error);
         }
-        
+
         if (!simplifyShape) {
             return convertShapeResult(fused);
         }
@@ -355,9 +381,19 @@ export class ShapeFactory implements IShapeFactory {
             ),
         );
     }
-    simplifyShape(shape: IShape, removeEdges: boolean, removeFaces: boolean, keepShapes: IShape[]): Result<IShape> {
+    simplifyShape(
+        shape: IShape,
+        removeEdges: boolean,
+        removeFaces: boolean,
+        keepShapes: IShape[],
+    ): Result<IShape> {
         return convertShapeResult(
-            wasm.ShapeFactory.simplifyShape(ensureOccShape(shape)[0], removeEdges, removeFaces, ensureOccShape(keepShapes)),
+            wasm.ShapeFactory.simplifyShape(
+                ensureOccShape(shape)[0],
+                removeEdges,
+                removeFaces,
+                ensureOccShape(keepShapes),
+            ),
         );
     }
 }

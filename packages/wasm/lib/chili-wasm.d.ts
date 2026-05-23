@@ -486,6 +486,14 @@ export interface Face extends ClassHandle {
 export interface Solid extends ClassHandle {
 }
 
+export interface ShapeVector extends ClassHandle {
+  push_back(_0: TopoDS_Shape): void;
+  resize(_0: number, _1: TopoDS_Shape): void;
+  size(): number;
+  get(_0: number): TopoDS_Shape | undefined;
+  set(_0: number, _1: TopoDS_Shape): boolean;
+}
+
 export type Domain = {
   start: number,
   end: number
@@ -737,6 +745,7 @@ interface EmbindModule {
   TopoDS_CompSolid: {};
   Shape: {
     ptr(_0: TopoDS_Shape): number;
+    extremaDistance(_0: TopoDS_Shape, _1: TopoDS_Shape): number;
     clean(_0: TopoDS_Shape): void;
     clone(_0: TopoDS_Shape): TopoDS_Shape;
     sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
@@ -748,7 +757,8 @@ interface EmbindModule {
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
     splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TopoDS_Shape;
-    removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+    removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape | undefined;
+    removeChamfer(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     boundingBox(_0: TopoDS_Shape, _1: boolean): BoundingBox;
     orientedBoundingBox(_0: TopoDS_Shape, _1: boolean): OrientedBoundingBox;
@@ -780,6 +790,9 @@ interface EmbindModule {
   };
   Solid: {
     volume(_0: TopoDS_Solid): number;
+  };
+  ShapeVector: {
+    new(): ShapeVector;
   };
   Transient: {
     isKind(_0: Standard_Transient | null, _1: EmbindString): boolean;

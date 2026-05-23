@@ -53,6 +53,7 @@
 
 #include "shared.hpp"
 #include "utils.hpp"
+#include <BRepExtrema_DistShapeShape.hxx>
 
 using namespace emscripten;
 
@@ -156,7 +157,7 @@ public:
         return splitter.Shape();
     }
 
-    static TopoDS_Shape removeFeature(const TopoDS_Shape& shape, const ShapeArray& faces)
+    static std::optional<TopoDS_Shape> removeFeature(const TopoDS_Shape& shape, const ShapeArray& faces)
     {
         std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
         BRepAlgoAPI_Defeaturing defea;
@@ -166,10 +167,45 @@ public:
         }
         defea.SetRunParallel(true);
         defea.Build();
+        if (!defea.IsDone()) {
+            return std::nullopt;
+        }
         return defea.Shape();
     }
 
-    static TopoDS_Compound shapeWires(const TopoDS_Shape& shape)
+    static std::optional<TopoDS_Shape> removeChamfer(const TopoDS_Shape& shape, const ShapeArray& faces, std::vector<TopoDS_Shape>& shapes)
+    {
+        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
+        BRepAlgoAPI_Defeaturing defea;
+        defea.SetShape(shape);
+        for (auto& face : facesVector) {
+            defea.AddFaceToRemove(face);
+        }
+        defea.SetRunParallel(true);
+        defea.Build();
+        if (!defea.IsDone()) {
+            return std::nullopt;
+        }
+
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, TopAbs_FACE); explorer.More(); explorer.Next()) {
+            auto face = TopoDS::Face(explorer.Current());
+            auto list = defea.Generated(face);
+            for (auto& shape : list) {
+                shapes.push_back(shape);
+            }
+        }
+        return defea.Shape();
+    }
+
+    static double extremaDistance(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
+    {
+        BRepExtrema_DistShapeShape extrema(shape, otherShape);
+        return extrema.Value();
+    }
+
+    static TopoDS_Compound
+    shapeWires(const TopoDS_Shape& shape)
     {
         BRep_Builder builder;
         TopoDS_Compound compound;
@@ -442,6 +478,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("ptr", &Shape::ptr)
         .class_function("boundingBox", &Shape::boundingBox)
         .class_function("orientedBoundingBox", &Shape::orientedBoundingBox)
+        .class_function("extremaDistance", &Shape::extremaDistance)
         .class_function("clean", &Shape::clean)
         .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
@@ -452,6 +489,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("isClosed", &Shape::isClosed)
         .class_function("splitShapes", &Shape::splitShapes)
         .class_function("removeFeature", &Shape::removeFeature)
+        .class_function("removeChamfer", &Shape::removeChamfer)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)
         .class_function("hlr", &Shape::hlr)

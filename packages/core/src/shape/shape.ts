@@ -43,6 +43,7 @@ export interface IShape extends IDisposable {
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape;
     boundingBox(): BoundingBox;
     orientedBoundingBox(): OrientedBoundingBox;
+    extremaDistance(other: IShape): number;
 }
 
 export interface ISubShape extends IShape {

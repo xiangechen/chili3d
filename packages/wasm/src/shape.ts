@@ -12,7 +12,6 @@ import {
     type IDisposable,
     type IEdge,
     type IFace,
-    isDisposable,
     type IShape,
     type IShapeMeshData,
     type IShell,
@@ -24,6 +23,7 @@ import {
     type ITrimmedCurve,
     type IVertex,
     type IWire,
+    isDisposable,
     type JoinType,
     Line,
     Logger,
@@ -33,15 +33,15 @@ import {
     type OrientedBoundingBox,
     Plane,
     Result,
-    serializable,
     type Serialized,
     type SerializedData,
     type ShapeMeshRange,
     type ShapeType,
+    serializable,
     type VertexMeshData,
     VisualConfig,
     type XYZ,
-    type XYZLike
+    type XYZLike,
 } from "@chili3d/core";
 import type {
     EdgeMeshData as OccEdgeMeshData,
@@ -81,9 +81,7 @@ function occShapeSerialize(target: OccShape): SerializedData {
 }
 
 function occShapeDeserialize(properties: Serialized) {
-    return OccShape.wrap(
-        wasm.Converter.convertFromBrep(properties["shape"] as string),
-    ) as OccShape;
+    return OccShape.wrap(wasm.Converter.convertFromBrep(properties["shape"] as string)) as OccShape;
 }
 
 @serializable({
@@ -150,21 +148,21 @@ export class OccShape implements IShape {
 
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                return new OccCompound({ shape: wasm.TopoDS.compound(shape)});
+                return new OccCompound({ shape: wasm.TopoDS.compound(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape)});
+                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
-                return new OccSolid({ shape: wasm.TopoDS.solid(shape)});
+                return new OccSolid({ shape: wasm.TopoDS.solid(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
-                return new OccShell({ shape: wasm.TopoDS.shell(shape)});
+                return new OccShell({ shape: wasm.TopoDS.shell(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
-                return new OccFace({ shape: wasm.TopoDS.face(shape)});
+                return new OccFace({ shape: wasm.TopoDS.face(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
-                return new OccWire({ shape: wasm.TopoDS.wire(shape)});
+                return new OccWire({ shape: wasm.TopoDS.wire(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
-                return new OccEdge({ shape: wasm.TopoDS.edge(shape)});
+                return new OccEdge({ shape: wasm.TopoDS.edge(shape) });
             case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                return new OccVertex({ shape: wasm.TopoDS.vertex(shape)});
+                return new OccVertex({ shape: wasm.TopoDS.vertex(shape) });
             default:
                 return new OccShape({ shape });
         }
@@ -217,6 +215,13 @@ export class OccShape implements IShape {
             range: [],
             color: VisualConfig.defaultEdgeColor,
         };
+    }
+
+    extremaDistance(other: IShape): number {
+        if (other instanceof OccShape) {
+            return wasm.Shape.extremaDistance(this.shape, other.shape);
+        }
+        throw new Error("Invalid shape type");
     }
 
     clone(): IShape {

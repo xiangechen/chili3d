@@ -9,6 +9,8 @@ using namespace emscripten;
 
 EMSCRIPTEN_BINDINGS(Shared)
 {
+    register_vector<TopoDS_Shape>("ShapeVector");
+
     register_type<Int8Array>("Int8Array");
     register_type<Int16Array>("Int16Array");
     register_type<Int32Array>("Int32Array");

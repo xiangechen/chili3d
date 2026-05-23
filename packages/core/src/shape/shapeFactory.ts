@@ -55,8 +55,20 @@ export interface IShapeFactory {
         continuity: Continuity,
     ): Result<IShape>;
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
+    removeChamfer(
+        shape: IShape,
+        faces: IFace[],
+    ): Result<{
+        shape: IShape;
+        newEdges: IEdge[];
+    }>;
     removeSubShape(shape: IShape, subShapes: IShape[]): IShape;
     replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape;
     curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape>;
-    simplifyShape(shape: IShape, removeEdges: boolean, removeFaces: boolean, keepShapes: IShape[]): Result<IShape>;
+    simplifyShape(
+        shape: IShape,
+        removeEdges: boolean,
+        removeFaces: boolean,
+        keepShapes: IShape[],
+    ): Result<IShape>;
 }

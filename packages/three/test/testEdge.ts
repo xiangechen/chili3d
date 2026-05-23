@@ -23,7 +23,7 @@ import {
     type ShapeType,
     ShapeTypes,
     type XYZ,
-    type XYZLike
+    type XYZLike,
 } from "@chili3d/core";
 
 export class TestEdge implements IEdge {
@@ -41,6 +41,10 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
     clone(): IShape {
+        throw new Error("Method not implemented.");
+    }
+
+    extremaDistance(other: IShape): number {
         throw new Error("Method not implemented.");
     }
 
