@@ -39,6 +39,7 @@ import {
     LineBasicMaterial,
     LineSegments,
     Mesh,
+    MeshLambertMaterial,
     Object3D,
     Points,
     type Scene,
@@ -255,6 +256,15 @@ export class ThreeVisualContext implements IVisualContext {
         });
         this.tempShapes.add(group);
         return group.id;
+    }
+
+    setMeshColor(id: number, color: number): void {
+        const group = this.tempShapes.getObjectById(id) as Group;
+        if (!group) return;
+
+        group.children.forEach((mesh: any) => {
+            (mesh.material as MeshLambertMaterial).color.setHex(color);
+        })
     }
 
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number {

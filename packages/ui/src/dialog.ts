@@ -30,12 +30,12 @@ export function showDialog(title: I18nKeys, content: HTMLElement, buttons?: Dial
                     button({
                         textContent: I18n.translate(btn.content),
                         onclick: async () => {
-                            if (btn.onclick) {
-                                await btn?.onclick();
-                            }
-
                             if (btn.shouldClose?.() !== false) {
                                 dialog.remove();
+                            }
+                            
+                            if (btn.onclick) {
+                                await btn?.onclick();
                             }
                         },
                     }),
