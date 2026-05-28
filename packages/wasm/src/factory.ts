@@ -112,21 +112,21 @@ export class ShapeFactory implements IShapeFactory {
         }
         const occFaces = ensureOccShape(faces);
         const removed = wasm.Shape.removeFeature(shape.shape, occFaces);
-        if (!removed) {
-            return Result.err("Can not remove");
+        if (!removed || shape.shape.isEqual(removed)) {
+            return Result.err("Can not remove feature");
         }
         return Result.ok(OccShape.wrap(removed));
     }
 
-    removeChamfer(shape: IShape, faces: IFace[]) {
+    removeFillet(shape: IShape, faces: IFace[]) {
         if (!(shape instanceof OccShape)) {
             return Result.err("Not OccShape");
         }
         const occFaces = ensureOccShape(faces);
         const edges = new wasm.ShapeVector();
-        const removed = wasm.Shape.removeChamfer(shape.shape, occFaces, edges);
-        if (!removed) {
-            return Result.err("Can not remove");
+        const removed = wasm.Shape.removeFillet(shape.shape, occFaces, edges);
+        if (!removed || shape.shape.isEqual(removed)) {
+            return Result.err("Can not remove fillet");
         }
 
         const newEdges: OccEdge[] = [];

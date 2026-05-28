@@ -767,7 +767,7 @@ interface EmbindModule {
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
     splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape | undefined;
-    removeChamfer(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
+    removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     boundingBox(_0: TopoDS_Shape, _1: boolean): BoundingBox;
     orientedBoundingBox(_0: TopoDS_Shape, _1: boolean): OrientedBoundingBox;

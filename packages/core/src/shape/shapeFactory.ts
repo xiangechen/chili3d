@@ -55,7 +55,7 @@ export interface IShapeFactory {
         continuity: Continuity,
     ): Result<IShape>;
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
-    removeChamfer(
+    removeFillet(
         shape: IShape,
         faces: IFace[],
     ): Result<{

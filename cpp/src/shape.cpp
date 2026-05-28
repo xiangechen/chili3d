@@ -173,7 +173,7 @@ public:
         return defea.Shape();
     }
 
-    static std::optional<TopoDS_Shape> removeChamfer(const TopoDS_Shape& shape, const ShapeArray& faces, std::vector<TopoDS_Shape>& shapes)
+    static std::optional<TopoDS_Shape> removeFillet(const TopoDS_Shape& shape, const ShapeArray& faces, std::vector<TopoDS_Shape>& shapes)
     {
         std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
         BRepAlgoAPI_Defeaturing defea;
@@ -489,7 +489,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("isClosed", &Shape::isClosed)
         .class_function("splitShapes", &Shape::splitShapes)
         .class_function("removeFeature", &Shape::removeFeature)
-        .class_function("removeChamfer", &Shape::removeChamfer)
+        .class_function("removeFillet", &Shape::removeFillet)
         .class_function("removeSubShape", &Shape::removeSubShape)
         .class_function("replaceSubShape", &Shape::replaceSubShape)
         .class_function("hlr", &Shape::hlr)
