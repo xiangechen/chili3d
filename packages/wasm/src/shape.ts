@@ -3,6 +3,7 @@
 
 import {
     BoundingBox,
+    type Continuity,
     type EdgeMeshData,
     type FaceMeshData,
     gc,
@@ -59,6 +60,7 @@ import type {
 import { OccCurve, OccTrimmedCurve } from "./curve";
 import {
     convertFromMatrix,
+    convertToContinuity,
     convertToMatrix,
     getJoinType,
     getOrientation,
@@ -448,6 +450,20 @@ export class OccEdge extends OccShape implements IEdge {
     trim(start: number, end: number): IEdge {
         const newEdge = wasm.Edge.trim(this.edge, start, end);
         return new OccEdge({ shape: newEdge });
+    }
+
+    hasContinuity(face1: IFace, face2: IFace): boolean {
+        if (face1 instanceof OccFace && face2 instanceof OccFace) {
+            return wasm.BrepHelps.hasContinue(this._edge, face1.face, face2.face);
+        }
+        throw new Error("Invalid face types");
+    }
+
+    continuity(face1: IFace, face2: IFace): Continuity {
+        if (face1 instanceof OccFace && face2 instanceof OccFace) {
+            return convertToContinuity(wasm.BrepHelps.continuity(this._edge, face1.face, face2.face));
+        }
+        throw new Error("Invalid face types");
     }
 
     protected override disposeInternal(): void {

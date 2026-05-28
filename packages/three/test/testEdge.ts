@@ -3,12 +3,14 @@
 
 import {
     type BoundingBox,
+    type Continuity,
     type EdgeMeshData,
     type I18nKeys,
     type ICurve,
     type IDocument,
     type IEdge,
     type IEqualityComparer,
+    type IFace,
     type IShape,
     type IShapeMeshData,
     type ITrimmedCurve,
@@ -31,6 +33,12 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+    hasContinuity(face1: IFace, face2: IFace): boolean {
+        throw new Error("Method not implemented.");
+    }
+    continuity(face1: IFace, face2: IFace): Continuity {
+        throw new Error("Method not implemented.");
+    }
     transformed(matrix: Matrix4): IShape {
         throw new Error("Method not implemented.");
     }

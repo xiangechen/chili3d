@@ -3,7 +3,7 @@
 
 import type { IDisposable, Result } from "../foundation";
 import type { BoundingBox, Line, Matrix4, OrientedBoundingBox, Plane, XYZ, XYZLike } from "../math";
-import type { ICurve, ITrimmedCurve } from "./curve";
+import type { Continuity, ICurve, ITrimmedCurve } from "./curve";
 import type { EdgeMeshData, IShapeMeshData } from "./meshData";
 import type { ShapeType } from "./shapeType";
 import type { ISurface } from "./surface";
@@ -68,6 +68,8 @@ export interface IEdge extends IShape {
     get curve(): ITrimmedCurve;
     offset(distance: number, dir: XYZ): Result<IEdge>;
     trim(start: number, end: number): IEdge;
+    hasContinuity(face1: IFace, face2: IFace): boolean;
+    continuity(face1: IFace, face2: IFace): Continuity;
 }
 
 export type JoinType = "arc" | "tangent" | "intersection";

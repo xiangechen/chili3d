@@ -44,6 +44,9 @@ export type SurfaceBounds = {
 export interface Surface extends ClassHandle {
 }
 
+export interface BrepHelps extends ClassHandle {
+}
+
 export interface Mesher extends ClassHandle {
   mesh(): MeshData;
   edgesMeshPosition(): Array<number>;
@@ -631,6 +634,12 @@ interface EmbindModule {
     projectPoint(_0: Geom_Surface | null, _1: Vector3): Array<Vector3>;
     parameters(_0: Geom_Surface | null, _1: Vector3, _2: number): UV | undefined;
     nearestPoint(_0: Geom_Surface | null, _1: Vector3): PointAndParameter | undefined;
+  };
+  BrepHelps: {
+    hasSomeContinue(_0: TopoDS_Edge): boolean;
+    isClosed(_0: TopoDS_Edge, _1: TopoDS_Face): boolean;
+    hasContinue(_0: TopoDS_Edge, _1: TopoDS_Face, _2: TopoDS_Face): boolean;
+    continuity(_0: TopoDS_Edge, _1: TopoDS_Face, _2: TopoDS_Face): GeomAbs_Shape;
   };
   Mesher: {
     new(_0: TopoDS_Shape, _1: number, _2: boolean): Mesher;
