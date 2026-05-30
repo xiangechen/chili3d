@@ -77,7 +77,7 @@ export class ObjectSnap extends BaseSnap {
         if (!Config.instance.enableSnap) return undefined;
 
         let snap: SnapResult | undefined;
-        if (data.shapes.length > 0) {
+        if (data.shapes.filter(x => x.shape.shapeType === ShapeTypes.edge).length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
             snap = this.snapOnShape(data.view, data.mx, data.my, data.shapes);
         } else {

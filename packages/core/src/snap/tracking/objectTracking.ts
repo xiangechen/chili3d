@@ -46,11 +46,8 @@ export class ObjectTracking extends TrackingBase {
 
     showTrackingAtTimeout(document: IDocument, snap?: SnapResult) {
         this.clearTimer();
-        if (snap !== undefined && this.snapping === snap) return;
-        if (snap?.type === "nearCurve" || snap?.type === "onSurface") return;
-
         this.snapping = snap;
-        if (!snap) return;
+        if (!snap || snap.type === "nearCurve" || snap.type === "onSurface") return;
         this.timer = window.setTimeout(() => this.switchTrackingPoint(document, snap), 600);
     }
 
