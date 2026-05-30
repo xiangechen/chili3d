@@ -109,7 +109,7 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 }
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
-    private readonly _shapes: Map<IShape, VisualShapeData> = new Map();
+    protected readonly _shapes: Map<IShape, VisualShapeData> = new Map();
     selectedState: VisualState = VisualStates.edgeSelected;
 
     constructor(
@@ -148,7 +148,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
         return this._shapes.size;
     }
 
-    private removeSelected(shape: VisualShapeData) {
+    protected removeSelected(shape: VisualShapeData) {
         this._shapes.delete(shape.shape);
         this.document.visual.highlighter.removeState(
             shape.owner,
@@ -158,7 +158,7 @@ export class SubshapeSelectionHandler extends ShapeSelectionHandler {
         );
     }
 
-    private addSelected(shape: VisualShapeData) {
+    protected addSelected(shape: VisualShapeData) {
         this.document.visual.highlighter.addState(
             shape.owner,
             this.selectedState,

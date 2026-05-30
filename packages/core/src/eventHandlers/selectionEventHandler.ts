@@ -35,7 +35,7 @@ export abstract class SelectionHandler implements IEventHandler {
 
     constructor(
         readonly document: IDocument,
-        readonly multiMode: boolean,
+        protected multiMode: boolean,
         readonly controller?: AsyncController,
     ) {
         controller?.onCancelled((s) => {
@@ -85,7 +85,7 @@ export abstract class SelectionHandler implements IEventHandler {
         this.pointerEventMap.set(event.pointerId, event);
     }
 
-    private initRect(event: PointerEvent): SelectionRect {
+    protected initRect(event: PointerEvent): SelectionRect {
         const rect = document.createElement("div");
         rect.style.cssText = SelectionRectStyle;
         this.document.application.mainWindow?.appendChild(rect);
@@ -128,7 +128,7 @@ export abstract class SelectionHandler implements IEventHandler {
         this.pointerEventMap.delete(event.pointerId);
     }
 
-    private removeRect(view: IView) {
+    protected removeRect(view: IView) {
         this.rect?.element.remove();
         this.rect = undefined;
     }
