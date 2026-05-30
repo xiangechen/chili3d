@@ -8,6 +8,13 @@ import type { IShapeFilter } from "../selectionFilter";
 import type { EdgeMeshData, MeshLike, ShapeMeshData } from "../shape";
 import type { IVisualObject } from "./visualObject";
 
+export type MeshOption = {
+    meshOpacity?: number;
+    lineOpacity?: number;
+    vertexOpacity?: number;
+    onTop?: boolean;
+}
+
 export interface IVisualContext extends IDisposable {
     get shapeCount(): number;
     addVisualObject(object: IVisualObject): void;
@@ -20,10 +27,10 @@ export interface IVisualContext extends IDisposable {
     redrawNode(nodes: INode[]): void;
     setVisible(node: INode, visible: boolean): void;
     visuals(): IVisualObject[];
-    displayMesh(datas: ShapeMeshData[], opacity?: number): number;
+    displayMesh(datas: ShapeMeshData[], meshOption?: MeshOption): number;
     setMeshColor(id: number, color: number): void;
     removeMesh(id: number): void;
-    displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number;
+    displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], meshOption?: MeshOption): number;
     displayLineSegments(data: EdgeMeshData): number;
     setPosition(id: number, position: Float32Array): void;
     setInstanceMatrix(id: number, matrixs: Matrix4[]): void;

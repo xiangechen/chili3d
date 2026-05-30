@@ -7,7 +7,7 @@ import { type AsyncController, type MessageType, PubSub, Result } from "../../fo
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
 import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
-import { type IEventHandler, type IView, screenDistance } from "../../visual";
+import { type IEventHandler, type IView, MeshOption, screenDistance } from "../../visual";
 import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
 type SnapState = "idle" | "snapping" | "inputing" | "cancelled" | "completed";
@@ -19,7 +19,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     protected _snaped?: SnapResult;
     private _state: SnapState = "idle";
 
-    facePreviewOpacity: number = 1;
+    facePreviewOpion: MeshOption = { meshOpacity: 0.5 };
     isEnabled: boolean = true;
 
     constructor(
@@ -202,7 +202,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
 
         this._tempShapes = this.data
             .preview?.(point)
-            ?.map((shape) => this.document.visual.context.displayMesh([shape], this.facePreviewOpacity));
+            ?.map((shape) => this.document.visual.context.displayMesh([shape], this.facePreviewOpion));
     }
 
     private removeTempShapes() {

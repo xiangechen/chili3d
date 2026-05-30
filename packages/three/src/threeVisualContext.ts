@@ -29,6 +29,7 @@ import {
     Texture,
     XY,
     type XYZ,
+    MeshOption,
 } from "@chili3d/core";
 import {
     Box3,
@@ -243,15 +244,15 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
-    displayMesh(datas: ShapeMeshData[], opacity?: number): number {
+    displayMesh(datas: ShapeMeshData[], meshOption?: MeshOption): number {
         const group = new Group();
         datas.forEach((data) => {
             if (MeshDataUtils.isVertexMesh(data)) {
-                group.add(ThreeGeometryFactory.createVertexGeometry(data));
+                group.add(ThreeGeometryFactory.createVertexGeometry(data, meshOption));
             } else if (MeshDataUtils.isEdgeMesh(data)) {
-                group.add(ThreeGeometryFactory.createEdgeGeometry(data));
+                group.add(ThreeGeometryFactory.createEdgeGeometry(data, meshOption));
             } else if (MeshDataUtils.isFaceMesh(data)) {
-                group.add(ThreeGeometryFactory.createFaceGeometry(data, opacity));
+                group.add(ThreeGeometryFactory.createFaceGeometry(data, meshOption));
             }
         });
         this.tempShapes.add(group);
@@ -267,9 +268,9 @@ export class ThreeVisualContext implements IVisualContext {
         })
     }
 
-    displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], opacity?: number): number {
+    displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], meshOption?: MeshOption): number {
         const geometry = ThreeGeometryFactory.createFaceBufferGeometry(data);
-        const material = ThreeGeometryFactory.createMeshMaterial(opacity);
+        const material = ThreeGeometryFactory.createMeshMaterial(meshOption);
 
         ThreeGeometryFactory.setColor(geometry, data, material);
         const instancedMesh = new InstancedMesh(geometry, material, matrixs.length);

@@ -5,15 +5,15 @@ import {
     AsyncController,
     CancelableCommand,
     Combobox,
-    Continuities,
     command,
+    Continuities,
     EditableShapeNode,
     type IEdge,
     type IShape,
     type IVertex,
     type IWire,
-    PubSub,
     property,
+    PubSub,
     Result,
     SelectShapeStep,
     type ShapeType,
@@ -139,7 +139,9 @@ export class LoftCommand extends CancelableCommand {
             PubSub.default.pub("showToast", "error.default:{0}", this.shape.error);
             return false;
         }
-        this.visual = this.document.visual.context.displayMesh([this.shape.value.mesh.faces!], 0.5);
+        this.visual = this.document.visual.context.displayMesh([this.shape.value.mesh.faces!], {
+            meshOpacity: 0.5
+        });
         this.document.visual.update();
         return true;
     }

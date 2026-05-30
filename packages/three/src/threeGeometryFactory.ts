@@ -1,14 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { EdgeMeshData, FaceMeshData, MeshLike, VertexMeshData } from "@chili3d/core";
+import type { EdgeMeshData, FaceMeshData, MeshLike, MeshOption, VertexMeshData } from "@chili3d/core";
 import {
     AlwaysDepth,
     BufferAttribute,
     BufferGeometry,
     DoubleSide,
     Float32BufferAttribute,
-    type LineBasicMaterial,
+    LineBasicMaterial,
     Mesh,
     MeshLambertMaterial,
     Points,
@@ -19,36 +19,57 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 
 export class ThreeGeometryFactory {
-    static createVertexGeometry(data: VertexMeshData) {
+    static createVertexGeometry(data: VertexMeshData, meshOption?: MeshOption) {
         const buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
-        const material = ThreeGeometryFactory.createVertexMaterial(data);
+        const material = ThreeGeometryFactory.createVertexMaterial(data, meshOption);
         ThreeGeometryFactory.setColor(buff, data, material);
 
         material.depthFunc = AlwaysDepth;
         return new Points(buff, material);
     }
 
-    static createVertexMaterial(data: VertexMeshData) {
-        return new PointsMaterial({
+    static createVertexMaterial(data: VertexMeshData, meshOption?: MeshOption) {
+        const material = new PointsMaterial({
             size: data.size,
             sizeAttenuation: false,
         });
+        ThreeGeometryFactory.setMaterialParameter(material, meshOption);
+        return material;
     }
 
-    static createFaceGeometry(data: FaceMeshData, opacity?: number) {
+    private static setMaterialParameter(material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial, meshOption?: MeshOption) {
+        if (material instanceof LineMaterial || material instanceof LineBasicMaterial) {
+            if (meshOption?.lineOpacity !== undefined) {
+                material.transparent = true;
+                material.opacity = meshOption.lineOpacity;
+            }
+        } else if (material instanceof PointsMaterial){
+            if (meshOption?.vertexOpacity !== undefined) {
+                material.transparent = true;
+                material.opacity = meshOption.vertexOpacity;
+            }
+        } else if (meshOption?.meshOpacity !== undefined) {
+            material.transparent = true;
+            material.opacity = meshOption.meshOpacity;
+        }
+
+        if (meshOption?.onTop) {
+            material.depthTest = false;
+            material.depthWrite = false;
+        }
+    }
+
+    static createFaceGeometry(data: FaceMeshData, meshOption?: MeshOption) {
         const buff = ThreeGeometryFactory.createFaceBufferGeometry(data);
-        const material = ThreeGeometryFactory.createMeshMaterial(opacity);
+        const material = ThreeGeometryFactory.createMeshMaterial(meshOption);
         ThreeGeometryFactory.setColor(buff, data, material);
 
         return new Mesh(buff, material);
     }
 
-    static createMeshMaterial(opacity: number | undefined) {
+    static createMeshMaterial(meshOption?: MeshOption) {
         const material = new MeshLambertMaterial({ side: DoubleSide });
-        if (opacity !== undefined) {
-            material.transparent = true;
-            material.opacity = opacity;
-        }
+        ThreeGeometryFactory.setMaterialParameter(material, meshOption);
         return material;
     }
 
@@ -75,9 +96,9 @@ export class ThreeGeometryFactory {
         return buff;
     }
 
-    static createEdgeGeometry(data: EdgeMeshData) {
+    static createEdgeGeometry(data: EdgeMeshData, meshOption?: MeshOption) {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        const material = ThreeGeometryFactory.createEdgeMaterial(data);
+        const material = ThreeGeometryFactory.createEdgeMaterial(data, meshOption);
         ThreeGeometryFactory.setColor(buff, data, material);
         const segment = new LineSegments2(buff, material);
         if (data.lineType === "dash") {
@@ -86,7 +107,7 @@ export class ThreeGeometryFactory {
         return segment;
     }
 
-    static createEdgeMaterial(data: EdgeMeshData) {
+    static createEdgeMaterial(data: EdgeMeshData, meshOption?: MeshOption) {
         const material = new LineMaterial({
             linewidth: data.lineWidth ?? 1,
             polygonOffset: true,
@@ -100,6 +121,8 @@ export class ThreeGeometryFactory {
             material.gapSize = 30;
             material.defines["USE_DASH"] = "";
         }
+        
+        ThreeGeometryFactory.setMaterialParameter(material, meshOption);
         return material;
     }
 
