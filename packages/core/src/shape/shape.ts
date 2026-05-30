@@ -85,6 +85,7 @@ export interface IFace extends IShape {
     normal(u: number, v: number): [point: XYZ, normal: XYZ];
     outerWire(): IWire;
     surface(): ISurface;
+    intersectLine(point: XYZLike, direction: XYZLike, tolerance?: number): XYZ | undefined;
     segmentsOfEdgeOnFace(edge: IEdge):
         | undefined
         | {

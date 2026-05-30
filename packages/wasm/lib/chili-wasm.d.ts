@@ -796,6 +796,7 @@ interface EmbindModule {
     surface(_0: TopoDS_Face): Handle_Geom_Surface;
     normal(_0: TopoDS_Face, _1: number, _2: number, _3: gp_Pnt, _4: gp_Vec): void;
     curveOnSurface(_0: TopoDS_Face, _1: TopoDS_Edge): Domain;
+    intersectLine(_0: TopoDS_Face, _1: Vector3, _2: Vector3, _3: number): Vector3 | undefined;
   };
   Solid: {
     volume(_0: TopoDS_Solid): number;

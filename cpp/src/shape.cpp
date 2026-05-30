@@ -32,6 +32,7 @@
 #include <HLRAlgo_Projector.hxx>
 #include <HLRBRep_Algo.hxx>
 #include <HLRBRep_HLRToShape.hxx>
+#include <IntCurvesFace_Intersector.hxx>
 #include <ShapeAnalysis.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <TopExp.hxx>
@@ -435,6 +436,18 @@ public:
         return domain;
     }
 
+    static std::optional<Vector3> intersectLine(const TopoDS_Face& face, const Vector3& point, const Vector3& direction, double tolerance)
+    {
+        gp_Lin line(gp_Pnt(point.x, point.y, point.z), gp_Dir(direction.x, direction.y, direction.z));
+
+        IntCurvesFace_Intersector anIntersector(face, tolerance);
+        anIntersector.Perform(line, -1e12, 1e12);
+        if (anIntersector.IsDone() && anIntersector.NbPnt() > 0) {
+            return Vector3::fromPnt(anIntersector.Pnt(1));
+        }
+        return std::nullopt;
+    }
+
     static void normal(const TopoDS_Face& face, double u, double v, gp_Pnt& point, gp_Vec& normal)
     {
         BRepGProp_Face gpProp(face);
@@ -516,6 +529,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("outerWire", &Face::outerWire)
         .class_function("surface", &Face::surface)
         .class_function("normal", &Face::normal)
+        .class_function("intersectLine", &Face::intersectLine)
         .class_function("curveOnSurface", &Face::curveOnSurface);
 
     class_<Solid>("Solid").class_function("volume", &Solid::volume);

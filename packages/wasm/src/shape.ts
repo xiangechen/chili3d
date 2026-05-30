@@ -545,6 +545,13 @@ export class OccFace extends OccShape implements IFace {
             return [toXYZ(pnt), toXYZ(normal)];
         });
     }
+
+    intersectLine(point: XYZLike, direction: XYZLike, tolerance: number = 0.001): XYZ | undefined {
+        const int = wasm.Face.intersectLine(this.face, point, direction, tolerance);
+        if (!int) return undefined;
+
+        return toXYZ(int);
+    }
     outerWire(): IWire {
         return new OccWire({ shape: wasm.Face.outerWire(this.face) });
     }

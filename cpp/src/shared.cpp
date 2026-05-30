@@ -35,6 +35,7 @@ EMSCRIPTEN_BINDINGS(Shared)
 
     register_optional<double>();
     register_optional<UV>();
+    register_optional<Vector3>();
     register_optional<PointAndParameter>();
     register_optional<ProjectPointResult>();
     register_optional<std::string>();
