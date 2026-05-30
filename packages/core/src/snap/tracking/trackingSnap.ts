@@ -72,7 +72,7 @@ export class TrackingSnap implements ISnap {
         const lines: number[] = trackingDatas
             .map((x) => this.showTempLine(view, x.axis.point, point))
             .filter((id) => id !== undefined);
-        this._tempLines.set(view, lines);
+        this.addTempLine(view, lines);
 
         let info: string | undefined;
         let distance = point.distanceTo(trackingDatas[0].axis.point);
@@ -110,7 +110,8 @@ export class TrackingSnap implements ISnap {
         if (!point) return undefined;
         const id = this.showTempLine(data.view, point.location, point.intersect);
         if (id === undefined) return undefined;
-        this._tempLines.set(data.view, [id]);
+        this.addTempLine(data.view, [id]);
+        
         return {
             view: data.view,
             point: point.intersect,
@@ -118,6 +119,11 @@ export class TrackingSnap implements ISnap {
             shapes: [data.shapes[0]],
             type: "traceIntersect"
         };
+    }
+
+    private addTempLine(view: IView, ids: number[]) {
+        const existingIds = this._tempLines.get(view) ?? [];
+        this._tempLines.set(view, existingIds.concat(ids));
     }
 
     private findIntersection(data: MouseAndDetected, trackingDatas: TrackingData[]) {
