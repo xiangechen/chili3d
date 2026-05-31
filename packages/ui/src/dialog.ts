@@ -18,33 +18,54 @@ export function showDialog(title: I18nKeys, content: HTMLElement, buttons?: Dial
     const dialog = document.createElement("dialog");
     const host = getCurrentApplication()?.mainWindow ?? document.body;
     host.appendChild(dialog);
+    renderDialog(dialog, title, content, combineButtons(buttons))
+    dialog.showModal();
+}
 
-    dialog.appendChild(
+function renderDialog(dialog: HTMLDialogElement, title: I18nKeys, content: HTMLElement, combinedButtons: DialogButton[]) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+            const confirmBtn = combinedButtons.find((btn) => btn.onclick && btn.shouldClose?.() !== false && btn.content !== "common.cancel");
+            if (confirmBtn) {
+                confirmBtn.onclick?.();
+                closeDialog();
+            }
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            const cancelBtn = combinedButtons.find((btn) => btn.content === "common.cancel");
+            if (cancelBtn) {
+                cancelBtn.onclick?.();
+                closeDialog();
+            }
+        }
+    }
+    const closeDialog = () => {
+        dialog.removeEventListener("keydown", handleKeyDown);
+        dialog.remove();
+    };
+    dialog.addEventListener("keydown", handleKeyDown);
+    dialog.append(div(
+        { className: style.root },
+        div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
+        div({ className: style.content }, content),
         div(
-            { className: style.root },
-            div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
-            div({ className: style.content }, content),
-            div(
-                { className: style.buttons },
-                ...combineButtons(buttons).map((btn) =>
-                    button({
-                        textContent: I18n.translate(btn.content),
-                        onclick: async () => {
-                            if (btn.shouldClose?.() !== false) {
-                                dialog.remove();
-                            }
-                            
-                            if (btn.onclick) {
-                                await btn?.onclick();
-                            }
-                        },
-                    }),
-                ),
+            { className: style.buttons },
+            ...combinedButtons.map((btn) =>
+                button({
+                    textContent: I18n.translate(btn.content),
+                    onclick: async () => {
+                        if (btn.shouldClose?.() !== false) {
+                            closeDialog();
+                        }
+
+                        if (btn.onclick) {
+                            await btn?.onclick();
+                        }
+                    },
+                }),
             ),
         ),
-    );
-
-    dialog.showModal();
+    ));
 }
 
 function combineButtons(buttons?: DialogButton[] | (() => void)): DialogButton[] {
