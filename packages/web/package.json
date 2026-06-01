@@ -4,6 +4,7 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
-        "@chili3d/builder": "*"
+        "@chili3d/builder": "*",
+        "@chili3d/mcp": "*"
     }
 }

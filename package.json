@@ -16,6 +16,7 @@
         "release": "node scripts/release.mjs",
         "setup:wasm": "node scripts/setup_wasm_deps.mjs",
         "test": "rstest",
+        "test:wasm": "rstest --config=rstest.wasm.config.ts",
         "testc": "rstest --coverage"
     },
     "simple-git-hooks": {

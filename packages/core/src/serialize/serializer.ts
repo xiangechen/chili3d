@@ -24,10 +24,14 @@ export interface RefelectData {
     deserialize?: (...args: any[]) => any;
 }
 
-export function registerReflect(data: RefelectData, name?: string, props?: {
-    type: any;
-    props: PropertyInfo[];
-}) {
+export function registerReflect(
+    data: RefelectData,
+    name?: string,
+    props?: {
+        type: any;
+        props: PropertyInfo[];
+    },
+) {
     const actualName = name ?? data.ctor.name;
     if (reflectMap.has(actualName)) {
         console.warn(`Class ${actualName} already registered, skip.`);
@@ -61,13 +65,20 @@ export function registerTypeArray(
 
     registerReflect(data, typeArray.name, {
         type: typeArray.prototype,
-        props: [{
-            name: "buffer",
-            readonly: true,
-        }],
+        props: [
+            {
+                name: "buffer",
+                readonly: true,
+            },
+        ],
     });
 }
-registerTypeArray(Float16Array);
+// Float16Array is ES2024 and is absent in some runtimes (older Node, happy-dom).
+// Guard it so importing this module never throws where the global is missing;
+// half-float arrays are simply not registered there. Browsers register it as before.
+if (typeof Float16Array !== "undefined") {
+    registerTypeArray(Float16Array);
+}
 registerTypeArray(Float32Array);
 registerTypeArray(Uint32Array);
 
@@ -91,7 +102,7 @@ export function serialize() {
             propertiesMap.set(target, props);
         }
         props.push({
-            name: property
+            name: property,
         });
     };
 }
@@ -100,9 +111,9 @@ export class Serializer {
     public static deserializeObject(document: IDocument, data: Serialized) {
         const props: Record<string, any> = { document };
         for (const key of Object.keys(data)) {
-            props[key] = Serializer.deserialValue(document, data[key])
+            props[key] = Serializer.deserialValue(document, data[key]);
         }
-        
+
         const instance = Serializer.deserializeInstance(props);
         Serializer.deserializeProperties(document, instance, props);
         return instance;
@@ -150,8 +161,8 @@ export class Serializer {
         for (const key of keys) {
             if (key !== InternalClassName && document !== data[key] && instance[key] !== data[key]) {
                 if (instance instanceof Observable) {
-                    instance.setPrivateValue(key as any, data[key])
-                } else if (this.isWritable(instance, key)) {
+                    instance.setPrivateValue(key as any, data[key]);
+                } else if (Serializer.isWritable(instance, key)) {
                     instance[key] = Serializer.deserialValue(document, data[key]);
                 }
             }

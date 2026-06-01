@@ -5,6 +5,7 @@ import type { IDocument } from "../document";
 import type { Result } from "../foundation";
 import type { FolderNode } from "../model";
 import type { IShape } from "./shape";
+import type { StlExportOptions } from "./stlWriter";
 
 export interface IShapeConverter {
     convertToIGES(...shapes: IShape[]): Result<string>;
@@ -13,5 +14,10 @@ export interface IShapeConverter {
     convertFromSTEP(document: IDocument, step: Uint8Array): Result<FolderNode>;
     convertToBrep(shape: IShape): Result<string>;
     convertFromBrep(brep: string): Result<IShape>;
+    /**
+     * Headless STL export: tessellates each shape (OCCT mesh) and writes STL
+     * bytes with no visual layer. Binary by default. See {@link StlExportOptions}.
+     */
+    convertToSTL(shapes: IShape[], options?: StlExportOptions): Result<Uint8Array>;
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode>;
 }
