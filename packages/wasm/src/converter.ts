@@ -13,6 +13,8 @@ import {
     type IShapeConverter,
     Material,
     Result,
+    type StlExportOptions,
+    shapesToStl,
 } from "@chili3d/core";
 import type { ShapeNode } from "../lib/chili-wasm";
 import { OccShape } from "./shape";
@@ -125,6 +127,14 @@ export class OccShapeConverter implements IShapeConverter {
             return Result.err("can not convert");
         }
         return Result.ok(OccShape.wrap(shape));
+    }
+
+    convertToSTL(shapes: IShape[], options?: StlExportOptions): Result<Uint8Array> {
+        try {
+            return Result.ok(shapesToStl(shapes, options));
+        } catch (error) {
+            return Result.err(String(error));
+        }
     }
 
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode> {

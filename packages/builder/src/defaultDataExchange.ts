@@ -90,11 +90,7 @@ export class DefaultDataExchange implements IDataExchange {
 
         const document = nodes[0].document;
         let shapeResult: Result<BlobPart> | undefined;
-        if (type === ".stl") {
-            shapeResult = document.visual.meshExporter.exportToStl(nodes, true);
-        } else if (type === ".stl binary") {
-            shapeResult = document.visual.meshExporter.exportToStl(nodes, false);
-        } else if (type === ".ply") {
+        if (type === ".ply") {
             shapeResult = document.visual.meshExporter.exportToPly(nodes, true);
         } else if (type === ".ply binary") {
             shapeResult = document.visual.meshExporter.exportToPly(nodes, false);
@@ -103,6 +99,10 @@ export class DefaultDataExchange implements IDataExchange {
         } else {
             const shapes = this.getExportShapes(nodes);
             if (!shapes.length) return undefined;
+            // STL goes through the headless OCCT-mesh converter (not the Three.js
+            // visual exporter), so the same path works in the browser and the MCP server.
+            if (type === ".stl") shapeResult = this.exportStl(document, shapes, false);
+            if (type === ".stl binary") shapeResult = this.exportStl(document, shapes, true);
             if (type === ".step") shapeResult = this.exportStep(document, shapes);
             if (type === ".iges") shapeResult = this.exportIges(document, shapes);
             if (type === ".brep") shapeResult = this.exportBrep(document, shapes);
@@ -121,6 +121,10 @@ export class DefaultDataExchange implements IDataExchange {
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");
         return shapes;
+    }
+
+    private exportStl(doc: IDocument, shapes: IShape[], binary: boolean): Result<BlobPart> {
+        return doc.application.shapeFactory.converter.convertToSTL(shapes, { binary }) as Result<BlobPart>;
     }
 
     private exportStep(doc: IDocument, shapes: IShape[]) {
