@@ -18,14 +18,19 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 
+const TopRenderOrder = 999;
+
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData, meshOption?: MeshOption) {
         const buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
         const material = ThreeGeometryFactory.createVertexMaterial(data, meshOption);
         ThreeGeometryFactory.setColor(buff, data, material);
 
-        material.depthFunc = AlwaysDepth;
-        return new Points(buff, material);
+        const points = new Points(buff, material);
+        if (meshOption?.onTop) {
+            points.renderOrder = TopRenderOrder;
+        }
+        return points;
     }
 
     static createVertexMaterial(data: VertexMeshData, meshOption?: MeshOption) {
@@ -64,7 +69,11 @@ export class ThreeGeometryFactory {
         const material = ThreeGeometryFactory.createMeshMaterial(meshOption);
         ThreeGeometryFactory.setColor(buff, data, material);
 
-        return new Mesh(buff, material);
+        const mesh = new Mesh(buff, material);
+        if (meshOption?.onTop) {
+            mesh.renderOrder = TopRenderOrder;
+        }
+        return mesh;
     }
 
     static createMeshMaterial(meshOption?: MeshOption) {
@@ -103,6 +112,9 @@ export class ThreeGeometryFactory {
         const segment = new LineSegments2(buff, material);
         if (data.lineType === "dash") {
             segment.computeLineDistances();
+        }
+        if (meshOption?.onTop) {
+            segment.renderOrder = TopRenderOrder;
         }
         return segment;
     }
