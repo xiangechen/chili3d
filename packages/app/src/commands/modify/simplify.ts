@@ -41,12 +41,7 @@ export class SimplifyShapeCommand extends MultistepCommand {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
             const shape = this.stepDatas[0].shapes[0].shape;
 
-            const simplifiedShape = this.document.application.shapeFactory.simplifyShape(
-                shape,
-                this.removeEdges,
-                this.removeFaces,
-                []
-            );
+            const simplifiedShape = shapeFactory.simplifyShape(shape, this.removeEdges, this.removeFaces, []);
 
             if (!simplifiedShape.isOk) {
                 throw simplifiedShape.error;

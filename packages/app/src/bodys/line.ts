@@ -50,6 +50,6 @@ export class LineNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.line(this.start, this.end);
+        return shapeFactory.line(this.start, this.end);
     }
 }

@@ -68,6 +68,6 @@ export class PyramidNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.pyramid(this.plane, this.dx, this.dy, this.dz);
+        return shapeFactory.pyramid(this.plane, this.dx, this.dy, this.dz);
     }
 }

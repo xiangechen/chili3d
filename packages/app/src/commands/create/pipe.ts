@@ -43,12 +43,12 @@ export class Pipe extends MultistepCommand {
         // Build edges
         const edges: IEdge[] = [];
         for (let i = 0; i < points.length - 1; i++) {
-            const result = this.application.shapeFactory.line(points[i], points[i + 1]);
+            const result = shapeFactory.line(points[i], points[i + 1]);
             if (result.isOk) {
                 edges.push(result.value);
             }
         }
-        const pathResult = this.application.shapeFactory.wire(edges);
+        const pathResult = shapeFactory.wire(edges);
         if (!pathResult.isOk) return;
         const path = pathResult.value;
 

@@ -57,6 +57,6 @@ export class RevolvedNode extends ParameterShapeNode {
     }
 
     override generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.revolve(this.profile, this.axis, this.angle);
+        return shapeFactory.revolve(this.profile, this.axis, this.angle);
     }
 }

@@ -64,7 +64,7 @@ export class FaceNode extends ParameterShapeNode {
     }
 
     private addUnclosedEdges(wires: IWire[], edges: IEdge[]): void {
-        const wire = this.document.application.shapeFactory.wire(edges);
+        const wire = shapeFactory.wire(edges);
         if (!wire.isOk) throw new Error("Cannot create wire from open shapes");
         wires.push(wire.value);
     }
@@ -73,6 +73,6 @@ export class FaceNode extends ParameterShapeNode {
         if (this.shapes.length === 0) return Result.err("No shapes to create face");
 
         const wires = this.getWires();
-        return this.document.application.shapeFactory.face(wires);
+        return shapeFactory.face(wires);
     }
 }

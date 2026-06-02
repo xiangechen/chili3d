@@ -39,7 +39,7 @@ export class PolygonNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        const wire = this.document.application.shapeFactory.polygon(this.points);
+        const wire = shapeFactory.polygon(this.points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }

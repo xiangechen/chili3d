@@ -85,7 +85,7 @@ export class AngleMeasure extends MultistepCommand {
         if (angle < Precision.Angle) return meshes;
 
         const line2 = this.meshLine(this.stepDatas[0].point!, point, VisualConfig.highlightEdgeColor, 3);
-        const arc = this.application.shapeFactory
+        const arc = shapeFactory
             .arc(
                 normal,
                 this.stepDatas[0].point!,

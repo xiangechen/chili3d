@@ -63,7 +63,7 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     async importBrep(document: IDocument, file: File) {
-        const shape = document.application.shapeFactory.converter.convertFromBrep(await file.text());
+        const shape = shapeFactory.converter.convertFromBrep(await file.text());
         if (!shape.isOk) {
             return Result.err(shape.error);
         }
@@ -72,17 +72,17 @@ export class DefaultDataExchange implements IDataExchange {
 
     private async importStl(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return document.application.shapeFactory.converter.convertFromSTL(document, content);
+        return shapeFactory.converter.convertFromSTL(document, content);
     }
 
     private async importIges(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return document.application.shapeFactory.converter.convertFromIGES(document, content);
+        return shapeFactory.converter.convertFromIGES(document, content);
     }
 
     private async importStep(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return document.application.shapeFactory.converter.convertFromSTEP(document, content);
+        return shapeFactory.converter.convertFromSTEP(document, content);
     }
 
     async export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
@@ -128,20 +128,20 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private exportStep(doc: IDocument, shapes: IShape[]) {
-        return doc.application.shapeFactory.converter.convertToSTEP(...shapes);
+        return shapeFactory.converter.convertToSTEP(...shapes);
     }
 
     private exportIges(doc: IDocument, shapes: IShape[]) {
-        return doc.application.shapeFactory.converter.convertToIGES(...shapes);
+        return shapeFactory.converter.convertToIGES(...shapes);
     }
 
     private exportBrep(document: IDocument, shapes: IShape[]) {
-        const comp = document.application.shapeFactory.combine(shapes);
+        const comp = shapeFactory.combine(shapes);
         if (!comp.isOk) {
             return Result.err(comp.error);
         }
 
-        const result = document.application.shapeFactory.converter.convertToBrep(comp.value);
+        const result = shapeFactory.converter.convertToBrep(comp.value);
         comp.value.dispose();
         return result;
     }

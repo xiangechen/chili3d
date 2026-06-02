@@ -56,12 +56,9 @@ export class ExtrudeNode extends ParameterShapeNode {
         if (this.section.shapeType === ShapeTypes.face) {
             const sur = (this.section as IFace).surface();
             if (!sur.isPlanar()) {
-                return this.document.application.shapeFactory.makeThickSolidBySimple(
-                    this.section,
-                    this.length,
-                );
+                return shapeFactory.makeThickSolidBySimple(this.section, this.length);
             }
         }
-        return this.document.application.shapeFactory.prism(this.section, vec);
+        return shapeFactory.prism(this.section, vec);
     }
 }

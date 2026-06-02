@@ -52,7 +52,7 @@ export class OccPerformanceTestCommand extends PerformanceTestCommand {
 
     protected override createShape(document: IDocument, material: Material, position: XYZ): void {
         const plane = Plane.XY.translateTo(position);
-        const box = document.application.shapeFactory.box(
+        const box = shapeFactory.box(
             plane,
             this.size * Math.random(),
             this.size * Math.random(),

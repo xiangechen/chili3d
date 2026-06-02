@@ -84,7 +84,7 @@ export class PipeNode extends ParameterShapeNode {
     private ensureWire(path: IEdge | IWire) {
         let wire = path as IWire;
         if (path.shapeType !== ShapeTypes.wire) {
-            wire = this.document.application.shapeFactory.wire([path as unknown as IEdge]).value;
+            wire = shapeFactory.wire([path as unknown as IEdge]).value;
         }
         return wire;
     }
@@ -104,7 +104,7 @@ export class PipeNode extends ParameterShapeNode {
 
         let pathForSweep = path;
         if (!isNative && bendR > 0 && path.edgeLoop().length >= 2) {
-            const builder = new WireFilletBuilder(this.document.application.shapeFactory);
+            const builder = new WireFilletBuilder(shapeFactory);
             const filleted = builder.build(path, bendR);
 
             if (filleted.isOk) {
@@ -131,19 +131,15 @@ export class PipeNode extends ParameterShapeNode {
 
         const plane = new Plane({ origin: start, normal: dir, xvec: xVec! });
 
-        const profileResult = this.document.application.shapeFactory.circle(
-            plane.normal,
-            plane.origin,
-            this.radius,
-        );
+        const profileResult = shapeFactory.circle(plane.normal, plane.origin, this.radius);
         if (!profileResult.isOk) return profileResult;
 
         const profileEdge = profileResult.value;
-        const profileWireResult = this.document.application.shapeFactory.wire([profileEdge]);
+        const profileWireResult = shapeFactory.wire([profileEdge]);
         if (!profileWireResult.isOk) return profileWireResult;
 
         const profile = profileWireResult.value;
-        const sweepResult = this.document.application.shapeFactory.sweep([profile], pathForSweep, isNative);
+        const sweepResult = shapeFactory.sweep([profile], pathForSweep, isNative);
         if (!sweepResult.isOk) {
             return sweepResult;
         }
@@ -155,34 +151,23 @@ export class PipeNode extends ParameterShapeNode {
 
             const innerRadius = this.radius - thickness;
 
-            const innerCircleResult = this.document.application.shapeFactory.circle(
-                plane.normal,
-                plane.origin,
-                innerRadius,
-            );
+            const innerCircleResult = shapeFactory.circle(plane.normal, plane.origin, innerRadius);
             if (!innerCircleResult.isOk) {
                 return sweepResult;
             }
 
-            const innerWireResult = this.document.application.shapeFactory.wire([innerCircleResult.value]);
+            const innerWireResult = shapeFactory.wire([innerCircleResult.value]);
             if (!innerWireResult.isOk) {
                 return sweepResult;
             }
 
-            const innerSweepResult = this.document.application.shapeFactory.sweep(
-                [innerWireResult.value],
-                pathForSweep,
-                isNative,
-            );
+            const innerSweepResult = shapeFactory.sweep([innerWireResult.value], pathForSweep, isNative);
             if (!innerSweepResult.isOk) {
                 return sweepResult; // Fallback to solid
             }
 
             console.log("PipeNode: Performing boolean cut (outer - inner)");
-            const hollowResult = this.document.application.shapeFactory.booleanCut(
-                [sweepResult.value],
-                [innerSweepResult.value],
-            );
+            const hollowResult = shapeFactory.booleanCut([sweepResult.value], [innerSweepResult.value]);
             if (hollowResult.isOk) {
                 return hollowResult;
             }

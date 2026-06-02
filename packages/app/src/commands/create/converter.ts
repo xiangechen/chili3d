@@ -127,7 +127,7 @@ export class ConvertToShell extends ConvertCommand {
 
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const faces = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IFace[];
-        const shape = this.application.shapeFactory.shell(faces);
+        const shape = shapeFactory.shell(faces);
         faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 
@@ -149,7 +149,7 @@ export class ConvertToSolid extends ConvertCommand {
 
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
         const faces = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IShell[];
-        const shape = this.application.shapeFactory.solid(faces);
+        const shape = shapeFactory.solid(faces);
         faces.forEach((x) => x.dispose());
         if (!shape.isOk) return Result.err(shape.error);
 

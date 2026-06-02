@@ -50,6 +50,6 @@ export class SphereNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.sphere(this.center, this.radius);
+        return shapeFactory.sphere(this.center, this.radius);
     }
 }

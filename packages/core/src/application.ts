@@ -30,11 +30,46 @@ export interface IApplication extends IPropertyChanged {
     loadFileFromUrl(url: string): Promise<void>;
 }
 
-let currentApplication: IApplication | undefined;
+let currentApplication: IApplication;
 export function getCurrentApplication() {
+    if (!currentApplication) {
+        throw new Error(
+            "No application instance is set. Please create an instance of Application before accessing it.",
+        );
+    }
     return currentApplication;
 }
 
 export function setCurrentApplication(app: IApplication): void {
+    if (currentApplication) {
+        throw new Error("An application instance is already set. Multiple instances are not allowed.");
+    }
     currentApplication = app;
 }
+
+declare global {
+    var shapeFactory: IShapeFactory;
+    var activeView: IView | undefined;
+    var activeDocument: IDocument | undefined;
+}
+
+Object.defineProperty(globalThis, "shapeFactory", {
+    get() {
+        const app = getCurrentApplication();
+        return app.shapeFactory;
+    },
+});
+
+Object.defineProperty(globalThis, "activeView", {
+    get() {
+        const app = getCurrentApplication();
+        return app.activeView;
+    },
+});
+
+Object.defineProperty(globalThis, "activeDocument", {
+    get() {
+        const app = getCurrentApplication();
+        return app.activeView?.document;
+    },
+});

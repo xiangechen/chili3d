@@ -32,11 +32,7 @@ export class ChamferCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
             const edges = this.stepDatas.at(-1)!.shapes.map((x) => (x.shape as ISubEdgeShape).index);
-            const filetShape = this.document.application.shapeFactory.chamfer(
-                node.shape.value,
-                edges,
-                this.length,
-            );
+            const filetShape = shapeFactory.chamfer(node.shape.value, edges, this.length);
 
             const model = new EditableShapeNode({
                 document: this.document,

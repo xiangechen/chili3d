@@ -5,15 +5,15 @@ import {
     AsyncController,
     CancelableCommand,
     Combobox,
-    command,
     Continuities,
+    command,
     EditableShapeNode,
     type IEdge,
     type IShape,
     type IVertex,
     type IWire,
-    property,
     PubSub,
+    property,
     Result,
     SelectShapeStep,
     type ShapeType,
@@ -129,7 +129,7 @@ export class LoftCommand extends CancelableCommand {
         if (this.shapes.length < 2) {
             return false;
         }
-        this.shape = this.document.application.shapeFactory.loft(
+        this.shape = shapeFactory.loft(
             this.shapes as (IVertex | IEdge | IWire)[],
             this.isSolid,
             this.isRuled,
@@ -140,7 +140,7 @@ export class LoftCommand extends CancelableCommand {
             return false;
         }
         this.visual = this.document.visual.context.displayMesh([this.shape.value.mesh.faces!], {
-            meshOpacity: 0.5
+            meshOpacity: 0.5,
         });
         this.document.visual.update();
         return true;

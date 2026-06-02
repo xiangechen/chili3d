@@ -24,7 +24,7 @@ export class Sew extends MultistepCommand {
             const shape1 = this.transformdFirstShape(this.stepDatas[0]);
             const shape2 = this.transformdFirstShape(this.stepDatas[1]);
 
-            const result = this.application.shapeFactory.sewing(shape1, shape2);
+            const result = shapeFactory.sewing(shape1, shape2);
             if (!result.isOk) {
                 PubSub.default.pub("showToast", "error.default:{0}", result.error);
                 return;

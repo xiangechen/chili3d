@@ -39,6 +39,6 @@ export class PointNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.point(this.position);
+        return shapeFactory.point(this.position);
     }
 }

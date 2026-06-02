@@ -22,7 +22,7 @@ export class RemoveFaceCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
             const faces = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IFace);
-            const filetShape = this.document.application.shapeFactory.removeFeature(node.shape.value, faces);
+            const filetShape = shapeFactory.removeFeature(node.shape.value, faces);
 
             const model = new EditableShapeNode({
                 document: this.document,

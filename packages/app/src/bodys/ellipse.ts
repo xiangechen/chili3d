@@ -74,7 +74,7 @@ export class EllipseNode extends FacebaseNode {
     }
 
     generateShape(): Result<IShape, string> {
-        const circle = this.document.application.shapeFactory.ellipse(
+        const circle = shapeFactory.ellipse(
             this.normal,
             this.center,
             this.xvec,
@@ -82,7 +82,7 @@ export class EllipseNode extends FacebaseNode {
             this.minorRadius,
         );
         if (!circle.isOk || !this.isFace) return circle;
-        const wire = this.document.application.shapeFactory.wire([circle.value]);
+        const wire = shapeFactory.wire([circle.value]);
         return wire.isOk ? wire.value.toFace() : circle;
     }
 }

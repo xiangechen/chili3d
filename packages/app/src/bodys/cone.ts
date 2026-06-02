@@ -68,6 +68,6 @@ export class ConeNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.cone(this.normal, this.center, this.radius, 0, this.dz);
+        return shapeFactory.cone(this.normal, this.center, this.radius, 0, this.dz);
     }
 }

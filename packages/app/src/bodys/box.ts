@@ -77,6 +77,6 @@ export class BoxNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.box(this.plane, this.dx, this.dy, this.dz);
+        return shapeFactory.box(this.plane, this.dx, this.dy, this.dz);
     }
 }

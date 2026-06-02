@@ -82,7 +82,7 @@ export class RegularPolygonNode extends FacebaseNode {
             this.normal,
             this.xvec,
         );
-        const wire = this.document.application.shapeFactory.polygon(points);
+        const wire = shapeFactory.polygon(points);
         if (!wire.isOk || !this.isFace) return wire;
         return wire.value.toFace();
     }

@@ -18,13 +18,13 @@ import {
     type IWindow,
     Logger,
     Material,
+    Observable,
     ObservableCollection,
     PLUGIN_FILE_EXTENSION,
     Plane,
     PubSub,
     type Serialized,
     setCurrentApplication,
-    Observable,
 } from "@chili3d/core";
 import { Document } from "./document";
 import { PluginManager } from "./pluginManager";
@@ -69,9 +69,6 @@ export class Application extends Observable implements IApplication {
     constructor(option: ApplicationOptions) {
         super();
 
-        if (getCurrentApplication() !== undefined) {
-            throw new Error("Only one application can be created");
-        }
         setCurrentApplication(this);
         this.visualFactory = option.visualFactory;
         this.shapeFactory = option.shapeFactory;

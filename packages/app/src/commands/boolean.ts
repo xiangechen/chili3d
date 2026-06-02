@@ -44,11 +44,11 @@ export abstract class BooleanOperate extends MultistepCommand {
     ): Result<IShape> {
         switch (type) {
             case "common":
-                return this.application.shapeFactory.booleanCommon([shape1], tools);
+                return shapeFactory.booleanCommon([shape1], tools);
             case "cut":
-                return this.application.shapeFactory.booleanCut([shape1], tools);
+                return shapeFactory.booleanCut([shape1], tools);
             default:
-                return this.application.shapeFactory.booleanFuse([shape1], tools, true);
+                return shapeFactory.booleanFuse([shape1], tools, true);
         }
     }
 

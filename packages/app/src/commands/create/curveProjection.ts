@@ -46,7 +46,7 @@ export class CurveProjectionCommand extends CreateCommand {
         const [x, y, z] = this.dir.split(",").map(Number);
         const dir = new XYZ({ x, y, z }).normalize() as XYZ;
 
-        const curveProjection = this.application.shapeFactory.curveProjection(shape, face, dir);
+        const curveProjection = shapeFactory.curveProjection(shape, face, dir);
         return new EditableShapeNode({
             document: this.document,
             name: I18n.translate("command.convert.curveProjection"),

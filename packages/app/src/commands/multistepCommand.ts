@@ -81,7 +81,7 @@ export abstract class MultistepCommand extends CancelableCommand {
         method: K,
         ...args: Parameters<IShapeFactory[K] extends (...args: any) => any ? IShapeFactory[K] : never>
     ) {
-        const shape = (this.application.shapeFactory as any)[method](...args);
+        const shape = (shapeFactory as any)[method](...args);
         return this.meshShape(shape);
     }
 
@@ -105,7 +105,7 @@ export abstract class MultistepCommand extends CancelableCommand {
         }
 
         return ViewUtils.raycastClosestPlane(view, origin, point);
-    };
+    }
 
     protected transformdFirstShape(step: SnapResult, shouldDispose = true) {
         const shape = step.shapes[0].shape.transformedMul(step.shapes[0].transform);

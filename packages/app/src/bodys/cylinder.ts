@@ -68,11 +68,6 @@ export class CylinderNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.cylinder(
-            this.normal,
-            this.center,
-            this.radius,
-            this.dz,
-        );
+        return shapeFactory.cylinder(this.normal, this.center, this.radius, this.dz);
     }
 }

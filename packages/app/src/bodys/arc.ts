@@ -65,6 +65,6 @@ export class ArcNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape, string> {
-        return this.document.application.shapeFactory.arc(this.normal, this.center, this.start, this.angle);
+        return shapeFactory.arc(this.normal, this.center, this.start, this.angle);
     }
 }

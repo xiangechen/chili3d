@@ -30,10 +30,7 @@ export class ThickSolidCommand extends MultistepCommand {
     protected override executeMainTask(): void {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             this.stepDatas[0].shapes.forEach((x) => {
-                const subShape = this.application.shapeFactory.makeThickSolidBySimple(
-                    x.shape,
-                    this.thickness,
-                );
+                const subShape = shapeFactory.makeThickSolidBySimple(x.shape, this.thickness);
                 if (!subShape.isOk) {
                     PubSub.default.pub("showToast", "toast.converter.error");
                     return;

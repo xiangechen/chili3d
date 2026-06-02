@@ -64,12 +64,12 @@ export class SweepedNode extends ParameterShapeNode {
     private ensureWire(path: IEdge | IWire) {
         let wire = path as IWire;
         if (path.shapeType !== ShapeTypes.wire) {
-            wire = this.document.application.shapeFactory.wire([path as unknown as IEdge]).value;
+            wire = shapeFactory.wire([path as unknown as IEdge]).value;
         }
         return wire;
     }
 
     override generateShape(): Result<IShape> {
-        return this.document.application.shapeFactory.sweep(this.profile, this.path, this.round);
+        return shapeFactory.sweep(this.profile, this.path, this.round);
     }
 }
