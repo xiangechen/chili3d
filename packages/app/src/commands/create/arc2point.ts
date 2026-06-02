@@ -6,10 +6,13 @@ import {
     Dimensions,
     type GeometryNode,
     type IStep,
+    LengthAtPlaneStep,
+    Plane,
     type PointSnapData,
     PointStep,
     Precision,
     type ShapeMeshData,
+    type SnapLengthAtPlaneData,
     type XYZ,
 } from "@chili3d/core";
 import { ArcNode } from "../../bodys/arc";
@@ -25,7 +28,7 @@ export class Arc2Point extends CreateCommand {
         return [
             new PointStep("prompt.pickFistPoint"),
             new PointStep("prompt.pickArcEnd", this.getEndPointData),
-            new PointStep("prompt.pickArcBulge", this.getBulgeData),
+            new LengthAtPlaneStep("prompt.pickArcHeight", this.getHeightData),
         ];
     }
 
@@ -40,17 +43,17 @@ export class Arc2Point extends CreateCommand {
         };
     };
 
-    private readonly getBulgeData = (): PointSnapData => {
+    private readonly getHeightData = (): SnapLengthAtPlaneData => {
         const [p1, p2] = [this.stepDatas[0].point!, this.stepDatas[1].point!];
+        const midpoint = p1.add(p2).multiply(0.5);
+
         return {
-            validator: (p: XYZ) => {
-                if (p.distanceTo(p1) < Precision.Distance) return false;
-                if (p.distanceTo(p2) < Precision.Distance) return false;
-                const AB = p2.sub(p1);
-                const AC = p.sub(p1);
-                return AB.cross(AC).length() > 1e-10;
+            point: () => midpoint,
+            preview: (heightPoint: XYZ | undefined) => this.heightPreview(p1, p2, heightPoint),
+            plane: (tmp: XYZ | undefined) => this.findPlane(this.stepDatas[0].view, midpoint, tmp),
+            validator: (point: XYZ) => {
+                return point.distanceTo(midpoint) > Precision.Distance;
             },
-            preview: (bulge: XYZ | undefined) => this.arcPreview(p1, p2, bulge),
         };
     };
 
@@ -60,11 +63,17 @@ export class Arc2Point extends CreateCommand {
         return [this.meshPoint(p1), this.meshPoint(point), this.meshLine(p1, point)];
     };
 
-    private readonly arcPreview = (p1: XYZ, p2: XYZ, bulge: XYZ | undefined) => {
-        const result: ShapeMeshData[] = [this.meshPoint(p1), this.meshPoint(p2)];
-        if (!bulge) return result;
-        result.push(this.meshPoint(bulge));
-        const geometry = computeArcFromPoints(p1, bulge, p2);
+    private readonly heightPreview = (p1: XYZ, p2: XYZ, heightPoint: XYZ | undefined) => {
+        const result: ShapeMeshData[] = [this.meshPoint(p1), this.meshPoint(p2), this.meshLine(p1, p2)];
+        if (!heightPoint) return result;
+        const data = this.getActualHeightPoint(p1, p2, heightPoint);
+        if (!data) return result;
+        result.push(
+            this.meshPoint(data.midpoint),
+            this.meshPoint(data.heightPoint),
+            this.meshLine(data.midpoint, data.heightPoint),
+        );
+        const geometry = computeArcFromPoints(p1, data.heightPoint, p2);
         if (geometry && Math.abs(geometry.angle) > Precision.Angle) {
             result.push(
                 this.meshCreatedShape(
@@ -79,13 +88,35 @@ export class Arc2Point extends CreateCommand {
         return result;
     };
 
+    private getActualHeightPoint(p1: XYZ, p2: XYZ, heightPoint: XYZ) {
+        const midpoint = p1.add(p2).multiply(0.5);
+        const direction = p2.sub(p1).normalize()!;
+        const vec = heightPoint.sub(midpoint);
+        if (vec.length() < Precision.Distance || vec.isParallelTo(direction)) return undefined;
+        const normal = vec.cross(direction);
+        const heightDirection = direction.cross(normal).normalize()!;
+        const actualHeight = vec.dot(heightDirection);
+        if (Math.abs(actualHeight) < Precision.Distance) return undefined;
+        return {
+            heightPoint: midpoint.add(heightDirection.multiply(actualHeight)),
+            midpoint,
+            heightDirection,
+        };
+    }
+
     protected override geometryNode(): GeometryNode {
-        const [p1, p2, bulge] = [
+        const [p1, p2, heightPoint] = [
             this.stepDatas[0].point!,
             this.stepDatas[1].point!,
             this.stepDatas[2].point!,
         ];
-        const geometry = computeArcFromPoints(p1, bulge, p2)!;
+        const data = this.getActualHeightPoint(p1, p2, heightPoint);
+        let actualHeightPoint: XYZ = data!.heightPoint;
+        if (this.stepDatas[2].type === "input") {
+            const dist = heightPoint.distanceTo(data!.midpoint);
+            actualHeightPoint = data!.midpoint.add(data!.heightDirection.multiply(dist));
+        }
+        const geometry = computeArcFromPoints(p1, actualHeightPoint, p2)!;
         return new ArcNode({
             document: this.document,
             normal: geometry.normal,

@@ -215,6 +215,7 @@ export const I18N_KEYS = [
     "prompt.deleteDocument{0}",
     "prompt.pickArcBulge",
     "prompt.pickArcEnd",
+    "prompt.pickArcHeight",
     "prompt.pickArcMid",
     "prompt.pickCircleCenter",
     "prompt.pickFistPoint",

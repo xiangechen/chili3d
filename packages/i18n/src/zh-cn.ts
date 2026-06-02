@@ -220,6 +220,7 @@ export default {
         "prompt.deleteDocument{0}": "是否删除 {0} ？",
         "prompt.pickArcBulge": "请选择凸点，按 ESC 键取消",
         "prompt.pickArcEnd": "请选择终点，按 ESC 键取消",
+        "prompt.pickArcHeight": "请选择圆弧高度，按 ESC 键取消",
         "prompt.pickArcMid": "请选择圆弧上的点，按 ESC 键取消",
         "prompt.pickCircleCenter": "请选择圆心  按 ESC 键取消",
         "prompt.pickFistPoint": "请选择第一个点, 按 ESC 键取消",

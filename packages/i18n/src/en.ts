@@ -221,6 +221,7 @@ export default {
         "prompt.deleteDocument{0}": "Do you want to delete {0}?",
         "prompt.pickArcBulge": "pick bulge point, ESC key to cancel",
         "prompt.pickArcEnd": "pick end point, ESC key to cancel",
+        "prompt.pickArcHeight": "input arc height, ESC key to cancel",
         "prompt.pickArcMid": "pick point on arc, ESC key to cancel",
         "prompt.pickCircleCenter": "pick center, ESC key to cancel",
         "prompt.pickFistPoint": "Pick first point, ESC key to cancel",
