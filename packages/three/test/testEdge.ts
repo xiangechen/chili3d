@@ -100,7 +100,9 @@ export class TestEdge implements IEdge {
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         throw new Error("Method not implemented.");
     }
-
+    fixSmallFace(tolerance: number): IShape {
+        throw new Error("Method not implemented.")
+    }
     intersect(other: IEdge | Line) {
         return [];
     }

@@ -52,6 +52,9 @@ class MockShape implements IShape {
     transformed(_matrix: Matrix4): IShape {
         return new MockShape();
     }
+    fixSmallFace(tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
     transformedMul(_matrix: Matrix4): IShape {
         return new MockShape();
     }

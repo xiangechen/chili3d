@@ -92,6 +92,10 @@ class MockShape implements IShape {
         return [];
     }
 
+    fixSmallFace(tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
+
     findSubShapes(subshapeType: ShapeType): IShape[] {
         return [];
     }

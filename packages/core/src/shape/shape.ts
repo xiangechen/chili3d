@@ -44,6 +44,7 @@ export interface IShape extends IDisposable {
     boundingBox(): BoundingBox;
     orientedBoundingBox(): OrientedBoundingBox;
     extremaDistance(other: IShape): number;
+    fixSmallFace(tolerance: number): IShape;
 }
 
 export interface ISubShape extends IShape {

@@ -301,6 +301,10 @@ export class OccShape implements IShape {
         throw new Error("Unsupported type");
     }
 
+    fixSmallFace(tolerance: number): IShape {
+        return OccShape.wrap(wasm.ShapeFactory.fixSmallFace(this.shape, tolerance).shape);
+    }
+
     split(shapes: IShape[]): IShape {
         const occShapes = shapes.map((x) => {
             if (x instanceof OccShape) {

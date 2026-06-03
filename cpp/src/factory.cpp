@@ -35,6 +35,8 @@
 #include <Geom_BezierCurve.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
+#include <ShapeFix_FixSmallFace.hxx>
+#include <ShapeFix_Shape.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
@@ -591,6 +593,22 @@ public:
         }
         return ShapeResult { curveProjection.Shape(), true, "" };
     }
+
+    static ShapeResult fixShape(const TopoDS_Shape& shape)
+    {
+        ShapeFix_Shape fixer(shape);
+        fixer.Perform();
+        return ShapeResult { fixer.Shape(), true, "" };
+    }
+
+    static ShapeResult fixSmallFace(const TopoDS_Shape& shape, double tolerance)
+    {
+        ShapeFix_FixSmallFace fixer;
+        fixer.Init(shape);
+        fixer.SetPrecision(tolerance);
+        fixer.Perform();
+        return ShapeResult { fixer.Shape(), true, "" };
+    }
 };
 
 EMSCRIPTEN_BINDINGS(ShapeFactory)
@@ -632,6 +650,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
         .class_function("chamfer", &ShapeFactory::chamfer)
+        .class_function("fixShape", &ShapeFactory::fixShape)
+        .class_function("fixSmallFace", &ShapeFactory::fixSmallFace)
         .class_function("loft", &ShapeFactory::loft)
         .class_function("curveProjection", &ShapeFactory::curveProjection);
 }
