@@ -78,6 +78,15 @@ export class I18n {
         }
     }
 
+    static replaceTranslation(key: I18nKeys, translations: { language: string, value: string}[]) {
+        for (const translation of translations) {
+            const local = languages.get(translation.language);
+            if (local) {
+                local.translation[key] = translation.value;
+            }
+        }
+    }
+
     static translate(key: I18nKeys, ...args: any[]) {
         const language = languages.get(I18n.currentLanguage());
         if (!language) {
