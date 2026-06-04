@@ -3,9 +3,9 @@
 
 import { VisualConfig } from "../src/config";
 import { Result } from "../src/foundation";
-import { type BoundingBox, Matrix4, type OrientedBoundingBox } from "../src/math";
+import { type BoundingBox, Matrix4, type OrientedBoundingBox, type XYZLike } from "../src/math";
 import * as ShapeNodeClasses from "../src/model/shapeNode";
-import type { EdgeMeshData, IShape, IShapeMeshData } from "../src/shape";
+import type { EdgeMeshData, IFace, IShape, IShapeMeshData } from "../src/shape";
 import { TestDocument } from "./testDocument";
 
 // Mock implementations for testing
@@ -87,6 +87,9 @@ class MockShape implements IShape {
     }
     findSubShapes(_subshapeType: any): IShape[] {
         return [];
+    }
+    findFaceContainsPoint(point: XYZLike, tolerance: number): IFace | undefined {
+        return undefined;
     }
     directSubShapes(): IShape[] {
         return [this];

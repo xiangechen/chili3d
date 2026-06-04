@@ -6,6 +6,7 @@
 #include <Geom_Curve.hxx>
 #include <NCollection_Map.hxx>
 #include <TopTools_ShapeMapHasher.hxx>
+#include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Pnt.hxx>
 
@@ -24,3 +25,4 @@ NCollection_List<TopoDS_Shape> shapeArrayToListOfShape(const ShapeArray& shapes)
 NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> shapeArrayToMapOfShape(const ShapeArray& shapes);
 
 double boundingBoxRatio(const TopoDS_Shape& shape, double linearDeflection, bool useTriangulation);
+std::optional<gp_Pnt2d> pointToFaceUV(const TopoDS_Face& face, gp_Pnt pnt, double tolerance);

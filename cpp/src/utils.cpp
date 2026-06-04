@@ -3,8 +3,11 @@
 
 #include "utils.hpp"
 
+#include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepTools.hxx>
 #include <Bnd_Box.hxx>
+#include <Extrema_ExtPS.hxx>
 #include <GeomAPI_ExtremaCurveCurve.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 
@@ -121,4 +124,37 @@ NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> shapeArrayToMapOfShape(co
         result.Add(s);
     }
     return result;
+}
+
+std::optional<gp_Pnt2d> pointToFaceUV(const TopoDS_Face& face, gp_Pnt pnt, double tolerance)
+{
+    gp_Pnt2d aPuv;
+    double aU1, aU2, aV1, aV2;
+    Extrema_ExtPS aExtrema;
+    BRepAdaptor_Surface aSurf(face, false);
+    BRepTools::UVBounds(face, aU1, aU2, aV1, aV2);
+    aExtrema.Initialize(aSurf, aU1, aU2, aV1, aV2, tolerance, tolerance);
+    aExtrema.Perform(pnt);
+    if (!aExtrema.IsDone()) {
+        return std::nullopt;
+    }
+    int aNbExt = aExtrema.NbExt();
+    if (!aNbExt) {
+        return std::nullopt;
+    }
+    double aMaxDist = RealLast(), aD;
+    int aIndice, i;
+    for (i = 1; i <= aNbExt; ++i) {
+        aD = aExtrema.SquareDistance(i);
+        if (aD < aMaxDist) {
+            aMaxDist = aD;
+            aIndice = i;
+        }
+    }
+    if (aIndice && aMaxDist <= tolerance) {
+        aExtrema.Point(aIndice).Parameter(aU1, aU2);
+        aPuv.SetCoord(aU1, aU2);
+        return aPuv;
+    }
+    return std::nullopt;
 }

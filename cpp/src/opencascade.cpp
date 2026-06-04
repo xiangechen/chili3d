@@ -56,6 +56,12 @@ using namespace emscripten;
 EMSCRIPTEN_BINDINGS(opencascade)
 {
     register_optional<TopoDS_Shape>();
+    register_optional<TopoDS_Wire>();
+    register_optional<TopoDS_Face>();
+    register_optional<TopoDS_Solid>();
+    register_optional<TopoDS_Shell>();
+    register_optional<TopoDS_Compound>();
+    register_optional<TopoDS_CompSolid>();
 
     enum_<GeomAbs_Shape>("GeomAbs_Shape")
         .value("GeomAbs_C0", GeomAbs_C0)

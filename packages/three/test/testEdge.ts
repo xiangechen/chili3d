@@ -91,6 +91,9 @@ export class TestEdge implements IEdge {
     findSubShapes(subshapeType: ShapeType): IShape[] {
         throw new Error("Method not implemented.");
     }
+    findFaceContainsPoint(point: XYZLike, tolerance: number): IFace | undefined {
+        throw new Error("Method not implemented.");
+    }
     directSubShapes(): IShape[] {
         throw new Error("Method not implemented.");
     }
@@ -101,7 +104,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
     fixSmallFace(tolerance: number): IShape {
-        throw new Error("Method not implemented.")
+        throw new Error("Method not implemented.");
     }
     intersect(other: IEdge | Line) {
         return [];

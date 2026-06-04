@@ -54,6 +54,8 @@
 
 #include "shared.hpp"
 #include "utils.hpp"
+#include <BRepClass3d_SolidClassifier.hxx>
+#include <BRepClass_FaceClassifier.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
 
 using namespace emscripten;
@@ -305,6 +307,16 @@ public:
         HLRBRep_HLRToShape hlrToShape(algo);
         return hlrToShape.VCompound();
     }
+
+    static std::optional<TopoDS_Face> findFaceContainsPoint(const TopoDS_Shape& shape, const Vector3& point, double tolerance)
+    {
+        gp_Pnt pnt(point.x, point.y, point.z);
+        BRepClass3d_SolidClassifier classifier(shape, pnt, tolerance);
+        if (classifier.IsOnAFace()) {
+            return classifier.Face();
+        }
+        return std::nullopt;
+    }
 };
 
 class Vertex {
@@ -436,6 +448,23 @@ public:
         return domain;
     }
 
+    static bool pointOnFace(const TopoDS_Face& face, const Vector3& point, bool containsEdge, double tolerance)
+    {
+        gp_Pnt pnt(point.x, point.y, point.z);
+
+        auto aPuv = pointToFaceUV(face, pnt, tolerance);
+        if (!aPuv.has_value()) {
+            return false;
+        }
+
+        BRepClass_FaceClassifier classifier(face, aPuv.value(), tolerance);
+        auto state = classifier.State();
+        if (containsEdge && state == TopAbs_ON) {
+            return true;
+        }
+        return state == TopAbs_IN;
+    }
+
     static std::optional<Vector3> intersectLine(const TopoDS_Face& face, const Vector3& point, const Vector3& direction, double tolerance)
     {
         gp_Lin line(gp_Pnt(point.x, point.y, point.z), gp_Dir(direction.x, direction.y, direction.z));
@@ -496,6 +525,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
+        .class_function("findFaceContainsPoint", &Shape::findFaceContainsPoint)
         .class_function("getDirectSubShapes", &Shape::getDirectSubShapes)
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
@@ -530,7 +560,8 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("surface", &Face::surface)
         .class_function("normal", &Face::normal)
         .class_function("intersectLine", &Face::intersectLine)
-        .class_function("curveOnSurface", &Face::curveOnSurface);
+        .class_function("curveOnSurface", &Face::curveOnSurface)
+        .class_function("pointOnFace", &Face::pointOnFace);
 
     class_<Solid>("Solid").class_function("volume", &Solid::volume);
 }

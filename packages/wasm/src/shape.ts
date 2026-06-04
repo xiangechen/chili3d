@@ -276,6 +276,12 @@ export class OccShape implements IShape {
         return wasm.Shape.findSubShapes(this.shape, getShapeEnum(subshapeType)).map((x) => OccShape.wrap(x));
     }
 
+    findFaceContainsPoint(point: XYZLike, tolerance: number): IFace | undefined {
+        const shape = wasm.Shape.findFaceContainsPoint(this.shape, point, tolerance);
+        if (!shape) return undefined;
+        return new OccFace({ shape });
+    }
+
     directSubShapes(): IShape[] {
         let subShape = wasm.Shape.getDirectSubShapes(this.shape);
         if (subShape.length === 1 && subShape[0].shapeType() === this.shape.shapeType()) {
@@ -574,6 +580,9 @@ export class OccFace extends OccShape implements IFace {
             return domain;
         }
         return undefined;
+    }
+    pointOnFace(point: XYZLike, containsEdge: boolean, tolerance: number) {
+        return wasm.Face.pointOnFace(this.face, point, containsEdge, tolerance);
     }
 }
 

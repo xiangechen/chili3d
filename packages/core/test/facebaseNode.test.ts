@@ -4,6 +4,7 @@
 import type {
     BoundingBox,
     EdgeMeshData,
+    IFace,
     IShape,
     IShapeMeshData,
     OrientedBoundingBox,
@@ -98,6 +99,10 @@ class MockShape implements IShape {
 
     findSubShapes(subshapeType: ShapeType): IShape[] {
         return [];
+    }
+
+    findFaceContainsPoint(point: XYZLike, tolerance: number): IFace | undefined {
+        return undefined;
     }
 
     directSubShapes(): IShape[] {

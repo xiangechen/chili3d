@@ -35,6 +35,7 @@ export interface IShape extends IDisposable {
     orientation(): Orientation;
     findAncestor(ancestorType: ShapeType, fromShape: IShape): IShape[];
     findSubShapes(subshapeType: ShapeType): IShape[];
+    findFaceContainsPoint(point: XYZLike, tolerance: number): IFace | undefined;
     directSubShapes(): IShape[];
     section(shape: IShape | Plane): IShape;
     split(shapes: IShape[]): IShape;
@@ -93,6 +94,7 @@ export interface IFace extends IShape {
               start: number;
               end: number;
           };
+    pointOnFace(point: XYZLike, containsEdge: boolean, tolerance: number): boolean;
 }
 
 export interface IShell extends IShape {}
