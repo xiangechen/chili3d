@@ -78,7 +78,7 @@ abstract class ConvertCommand extends CancelableCommand {
                 if (x === undefined) return false;
                 const shape = x.shape.value;
                 if (shape === undefined) return false;
-                if (filter !== undefined && !filter.allow(shape)) return false;
+                if (filter !== undefined && !filter.allow(shape, x.transform)) return false;
                 return true;
             });
     }

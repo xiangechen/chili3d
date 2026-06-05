@@ -116,7 +116,7 @@ export class Selection implements ISelection, IDisposable {
         if (x instanceof ShapeNode) {
             const shape = x.shape.value;
             if (!shape || !this.shapeFilter) return true;
-            return this.shapeFilter.allow(shape);
+            return this.shapeFilter.allow(shape, x.transform);
         }
 
         if (this.nodeFilter) {

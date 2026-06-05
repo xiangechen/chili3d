@@ -486,11 +486,11 @@ export class ThreeView extends Observable implements IView {
         const node = this.getParentNode(obj);
         const shape = node?.shape.unchecked();
         if (shape === undefined || cache.has(shape)) return;
-
+        const transform = ThreeHelper.toMatrix(obj.parent!.matrixWorld);
         const addShape = (indexes: number[]) => {
             detecteds.push({
                 shape,
-                transform: ThreeHelper.toMatrix(obj.parent!.matrixWorld),
+                transform,
                 owner: obj.parent as any,
                 indexes,
             });
@@ -502,7 +502,7 @@ export class ThreeView extends Observable implements IView {
             return;
         }
         if ((shape.shapeType & shapeType) === 0) return;
-        if ((shapeFilter && !shapeFilter.allow(shape)) || (nodeFilter && !nodeFilter.allow(node!))) return;
+        if ((shapeFilter && !shapeFilter.allow(shape, transform)) || (nodeFilter && !nodeFilter.allow(node!))) return;
 
         const groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
         addShape([...Array(groups?.length).keys()]);
@@ -557,7 +557,7 @@ export class ThreeView extends Observable implements IView {
 
             if (
                 !shape ||
-                (shapeFilter && !shapeFilter.allow(shape)) ||
+                (shapeFilter && !shapeFilter.allow(shape, parent.worldTransform())) ||
                 (nodeFilter && !nodeFilter.allow(parent.geometryNode))
             ) {
                 continue;
@@ -591,18 +591,19 @@ export class ThreeView extends Observable implements IView {
                     visualShape,
                     intersected,
                 );
+                const nodeWorldTransform = visualShape.worldTransform();
+                const shapeTransform = transform ? nodeWorldTransform.multiply(transform) : nodeWorldTransform;
                 if (
                     !shape ||
-                    (shapeFilter && !shapeFilter.allow(shape)) ||
+                    (shapeFilter && !shapeFilter.allow(shape, shapeTransform)) ||
                     (nodeFilter && !nodeFilter.allow(visualShape.node))
                 ) {
                     continue;
                 }
-                const nodeWorldTransform = visualShape.worldTransform();
                 result.push({
                     owner: visualShape,
                     shape,
-                    transform: transform ? nodeWorldTransform.multiply(transform) : nodeWorldTransform,
+                    transform: shapeTransform,
                     point: ThreeHelper.toXYZ(intersected.pointOnLine ?? intersected.point),
                     indexes,
                 });
