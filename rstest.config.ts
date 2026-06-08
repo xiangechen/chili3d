@@ -3,10 +3,9 @@ import { defineConfig } from "@rstest/core";
 import packages from "./package.json";
 
 export default defineConfig({
-    exclude: ["**/cpp/**", "**/*.wasm.test.ts"],
+    exclude: ["**/cpp/**"],
     globals: true,
     testEnvironment: "happy-dom",
-    setupFiles: ["./rstest-setup.ts"],
     tools: {
         rspack: {
             plugins: [

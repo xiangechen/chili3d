@@ -22,15 +22,6 @@ async function handleApplicaionBuilt(app: IApplication) {
         Logger.info(`loading file from: ${url}`);
         await app.loadFileFromUrl(url);
     }
-
-    // ?live (optionally ?live=ws://host:port) connects this session to the MCP live
-    // bridge so an AI can edit the model the user is looking at. Lazy-loaded so it
-    // adds nothing to the normal bundle path.
-    const live = params.get("live");
-    if (live !== null) {
-        const { connectLive } = await import("./live");
-        connectLive(app, live || "ws://localhost:8765");
-    }
 }
 
 // prettier-ignore
