@@ -1,8 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { Config } from "../config";
 import { Precision } from "../foundation";
-import { Line, Plane, XYZ } from "../math";
+import { Line, MathUtils, Plane, XYZ } from "../math";
 import type { IView } from "./view";
 
 export class ViewUtils {
@@ -39,7 +40,10 @@ export class ViewUtils {
 
     static raycastClosestPlane(view: IView, start: XYZ, end: XYZ): Plane {
         const direction = view.direction();
-        if (Math.abs(direction.dot(view.workplane.normal)) < Precision.Float) {
+        if (
+            !Config.instance.dynamicWorkplane &&
+            Math.abs(direction.dot(view.workplane.normal)) < Precision.Float
+        ) {
             const left = direction.cross(view.up());
             return new Plane({ origin: start, normal: direction, xvec: left });
         }
@@ -50,17 +54,20 @@ export class ViewUtils {
             new Plane({ origin: start, normal: XYZ.unitX, xvec: XYZ.unitY }),
             new Plane({ origin: start, normal: XYZ.unitY, xvec: XYZ.unitZ }),
         ];
-
+        const absDots = planes.map((p) => Math.abs(p.normal.dot(direction)));
         const distances = planes.map((p) => p.intersectLine(ray)?.distanceTo(start));
-        let result: [Plane, number | undefined] = [planes[0], distances[0]];
+        let result: [Plane, number | undefined, number] = [planes[0], distances[0], absDots[0]];
         for (let i = 1; i < distances.length; i++) {
             if (distances[i] === undefined) continue;
 
-            if (result[1] === undefined || Math.abs(distances[i]!) < Math.abs(result[1])) {
-                result = [planes[i], distances[i]];
+            if (
+                result[1] === undefined ||
+                (MathUtils.almostEqual(distances[i]!, result[1]) && absDots[i]! > result[2]) ||
+                Math.abs(distances[i]!) < Math.abs(result[1])
+            ) {
+                result = [planes[i], distances[i], absDots[i]];
             }
         }
-
         return result[0];
     }
 }
