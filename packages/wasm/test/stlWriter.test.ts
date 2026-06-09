@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { meshesToStl } from "@chili3d/wasm/src/stlWriter";
 import { describe, expect, test } from "@rstest/core";
-import { meshesToStl } from "../src/shape/stlWriter";
 
 // One triangle in the z=0 plane, wound CCW → geometric normal points +Z.
 const TRI = { position: [0, 0, 0, 1, 0, 0, 0, 1, 0], index: [0, 1, 2] };

@@ -14,10 +14,10 @@ import {
     Material,
     Result,
     type StlExportOptions,
-    shapesToStl,
 } from "@chili3d/core";
 import type { ShapeNode } from "../lib/chili-wasm";
 import { OccShape } from "./shape";
+import { shapesToStl } from "./stlWriter";
 
 export class OccShapeConverter implements IShapeConverter {
     private readonly addShapeNode = (

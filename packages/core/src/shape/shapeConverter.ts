@@ -5,7 +5,6 @@ import type { IDocument } from "../document";
 import type { Result } from "../foundation";
 import type { FolderNode } from "../model";
 import type { IShape } from "./shape";
-import type { StlExportOptions } from "./stlWriter";
 
 export interface IShapeConverter {
     convertToIGES(...shapes: IShape[]): Result<string>;
@@ -20,4 +19,11 @@ export interface IShapeConverter {
      */
     convertToSTL(shapes: IShape[], options?: StlExportOptions): Result<Uint8Array>;
     convertFromSTL(document: IDocument, stl: Uint8Array): Result<FolderNode>;
+}
+
+export interface StlExportOptions {
+    /** Binary STL when true (default), ASCII otherwise. */
+    binary?: boolean;
+    /** Solid name written into the ASCII header (ignored for binary). */
+    name?: string;
 }
