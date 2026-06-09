@@ -461,11 +461,15 @@ public:
         const TopoDS_Shape& shape,
         const bool theUnifyEdges,
         const bool theUnifyFaces,
-        const ShapeArray& keepShapes)
+        const ShapeArray& keepShapes,
+        double linearTolerance,
+        double angularTolerance)
     {
         auto keepShapesList = shapeArrayToMapOfShape(keepShapes);
 
         ShapeUpgrade_UnifySameDomain anUnifier(shape, theUnifyEdges, theUnifyFaces, true);
+        anUnifier.SetLinearTolerance(linearTolerance);
+        anUnifier.SetAngularTolerance(angularTolerance);
         anUnifier.KeepShapes(keepShapesList);
         anUnifier.Build();
 

@@ -70,5 +70,7 @@ export interface IShapeFactory {
         removeEdges: boolean,
         removeFaces: boolean,
         keepShapes: IShape[],
+        linearTolerance?: number,
+        angleTolerance?: number,
     ): Result<IShape>;
 }
