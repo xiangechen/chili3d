@@ -5,7 +5,6 @@ import {
     AsyncController,
     command,
     Dimensions,
-    EdgeMeshDataBuilder,
     I18n,
     type IEdge,
     type IStep,
@@ -20,7 +19,7 @@ import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.pipe",
-    icon: "icon-pipe", // Ensure this icon exists
+    icon: "icon-pipe",
 })
 export class Pipe extends MultistepCommand {
     @property("circle.radius")
@@ -37,10 +36,9 @@ export class Pipe extends MultistepCommand {
     };
 
     protected override executeMainTask(): void {
-        const points = this.stepDatas.map((s) => s.point!).filter((p) => !!p);
+        const points = this.stepDatas.map((s) => s.point).filter((p): p is XYZ => !!p);
         if (points.length < 2) return;
 
-        // Build edges
         const edges: IEdge[] = [];
         for (let i = 0; i < points.length - 1; i++) {
             const result = shapeFactory.line(points[i], points[i + 1]);
@@ -48,17 +46,15 @@ export class Pipe extends MultistepCommand {
                 edges.push(result.value);
             }
         }
+
         const pathResult = shapeFactory.wire(edges);
         if (!pathResult.isOk) return;
-        const path = pathResult.value;
 
-        const node = new PipeNode({ document: this.document, radius: this.radius, path });
-        // Add to document
+        const node = new PipeNode({ document: this.document, radius: this.radius, path: pathResult.value });
         this.document.modelManager.addNode(node);
         this.document.selection.setSelection([node], false);
     }
 
-    // Logic from Polygon for dynamic steps
     protected override async executeSteps(): Promise<boolean> {
         const steps = this.getSteps();
         let firstStep = true;
@@ -67,17 +63,13 @@ export class Pipe extends MultistepCommand {
             if (firstStep) firstStep = false;
 
             this.controller = new AsyncController();
-            // Pass controller to be able to cancel/finish
             const data = await step.execute(this.document, this.controller);
 
             if (data === undefined) {
-                // If data is undefined, it might be a confirm (success) or cancel (fail)
                 return this.controller.result?.status === "success";
             }
 
             this.stepDatas.push(data);
-            // Unlike polygon, we don't auto-close on point match, user must confirm/finish?
-            // Or we can double click (simulate confirm)?
         }
     }
 
@@ -89,43 +81,44 @@ export class Pipe extends MultistepCommand {
 
     private readonly getNextData = (): PointSnapData => {
         const lastPoint = this.stepDatas.at(-1)?.point;
-        return {
-            refPoint: () => lastPoint!, // refPoint expects XYZ, force it (checked in logic)
+        const firstPoint = this.stepDatas.at(0)?.point;
+        const data: PointSnapData = {
+            refPoint: () => {
+                if (!lastPoint) throw new Error("Missing last point for snap reference");
+                return lastPoint;
+            },
             dimension: Dimensions.D1D2D3,
             preview: this.preview,
-            featurePoints: [
-                {
-                    point: this.stepDatas.at(0)?.point!, // Not closing, but confirming?
-                    prompt: I18n.translate("common.confirm"), // Or "Finish"?
-                    when: () => this.stepDatas.length > 1,
-                    // Wait, Polygon logic uses featurePoints to detect closure.
-                    // We can use it to let user click on last point to finish?
-                    // Or first point?
-                    // Let's rely on the property button "Confirm" or Double click/Enter (which controller handles).
-                },
-            ],
         };
+        if (firstPoint && this.stepDatas.length > 1) {
+            data.featurePoints = [
+                {
+                    point: firstPoint,
+                    prompt: I18n.translate("common.confirm"),
+                    when: () => this.stepDatas.length > 1,
+                },
+            ];
+        }
+        return data;
     };
 
     private readonly preview = (point: XYZ | undefined): ShapeMeshData[] => {
-        const ps = this.stepDatas.map((data) => this.meshPoint(data.point!));
-        const edges = new EdgeMeshDataBuilder();
-        this.stepDatas.forEach((data, index) => {
-            if (index < this.stepDatas.length - 1) {
-                // edges.addPosition ... but we need lines between them
-            }
-        });
+        const validPts: XYZ[] = [];
+        for (const s of this.stepDatas) {
+            if (s.point) validPts.push(s.point);
+        }
 
-        // Simpler: just recreate lines
+        const meshPts = validPts.map((p) => this.meshPoint(p));
         const lines: ShapeMeshData[] = [];
-        for (let i = 0; i < this.stepDatas.length - 1; i++) {
-            lines.push(this.meshLine(this.stepDatas[i].point!, this.stepDatas[i + 1].point!));
+
+        for (let i = 0; i < validPts.length - 1; i++) {
+            lines.push(this.meshLine(validPts[i], validPts[i + 1]));
         }
 
-        if (point && this.stepDatas.length > 0) {
-            lines.push(this.meshLine(this.stepDatas.at(-1)!.point!, point));
+        if (point && validPts.length > 0) {
+            lines.push(this.meshLine(validPts[validPts.length - 1], point));
         }
 
-        return [...ps, ...lines]; // spread
+        return [...meshPts, ...lines];
     };
 }
