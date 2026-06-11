@@ -1,4 +1,6 @@
 {
     "plugins": [
+        "macro",
+        "visual-programming"
     ]
 }

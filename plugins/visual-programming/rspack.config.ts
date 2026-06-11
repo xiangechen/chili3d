@@ -3,7 +3,7 @@ import rspack from "@rspack/core";
 import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
 
 export default defineConfig({
-    devtool: "source-map",
+    devtool: process.env.NODE_ENV === "production" ? false : "source-map",
     entry: {
         main: "./src/index.ts",
     },

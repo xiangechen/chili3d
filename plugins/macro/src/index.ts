@@ -1,17 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { CommandKeys, Plugin } from "@chili3d/core";
+import type { CommandKeys, Plugin, RibbonGroupKeys, RibbonTabKeys } from "@chili3d/core";
 import { MacroCommand } from "./commands/macro";
 
 const MacroPlugin: Plugin = {
     commands: [MacroCommand],
     ribbons: [
         {
-            tabName: "ribbon.tab.manager",
+            tabName: "ribbon.tab.plugin" as RibbonTabKeys,
             groups: [
                 {
-                    groupName: "ribbon.group.other",
+                    groupName: "ribbon.group.plugin" as RibbonGroupKeys,
                     items: ["macro.open" as CommandKeys],
                 },
             ],

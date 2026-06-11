@@ -6,7 +6,7 @@
     "author": "仙阁",
     "type": "module",
     "scripts": {
-        "build": "rspack build",
+        "build": "rspack build && node scripts/build-plugins.mjs",
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
         "build:types": "node scripts/generate_types.mjs",
         "check": "biome check --write",
