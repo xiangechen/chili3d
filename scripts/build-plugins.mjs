@@ -6,15 +6,35 @@ import { cp, mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+/**
+ * Parse CLI arguments of the form --key value or -k value.
+ * @returns {Record<string, string>}
+ */
+function parseArgs() {
+    const args = process.argv.slice(2);
+    const opts = {};
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if ((arg === "--input" || arg === "-i") && i + 1 < args.length) {
+            opts.input = path.resolve(args[++i]);
+        } else if ((arg === "--output" || arg === "-o") && i + 1 < args.length) {
+            opts.output = path.resolve(args[++i]);
+        }
+    }
+    return opts;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
+const cliOpts = parseArgs();
+
+const pluginsBase = cliOpts.input || path.join(rootDir, "plugins");
+const targetBase = cliOpts.output || path.join(rootDir, "dist", "plugins");
 
 const PLUGINS = [
-    { name: "macro", dir: path.join(rootDir, "plugins", "macro") },
-    { name: "visual-programming", dir: path.join(rootDir, "plugins", "visual-programming") },
+    { name: "macro", dir: path.join(pluginsBase, "macro") },
+    { name: "visual-programming", dir: path.join(pluginsBase, "visual-programming") },
 ];
-
-const targetBase = path.join(rootDir, "dist", "plugins");
 
 /**
  * Copy a directory recursively from src to dest.
@@ -38,6 +58,8 @@ async function copyDir(src, dest) {
 }
 
 async function main() {
+    console.log(`[build-plugins] Plugins source: ${pluginsBase}`);
+    console.log(`[build-plugins] Output target:  ${targetBase}`);
     console.log("[build-plugins] Building plugins...\n");
 
     for (const plugin of PLUGINS) {
@@ -60,7 +82,7 @@ async function main() {
         const manifest = path.join(plugin.dir, "manifest.json");
         const icons = path.join(plugin.dir, "icons");
         const targetDir = path.join(targetBase, plugin.name);
-        console.log(`[build-plugins] Copying ${pluginDist} → ${targetDir}`);
+        console.log(`[build-plugins] Copying ${plugin.dir} → ${targetDir}`);
         try {
             await copyDir(pluginDist, path.join(targetDir, "dist"));
             await copyDir(icons, path.join(targetDir, "icons"));
