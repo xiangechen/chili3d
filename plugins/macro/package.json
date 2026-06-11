@@ -10,8 +10,10 @@
         "package": "npm run build && node ../scripts/package-plugin.mjs dist/macro.chiliplugin manifest.json icons dist"
     },
     "devDependencies": {
-        "@chili3d/core": "0.7.0-beta.3",
-        "@chili3d/element": "0.7.0-beta.3",
+        "@chili3d/core": "0.7.0-beta.4",
+        "@chili3d/element": "0.7.0-beta.4",
+        "@rspack/cli": "2.0.3",
+        "@rspack/core": "2.0.3",
         "typescript": "^5.0.0"
     },
     "keywords": [

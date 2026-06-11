@@ -1,0 +1,13 @@
+{
+    "name": "Visual Programming Plugin",
+    "version": "1.0.0",
+    "description": "A Grasshopper-style visual programming plugin for Chili3D",
+    "main": "dist/extension.js",
+    "css": "dist/extension.css",
+    "author": {
+        "name": "Chili3D Team"
+    },
+    "engines": {
+        "chili3d": ">=0.6"
+    }
+}

@@ -1,0 +1,42 @@
+{
+    "name": "visual-programming",
+    "version": "1.0.0",
+    "description": "Visual programming plugin for Chili3D",
+    "main": "extension.js",
+    "type": "module",
+    "scripts": {
+        "build": "rspack build",
+        "preview": "npm run build && echo 'Debug URL: http://localhost:8080?plugin=http://localhost:8686' && npx servitsy -p 8686 --cors",
+        "package": "npm run build && node ../scripts/package-plugin.mjs dist/visual-programming.chiliplugin manifest.json icons dist"
+    },
+    "dependencies": {
+        "@retejs/lit-plugin": "^2.0.7",
+        "rete": "^2.0.4",
+        "rete-area-plugin": "^2.0.1",
+        "rete-auto-arrange-plugin": "^2.0.2",
+        "rete-comment-plugin": "^2.1.2",
+        "rete-connection-plugin": "^2.0.1",
+        "rete-connection-reroute-plugin": "^2.0.3",
+        "rete-context-menu-plugin": "^2.0.6",
+        "rete-engine": "^2.1.1",
+        "rete-history-plugin": "^2.1.1",
+        "rete-minimap-plugin": "^2.0.3",
+        "rete-render-utils": "^2.0.3"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.4.15",
+        "@rspack/cli": "2.0.3",
+        "@rspack/core": "2.0.3",
+        "@chili3d/core": "0.7.0-beta.4",
+        "@chili3d/element": "0.7.0-beta.4",
+        "ts-checker-rspack-plugin": "^1.2.6",
+        "typescript": "^6.0.3"
+    },
+    "keywords": [
+        "chili3d",
+        "plugin",
+        "visual-programming",
+        "node-editor"
+    ],
+    "author": "Chili3D Team"
+}

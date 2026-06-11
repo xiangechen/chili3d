@@ -1,0 +1,139 @@
+.background {
+    display: block;
+    z-index: -1;
+    position: absolute;
+    top: -320000px;
+    left: -320000px;
+    width: 640000px;
+    height: 640000px;
+    opacity: 0.5;
+    background-image:
+        linear-gradient(var(--border-color) 3.2px, transparent 3.2px),
+        linear-gradient(90deg, var(--border-color) 3.2px, transparent 3.2px),
+        linear-gradient(var(--border-color) 1.6px, transparent 1.6px),
+        linear-gradient(90deg, var(--border-color) 1.6px, transparent 1.6px);
+    background-size:
+        80px 80px,
+        80px 80px,
+        16px 16px,
+        16px 16px;
+    background-position:
+        -3.2px -3.2px,
+        -3.2px -3.2px,
+        -1.6px -1.6px,
+        -1.6px -1.6px;
+}
+
+.root {
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+svg {
+    color: inherit;
+    fill: currentColor;
+}
+
+.tools {
+    display: flex;
+    flex-direction: row;
+    background-color: var(--background-color);
+    overflow-y: hidden;
+    overflow-x: auto;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 6px;
+
+    .group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2px;
+        border-radius: 6px;
+        background-color: var(--panel-background-color);
+
+        .groupContent {
+            display: grid;
+            grid-template-rows: repeat(3, auto);
+            grid-auto-flow: column;
+            gap: 4px;
+            padding: 2px;
+            max-width: 100%;
+            flex: 1 0 auto;
+            margin: 0;
+        }
+
+        label {
+            flex: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-color);
+            text-align: center;
+            width: 100%;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--control-background-color);
+        }
+    }
+}
+
+.toolButton {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-color);
+    transition: all 0.15s ease;
+    text-wrap: nowrap;
+
+    &:hover {
+        background: var(--hover-background-color);
+    }
+
+    &:active {
+        background: var(--active-background-color);
+    }
+}
+
+.icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    stroke-width: 2;
+}
+
+.view {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+}
+
+.view.waiting {
+    cursor: crosshair;
+}
+
+.previewNode {
+    position: absolute;
+    width: 60px;
+    height: 20px;
+    border: 2px solid var(--primary-color);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    padding: 0;
+    margin: 0;
+}
+
+.previewNode.visible {
+    display: block;
+}

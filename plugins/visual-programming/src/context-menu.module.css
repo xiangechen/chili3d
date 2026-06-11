@@ -1,0 +1,66 @@
+rete-context-menu {
+    --context-color: rgba(40, 44, 52, 0.95);
+    --context-color-light: rgba(55, 60, 72, 0.95);
+    --context-color-dark: rgba(25, 28, 35, 0.95);
+    --context-menu-round: 8px;
+    --menu-width: 160px;
+    background-image: none;
+}
+
+rete-context-menu .menu {
+    border-radius: var(--context-menu-round);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px);
+    padding: 6px;
+}
+
+rete-context-menu .search {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 10px;
+    transition: all 0.15s ease;
+    margin-bottom: 6px;
+}
+
+rete-context-menu .search:focus {
+    outline: none;
+    border-color: rgba(100, 180, 255, 0.5);
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.2);
+}
+
+rete-context-menu .search::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+rete-context-menu-item {
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+rete-context-menu-item:first-child {
+    border-top-left-radius: var(--context-menu-round);
+    border-top-right-radius: var(--context-menu-round);
+}
+
+rete-context-menu-item:last-child {
+    border-bottom-left-radius: var(--context-menu-round);
+    border-bottom-right-radius: var(--context-menu-round);
+}
+
+rete-context-menu-item:hover {
+    background-color: var(--context-color-light);
+}
+
+rete-context-menu-block {
+    border-bottom: none;
+    padding: 6px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+}
