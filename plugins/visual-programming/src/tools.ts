@@ -6,6 +6,7 @@ import { BoxNode } from "./nodes/geometry/box";
 import { CircleNode } from "./nodes/geometry/circle";
 import { DivideCurveNode } from "./nodes/geometry/divideCurve";
 import { EdgeCurveNode } from "./nodes/geometry/edgeCurve";
+import { FaceSurfaceNode } from "./nodes/geometry/faceSurface";
 import { LineNode } from "./nodes/geometry/line";
 import { PointNode } from "./nodes/geometry/point";
 import { RectNode } from "./nodes/geometry/rect";
@@ -173,11 +174,6 @@ export const tools: ToolGroup[] = [
                 node: DivideCurveNode,
             },
             {
-                display: "vp.nodes.edgeCurve",
-                icon: "icon-edgeCurve",
-                node: EdgeCurveNode,
-            },
-            {
                 display: "vp.nodes.circle",
                 icon: "icon-circle",
                 node: CircleNode,
@@ -201,6 +197,16 @@ export const tools: ToolGroup[] = [
                 display: "vp.nodes.plane",
                 icon: "icon-pingmian",
                 node: PlaneNode,
+            },
+            {
+                display: "vp.nodes.edgeCurve",
+                icon: "icon-edgeCurve",
+                node: EdgeCurveNode,
+            },
+            {
+                display: "vp.nodes.faceSurface",
+                icon: "icon-faceSurface",
+                node: FaceSurfaceNode,
             },
         ],
     },

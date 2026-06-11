@@ -22,7 +22,7 @@ export class ArcNode extends GeometryBaseNode<
         this.addInput("center", new ClassicPreset.Input(editor.socket, "center"));
         this.addInput("start", new ClassicPreset.Input(editor.socket, "start"));
         this.addInput("angle", new ClassicPreset.Input(editor.socket, "angle"));
-        this.addOutput("value", new ClassicPreset.Output(editor.socket, "arc"));
+        this.addOutput("value", new ClassicPreset.Output(editor.socket, "edge"));
     }
 
     override createShape(inputs: {

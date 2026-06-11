@@ -23,6 +23,7 @@ export const VPI18nsKeys = [
     "vp.nodes.pyramid",
     "vp.nodes.divideCurve",
     "vp.nodes.edgeCurve",
+    "vp.nodes.faceSurface",
     "vp.nodes.line",
     "vp.nodes.circle",
     "vp.nodes.arc",

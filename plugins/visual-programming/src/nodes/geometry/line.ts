@@ -15,7 +15,7 @@ export class LineNode extends GeometryBaseNode<
         super(editor, "Line");
         this.addInput("start", new ClassicPreset.Input(editor.socket, "start"));
         this.addInput("end", new ClassicPreset.Input(editor.socket, "end"));
-        this.addOutput("value", new ClassicPreset.Output(editor.socket, "line"));
+        this.addOutput("value", new ClassicPreset.Output(editor.socket, "edge"));
     }
 
     override createShape(inputs: { start?: XYZ[][]; end?: XYZ[][] }) {

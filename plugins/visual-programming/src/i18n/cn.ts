@@ -23,6 +23,7 @@ export const cn = {
         "vp.toolbar.curve": "曲线",
         "vp.nodes.divideCurve": "曲线分段",
         "vp.nodes.edgeCurve": "提取曲线",
+        "vp.nodes.faceSurface": "提取面",
         "vp.toolbar.input": "输入",
         "vp.toolbar.output": "输出",
         "vp.nodes.box": "长方体",

@@ -27,6 +27,7 @@ export const en = {
         "vp.nodes.sphere": "Sphere",
         "vp.nodes.divideCurve": "DivideCurve",
         "vp.nodes.edgeCurve": "EdgeCurve",
+        "vp.nodes.faceSurface": "FaceSurface",
         "vp.nodes.cylinder": "Cylinder",
         "vp.nodes.cone": "Cone",
         "vp.nodes.pyramid": "Pyramid",

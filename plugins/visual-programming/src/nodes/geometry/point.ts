@@ -14,7 +14,7 @@ export class PointNode extends GeometryBaseNode<
     constructor(editor: INodeEditor) {
         super(editor, "Point");
         this.addInput("xyz", new ClassicPreset.Input(editor.socket, "xyz"));
-        this.addOutput("value", new ClassicPreset.Output(editor.socket, "point"));
+        this.addOutput("value", new ClassicPreset.Output(editor.socket, "vertex"));
     }
 
     override createShape(inputs: { xyz?: XYZ[][] }) {

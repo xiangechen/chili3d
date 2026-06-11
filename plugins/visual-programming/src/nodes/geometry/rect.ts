@@ -16,7 +16,7 @@ export class RectNode extends GeometryBaseNode<
         this.addInput("plane", new ClassicPreset.Input(editor.socket, "plane"));
         this.addInput("dx", new ClassicPreset.Input(editor.socket, "dx"));
         this.addInput("dy", new ClassicPreset.Input(editor.socket, "dy"));
-        this.addOutput("value", new ClassicPreset.Output(editor.socket, "rect"));
+        this.addOutput("value", new ClassicPreset.Output(editor.socket, "face"));
     }
 
     override createShape(inputs: { plane?: Plane[][]; dx?: number[][]; dy?: number[][] }) {
