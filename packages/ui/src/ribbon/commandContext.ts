@@ -1,7 +1,6 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MultistepCommand } from "@chili3d/app";
 import {
     Binding,
     CancelableCommand,
@@ -213,7 +212,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
             throw new Error("MaterialEditor only support CancelableCommand");
         }
 
-        const material = this.command.document.modelManager.materials.find((x) => x.id === noType[g.name])!;
+        const document = this.command.document;
+        const material = document.modelManager.materials.find((x) => x.id === noType[g.name])!;
         const display = material.clone();
 
         return button({
@@ -227,13 +227,11 @@ export class CommandContext extends HTMLElement implements IDisposable {
             },
             textContent: new Localize(g.display),
             onclick: () => {
-                if (this.command instanceof MultistepCommand) {
-                    PubSub.default.pub("editMaterial", this.command.document, material, (newMaterial) => {
-                        noType[g.name] = newMaterial.id;
-                        display.color = newMaterial.color;
-                        display.map = newMaterial.map;
-                    });
-                }
+                PubSub.default.pub("editMaterial", document, material, (newMaterial) => {
+                    noType[g.name] = newMaterial.id;
+                    display.color = newMaterial.color;
+                    display.map = newMaterial.map;
+                });
             },
         });
     }

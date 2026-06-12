@@ -6,6 +6,7 @@
     "devDependencies": {
         "@types/three": "0.184.1",
         "@chili3d/core": "*",
+        "@chili3d/element": "*",
         "three": "0.184.0",
         "three-mesh-bvh": "0.9.0"
     }
