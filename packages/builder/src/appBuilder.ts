@@ -124,7 +124,7 @@ export class AppBuilder {
 
     protected async loadDefaultPlugins(app: IApplication) {
         const urlObj = new URL(window.location.href);
-        const pathParts = urlObj.pathname.split("/");
+        const pathParts = urlObj.pathname.split("/").map(x => x.trim()).filter(x => x.length > 0);
         if (pathParts.at(-1)?.endsWith(".html")) pathParts.pop();
         urlObj.pathname = pathParts.join("/") + "/";
         const folderUrl = urlObj.href + "plugins/";
