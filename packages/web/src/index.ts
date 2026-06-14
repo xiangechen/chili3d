@@ -14,8 +14,14 @@ async function handleApplicaionBuilt(app: IApplication) {
     const params = new URLSearchParams(window.location.search);
     const plugin = params.get("plugin");
     if (plugin) {
-        Logger.info(`loading plugin from: ${plugin}`);
-        await app.pluginManager.loadFromUrl(plugin);
+        const pluginUrl = new URL(plugin, window.location.href);
+        if (pluginUrl.origin !== window.location.origin || pluginUrl.protocol !== window.location.protocol) {
+            throw new Error(`Refusing to load plugin from untrusted origin: ${pluginUrl.origin}`);
+        }
+        if (window.confirm(`Load plugin from ${pluginUrl.href}?`)) {
+            Logger.info(`loading plugin from: ${pluginUrl.href}`);
+            await app.pluginManager.loadFromUrl(pluginUrl.href);
+        }
     }
     const url = params.get("url") ?? params.get("model");
     if (url) {
