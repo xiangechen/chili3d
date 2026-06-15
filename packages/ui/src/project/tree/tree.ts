@@ -23,6 +23,7 @@ export class Tree extends HTMLElement {
     private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
     private dragging: INode[] | undefined;
+    private highlightedGroup: TreeGroup | undefined;
 
     constructor(private document: IDocument) {
         super();
@@ -52,6 +53,7 @@ export class Tree extends HTMLElement {
     dispose(): void {
         this.lastClicked = undefined;
         this.dragging = undefined;
+        this.highlightedGroup = undefined;
         this.nodeMap.forEach((x) => x.dispose());
         this.nodeMap.clear();
         this.selectedNodes.clear();
@@ -148,6 +150,7 @@ export class Tree extends HTMLElement {
         item.addEventListener("dragstart", this.onDragStart);
         item.addEventListener("dragover", this.onDragOver);
         item.addEventListener("dragleave", this.onDragLeave);
+        item.addEventListener("dragend", this.onDragEnd);
         item.addEventListener("drop", this.onDrop);
         item.addEventListener("click", this.onClick);
     }
@@ -156,6 +159,7 @@ export class Tree extends HTMLElement {
         item.removeEventListener("dragstart", this.onDragStart);
         item.removeEventListener("dragover", this.onDragOver);
         item.removeEventListener("dragleave", this.onDragLeave);
+        item.removeEventListener("dragend", this.onDragEnd);
         item.removeEventListener("drop", this.onDrop);
         item.removeEventListener("click", this.onClick);
     }
@@ -190,15 +194,27 @@ export class Tree extends HTMLElement {
     }
 
     private readonly onDragLeave = (event: DragEvent) => {
-        if (!this.canDrop(event)) return;
+        if (event.target === this) {
+            this.clearDropTargetHighlight();
+        }
     };
 
     private readonly onDragOver = (event: DragEvent) => {
         if (!this.canDrop(event)) {
+            this.clearDropTargetHighlight();
             return;
         }
         event.preventDefault();
         event.dataTransfer!.dropEffect = "move";
+
+        const group = this.getDropTargetGroup(event.target as HTMLElement);
+        if (group !== this.highlightedGroup) {
+            this.clearDropTargetHighlight();
+            if (group) {
+                this.highlightedGroup = group;
+                group.classList.add(style.dropTarget);
+            }
+        }
     };
 
     private canSelect() {
@@ -239,6 +255,7 @@ export class Tree extends HTMLElement {
     protected onDrop = (event: DragEvent) => {
         event.preventDefault();
         event.stopPropagation();
+        this.clearDropTargetHighlight();
 
         const node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined) return;
@@ -257,10 +274,39 @@ export class Tree extends HTMLElement {
         event.stopPropagation();
         const item = this.getTreeItem(event.target as HTMLElement)?.node;
         this.dragging = NodeUtils.findTopLevelNodes(this.selectedNodes);
-        if (item && !NodeUtils.containsDescendant(this.selectedNodes, item)) {
+        if (
+            item &&
+            !this.dragging.includes(item) &&
+            !NodeUtils.containsDescendant(this.selectedNodes, item)
+        ) {
             this.dragging.push(item);
         }
     };
+
+    private readonly onDragEnd = () => {
+        this.clearDropTargetHighlight();
+        this.dragging = undefined;
+    };
+
+    private getDropTargetGroup(element: HTMLElement): TreeGroup | undefined {
+        const item = this.getTreeItem(element);
+        if (!item) return undefined;
+        if (item instanceof TreeGroup) return item;
+        // TreeModel — find parent TreeGroup in DOM
+        let current: HTMLElement | null = item;
+        while (current) {
+            current = current.parentElement;
+            if (current instanceof TreeGroup) return current;
+        }
+        return undefined;
+    }
+
+    private clearDropTargetHighlight() {
+        if (this.highlightedGroup) {
+            this.highlightedGroup.classList.remove(style.dropTarget);
+            this.highlightedGroup = undefined;
+        }
+    }
 }
 
 customElements.define("ui-tree", Tree);

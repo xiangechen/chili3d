@@ -14,3 +14,8 @@
     opacity: 0.56;
     pointer-events: none;
 }
+
+.dropTarget {
+    outline: 2px solid var(--primary-color);
+    opacity: 0.8;
+}

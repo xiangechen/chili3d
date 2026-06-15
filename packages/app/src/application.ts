@@ -84,13 +84,9 @@ export class Application extends Observable implements IApplication {
 
     private initWindowEvents() {
         window.onbeforeunload = this.handleWindowUnload;
-        this.mainWindow?.addEventListener("dragstart", this.handleDragStart, false);
-        // Use capture to intercept file-drop before nested widgets call stopPropagation().
-        this.mainWindow?.addEventListener("dragover", this.handleDragOver, true);
-        this.mainWindow?.addEventListener("drop", this.handleDrop, true);
-        // Fallback: catch drag/drop anywhere in page, also in capture phase.
-        window.addEventListener("dragover", this.handleDragOver, true);
-        window.addEventListener("drop", this.handleDrop, true);
+        this.mainWindow?.addEventListener("dragstart", this.handleDragStart);
+        this.mainWindow?.addEventListener("dragover", this.handleDragOver);
+        this.mainWindow?.addEventListener("drop", this.handleDrop);
     }
 
     private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
