@@ -112,13 +112,8 @@
     flex: 1;
     min-height: 300px;
     padding: 12px;
-    font-family: "Consolas", "Monaco", "Courier New", monospace;
-    font-size: 0.9em;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    background-color: var(--panel-background-color);
-    color: var(--foreground-color);
-    resize: vertical;
 }
 
 .runButton {

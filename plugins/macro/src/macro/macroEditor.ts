@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type DialogButton, I18n, type I18nKeys, type IApplication, Localize, PubSub } from "@chili3d/core";
+//@ts-expect-error
+import ace from "https://cdn.jsdelivr.net/npm/ace-builds@1.44.0/+esm";
+import {
+    Config,
+    type DialogButton,
+    I18n,
+    type I18nKeys,
+    type IApplication,
+    Localize,
+    PubSub,
+} from "@chili3d/core";
 import { div, input, label, textarea } from "@chili3d/element";
 import style from "./macro.module.css";
 import { runMacro } from "./macroRunner";
@@ -38,7 +48,11 @@ export class MacroEditor extends HTMLElement {
     private macro: MacroDefinition | undefined;
     private onSaveCallback: (() => void) | undefined;
     private nameInput: HTMLInputElement | null = null;
-    private codeTextarea: HTMLTextAreaElement | null = null;
+    private codeTextarea: HTMLDivElement | null = null;
+    private editor?: {
+        getValue: () => string;
+        setTheme: (theme: string) => void;
+    };
 
     constructor(
         readonly app: IApplication,
@@ -51,10 +65,45 @@ export class MacroEditor extends HTMLElement {
         this.macro = macro;
         this.onSaveCallback = onSave;
 
-        const buttons: DialogButton[] = [
+        const dom = this.createDom(macro);
+
+        this.embeddingEditor();
+
+        PubSub.default.pub(
+            "showDialog",
+            (macro ? "macro.editor.titleEdit" : "macro.editor.titleNew") as I18nKeys,
+            dom,
+            this.buttons(),
+        );
+    }
+
+    private embeddingEditor() {
+        ace.config.set("basePath", "https://cdn.jsdelivr.net/npm/ace-builds@1.44.0/src-min-noconflict");
+        this.editor = ace.edit(this.codeTextarea!, {
+            mode: "ace/mode/javascript",
+            selectionStyle: "text",
+        });
+        this.editor?.setTheme(this.isDarkTheme() ? "ace/theme/dracula" : "ace/theme/xcode");
+    }
+
+    private isDarkTheme() {
+        const themeMode = Config.instance.themeMode;
+        let theme: "light" | "dark";
+
+        if (themeMode === "system") {
+            theme = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        } else {
+            theme = themeMode;
+        }
+
+        return theme === "dark";
+    }
+
+    private buttons(): DialogButton[] {
+        return [
             {
                 content: "macro.editor.run" as I18nKeys,
-                onclick: async () => await runMacro(this.app, this.codeTextarea?.value ?? ""),
+                onclick: async () => await runMacro(this.app, this.editor?.getValue() ?? ""),
                 shouldClose: () => false,
             },
             {
@@ -66,13 +115,6 @@ export class MacroEditor extends HTMLElement {
                 content: "common.cancel",
             },
         ];
-
-        PubSub.default.pub(
-            "showDialog",
-            (macro ? "macro.editor.titleEdit" : "macro.editor.titleNew") as I18nKeys,
-            this.createDom(macro),
-            buttons,
-        );
     }
 
     private createDom(macro: MacroDefinition | undefined) {
@@ -82,10 +124,10 @@ export class MacroEditor extends HTMLElement {
             placeholder: I18n.translate("macro.editor.namePlaceholder" as I18nKeys),
         });
 
-        this.codeTextarea = textarea({
+        this.codeTextarea = div({
+            id: "macro-editor-code",
             className: style.codeEditor,
-            value: macro?.code ?? DefaultCode,
-            placeholder: I18n.translate("macro.editor.codePlaceholder" as I18nKeys),
+            textContent: macro?.code ?? DefaultCode,
         });
 
         return div(
@@ -116,7 +158,7 @@ export class MacroEditor extends HTMLElement {
             return;
         }
 
-        const code = this.codeTextarea?.value ?? "";
+        const code = this.editor?.getValue() ?? "";
         await this.storage.saveMacro(name, code, this.macro?.id);
         this.onSaveCallback?.();
     }
