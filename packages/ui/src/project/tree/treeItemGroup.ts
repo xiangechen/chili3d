@@ -38,7 +38,7 @@ export class TreeGroup extends TreeItem {
         this.items.classList.toggle(style.hide, !this._isExpanded);
     }
 
-    getSelectedHandler(): HTMLElement {
+    mainElement(): HTMLElement {
         return this.header;
     }
 

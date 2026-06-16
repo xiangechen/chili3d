@@ -90,13 +90,13 @@ export class Tree extends HTMLElement {
         unselected: INode[],
     ) => {
         unselected.forEach((x) => {
-            this.nodeMap.get(x)?.removeSelectedStyle(style.selected);
+            this.nodeMap.get(x)?.removeStyle(style.selected);
             this.selectedNodes.delete(x);
         });
         this.setLastClickItem(undefined);
         selected.forEach((model) => {
             this.selectedNodes.add(model);
-            this.nodeMap.get(model)?.addSelectedStyle(style.selected);
+            this.nodeMap.get(model)?.addStyle(style.selected);
         });
         this.scrollToNode(selected);
     };
@@ -231,11 +231,11 @@ export class Tree extends HTMLElement {
 
     private setLastClickItem(item: INode | undefined) {
         if (this.lastClicked !== undefined) {
-            this.nodeMap.get(this.lastClicked)?.removeSelectedStyle(style.current);
+            this.nodeMap.get(this.lastClicked)?.removeStyle(style.current);
         }
         this.lastClicked = item;
         if (item !== undefined) {
-            this.nodeMap.get(item)?.addSelectedStyle(style.current);
+            this.nodeMap.get(item)?.addStyle(style.current);
             this.document.modelManager.currentNode = NodeUtils.isLinkedListNode(item) ? item : item.parent;
         }
     }

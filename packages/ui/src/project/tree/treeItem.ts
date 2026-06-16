@@ -57,15 +57,15 @@ export abstract class TreeItem extends HTMLElement {
         }
     }
 
-    addSelectedStyle(style: string) {
-        this.getSelectedHandler().classList.add(style);
+    addStyle(style: string) {
+        this.mainElement().classList.add(style);
     }
 
-    removeSelectedStyle(style: string) {
-        this.getSelectedHandler().classList.remove(style);
+    removeStyle(style: string) {
+        this.mainElement().classList.remove(style);
     }
 
-    abstract getSelectedHandler(): HTMLElement;
+    abstract mainElement(): HTMLElement;
 
     dispose() {
         this.remove();

@@ -12,7 +12,7 @@ export class TreeModel extends TreeItem {
         this.classList.add(style.panel);
     }
 
-    getSelectedHandler(): HTMLElement {
+    mainElement(): HTMLElement {
         return this;
     }
 }
