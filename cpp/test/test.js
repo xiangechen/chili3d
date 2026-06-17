@@ -1,0 +1,61 @@
+test("test face mesh", (expect) => {
+    const location = { x: 0, y: 0, z: 0 };
+    const direction = { x: 0, y: 0, z: 1 };
+    const xDirection = { x: 1, y: 0, z: 0 };
+    const ax3 = { location, direction, xDirection };
+    const box = wasm.ShapeFactory.box(ax3, 1, 2, 3).shape;
+    const mesher = new wasm.Mesher(box, 0.1, true);
+    const mesh = mesher.mesh();
+
+    expect(mesh.faceMeshData.position.length).toBe(72);
+    expect(mesh.faceMeshData.index.length).toBe(36);
+    expect(mesh.faceMeshData.group.length).toBe(12);
+    expect(mesh.faceMeshData.normal.length).toBe(72);
+    expect(mesh.faceMeshData.uv.length).toBe(48);
+});
+
+test("test edge mesh", (expect) => {
+    const location = { x: 0, y: 0, z: 0 };
+    const direction = { x: 0, y: 0, z: 1 };
+    const xDirection = { x: 1, y: 0, z: 0 };
+    const ax3 = { location, direction, xDirection };
+    const box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
+    const mesher = new wasm.Mesher(box, 0.1, true);
+    const mesh = mesher.mesh();
+    expect(mesh.edgeMeshData.position.length).toBe(72);
+    expect(mesh.edgeMeshData.group.length).toBe(24);
+});
+
+test("test shape", (expect) => {
+    const location = { x: 0, y: 0, z: 0 };
+    const direction = { x: 0, y: 0, z: 1 };
+    const xDirection = { x: 1, y: 0, z: 0 };
+    const ax3 = { location, direction, xDirection };
+    const box = wasm.ShapeFactory.box(ax3, 1, 1, 1).shape;
+    const edges = wasm.Shape.findSubShapes(box, wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+    expect(edges.length).toBe(12);
+    expect(edges[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+
+    const curve = wasm.Edge.curve(wasm.TopoDS.edge(edges[0]));
+    const newEdge = wasm.Edge.fromCurve(curve.get());
+    expect(wasm.Edge.curveLength(newEdge)).toBe(1);
+
+    const faces = wasm.Shape.findAncestor(box, edges[1], wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+    expect(faces.length).toBe(2);
+    expect(faces[0].shapeType()).toBe(wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+
+    const faceEdges = wasm.Shape.findSubShapes(faces[0], wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
+    expect(faceEdges.length).toBe(4);
+});
+
+test("test solid", (expect) => {
+    const location = { x: 0, y: 0, z: 0 };
+    const direction = { x: 0, y: 0, z: 1 };
+    const xDirection = { x: 1, y: 0, z: 0 };
+    const ax3 = { location, direction, xDirection };
+    const box = wasm.TopoDS.solid(wasm.ShapeFactory.box(ax3, 1, 1, 1).shape);
+    expect(wasm.Solid.containsPoint(box, { x: 0.5, y: 0.5, z: 0.5 }, true, 0.1)).toBe(true);
+    expect(wasm.Solid.containsPoint(box, { x: 1, y: 1, z: 1 }, true, 0.1)).toBe(true);
+    expect(wasm.Solid.containsPoint(box, { x: 1, y: 1, z: 1 }, false, 0.1)).toBe(false);
+    expect(wasm.Solid.containsPoint(box, { x: 1.5, y: 1.5, z: 1.5 }, false, 0.1)).toBe(false);
+});

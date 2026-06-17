@@ -307,16 +307,6 @@ public:
         HLRBRep_HLRToShape hlrToShape(algo);
         return hlrToShape.VCompound();
     }
-
-    static std::optional<TopoDS_Face> findFaceContainsPoint(const TopoDS_Shape& shape, const Vector3& point, double tolerance)
-    {
-        gp_Pnt pnt(point.x, point.y, point.z);
-        BRepClass3d_SolidClassifier classifier(shape, pnt, tolerance);
-        if (classifier.IsOnAFace()) {
-            return classifier.Face();
-        }
-        return std::nullopt;
-    }
 };
 
 class Vertex {
@@ -448,7 +438,7 @@ public:
         return domain;
     }
 
-    static bool pointOnFace(const TopoDS_Face& face, const Vector3& point, bool containsEdge, double tolerance)
+    static bool containsPoint(const TopoDS_Face& face, const Vector3& point, bool containsEdge, double tolerance)
     {
         gp_Pnt pnt(point.x, point.y, point.z);
 
@@ -512,6 +502,22 @@ public:
         BRepGProp::VolumeProperties(solid, props);
         return props.Mass();
     }
+
+    static bool containsPoint(const TopoDS_Shape& shape, const Vector3& point, bool containsSurface, double tolerance)
+    {
+        gp_Pnt pnt(point.x, point.y, point.z);
+        BRepClass3d_SolidClassifier classifier(shape, pnt, tolerance);
+        TopAbs_State state = classifier.State();
+        if (state == TopAbs_IN) {
+            return true;
+        } else if (state == TopAbs_OUT) {
+            return false;
+        } else if (state == TopAbs_ON && containsSurface) {
+            return true;
+        }
+
+        return false;
+    }
 };
 
 EMSCRIPTEN_BINDINGS(Shape)
@@ -525,7 +531,6 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("clone", &Shape::clone)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
-        .class_function("findFaceContainsPoint", &Shape::findFaceContainsPoint)
         .class_function("getDirectSubShapes", &Shape::getDirectSubShapes)
         .class_function("sectionSS", &Shape::sectionSS)
         .class_function("sectionSP", &Shape::sectionSP)
@@ -561,7 +566,9 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("normal", &Face::normal)
         .class_function("intersectLine", &Face::intersectLine)
         .class_function("curveOnSurface", &Face::curveOnSurface)
-        .class_function("pointOnFace", &Face::pointOnFace);
+        .class_function("containsPoint", &Face::containsPoint);
 
-    class_<Solid>("Solid").class_function("volume", &Solid::volume);
+    class_<Solid>("Solid")
+        .class_function("volume", &Solid::volume)
+        .class_function("containsPoint", &Solid::containsPoint);
 }

@@ -771,7 +771,6 @@ interface EmbindModule {
     removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape | undefined;
     removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
-    findFaceContainsPoint(_0: TopoDS_Shape, _1: Vector3, _2: number): TopoDS_Face | undefined;
     boundingBox(_0: TopoDS_Shape, _1: boolean): BoundingBox;
     orientedBoundingBox(_0: TopoDS_Shape, _1: boolean): OrientedBoundingBox;
     sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
@@ -799,11 +798,12 @@ interface EmbindModule {
     surface(_0: TopoDS_Face): Handle_Geom_Surface;
     normal(_0: TopoDS_Face, _1: number, _2: number, _3: gp_Pnt, _4: gp_Vec): void;
     curveOnSurface(_0: TopoDS_Face, _1: TopoDS_Edge): Domain;
-    pointOnFace(_0: TopoDS_Face, _1: Vector3, _2: boolean, _3: number): boolean;
+    containsPoint(_0: TopoDS_Face, _1: Vector3, _2: boolean, _3: number): boolean;
     intersectLine(_0: TopoDS_Face, _1: Vector3, _2: Vector3, _3: number): Vector3 | undefined;
   };
   Solid: {
     volume(_0: TopoDS_Solid): number;
+    containsPoint(_0: TopoDS_Shape, _1: Vector3, _2: boolean, _3: number): boolean;
   };
   ShapeVector: {
     new(): ShapeVector;
