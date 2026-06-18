@@ -49,7 +49,7 @@ export class SimplifyShapeCommand extends MultistepCommand {
 
             const model = new EditableShapeNode({
                 document: this.document,
-                name: node.name + "_simplified",
+                name: `${node.name}_simplified`,
                 shape: simplifiedShape.value,
                 materialId: node.materialId,
             });

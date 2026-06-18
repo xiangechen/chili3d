@@ -13,7 +13,8 @@
             "!!**/public",
             "!!**/build",
             "!!**/coverage",
-            "!!**/lib"
+            "!!**/lib",
+            "!!**/asserts/iconfont.js"
         ]
     },
     "css": {
@@ -32,8 +33,11 @@
         "rules": {
             "recommended": true,
             "style": {
-                "noNonNullAssertion": "warn",
-                "useTemplate": "warn"
+                "noNonNullAssertion": "info",
+                "useTemplate": {
+                    "level": "warn",
+                    "fix": "safe"
+                }
             },
             "suspicious": {
                 "noExplicitAny": "warn",

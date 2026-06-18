@@ -25,33 +25,21 @@ export class MatrixProperty extends PropertyBase {
         this.first = geometries[0];
         this.className = className;
         this.append(
-            new InputProperty(
-                document,
-                [this.first],
-                {
-                    name: "transform",
-                    display: "transform.translation",
-                    converter: new TranslationConverter(this.first),
-                },
-            ),
-            new InputProperty(
-                document,
-                [this.first],
-                {
-                    name: "transform",
-                    display: "transform.scale",
-                    converter: new ScalingConverter(this.first),
-                },
-            ),
-            new InputProperty(
-                document,
-                [this.first],
-                {
-                    name: "transform",
-                    display: "transform.rotation",
-                    converter: new RotateConverter(this.first),
-                },
-            ),
+            new InputProperty(document, [this.first], {
+                name: "transform",
+                display: "transform.translation",
+                converter: new TranslationConverter(this.first),
+            }),
+            new InputProperty(document, [this.first], {
+                name: "transform",
+                display: "transform.scale",
+                converter: new ScalingConverter(this.first),
+            }),
+            new InputProperty(document, [this.first], {
+                name: "transform",
+                display: "transform.rotation",
+                converter: new RotateConverter(this.first),
+            }),
         );
     }
 

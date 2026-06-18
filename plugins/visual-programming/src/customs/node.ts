@@ -196,7 +196,7 @@ export class CustomNodeElement extends LitElement {
         return controls.map(([key, control]: any) =>
             control
                 ? html`
-                    <span class="control" data-testid="${"control-" + key}">
+                    <span class="control" data-testid="${`control-${key}`}">
                         <rete-ref
                         .emit=${this.emit}
                         .data="${{ type: "control", payload: control }}"

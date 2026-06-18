@@ -142,8 +142,10 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     removeTemperaryMaterial(): void {
         if (this._vertexs) this._vertexs.material = defaultVertexMaterial;
-        if (this._edges && this._edges.material !== lockLineMaterial) this._edges.material = defaultEdgeMaterial;
-        if (this._faces && this._faces.material !== lockFaceMaterial) this._faces.material = this._faceMaterial;
+        if (this._edges && this._edges.material !== lockLineMaterial)
+            this._edges.material = defaultEdgeMaterial;
+        if (this._faces && this._faces.material !== lockFaceMaterial)
+            this._faces.material = this._faceMaterial;
     }
 
     cloneSubEdge(index: number) {

@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    command,
     ComponentNode,
+    command,
     EditableShapeNode,
     GetOrSelectNodeStep,
     GroupNode,

@@ -5,7 +5,7 @@ import type { IDocument } from "../document";
 import type { IDisposable, IPropertyChanged } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import type { Plane, Ray, XY, XYLike, XYZ, XYZLike } from "../math";
-import { INode } from "../model";
+import type { INode } from "../model";
 import type { INodeFilter, IShapeFilter } from "../selectionFilter";
 import type { ShapeType } from "../shape";
 import type { ICameraController } from "./cameraController";

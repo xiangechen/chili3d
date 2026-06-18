@@ -20,6 +20,7 @@ import {
     MeshDataUtils,
     type MeshLike,
     MeshNode,
+    type MeshOption,
     type NodeRecord,
     NodeUtils,
     type ShapeMeshData,
@@ -29,7 +30,6 @@ import {
     Texture,
     XY,
     type XYZ,
-    MeshOption,
 } from "@chili3d/core";
 import {
     Box3,
@@ -40,7 +40,7 @@ import {
     LineBasicMaterial,
     LineSegments,
     Mesh,
-    MeshLambertMaterial,
+    type MeshLambertMaterial,
     Object3D,
     Points,
     type Scene,
@@ -265,7 +265,7 @@ export class ThreeVisualContext implements IVisualContext {
 
         group.children.forEach((mesh: any) => {
             (mesh.material as MeshLambertMaterial).color.setHex(color);
-        })
+        });
     }
 
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], meshOption?: MeshOption): number {

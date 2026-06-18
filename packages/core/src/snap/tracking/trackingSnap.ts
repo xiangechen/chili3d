@@ -19,7 +19,7 @@ export interface TrackingData {
     isObjectTracking: boolean;
     distance: number;
     info: string;
-    snapType: SnapType
+    snapType: SnapType;
 }
 
 export class TrackingSnap implements ISnap {
@@ -66,7 +66,11 @@ export class TrackingSnap implements ISnap {
             : undefined;
     }
 
-    private getSnapedAndShowTracking(view: IView, point: XYZ, trackingDatas: TrackingData[]): SnapResult | undefined {
+    private getSnapedAndShowTracking(
+        view: IView,
+        point: XYZ,
+        trackingDatas: TrackingData[],
+    ): SnapResult | undefined {
         if (trackingDatas.length === 0) return undefined;
 
         const lines: number[] = trackingDatas
@@ -75,7 +79,7 @@ export class TrackingSnap implements ISnap {
         this.addTempLine(view, lines);
 
         let info: string | undefined;
-        let distance = point.distanceTo(trackingDatas[0].axis.point);
+        const distance = point.distanceTo(trackingDatas[0].axis.point);
         if (MathUtils.almostEqual(distance, 0)) return undefined;
 
         if (trackingDatas.length === 1) {
@@ -111,13 +115,13 @@ export class TrackingSnap implements ISnap {
         const id = this.showTempLine(data.view, point.location, point.intersect);
         if (id === undefined) return undefined;
         this.addTempLine(data.view, [id]);
-        
+
         return {
             view: data.view,
             point: point.intersect,
             info: I18n.translate("snap.intersection"),
             shapes: [data.shapes[0]],
-            type: "traceIntersect"
+            type: "traceIntersect",
         };
     }
 
@@ -151,7 +155,14 @@ export class TrackingSnap implements ISnap {
         return data;
     }
 
-    private getSnapedFromAxes(axes: Axis[], view: IView, x: number, y: number, snapType: SnapType, snapedName?: string) {
+    private getSnapedFromAxes(
+        axes: Axis[],
+        view: IView,
+        x: number,
+        y: number,
+        snapType: SnapType,
+        snapedName?: string,
+    ) {
         const result: TrackingData[] = [];
         for (const axis of axes) {
             const distance = this.rayDistanceAtScreen(view, x, y, axis);
@@ -165,7 +176,7 @@ export class TrackingSnap implements ISnap {
                     point,
                     info: snapedName ?? axis.name,
                     isObjectTracking: snapedName !== undefined,
-                    snapType
+                    snapType,
                 });
             }
         }

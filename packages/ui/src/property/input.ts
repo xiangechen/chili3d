@@ -61,7 +61,7 @@ export class InputProperty extends PropertyBase {
     constructor(
         readonly document: IDocument,
         objects: any[],
-        readonly property: Property
+        readonly property: Property,
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();

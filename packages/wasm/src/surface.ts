@@ -82,7 +82,7 @@ export class OccSurface extends OccGeometry implements ISurface {
         else if (isType("Geom_ToroidalSurface")) return new OccToroidalSurface(actualSurface);
         else if (isType("ShapeExtent_CompositeSurface")) return new OccCompositeSurface(actualSurface);
 
-        throw new Error("Unknown surface type: " + String(surface));
+        throw new Error(`Unknown surface type: ${String(surface)}`);
     }
 
     override copy(): IGeometry {

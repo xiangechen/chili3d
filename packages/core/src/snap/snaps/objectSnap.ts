@@ -4,7 +4,7 @@
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
 import { I18n } from "../../i18n";
-import { Line, Ray, type XYZ } from "../../math";
+import { Line, type Ray, type XYZ } from "../../math";
 import { CurveUtils, type ICircle, type IEdge, MeshDataUtils, ShapeTypes } from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IView, type IVisualContext, screenDistance, type VisualShapeData } from "../../visual";
@@ -77,7 +77,7 @@ export class ObjectSnap extends BaseSnap {
         if (!Config.instance.enableSnap) return undefined;
 
         let snap: SnapResult | undefined;
-        if (data.shapes.filter(x => x.shape.shapeType === ShapeTypes.edge).length > 0) {
+        if (data.shapes.filter((x) => x.shape.shapeType === ShapeTypes.edge).length > 0) {
             this.showInvisibleSnaps(data.view, data.shapes[0]);
             snap = this.snapOnShape(data.view, data.mx, data.my, data.shapes);
         } else {
@@ -93,7 +93,7 @@ export class ObjectSnap extends BaseSnap {
         const featurePoints = this._featureStrategy.getFeaturePoints(view, shapes[0]);
         const perpendiculars = this.findPerpendicular(view, shapes[0]);
         const intersections = this.getIntersections(view, shapes[0], shapes);
-        let ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
+        const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
             this.sortSnaps(view, x, y, a, b),
         );
 
@@ -216,7 +216,7 @@ export class ObjectSnap extends BaseSnap {
                 point: transform.ofPoint(point),
                 info: I18n.translate("snap.perpendicular"),
                 shapes: [shape],
-                type: "perpendicular"
+                type: "perpendicular",
             });
         }
 
@@ -260,30 +260,36 @@ export class ObjectSnap extends BaseSnap {
                 point: point.point,
                 info: I18n.translate("snap.intersection"),
                 shapes: [s1, s2],
-                type: "intersection"
+                type: "intersection",
             };
         });
     }
 
-    private findNearestPointAtEdgeCurve(view: IView, shape: VisualShapeData, ray: Ray): SnapResult | undefined {
+    private findNearestPointAtEdgeCurve(
+        view: IView,
+        shape: VisualShapeData,
+        ray: Ray,
+    ): SnapResult | undefined {
         if (!ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.onCurve)) {
             return undefined;
         }
         if (shape.shape.shapeType === ShapeTypes.edge) {
             const curve = (shape.shape as IEdge).curve;
             const transform = shape.transform;
-            const point = curve.nearestExtrema(new Line({
-                point: transform.invert()!.ofPoint(ray.point),
-                direction: transform.invert()!.ofVector(ray.direction),
-            }))?.p1;
-            
+            const point = curve.nearestExtrema(
+                new Line({
+                    point: transform.invert()!.ofPoint(ray.point),
+                    direction: transform.invert()!.ofVector(ray.direction),
+                }),
+            )?.p1;
+
             if (point === undefined) return undefined;
             return {
                 view,
                 point: transform.ofPoint(point),
                 info: I18n.translate("snap.nearCurve"),
                 shapes: [shape],
-                type: "nearCurve"
+                type: "nearCurve",
             };
         }
 

@@ -1,17 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IConverter, type IDocument, Logger, type Property } from "@chili3d/core";
+import { type IDocument, Logger, type Property } from "@chili3d/core";
 import { CheckProperty } from "./check";
 import { ColorProperty } from "./colorProperty";
 import { InputProperty } from "./input";
 import { MaterialProperty } from "./materialProperty";
 
-export function basicPropertyControl(
-    document: IDocument,
-    objs: any[],
-    prop: Property
-) {
+export function basicPropertyControl(document: IDocument, objs: any[], prop: Property) {
     if (prop === undefined || objs.length === 0) return "";
 
     if (prop.type === "color") {

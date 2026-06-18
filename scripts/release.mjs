@@ -41,7 +41,7 @@ function updateVersions(version) {
  * @param {string} pkg
  */
 function getPkgRoot(pkg) {
-    return path.resolve(__dirname, "../packages/" + pkg);
+    return path.resolve(__dirname, `../packages/${pkg}`);
 }
 
 /**
@@ -53,7 +53,7 @@ function updatePackage(pkgRoot, version) {
     /** @type {Package} */
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     pkg.version = version;
-    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+    fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
 /**

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
-import { HistoryObservable, type IDisposable, type IPropertyChanged, Id } from "../foundation";
+import { HistoryObservable, type IDisposable, Id, type IPropertyChanged } from "../foundation";
 import { property } from "../property";
 import { type Serialized, Serializer, serialize } from "../serialize";
 
@@ -305,7 +305,7 @@ export class NodeUtils {
             if (nodeMap.has(parentId)) {
                 nodeMap.get(parentId)!.add(node);
             } else {
-                console.warn("parent not found: " + parentId);
+                console.warn(`parent not found: ${parentId}`);
             }
         });
         return Promise.resolve(nodeMap.get(nodes[0]["id"]));

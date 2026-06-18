@@ -317,7 +317,7 @@ export class ThreeView extends Observable implements IView {
             origin.set(x, y, z).unproject(this.camera);
             direction.set(0, 0, -1).transformDirection(this.camera.matrixWorld);
         } else {
-            console.error("Unsupported camera type: " + this.camera);
+            console.error(`Unsupported camera type: ${this.camera}`);
         }
 
         return new Ray({ point: ThreeHelper.toXYZ(origin), direction: ThreeHelper.toXYZ(direction) });
@@ -394,7 +394,7 @@ export class ThreeView extends Observable implements IView {
                     } else if (x instanceof Mesh) {
                         x.layers.set(Constants.Layers.Solid);
                     } else {
-                        console.error("Unsupported object type: " + x);
+                        console.error(`Unsupported object type: ${x}`);
                     }
                 });
             }

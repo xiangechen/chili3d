@@ -28,8 +28,10 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         }
 
         const data = this.handleStepData();
-        if (data.beforeExecute) { data.beforeExecute(); }
-        
+        if (data.beforeExecute) {
+            data.beforeExecute();
+        }
+
         this.setValidator(data);
 
         const executorHandler = this.getEventHandler(document, controller, data);
@@ -37,7 +39,9 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         const snaped = executorHandler.snaped;
 
         executorHandler.dispose();
-        if (data.afterExecute) { data.afterExecute(); }
+        if (data.afterExecute) {
+            data.afterExecute();
+        }
 
         return controller.result?.status === "success" ? snaped : undefined;
     }

@@ -42,13 +42,16 @@ export class ThreeGeometryFactory {
         return material;
     }
 
-    private static setMaterialParameter(material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial, meshOption?: MeshOption) {
+    private static setMaterialParameter(
+        material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
+        meshOption?: MeshOption,
+    ) {
         if (material instanceof LineMaterial || material instanceof LineBasicMaterial) {
             if (meshOption?.lineOpacity !== undefined) {
                 material.transparent = true;
                 material.opacity = meshOption.lineOpacity;
             }
-        } else if (material instanceof PointsMaterial){
+        } else if (material instanceof PointsMaterial) {
             if (meshOption?.vertexOpacity !== undefined) {
                 material.transparent = true;
                 material.opacity = meshOption.vertexOpacity;
@@ -133,7 +136,7 @@ export class ThreeGeometryFactory {
             material.gapSize = 30;
             material.defines["USE_DASH"] = "";
         }
-        
+
         ThreeGeometryFactory.setMaterialParameter(material, meshOption);
         return material;
     }

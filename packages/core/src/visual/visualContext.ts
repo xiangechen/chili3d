@@ -13,7 +13,7 @@ export type MeshOption = {
     lineOpacity?: number;
     vertexOpacity?: number;
     onTop?: boolean;
-}
+};
 
 export interface IVisualContext extends IDisposable {
     get shapeCount(): number;

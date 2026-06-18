@@ -60,7 +60,7 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         else if (isType("Geom_OffsetCurve")) return new OccOffsetCurve(curve as Geom_OffsetCurve);
         else if (isType("Geom_TrimmedCurve")) return new OccTrimmedCurve(curve as Geom_TrimmedCurve);
 
-        throw new Error("Unknown curve type: " + String(curve));
+        throw new Error(`Unknown curve type: ${String(curve)}`);
     }
 
     override copy(): IGeometry {

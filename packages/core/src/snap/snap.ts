@@ -24,7 +24,23 @@ export interface SnapData {
     onKeyDown?: (key: KeyboardEvent, update: () => void) => void;
 }
 
-export type SnapType = "node" | "shape" | "vertex" | "center" | "end" | "perpendicular" | "intersection" | "nearCurve" | "trace" | "traceIntersect" | "onSurface" | "middle" | "axis" | "feature" | "input" | "angle";
+export type SnapType =
+    | "node"
+    | "shape"
+    | "vertex"
+    | "center"
+    | "end"
+    | "perpendicular"
+    | "intersection"
+    | "nearCurve"
+    | "trace"
+    | "traceIntersect"
+    | "onSurface"
+    | "middle"
+    | "axis"
+    | "feature"
+    | "input"
+    | "angle";
 
 export interface SnapResult {
     view: IView;

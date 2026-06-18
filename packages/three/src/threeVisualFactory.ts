@@ -7,7 +7,7 @@ import { ThreeVisual } from "./threeVisual";
 export class ThreeVisulFactory implements IVisualFactory {
     readonly kernelName = "three";
 
-    constructor(readonly createEventHandler: (document: IDocument) => IEventHandler) { }
+    constructor(readonly createEventHandler: (document: IDocument) => IEventHandler) {}
 
     create(document: IDocument): IVisual {
         return new ThreeVisual(document, this.createEventHandler(document));

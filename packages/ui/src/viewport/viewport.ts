@@ -7,7 +7,7 @@ import {
     type CameraType,
     I18n,
     type IConverter,
-    IEventHandler,
+    type IEventHandler,
     type IView,
     Localize,
     PubSub,
@@ -310,17 +310,20 @@ export class Viewport extends HTMLElement {
         this._eventCaches.length = 0;
     }
 
-    private readonly handleEvent = (eventName: Exclude<keyof IEventHandler, "isEnabled" | "dispose">, event: PointerEvent | WheelEvent) => {
+    private readonly handleEvent = (
+        eventName: Exclude<keyof IEventHandler, "isEnabled" | "dispose">,
+        event: PointerEvent | WheelEvent,
+    ) => {
         if (this.view.document.visual.eventHandler.isEnabled)
             this.view.document.visual.eventHandler[eventName]?.(this.view, event as any);
         if (this.view.document.visual.viewHandler.isEnabled)
             this.view.document.visual.viewHandler[eventName]?.(this.view, event as any);
-    }
+    };
 
     private readonly pointerMove = (event: PointerEvent) => {
         if (this._flyout) {
-            this._flyout.style.top = event.offsetY + "px";
-            this._flyout.style.left = event.offsetX + "px";
+            this._flyout.style.top = `${event.offsetY}px`;
+            this._flyout.style.left = `${event.offsetX}px`;
         }
 
         this.handleEvent("pointerMove", event);

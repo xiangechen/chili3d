@@ -16,7 +16,7 @@ export class PointOnCurveSnap implements ISnap {
             view: data.view,
             point: nearest.p1,
             shapes: [],
-            type: "nearCurve"
+            type: "nearCurve",
         };
     }
 

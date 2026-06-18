@@ -8,7 +8,14 @@ import { I18n, type I18nKeys } from "../i18n";
 import { Matrix4 } from "../math";
 import { property } from "../property";
 import { serializable, serialize } from "../serialize";
-import { ShapeTypeUtils, type EdgeMeshData, type FaceMeshData, type IShape, type IShapeMeshData, type VertexMeshData } from "../shape";
+import {
+    type EdgeMeshData,
+    type FaceMeshData,
+    type IShape,
+    type IShapeMeshData,
+    ShapeTypeUtils,
+    type VertexMeshData,
+} from "../shape";
 import { MeshUtils } from "../visual/meshUtils";
 import { GeometryNode } from "./geometryNode";
 

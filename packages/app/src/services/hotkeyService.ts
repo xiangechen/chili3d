@@ -125,9 +125,9 @@ export class HotkeyService implements IService {
 
         for (let i = 0; i < this.keys.length; i++) {
             let key = this.keys.slice(i).join("+");
-            if (keys.ctrlKey) key = "ctrl+" + key;
-            if (keys.shiftKey) key = "shift+" + key;
-            if (keys.altKey) key = "alt+" + key;
+            if (keys.ctrlKey) key = `ctrl+${key}`;
+            if (keys.shiftKey) key = `shift+${key}`;
+            if (keys.altKey) key = `alt+${key}`;
             if (this._keyMap.has(key)) {
                 return this._keyMap.get(key);
             }

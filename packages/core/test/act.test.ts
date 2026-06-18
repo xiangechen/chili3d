@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { INode, XY, XYZ } from "../src";
+import { type INode, XY, XYZ } from "../src";
 import { Act } from "../src/visual/act";
 import type { ICameraController } from "../src/visual/cameraController";
 import type { IView } from "../src/visual/view";
@@ -131,31 +131,31 @@ describe("Act class tests", () => {
                 mode: 0 as any,
                 name: "Test View",
                 workplane: {} as any,
-                update: () => { },
+                update: () => {},
                 up: () => XYZ.unitY,
                 toImage: () => "",
                 direction: () => XYZ.unitZ,
                 rayAt: () => ({}) as any,
                 screenToWorld: () => XYZ.zero,
                 worldToScreen: () => new XY({ x: 0, y: 0 }),
-                resize: () => { },
-                setDom: () => { },
-                htmlText: () => ({ dispose: () => { } }),
-                close: () => { },
+                resize: () => {},
+                setDom: () => {},
+                htmlText: () => ({ dispose: () => {} }),
+                close: () => {},
                 detectVisual: () => [],
                 detectVisualRect: () => [],
                 detectShapes: () => [],
                 detectShapesRect: () => [],
-                onPropertyChanged: () => { },
-                removePropertyChanged: () => { },
-                clearPropertyChanged: () => { },
-                dispose: () => { },
-                isolate: function (nodes: INode[]): void {
+                onPropertyChanged: () => {},
+                removePropertyChanged: () => {},
+                clearPropertyChanged: () => {},
+                dispose: () => {},
+                isolate: (nodes: INode[]): void => {
                     throw new Error("Function not implemented.");
                 },
-                unisolate: function (): void {
+                unisolate: (): void => {
                     throw new Error("Function not implemented.");
-                }
+                },
             };
 
             const actName = "View Act";

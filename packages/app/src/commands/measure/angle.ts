@@ -64,7 +64,7 @@ export class AngleMeasure extends MultistepCommand {
 
     private readonly anglePrompt = (point: XYZ) => {
         const { rad } = this.arcInfo(point);
-        return ((rad * 180) / Math.PI).toFixed(2) + "°";
+        return `${((rad * 180) / Math.PI).toFixed(2)}°`;
     };
 
     private readonly arcPreview = (point: XYZ | undefined) => {
@@ -130,7 +130,7 @@ export class AngleMeasure extends MultistepCommand {
             this.meshPoint(this.stepDatas[2].point!),
             ...this.arcPreview(this.stepDatas[2].point),
         ]);
-        this.application.activeView?.htmlText(((rad * 180) / Math.PI).toFixed(2) + "°", arcMid, {
+        this.application.activeView?.htmlText(`${((rad * 180) / Math.PI).toFixed(2)}°`, arcMid, {
             onDispose: () => {
                 this.document.visual.context.removeMesh(visualId);
             },

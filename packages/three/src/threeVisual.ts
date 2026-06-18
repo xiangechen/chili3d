@@ -2,12 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    isDisposable,
     type IDocument,
     type IEventHandler,
     type IMeshExporter,
     type IVisual,
-    type Plane
+    isDisposable,
+    type Plane,
 } from "@chili3d/core";
 import { AmbientLight, AxesHelper, Object3D, Scene } from "three";
 import { ThreeMeshExporter } from "./meshExporter";
@@ -28,7 +28,10 @@ export class ThreeVisual implements IVisual {
     eventHandler: IEventHandler;
     defaultEventHandler: IEventHandler;
 
-    constructor(readonly document: IDocument, defaultEventHandler: IEventHandler) {
+    constructor(
+        readonly document: IDocument,
+        defaultEventHandler: IEventHandler,
+    ) {
         this.scene = this.initScene();
         this.defaultEventHandler = defaultEventHandler;
         this.viewHandler = new ThreeViewHandler();

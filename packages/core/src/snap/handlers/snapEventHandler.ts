@@ -7,7 +7,7 @@ import { type AsyncController, type MessageType, PubSub, Result } from "../../fo
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
 import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
-import { type IEventHandler, type IView, MeshOption, screenDistance } from "../../visual";
+import { type IEventHandler, type IView, type MeshOption, screenDistance } from "../../visual";
 import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
 type SnapState = "idle" | "snapping" | "inputing" | "cancelled" | "completed";
@@ -124,7 +124,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
                 point: featurePoint.point,
                 info: featurePoint.prompt,
                 shapes: [],
-                type: "feature"
+                type: "feature",
             };
         } else {
             const detected = this.detectShapes(shapeType, view, event);
@@ -245,7 +245,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         this.data.onKeyDown?.(event, () => {
             this.removeTempShapes();
             this.showTempShape(this._snaped?.point);
-            view.document.visual.update()
+            view.document.visual.update();
         });
 
         switch (event.key) {

@@ -16,35 +16,35 @@ const SnapTypes: Array<{
     type: ObjectSnapType;
     display: I18nKeys;
 }> = [
-        {
-            type: ObjectSnapTypes.endPoint,
-            display: "snap.end",
-        },
-        {
-            type: ObjectSnapTypes.midPoint,
-            display: "snap.mid",
-        },
-        {
-            type: ObjectSnapTypes.center,
-            display: "snap.center",
-        },
-        {
-            type: ObjectSnapTypes.perpendicular,
-            display: "snap.perpendicular",
-        },
-        {
-            type: ObjectSnapTypes.intersection,
-            display: "snap.intersection",
-        },
-        {
-            type: ObjectSnapTypes.onCurve,
-            display: "snap.nearCurve",
-        },
-        {
-            type: ObjectSnapTypes.onSurface,
-            display: "snap.onSurface",
-        }
-    ];
+    {
+        type: ObjectSnapTypes.endPoint,
+        display: "snap.end",
+    },
+    {
+        type: ObjectSnapTypes.midPoint,
+        display: "snap.mid",
+    },
+    {
+        type: ObjectSnapTypes.center,
+        display: "snap.center",
+    },
+    {
+        type: ObjectSnapTypes.perpendicular,
+        display: "snap.perpendicular",
+    },
+    {
+        type: ObjectSnapTypes.intersection,
+        display: "snap.intersection",
+    },
+    {
+        type: ObjectSnapTypes.onCurve,
+        display: "snap.nearCurve",
+    },
+    {
+        type: ObjectSnapTypes.onSurface,
+        display: "snap.onSurface",
+    },
+];
 
 export class SnapConfig extends HTMLElement {
     constructor() {
