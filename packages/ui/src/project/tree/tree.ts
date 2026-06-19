@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Annotation,
     type IDocument,
     type INode,
     type INodeLinkedList,
@@ -141,7 +142,8 @@ export class Tree extends HTMLElement {
     private createHTMLElement(document: IDocument, node: INode): TreeItem {
         let result: TreeItem;
         if (NodeUtils.isLinkedListNode(node)) result = new TreeGroup(document, node);
-        else if (node instanceof VisualNode) result = new TreeModel(document, node);
+        else if (node instanceof VisualNode || node instanceof Annotation)
+            result = new TreeModel(document, node);
         else throw new Error("unknown node");
         return result;
     }

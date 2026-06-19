@@ -56,6 +56,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
+import { ThreeRefSegmentAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeHighlighter } from "./threeHighlighter";
@@ -452,8 +453,9 @@ export class ThreeView extends Observable implements IView {
             node = threeObject.geometryNode;
         } else if (threeObject instanceof ThreeComponentObject) {
             node = threeObject.componentNode;
+        } else if (threeObject instanceof ThreeRefSegmentAnnotation) {
+            node = threeObject.annotation;
         }
-
         return node;
     }
 
@@ -703,10 +705,11 @@ export class ThreeView extends Observable implements IView {
             if (!x.visible) return;
             if (x instanceof ThreeVisualObject) {
                 visuals.push(...x.wholeVisual());
+            } else if (x instanceof ThreeRefSegmentAnnotation) {
+                visuals.push(...x.wholeVisual());
             }
         });
         visuals = visuals.filter((x) => x !== undefined && x !== null);
-
         return this.initRaycaster(mx, my).intersectObjects(visuals, false);
     }
 

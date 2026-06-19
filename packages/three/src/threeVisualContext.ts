@@ -23,6 +23,7 @@ import {
     type MeshOption,
     type NodeRecord,
     NodeUtils,
+    RefSegmentAnnotation,
     type ShapeMeshData,
     type ShapeNode,
     type ShapeType,
@@ -47,6 +48,7 @@ import {
     type Material as ThreeMaterial,
     Vector3,
 } from "three";
+import { ThreeRefSegmentAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
@@ -142,7 +144,6 @@ export class ThreeVisualContext implements IVisualContext {
                 this.moveNode(x.node, x.oldParent!);
             }
         });
-
         this.addNode(adds);
         this.removeNode(rms);
     };
@@ -238,7 +239,8 @@ export class ThreeVisualContext implements IVisualContext {
         } else if (
             obj instanceof ThreeGeometry ||
             obj instanceof ThreeMeshObject ||
-            obj instanceof ThreeComponentObject
+            obj instanceof ThreeComponentObject ||
+            obj instanceof ThreeRefSegmentAnnotation
         ) {
             visuals.push(obj);
         }
@@ -370,6 +372,8 @@ export class ThreeVisualContext implements IVisualContext {
             visualObject = new GroupVisualObject(node);
         } else if (node instanceof ComponentNode) {
             visualObject = new ThreeComponentObject(node, this);
+        } else if (node instanceof RefSegmentAnnotation) {
+            visualObject = new ThreeRefSegmentAnnotation(this, node);
         }
 
         if (visualObject) {

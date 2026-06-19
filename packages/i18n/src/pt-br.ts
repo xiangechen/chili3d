@@ -53,6 +53,7 @@ export default {
         "command.create.polygon": "Polilinha",
         "command.create.pyramid": "Piramide",
         "command.create.rect": "Retângulo",
+        "command.create.refSegment": "Segmento de Ref",
         "command.create.revol": "Revolve",
         "command.create.section": "Criar Seção",
         "command.create.sphere": "Esfera",

@@ -23,6 +23,7 @@ export * from "./point";
 export * from "./polygon";
 export * from "./pyramid";
 export * from "./rect";
+export * from "./refSegment";
 export * from "./regularPolygon";
 export * from "./revolve";
 export * from "./section";
