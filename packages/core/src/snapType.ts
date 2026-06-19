@@ -9,13 +9,14 @@ export const ObjectSnapTypes = {
     angl: 8,
     intersection: 16,
     perpendicular: 32,
-    extension: 64,
-    parallel: 128,
-    special: 256,
+    tangent: 64,
+    extension: 128,
+    parallel: 256,
     onCurve: 512,
     onSurface: 1024,
     vertex: 2048,
     grid: 4096,
+    special: 8192,
 } as const;
 
 export type ObjectSnapType = (typeof ObjectSnapTypes)[keyof typeof ObjectSnapTypes];

@@ -61,6 +61,7 @@ export class Config extends Observable {
                 ObjectSnapTypes.onCurve,
                 ObjectSnapTypes.onSurface,
                 ObjectSnapTypes.vertex,
+                ObjectSnapTypes.tangent,
             ),
         );
     }

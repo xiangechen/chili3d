@@ -30,7 +30,7 @@ export class ObjectSnap extends BaseSnap {
         referencePoint?: () => XYZ,
     ) {
         super(referencePoint);
-        this._featureStrategy = new FeaturePointStrategy(_snapType);
+        this._featureStrategy = new FeaturePointStrategy(_snapType, referencePoint);
         this._intersectionInfos = new Map();
         this._invisibleInfos = new Map();
         Config.instance.onPropertyChanged(this.onSnapTypeChanged);

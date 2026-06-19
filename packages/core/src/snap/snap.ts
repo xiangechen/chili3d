@@ -32,6 +32,7 @@ export type SnapType =
     | "end"
     | "perpendicular"
     | "intersection"
+    | "tangent"
     | "nearCurve"
     | "trace"
     | "traceIntersect"

@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { I18n, type I18nKeys } from "../../i18n";
-import type { XYZ } from "../../math";
-import { type IEdge, type IVertex, ShapeTypes } from "../../shape";
+import { MathUtils, type XYZ } from "../../math";
+import { CurveUtils, type IEdge, type ITrimmedCurve, type IVertex, ShapeTypes } from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import type { IView, VisualShapeData } from "../../visual";
 import type { SnapResult, SnapType } from "../snap";
@@ -11,7 +11,10 @@ import type { SnapResult, SnapType } from "../snap";
 export class FeaturePointStrategy {
     private readonly _featureInfos: Map<VisualShapeData, SnapResult[]> = new Map();
 
-    constructor(private _snapType: ObjectSnapType) {}
+    constructor(
+        private _snapType: ObjectSnapType,
+        private refPoint?: () => XYZ,
+    ) {}
 
     getFeaturePoints(view: IView, shape: VisualShapeData): SnapResult[] {
         if (this._featureInfos.has(shape)) {
@@ -63,6 +66,45 @@ export class FeaturePointStrategy {
             const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
             addPoint(mid, "snap.mid", "middle");
         }
+        if (this.refPoint && ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.tangent)) {
+            this.getTangent(curve, this.refPoint()).forEach((tangent) => {
+                addPoint(tangent, "snap.tangent", "tangent");
+            });
+        }
+    }
+
+    private getTangent(curve: ITrimmedCurve, point: XYZ) {
+        const points: XYZ[] = [];
+        if (
+            CurveUtils.isCircle(curve.basisCurve) &&
+            MathUtils.almostEqual(point.sub(curve.basisCurve.center).dot(curve.basisCurve.axis), 0)
+        ) {
+            const { center, radius, axis } = curve.basisCurve;
+
+            const V = point.sub(center);
+            const d = V.length();
+            if (d <= radius) {
+                return points;
+            }
+
+            // cos(α) = r / d, where α is the half-angle between the two tangent directions
+            const alpha = Math.acos(radius / d);
+
+            // Unit vector from center toward the external point
+            const unitV = V.normalize();
+            if (!unitV) return points;
+
+            // Rotate unitV by ±α around the circle axis to get the tangent-point directions
+            const dir1 = unitV.rotate(axis, alpha);
+            const dir2 = unitV.rotate(axis, -alpha);
+            if (dir1) {
+                points.push(center.add(dir1.multiply(radius)));
+            }
+            if (dir2) {
+                points.push(center.add(dir2.multiply(radius)));
+            }
+        }
+        return points;
     }
 
     clear(): void {

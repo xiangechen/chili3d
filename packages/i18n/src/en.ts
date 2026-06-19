@@ -276,6 +276,7 @@ export default {
         "snap.perpendicular": "Perpendicular",
         "snap.nearCurve": "On the Curve",
         "snap.onSurface": "On the surface",
+        "snap.tangent": "Tangent",
         "statusBar.snap": "Snap",
         "statusBar.tracking": "Tracking",
         "toast.command.{0}excuting": "Command {0} is runing",

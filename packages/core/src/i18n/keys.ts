@@ -270,6 +270,7 @@ export const I18N_KEYS = [
     "snap.perpendicular",
     "snap.nearCurve",
     "snap.onSurface",
+    "snap.tangent",
     "statusBar.snap",
     "statusBar.tracking",
     "toast.command.{0}excuting",

@@ -275,6 +275,7 @@ export default {
         "snap.perpendicular": "垂点",
         "snap.nearCurve": "在边线上",
         "snap.onSurface": "在面上",
+        "snap.tangent": "切点",
         "statusBar.snap": "捕捉",
         "statusBar.tracking": "追踪",
         "toast.command.{0}excuting": "{0}命令正在执行",

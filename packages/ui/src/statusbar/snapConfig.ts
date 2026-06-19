@@ -37,6 +37,10 @@ const SnapTypes: Array<{
         display: "snap.intersection",
     },
     {
+        type: ObjectSnapTypes.tangent,
+        display: "snap.tangent",
+    },
+    {
         type: ObjectSnapTypes.onCurve,
         display: "snap.nearCurve",
     },
