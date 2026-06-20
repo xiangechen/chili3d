@@ -7,9 +7,11 @@ import {
     Combobox,
     command,
     download,
+    getCurrentApplication,
     I18n,
     type IApplication,
     type ICommand,
+    PropertyUtils,
     PubSub,
     property,
     readFilesAsync,
@@ -38,18 +40,21 @@ export class Import implements ICommand {
     icon: "icon-export",
 })
 export class Export extends CancelableCommand {
-    @property("file.format")
-    public get formats() {
-        return this.getPrivateValue("formats", this.initCombobox());
+    @property("file.format", {
+        combobox: new Combobox<string>(),
+    })
+    public get format() {
+        return this.getPrivateValue("format", "step");
     }
-    public set formats(value: Combobox<string>) {
-        this.setProperty("formats", value);
+    public set format(value: string) {
+        this.setProperty("format", value);
     }
 
-    private initCombobox() {
-        const box = new Combobox<string>();
-        box.items.push(...this.application.dataExchange.exportFormats());
-        return box;
+    constructor() {
+        super();
+        const property = PropertyUtils.getProperty(Export.prototype, "format")!;
+        property.combobox!.items.clear();
+        property.combobox!.items.push(...getCurrentApplication().dataExchange.exportFormats());
     }
 
     protected async executeAsync() {
@@ -62,13 +67,10 @@ export class Export extends CancelableCommand {
         PubSub.default.pub(
             "showPermanent",
             async () => {
-                const format = this.formats.selectedItem;
-                if (format === undefined) return;
-
-                const data = await this.application.dataExchange.export(format, nodes);
+                const data = await this.application.dataExchange.export(this.format, nodes);
                 if (!data) return;
 
-                let suffix = format;
+                let suffix = this.format;
 
                 if (suffix === ".stl binary") {
                     suffix = ".stl";

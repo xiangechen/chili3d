@@ -4,6 +4,12 @@
 import { type IConverter, Observable, ObservableCollection } from "../foundation";
 
 export class Combobox<T> extends Observable {
+    static from<T>(items: T[], converter?: IConverter<T>): Combobox<T> {
+        const combobox = new Combobox<T>(converter);
+        combobox.items.push(...items);
+        return combobox;
+    }
+
     constructor(readonly converter?: IConverter<T>) {
         super();
     }

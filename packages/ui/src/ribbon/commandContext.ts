@@ -4,7 +4,7 @@
 import {
     Binding,
     CancelableCommand,
-    Combobox,
+    type Combobox,
     CommandStore,
     I18n,
     type I18nKeys,
@@ -120,6 +120,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
         if (g.type === "materialId") {
             return this.materialEditor(g, noType);
+        } else if (g.combobox) {
+            return this.newCombobox(g, g.combobox);
         }
 
         switch (type) {
@@ -132,15 +134,11 @@ export class CommandContext extends HTMLElement implements IDisposable {
             case "string":
                 return this.newInput(g, noType);
             default:
-                if (noType[g.name] instanceof Combobox) {
-                    return this.newCombobox(noType, g);
-                }
                 throw new Error("暂不支持的类型");
         }
     }
 
-    private newCombobox(noType: any, g: Property) {
-        const combobox = noType[g.name] as Combobox<any>;
+    private newCombobox(g: Property, combobox: Combobox<any>) {
         const options = combobox.items.map((item, index) => {
             return option({
                 selected: index === combobox.selectedIndex,
@@ -157,6 +155,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
                     className: style.select,
                     onchange: (e) => {
                         combobox.selectedIndex = (e.target as HTMLSelectElement).selectedIndex;
+                        (this.command as any)[g.name] = combobox.selectedItem;
                     },
                 },
                 ...options,

@@ -25,6 +25,8 @@ import {
 import { div, h1, h2, span, ul } from "@chili3d/element";
 import style from "./select.module.css";
 
+type MeasureType = "common.length" | "common.area" | "common.volume";
+
 @command({
     key: "measure.select",
     icon: "icon-measureSelect",
@@ -40,25 +42,17 @@ export class SelectMeasure extends CancelableCommand {
     };
     readonly #disposeSet: Set<IDisposable> = new Set();
 
-    #category?: Combobox<I18nKeys>;
-    @property("common.type")
-    public get category(): Combobox<I18nKeys> {
-        if (!this.#category) {
-            this.#category = this.initCombobox();
-        }
+    #category: MeasureType = "common.length";
+    @property("common.type", {
+        combobox: Combobox.from(["common.length", "common.area", "common.volume"]),
+    })
+    public get category() {
         return this.#category;
     }
-    public set category(value: Combobox<I18nKeys>) {
-        this.#category?.clearPropertyChanged();
+    public set category(value: MeasureType) {
+        if (this.#category === value) return;
         this.#category = value;
-        this.#category.onPropertyChanged(this.onTypeChange);
-    }
-
-    private initCombobox() {
-        const box = new Combobox<I18nKeys>();
-        box.items.push("common.length", "common.area", "common.volume");
-        box.onPropertyChanged(this.onTypeChange);
-        return box;
+        this.onTypeChange();
     }
 
     private readonly onTypeChange = () => {
@@ -79,7 +73,7 @@ export class SelectMeasure extends CancelableCommand {
             container: div({
                 className: style.selectSum,
             }),
-            header: h1({ textContent: new Localize(this.#category!.selectedItem!) }),
+            header: h1({ textContent: new Localize(this.#category) }),
             list: ul(),
             value: span({
                 textContent: "0.00",
@@ -104,7 +98,6 @@ export class SelectMeasure extends CancelableCommand {
 
     protected override afterExecute(): void {
         super.afterExecute();
-        this.category?.clearPropertyChanged();
         this.#disposeSet.forEach((d) => d.dispose());
         this.#disposeSet.clear();
         this.#sumUI?.container.remove();
@@ -114,9 +107,9 @@ export class SelectMeasure extends CancelableCommand {
         while (true) {
             this.controller = new AsyncController();
             let type: [ShapeType, I18nKeys] = [ShapeTypes.edge, "prompt.select.edges"];
-            if (this.category.selectedIndex === 1) {
+            if (this.category === "common.area") {
                 type = [ShapeTypes.face, "prompt.select.faces"];
-            } else if (this.category.selectedIndex === 2) {
+            } else if (this.category === "common.volume") {
                 type = [ShapeTypes.solid, "prompt.select.solids"];
             }
 

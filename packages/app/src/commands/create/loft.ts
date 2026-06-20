@@ -6,6 +6,7 @@ import {
     CancelableCommand,
     Combobox,
     Continuities,
+    type Continuity,
     command,
     EditableShapeNode,
     type IEdge,
@@ -28,7 +29,7 @@ export class LoftCommand extends CancelableCommand {
     private visual: number | undefined = undefined;
     private readonly shapes: IShape[] = [];
     private shape: Result<IShape> = Result.err("None shape");
-    private readonly _continuity = this.initContinuties();
+    private readonly _continuity = Continuities[0];
 
     @property("option.command.isSolid")
     get isSolid() {
@@ -57,9 +58,16 @@ export class LoftCommand extends CancelableCommand {
                 value: false,
             },
         ],
+        combobox: Combobox.from([...Continuities]),
     })
-    get continuity(): Combobox<string> {
+    get continuity(): Continuity {
         return this._continuity;
+    }
+    set continuity(value: Continuity) {
+        this.setProperty("continuity", value, () => {
+            console.log(value);
+            this.displayVisual();
+        });
     }
 
     @property("common.confirm")
@@ -67,17 +75,7 @@ export class LoftCommand extends CancelableCommand {
         this.controller?.success();
     };
 
-    private initContinuties() {
-        const box = new Combobox<string>();
-        for (const item of Continuities) {
-            box.items.push(item);
-        }
-        return box;
-    }
-
     protected override async executeAsync(): Promise<void> {
-        this._continuity.onPropertyChanged(this.handleContinuityChange);
-
         try {
             while (true) {
                 const data = await this.selectSection();
@@ -97,7 +95,6 @@ export class LoftCommand extends CancelableCommand {
                 new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
             );
         } finally {
-            this._continuity.removePropertyChanged(this.handleContinuityChange);
             this.clearVisual();
         }
     }
@@ -114,10 +111,6 @@ export class LoftCommand extends CancelableCommand {
         return await step.execute(this.document, this.controller);
     }
 
-    private readonly handleContinuityChange = (p: keyof Combobox<string>) => {
-        if (p === "selectedIndex") this.displayVisual();
-    };
-
     private clearVisual() {
         this.removeVisual();
         this.document.visual.highlighter.clear();
@@ -133,7 +126,7 @@ export class LoftCommand extends CancelableCommand {
             this.shapes as (IVertex | IEdge | IWire)[],
             this.isSolid,
             this.isRuled,
-            Continuities[this.continuity.selectedIndex],
+            this.continuity,
         );
         if (!this.shape.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", this.shape.error);

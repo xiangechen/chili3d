@@ -3,6 +3,7 @@
 
 import type { IConverter } from "./foundation";
 import type { I18nKeys } from "./i18n";
+import type { Combobox } from "./ui";
 
 export type PropertyType = "color" | "materialId";
 
@@ -17,6 +18,7 @@ export interface Property {
         property: string | number | symbol;
         value: any;
     }[];
+    combobox?: Combobox<any>;
 }
 
 const PropertyKeyMap = new Map<object, Map<string | number | symbol, Property>>();
