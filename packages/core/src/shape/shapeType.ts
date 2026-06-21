@@ -21,7 +21,6 @@ export class ShapeTypeUtils {
             type === ShapeTypes.shape ||
             type === ShapeTypes.compound ||
             type === ShapeTypes.compoundSolid ||
-            type === ShapeTypes.solid ||
             type === ShapeTypes.vertex
         );
     }

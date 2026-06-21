@@ -168,7 +168,7 @@ export class GeometryState {
         if (geometry) return geometry;
 
         let points: Float32Array | undefined;
-        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type)) {
+        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type)) {
             points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }
         if (points === undefined && (ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type))) {

@@ -42,17 +42,14 @@ export class SelectMeasure extends CancelableCommand {
     };
     readonly #disposeSet: Set<IDisposable> = new Set();
 
-    #category: MeasureType = "common.length";
     @property("common.type", {
         combobox: Combobox.from(["common.length", "common.area", "common.volume"]),
     })
     public get category() {
-        return this.#category;
+        return this.getPrivateValue("category", "common.length");
     }
     public set category(value: MeasureType) {
-        if (this.#category === value) return;
-        this.#category = value;
-        this.onTypeChange();
+        this.setProperty("category", value, () => this.onTypeChange());
     }
 
     private readonly onTypeChange = () => {
@@ -73,7 +70,7 @@ export class SelectMeasure extends CancelableCommand {
             container: div({
                 className: style.selectSum,
             }),
-            header: h1({ textContent: new Localize(this.#category) }),
+            header: h1({ textContent: new Localize(this.category) }),
             list: ul(),
             value: span({
                 textContent: "0.00",
@@ -129,15 +126,15 @@ export class SelectMeasure extends CancelableCommand {
 
     private readonly createMeasure = (shape: VisualShapeData | undefined) => {
         if (!shape) return;
-        if (shape.shape.shapeType === ShapeTypes.edge) {
+        if (this.category === "common.length") {
             this.edgeMeasure(shape.shape as IEdge, shape.transform);
-        } else if (shape.shape.shapeType === ShapeTypes.face) {
+        } else if (this.category === "common.area") {
             this.faceMeasure(shape.shape as IFace, shape.transform);
-        } else if (shape.shape.shapeType === ShapeTypes.solid) {
+        } else if (this.category === "common.volume") {
             this.solidMeasure(
                 shape.shape as ISolid,
                 shape.transform,
-                BoundingBox.center(shape.owner.boundingBox()),
+                BoundingBox.center(shape.shape.boundingBox()),
             );
         }
     };
