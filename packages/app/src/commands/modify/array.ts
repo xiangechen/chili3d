@@ -5,11 +5,15 @@ import {
     AngleStep,
     AsyncController,
     BoundingBox,
+    Combobox,
     Component,
     ComponentNode,
     command,
     Dimensions,
     GeometryNode,
+    type I18nKeys,
+    type ICurve,
+    type IEdge,
     type IStep,
     LengthAtPlaneStep,
     Line,
@@ -24,7 +28,9 @@ import {
     Precision,
     PubSub,
     property,
+    SelectShapeStep,
     type ShapeMeshData,
+    ShapeTypes,
     type SnapLengthAtPlaneData,
     Transaction,
     VisualNode,
@@ -42,6 +48,25 @@ export class ArrayCommand extends MultistepCommand {
     protected models?: VisualNode[];
     protected positions?: number[];
 
+    private _patternType: I18nKeys = "option.command.patternType.linear";
+    @property("option.command.patternType", {
+        combobox: Combobox.from([
+            "option.command.patternType.linear",
+            "option.command.patternType.circular",
+            "option.command.patternType.curve",
+            "option.command.patternType.rectangular",
+        ]),
+    })
+    get patternType(): I18nKeys {
+        return this._patternType;
+    }
+    set patternType(value: I18nKeys) {
+        this.setProperty("patternType", value, () => {
+            this.restart();
+            this.showCount = this.patternType !== "option.command.patternType.rectangular";
+        });
+    }
+
     @property("common.isGroup")
     get isGroup() {
         return this.getPrivateValue("isGroup", true);
@@ -50,20 +75,20 @@ export class ArrayCommand extends MultistepCommand {
         this.setProperty("isGroup", value);
     }
 
-    @property("option.command.circularPattern")
-    get circularPattern() {
-        return this.getPrivateValue("circularPattern", false);
+    get showCount(): boolean {
+        return this.getPrivateValue(
+            "showCount",
+            this.patternType !== "option.command.patternType.rectangular",
+        );
     }
-    set circularPattern(value: boolean) {
-        this.setProperty("circularPattern", value, () => {
-            this.restart();
-        });
+    set showCount(value: boolean) {
+        this.setProperty("showCount", value);
     }
 
     @property("common.count", {
         dependencies: [
             {
-                property: "circularPattern",
+                property: "showCount",
                 value: true,
             },
         ],
@@ -78,8 +103,8 @@ export class ArrayCommand extends MultistepCommand {
     @property("common.numberX", {
         dependencies: [
             {
-                property: "circularPattern",
-                value: false,
+                property: "patternType",
+                value: "option.command.patternType.rectangular",
             },
         ],
     })
@@ -93,8 +118,8 @@ export class ArrayCommand extends MultistepCommand {
     @property("common.numberY", {
         dependencies: [
             {
-                property: "circularPattern",
-                value: false,
+                property: "patternType",
+                value: "option.command.patternType.rectangular",
             },
         ],
     })
@@ -108,8 +133,8 @@ export class ArrayCommand extends MultistepCommand {
     @property("common.numberZ", {
         dependencies: [
             {
-                property: "circularPattern",
-                value: false,
+                property: "patternType",
+                value: "option.command.patternType.rectangular",
             },
         ],
     })
@@ -177,7 +202,7 @@ export class ArrayCommand extends MultistepCommand {
         if (!this.positions) return;
 
         let count = this.count;
-        if (!this.circularPattern) {
+        if (this.patternType === "option.command.patternType.rectangular") {
             count = this.numberX * this.numberY * this.numberZ;
         }
 
@@ -217,6 +242,32 @@ export class ArrayCommand extends MultistepCommand {
         return transforms;
     }
 
+    private getLinearTransforms(direction: XYZ) {
+        const transforms = new Array<Matrix4>(this.count);
+        if (this.count === 1) {
+            transforms[0] = Matrix4.identity();
+        } else {
+            for (let i = 0; i < this.count; i++) {
+                const t = i / (this.count - 1);
+                const vec = direction.multiply(t);
+                transforms[i] = Matrix4.fromTranslation(vec.x, vec.y, vec.z);
+            }
+        }
+        return transforms;
+    }
+
+    private getCurveTransforms(curve: ICurve): Matrix4[] {
+        const points = curve.uniformAbscissaByCount(this.count);
+        const transforms = new Array<Matrix4>(this.count);
+        const p0 = points[0];
+        for (let i = 0; i < points.length; i++) {
+            const vector = points[i].sub(p0);
+            transforms[i] = Matrix4.fromTranslation(vector.x, vector.y, vector.z);
+        }
+
+        return transforms;
+    }
+
     private getArcMatrixs(center: XYZ, normal: XYZ, angle: number) {
         const transforms = new Array<Matrix4>(this.count);
         for (let i = 0; i < this.count; i++) {
@@ -228,26 +279,56 @@ export class ArrayCommand extends MultistepCommand {
     protected override getSteps(): IStep[] {
         this.resetMesh();
 
-        if (this.circularPattern) {
-            return [
-                new PointStep("prompt.pickCircleCenter", undefined, true),
-                new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData, true),
-                new AngleStep(
-                    "prompt.pickNextPoint",
-                    () => this.stepDatas[0].point!,
-                    () => this.stepDatas[1].point!,
-                    this.getAngleData,
-                    true,
-                ),
-            ];
-        } else {
-            return [
-                new PointStep("prompt.pickFistPoint", undefined, true),
-                new PointStep("prompt.pickNextPoint", () => this.vectorArrayStepData(), true),
-                new PointOnAxisStep("prompt.pickNextPoint", () => this.pointOnAxisArray(2), true),
-                new PointOnAxisStep("prompt.pickNextPoint", () => this.pointOnAxisArray(3), true),
-            ];
+        switch (this.patternType) {
+            case "option.command.patternType.circular":
+                return this.getCircularSteps();
+            case "option.command.patternType.rectangular":
+                return this.getRectangularSteps();
+            case "option.command.patternType.linear":
+                return this.getLinearSteps();
+            case "option.command.patternType.curve":
+                return this.getCurveSteps();
+            default:
+                return [];
         }
+    }
+
+    private getCircularSteps(): IStep[] {
+        return [
+            new PointStep("prompt.pickCircleCenter", undefined, true),
+            new LengthAtPlaneStep("prompt.pickRadius", this.getRadiusData, true),
+            new AngleStep(
+                "prompt.pickNextPoint",
+                () => this.stepDatas[0].point!,
+                () => this.stepDatas[1].point!,
+                this.getAngleData,
+                true,
+            ),
+        ];
+    }
+
+    private getRectangularSteps(): IStep[] {
+        return [
+            new PointStep("prompt.pickFistPoint", undefined, true),
+            new PointStep("prompt.pickNextPoint", () => this.vectorArrayStepData(), true),
+            new PointOnAxisStep("prompt.pickNextPoint", () => this.pointOnAxisArray(2), true),
+            new PointOnAxisStep("prompt.pickNextPoint", () => this.pointOnAxisArray(3), true),
+        ];
+    }
+
+    private getLinearSteps(): IStep[] {
+        return [
+            new PointStep("prompt.pickFistPoint", undefined, true),
+            new PointStep("prompt.pickNextPoint", () => this.linearArrayStepData(), true),
+        ];
+    }
+
+    private getCurveSteps(): IStep[] {
+        return [
+            new SelectShapeStep(ShapeTypes.edge, "prompt.select.curve", {
+                multiple: false,
+            }),
+        ];
     }
 
     private readonly getRadiusData = (): SnapLengthAtPlaneData => {
@@ -407,6 +488,29 @@ export class ArrayCommand extends MultistepCommand {
         return { ray, yvec, normal, xvec };
     }
 
+    private readonly linearArrayStepData = () => {
+        return {
+            dimension: Dimensions.D1,
+            refPoint: () => this.stepDatas[0].point!,
+            validator: (p: XYZ | undefined) =>
+                p !== undefined && p.distanceTo(this.stepDatas[0].point!) > Precision.Distance,
+            preview: (p: XYZ | undefined) => {
+                if (!p) {
+                    return [this.meshPoint(this.stepDatas[0].point!)];
+                }
+                const vector = p.sub(this.stepDatas[0].point!);
+                const matrixs = this.getLinearTransforms(vector);
+                this.updatePosition(matrixs);
+
+                return [
+                    this.meshPoint(this.stepDatas[0].point!),
+                    this.meshLine(this.stepDatas[0].point!, p),
+                    this.meshPoint(p),
+                ];
+            },
+        } satisfies PointSnapData;
+    };
+
     protected override executeMainTask(): void {
         const nodes: VisualNode[] = this.cloneNodes();
 
@@ -434,18 +538,34 @@ export class ArrayCommand extends MultistepCommand {
         });
     }
 
-    private cloneNodes() {
-        let matrixs: Matrix4[];
-        if (this.circularPattern) {
-            matrixs = this.getArcMatrixs(
-                this.stepDatas[0].point!,
-                this._planeAngle!.plane.normal,
-                MathUtils.degToRad(this._planeAngle!.angle),
-            );
-        } else {
-            const { xvec, yvec, normal } = this.boxPlaneInfo(3);
-            matrixs = this.boxArrayMatrixs(3, xvec, yvec, normal, this.stepDatas[3].point!);
+    protected getArrayTransforms() {
+        switch (this.patternType) {
+            case "option.command.patternType.circular":
+                return this.getArcMatrixs(
+                    this.stepDatas[0].point!,
+                    this._planeAngle!.plane.normal,
+                    MathUtils.degToRad(this._planeAngle!.angle),
+                );
+            case "option.command.patternType.rectangular": {
+                const { xvec, yvec, normal } = this.boxPlaneInfo(3);
+                return this.boxArrayMatrixs(3, xvec, yvec, normal, this.stepDatas[3].point!);
+            }
+            case "option.command.patternType.linear": {
+                const vector = this.stepDatas[1].point!.sub(this.stepDatas[0].point!);
+                return this.getLinearTransforms(vector);
+            }
+            case "option.command.patternType.curve": {
+                const shapeData = this.stepDatas[0].shapes[0];
+                const edge = shapeData.shape.transformedMul(shapeData.owner.transform) as IEdge;
+                return this.getCurveTransforms(edge.curve);
+            }
+            default:
+                throw new Error("Invalid pattern type");
         }
+    }
+
+    private cloneNodes() {
+        const matrixs = this.getArrayTransforms();
         const nodes: VisualNode[] = [];
         for (const matrix of matrixs) {
             this.models?.forEach((model) => {
