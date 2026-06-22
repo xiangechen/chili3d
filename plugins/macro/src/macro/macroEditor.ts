@@ -128,6 +128,11 @@ export class MacroEditor extends HTMLElement {
             id: "macro-editor-code",
             className: style.codeEditor,
             textContent: macro?.code ?? DefaultCode,
+            onkeydown: (e) => {
+                if (e.key === "Enter") {
+                    e.stopPropagation();
+                }
+            },
         });
 
         return div(
