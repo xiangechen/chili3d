@@ -24,7 +24,6 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         if (!this.keepSelected) {
             document.selection.clearSelection();
-            document.visual.highlighter.clear();
         }
 
         const data = this.handleStepData();
@@ -35,7 +34,7 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         this.setValidator(data);
 
         const executorHandler = this.getEventHandler(document, controller, data);
-        await document.selection.pickAsync(executorHandler, this.tip, controller, false, this.cursor);
+        await document.picker.pickAsync(executorHandler, this.tip, controller, false, this.cursor);
         const snaped = executorHandler.snaped;
 
         executorHandler.dispose();

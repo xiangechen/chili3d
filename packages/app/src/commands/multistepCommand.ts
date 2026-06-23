@@ -51,8 +51,7 @@ export abstract class MultistepCommand extends CancelableCommand {
             return true;
         }).finally(() => {
             if (!this._isRestarting) {
-                this.document.selection.clearSelection();
-                this.document.visual.highlighter.clear();
+                this.document?.selection.clearSelection();
             }
         });
     }

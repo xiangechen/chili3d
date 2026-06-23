@@ -7,7 +7,6 @@ import {
     MathUtils,
     Observable,
     type ViewMode,
-    VisualNode,
     type XYZLike,
 } from "@chili3d/core";
 import {
@@ -246,7 +245,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     private getBoundingSphere(context: ThreeVisualContext) {
-        const shapes = this.view.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
+        const shapes = this.view.document.selection.getSelectedVisualNodes();
 
         const box = new Box3();
         if (shapes.length === 0) {

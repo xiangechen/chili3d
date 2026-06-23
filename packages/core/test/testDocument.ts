@@ -7,6 +7,7 @@ import {
     type IApplication,
     type IDocument,
     InternalClassName,
+    type IPicker,
     type ISelection,
     type IView,
     type IVisual,
@@ -23,6 +24,7 @@ export class TestDocument implements IDocument {
     id: string;
     history: History;
     selection: ISelection;
+    picker: IPicker;
     visual: IVisual;
     activeView: IView | undefined;
     userData?: Record<string, unknown> | undefined;
@@ -67,6 +69,7 @@ export class TestDocument implements IDocument {
         } as any;
         this.history = new History();
         this.selection = {} as any;
+        this.picker = {} as any;
         this.application = { views: [] } as any;
     }
     clearPropertyChanged(): void {

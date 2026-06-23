@@ -10,6 +10,7 @@ export interface AsyncResult {
 
 export class AsyncController implements IDisposable {
     private readonly _failListeners = new Set<(state: AsyncResult) => void>();
+    private readonly _cancelListeners = new Set<(state: AsyncResult) => void>();
     private readonly _successListeners = new Set<(state: AsyncResult) => void>();
     private _result: AsyncResult | undefined;
 
@@ -22,7 +23,7 @@ export class AsyncController implements IDisposable {
     };
 
     readonly cancel = (message?: string) => {
-        this.notifyListeners(this._failListeners, "cancel", message);
+        this.notifyListeners(this._cancelListeners, "cancel", message);
     };
 
     readonly success = (message?: string) => {
@@ -41,14 +42,19 @@ export class AsyncController implements IDisposable {
     }
 
     onCancelled(listener: (result: AsyncResult) => void): void {
-        this._failListeners.add(listener);
+        this._cancelListeners.add(listener);
     }
 
     onCompleted(listener: (result: AsyncResult) => void): void {
         this._successListeners.add(listener);
     }
 
+    onFailed(listener: (result: AsyncResult) => void): void {
+        this._failListeners.add(listener);
+    }
+
     dispose() {
+        this._cancelListeners.clear();
         this._failListeners.clear();
         this._successListeners.clear();
     }

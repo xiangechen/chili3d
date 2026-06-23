@@ -63,7 +63,7 @@ describe("AsyncController", () => {
 
         test("should call fail listeners", () => {
             let receivedResult: AsyncResult | undefined;
-            controller.onCancelled((result) => {
+            controller.onFailed((result) => {
                 receivedResult = result;
             });
             controller.fail("failed");

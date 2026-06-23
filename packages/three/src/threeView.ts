@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     Config,
     debounce,
     type HtmlTextOptions,
@@ -68,14 +69,14 @@ import { ViewGizmo } from "./viewGizmo";
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
     private _needsUpdate: boolean = false;
+    private _workplane: Plane;
+    private _isolatedNodes?: INode[];
 
     private readonly _scene: Scene;
     private readonly _renderer: WebGLRenderer;
     private readonly _cssRenderer: CSS2DRenderer;
-    private _workplane: Plane;
     private readonly _gizmo: IViewGizmo;
     private readonly _resizeObserver: ResizeObserver;
-    private _isolatedNodes?: INode[];
 
     readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 2);
@@ -120,8 +121,7 @@ export class ThreeView extends Observable implements IView {
         this.setPrivateValue("name", name);
         this._scene = content.scene;
         this._workplane = workplane;
-        const resizerObserverCallback = debounce(this._resizerObserverCallback, 100);
-        this._resizeObserver = new ResizeObserver(resizerObserverCallback);
+        this._resizeObserver = new ResizeObserver(this._resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
         this._cssRenderer = this.initCssRenderer();
@@ -153,14 +153,14 @@ export class ThreeView extends Observable implements IView {
         PubSub.default.pub("viewClosed", this);
     }
 
-    private readonly _resizerObserverCallback = (entries: ResizeObserverEntry[]) => {
+    private readonly _resizerObserverCallback = debounce((entries: ResizeObserverEntry[]) => {
         for (const entry of entries) {
             if (entry.target === this._dom) {
                 this.resize(entry.contentRect.width, entry.contentRect.height);
                 return;
             }
         }
-    };
+    }, 100);
 
     get renderer(): WebGLRenderer {
         return this._renderer;
@@ -476,54 +476,256 @@ export class ThreeView extends Observable implements IView {
         my2: number,
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
-    ) {
-        const selectionBox = this.initSelectionBox(mx1, my1, mx2, my2);
-        const detecteds: VisualShapeData[] = [];
-        const containsCache = new Set<IShape>();
-        for (const obj of selectionBox.select()) {
-            this.addDetectedShape(detecteds, containsCache, shapeType, obj, shapeFilter, nodeFilter);
+    ): VisualShapeData[] {
+        const minX = Math.min(mx1, mx2);
+        const maxX = Math.max(mx1, mx2);
+        const minY = Math.min(my1, my2);
+        const maxY = Math.max(my1, my2);
+
+        const visuals = this.detectVisualsInRect(minX, minY, maxX, maxY, nodeFilter);
+
+        if (ShapeTypeUtils.isWhole(shapeType)) {
+            return this.detectWholeShapesInRect(visuals, shapeFilter);
         }
-        return detecteds;
+
+        return this.detectSubShapesInRect(shapeType, visuals, minX, minY, maxX, maxY, shapeFilter);
     }
 
-    private addDetectedShape(
-        detecteds: VisualShapeData[],
-        cache: Set<IShape>,
-        shapeType: ShapeType,
-        obj: Object3D,
+    private detectWholeShapesInRect(
+        visuals: ThreeVisualObject[],
         shapeFilter?: IShapeFilter,
-        nodeFilter?: INodeFilter,
-    ) {
-        const node = this.getParentNode(obj);
-        const shape = node?.shape.unchecked();
-        if (shape === undefined || cache.has(shape)) return;
-        const transform = ThreeHelper.toMatrix(obj.parent!.matrixWorld);
-        const addShape = (indexes: number[]) => {
-            detecteds.push({
-                shape,
-                transform,
-                owner: obj.parent as any,
-                indexes,
-            });
-            cache.add(shape);
+    ): VisualShapeData[] {
+        const result: VisualShapeData[] = [];
+        const added = new Set<string>();
+        const addShape = (
+            shapes: IShape[] | readonly IShape[],
+            worldTransform: Matrix4,
+            visual: ThreeVisualObject,
+        ) => {
+            for (const shape of shapes) {
+                if (added.has(shape.id)) continue;
+                if (shapeFilter && !shapeFilter.allow(shape, worldTransform)) continue;
+
+                added.add(shape.id);
+                result.push({
+                    owner: visual,
+                    shape,
+                    transform: worldTransform,
+                    indexes: [],
+                });
+            }
         };
 
-        if (shapeType === ShapeTypes.shape) {
-            addShape([]);
-            return;
-        }
-        if ((shape.shapeType & shapeType) === 0) return;
-        if ((shapeFilter && !shapeFilter.allow(shape, transform)) || (nodeFilter && !nodeFilter.allow(node!)))
-            return;
+        for (const visual of visuals) {
+            const worldTransform = visual.worldTransform();
 
-        const groups = obj instanceof LineSegments2 ? shape.mesh.edges?.range : shape.mesh.faces?.range;
-        addShape([...Array(groups?.length).keys()]);
+            if (visual.node instanceof ShapeNode && visual.node.shape.isOk) {
+                addShape([visual.node.shape.value], worldTransform, visual);
+            } else if (visual.node instanceof MultiShapeNode) {
+                addShape(visual.node.shapes, worldTransform, visual);
+            }
+        }
+
+        return result;
     }
 
-    private getParentNode(obj: Object3D) {
-        if (!obj.parent?.visible || !(obj.parent instanceof ThreeGeometry)) return undefined;
+    private detectVisualsInRect(
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+        nodeFilter?: INodeFilter,
+    ): ThreeVisualObject[] {
+        const result: ThreeVisualObject[] = [];
+        this.document.visual.context.visuals().forEach((x) => {
+            if (!x.visible) return;
+            if (!(x instanceof ThreeVisualObject)) return;
 
-        return obj.parent.geometryNode as ShapeNode;
+            const node = this.getNodeFromObject(x);
+            if (node === undefined) return;
+            if (nodeFilter && !nodeFilter.allow(node)) return;
+
+            const box = x.boundingBox();
+            if (!box) return;
+
+            if (this.isBoundingBoxInRect(box, x.worldTransform(), minX, minY, maxX, maxY)) {
+                result.push(x);
+            }
+        });
+        return result;
+    }
+
+    private detectSubShapesInRect(
+        shapeType: ShapeType,
+        visuals: ThreeVisualObject[],
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+        shapeFilter?: IShapeFilter,
+    ): VisualShapeData[] {
+        const result: VisualShapeData[] = [];
+        const added = new Set<string>();
+
+        for (const visual of visuals) {
+            const worldMatrix = visual.worldTransform();
+            const entries = this.collectSubShapeEntries(shapeType, visual);
+
+            for (const entry of entries) {
+                if (added.has(entry.shape.id)) continue;
+
+                if (!this.isShapeInRect(entry.shape, entry.transform, worldMatrix, minX, minY, maxX, maxY)) {
+                    continue;
+                }
+
+                const shapeTransform = entry.transform ? worldMatrix.multiply(entry.transform) : worldMatrix;
+
+                if (shapeFilter && !shapeFilter.allow(entry.shape, shapeTransform)) {
+                    continue;
+                }
+
+                added.add(entry.shape.id);
+                result.push({
+                    owner: visual,
+                    shape: entry.shape,
+                    transform: shapeTransform,
+                    indexes: entry.indexes,
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private collectSubShapeEntries(
+        shapeType: ShapeType,
+        visual: ThreeVisualObject,
+    ): { shape: IShape; transform?: Matrix4; indexes: number[] }[] {
+        const entries: { shape: IShape; transform?: Matrix4; indexes: number[] }[] = [];
+        const added = new Set<string>();
+
+        const iterateFaces =
+            ShapeTypeUtils.hasFace(shapeType) ||
+            ShapeTypeUtils.hasSolid(shapeType) ||
+            ShapeTypeUtils.hasShell(shapeType);
+        const iterateEdges = ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType);
+
+        if (visual instanceof ThreeGeometry) {
+            const node = visual.geometryNode;
+            const rootShape = node instanceof ShapeNode ? node.shape.unchecked() : undefined;
+
+            if (iterateFaces && node.mesh.faces?.range) {
+                this.resolveRangeGroups(shapeType, node.mesh.faces.range, rootShape, added, entries);
+            }
+            if (iterateEdges && node.mesh.edges?.range) {
+                this.resolveRangeGroups(shapeType, node.mesh.edges.range, rootShape, added, entries);
+            }
+        } else if (visual instanceof ThreeComponentObject) {
+            const mesh = visual.componentNode.component.mesh;
+
+            if (iterateFaces && mesh.face.range.length > 0) {
+                this.resolveRangeGroups(shapeType, mesh.face.range, undefined, added, entries);
+            }
+            if (iterateEdges && mesh.edge.range.length > 0) {
+                this.resolveRangeGroups(shapeType, mesh.edge.range, undefined, added, entries);
+            }
+        }
+
+        return entries;
+    }
+
+    private resolveRangeGroups(
+        shapeType: ShapeType,
+        groups: ShapeMeshRange[],
+        rootShape: IShape | undefined,
+        added: Set<string>,
+        entries: { shape: IShape; transform?: Matrix4; indexes: number[] }[],
+    ) {
+        const addShape = (visual: ReturnType<typeof this.getAncestorAndIndex>) => {
+            if (visual.shape && !added.has(visual.shape.id)) {
+                added.add(visual.shape.id);
+                entries.push({
+                    shape: visual.shape,
+                    transform: visual.transform,
+                    indexes: visual.indexes,
+                });
+            }
+        };
+        for (let i = 0; i < groups.length; i++) {
+            const subShape = groups[i].shape as ISubShape;
+            if (!subShape) continue;
+
+            const rShape = rootShape ?? subShape;
+            if (ShapeTypeUtils.hasSolid(shapeType) && subShape.shapeType === ShapeTypes.face) {
+                addShape(this.getAncestorAndIndex(ShapeTypes.solid, subShape, rShape, groups));
+            } else if (ShapeTypeUtils.hasShell(shapeType) && subShape.shapeType === ShapeTypes.face) {
+                addShape(this.getAncestorAndIndex(ShapeTypes.shell, subShape, rShape, groups));
+            } else if (ShapeTypeUtils.hasWire(shapeType) && subShape.shapeType === ShapeTypes.edge) {
+                addShape(this.getAncestorAndIndex(ShapeTypes.wire, subShape, rShape, groups));
+            } else if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeTypes.face) {
+                continue;
+            } else if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeTypes.edge) {
+                continue;
+            }
+
+            addShape({ indexes: [i], ...groups[i] });
+        }
+    }
+
+    private isBoundingBoxInRect(
+        box: BoundingBox,
+        worldMatrix: Matrix4,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+    ): boolean {
+        if (!BoundingBox.isValid(box)) return false;
+
+        const corners = [
+            { x: box.min.x, y: box.min.y, z: box.min.z },
+            { x: box.min.x, y: box.min.y, z: box.max.z },
+            { x: box.min.x, y: box.max.y, z: box.min.z },
+            { x: box.min.x, y: box.max.y, z: box.max.z },
+            { x: box.max.x, y: box.min.y, z: box.min.z },
+            { x: box.max.x, y: box.min.y, z: box.max.z },
+            { x: box.max.x, y: box.max.y, z: box.min.z },
+            { x: box.max.x, y: box.max.y, z: box.max.z },
+        ];
+
+        let screenMinX = Number.POSITIVE_INFINITY;
+        let screenMinY = Number.POSITIVE_INFINITY;
+        let screenMaxX = Number.NEGATIVE_INFINITY;
+        let screenMaxY = Number.NEGATIVE_INFINITY;
+
+        for (const corner of corners) {
+            const { x, y } = this.worldToScreen(worldMatrix.ofPoint(corner));
+            if (x < screenMinX) screenMinX = x;
+            if (y < screenMinY) screenMinY = y;
+            if (x > screenMaxX) screenMaxX = x;
+            if (y > screenMaxY) screenMaxY = y;
+        }
+
+        return screenMinX <= maxX && screenMaxX >= minX && screenMinY <= maxY && screenMaxY >= minY;
+    }
+
+    private isShapeInRect(
+        shape: IShape,
+        localTransform: Matrix4 | undefined,
+        worldMatrix: Matrix4,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+    ): boolean {
+        const box = shape.boundingBox();
+        if (!box) return false;
+
+        const composed = localTransform ? worldMatrix.multiply(localTransform) : worldMatrix;
+        const center = BoundingBox.center(box);
+        const { x, y } = this.worldToScreen(composed.ofPoint(center));
+
+        return x <= maxX && x >= minX && y <= maxY && y >= minY;
     }
 
     detectShapes(
@@ -666,7 +868,12 @@ export class ThreeView extends Observable implements IView {
         subShape: ISubShape,
         shape: IShape,
         groups: ShapeMeshRange[],
-    ) {
+    ): {
+        shape: IShape | undefined;
+        indexes: number[];
+        subShape?: ISubShape;
+        transform?: Matrix4;
+    } {
         const ancestor = subShape.findAncestor(type, shape).at(0);
         if (!ancestor) return { shape: undefined, indexes: [] };
 

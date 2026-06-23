@@ -10,6 +10,7 @@ import {
     type IDocument,
     Id,
     InternalClassName,
+    type IPicker,
     type ISelection,
     type IVisual,
     Logger,
@@ -20,12 +21,14 @@ import {
     type Serialized,
     Serializer,
 } from "@chili3d/core";
-import { Selection } from "./selection";
+import { Picker } from "./picker";
+import { SelectionManager } from "./selectionManager";
 
 export class Document extends Observable implements IDocument {
     readonly visual: IVisual;
     readonly history: History;
     readonly selection: ISelection;
+    readonly picker: IPicker;
     readonly acts = new ObservableCollection<Act>();
     readonly modelManager: ModelManager;
     userData: Record<string, unknown> = {};
@@ -50,11 +53,11 @@ export class Document extends Observable implements IDocument {
         this.setPrivateValue("name", name);
         this.modelManager = new ModelManager(this);
         this.history = new History();
+        this.selection = new SelectionManager(this);
+        this.picker = new Picker(this);
         this.visual = application.visualFactory.create(this);
-        this.selection = new Selection(this);
-        application.documents.add(this);
 
-        Logger.info(`new document: ${name}`);
+        application.documents.add(this);
     }
 
     serialize(): Serialized {

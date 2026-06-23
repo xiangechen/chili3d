@@ -14,7 +14,7 @@ import {
     property,
     Transaction,
     VisualConfig,
-    VisualNode,
+    type VisualNode,
     type XYZ,
 } from "@chili3d/core";
 import { MultistepCommand } from "../multistepCommand";
@@ -45,11 +45,13 @@ export abstract class TransformedCommand extends MultistepCommand {
     };
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection.getSelectedNodes().filter((x) => x instanceof VisualNode);
+        this.models = this.document.selection.getSelectedVisualNodes();
         if (this.models.length > 0) return true;
 
         this.controller = new AsyncController();
-        this.models = await this.document.selection.pickNode("prompt.select.models", this.controller, true);
+        this.models = await this.document.picker.pickNode("prompt.select.models", this.controller, {
+            multi: true,
+        });
 
         if (this.models.length > 0) return true;
         if (this.controller.result?.status === "success") {

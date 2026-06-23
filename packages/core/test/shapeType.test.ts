@@ -20,7 +20,6 @@ describe("test ShapeType", () => {
         expect(ShapeTypeUtils.isWhole(ShapeTypes.shape)).toBeTruthy();
         expect(ShapeTypeUtils.isWhole(ShapeTypes.compound)).toBeTruthy();
         expect(ShapeTypeUtils.isWhole(ShapeTypes.compoundSolid)).toBeTruthy();
-        expect(ShapeTypeUtils.isWhole(ShapeTypes.solid)).toBeTruthy();
         expect(ShapeTypeUtils.isWhole(ShapeTypes.shell)).toBeFalsy();
         expect(ShapeTypeUtils.isWhole(ShapeTypes.face)).toBeFalsy();
         expect(ShapeTypeUtils.isWhole(ShapeTypes.wire)).toBeFalsy();

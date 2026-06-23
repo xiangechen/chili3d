@@ -52,7 +52,7 @@ export class Pipe extends MultistepCommand {
 
         const node = new PipeNode({ document: this.document, radius: this.radius, path: pathResult.value });
         this.document.modelManager.addNode(node);
-        this.document.selection.setSelection([node], false);
+        this.document.selection.setSelectedNodes([node], false);
     }
 
     protected override async executeSteps(): Promise<boolean> {

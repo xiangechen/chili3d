@@ -7,7 +7,7 @@
 }
 
 .current {
-    outline: 2px solid var(--primary-color);
+    outline: 1px dashed rgba(128, 128, 128, 0.5);
 }
 
 .dragging {

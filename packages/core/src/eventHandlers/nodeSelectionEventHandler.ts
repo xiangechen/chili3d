@@ -3,7 +3,6 @@
 
 import type { IDocument } from "../document";
 import type { AsyncController } from "../foundation";
-import type { INode, VisualNode } from "../model";
 import type { INodeFilter } from "../selectionFilter";
 import { ShapeTypes } from "../shape";
 import { type IView, type IVisualObject, VisualStates } from "../visual";
@@ -14,10 +13,6 @@ export class NodeSelectionHandler extends SelectionHandler {
     private _detectAtMouse: IVisualObject[] | undefined;
     private _lockDetected: IVisualObject | undefined; // 用于切换捕获的对象
     protected highlighState = VisualStates.edgeHighlight;
-
-    nodes(): VisualNode[] {
-        return this.document.selection.getSelectedNodes() as VisualNode[];
-    }
 
     constructor(
         document: IDocument,
@@ -36,8 +31,8 @@ export class NodeSelectionHandler extends SelectionHandler {
         const models = this._highlights
             .map((x) => view.document.visual.context.getNode(x))
             .filter((x) => x !== undefined);
-        this.document.selection.setSelection(models, this.toggleSelect(event));
-        return models.length;
+
+        return this.document.selection.setSelectedNodes(models, this.toggleSelect(event));
     }
 
     protected toggleSelect(event: PointerEvent) {
@@ -109,9 +104,5 @@ export class NodeSelectionHandler extends SelectionHandler {
             const detected = this.getDetecting();
             if (detected) this.highlightDetecteds(view, [detected]);
         }
-    }
-
-    override clearSelected(document: IDocument): void {
-        document.selection.clearSelection();
     }
 }

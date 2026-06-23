@@ -7,6 +7,7 @@ import {
     type IApplication,
     type IDocument,
     InternalClassName,
+    type IPicker,
     type ISelection,
     type IView,
     ModelManager,
@@ -23,6 +24,7 @@ export class TestDocument implements IDocument {
     id: string;
     history: History;
     selection: ISelection;
+    picker: IPicker;
     visual: ThreeVisual;
     activeView: IView | undefined;
     modelManager: ModelManager = new ModelManager(this);
@@ -59,6 +61,7 @@ export class TestDocument implements IDocument {
         this.visual = new ThreeVisual(this, new NodeSelectionHandler(this, true));
         this.history = new History();
         this.selection = {} as any;
+        this.picker = {} as any;
         this.application = { views: [] } as any;
     }
     clearPropertyChanged(): void {

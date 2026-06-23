@@ -6,19 +6,15 @@ import { type IDocument, type INode, NodeSelectionHandler, PubSub } from "@chili
 export class ShowPropertyEventHandler extends NodeSelectionHandler {
     constructor(document: IDocument) {
         super(document, true);
-        PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
+        document.selection.onNodeChanged.sub(this.handleSelectionChanged);
     }
 
-    protected readonly handleSelectionChanged = (
-        _doc: IDocument,
-        selected: INode[],
-        _unselected: INode[],
-    ) => {
+    protected readonly handleSelectionChanged = (selected: INode[]) => {
         PubSub.default.pub("showProperties", this.document, selected);
     };
 
     override disposeInternal() {
-        PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+        this.document.selection.onNodeChanged.remove(this.handleSelectionChanged);
         super.disposeInternal();
     }
 }

@@ -28,7 +28,6 @@ export interface PubSubEventMap {
     modelUpdate: (model: INode) => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
-    selectionChanged: (document: IDocument, selected: INode[], unselected: INode[]) => void;
     showDialog: (title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) => void;
     showFloatPanel: (options: FloatPanelOptions) => void;
     showFloatTip: (dom: HTMLElement | { level: MessageType; msg: string }) => void;

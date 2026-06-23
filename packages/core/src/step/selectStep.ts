@@ -34,20 +34,11 @@ export abstract class SelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const { shapeType, shapeFilter, nodeFilter } = document.selection;
-        document.selection.shapeType = this.snapeType;
-        document.selection.shapeFilter = this.options?.shapeFilter;
-        document.selection.nodeFilter = this.options?.nodeFilter;
         if (!this.options?.keepSelection) {
             document.selection.clearSelection();
-            document.visual.highlighter.clear();
         }
 
-        return Promise.try(this.select.bind(this), document, controller).finally(() => {
-            document.selection.shapeType = shapeType;
-            document.selection.shapeFilter = shapeFilter;
-            document.selection.nodeFilter = nodeFilter;
-        });
+        return Promise.try(this.select.bind(this), document, controller);
     }
 
     abstract select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;
@@ -55,13 +46,14 @@ export abstract class SelectStep implements IStep {
 
 export class SelectShapeStep extends SelectStep {
     override async select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const shapes = await document.selection.pickShape(
-            this.prompt,
-            controller,
-            this.options?.multiple === true,
-            this.options?.selectedState,
-            this.options?.highlightState,
-        );
+        const shapes = await document.picker.pickShape(this.prompt, controller, {
+            shapeType: this.snapeType,
+            shapeFilter: this.options?.shapeFilter,
+            nodeFilter: this.options?.nodeFilter,
+            multi: this.options?.multiple,
+            selectedState: this.options?.selectedState,
+            highlightState: this.options?.highlightState,
+        });
         if (shapes.length === 0) return undefined;
         return {
             view: document.application.activeView!,
@@ -79,19 +71,15 @@ export class SelectNodeStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const { nodeFilter } = document.selection;
-        document.selection.nodeFilter = this.options?.filter;
         if (!this.options?.keepSelection) {
             document.selection.clearSelection();
-            document.visual.highlighter.clear();
         }
 
         return Promise.try(async () => {
-            const nodes = await document.selection.pickNode(
-                this.prompt,
-                controller,
-                this.options?.multiple === true,
-            );
+            const nodes = await document.picker.pickNode(this.prompt, controller, {
+                nodeFilter: this.options?.filter,
+                multi: this.options?.multiple,
+            });
             if (nodes.length === 0) return undefined;
             return {
                 view: document.application.activeView!,
@@ -99,8 +87,6 @@ export class SelectNodeStep implements IStep {
                 nodes,
                 type: "node",
             } satisfies SnapResult;
-        }).finally(() => {
-            document.selection.nodeFilter = nodeFilter;
         });
     }
 }

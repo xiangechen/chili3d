@@ -4,7 +4,7 @@
 import type { IApplication } from "./application";
 import type { History, IDisposable, IPropertyChanged, ObservableCollection } from "./foundation";
 import type { ModelManager } from "./modelManager";
-import type { ISelection } from "./selection";
+import type { IPicker, ISelection } from "./selection";
 import type { Serialized } from "./serialize";
 import type { Act, IVisual } from "./visual";
 
@@ -13,6 +13,7 @@ export const PLUGIN_FILE_EXTENSION = ".chiliplugin";
 
 export interface IDocument extends IPropertyChanged, IDisposable {
     readonly selection: ISelection;
+    readonly picker: IPicker;
     readonly id: string;
     readonly history: History;
     readonly visual: IVisual;

@@ -68,7 +68,9 @@ export abstract class SelectionHandler implements IEventHandler {
 
     protected abstract cleanHighlights(): void;
 
-    protected abstract clearSelected(document: IDocument): void;
+    protected clearSelected(document: IDocument) {
+        document.selection.clearSelection();
+    }
 
     protected abstract select(view: IView, event: PointerEvent): number;
 

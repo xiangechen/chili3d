@@ -45,13 +45,12 @@ export class Trim extends CancelableCommand {
     }
 
     private async trimAsync() {
-        this.document.visual.highlighter.clear();
         this.document.selection.clearSelection();
 
         while (!this.isCompleted) {
             this.controller = new AsyncController();
             const handler = new PickTrimEdgeEventHandler(this.document, this.controller);
-            await this.document.selection.pickAsync(
+            await this.document.picker.pickAsync(
                 handler,
                 "prompt.select.edges",
                 this.controller,

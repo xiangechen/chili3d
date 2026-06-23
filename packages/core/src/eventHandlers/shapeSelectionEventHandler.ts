@@ -109,62 +109,17 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
 }
 
 export class SubshapeSelectionHandler extends ShapeSelectionHandler {
-    protected readonly _shapes: Map<IShape, VisualShapeData> = new Map();
     selectedState: VisualState = VisualStates.edgeSelected;
 
-    constructor(
-        document: IDocument,
-        shapeType: ShapeType,
-        multiMode: boolean,
-        controller?: AsyncController,
-        filter?: IShapeFilter,
-        nodeFilter?: INodeFilter,
-    ) {
-        super(document, shapeType, multiMode, controller, filter, nodeFilter);
-        this.showRect = false;
-    }
-
-    shapes(): VisualShapeData[] {
-        return [...this._shapes.values()];
-    }
-
-    override clearSelected(document: IDocument): void {
-        for (const shape of this._shapes.values()) {
-            this.removeSelected(shape);
-        }
-        this._shapes.clear();
-    }
-
     protected override select(view: IView, event: PointerEvent): number {
-        const document = view.document.visual.document;
-        if (this.multiMode) {
-            this._highlights?.forEach((x) =>
-                this._shapes.has(x.shape) ? this.removeSelected(x) : this.addSelected(x),
-            );
-        } else {
-            this.clearSelected(document);
-            this._highlights?.forEach(this.addSelected.bind(this));
+        if (!this._highlights?.length) {
+            return 0;
         }
-        return this._shapes.size;
-    }
 
-    protected removeSelected(shape: VisualShapeData) {
-        this._shapes.delete(shape.shape);
-        this.document.visual.highlighter.removeState(
-            shape.owner,
+        return this.document.selection.setSelectedShapes(
+            this._highlights,
             this.selectedState,
-            shape.shape.shapeType,
-            ...shape.indexes,
+            this.multiMode,
         );
-    }
-
-    protected addSelected(shape: VisualShapeData) {
-        this.document.visual.highlighter.addState(
-            shape.owner,
-            this.selectedState,
-            shape.shape.shapeType,
-            ...shape.indexes,
-        );
-        this._shapes.set(shape.shape, shape);
     }
 }

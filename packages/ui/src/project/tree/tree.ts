@@ -6,14 +6,15 @@ import {
     type IDocument,
     type INode,
     type INodeLinkedList,
+    type ModelManager,
     type NodeRecord,
+    NodeSelectionHandler,
     NodeUtils,
-    PubSub,
+    ShapeSelectionHandler,
     ShapeTypes,
     Transaction,
     VisualNode,
 } from "@chili3d/core";
-import { NodeSelectionHandler, ShapeSelectionHandler } from "@chili3d/core/src/eventHandlers";
 import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
@@ -21,10 +22,11 @@ import { TreeModel } from "./treeModel";
 
 export class Tree extends HTMLElement {
     private readonly nodeMap = new Map<INode, TreeItem>();
-    private lastClicked: INode | undefined;
     private readonly selectedNodes: Set<INode> = new Set();
     private dragging: INode[] | undefined;
     private highlightedGroup: TreeGroup | undefined;
+    private lastClicked: INode | undefined;
+    private lastSelected: INode[] | undefined;
 
     constructor(private document: IDocument) {
         super();
@@ -39,13 +41,30 @@ export class Tree extends HTMLElement {
 
     connectedCallback() {
         this.document.modelManager.addNodeObserver(this.handleNodeChanged);
-        PubSub.default.sub("selectionChanged", this.handleSelectionChanged);
+        this.document.modelManager.onPropertyChanged(this.handleCurrentNodeChanged);
+        this.document.selection.onNodeChanged.sub(this.handleSelectionChanged);
     }
 
     disconnectedCallback() {
         this.document.modelManager.removeNodeObserver(this.handleNodeChanged);
-        PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+        this.document.modelManager.removePropertyChanged(this.handleCurrentNodeChanged);
+        this.document.selection.onNodeChanged.remove(this.handleSelectionChanged);
     }
+
+    private readonly handleCurrentNodeChanged = (
+        prop: keyof ModelManager,
+        source: ModelManager,
+        oldValue: any,
+    ) => {
+        if (prop === "currentNode") {
+            if (oldValue !== undefined) {
+                this.nodeMap.get(oldValue)?.removeStyle(style.current);
+            }
+            if (source.currentNode) {
+                this.nodeMap.get(source.currentNode)?.addStyle(style.current);
+            }
+        }
+    };
 
     treeItem(node: INode): TreeItem | undefined {
         return this.nodeMap.get(node);
@@ -60,7 +79,8 @@ export class Tree extends HTMLElement {
         this.selectedNodes.clear();
         this.removeEvents(this);
         this.document.modelManager.removeNodeObserver(this.handleNodeChanged);
-        PubSub.default.remove("selectionChanged", this.handleSelectionChanged);
+        this.document.modelManager.removePropertyChanged(this.handleCurrentNodeChanged);
+        this.document.selection.onNodeChanged.remove(this.handleSelectionChanged);
         this.document = null as any;
     }
 
@@ -85,16 +105,13 @@ export class Tree extends HTMLElement {
         return parent;
     }
 
-    private readonly handleSelectionChanged = (
-        document: IDocument,
-        selected: INode[],
-        unselected: INode[],
-    ) => {
-        unselected.forEach((x) => {
+    private readonly handleSelectionChanged = (selected: INode[]) => {
+        this.lastSelected?.forEach((x) => {
             this.nodeMap.get(x)?.removeStyle(style.selected);
             this.selectedNodes.delete(x);
         });
-        this.setLastClickItem(undefined);
+        this.lastSelected = Array.from(selected);
+
         selected.forEach((model) => {
             this.selectedNodes.add(model);
             this.nodeMap.get(model)?.addStyle(style.selected);
@@ -182,16 +199,16 @@ export class Tree extends HTMLElement {
         if (event.shiftKey) {
             this.handleShiftClick(item);
         } else {
-            this.document.selection.setSelection([item], event.ctrlKey);
+            this.document.selection.setSelectedNodes([item], event.ctrlKey);
         }
 
-        this.setLastClickItem(item);
+        this.handleLastClickItem(item);
     };
 
     private handleShiftClick(item: INode) {
         if (this.lastClicked) {
             const nodes = NodeUtils.getNodesBetween(this.lastClicked, item);
-            this.document.selection.setSelection(nodes, false);
+            this.document.selection.setSelectedNodes(nodes, false);
         }
     }
 
@@ -231,13 +248,9 @@ export class Tree extends HTMLElement {
         return false;
     }
 
-    private setLastClickItem(item: INode | undefined) {
-        if (this.lastClicked !== undefined) {
-            this.nodeMap.get(this.lastClicked)?.removeStyle(style.current);
-        }
+    private handleLastClickItem(item: INode | undefined) {
         this.lastClicked = item;
         if (item !== undefined) {
-            this.nodeMap.get(item)?.addStyle(style.current);
             this.document.modelManager.currentNode = NodeUtils.isLinkedListNode(item) ? item : item.parent;
         }
     }
