@@ -11,6 +11,7 @@ import {
     type ICompoundSolid,
     type ICurve,
     type IDisposable,
+    Id,
     type IEdge,
     type IFace,
     type IShape,
@@ -74,16 +75,21 @@ import { OccSurface } from "./surface";
 
 export interface OccShapeOptions {
     shape: TopoDS_Shape;
+    id?: string;
 }
 
 function occShapeSerialize(target: OccShape): SerializedData {
     return {
         shape: wasm.Converter.convertToBrep(target.shape),
+        id: target.id,
     };
 }
 
 function occShapeDeserialize(properties: Serialized) {
-    return OccShape.wrap(wasm.Converter.convertFromBrep(properties["shape"] as string)) as OccShape;
+    return OccShape.wrap(
+        wasm.Converter.convertFromBrep(properties["shape"] as string),
+        properties["id"],
+    ) as OccShape;
 }
 
 @serializable({
@@ -138,35 +144,35 @@ export class OccShape implements IShape {
     }
 
     constructor(options: OccShapeOptions) {
-        this.id = wasm.Shape.ptr(options.shape).toString();
+        this.id = options.id ?? Id.generate();
         this._shape = options.shape;
         this.shapeType = getShapeType(options.shape);
     }
 
-    static wrap(shape: TopoDS_Shape): IShape {
+    static wrap(shape: TopoDS_Shape, id?: string): IShape {
         if (shape.isNull()) {
             throw new Error("Shape is null");
         }
 
         switch (shape.shapeType()) {
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND:
-                return new OccCompound({ shape: wasm.TopoDS.compound(shape) });
+                return new OccCompound({ shape: wasm.TopoDS.compound(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID:
-                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape) });
+                return new OccCompSolid({ shape: wasm.TopoDS.compsolid(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_SOLID:
-                return new OccSolid({ shape: wasm.TopoDS.solid(shape) });
+                return new OccSolid({ shape: wasm.TopoDS.solid(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_SHELL:
-                return new OccShell({ shape: wasm.TopoDS.shell(shape) });
+                return new OccShell({ shape: wasm.TopoDS.shell(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_FACE:
-                return new OccFace({ shape: wasm.TopoDS.face(shape) });
+                return new OccFace({ shape: wasm.TopoDS.face(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_WIRE:
-                return new OccWire({ shape: wasm.TopoDS.wire(shape) });
+                return new OccWire({ shape: wasm.TopoDS.wire(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_EDGE:
-                return new OccEdge({ shape: wasm.TopoDS.edge(shape) });
+                return new OccEdge({ shape: wasm.TopoDS.edge(shape), id });
             case wasm.TopAbs_ShapeEnum.TopAbs_VERTEX:
-                return new OccVertex({ shape: wasm.TopoDS.vertex(shape) });
+                return new OccVertex({ shape: wasm.TopoDS.vertex(shape), id });
             default:
-                return new OccShape({ shape });
+                return new OccShape({ shape, id });
         }
     }
 
@@ -824,7 +830,12 @@ export class Mesher implements IShapeMeshData, IDisposable {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: new OccSubEdgeShape({ parent: this.shape, shape: data.edges[i], index: i }),
+                shape: new OccSubEdgeShape({
+                    parent: this.shape,
+                    shape: data.edges[i],
+                    index: i,
+                    id: `${this.shape.id}_${i}`,
+                }),
             });
         }
         return result;
@@ -836,7 +847,12 @@ export class Mesher implements IShapeMeshData, IDisposable {
             result.push({
                 start: data.group[2 * i],
                 count: data.group[2 * i + 1],
-                shape: new OccSubFaceShape({ parent: this.shape, shape: data.faces[i], index: i }),
+                shape: new OccSubFaceShape({
+                    parent: this.shape,
+                    shape: data.faces[i],
+                    index: i,
+                    id: `${this.shape.id}_${i}`,
+                }),
             });
         }
         return result;
