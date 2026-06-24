@@ -834,7 +834,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
                     parent: this.shape,
                     shape: data.edges[i],
                     index: i,
-                    id: `${this.shape.id}_${i}`,
+                    id: `${this.shape.id}_e${i.toString().padStart(4, "0")}`,
                 }),
             });
         }
@@ -851,7 +851,7 @@ export class Mesher implements IShapeMeshData, IDisposable {
                     parent: this.shape,
                     shape: data.faces[i],
                     index: i,
-                    id: `${this.shape.id}_${i}`,
+                    id: `${this.shape.id}_f${i.toString().padStart(4, "0")}`,
                 }),
             });
         }
