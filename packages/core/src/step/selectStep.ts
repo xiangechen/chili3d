@@ -64,6 +64,34 @@ export class SelectShapeStep extends SelectStep {
     }
 }
 
+export class GetOrSelectShapeStep extends SelectShapeStep {
+    override execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const shapes = document.selection.getSelectedShapes().filter((x) => {
+            let isValid = x.shape.shapeType === this.snapeType;
+            if (this.options?.shapeFilter?.allow) {
+                isValid &&= this.options.shapeFilter.allow(x.shape, x.transform);
+            }
+            if (this.options?.nodeFilter?.allow) {
+                isValid &&= this.options.nodeFilter.allow(x.owner.node);
+            }
+
+            return isValid;
+        });
+
+        if (shapes.length > 0) {
+            controller.success();
+            return Promise.resolve({
+                view: document.application.activeView!,
+                shapes,
+                nodes: shapes.map((x) => x.owner.node),
+                type: "shape",
+            });
+        }
+
+        return super.execute(document, controller);
+    }
+}
+
 export class SelectNodeStep implements IStep {
     constructor(
         readonly prompt: I18nKeys,
