@@ -53,6 +53,11 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         return detected ? [detected] : [];
     }
 
+    override pointerMove(view: IView, event: PointerEvent): void {
+        super.pointerMove(view, event);
+        this._lockDetected = undefined;
+    }
+
     protected override setHighlight(view: IView, event: PointerEvent) {
         const detecteds = this.getDetecteds(view, event);
         this.highlightDetecteds(view, detecteds);

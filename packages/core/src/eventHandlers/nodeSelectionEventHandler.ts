@@ -74,6 +74,11 @@ export class NodeSelectionHandler extends SelectionHandler {
         return -1;
     }
 
+    override pointerMove(view: IView, event: PointerEvent): void {
+        super.pointerMove(view, event);
+        this._lockDetected = undefined;
+    }
+
     protected override setHighlight(view: IView, event: PointerEvent) {
         const detecteds = this.getDetecteds(view, event);
         this.highlightDetecteds(view, detecteds);
