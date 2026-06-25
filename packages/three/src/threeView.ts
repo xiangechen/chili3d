@@ -662,13 +662,14 @@ export class ThreeView extends Observable implements IView {
                 addShape(this.getAncestorAndIndex(ShapeTypes.shell, subShape, rShape, groups));
             } else if (ShapeTypeUtils.hasWire(shapeType) && subShape.shapeType === ShapeTypes.edge) {
                 addShape(this.getAncestorAndIndex(ShapeTypes.wire, subShape, rShape, groups));
-            } else if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeTypes.face) {
-                continue;
-            } else if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeTypes.edge) {
-                continue;
+            } else {
+                if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeTypes.face) {
+                    continue;
+                } else if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeTypes.edge) {
+                    continue;
+                }
+                addShape({ indexes: [i], ...groups[i] });
             }
-
-            addShape({ indexes: [i], ...groups[i] });
         }
     }
 
@@ -682,24 +683,17 @@ export class ThreeView extends Observable implements IView {
     ): boolean {
         if (!BoundingBox.isValid(box)) return false;
 
-        const corners = [
-            { x: box.min.x, y: box.min.y, z: box.min.z },
-            { x: box.min.x, y: box.min.y, z: box.max.z },
-            { x: box.min.x, y: box.max.y, z: box.min.z },
-            { x: box.min.x, y: box.max.y, z: box.max.z },
-            { x: box.max.x, y: box.min.y, z: box.min.z },
-            { x: box.max.x, y: box.min.y, z: box.max.z },
-            { x: box.max.x, y: box.max.y, z: box.min.z },
-            { x: box.max.x, y: box.max.y, z: box.max.z },
-        ];
-
         let screenMinX = Number.POSITIVE_INFINITY;
         let screenMinY = Number.POSITIVE_INFINITY;
         let screenMaxX = Number.NEGATIVE_INFINITY;
         let screenMaxY = Number.NEGATIVE_INFINITY;
 
-        for (const corner of corners) {
-            const { x, y } = this.worldToScreen(worldMatrix.ofPoint(corner));
+        const { min, max } = box;
+        for (let i = 0; i < 8; i++) {
+            const ix = i & 1 ? max.x : min.x;
+            const iy = i & 2 ? max.y : min.y;
+            const iz = i & 4 ? max.z : min.z;
+            const { x, y } = this.worldToScreen(worldMatrix.ofPoint({ x: ix, y: iy, z: iz }));
             if (x < screenMinX) screenMinX = x;
             if (y < screenMinY) screenMinY = y;
             if (x > screenMaxX) screenMaxX = x;
