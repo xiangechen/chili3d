@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Line, XYZ } from "../math";
+import { type Line, MathUtils, type XYZ } from "../math";
 import type { IGeometry } from "./geometry";
 
 export type CurveType =
@@ -160,5 +160,29 @@ export class CurveUtils {
 
     static isTrimmed(curve: ICurve): curve is ITrimmedCurve {
         return (curve as ITrimmedCurve).basisCurve !== undefined;
+    }
+
+    /**
+     * Compute the two tangent points on a circle from an external point.
+     * Returns an empty array if the point is inside or on the circle, or not coplanar with it.
+     */
+    static tangentPoints(circle: ICircle, point: XYZ): XYZ[] {
+        const V = point.sub(circle.center);
+
+        // Point must be coplanar with the circle
+        if (!MathUtils.almostEqual(V.dot(circle.axis), 0)) return [];
+
+        const d = V.length();
+        if (d <= circle.radius) return [];
+
+        const alpha = Math.acos(circle.radius / d);
+        const unitV = V.normalize();
+        if (!unitV) return [];
+
+        // Rotate the unit vector by ±α around the circle axis to find the two tangent directions
+        return [alpha, -alpha]
+            .map((a) => unitV.rotate(circle.axis, a))
+            .filter((dir): dir is XYZ => dir != null)
+            .map((dir) => circle.center.add(dir.multiply(circle.radius)));
     }
 }

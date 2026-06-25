@@ -3,14 +3,13 @@
 
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
-import { I18n } from "../../i18n";
+import { I18n, type I18nKeys } from "../../i18n";
 import { Line, type Ray, type XYZ } from "../../math";
-import { CurveUtils, type ICircle, type IEdge, MeshDataUtils, ShapeTypes } from "../../shape";
+import { CurveUtils, type ICircle, type IEdge, type IVertex, MeshDataUtils, ShapeTypes } from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IView, type IVisualContext, screenDistance, type VisualShapeData } from "../../visual";
-import type { MouseAndDetected, SnapResult } from "../snap";
+import type { MouseAndDetected, SnapResult, SnapType } from "../snap";
 import { BaseSnap } from "./baseSnap";
-import { FeaturePointStrategy } from "./featurePointStrategy";
 
 interface InvisibleSnapInfo {
     view: IView;
@@ -19,9 +18,8 @@ interface InvisibleSnapInfo {
 }
 
 export class ObjectSnap extends BaseSnap {
-    private readonly _featureStrategy: FeaturePointStrategy;
-    private readonly _intersectionInfos: Map<string, SnapResult[]>;
-    private readonly _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo>;
+    private readonly _intersectionInfos: Map<string, SnapResult[]> = new Map();
+    private readonly _invisibleInfos: Map<VisualShapeData, InvisibleSnapInfo> = new Map();
     private _lastDetected?: [IView, SnapResult];
     private _hintVertex?: [IVisualContext, number];
 
@@ -30,9 +28,6 @@ export class ObjectSnap extends BaseSnap {
         referencePoint?: () => XYZ,
     ) {
         super(referencePoint);
-        this._featureStrategy = new FeaturePointStrategy(_snapType, referencePoint);
-        this._intersectionInfos = new Map();
-        this._invisibleInfos = new Map();
         Config.instance.onPropertyChanged(this.onSnapTypeChanged);
     }
 
@@ -42,7 +37,6 @@ export class ObjectSnap extends BaseSnap {
             info.displays.forEach((x) => info.view.document.visual.context.removeMesh(x));
         });
         this.removeHint();
-        this._featureStrategy.clear();
         Config.instance.removePropertyChanged(this.onSnapTypeChanged);
     }
 
@@ -56,7 +50,6 @@ export class ObjectSnap extends BaseSnap {
     private readonly onSnapTypeChanged = (property: keyof Config) => {
         if (property === "snapType" || property === "enableSnap") {
             this._snapType = Config.instance.snapType;
-            this._featureStrategy.updateSnapType(this._snapType);
             this._intersectionInfos.clear();
         }
     };
@@ -90,7 +83,7 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {
-        const featurePoints = this._featureStrategy.getFeaturePoints(view, shapes[0]);
+        const featurePoints = this.getFeaturePoints(view, shapes[0]);
         const perpendiculars = this.findPerpendicular(view, shapes[0]);
         const intersections = this.getIntersections(view, shapes[0], shapes);
         const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
@@ -102,13 +95,13 @@ export class ObjectSnap extends BaseSnap {
         }
 
         if (screenDistance(view, x, y, ordered[0].point!) < Config.instance.SnapDistance) {
-            this.hilighted(view, ordered[0].shapes);
+            this.highlight(ordered[0].shapes);
             return ordered[0];
         }
 
         const nearest = this.findNearestPointAtEdgeCurve(view, shapes[0], view.rayAt(x, y));
         if (nearest && screenDistance(view, x, y, nearest.point!) < Config.instance.SnapDistance) {
-            this.hilighted(view, nearest.shapes);
+            this.highlight(nearest.shapes);
             return nearest;
         }
 
@@ -116,8 +109,63 @@ export class ObjectSnap extends BaseSnap {
         return undefined;
     }
 
+    private getFeaturePoints(view: IView, shape: VisualShapeData): SnapResult[] {
+        const points: SnapResult[] = [];
+        if (shape.shape.shapeType === ShapeTypes.vertex) {
+            this.collectVertexFeaturePoints(view, shape, points);
+        } else if (shape.shape.shapeType === ShapeTypes.edge) {
+            this.collectEdgeFeaturePoints(view, shape, points);
+        }
+        return points;
+    }
+
+    private collectVertexFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.vertex)) {
+            const point = shape.transform.ofPoint((shape.shape as IVertex).point());
+            infos.push({
+                view,
+                point,
+                info: I18n.translate("vertex.point"),
+                shapes: [shape],
+                type: "vertex",
+            });
+        }
+    }
+
+    private collectEdgeFeaturePoints(view: IView, shape: VisualShapeData, infos: SnapResult[]) {
+        const curve = (shape.shape as IEdge).curve;
+        const start = curve.startPoint();
+        const end = curve.endPoint();
+
+        const addPoint = (point: XYZ, info: I18nKeys, type: SnapType) =>
+            infos.push({
+                view,
+                point: shape.transform.ofPoint(point),
+                type,
+                info: I18n.translate(info),
+                shapes: [shape],
+            });
+
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.endPoint)) {
+            addPoint(start, "snap.end", "end");
+            addPoint(end, "snap.end", "end");
+        }
+        if (ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.midPoint)) {
+            const mid = curve.value((curve.firstParameter() + curve.lastParameter()) * 0.5);
+            addPoint(mid, "snap.mid", "middle");
+        }
+        if (this.referencePoint && ObjectSnapTypeUtils.hasType(this._snapType, ObjectSnapTypes.tangent)) {
+            if (CurveUtils.isCircle(curve.basisCurve)) {
+                const refInLocal = shape.transform.invert()!.ofPoint(this.referencePoint());
+                CurveUtils.tangentPoints(curve.basisCurve, refInLocal).forEach((tangent) => {
+                    addPoint(tangent, "snap.tangent", "tangent");
+                });
+            }
+        }
+    }
+
     private displayHint(view: IView, shape: SnapResult) {
-        this.hilighted(view, shape.shapes);
+        this.highlight(shape.shapes);
         const data = MeshDataUtils.createVertexMesh(
             shape.point!,
             VisualConfig.hintVertexSize,
@@ -129,7 +177,7 @@ export class ObjectSnap extends BaseSnap {
     private snapeInvisible(view: IView, x: number, y: number): SnapResult | undefined {
         const { minDistance, snap } = this.getNearestInvisibleSnap(view, x, y);
         if (minDistance < Config.instance.SnapDistance) {
-            this.hilighted(view, snap!.shapes);
+            this.highlight(snap!.shapes);
             return snap;
         }
         return undefined;
@@ -187,10 +235,6 @@ export class ObjectSnap extends BaseSnap {
             ],
             displays: [id],
         });
-    }
-
-    private hilighted(view: IView, shapes: VisualShapeData[]) {
-        this.highlight(shapes);
     }
 
     private sortSnaps(view: IView, x: number, y: number, a: SnapResult, b: SnapResult): number {
