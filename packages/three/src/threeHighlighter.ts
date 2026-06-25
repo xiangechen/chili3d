@@ -117,7 +117,7 @@ export class GeometryState {
         this.highlighter.container.clear();
         if (this.visual instanceof ThreeGeometry) {
             this.visual.removeTemperaryMaterial();
-        } else if (this.visual instanceof ThreeMeshObject) {
+        } else if (isHighlightable(this.visual)) {
             this.visual.unhighlight();
         }
         this._states.clear();
