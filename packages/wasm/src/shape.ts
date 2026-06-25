@@ -31,6 +31,7 @@ import {
     Logger,
     MathUtils,
     type Matrix4,
+    MeshUtils,
     type Orientation,
     type OrientedBoundingBox,
     Plane,
@@ -178,7 +179,13 @@ export class OccShape implements IShape {
 
     boundingBox(): BoundingBox {
         if (!this._boundingBox) {
-            this._boundingBox = wasm.Shape.boundingBox(this.shape, this._mesh !== undefined);
+            const points =
+                this.mesh.faces?.position ?? this.mesh.edges?.position ?? this.mesh.vertexs?.position ?? [];
+            if (points.length > 0) {
+                this._boundingBox = BoundingBox.fromNumbers(points);
+            } else {
+                this._boundingBox = wasm.Shape.boundingBox(this.shape, this._mesh !== undefined);
+            }
         }
         return this._boundingBox;
     }
@@ -666,7 +673,18 @@ export interface OccSubVertexShapeOptions {
 
 export class OccSubVertexShape extends OccVertex implements ISubVertexShape {
     override get mesh(): IShapeMeshData {
-        throw new Error("Method not implemented.");
+        this._mesh ??= {
+            faces: undefined,
+            vertexs: {
+                position: new Float32Array(
+                    this.parent.mesh.vertexs!.position.subarray(this.index * 3, (this.index + 1) * 3),
+                ),
+                size: this.parent.mesh.vertexs?.size ?? 1,
+                range: [],
+            },
+            edges: undefined,
+        };
+        return this._mesh;
     }
 
     readonly parent: IShape;
@@ -688,7 +706,16 @@ export interface OccSubEdgeShapeOptions {
 
 export class OccSubEdgeShape extends OccEdge implements ISubEdgeShape {
     override get mesh(): IShapeMeshData {
-        throw new Error("Method not implemented.");
+        this._mesh ??= {
+            faces: undefined,
+            vertexs: undefined,
+            edges: {
+                position: MeshUtils.subEdge(this.parent.mesh.edges!, this.index)!,
+                lineType: this.parent.mesh.edges!.lineType,
+                range: [],
+            },
+        };
+        return this._mesh;
     }
 
     readonly parent: IShape;
@@ -710,7 +737,12 @@ export interface OccSubFaceShapeOptions {
 
 export class OccSubFaceShape extends OccFace implements ISubFaceShape {
     override get mesh(): IShapeMeshData {
-        throw new Error("Method not implemented.");
+        this._mesh ??= {
+            faces: MeshUtils.subFace(this.parent.mesh.faces!, this.index),
+            vertexs: undefined,
+            edges: undefined,
+        };
+        return this._mesh;
     }
 
     readonly parent: IShape;
