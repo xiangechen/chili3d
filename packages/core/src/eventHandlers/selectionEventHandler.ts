@@ -139,9 +139,14 @@ export abstract class SelectionHandler implements IEventHandler {
         if (event.key === "Escape") {
             this.controller ? this.controller.cancel() : this.clearSelected(view.document.visual.document);
             this.cleanHighlights();
-        } else if (event.key === "Enter") {
+        } else if (event.key === "Enter" || event.key === " ") {
+            // DefaultEventHandler is should pass Enter/Space to HotkeyService,
+            if (this !== this.document.visual.defaultEventHandler) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
             this.cleanHighlights();
-            this.controller?.success();
+            this.controller?.success(); // accept selection
         } else if (event.key === "Tab") {
             event.preventDefault();
             this.highlightNext(view);

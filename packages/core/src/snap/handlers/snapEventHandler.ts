@@ -248,17 +248,17 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
             view.document.visual.update();
         });
 
-        switch (event.key) {
-            case "Escape":
-                this._snaped = undefined;
-                this.handleCancel();
-                break;
-            case "Enter":
-                this._snaped = undefined;
-                this.handleSuccess();
-                break;
-            default:
-                this.handleNumericInput(view, event);
+        if (event.key === "Escape") {
+            this._snaped = undefined;
+            this.handleCancel();
+        } else if (event.key === "Enter" || event.key === " ") {
+            // should cancel when enter or space keydown, and should not trigger HotKeyService
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this._snaped = undefined;
+            this.handleCancel();
+        } else {
+            this.handleNumericInput(view, event);
         }
     }
 
