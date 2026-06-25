@@ -44,7 +44,7 @@ export class Export extends CancelableCommand {
         combobox: new Combobox<string>(),
     })
     public get format() {
-        return this.getPrivateValue("format", "step");
+        return this.getPrivateValue("format", ".step");
     }
     public set format(value: string) {
         this.setProperty("format", value);
