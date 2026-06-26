@@ -198,7 +198,7 @@ export class ArrayCommand extends MultistepCommand {
         }
     }
 
-    private resetMesh() {
+    protected resetMesh() {
         this.removeMesh();
 
         if (!this.positions) return;
@@ -409,7 +409,7 @@ export class ArrayCommand extends MultistepCommand {
             p.distanceTo(center) >= Precision.Distance && !p.sub(center).isParallelTo(plane.normal);
     }
 
-    private readonly vectorArrayStepData = () => {
+    protected readonly vectorArrayStepData = () => {
         return {
             dimension: Dimensions.D1,
             refPoint: () => this.stepDatas[0].point!,
@@ -432,7 +432,7 @@ export class ArrayCommand extends MultistepCommand {
         } satisfies PointSnapData;
     };
 
-    private readonly pointOnAxisArray = (index: 2 | 3) => {
+    protected readonly pointOnAxisArray = (index: 2 | 3) => {
         const { ray, yvec, normal, xvec } = this.boxPlaneInfo(index);
 
         return {
@@ -456,7 +456,7 @@ export class ArrayCommand extends MultistepCommand {
         };
     };
 
-    private boxArrayMatrixs(index: 2 | 3, xvec: XYZ, yvec: XYZ, normal: XYZ, end: XYZ) {
+    protected boxArrayMatrixs(index: 2 | 3, xvec: XYZ, yvec: XYZ, normal: XYZ, end: XYZ) {
         const x = xvec.multiply(this.stepDatas[1].point!.sub(this.stepDatas[0].point!).dot(xvec));
         let y: XYZ, z: XYZ;
         if (index === 2) {
@@ -469,7 +469,7 @@ export class ArrayCommand extends MultistepCommand {
         return this.getBoxTransforms(x, y, z);
     }
 
-    private boxPlaneInfo(index: number) {
+    protected boxPlaneInfo(index: number) {
         const plane =
             this.stepDatas[1].plane ??
             this.findPlane(this.stepDatas[1].view, this.stepDatas[0].point!, this.stepDatas[1].point);
