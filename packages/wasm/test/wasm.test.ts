@@ -1,4 +1,9 @@
-test("test face mesh", (expect) => {
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
+import "./setup";
+
+test("test face mesh", () => {
     const location = { x: 0, y: 0, z: 0 };
     const direction = { x: 0, y: 0, z: 1 };
     const xDirection = { x: 1, y: 0, z: 0 };
@@ -14,7 +19,7 @@ test("test face mesh", (expect) => {
     expect(mesh.faceMeshData.uv.length).toBe(48);
 });
 
-test("test edge mesh", (expect) => {
+test("test edge mesh", () => {
     const location = { x: 0, y: 0, z: 0 };
     const direction = { x: 0, y: 0, z: 1 };
     const xDirection = { x: 1, y: 0, z: 0 };
@@ -26,7 +31,7 @@ test("test edge mesh", (expect) => {
     expect(mesh.edgeMeshData.group.length).toBe(24);
 });
 
-test("test shape", (expect) => {
+test("test shape", () => {
     const location = { x: 0, y: 0, z: 0 };
     const direction = { x: 0, y: 0, z: 1 };
     const xDirection = { x: 1, y: 0, z: 0 };
@@ -48,7 +53,7 @@ test("test shape", (expect) => {
     expect(faceEdges.length).toBe(4);
 });
 
-test("test solid", (expect) => {
+test("test solid", () => {
     const location = { x: 0, y: 0, z: 0 };
     const direction = { x: 0, y: 0, z: 1 };
     const xDirection = { x: 1, y: 0, z: 0 };
