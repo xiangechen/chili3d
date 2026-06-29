@@ -4,7 +4,7 @@
 import { EditableShapeNode, FolderNode, ShapeNodeFilter } from "../src";
 import { Result } from "../src/foundation";
 import type { IShape } from "../src/shape";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 describe("ShapeNodeFilter", () => {
     let doc: any;

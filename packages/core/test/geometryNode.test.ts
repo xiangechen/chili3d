@@ -6,7 +6,7 @@ import { Id } from "../src/foundation";
 import type { I18nKeys } from "../src/i18n";
 import { FaceMaterialPair, GeometryNode } from "../src/model/geometryNode";
 import type { IShapeMeshData } from "../src/shape";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 // Test subclass to implement the abstract createMesh method
 class TestGeometryNode extends GeometryNode {

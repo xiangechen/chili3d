@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { GroupNode, type IDocument, Matrix4 } from "../src";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 describe("test GroupNode", () => {
     const doc: IDocument = new TestDocument() as any;

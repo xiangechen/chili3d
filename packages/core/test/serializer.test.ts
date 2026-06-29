@@ -10,7 +10,7 @@ import {
     serializable,
     serialize,
 } from "../src";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 interface TestObjectOptions {
     k1: string;

@@ -11,7 +11,7 @@ import {
 import { BoundingBox, Matrix4 } from "../src/math";
 import { XYZ } from "../src/math/xyz";
 import { MeshNode } from "../src/model/meshNode";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 describe("ComponentSize", () => {
     test("createComponentSize should return zeroed size", () => {

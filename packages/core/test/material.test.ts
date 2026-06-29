@@ -3,7 +3,7 @@
 
 import { XY } from "@chili3d/core";
 import { Material, PhongMaterial, PhysicalMaterial, Texture } from "../src";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 describe("Material classes", () => {
     let document: TestDocument;

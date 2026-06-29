@@ -3,7 +3,7 @@
 
 import { type I18nKeys, Matrix4, VisualNode } from "../src";
 import type { BoundingBox } from "../src/math";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 // Mock VisualNode implementation for testing
 class TestVisualNode extends VisualNode {

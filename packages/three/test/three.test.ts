@@ -1,21 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IVisualGeometry, Material, type ShapeNode, ShapeTypes, XY, XYZ } from "@chili3d/core";
-import { TestDocument } from "./testDocument";
+import {
+    type IVisualGeometry,
+    Material,
+    NodeSelectionHandler,
+    type ShapeNode,
+    ShapeTypes,
+    XY,
+    XYZ,
+} from "@chili3d/core";
+import { TestDocument } from "../../core/test/mocks";
+import { ThreeVisual } from "../src/threeVisual";
 import { TestNode } from "./testEdge";
 import { TestView } from "./testView";
 
-(global as any).ResizeObserver = rs.fn().mockImplementation(() => ({
-    observe: rs.fn(),
-    unobserve: rs.fn(),
-    disconnect: rs.fn(),
-}));
-
 describe("three test", () => {
     const doc = new TestDocument();
+    const visual = new ThreeVisual(doc, new NodeSelectionHandler(doc, true));
+    doc.visual = visual;
     doc.modelManager.materials.push(new Material({ document: doc, name: "test", color: 0x00ff00 }));
-    const view = new TestView(doc, doc.visual.context);
+    const view = new TestView(doc, visual.context);
 
     test("test view", () => {
         expect(view.screenToCameraRect(0, 0)).toEqual(new XY({ x: -1, y: 1 }));

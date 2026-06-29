@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { FolderNode, type IDocument } from "../src";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 describe("test NodeLinkedList", () => {
     const doc: IDocument = new TestDocument() as any;

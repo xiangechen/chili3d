@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { FolderNode, type IDocument, Id, type INode, NodeUtils } from "../src";
-import { TestDocument } from "./testDocument";
+import { TestDocument } from "./mocks";
 
 function newNode(name: string, id?: string): INode {
     return {
