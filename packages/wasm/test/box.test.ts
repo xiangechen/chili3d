@@ -5,8 +5,6 @@ import { Plane } from "@chili3d/core";
 import { ShapeFactory } from "../src";
 import "./setup";
 
-// Named `*.wasm.test.ts` so the default `npm test` (happy-dom) config excludes it
-// and only `npm run test:wasm` (node env) runs it.
 describe("OCCT WASM in Node (headless smoke)", () => {
     test("loads the kernel and builds a box solid with a non-empty mesh", () => {
         const factory = new ShapeFactory();

@@ -5,8 +5,6 @@ import { Plane } from "@chili3d/core";
 import { ShapeFactory } from "../src";
 import "./setup";
 
-// Integration proof for Phase 2: a real OCCT solid -> headless STL bytes, with no
-// Three.js / visual layer involved. This is the export the MCP server will reuse.
 describe("headless STL export (OCCT)", () => {
     test("exports a box to a valid, non-empty binary STL", () => {
         const factory = new ShapeFactory();
