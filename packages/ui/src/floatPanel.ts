@@ -40,6 +40,10 @@ export class FloatPanel extends HTMLElement {
 
         this.header.addEventListener("mousedown", this.onHeaderMouseDown);
         this.resizeHandle.addEventListener("mousedown", this.onResizeHandleMouseDown);
+
+        // Intercept keyboard events to prevent bubbling to window and triggering global shortcuts
+        this.tabIndex = -1;
+        this.addEventListener("keydown", this.handleKeyEvent);
     }
 
     private createHeader(options: FloatPanelOptions): HTMLElement {
@@ -50,9 +54,12 @@ export class FloatPanel extends HTMLElement {
                 {
                     className: style.closeButton,
                     onclick: () => {
-                        options.onClose?.();
-                        this.remove();
-                        this.dispose();
+                        try {
+                            options.onClose?.();
+                        } finally {
+                            this.remove();
+                            this.dispose();
+                        }
                     },
                 },
                 svg({
@@ -128,7 +135,12 @@ export class FloatPanel extends HTMLElement {
         document.removeEventListener("mouseup", this.onResizeEnd);
     };
 
+    private handleKeyEvent = (e: KeyboardEvent): void => {
+        e.stopImmediatePropagation();
+    };
+
     dispose(): void {
+        this.removeEventListener("keydown", this.handleKeyEvent);
         this.header.removeEventListener("mousedown", this.onHeaderMouseDown);
         this.resizeHandle.removeEventListener("mousedown", this.onResizeHandleMouseDown);
         document.removeEventListener("mousemove", this.onDrag);
