@@ -111,15 +111,7 @@ export class Config extends Observable {
         return this.getPrivateValue("themeMode", "system");
     }
     set themeMode(value: "light" | "dark" | "system") {
-        this.setProperty("themeMode", value, () => {
-            if (value === "system") {
-                VisualConfig.applyTheme(
-                    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-                );
-            } else {
-                VisualConfig.applyTheme(value);
-            }
-        });
+        this.setProperty("themeMode", value, () => this.applyTheme(value));
     }
 
     @serialize()
@@ -142,7 +134,18 @@ export class Config extends Observable {
     init(storageKey: string) {
         this.#storageKey = storageKey;
         this.readFromStorage();
+        this.applyTheme(this.themeMode);
     }
+
+    private readonly applyTheme = (value: "light" | "dark" | "system") => {
+        if (value === "system") {
+            VisualConfig.applyTheme(
+                window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+            );
+        } else {
+            VisualConfig.applyTheme(value);
+        }
+    };
 
     readFromStorage() {
         const data = ObjectStorage.default.value<SerializedData>(this.storageKey);
