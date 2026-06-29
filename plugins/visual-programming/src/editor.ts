@@ -47,6 +47,7 @@ export class Editor implements INodeEditor {
     readonly previewNode = div({ className: style.previewNode });
     readonly area: AreaPlugin<Schemes, AreaExtra>;
     private pendingNodeType: (new (editor: INodeEditor) => ClassicPreset.Node) | null = null;
+    private selector: ReturnType<typeof AreaExtensions.selector> | null = null;
 
     constructor(readonly document: IDocument) {
         this.area = new AreaPlugin<Schemes, AreaExtra>(this.view);
@@ -57,15 +58,8 @@ export class Editor implements INodeEditor {
         const root = div(
             {
                 className: style.root,
-                onkeydown: (e) => {
-                    e.stopPropagation();
-                    if (e.key === "Escape" && this.pendingNodeType) {
-                        this.cancelPendingNode();
-                    }
-                },
-                onkeyup: (e) => {
-                    e.stopPropagation();
-                },
+                onkeydown: this.handleKeyDown,
+                tabIndex: -1,
             },
             this.tools,
             this.view,
@@ -90,6 +84,27 @@ export class Editor implements INodeEditor {
             const { clientWidth, clientHeight } = this.area.nodeViews.get(n.id)!.element;
             this.area.translate(n.id, { x: x - clientWidth * 0.5, y: y - clientHeight * 0.5 });
         }
+    }
+
+    private deleteSelectedNodes() {
+        if (!this.selector) return;
+
+        const selectedEntities = Array.from(this.selector.entities.values());
+        const selectedNodeIds = new Set(selectedEntities.filter((e) => e.label === "node").map((e) => e.id));
+        if (selectedNodeIds.size === 0) return;
+
+        const connections = this.editor.getConnections();
+        for (const conn of connections) {
+            if (selectedNodeIds.has(conn.source) || selectedNodeIds.has(conn.target)) {
+                this.editor.removeConnection(conn.id);
+            }
+        }
+        for (const nodeId of selectedNodeIds) {
+            this.editor.removeNode(nodeId);
+        }
+
+        this.selector.unselectAll();
+        this.process();
     }
 
     private cancelPendingNode() {
@@ -120,6 +135,19 @@ export class Editor implements INodeEditor {
         const rect = this.area.container.getBoundingClientRect();
         this.previewNode.style.left = `${e.clientX - rect.left - 30}px`;
         this.previewNode.style.top = `${e.clientY - rect.top - 10}px`;
+    };
+
+    private handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+            return;
+        }
+
+        if (e.key === "Escape" && this.pendingNodeType) {
+            this.cancelPendingNode();
+        } else if (e.key === "Delete" || e.key === "Backspace") {
+            this.deleteSelectedNodes();
+        }
     };
 
     private renderTools() {
@@ -154,7 +182,7 @@ export class Editor implements INodeEditor {
 
     public async init() {
         const selectorAccumulating = AreaExtensions.accumulateOnCtrl();
-        const selector = AreaExtensions.selector();
+        this.selector = AreaExtensions.selector();
         const render = new LitPlugin<Schemes, AreaExtra>();
 
         this.editor.use(this.area);
@@ -162,7 +190,7 @@ export class Editor implements INodeEditor {
         this.area.use(render);
         AreaExtensions.simpleNodesOrder(this.area);
         AreaExtensions.showInputControl(this.area);
-        AreaExtensions.selectableNodes(this.area, selector, {
+        AreaExtensions.selectableNodes(this.area, this.selector, {
             accumulating: selectorAccumulating,
         });
 
@@ -179,8 +207,8 @@ export class Editor implements INodeEditor {
         this.initContextMenu(render);
         //this.initMinimap(render);
         this.initPreset(render);
-        this.initCommet(selector, selectorAccumulating);
-        this.initRouter(render, selector, selectorAccumulating);
+        this.initCommet(this.selector, selectorAccumulating);
+        this.initRouter(render, this.selector, selectorAccumulating);
         this.view.addEventListener("click", this.handleViewClick);
         this.view.addEventListener("mousemove", this.handleViewMouseMove);
     }
