@@ -4,11 +4,15 @@
 import type {
     BoundingBox,
     EdgeMeshData,
+    ICurve,
     IFace,
+    IHighlighter,
+    INode,
     IShape,
     IShapeMeshData,
+    IVisualContext,
+    IVisualObject,
     OrientedBoundingBox,
-    Plane,
     ShapeType,
     XYZLike,
 } from "../src";
@@ -31,6 +35,8 @@ import {
     ShapeTypes,
     VisualConfig,
 } from "../src";
+import { Plane, Ray, XY, XYZ } from "../src/math";
+import type { MouseAndDetected } from "../src/snap/snap";
 
 // ============================================================================
 // MockShape — IShape mock
@@ -184,30 +190,25 @@ export class MockShape implements IShape {
  * All context methods are no-ops by default; tests that need specific behavior can
  * replace individual methods via `createMockVisual()` return value.
  */
-export function createMockVisual(): IVisual {
-    const context = {
-        shapeCount: 0,
-        addVisualObject: () => {},
-        boundingBoxIntersectFilter: () => [],
-        removeVisualObject: () => {},
-        addNode: () => {},
-        removeNode: () => {},
-        getVisual: () => undefined,
-        getNode: () => undefined,
-        redrawNode: () => {},
-        setVisible: () => {},
-        visuals: () => [],
-        displayMesh: () => 0,
-        setMeshColor: () => {},
-        removeMesh: () => {},
-        displayInstancedMesh: () => 0,
-        displayLineSegments: () => 0,
-        setPosition: () => {},
-        setInstanceMatrix: () => {},
-        dispose: () => {},
-    };
+export function createMockVisual(options?: {
+    document?: IDocument;
+    highlighter?: IHighlighter;
+    getNode?: (v: IVisualObject) => INode | undefined;
+}): IVisual {
+    const context = createMockVisualContext(options?.getNode);
 
-    return { context } as unknown as IVisual;
+    return {
+        document: options?.document ?? ({} as any),
+        highlighter: options?.highlighter ?? ({} as any),
+        context,
+        meshExporter: {} as any,
+        update: () => {},
+        viewHandler: {} as any,
+        defaultEventHandler: {} as any,
+        eventHandler: {} as any,
+        createView: () => ({}) as any,
+        dispose: () => {},
+    } as unknown as IVisual;
 }
 
 export class TestDocument implements IDocument {
@@ -268,4 +269,197 @@ export class TestDocument implements IDocument {
         this.application = overrides?.application ?? ({ views: [] } as unknown as IApplication);
         this.modelManager = new ModelManager(this);
     }
+}
+
+export function createPointerEvent(overrides?: Partial<PointerEvent>): PointerEvent {
+    return {
+        button: 0,
+        isPrimary: true,
+        offsetX: 100,
+        offsetY: 200,
+        clientX: 150,
+        clientY: 250,
+        pointerId: 1,
+        pointerType: "mouse",
+        shiftKey: false,
+        preventDefault: () => {},
+        stopImmediatePropagation: () => {},
+        ...overrides,
+    } as PointerEvent;
+}
+
+export function createMockHighlighter(): {
+    highlighter: IHighlighter;
+    addCalls: { shape: IVisualObject; state: number; type: number; indexes: number[] }[];
+    removeCalls: { shape: IVisualObject; state: number; type: number; indexes: number[] }[];
+} {
+    const addCalls: { shape: IVisualObject; state: number; type: number; indexes: number[] }[] = [];
+    const removeCalls: { shape: IVisualObject; state: number; type: number; indexes: number[] }[] = [];
+    const highlighter: IHighlighter = {
+        getState: () => undefined,
+        clear: () => {},
+        resetState: () => {},
+        addState(shape, state, type, ...indexes) {
+            addCalls.push({ shape: shape as IVisualObject, state, type, indexes });
+        },
+        removeState(shape, state, type, ...indexes) {
+            removeCalls.push({ shape: shape as IVisualObject, state, type, indexes });
+        },
+        highlightMesh: () => 0,
+        removeHighlightMesh: () => {},
+    };
+    return { highlighter, addCalls, removeCalls };
+}
+
+export function createMockVisualContext(
+    getNode: (shape: IVisualObject) => INode | undefined = () => undefined,
+): IVisualContext {
+    return {
+        shapeCount: 0,
+        addVisualObject: () => {},
+        boundingBoxIntersectFilter: () => [],
+        removeVisualObject: () => {},
+        addNode: () => {},
+        removeNode: () => {},
+        getVisual: () => undefined,
+        getNode,
+        redrawNode: () => {},
+        setVisible: () => {},
+        visuals: () => [],
+        displayMesh: () => 0,
+        setMeshColor: () => {},
+        removeMesh: () => {},
+        displayInstancedMesh: () => 0,
+        displayLineSegments: () => 0,
+        setPosition: () => {},
+        setInstanceMatrix: () => {},
+        dispose: () => {},
+    };
+}
+
+export function createMockSelection(): ISelection {
+    return {
+        setSelectedNodes: () => 0,
+        setSelectedShapes: () => 0,
+        getSelectedNodes: () => [],
+        getSelectedNodeLength: () => 0,
+        getSelectedShapes: () => [],
+        getSelectedVisualNodes: () => [],
+        clearSelection: () => {},
+        onNodeChanged: { on: () => {}, off: () => {} } as any,
+        onShapeChanged: { on: () => {}, off: () => {} } as any,
+        dispose: () => {},
+    };
+}
+
+// ============================================================================
+// createMockView — IView mock for snap tests
+// ============================================================================
+
+/**
+ * Creates a mock IView with sensible defaults for snap-related unit tests.
+ * All detection methods return empty arrays; rayAt/screenToWorld use
+ * parameterized transformations for realistic test scenarios.
+ */
+export function createMockView(overrides?: Partial<IView>): IView {
+    const document = new TestDocument();
+    return {
+        document,
+        cameraController: {} as never,
+        isClosed: false,
+        width: 800,
+        height: 600,
+        mode: "solid",
+        name: "test-view",
+        workplane: Plane.XY,
+        update: () => {},
+        up: () => XYZ.unitZ,
+        toImage: () => "",
+        direction: () => XYZ.unitY.reverse(),
+        rayAt: (mx: number, my: number) =>
+            new Ray({
+                point: new XYZ({ x: mx - 400, y: 300 - my, z: 500 }),
+                direction: XYZ.unitZ.reverse(),
+            }),
+        screenToWorld: (mx: number, my: number) => new XYZ({ x: mx - 400, y: 300 - my, z: 0 }),
+        worldToScreen: (point: XYZ) => new XY({ x: point.x + 400, y: point.y + 300 }),
+        isolate: () => {},
+        unisolate: () => {},
+        resize: () => {},
+        setDom: () => {},
+        htmlText: () => ({ dispose: () => {} }),
+        close: () => {},
+        detectVisual: () => [],
+        detectVisualRect: () => [],
+        detectShapes: () => [],
+        detectShapesRect: () => [],
+        getNodes: () => [],
+        getAllNodes: () => [],
+        getSelectedNodes: () => [],
+        setSelectedNodes: () => {},
+        setSelectedShapes: () => {},
+        onPropertyChanged: () => {},
+        removePropertyChanged: () => {},
+        clearPropertyChanged: () => {},
+        dispose: () => {},
+        ...overrides,
+    } as unknown as IView;
+}
+
+// ============================================================================
+// createHandlerMockView — IView mock for handler tests (simpler defaults)
+// ============================================================================
+
+/**
+ * Like createMockView, but with no-op rayAt/screenToWorld by default.
+ * Handler tests that need real ray intersections should override these.
+ */
+export function createHandlerMockView(overrides?: Partial<IView>): IView {
+    return createMockView({
+        rayAt: () => new Ray({ point: XYZ.zero, direction: new XYZ({ x: 0, y: 0, z: -1 }) }),
+        screenToWorld: () => XYZ.zero,
+        ...overrides,
+    });
+}
+
+// ============================================================================
+// createMockCurve — duck-typed curve mock for snap tests
+// ============================================================================
+
+/**
+ * Creates a lightweight duck-typed curve object for snap unit tests.
+ * Provides enough of the ICurve surface for nearestExtrema-based snapping
+ * and parametric point evaluation.
+ *
+ * @param options.nearestPoint — if set, nearestExtrema() returns this point (wrapped as { p1 })
+ * @param options.length — curve length; defaults to 1. Controls value(t), endPoint(), and length()
+ */
+export function createMockCurve(options?: { nearestPoint?: XYZ; length?: number }) {
+    const len = options?.length ?? 1;
+    return {
+        nearestExtrema: () => (options?.nearestPoint ? { p1: options.nearestPoint } : undefined),
+        basisCurve: {},
+        startPoint: () => XYZ.zero,
+        endPoint: () => new XYZ({ x: len, y: 0, z: 0 }),
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        value: (t: number) => new XYZ({ x: t * len, y: 0, z: 0 }),
+        project: () => [],
+        length: () => len,
+        intersect: () => [],
+    } as unknown as ICurve;
+}
+
+// ============================================================================
+// createMouseAndDetected — MouseAndDetected factory for snap tests
+// ============================================================================
+
+export function createMouseAndDetected(view: IView, overrides?: Partial<MouseAndDetected>): MouseAndDetected {
+    return {
+        view,
+        mx: 400,
+        my: 300,
+        shapes: [],
+        ...overrides,
+    };
 }
