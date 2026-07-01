@@ -3,7 +3,6 @@
 
 import {
     DOCUMENT_FILE_EXTENSION,
-    getCurrentApplication,
     I18n,
     type IApplication,
     type ICommand,
@@ -25,6 +24,8 @@ import {
     PubSub,
     type Serialized,
     setCurrentApplication,
+    VisualConfig,
+    type VisualItemConfig,
 } from "@chili3d/core";
 import { Document } from "./document";
 import { PluginManager } from "./pluginManager";
@@ -79,15 +80,22 @@ export class Application extends Observable implements IApplication {
         this.pluginManager = new PluginManager(this);
         this.services.forEach((x) => x.register(this));
         this.services.forEach((x) => x.start());
-        this.initWindowEvents();
+        this.initEvents();
     }
 
-    private initWindowEvents() {
+    private initEvents() {
         window.onbeforeunload = this.handleWindowUnload;
         this.mainWindow?.addEventListener("dragstart", this.handleDragStart);
         this.mainWindow?.addEventListener("dragover", this.handleDragOver);
         this.mainWindow?.addEventListener("drop", this.handleDrop);
+        VisualConfig.onPropertyChanged(this.onVisualConfigChanged);
     }
+
+    private readonly onVisualConfigChanged = (property: keyof VisualItemConfig) => {
+        if (property === "defaultEdgeColor") {
+            this.views.forEach((x) => x.update());
+        }
+    };
 
     private readonly handleWindowUnload = (event: BeforeUnloadEvent) => {
         if (this.activeView) {

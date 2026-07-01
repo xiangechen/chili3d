@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { getCurrentApplication, VisualConfig, type VisualItemConfig } from "@chili3d/core";
+import { VisualConfig, type VisualItemConfig } from "@chili3d/core";
 import { DoubleSide, MeshLambertMaterial, PointsMaterial } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { ThreeHelper } from "./threeHelper";
@@ -35,7 +35,6 @@ export const defaultEdgeMaterial = new LineMaterial({
 VisualConfig.onPropertyChanged((property: keyof VisualItemConfig) => {
     if (property === "defaultEdgeColor") {
         defaultEdgeMaterial.color.set(VisualConfig.defaultEdgeColor);
-        getCurrentApplication()?.views.forEach((x) => x.update());
     }
 });
 
