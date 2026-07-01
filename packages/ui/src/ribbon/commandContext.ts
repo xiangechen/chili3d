@@ -8,8 +8,10 @@ import {
     CommandStore,
     I18n,
     type I18nKeys,
+    type ICanclableCommand,
     type ICommand,
     type IDisposable,
+    isCancelableCommand,
     Localize,
     Observable,
     PathBinding,
@@ -26,6 +28,7 @@ import {
     label,
     option,
     select,
+    svg,
     UrlStringConverter,
 } from "@chili3d/element";
 import style from "./commandContext.module.css";
@@ -40,10 +43,24 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const icon = createIcon(data!.icon);
         icon.classList.add(style.icon);
         this.append(
-            icon,
-            label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }, `: `),
+            div(
+                { className: style.command },
+                icon,
+                label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }),
+            ),
         );
         this.initContext();
+        if (isCancelableCommand(command)) {
+            this.append(
+                svg({
+                    icon: "icon-times",
+                    className: style.closeIcon,
+                    onclick: () => {
+                        command.cancel();
+                    },
+                }),
+            );
+        }
     }
 
     connectedCallback(): void {
@@ -60,6 +77,9 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     dispose() {
         this.propMap.clear();
+        if (this.command instanceof Observable) {
+            this.command.removePropertyChanged(this.onPropertyChanged);
+        }
     }
 
     private readonly onPropertyChanged = (property: string | number | symbol) => {
@@ -73,7 +93,12 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     private initContext() {
         const groupMap = new Map<I18nKeys, HTMLDivElement>();
+        const isCancelable = isCancelableCommand(this.command);
+        const cancleProp: keyof ICanclableCommand = "cancel";
+
         PropertyUtils.getProperties(this.command).forEach((property) => {
+            if (isCancelable && property.name === cancleProp) return;
+
             const group = this.findGroup(groupMap, property);
             const item = this.createItem(this.command, property);
             this.setVisible(item, property);

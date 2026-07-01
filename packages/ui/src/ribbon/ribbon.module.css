@@ -225,6 +225,7 @@
     background-color: var(--panel-background-color);
     border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
+    padding: 2px 0;
 
     &::-webkit-scrollbar {
         height: 6px;
@@ -246,14 +247,4 @@
     opacity: 0.6;
     user-select: none;
     cursor: default;
-}
-
-.commandContextPanel {
-    display: flex;
-    flex-direction: row;
-    justify-content: stretch;
-    flex: 1 1 auto;
-    height: 32px;
-    background-color: var(--panel-background-color);
-    border-bottom: 1px solid var(--border-color);
 }

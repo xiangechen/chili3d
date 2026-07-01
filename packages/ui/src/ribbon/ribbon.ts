@@ -21,7 +21,6 @@ import {
     type RibbonTabKeys,
 } from "@chili3d/core";
 import { a, collection, createIcon, div, label, span, svg } from "@chili3d/element";
-import { CommandContext } from "./commandContext";
 import style from "./ribbon.module.css";
 import { RibbonPushButton } from "./ribbonButton";
 import { RibbonGroupElement } from "./ribbonGroup";
@@ -77,16 +76,13 @@ class DisplayConverter<T> implements IConverter<T> {
 }
 
 export class RibbonUI extends HTMLElement {
-    private readonly _commandContext = div({ className: style.commandContextPanel });
-    private commandContext?: CommandContext;
-
     constructor(
         readonly app: IApplication,
         readonly dataContent: Ribbon,
     ) {
         super();
         this.className = style.root;
-        this.append(this.header(), this.ribbonTabs(), this._commandContext);
+        this.append(this.header(), this.ribbonTabs());
         app.mainWindow?.ribbon.onPropertyChanged(this.handleRibbonChanged);
     }
 
@@ -242,14 +238,10 @@ export class RibbonUI extends HTMLElement {
     }
 
     connectedCallback(): void {
-        PubSub.default.sub("openCommandContext", this.openContext);
-        PubSub.default.sub("closeCommandContext", this.closeContext);
         Config.instance.onPropertyChanged(this.handleConfigChanged);
     }
 
     disconnectedCallback(): void {
-        PubSub.default.remove("openCommandContext", this.openContext);
-        PubSub.default.remove("closeCommandContext", this.closeContext);
         Config.instance.removePropertyChanged(this.handleConfigChanged);
     }
 
@@ -259,21 +251,6 @@ export class RibbonUI extends HTMLElement {
                 (x as RibbonPushButton).updateShortcut();
             });
         }
-    };
-
-    private readonly openContext = (command: ICommand) => {
-        if (this.commandContext) {
-            this.closeContext();
-        }
-        this.commandContext = new CommandContext(command);
-        this._commandContext.append(this.commandContext);
-    };
-
-    private readonly closeContext = () => {
-        this.commandContext?.remove();
-        this.commandContext?.dispose();
-        this.commandContext = undefined;
-        this._commandContext.innerHTML = "";
     };
 }
 

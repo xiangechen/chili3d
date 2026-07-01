@@ -4,6 +4,7 @@
 import {
     type AsyncController,
     type IApplication,
+    type ICommand,
     type IDocument,
     type Material,
     PubSub,
@@ -16,12 +17,15 @@ import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { MaterialDataContent, MaterialEditor } from "./property/material";
 import { RibbonUI } from "./ribbon";
+import { CommandContext } from "./ribbon/commandContext";
 import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
 
 export class Editor extends HTMLElement {
     private readonly _selectionController: OKCancel;
     private readonly _viewportContainer: HTMLDivElement;
+    private readonly _commandContextContainer = div({});
+    private commandContext?: CommandContext;
     private _sidebarWidth: number = 360;
     private _isResizingSidebar: boolean = false;
     private _sidebarEl: HTMLDivElement | null = null;
@@ -96,12 +100,16 @@ export class Editor extends HTMLElement {
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("editMaterial", this._handleMaterialEdit);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.sub("openCommandContext", this.openContext);
+        PubSub.default.sub("closeCommandContext", this.closeContext);
     }
 
     disconnectedCallback(): void {
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("editMaterial", this._handleMaterialEdit);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
+        PubSub.default.remove("openCommandContext", this.openContext);
+        PubSub.default.remove("closeCommandContext", this.closeContext);
     }
 
     private readonly showSelectionControl = (controller: AsyncController) => {
@@ -113,6 +121,22 @@ export class Editor extends HTMLElement {
     private readonly clearSelectionControl = () => {
         this._selectionController.setControl(undefined);
         this._selectionController.style.visibility = "hidden";
+    };
+
+    private readonly openContext = (command: ICommand) => {
+        if (this.commandContext) {
+            this.closeContext();
+        }
+        this.commandContext = new CommandContext(command);
+        this._commandContextContainer.append(this.commandContext);
+        this._viewportContainer.append(this._commandContextContainer);
+    };
+
+    private readonly closeContext = () => {
+        this.commandContext?.remove();
+        this.commandContext?.dispose();
+        this.commandContext = undefined;
+        this._commandContextContainer.innerHTML = "";
     };
 
     private readonly _handleMaterialEdit = (
