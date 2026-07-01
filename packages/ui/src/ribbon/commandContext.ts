@@ -37,6 +37,7 @@ import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement][]> = new Map();
+    private readonly container = div({ className: style.container });
     private selectionControlContainer?: HTMLDivElement;
     private closeIcon?: HTMLElement;
     private selectionCountCleanups: Array<() => void> = [];
@@ -44,6 +45,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
     constructor(readonly command: ICommand) {
         super();
         this.className = style.panel;
+        this.append(this.container);
         this.render();
     }
 
@@ -51,7 +53,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const data = CommandStore.getComandData(this.command);
         const icon = createIcon(data!.icon);
         icon.classList.add(style.icon);
-        this.append(
+        this.container.append(
             div(
                 { className: style.command },
                 icon,
@@ -70,7 +72,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
                     svg({ icon: "icon-cancel" }),
                 ),
             );
-            this.append(this.closeIcon);
+            this.container.append(this.closeIcon);
         }
     }
 
@@ -97,7 +99,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 svg({ icon: "icon-cancel" }),
             ),
         );
-        this.append(this.selectionControlContainer);
+        this.container.append(this.selectionControlContainer);
     };
 
     private countDom() {
@@ -201,7 +203,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         if (group === undefined) {
             group = div({ className: style.group });
             groupMap.set(prop.group!, group);
-            this.append(group);
+            this.container.append(group);
         }
         return group;
     }

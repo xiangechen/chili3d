@@ -1,24 +1,80 @@
 .panel {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
     position: absolute;
-    top: 0px;
+    top: 8px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 6px 20px;
-    gap: 20px;
     border-radius: 16px;
     min-width: 100px;
     max-width: 80%;
-    overflow-x: auto;
-    border: 1px solid var(--border-color);
+    overflow: hidden;
+    padding: 1px;
+    border: none;
     background-color: var(--panel-background-color);
     opacity: 0.95;
     box-shadow: var(--panel-shadow);
     text-wrap: nowrap;
     font-size: 13px;
     z-index: 9999;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    padding: 6px 20px;
+    gap: 20px;
+}
+
+.panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    padding: 2px;
+    background: linear-gradient(
+        90deg,
+        #e03131,
+        #e8590c,
+        #f08c00,
+        #2f9e44,
+        #1971c2,
+        #7048e8,
+        #c2255c,
+        #e03131
+    );
+    background-size: 300% 100%;
+    pointer-events: none;
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation:
+        rainbow-shift 8s linear infinite,
+        breathe-border 4s ease-in-out infinite;
+}
+
+@keyframes rainbow-shift {
+    to {
+        background-position: -300% 0;
+    }
+}
+
+@keyframes breathe-border {
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+    35% {
+        opacity: 1;
+    }
+    65% {
+        opacity: 0.7;
+    }
 }
 
 .command {
@@ -94,8 +150,8 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 16px;
-    margin-left: 12px;
+    gap: 6px;
+    margin-left: 6px;
     padding-left: 12px;
     border-left: 1px solid var(--border-color);
 }
@@ -111,6 +167,7 @@
     flex-direction: column;
     align-items: center;
     gap: 2px;
+    padding: 2px 6px;
 }
 
 .selectionCount {
@@ -130,7 +187,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    padding: 8px;
+    padding: 6px;
     cursor: pointer;
 
     &:hover {
@@ -138,7 +195,7 @@
     }
 
     svg {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
     }
 }
