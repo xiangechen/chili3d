@@ -5,7 +5,7 @@
     transform: translateX(-50%);
     border-radius: 16px;
     min-width: 100px;
-    max-width: 80%;
+    max-width: 90%;
     overflow: hidden;
     padding: 1px;
     border: none;
@@ -24,6 +24,11 @@
     overflow-x: auto;
     padding: 6px 20px;
     gap: 20px;
+
+    div {
+        display: flex;
+        align-items: center;
+    }
 }
 
 .panel::before {
