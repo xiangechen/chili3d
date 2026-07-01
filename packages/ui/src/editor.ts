@@ -12,7 +12,6 @@ import {
 } from "@chili3d/core";
 import { div } from "@chili3d/element";
 import style from "./editor.module.css";
-import { OKCancel } from "./okCancel";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { MaterialDataContent, MaterialEditor } from "./property/material";
@@ -22,7 +21,6 @@ import { Statusbar } from "./statusbar";
 import { LayoutViewport } from "./viewport";
 
 export class Editor extends HTMLElement {
-    private readonly _selectionController: OKCancel;
     private readonly _viewportContainer: HTMLDivElement;
     private readonly _commandContextContainer = div({});
     private commandContext?: CommandContext;
@@ -37,13 +35,7 @@ export class Editor extends HTMLElement {
         super();
         const viewport = new LayoutViewport(app);
         viewport.classList.add(style.viewport);
-        this._selectionController = new OKCancel();
-        this._viewportContainer = div(
-            { className: style.viewportContainer },
-            this._selectionController,
-            viewport,
-        );
-        this.clearSelectionControl();
+        this._viewportContainer = div({ className: style.viewportContainer }, viewport);
         this.render();
     }
 
@@ -97,31 +89,16 @@ export class Editor extends HTMLElement {
     }
 
     connectedCallback(): void {
-        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("editMaterial", this._handleMaterialEdit);
-        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
     }
 
     disconnectedCallback(): void {
-        PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("editMaterial", this._handleMaterialEdit);
-        PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
     }
-
-    private readonly showSelectionControl = (controller: AsyncController) => {
-        this._selectionController.setControl(controller);
-        this._selectionController.style.visibility = "visible";
-        this._selectionController.style.zIndex = "1000";
-    };
-
-    private readonly clearSelectionControl = () => {
-        this._selectionController.setControl(undefined);
-        this._selectionController.style.visibility = "hidden";
-    };
 
     private readonly openContext = (command: ICommand) => {
         if (this.commandContext) {

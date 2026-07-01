@@ -241,6 +241,7 @@ export const I18N_KEYS = [
     "prompt.select.solids",
     "prompt.select.vertexes",
     "prompt.select.wires",
+    "prompt.selectedCount",
     "properties.group.transform",
     "properties.header",
     "properties.multivalue",

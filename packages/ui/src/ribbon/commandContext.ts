@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
     Binding,
     CancelableCommand,
     type Combobox,
@@ -28,6 +29,7 @@ import {
     label,
     option,
     select,
+    span,
     svg,
     UrlStringConverter,
 } from "@chili3d/element";
@@ -35,11 +37,18 @@ import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement][]> = new Map();
+    private selectionControlContainer?: HTMLDivElement;
+    private closeIcon?: HTMLElement;
+    private selectionCountCleanups: Array<() => void> = [];
 
     constructor(readonly command: ICommand) {
         super();
         this.className = style.panel;
-        const data = CommandStore.getComandData(command);
+        this.render();
+    }
+
+    private render() {
+        const data = CommandStore.getComandData(this.command);
         const icon = createIcon(data!.icon);
         icon.classList.add(style.icon);
         this.append(
@@ -50,26 +59,86 @@ export class CommandContext extends HTMLElement implements IDisposable {
             ),
         );
         this.initContext();
-        if (isCancelableCommand(command)) {
-            this.append(
-                svg({
-                    icon: "icon-times",
-                    className: style.closeIcon,
-                    onclick: () => {
-                        command.cancel();
+        if (isCancelableCommand(this.command)) {
+            this.closeIcon = div(
+                { className: style.cancelButton },
+                div(
+                    {
+                        className: style.selectionButton,
+                        onclick: () => (this.command as CancelableCommand).cancel(),
                     },
-                }),
+                    svg({ icon: "icon-cancel" }),
+                ),
             );
+            this.append(this.closeIcon);
         }
     }
 
+    private readonly showSelectionControl = (controller: AsyncController) => {
+        if (this.selectionControlContainer) return;
+        if (this.closeIcon) this.closeIcon.style.display = "none";
+
+        this.selectionControlContainer = div(
+            { className: style.selectionControl },
+            div(
+                { className: style.selectionInfo },
+                this.countDom(),
+                span({
+                    className: style.selectionCountLabel,
+                    textContent: new Localize("prompt.selectedCount"),
+                }),
+            ),
+            div(
+                { className: style.selectionButton, onclick: () => controller.success() },
+                svg({ icon: "icon-confirm" }),
+            ),
+            div(
+                { className: style.selectionButton, onclick: () => controller.cancel() },
+                svg({ icon: "icon-cancel" }),
+            ),
+        );
+        this.append(this.selectionControlContainer);
+    };
+
+    private countDom() {
+        const countSpan = span({ className: style.selectionCount, textContent: "0" });
+        if (this.command instanceof CancelableCommand) {
+            const sel = this.command.document.selection;
+            const baseline = sel.getSelectedShapes().length || sel.getSelectedNodeLength();
+            const updateCount = () => {
+                const count = (sel.getSelectedShapes().length || sel.getSelectedNodeLength()) - baseline;
+                countSpan.textContent = String(count);
+            };
+            sel.onShapeChanged.sub(updateCount);
+            sel.onNodeChanged.sub(updateCount);
+            this.selectionCountCleanups.push(() => {
+                sel.onShapeChanged.remove(updateCount);
+                sel.onNodeChanged.remove(updateCount);
+            });
+        }
+        return countSpan;
+    }
+
+    private readonly clearSelectionControl = () => {
+        this.selectionControlContainer?.remove();
+        this.selectionControlContainer = undefined;
+        if (this.closeIcon) this.closeIcon.style.display = "";
+        this.selectionCountCleanups.forEach((fn) => fn());
+        this.selectionCountCleanups = [];
+    };
+
     connectedCallback(): void {
+        PubSub.default.sub("showSelectionControl", this.showSelectionControl);
+        PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         if (this.command instanceof Observable) {
             this.command.onPropertyChanged(this.onPropertyChanged);
         }
     }
 
     disconnectedCallback(): void {
+        this.clearSelectionControl();
+        PubSub.default.remove("showSelectionControl", this.showSelectionControl);
+        PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         if (this.command instanceof Observable) {
             this.command.removePropertyChanged(this.onPropertyChanged);
         }
@@ -77,9 +146,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     dispose() {
         this.propMap.clear();
-        if (this.command instanceof Observable) {
-            this.command.removePropertyChanged(this.onPropertyChanged);
-        }
+        this.disconnectedCallback();
     }
 
     private readonly onPropertyChanged = (property: string | number | symbol) => {

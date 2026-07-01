@@ -6,8 +6,8 @@
     top: 0px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 6px 16px;
-    gap: 16px;
+    padding: 6px 20px;
+    gap: 20px;
     border-radius: 16px;
     min-width: 100px;
     max-width: 80%;
@@ -57,20 +57,6 @@
         background-color: var(--hover-background-color);
     }
 }
-.closeIcon {
-    width: 14px;
-    height: 14px;
-    padding: 4px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    margin-left: auto;
-    flex-shrink: 0;
-
-    &:hover {
-        background-color: var(--hover-background-color);
-    }
-}
-
 .input {
     margin-left: 8px;
     width: 64px;
@@ -101,5 +87,58 @@
 
     &:hover {
         background-color: var(--hover-background-color);
+    }
+}
+
+.selectionControl {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border-color);
+}
+
+.cancelButton {
+    margin-left: auto;
+    padding-left: 12px;
+    border-left: 1px solid var(--border-color);
+}
+
+.selectionInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.selectionCount {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--foreground-color);
+    line-height: 20px;
+}
+
+.selectionCountLabel {
+    font-size: 11px;
+    color: var(--secondary-foreground-color, #888);
+}
+
+.selectionButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--hover-background-color);
+    }
+
+    svg {
+        width: 18px;
+        height: 18px;
     }
 }

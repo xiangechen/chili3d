@@ -246,6 +246,7 @@ export default {
         "prompt.select.solids": "请选择实体",
         "prompt.select.vertexes": "请选择点",
         "prompt.select.wires": "请选择线",
+        "prompt.selectedCount": "已选择",
         "properties.group.transform": "转换",
         "properties.header": "属性",
         "properties.multivalue": "多个值",

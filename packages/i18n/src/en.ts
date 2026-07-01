@@ -247,6 +247,7 @@ export default {
         "prompt.select.solids": "Please select solids",
         "prompt.select.vertexes": "Please select vertexes",
         "prompt.select.wires": "Please select wires",
+        "prompt.selectedCount": "Selected",
         "properties.group.transform": "Transform",
         "properties.header": "Properties",
         "properties.multivalue": "Multi Value",
