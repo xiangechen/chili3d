@@ -50,7 +50,8 @@ export class RemoveSubShapesCommand extends MultistepCommand {
             }),
             new SelectShapeStep((ShapeTypes.edge | ShapeTypes.face) as ShapeType, "prompt.select.shape", {
                 multiple: true,
-                keepSelection: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.faceTransparent),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.faceTransparent),
             }),
         ];
     }

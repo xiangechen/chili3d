@@ -15,6 +15,7 @@ import {
     SelectShapeStep,
     type ShapeType,
     ShapeTypes,
+    VisualStates,
 } from "@chili3d/core";
 import { RevolvedNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
@@ -51,7 +52,8 @@ export class Revolve extends CreateCommand {
             ),
             new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges", {
                 shapeFilter: new LineFilter(),
-                keepSelection: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),
             }),
         ];
     }

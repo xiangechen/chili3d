@@ -13,6 +13,7 @@ import {
     SelectShapeStep,
     type ShapeType,
     ShapeTypes,
+    VisualStates,
     XYZ,
 } from "@chili3d/core";
 import { CreateCommand } from "../createCommand";
@@ -57,7 +58,10 @@ export class CurveProjectionCommand extends CreateCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.shape"),
-            new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", { keepSelection: true }),
+            new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", {
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),
+            }),
         ];
     }
 }

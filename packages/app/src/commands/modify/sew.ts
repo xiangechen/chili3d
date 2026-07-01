@@ -62,7 +62,8 @@ export class Sew extends MultistepCommand {
                             .includes(node.shape.value);
                     },
                 },
-                keepSelection: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.faceTransparent),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.faceTransparent),
                 selectedState: VisualStates.faceTransparent,
             }),
         ];

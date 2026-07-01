@@ -72,7 +72,8 @@ export abstract class BooleanOperate extends MultistepCommand {
                     },
                 },
                 multiple: true,
-                keepSelection: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),
                 selectedState: VisualStates.faceTransparent,
             }),
         ];

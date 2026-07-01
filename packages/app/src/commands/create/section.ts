@@ -35,7 +35,10 @@ export class Section extends MultistepCommand {
             new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 selectedState: VisualStates.faceTransparent,
             }),
-            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", { keepSelection: true }),
+            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.faceTransparent),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.faceTransparent),
+            }),
         ];
     }
 }

@@ -10,6 +10,7 @@ import {
     SelectShapeStep,
     type ShapeType,
     ShapeTypes,
+    VisualStates,
 } from "@chili3d/core";
 import { SweepedNode } from "../../bodys";
 import { CreateCommand } from "../createCommand";
@@ -43,8 +44,9 @@ export class Sweep extends CreateCommand {
         return [
             new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.path"),
             new SelectShapeStep((ShapeTypes.edge | ShapeTypes.wire) as ShapeType, "prompt.select.section", {
-                keepSelection: true,
                 multiple: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),
             }),
         ];
     }

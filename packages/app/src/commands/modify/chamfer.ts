@@ -64,7 +64,8 @@ export class ChamferCommand extends MultistepCommand {
             }),
             new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges", {
                 multiple: true,
-                keepSelection: true,
+                beforeSelection: () => this.addFirstSelectedState(VisualStates.faceTransparent),
+                afterSelection: () => this.removeFirstSelectedState(VisualStates.faceTransparent),
             }),
         ];
     }

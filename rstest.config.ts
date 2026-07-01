@@ -1,6 +1,6 @@
+import { resolve } from "node:path";
 import { DefinePlugin } from "@rspack/core";
 import { defineConfig } from "@rstest/core";
-import { resolve } from "node:path";
 import packages from "./package.json" with { type: "json" };
 
 const configDir = import.meta.dirname;

@@ -18,6 +18,8 @@ export interface SelectShapeOptions {
     selectedState?: VisualState;
     highlightState?: VisualState;
     keepSelection?: boolean;
+    beforeSelection?: () => void;
+    afterSelection?: () => void;
 }
 
 export interface SelectNodeOptions {
@@ -38,7 +40,10 @@ export abstract class SelectStep implements IStep {
             document.selection.clearSelection();
         }
 
-        return Promise.try(this.select.bind(this), document, controller);
+        this.options?.beforeSelection?.();
+        return Promise.try(this.select.bind(this), document, controller).finally(() => {
+            this.options?.afterSelection?.();
+        });
     }
 
     abstract select(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined>;

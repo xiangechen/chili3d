@@ -17,8 +17,10 @@ import {
     property,
     Result,
     SelectShapeStep,
+    type ShapeMeshData,
     type ShapeType,
     ShapeTypes,
+    VisualConfig,
 } from "@chili3d/core";
 
 @command({
@@ -104,9 +106,6 @@ export class LoftCommand extends CancelableCommand {
         const step = new SelectShapeStep(
             (ShapeTypes.vertex | ShapeTypes.wire | ShapeTypes.edge) as ShapeType,
             "prompt.select.section",
-            {
-                keepSelection: true,
-            },
         );
         return await step.execute(this.document, this.controller);
     }
@@ -119,20 +118,26 @@ export class LoftCommand extends CancelableCommand {
 
     private displayVisual() {
         this.removeVisual();
-        if (this.shapes.length < 2) {
-            return false;
+        const edges: ShapeMeshData[] = this.shapes.map((x) => {
+            const m = x.mesh.edges!;
+            m.color = VisualConfig.selectedEdgeColor;
+            m.lineWidth = 3;
+            return m;
+        });
+        if (this.shapes.length > 1) {
+            this.shape = shapeFactory.loft(
+                this.shapes as (IVertex | IEdge | IWire)[],
+                this.isSolid,
+                this.isRuled,
+                this.continuity,
+            );
+            if (!this.shape.isOk) {
+                PubSub.default.pub("showToast", "error.default:{0}", this.shape.error);
+            } else {
+                edges.push(this.shape.value.mesh.faces!);
+            }
         }
-        this.shape = shapeFactory.loft(
-            this.shapes as (IVertex | IEdge | IWire)[],
-            this.isSolid,
-            this.isRuled,
-            this.continuity,
-        );
-        if (!this.shape.isOk) {
-            PubSub.default.pub("showToast", "error.default:{0}", this.shape.error);
-            return false;
-        }
-        this.visual = this.document.visual.context.displayMesh([this.shape.value.mesh.faces!], {
+        this.visual = this.document.visual.context.displayMesh(edges, {
             meshOpacity: 0.5,
         });
         this.document.visual.update();

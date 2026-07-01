@@ -14,6 +14,7 @@ import {
     type SnapResult,
     ViewUtils,
     VisualConfig,
+    type VisualState,
     type XYZ,
 } from "@chili3d/core";
 
@@ -119,6 +120,30 @@ export abstract class MultistepCommand extends CancelableCommand {
             return shape;
         });
     }
+
+    protected readonly addFirstSelectedState = (state: VisualState) => {
+        const shape = this.stepDatas.at(0)?.shapes.at(0);
+        if (!shape) return;
+
+        this.document.visual.highlighter.addState(
+            shape.owner,
+            state,
+            shape.shape.shapeType,
+            ...shape.indexes,
+        );
+    };
+
+    protected readonly removeFirstSelectedState = (state: VisualState) => {
+        const shape = this.stepDatas.at(0)?.shapes.at(0);
+        if (!shape) return;
+
+        this.document.visual.highlighter.removeState(
+            shape.owner,
+            state,
+            shape.shape.shapeType,
+            ...shape.indexes,
+        );
+    };
 
     protected abstract getSteps(): IStep[];
 
