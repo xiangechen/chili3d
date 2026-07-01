@@ -1,9 +1,11 @@
+import { resolve } from "node:path";
 import { defineConfig } from "@rspack/cli";
 import rspack from "@rspack/core";
 import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
-import packages from "./package.json";
+import packages from "./package.json" with { type: "json" };
 
 const isProduction = process.env.NODE_ENV === "production";
+const configDir = import.meta.dirname;
 
 export default defineConfig({
     devtool: isProduction ? false : "source-map",
@@ -66,7 +68,7 @@ export default defineConfig({
         new rspack.CopyRspackPlugin({
             patterns: [
                 {
-                    from: "./public",
+                    from: resolve(configDir, "public"),
                     globOptions: {
                         ignore: ["**/**/index.html"],
                     },
@@ -79,7 +81,7 @@ export default defineConfig({
             __IS_PRODUCTION__: JSON.stringify(process.env.NODE_ENV === "production"),
         }),
         new rspack.HtmlRspackPlugin({
-            template: "./public/index.html",
+            template: resolve(configDir, "public/index.html"),
             inject: "body",
         }),
     ],

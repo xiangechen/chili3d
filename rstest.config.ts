@@ -1,6 +1,9 @@
 import { DefinePlugin } from "@rspack/core";
 import { defineConfig } from "@rstest/core";
-import packages from "./package.json";
+import { resolve } from "node:path";
+import packages from "./package.json" with { type: "json" };
+
+const configDir = import.meta.dirname;
 
 export default defineConfig({
     exclude: ["**/cpp/**"],
@@ -19,7 +22,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            "./viewGizmo": "./packages/three/test/viewGizmo.ts",
+            "./viewGizmo": resolve(configDir, "packages/three/test/viewGizmo.ts"),
         },
     },
     source: {
