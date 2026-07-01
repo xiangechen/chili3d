@@ -106,11 +106,11 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const countSpan = span({ className: style.selectionCount, textContent: "0" });
         if (this.command instanceof CancelableCommand) {
             const sel = this.command.document.selection;
-            const baseline = sel.getSelectedShapes().length || sel.getSelectedNodeLength();
             const updateCount = () => {
-                const count = (sel.getSelectedShapes().length || sel.getSelectedNodeLength()) - baseline;
+                const count = sel.getSelectedShapes().length || sel.getSelectedNodeLength();
                 countSpan.textContent = String(count);
             };
+            updateCount();
             sel.onShapeChanged.sub(updateCount);
             sel.onNodeChanged.sub(updateCount);
             this.selectionCountCleanups.push(() => {
