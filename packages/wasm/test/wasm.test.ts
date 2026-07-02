@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import "./setup";
 
 test("test face mesh", () => {
@@ -51,6 +53,22 @@ test("test shape", () => {
 
     const faceEdges = wasm.Shape.findSubShapes(faces[0], wasm.TopAbs_ShapeEnum.TopAbs_EDGE);
     expect(faceEdges.length).toBe(4);
+});
+
+test("test simplifyShape", () => {
+    const brepPath = path.resolve(import.meta.dirname, "models", "simplifySolid.brep");
+    const brepContent = readFileSync(brepPath, "utf-8");
+    const shape = wasm.Converter.convertFromBrep(brepContent);
+    expect(shape.isNull()).toBe(false);
+
+    const faces1 = wasm.Shape.findSubShapes(shape, wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+    expect(faces1.length).toBe(7);
+    const result1 = wasm.ShapeFactory.fixSmallFace(shape, 1e-5);
+    expect(result1.isOk).toBe(true);
+
+    const result2 = wasm.ShapeFactory.simplifyShape(result1.shape, true, true, [], 1e-5, 1e-5);
+    const faces2 = wasm.Shape.findSubShapes(result2.shape, wasm.TopAbs_ShapeEnum.TopAbs_FACE);
+    expect(faces2.length).toBe(5);
 });
 
 test("test solid", () => {

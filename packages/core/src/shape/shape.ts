@@ -37,7 +37,7 @@ export interface IShape extends IDisposable {
     findSubShapes(subshapeType: ShapeType): IShape[];
     directSubShapes(): IShape[];
     section(shape: IShape | Plane): IShape;
-    split(shapes: IShape[]): IShape;
+    split(shapes: IShape[], tolerance?: number): IShape;
     reserve(): void;
     clone(): IShape;
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape;

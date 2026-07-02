@@ -767,7 +767,7 @@ interface EmbindModule {
     findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
-    splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TopoDS_Shape;
+    splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>, _2: number): TopoDS_Shape;
     removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape | undefined;
     removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;

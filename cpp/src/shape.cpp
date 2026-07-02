@@ -146,11 +146,12 @@ public:
         return section.Shape();
     }
 
-    static TopoDS_Shape splitShapes(const ShapeArray& arguments, const ShapeArray& tools)
+    static TopoDS_Shape splitShapes(const ShapeArray& arguments, const ShapeArray& tools, double tolerance)
     {
         NCollection_List<TopoDS_Shape> argumentsList = shapeArrayToListOfShape(arguments);
         NCollection_List<TopoDS_Shape> toolsList = shapeArrayToListOfShape(tools);
         BRepAlgoAPI_Splitter splitter;
+        splitter.SetFuzzyValue(tolerance);
         splitter.SetToFillHistory(false);
         splitter.SetArguments(argumentsList);
         splitter.SetTools(toolsList);

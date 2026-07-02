@@ -318,14 +318,14 @@ export class OccShape implements IShape {
         return OccShape.wrap(wasm.ShapeFactory.fixSmallFace(this.shape, tolerance).shape);
     }
 
-    split(shapes: IShape[]): IShape {
+    split(shapes: IShape[], tolerance: number = 1e-5): IShape {
         const occShapes = shapes.map((x) => {
             if (x instanceof OccShape) {
                 return x.shape;
             }
             throw new Error("Unsupported type");
         });
-        return OccShape.wrap(wasm.Shape.splitShapes([this.shape], occShapes));
+        return OccShape.wrap(wasm.Shape.splitShapes([this.shape], occShapes, tolerance));
     }
 
     reserve(): void {
