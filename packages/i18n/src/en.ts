@@ -218,6 +218,7 @@ export default {
         "option.command.patternType.rectangular": "Rectangular",
         "option.command.repeat": "Repeat",
         "option.command.thickness": "Thickness",
+        "option.rect.centerRect": "Center Rectangle",
         "point.position": "Position",
         "polygon.points": "Points",
         "regularPolygon.sides": "Number of Sides",

@@ -26,6 +26,9 @@ export abstract class ShapeNode extends GeometryNode {
     get shape(): Result<IShape> {
         return this._shape;
     }
+    set shape(value: Result<IShape>) {
+        this.setShape(value)
+    }
 
     @property("common.shapeType")
     get shapeType(): string {
@@ -178,6 +181,9 @@ export abstract class ParameterShapeNode extends ShapeNode {
             this._shape = this.generateShape();
         }
         return this._shape;
+    }
+    override set shape(value: Result<IShape>) {
+        this.setShape(value);
     }
 
     protected setPropertyEmitShapeChanged<K extends keyof this>(

@@ -218,6 +218,7 @@ export default {
         "option.command.patternType.rectangular": "矩形阵列",
         "option.command.repeat": "重复",
         "option.command.thickness": "厚度",
+        "option.rect.centerRect": "中心矩形",
         "point.position": "位置",
         "polygon.points": "点",
         "regularPolygon.sides": "边数",

@@ -213,6 +213,7 @@ export const I18N_KEYS = [
     "option.command.patternType.rectangular",
     "option.command.repeat",
     "option.command.thickness",
+    "option.rect.centerRect",
     "point.position",
     "polygon.points",
     "regularPolygon.sides",

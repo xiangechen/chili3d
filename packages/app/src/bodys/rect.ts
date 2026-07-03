@@ -49,6 +49,9 @@ export class RectNode extends FacebaseNode {
     get plane(): Plane {
         return this.getPrivateValue("plane");
     }
+    set plane(value: Plane) {
+        this.setPropertyEmitShapeChanged("plane", value);
+    }
 
     constructor(options: RectOptions) {
         super({ document: options.document });

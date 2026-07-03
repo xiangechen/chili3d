@@ -23,8 +23,6 @@ export interface RectData {
     plane: Plane;
     dx: number;
     dy: number;
-    p1: XYZ;
-    p2: XYZ;
 }
 
 export function getReactData(atPlane: Plane, start: XYZ, end: XYZ): RectData {
@@ -32,7 +30,7 @@ export function getReactData(atPlane: Plane, start: XYZ, end: XYZ): RectData {
     const vector = end.sub(start);
     const dx = vector.dot(plane.xvec);
     const dy = vector.dot(plane.yvec);
-    return { plane, dx, dy, p1: start, p2: end };
+    return { plane, dx, dy };
 }
 
 export abstract class RectCommandBase extends CreateCommand {
@@ -103,6 +101,42 @@ export class Rect extends RectCommandBase {
     }
     public set isFace(value: boolean) {
         this.setProperty("isFace", value);
+    }
+
+    @property("option.rect.centerRect")
+    public get centerRect() {
+        return this.getPrivateValue("centerRect", false);
+    }
+    public set centerRect(value: boolean) {
+        this.setProperty("centerRect", value);
+    }
+
+    protected override rectDataFromTwoSteps() {
+        const rect = super.rectDataFromTwoSteps();
+        this.changeRectCenter(rect);
+        return rect;
+    }
+
+    protected override rectDataFromTemp(tmp: XYZ): RectData {
+        const rect = super.rectDataFromTemp(tmp);
+        this.changeRectCenter(rect);
+        return rect;
+    }
+
+    private changeRectCenter(rect: RectData) {
+        if (!this.centerRect) return;
+
+        if (this.stepDatas.at(1)?.type !== "input") {
+            rect.dx *= 2;
+            rect.dy *= 2;
+        }
+
+        const { origin, xvec, yvec, normal } = rect.plane;
+        rect.plane = new Plane({
+            origin: origin.sub(xvec.multiply(rect.dx * 0.5)).sub(yvec.multiply(rect.dy * 0.5)),
+            xvec,
+            normal,
+        });
     }
 
     protected override geometryNode(): GeometryNode {
