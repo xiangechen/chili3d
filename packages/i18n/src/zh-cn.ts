@@ -130,6 +130,7 @@ export default {
         "common.dir": "方向",
         "common.general": "常规",
         "common.isGroup": "组",
+        "common.keepTools": "保留操作对象",
         "common.language": "语言",
         "common.length": "长度",
         "common.location": "位置",

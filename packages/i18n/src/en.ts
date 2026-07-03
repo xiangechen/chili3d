@@ -130,6 +130,7 @@ export default {
         "common.dir": "Direction",
         "common.general": "General",
         "common.isGroup": "Group",
+        "common.keepTools": "Keep Tools",
         "common.language": "Language",
         "common.length": "Length",
         "common.location": "Location",

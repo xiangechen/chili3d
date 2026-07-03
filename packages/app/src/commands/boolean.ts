@@ -3,36 +3,49 @@
 
 import {
     command,
+    debounce,
     type IShape,
     type IStep,
     PubSub,
+    property,
     type Result,
     SelectShapeStep,
     ShapeNode,
     ShapeTypes,
     Transaction,
+    type VisualShapeData,
     VisualStates,
 } from "@chili3d/core";
 import { BooleanNode } from "../bodys/boolean";
 import { MultistepCommand } from "./multistepCommand";
 
 export abstract class BooleanOperate extends MultistepCommand {
+    private tempVisual?: number;
+
+    @property("common.keepTools")
+    get keepTools() {
+        return this.getPrivateValue("keepTools", false);
+    }
+    set keepTools(value: boolean) {
+        this.setProperty("keepTools", value);
+    }
+
     protected override executeMainTask() {
         Transaction.execute(this.document, "boolean", () => {
-            const shape1 = this.transformdFirstShape(this.stepDatas[0]);
-            const shape2 = this.transformdShapes(this.stepDatas[1]);
-            const booleanType = this.getBooleanOperateType();
-
-            const booleanShape = this.getBooleanShape(booleanType, shape1, shape2);
+            const booleanShape = this.booleanOperate(this.stepDatas[1].shapes);
             if (!booleanShape.isOk) {
                 PubSub.default.pub("showToast", "error.default:{0}", "boolean failed");
                 return;
             }
             const node = new BooleanNode({ document: this.document, booleanShape: booleanShape.value });
             this.document.modelManager.rootNode.add(node);
-            this.stepDatas.forEach((x) => {
-                x.nodes?.forEach((n) => n.parent?.remove(n));
-            });
+            if (this.keepTools) {
+                this.stepDatas[0].nodes?.forEach((x) => x.parent?.remove(x));
+            } else {
+                this.stepDatas.forEach((x) => {
+                    x.nodes?.forEach((n) => n.parent?.remove(n));
+                });
+            }
             this.document.visual.update();
         });
     }
@@ -72,11 +85,63 @@ export abstract class BooleanOperate extends MultistepCommand {
                     },
                 },
                 multiple: true,
-                beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
-                afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),
+                beforeSelection: () => {
+                    this.addFirstSelectedState(VisualStates.edgeSelected);
+                    this.document.selection.onShapeChanged.sub(this.onToolsChanged);
+                },
+                afterSelection: () => {
+                    this.removeFirstSelectedState(VisualStates.edgeSelected);
+                    this.document.selection.onShapeChanged.remove(this.onToolsChanged);
+                    if (this.tempVisual) {
+                        this.document.visual.context.removeMesh(this.tempVisual);
+                        this.tempVisual = undefined;
+                    }
+                    const nodeVisual = this.stepDatas.at(0)?.shapes.at(0)?.owner;
+                    if (nodeVisual) {
+                        nodeVisual.visible = true;
+                    }
+                },
                 selectedState: VisualStates.faceTransparent,
             }),
         ];
+    }
+
+    private readonly onToolsChanged = debounce((selected: VisualShapeData[]) => {
+        if (this.tempVisual) {
+            this.document.visual.context.removeMesh(this.tempVisual);
+            this.tempVisual = undefined;
+        }
+        const nodeVisual = this.stepDatas.at(0)?.shapes.at(0)?.owner;
+        if (!nodeVisual) return;
+        if (selected.length === 0) {
+            nodeVisual.visible = true;
+            return;
+        }
+
+        const booleanShape = this.booleanOperate(selected);
+        if (!booleanShape.isOk) {
+            nodeVisual.visible = true;
+            PubSub.default.pub("showToast", "error.default:{0}", "boolean failed");
+            return;
+        }
+        this.disposeStack.add(booleanShape.value);
+        nodeVisual.visible = false;
+        this.tempVisual = this.document.visual.context.displayMesh(
+            [booleanShape.value.mesh.faces!, booleanShape.value.mesh.edges!].filter((x) => x !== undefined),
+        );
+
+        this.document.visual.update();
+    }, 20);
+
+    private booleanOperate(selected: VisualShapeData[]) {
+        const shape1 = this.transformdFirstShape(this.stepDatas[0]);
+        const shape2 = selected.map((s) => {
+            const shape = s.shape.transformedMul(s.transform);
+            this.disposeStack.add(shape);
+            return shape;
+        });
+        const booleanType = this.getBooleanOperateType();
+        return this.getBooleanShape(booleanType, shape1, shape2);
     }
 }
 

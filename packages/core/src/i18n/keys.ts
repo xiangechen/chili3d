@@ -125,6 +125,7 @@ export const I18N_KEYS = [
     "common.dir",
     "common.general",
     "common.isGroup",
+    "common.keepTools",
     "common.language",
     "common.length",
     "common.location",
