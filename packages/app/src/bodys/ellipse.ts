@@ -20,6 +20,7 @@ export interface EllipseOptions {
     xvec: XYZ;
     majorRadius: number;
     minorRadius: number;
+    isFace?: boolean;
 }
 
 @serializable()
@@ -71,6 +72,7 @@ export class EllipseNode extends FacebaseNode {
         this.setPrivateValue("xvec", options.xvec);
         this.setPrivateValue("majorRadius", options.majorRadius);
         this.setPrivateValue("minorRadius", options.minorRadius);
+        this.setPrivateValue("isFace", options?.isFace === true);
     }
 
     generateShape(): Result<IShape, string> {

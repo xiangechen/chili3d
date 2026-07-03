@@ -30,10 +30,9 @@ export abstract class CreateNodeCommand extends MultistepCommand {
 }
 
 export abstract class CreateFaceableCommand extends CreateCommand {
-    protected _isFace: boolean = false;
     @property("option.command.isFace")
     public get isFace() {
-        return this._isFace;
+        return this.getPrivateValue("isFace", true);
     }
     public set isFace(value: boolean) {
         this.setProperty("isFace", value);

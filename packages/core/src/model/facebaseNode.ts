@@ -12,6 +12,6 @@ export abstract class FacebaseNode extends ParameterShapeNode {
         return this.getPrivateValue("isFace", false);
     }
     set isFace(value: boolean) {
-        this.setProperty("isFace", value);
+        this.setPropertyEmitShapeChanged("isFace", value);
     }
 }

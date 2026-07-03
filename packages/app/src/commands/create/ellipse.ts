@@ -85,6 +85,7 @@ export class Ellipse extends CreateFaceableCommand {
             xvec: p1.sub(p0),
             majorRadius: d1,
             minorRadius: d2 > d1 ? d1 : d2,
+            isFace: this.isFace,
         });
         return body;
     }

@@ -99,7 +99,7 @@ export abstract class RectCommandBase extends CreateCommand {
 export class Rect extends RectCommandBase {
     @property("option.command.isFace")
     public get isFace() {
-        return this.getPrivateValue("isFace", false);
+        return this.getPrivateValue("isFace", true);
     }
     public set isFace(value: boolean) {
         this.setProperty("isFace", value);
