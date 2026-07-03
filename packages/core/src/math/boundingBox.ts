@@ -275,4 +275,10 @@ export class BoundingBox {
     static minSize(box: BoundingBox) {
         return Math.min(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
     }
+
+    static diagonal(box: BoundingBox) {
+        return Math.sqrt(
+            (box.max.x - box.min.x) ** 2 + (box.max.y - box.min.y) ** 2 + (box.max.z - box.min.z) ** 2,
+        );
+    }
 }
