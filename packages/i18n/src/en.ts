@@ -236,6 +236,7 @@ export default {
         "prompt.pickRadius": "input radius, ESC key to cancel",
         "prompt.polygon.close": "Close",
         "prompt.saveDocument{0}": "Do you want to save the changes to {0}?",
+        "prompt.select.axis": "Please select a axis",
         "prompt.select.curve": "Please select a curve",
         "prompt.select.edges": "Please select edges",
         "prompt.select.faces": "Please select faces",

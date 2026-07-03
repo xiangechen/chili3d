@@ -48,9 +48,9 @@ export class Revolve extends CreateCommand {
         return [
             new SelectShapeStep(
                 (ShapeTypes.edge | ShapeTypes.face | ShapeTypes.wire) as ShapeType,
-                "prompt.select.shape",
+                "prompt.select.section",
             ),
-            new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges", {
+            new SelectShapeStep(ShapeTypes.edge, "prompt.select.axis", {
                 shapeFilter: new LineFilter(),
                 beforeSelection: () => this.addFirstSelectedState(VisualStates.edgeSelected),
                 afterSelection: () => this.removeFirstSelectedState(VisualStates.edgeSelected),

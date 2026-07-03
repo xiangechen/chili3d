@@ -230,6 +230,7 @@ export const I18N_KEYS = [
     "prompt.pickRadius",
     "prompt.polygon.close",
     "prompt.saveDocument{0}",
+    "prompt.select.axis",
     "prompt.select.curve",
     "prompt.select.edges",
     "prompt.select.faces",

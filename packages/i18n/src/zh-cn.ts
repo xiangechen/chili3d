@@ -235,6 +235,7 @@ export default {
         "prompt.pickRadius": "请选择半径，按 ESC 键取消",
         "prompt.polygon.close": "闭合",
         "prompt.saveDocument{0}": "是否保存对 {0} 的更改？",
+        "prompt.select.axis": "请选择轴",
         "prompt.select.curve": "请选择曲线",
         "prompt.select.edges": "请选择边",
         "prompt.select.faces": "请选择面",
