@@ -6,7 +6,8 @@ export const VisualStates = {
     edgeHighlight: 1,
     edgeSelected: 2,
     faceTransparent: 4,
-    faceColored: 8,
+    faceHighlight: 8,
+    faceSelected: 16
 } as const;
 export type VisualState = (typeof VisualStates)[keyof typeof VisualStates];
 

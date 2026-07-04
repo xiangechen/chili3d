@@ -74,18 +74,25 @@ export const faceTransparentMaterial = new MeshLambertMaterial({
     side: DoubleSide,
     color: ThreeHelper.fromColor(VisualConfig.selectedFaceColor),
     opacity: 0.1,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
 });
 
-export const faceColoredMaterial = new MeshLambertMaterial({
+export const selectedFaceColoredMaterial = new MeshLambertMaterial({
     side: DoubleSide,
-    color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
+    color: ThreeHelper.fromColor(VisualConfig.selectedFaceColor),
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
 });
 
 export const highlightFaceMaterial = new MeshLambertMaterial({
     color: ThreeHelper.fromColor(VisualConfig.highlightFaceColor),
     side: DoubleSide,
-    transparent: true,
-    opacity: 0.56,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
 });
 
 export const lockFaceMaterial = new MeshLambertMaterial({

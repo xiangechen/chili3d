@@ -18,20 +18,21 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { isHighlightable } from "./highlightable";
 import {
-    faceColoredMaterial,
     faceTransparentMaterial,
+    highlightFaceMaterial,
     highlightVertexMaterial,
     hilightEdgeMaterial,
     selectedEdgeMaterial,
+    selectedFaceColoredMaterial,
     selectedVertexMaterial,
 } from "./materials";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import type { ThreeVisualContext } from "./threeVisualContext";
-import { ThreeMeshObject, type ThreeVisualObject } from "./threeVisualObject";
+import { type ThreeVisualObject } from "./threeVisualObject";
 
 export class GeometryState {
-    private readonly _states: Map<string, [VisualState, LineSegments2 | undefined]> = new Map();
+    private readonly _states: Map<string, [VisualState, Mesh | undefined]> = new Map();
 
     constructor(
         readonly highlighter: ThreeHighlighter,
@@ -78,9 +79,9 @@ export class GeometryState {
             } else if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
                 this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
-            } else if (VisualStateUtils.hasState(newState, VisualStates.faceColored)) {
+            } else if (VisualStateUtils.hasState(newState, VisualStates.faceHighlight)) {
                 this.visual.removeTemperaryMaterial();
-                this.visual.setFacesMateiralTemperary(faceColoredMaterial);
+                this.visual.setFacesMateiralTemperary(highlightFaceMaterial);
             }
         } else if (isHighlightable(this.visual)) {
             if (newState !== VisualStates.normal) {
@@ -135,6 +136,8 @@ export class GeometryState {
             const [oldState, newState] = this.updateStates(key, method, state);
             if (oldState !== undefined && newState === VisualStates.normal) {
                 shouldRemoved.push(key);
+            } else if (this.isFaceState(state, type)) {
+                this.addSubFaceState(type, key, i, newState);
             } else {
                 this.addSubEdgeState(type, key, i, newState);
             }
@@ -150,8 +153,16 @@ export class GeometryState {
         });
     }
 
+    private isFaceState(state: VisualState, type: ShapeType) {
+        return (
+            !VisualStateUtils.hasState(VisualStates.edgeHighlight, state) &&
+            !VisualStateUtils.hasState(VisualStates.edgeSelected, state) &&
+            (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type))
+        );
+    }
+
     private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
-        const geometry = this.getOrCloneGeometry(type, key, i);
+        const geometry = this.getOrCloneEdgeGeometry(type, key, i);
         if (geometry && "material" in geometry) {
             const material = VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)
                 ? hilightEdgeMaterial
@@ -161,7 +172,24 @@ export class GeometryState {
         }
     }
 
-    private getOrCloneGeometry(type: ShapeType, key: string, index: number) {
+    private addSubFaceState(type: ShapeType, key: string, i: number, newState: VisualState) {
+        const geometry = this.getOrCloneFaceGeometry(type, key, i);
+        if (geometry && "material" in geometry) {
+            let material;
+            if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
+                material = faceTransparentMaterial;
+            } else if (VisualStateUtils.hasState(newState, VisualStates.faceSelected)) {
+                material = selectedFaceColoredMaterial;
+            } else {
+                material = highlightFaceMaterial;
+            }
+            geometry.material = material;
+            geometry.renderOrder = 999;
+            this._states.set(key, [newState, geometry]);
+        }
+    }
+
+    private getOrCloneEdgeGeometry(type: ShapeType, key: string, index: number) {
         if (!(this.visual instanceof ThreeGeometry)) return undefined;
 
         const geometry = this._states.get(key)?.[1];
@@ -186,6 +214,26 @@ export class GeometryState {
         this.highlighter.container.add(segment);
         segment.applyMatrix4(this.visual.matrixWorld);
         return segment;
+    }
+
+    private getOrCloneFaceGeometry(type: ShapeType, key: string, index: number) {
+        if (!(this.visual instanceof ThreeGeometry)) return undefined;
+
+        const geometry = this._states.get(key)?.[1];
+        if (geometry) return geometry;
+
+        let face: Mesh | undefined;
+        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type)) {
+            face = this.visual.cloneSubFace(index);
+        }
+
+        if (!face) {
+            console.warn(`Invalid type ${type} for ${key}`);
+            return undefined;
+        }
+
+        this.highlighter.container.add(face);
+        return face;
     }
 }
 
