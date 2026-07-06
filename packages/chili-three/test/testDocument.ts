@@ -23,7 +23,7 @@ import { Component } from "chili-core/src/model/component";
 
 export class TestDocument implements IDocument, ISerialize {
     application: IApplication;
-    components: Component[] = [];
+    components = new ObservableCollection<Component>();
     name: string;
     currentNode: INodeLinkedList | undefined;
     id: string;
