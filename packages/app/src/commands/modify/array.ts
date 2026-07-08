@@ -541,12 +541,14 @@ export class ArrayCommand extends MultistepCommand {
 
     protected getArrayTransforms() {
         switch (this.patternType) {
-            case "option.command.patternType.circular":
-                return this.getArcMatrixs(
-                    this.stepDatas[0].point!,
-                    this._planeAngle!.plane.normal,
-                    MathUtils.degToRad(this._planeAngle!.angle),
-                );
+            case "option.command.patternType.circular": {
+                const center = this.stepDatas[0].point!;
+                const p1 = this.stepDatas[1].point!;
+                const p2 = this.stepDatas[2].point!;
+                const normal = this._planeAngle!.plane.normal;
+                const angle = p1.sub(center).angleOnPlaneTo(p2.sub(center), normal)!;
+                return this.getArcMatrixs(center, normal, angle);
+            }
             case "option.command.patternType.rectangular": {
                 const { xvec, yvec, normal } = this.boxPlaneInfo(3);
                 return this.boxArrayMatrixs(3, xvec, yvec, normal, this.stepDatas[3].point!);
