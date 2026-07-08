@@ -43,7 +43,7 @@ export class BezierCommand extends CreateCommand {
             this.controller = new AsyncController();
             const data = await step.execute(this.document, this.controller);
             if (data === undefined) {
-                return this.controller.result?.status === "success";
+                return this.stepDatas.length > 1;
             }
             this.stepDatas.push(data);
             if (this.isClose(data)) {
@@ -53,7 +53,6 @@ export class BezierCommand extends CreateCommand {
     }
 
     private isClose(data: SnapResult) {
-        console.log(this.stepDatas[0].point!.distanceTo(data.point!));
         return (
             this.stepDatas.length > 1 &&
             this.stepDatas[0].point!.distanceTo(data.point!) <= Precision.Distance
