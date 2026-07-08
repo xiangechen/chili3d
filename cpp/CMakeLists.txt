@@ -64,7 +64,7 @@ if (${EMSCRIPTEN})
     add_library(occt STATIC ${OcctSourceFiles})
     target_include_directories (occt PUBLIC ${OcctIncludeDirs})
     target_compile_options (occt PUBLIC
-        $<$<CONFIG:Release>:-Os>
+        $<$<CONFIG:Release>:-Oz>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -DOCCT_NO_PLUGINS
@@ -73,22 +73,22 @@ if (${EMSCRIPTEN})
     add_executable (${TARGET} ${ChiliWasmSourceFiles})
     target_include_directories (${TARGET} PUBLIC ${OcctIncludeDirs})
     target_compile_options (${TARGET} PUBLIC
-        $<$<CONFIG:Release>:-Os>
+        $<$<CONFIG:Release>:-Oz>
         $<$<CONFIG:Release>:-flto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
     )
     target_link_libraries(${TARGET} PUBLIC occt)
     target_link_options (${TARGET} PUBLIC
-        $<IF:$<CONFIG:Release>,-Os,-O0>
+        $<IF:$<CONFIG:Release>,-Oz,-O0>
         $<IF:$<CONFIG:Release>,-flto,-fno-lto>
         $<IF:$<CONFIG:Release>,-sDISABLE_EXCEPTION_CATCHING=1,-sDISABLE_EXCEPTION_CATCHING=0>
         -sMODULARIZE=1
         -sEXPORT_ES6=1
-        -sSTACK_SIZE=8MB
-        -sINITIAL_HEAP=64MB
+        -sSTACK_SIZE=16MB
+        -sINITIAL_MEMORY=256MB
         -sALLOW_MEMORY_GROWTH=1
         -sMAXIMUM_MEMORY=4GB
-        -sENVIRONMENT="web"
+        -sENVIRONMENT=web
         --bind
         --emit-tsd "${TARGET}.d.ts"
     )

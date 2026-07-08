@@ -8,13 +8,16 @@ export interface ClassHandle {
   delete(): void;
   deleteLater(): this;
   isDeleted(): boolean;
+  // @ts-ignore - If targeting lower than ESNext, this symbol might not exist.
+  [Symbol.dispose](): void;
   clone(): this;
 }
 export interface ShapeNode extends ClassHandle {
   get name(): string;
   set name(value: EmbindString);
   shape: TopoDS_Shape | undefined;
-  color: EmbindString | undefined;
+  get color(): string | undefined;
+  set color(value: EmbindString | undefined);
   getChildren(): Array<ShapeNode>;
 }
 
@@ -489,7 +492,7 @@ export interface Face extends ClassHandle {
 export interface Solid extends ClassHandle {
 }
 
-export interface ShapeVector extends ClassHandle {
+export interface ShapeVector extends ClassHandle, Iterable<TopoDS_Shape> {
   push_back(_0: TopoDS_Shape): void;
   resize(_0: number, _1: TopoDS_Shape): void;
   size(): number;
