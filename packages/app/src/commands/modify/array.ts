@@ -250,8 +250,7 @@ export class ArrayCommand extends MultistepCommand {
             transforms[0] = Matrix4.identity();
         } else {
             for (let i = 0; i < this.count; i++) {
-                const t = i / (this.count - 1);
-                const vec = direction.multiply(t);
+                const vec = direction.multiply(i);
                 transforms[i] = Matrix4.fromTranslation(vec.x, vec.y, vec.z);
             }
         }
