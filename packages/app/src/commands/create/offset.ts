@@ -107,21 +107,51 @@ export class OffsetCommand extends MultistepCommand {
     }
 
     private getNearstPointAndDirection(shape: IShape, start: XYZ, normal: XYZ) {
-        let wire = shape as IWire;
-        if (shape.shapeType === ShapeTypes.face) {
-            wire = (shape as IFace).outerWire();
-        }
+        const wire = shape.shapeType === ShapeTypes.face ? (shape as IFace).outerWire() : (shape as IWire);
+
         const nearest = GeometryUtils.nearestPoint(wire, start);
-        let direction = nearest.edge.curve.dn(0, 1);
+        let direction = this.wireTangent(nearest.edge, nearest.parameter);
+
         const nextEdge = GeometryUtils.findNextEdge(wire, nearest.edge).value;
-        if (nextEdge) {
-            const scale = nearest.edge.orientation() === nextEdge.orientation() ? 1 : -1;
-            const nextDirection = nextEdge.curve.dn(0, 1).multiply(scale);
-            if (direction.cross(nextDirection).normalize()?.isOppositeTo(normal)) {
-                direction = direction.multiply(-1);
-            }
+        const nextDir = nextEdge && this.nextEdgeTangent(nearest.edge, nextEdge);
+        if (nextDir && direction.cross(nextDir).normalize()?.isOppositeTo(normal)) {
+            direction = direction.multiply(-1);
         }
+
         return { nearest, direction };
+    }
+
+    private wireTangent(edge: IEdge, param: number): XYZ {
+        const t = edge.curve.dn(param, 1);
+        return edge.orientation() === "reversed" ? t.multiply(-1) : t;
+    }
+
+    private nextEdgeTangent(current: IEdge, next: IEdge): XYZ | undefined {
+        const currentCurve = current.curve;
+        const wireEndParam =
+            current.orientation() === "reversed"
+                ? currentCurve.firstParameter()
+                : currentCurve.lastParameter();
+        const connectionPoint = currentCurve.value(wireEndParam);
+
+        const nextCurve = next.curve;
+        const nextFirst = nextCurve.firstParameter();
+        const nextLast = nextCurve.lastParameter();
+        const nextParam =
+            connectionPoint.distanceTo(nextCurve.value(nextFirst)) <
+            connectionPoint.distanceTo(nextCurve.value(nextLast))
+                ? nextFirst
+                : nextLast;
+
+        let t = nextCurve.dn(nextParam, 1);
+        if (next.orientation() === "reversed") {
+            t = t.multiply(-1);
+        }
+        const wireStart = next.orientation() === "reversed" ? nextLast : nextFirst;
+        if (nextParam !== wireStart) {
+            t = t.multiply(-1);
+        }
+        return t;
     }
 
     private createOffsetShape(normal: XYZ, distance: number) {

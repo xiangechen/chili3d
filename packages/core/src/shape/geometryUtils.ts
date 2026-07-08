@@ -8,14 +8,14 @@ import type { IEdge, IFace, IWire } from "./shape";
 import { ShapeTypes } from "./shapeType";
 
 export class GeometryUtils {
-    static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ } {
+    static nearestPoint(wire: IWire, point: XYZ): { edge: IEdge; point: XYZ; parameter: number } {
         let minDistance = Number.MAX_VALUE;
-        let nearest: { edge: IEdge; point: XYZ } | undefined;
+        let nearest: { edge: IEdge; point: XYZ; parameter: number } | undefined;
 
         for (const edge of wire.findSubShapes(ShapeTypes.edge) as IEdge[]) {
             const tempPoint = edge.curve.nearestFromPoint(point);
             if (tempPoint.distance < minDistance) {
-                nearest = { edge, point: tempPoint.point };
+                nearest = { edge, point: tempPoint.point, parameter: tempPoint.parameter };
                 minDistance = tempPoint.distance;
             }
         }
@@ -66,7 +66,9 @@ export class GeometryUtils {
 
     static findNextEdge(wire: IWire, edge: IEdge): Result<IEdge> {
         const curve = edge.curve;
-        const point = curve.value(curve.lastParameter());
+        const wireEndParam =
+            edge.orientation() === "reversed" ? curve.firstParameter() : curve.lastParameter();
+        const point = curve.value(wireEndParam);
 
         for (const e of wire.findSubShapes(ShapeTypes.edge)) {
             if (e.isEqual(edge)) continue;
