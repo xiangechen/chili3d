@@ -55,6 +55,8 @@ export class Export extends CancelableCommand {
         const property = PropertyUtils.getProperty(Export.prototype, "format")!;
         property.combobox!.items.clear();
         property.combobox!.items.push(...getCurrentApplication().dataExchange.exportFormats());
+        const index = property.combobox!.items.indexOf(this.format);
+        property.combobox!.selectedIndex = index < 0 ? 0 : index;
     }
 
     protected async executeAsync() {
