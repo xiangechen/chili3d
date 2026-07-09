@@ -4,7 +4,7 @@
         "module": "ESNext",
         "moduleResolution": "bundler",
         "resolveJsonModule": true,
-        "rootDir": "./packages",
+        "rootDir": ".",
 
         "strict": true,
         "allowJs": true,
@@ -17,6 +17,6 @@
         "plugins": [{ "name": "typescript-plugin-css-modules" }],
         "types": ["@rstest/core/globals"]
     },
-    "include": ["packages"],
+    "include": ["packages", "plugins/*/src"],
     "exclude": ["packages/chili-occ/occ-wasm", "packages/chili-wasm/lib"]
 }
