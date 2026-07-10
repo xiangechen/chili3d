@@ -103,6 +103,9 @@ export class TestEdge implements IEdge {
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         throw new Error("Method not implemented.");
     }
+    fixShape(): IShape {
+        throw new Error("Method not implemented.");
+    }
     fixSmallFace(tolerance: number): IShape {
         throw new Error("Method not implemented.");
     }

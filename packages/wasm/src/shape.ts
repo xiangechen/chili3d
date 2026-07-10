@@ -314,6 +314,10 @@ export class OccShape implements IShape {
         throw new Error("Unsupported type");
     }
 
+    fixShape(): IShape {
+        return OccShape.wrap(wasm.ShapeFactory.fixShape(this.shape).shape);
+    }
+
     fixSmallFace(tolerance: number): IShape {
         return OccShape.wrap(wasm.ShapeFactory.fixSmallFace(this.shape, tolerance).shape);
     }

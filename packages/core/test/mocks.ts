@@ -152,6 +152,10 @@ export class MockShape implements IShape {
         return undefined;
     }
 
+    fixShape(): IShape {
+        throw new Error("Method not implemented.");
+    }
+
     fixSmallFace(_tolerance: number): IShape {
         throw new Error("Method not implemented.");
     }
