@@ -286,11 +286,11 @@ public:
         TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
         for (NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>::Iterator anIt(faceMap); anIt.More(); anIt.Next()) {
             auto face = TopoDS::Face(anIt.Value());
-            mesher.faces.push_back(face);
             TopLoc_Location location;
             auto handlePoly = BRep_Tool::Triangulation(face, location);
             if (!handlePoly.IsNull()) {
                 auto trsf = location.Transformation();
+                mesher.faces.push_back(face);
                 mesher.generateFaceMesh(face, handlePoly, trsf);
                 facePolyMap[face] = handlePoly;
             }
