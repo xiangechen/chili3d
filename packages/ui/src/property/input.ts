@@ -117,9 +117,9 @@ export class InputProperty extends PropertyBase {
             return;
         }
         Transaction.execute(this.document, "modify property", () => {
-            this.objects.forEach((x) => {
-                x[this.property.name] = newValue.value;
-            });
+            for (let i = this.objects.length - 1; i >= 0; i--) {
+                this.objects[i][this.property.name] = newValue.value;
+            }
             this.document.visual.update();
         });
     };
