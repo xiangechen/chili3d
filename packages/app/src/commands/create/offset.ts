@@ -2,16 +2,21 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Combobox,
     command,
     EditableShapeNode,
     GeometryUtils,
     I18n,
+    type I18nKeys,
     type IEdge,
     type IFace,
     type IShape,
     type IStep,
     type IWire,
+    type JoinType,
     LengthAtAxisStep,
+    MathUtils,
+    property,
     SelectShapeStep,
     type ShapeMeshData,
     type ShapeType,
@@ -25,6 +30,20 @@ import { MultistepCommand } from "../multistepCommand";
     icon: "icon-offset",
 })
 export class OffsetCommand extends MultistepCommand {
+    @property("option.command.joinType", {
+        combobox: Combobox.from([
+            "option.command.joinType.arc",
+            "option.command.joinType.tangent",
+            "option.command.joinType.intersection",
+        ]),
+    })
+    get joinType(): I18nKeys {
+        return this.getPrivateValue("joinType", "option.command.joinType.arc");
+    }
+    set joinType(value: I18nKeys) {
+        this.setProperty("joinType", value);
+    }
+
     protected override executeMainTask() {
         const normal = this.getAxis().normal;
         const shape = this.createOffsetShape(normal, this.stepDatas[1].distance!);
@@ -48,6 +67,7 @@ export class OffsetCommand extends MultistepCommand {
                 return {
                     point: ax.point,
                     direction: ax.direction,
+                    validator: (point) => !MathUtils.almostEqual(point.sub(ax.point).dot(ax.direction), 0),
                     preview: (point: XYZ | undefined) => this.preview(ax, point),
                 };
             }),
@@ -164,6 +184,19 @@ export class OffsetCommand extends MultistepCommand {
         if (shape.shapeType === ShapeTypes.face) {
             wire = (shape as IFace).outerWire();
         }
-        return wire.offset(distance, "intersection");
+        return wire.offset(distance, this.mapJoinType());
     }
+
+    readonly mapJoinType = (): JoinType => {
+        switch (this.joinType) {
+            case "option.command.joinType.arc":
+                return "arc";
+            case "option.command.joinType.intersection":
+                return "intersection";
+            case "option.command.joinType.tangent":
+                return "tangent";
+            default:
+                throw new Error("Unknow joinType");
+        }
+    };
 }
