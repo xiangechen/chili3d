@@ -92,6 +92,8 @@ export class MockShape implements IShape {
         return this._mesh;
     }
 
+    setTolerance(tolerance: number): void {}
+
     transformed(_matrix: Matrix4): IShape {
         return new MockShape();
     }
@@ -152,11 +154,27 @@ export class MockShape implements IShape {
         return undefined;
     }
 
-    fixShape(): IShape {
+    fixShape(_tolerance: number): IShape {
         throw new Error("Method not implemented.");
     }
 
+    shellSewing(tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
+
+    checkShape(): boolean {
+        return true;
+    }
+
+    checkFaces(): { index: number; isValid: boolean; status: string[] }[] {
+        return [];
+    }
+
     fixSmallFace(_tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
+
+    fixSolid(_tolerance: number): IShape {
         throw new Error("Method not implemented.");
     }
 

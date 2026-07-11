@@ -27,7 +27,7 @@ export abstract class ShapeNode extends GeometryNode {
         return this._shape;
     }
     set shape(value: Result<IShape>) {
-        this.setShape(value)
+        this.setShape(value);
     }
 
     @property("common.shapeType")

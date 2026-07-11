@@ -33,6 +33,8 @@ export class TestEdge implements IEdge {
         readonly start: XYZ,
         readonly end: XYZ,
     ) {}
+
+    setTolerance(tolerance: number): void {}
     hasContinuity(face1: IFace, face2: IFace): boolean {
         throw new Error("Method not implemented.");
     }
@@ -103,11 +105,23 @@ export class TestEdge implements IEdge {
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         throw new Error("Method not implemented.");
     }
-    fixShape(): IShape {
+    fixShape(_tolerance: number): IShape {
         throw new Error("Method not implemented.");
     }
     fixSmallFace(tolerance: number): IShape {
         throw new Error("Method not implemented.");
+    }
+    fixSolid(_tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
+    shellSewing(tolerance: number): IShape {
+        throw new Error("Method not implemented.");
+    }
+    checkShape(): boolean {
+        return true;
+    }
+    checkFaces(): { index: number; isValid: boolean; status: string[] }[] {
+        return [];
     }
     intersect(other: IEdge | Line) {
         return [];

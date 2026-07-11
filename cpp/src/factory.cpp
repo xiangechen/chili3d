@@ -37,6 +37,7 @@
 #include <ShapeAnalysis_WireOrder.hxx>
 #include <ShapeFix_FixSmallFace.hxx>
 #include <ShapeFix_Shape.hxx>
+#include <ShapeFix_Solid.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
@@ -485,6 +486,7 @@ public:
         boolOperater.SetToFillHistory(false);
         boolOperater.SetArguments(argsList);
         boolOperater.SetTools(toolsList);
+        boolOperater.SetFuzzyValue(1e-6);
         boolOperater.Build();
         if (!boolOperater.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to build boolean operation" };
@@ -598,9 +600,10 @@ public:
         return ShapeResult { curveProjection.Shape(), true, "" };
     }
 
-    static ShapeResult fixShape(const TopoDS_Shape& shape)
+    static ShapeResult fixShape(const TopoDS_Shape& shape, double tolerance)
     {
         ShapeFix_Shape fixer(shape);
+        fixer.SetPrecision(tolerance);
         fixer.Perform();
         return ShapeResult { fixer.Shape(), true, "" };
     }
@@ -609,6 +612,15 @@ public:
     {
         ShapeFix_FixSmallFace fixer;
         fixer.Init(shape);
+        fixer.SetPrecision(tolerance);
+        fixer.Perform();
+        return ShapeResult { fixer.Shape(), true, "" };
+    }
+
+    static ShapeResult fixSolid(const TopoDS_Shape& shape, double tolerance)
+    {
+        ShapeFix_Solid fixer;
+        fixer.Init(TopoDS::Solid(shape));
         fixer.SetPrecision(tolerance);
         fixer.Perform();
         return ShapeResult { fixer.Shape(), true, "" };
@@ -656,6 +668,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("chamfer", &ShapeFactory::chamfer)
         .class_function("fixShape", &ShapeFactory::fixShape)
         .class_function("fixSmallFace", &ShapeFactory::fixSmallFace)
+        .class_function("fixSolid", &ShapeFactory::fixSolid)
         .class_function("loft", &ShapeFactory::loft)
         .class_function("curveProjection", &ShapeFactory::curveProjection);
 }

@@ -1,0 +1,76 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 400px;
+    max-height: 480px;
+    overflow-y: auto;
+}
+
+.overall {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.overallValid {
+    composes: overall;
+    color: var(--success-color, #52c41a);
+}
+
+.overallInvalid {
+    composes: overall;
+    color: var(--error-color, #ff4d4f);
+}
+
+.noFaces {
+    color: var(--text-secondary-color);
+}
+
+.table {
+    display: grid;
+    grid-template-columns: 56px 72px 1fr;
+    gap: 4px 8px;
+    font-size: 12px;
+}
+
+.header {
+    composes: table;
+    font-weight: bold;
+    color: var(--text-secondary-color);
+    margin-bottom: 4px;
+}
+
+.row {
+    composes: table;
+    line-height: 20px;
+    border-top: 1px solid var(--border-color);
+    padding: 2px 0;
+}
+
+.colIndex {
+    color: var(--text-secondary-color);
+}
+
+.colStatusValid {
+    font-weight: bold;
+    color: var(--success-color, #52c41a);
+}
+
+.colStatusInvalid {
+    font-weight: bold;
+    color: var(--error-color, #ff4d4f);
+}
+
+.colDetail {
+    word-break: break-all;
+}
+
+.colDetailOk {
+    composes: colDetail;
+    color: var(--text-secondary-color);
+}
+
+.colDetailError {
+    composes: colDetail;
+    color: var(--error-color, #ff4d4f);
+}

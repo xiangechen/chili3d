@@ -85,4 +85,12 @@ EMSCRIPTEN_BINDINGS(Shared)
         .field("isParallel", &ExtremaCCResult::isParallel)
         .field("u1", &ExtremaCCResult::u1)
         .field("u2", &ExtremaCCResult::u2);
+
+    value_object<FaceCheckResult>("FaceCheckResult")
+        .field("index", &FaceCheckResult::index)
+        .field("isValid", &FaceCheckResult::isValid)
+        .field("status", &FaceCheckResult::status);
+
+    register_vector<FaceCheckResult>("FaceCheckResultVector");
+    
 }

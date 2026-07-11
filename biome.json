@@ -13,7 +13,8 @@
             "!!**/public",
             "!!**/build",
             "!!**/coverage",
-            "!!**/lib"
+            "!!**/lib",
+            "!!**/iconfont.js"
         ]
     },
     "css": {

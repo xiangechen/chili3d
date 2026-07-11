@@ -135,8 +135,10 @@ export abstract class BooleanOperate extends MultistepCommand {
 
     private booleanOperate(selected: VisualShapeData[]) {
         const shape1 = this.transformdFirstShape(this.stepDatas[0]);
+        shape1.setTolerance(1e-6);
         const shape2 = selected.map((s) => {
             const shape = s.shape.transformedMul(s.transform);
+            shape.setTolerance(1e-6);
             this.disposeStack.add(shape);
             return shape;
         });

@@ -314,12 +314,16 @@ export class OccShape implements IShape {
         throw new Error("Unsupported type");
     }
 
-    fixShape(): IShape {
-        return OccShape.wrap(wasm.ShapeFactory.fixShape(this.shape).shape);
+    fixShape(tolerance: number): IShape {
+        return OccShape.wrap(wasm.ShapeFactory.fixShape(this.shape, tolerance).shape);
     }
 
     fixSmallFace(tolerance: number): IShape {
         return OccShape.wrap(wasm.ShapeFactory.fixSmallFace(this.shape, tolerance).shape);
+    }
+
+    fixSolid(tolerance: number): IShape {
+        return OccShape.wrap(wasm.ShapeFactory.fixSolid(this.shape, tolerance).shape);
     }
 
     split(shapes: IShape[], tolerance: number = 1e-5): IShape {
@@ -336,11 +340,38 @@ export class OccShape implements IShape {
         this.shape.reverse();
     }
 
+    setTolerance(tolerance: number): void {
+        wasm.Shape.setTolerance(this.shape, tolerance);
+    }
+
     hlr(position: XYZLike, direction: XYZLike, xDir: XYZLike): IShape {
         return gc((c) => {
             const shape = wasm.Shape.hlr(this.shape, c(toPnt(position)), c(toDir(direction)), c(toDir(xDir)));
             return OccShape.wrap(shape);
         });
+    }
+
+    shellSewing(tolerance: number) {
+        return OccShape.wrap(wasm.Shape.shellSewing(this.shape, tolerance));
+    }
+
+    checkShape(): boolean {
+        return wasm.Shape.check(this.shape);
+    }
+
+    checkFaces(): { index: number; isValid: boolean; status: string[] }[] {
+        const vec = wasm.Shape.checkFaces(this.shape);
+        const results: { index: number; isValid: boolean; status: string[] }[] = [];
+        for (let i = 0; i < vec.size(); i++) {
+            const item = vec.get(i);
+            if (!item) continue;
+            results.push({
+                index: item.index,
+                isValid: item.isValid,
+                status: item.status ? (item.status as string).split(", ") : [],
+            });
+        }
+        return results;
     }
 
     #isDisposed = false;

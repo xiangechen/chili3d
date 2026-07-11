@@ -198,6 +198,12 @@ struct ExtremaCCResult {
     double u2;
 };
 
+struct FaceCheckResult {
+    int index;
+    bool isValid;
+    std::string status;
+};
+
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int8Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int16Array)
 EMSCRIPTEN_DECLARE_VAL_TYPE(Int32Array)

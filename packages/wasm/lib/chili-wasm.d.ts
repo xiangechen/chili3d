@@ -569,6 +569,20 @@ export type ExtremaCCResult = {
   u2: number
 };
 
+export type FaceCheckResult = {
+  index: number,
+  isValid: boolean,
+  status: EmbindString
+};
+
+export interface FaceCheckResultVector extends ClassHandle, Iterable<FaceCheckResult> {
+  push_back(_0: FaceCheckResult): void;
+  resize(_0: number, _1: FaceCheckResult): void;
+  size(): number;
+  get(_0: number): FaceCheckResult | undefined;
+  set(_0: number, _1: FaceCheckResult): boolean;
+}
+
 export interface Transient extends ClassHandle {
 }
 
@@ -586,8 +600,9 @@ interface EmbindModule {
   ShapeResult: {};
   ShapeFactory: {
     makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
-    fixShape(_0: TopoDS_Shape): ShapeResult;
+    fixShape(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixSmallFace(_0: TopoDS_Shape, _1: number): ShapeResult;
+    fixSolid(_0: TopoDS_Shape, _1: number): ShapeResult;
     curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
     polygon(_0: Array<Vector3>): ShapeResult;
     bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
@@ -765,8 +780,11 @@ interface EmbindModule {
     sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
     isClosed(_0: TopoDS_Shape): boolean;
     replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
+    check(_0: TopoDS_Shape): boolean;
     hlr(_0: TopoDS_Shape, _1: gp_Pnt, _2: gp_Dir, _3: gp_Dir): TopoDS_Shape;
     sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
+    shellSewing(_0: TopoDS_Shape, _1: number): TopoDS_Shape;
+    setTolerance(_0: TopoDS_Shape, _1: number): void;
     findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
@@ -777,6 +795,7 @@ interface EmbindModule {
     boundingBox(_0: TopoDS_Shape, _1: boolean): BoundingBox;
     orientedBoundingBox(_0: TopoDS_Shape, _1: boolean): OrientedBoundingBox;
     sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
+    checkFaces(_0: TopoDS_Shape): FaceCheckResultVector;
   };
   Vertex: {
     point(_0: TopoDS_Vertex): Vector3;
@@ -810,6 +829,9 @@ interface EmbindModule {
   };
   ShapeVector: {
     new(): ShapeVector;
+  };
+  FaceCheckResultVector: {
+    new(): FaceCheckResultVector;
   };
   Transient: {
     isKind(_0: Standard_Transient | null, _1: EmbindString): boolean;

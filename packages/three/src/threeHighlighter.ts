@@ -29,7 +29,7 @@ import {
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import type { ThreeVisualContext } from "./threeVisualContext";
-import { type ThreeVisualObject } from "./threeVisualObject";
+import type { ThreeVisualObject } from "./threeVisualObject";
 
 export class GeometryState {
     private readonly _states: Map<string, [VisualState, Mesh | undefined]> = new Map();

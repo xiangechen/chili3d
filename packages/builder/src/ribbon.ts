@@ -67,6 +67,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.group",
                     ["create.section", "create.offset", "create.copyShape"],
                 ],
+                collapsedItems: ["modify.repairShape", "modify.checkShape"],
             },
             {
                 groupName: "ribbon.group.measure",

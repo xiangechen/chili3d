@@ -23,10 +23,10 @@
     },
     "lint-staged": {
         "*.{ts,js,css,json,mjs}": [
-            "biome check --write"
+            "npx biome check --write"
         ],
         "*.{c,h,cxx,hxx,cpp,hpp}": [
-            "clang-format --style=Webkit --sort-includes -i"
+            "npx clang-format --style=Webkit --sort-includes -i"
         ]
     },
     "workspaces": [
