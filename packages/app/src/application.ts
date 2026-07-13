@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CommandKeys,
     DOCUMENT_FILE_EXTENSION,
     I18n,
     type IApplication,
@@ -19,8 +20,8 @@ import {
     Material,
     Observable,
     ObservableCollection,
-    PLUGIN_FILE_EXTENSION,
     Plane,
+    PLUGIN_FILE_EXTENSION,
     PubSub,
     type Serialized,
     setCurrentApplication,
@@ -50,6 +51,8 @@ export class Application extends Observable implements IApplication {
     readonly pluginManager: IPluginManager;
     readonly views = new ObservableCollection<IView>();
     readonly documents: Set<IDocument> = new Set<IDocument>();
+
+    lastCommand: CommandKeys | undefined;
 
     get executingCommand(): ICommand | undefined {
         return this.getPrivateValue("executingCommand", undefined);

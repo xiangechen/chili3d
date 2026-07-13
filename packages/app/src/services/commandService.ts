@@ -13,7 +13,6 @@ import {
 } from "@chili3d/core";
 
 export class CommandService implements IService {
-    private _lastCommand: CommandKeys | undefined;
     private _checking: boolean = false;
     private _app: IApplication | undefined;
 
@@ -47,7 +46,7 @@ export class CommandService implements IService {
     };
 
     private readonly executeCommand = async (commandName: CommandKeys) => {
-        const command = commandName === "special.last" ? this._lastCommand : commandName;
+        const command = commandName === "special.last" ? this.app.lastCommand : commandName;
         if (!command || !(await this.canExecute(command))) return;
         Logger.info(`executing command ${command}`);
         await this.executeAsync(command);
@@ -70,7 +69,7 @@ export class CommandService implements IService {
                 Logger.error(err);
             })
             .finally(() => {
-                this._lastCommand = commandName;
+                this.app.lastCommand = commandName;
                 this.app.executingCommand = undefined;
             });
     }

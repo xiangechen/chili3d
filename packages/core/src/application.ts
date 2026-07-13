@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { ICommand } from "./command";
+import type { CommandKeys, ICommand } from "./command";
 import type { IDataExchange } from "./dataExchange";
 import type { IDocument } from "./document";
 import type { IPropertyChanged, IStorage, ObservableCollection } from "./foundation";
@@ -22,6 +22,7 @@ export interface IApplication extends IPropertyChanged {
     readonly views: ObservableCollection<IView>;
     readonly documents: Set<IDocument>;
     readonly pluginManager: IPluginManager;
+    lastCommand: CommandKeys | undefined;
     executingCommand: ICommand | undefined;
     activeView: IView | undefined;
     newDocument(name: string): Promise<IDocument>;

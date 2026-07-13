@@ -73,6 +73,7 @@ const createMockApplication = (): IApplication => {
         views: mockViews,
         documents: mockDocuments,
         activeView: undefined,
+        lastCommand: undefined,
         executingCommand: undefined,
         dispose: () => {},
         removePropertyChanged: () => {},
