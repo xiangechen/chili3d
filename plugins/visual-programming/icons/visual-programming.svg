@@ -1,10 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="6" cy="6" r="3"/>
-  <circle cx="18" cy="6" r="3"/>
-  <circle cx="6" cy="18" r="3"/>
-  <circle cx="18" cy="18" r="3"/>
-  <line x1="9" y1="6" x2="15" y2="6"/>
-  <line x1="6" y1="9" x2="6" y2="15"/>
-  <line x1="18" y1="9" x2="18" y2="15"/>
-  <line x1="9" y1="18" x2="15" y2="18"/>
-</svg>
+<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg class="icon" width="256px" height="256.00px" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M128.318713 127.947849a127.95447 127.95447 0 1 0 122.836291 163.781721l127.95447 0L597.485102 511.811258 378.682959 732.319461l-127.95447 0a127.95447 127.95447 0 1 0 1e-8 72.081017l156.95748299 0 255.908939-255.908939 108.334784 0a127.95447 127.95447 0 1 0 1e-8-72.081018l-107.48175401 0-255.908939-255.908939L251.155004 220.501582A127.95447 127.95447 0 0 0 128.318713 127.947849z" fill="#0493dc" /></svg>
