@@ -6,13 +6,13 @@ import {
     EditableShapeNode,
     I18n,
     type IStep,
+    MultistepCommand,
     PubSub,
     property,
     SelectShapeStep,
     ShapeTypes,
     Transaction,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.thickSolid",

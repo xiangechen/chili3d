@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    CommandKeys,
+    type CommandKeys,
     DOCUMENT_FILE_EXTENSION,
     I18n,
     type IApplication,
@@ -20,8 +20,8 @@ import {
     Material,
     Observable,
     ObservableCollection,
-    Plane,
     PLUGIN_FILE_EXTENSION,
+    Plane,
     PubSub,
     type Serialized,
     setCurrentApplication,

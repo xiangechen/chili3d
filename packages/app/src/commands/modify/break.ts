@@ -8,6 +8,7 @@ import {
     type IEdge,
     type IStep,
     type ITrimmedCurve,
+    MultistepCommand,
     PointOnCurveStep,
     SelectShapeStep,
     type ShapeNode,
@@ -15,7 +16,6 @@ import {
     Transaction,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.break",

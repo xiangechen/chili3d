@@ -5,11 +5,11 @@ import {
     command,
     EditableShapeNode,
     GetOrSelectNodeStep,
+    MultistepCommand,
     property,
     ShapeNode,
     Transaction,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.repairShape",

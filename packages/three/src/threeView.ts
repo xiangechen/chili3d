@@ -734,7 +734,7 @@ export class ThreeView extends Observable implements IView {
             return this.detectThreeShapes(intersections, shapeFilter, nodeFilter);
         }
         const subs = this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
-        // When an edge is on a face, the face will be snapped first, 
+        // When an edge is on a face, the face will be snapped first,
         // so the nearest edge needs to be placed at the beginning of the array.
         if (subs.length > 1 && subs[0].shape.shapeType === ShapeTypes.face) {
             const i = subs.findIndex((x) => x.shape.shapeType === ShapeTypes.edge);

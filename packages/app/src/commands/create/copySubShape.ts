@@ -4,6 +4,7 @@
 import {
     command,
     EditableShapeNode,
+    MultistepCommand,
     PubSub,
     SelectShapeStep,
     type ShapeType,
@@ -11,7 +12,6 @@ import {
     ShapeTypeUtils,
     Transaction,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.copyShape",

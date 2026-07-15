@@ -10,6 +10,7 @@ import {
     type Matrix4,
     MeshDataUtils,
     MeshNode,
+    MultistepCommand,
     PubSub,
     property,
     Transaction,
@@ -17,7 +18,6 @@ import {
     type VisualNode,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 export abstract class TransformedCommand extends MultistepCommand {
     protected models?: VisualNode[];

@@ -16,6 +16,7 @@ import {
     type JoinType,
     LengthAtAxisStep,
     MathUtils,
+    MultistepCommand,
     property,
     SelectShapeStep,
     type ShapeMeshData,
@@ -23,7 +24,6 @@ import {
     ShapeTypes,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.offset",

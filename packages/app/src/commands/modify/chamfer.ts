@@ -5,6 +5,7 @@ import {
     command,
     EditableShapeNode,
     type ISubEdgeShape,
+    MultistepCommand,
     property,
     SelectShapeStep,
     type ShapeNode,
@@ -12,7 +13,6 @@ import {
     Transaction,
     VisualStates,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.chamfer",

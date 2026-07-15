@@ -6,13 +6,13 @@ import {
     GeometryNode,
     type IStep,
     type ISubFaceShape,
+    MultistepCommand,
     property,
     SelectNodeStep,
     SelectShapeStep,
     ShapeTypes,
     Transaction,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.brushAdd",

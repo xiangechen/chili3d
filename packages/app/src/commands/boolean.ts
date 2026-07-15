@@ -6,6 +6,7 @@ import {
     debounce,
     type IShape,
     type IStep,
+    MultistepCommand,
     PubSub,
     property,
     type Result,
@@ -17,7 +18,6 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import { BooleanNode } from "../bodys/boolean";
-import { MultistepCommand } from "./multistepCommand";
 
 export abstract class BooleanOperate extends MultistepCommand {
     private tempVisual?: number;

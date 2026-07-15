@@ -5,13 +5,13 @@ import {
     command,
     EditableShapeNode,
     type IFace,
+    MultistepCommand,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
     Transaction,
     VisualStates,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.removeFeature",

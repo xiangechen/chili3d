@@ -1,8 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type GeometryNode, property, Transaction } from "@chili3d/core";
-import { MultistepCommand } from "./multistepCommand";
+import { type GeometryNode, MultistepCommand, property, Transaction } from "@chili3d/core";
 
 const count = 1;
 

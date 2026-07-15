@@ -5,6 +5,7 @@ import {
     command,
     EditableShapeNode,
     type IStep,
+    MultistepCommand,
     PubSub,
     SelectShapeStep,
     ShapeNode,
@@ -12,7 +13,6 @@ import {
     Transaction,
     VisualStates,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.sew",

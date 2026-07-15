@@ -12,7 +12,6 @@ export * from "./folder";
 export * from "./importExport";
 export * from "./measure";
 export * from "./modify";
-export * from "./multistepCommand";
 export * from "./redo";
 export * from "./undo";
 export * from "./workingPlane";

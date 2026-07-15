@@ -8,6 +8,7 @@ import {
     I18n,
     type IEdge,
     type IStep,
+    MultistepCommand,
     type PointSnapData,
     PointStep,
     property,
@@ -15,7 +16,6 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import { PipeNode } from "../../bodys";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.pipe",

@@ -12,6 +12,7 @@ import {
     type IEdge,
     type IFace,
     type IStep,
+    MultistepCommand,
     Observable,
     Plane,
     PointOnCurveStep,
@@ -24,7 +25,6 @@ import {
     XYZ,
 } from "@chili3d/core";
 import { div, RadioGroup } from "@chili3d/element";
-import { MultistepCommand } from "./multistepCommand";
 
 export class WorkingPlaneViewModel extends Observable {
     @property("dialog.title.selectWorkingPlane")

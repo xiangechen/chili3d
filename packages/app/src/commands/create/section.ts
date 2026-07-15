@@ -6,11 +6,11 @@ import {
     EditableShapeNode,
     I18n,
     type IStep,
+    MultistepCommand,
     SelectShapeStep,
     ShapeTypes,
     VisualStates,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "create.section",

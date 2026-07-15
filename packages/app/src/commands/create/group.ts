@@ -13,6 +13,7 @@ import {
     type IDocument,
     type IStep,
     Localize,
+    MultistepCommand,
     Observable,
     PointStep,
     PubSub,
@@ -21,7 +22,6 @@ import {
     XYZ,
 } from "@chili3d/core";
 import { button, div, input, label, XYZConverter } from "@chili3d/element";
-import { MultistepCommand } from "../multistepCommand";
 
 class GroupDefinition extends Observable {
     get name() {

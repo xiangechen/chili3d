@@ -5,13 +5,13 @@ import {
     command,
     Dimensions,
     type IStep,
+    MultistepCommand,
     type PointSnapData,
     PointStep,
     Precision,
     VisualConfig,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "measure.length",

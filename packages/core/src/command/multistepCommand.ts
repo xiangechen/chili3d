@@ -1,22 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    AsyncController,
-    CancelableCommand,
-    Config,
-    type IShape,
-    type IShapeFactory,
-    type IStep,
-    type IView,
-    MeshDataUtils,
-    Result,
-    type SnapResult,
-    ViewUtils,
-    VisualConfig,
-    type VisualState,
-    type XYZ,
-} from "@chili3d/core";
+import { Config, VisualConfig } from "../config";
+import { AsyncController, Result } from "../foundation";
+import type { XYZ } from "../math";
+import type { IShape, IShapeFactory } from "../shape";
+import { MeshDataUtils } from "../shape";
+import type { SnapResult } from "../snap";
+import type { IStep } from "../step";
+import type { IView, VisualState } from "../visual";
+import { ViewUtils } from "../visual";
+import { CancelableCommand } from "./command";
 
 export abstract class MultistepCommand extends CancelableCommand {
     protected stepDatas: SnapResult[] = [];

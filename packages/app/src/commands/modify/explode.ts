@@ -10,11 +10,11 @@ import {
     type IShape,
     type IStep,
     MultiShapeNode,
+    MultistepCommand,
     ShapeNode,
     ShapeTypeUtils,
     Transaction,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.explode",

@@ -5,6 +5,7 @@ import {
     command,
     Dimensions,
     type IStep,
+    MultistepCommand,
     type PointSnapData,
     PointStep,
     Precision,
@@ -12,7 +13,6 @@ import {
     Transaction,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 /**
  * Creates a RefSegmentAnnotation — a dashed reference line segment

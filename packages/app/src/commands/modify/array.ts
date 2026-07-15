@@ -20,6 +20,7 @@ import {
     MathUtils,
     Matrix4,
     MeshNode,
+    MultistepCommand,
     Plane,
     PlaneAngle,
     PointOnAxisStep,
@@ -36,7 +37,6 @@ import {
     type VisualNode,
     XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 @command({
     key: "modify.array",

@@ -5,6 +5,7 @@ import {
     command,
     Dimensions,
     type IStep,
+    MultistepCommand,
     type PointSnapData,
     PointStep,
     Precision,
@@ -13,7 +14,6 @@ import {
     VisualConfig,
     type XYZ,
 } from "@chili3d/core";
-import { MultistepCommand } from "../multistepCommand";
 
 const ARC_POSITION = 0.5;
 
