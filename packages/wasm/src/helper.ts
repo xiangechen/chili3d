@@ -16,6 +16,8 @@ import {
     XYZ,
 } from "@chili3d/core";
 import type {
+    Geom_Curve,
+    Geom_Surface,
     GeomAbs_Shape,
     gp_Ax1,
     gp_Ax2,
@@ -234,7 +236,7 @@ export function getJoinType(joinType: JoinType) {
     }
 }
 
-export function getCurveType(curve: any): CurveType {
+export function getCurveType(curve: Geom_Curve): CurveType {
     const isType = (type: string) => wasm.Transient.isInstance(curve, type);
     if (isType("Geom_Line")) return "line";
     else if (isType("Geom_Circle")) return "circle";
@@ -249,7 +251,7 @@ export function getCurveType(curve: any): CurveType {
     throw new Error("Unknown curve type");
 }
 
-export function getSurfaceType(surface: any): SurfaceType {
+export function getSurfaceType(surface: Geom_Surface): SurfaceType {
     const isType = (type: string) => wasm.Transient.isInstance(surface, type);
     if (isType("GeomPlate_Surface")) return "plate";
     else if (isType("Geom_Plane")) return "plane";

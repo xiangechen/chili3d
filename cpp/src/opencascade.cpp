@@ -116,7 +116,7 @@ EMSCRIPTEN_BINDINGS(opencascade)
         .function("firstParameter", &Geom_Curve::FirstParameter)
         .function("lastParameter", &Geom_Curve::LastParameter)
         .function("value", &Geom_Curve::Value)
-        .function("continutity", &Geom_Curve::Continuity);
+        .function("continuity", &Geom_Curve::Continuity);
 
     class_<Geom_Conic, base<Geom_Curve>>("Geom_Conic")
         .function("axis", &Geom_Conic::Axis)

@@ -121,7 +121,7 @@ export interface Geom_Curve extends Geom_Geometry {
   isCN(_0: number): boolean;
   firstParameter(): number;
   lastParameter(): number;
-  continutity(): GeomAbs_Shape;
+  continuity(): GeomAbs_Shape;
   reversed(): Handle_Geom_Curve;
   d0(_0: number, _1: gp_Pnt): void;
   value(_0: number): gp_Pnt;

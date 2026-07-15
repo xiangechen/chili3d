@@ -141,8 +141,8 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         return this.curve.isPeriodic();
     }
 
-    continutity(): Continuity {
-        const cni = this.curve.continutity();
+    continuity(): Continuity {
+        const cni = this.curve.continuity();
         return convertToContinuity(cni);
     }
 
