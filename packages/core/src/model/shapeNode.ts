@@ -16,7 +16,7 @@ import {
     ShapeTypeUtils,
     type VertexMeshData,
 } from "../shape";
-import { MeshUtils } from "../visual/meshUtils";
+import { MeshUtils } from "../shape/meshUtils";
 import { GeometryNode } from "./geometryNode";
 
 const SHAPE_UNDEFINED = "Shape not initialized";

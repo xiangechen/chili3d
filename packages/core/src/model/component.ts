@@ -8,7 +8,7 @@ import { BoundingBox, Matrix4, type XYZ } from "../math";
 import { property } from "../property";
 import { serializable, serialize } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../shape";
-import { MeshUtils } from "../visual/meshUtils";
+import { MeshUtils } from "../shape/meshUtils";
 import { MeshNode } from "./meshNode";
 import type { INode } from "./node";
 import { ShapeNode } from "./shapeNode";

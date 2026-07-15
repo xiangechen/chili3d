@@ -6,6 +6,7 @@ export * from "./geometry";
 export * from "./geometryUtils";
 export * from "./lineType";
 export * from "./meshData";
+export * from "./meshUtils";
 export * from "./shape";
 export * from "./shapeConverter";
 export * from "./shapeFactory";

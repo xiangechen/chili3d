@@ -7,7 +7,7 @@ import { BoundingBox } from "../math";
 import { property } from "../property";
 import { serializable, serialize } from "../serialize";
 import type { FaceMeshData, IShapeMeshData } from "../shape";
-import { MeshUtils } from "../visual/meshUtils";
+import { MeshUtils } from "../shape/meshUtils";
 import { VisualNode } from "./visualNode";
 
 export interface FaceMaterialPairOptions {

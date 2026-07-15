@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4, XYZ } from "../src/math";
+import { Matrix4 } from "../src/math";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../src/shape";
-import { MeshUtils } from "../src/visual/meshUtils";
+import { MeshUtils } from "../src/shape/meshUtils";
 
 describe("MeshUtils", () => {
     describe("setFaceMeshData", () => {

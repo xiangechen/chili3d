@@ -2,14 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { MathUtils, type Matrix4 } from "../math";
-import {
-    concatTypedArrays,
-    type EdgeMeshData,
-    type FaceMeshData,
-    type Mesh,
-    MeshDataUtils,
-    type ShapeMeshData,
-} from "../shape";
+import type { EdgeMeshData, FaceMeshData, Mesh, ShapeMeshData } from "./meshData";
+import { concatTypedArrays, MeshDataUtils } from "./meshData";
 
 export class MeshUtils {
     static transformMesh<T extends ShapeMeshData>(data: T, matrix: Matrix4): T {
