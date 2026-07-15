@@ -11,7 +11,7 @@ import {
     type IDocument,
     type IPluginManager,
     type IService,
-    type IShapeFactory,
+    type IShapeProvider,
     type IStorage,
     type IView,
     type IVisualFactory,
@@ -34,7 +34,7 @@ import { importFiles } from "./utils";
 
 export interface ApplicationOptions {
     visualFactory: IVisualFactory;
-    shapeFactory: IShapeFactory;
+    shapeProvider: IShapeProvider;
     services: IService[];
     storage: IStorage;
     dataExchange: IDataExchange;
@@ -44,7 +44,7 @@ export interface ApplicationOptions {
 export class Application extends Observable implements IApplication {
     readonly dataExchange: IDataExchange;
     readonly visualFactory: IVisualFactory;
-    readonly shapeFactory: IShapeFactory;
+    readonly shapeProvider: IShapeProvider;
     readonly services: IService[];
     readonly storage: IStorage;
     readonly mainWindow?: IWindow;
@@ -75,7 +75,7 @@ export class Application extends Observable implements IApplication {
 
         setCurrentApplication(this);
         this.visualFactory = option.visualFactory;
-        this.shapeFactory = option.shapeFactory;
+        this.shapeProvider = option.shapeProvider;
         this.services = option.services;
         this.storage = option.storage;
         this.dataExchange = option.dataExchange;

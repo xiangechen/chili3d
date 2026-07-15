@@ -63,7 +63,7 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     async importBrep(document: IDocument, file: File) {
-        const shape = shapeFactory.converter.convertFromBrep(await file.text());
+        const shape = shapeConverter.convertFromBrep(await file.text());
         if (!shape.isOk) {
             return Result.err(shape.error);
         }
@@ -72,17 +72,17 @@ export class DefaultDataExchange implements IDataExchange {
 
     private async importStl(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return shapeFactory.converter.convertFromSTL(document, content);
+        return shapeConverter.convertFromSTL(document, content);
     }
 
     private async importIges(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return shapeFactory.converter.convertFromIGES(document, content);
+        return shapeConverter.convertFromIGES(document, content);
     }
 
     private async importStep(document: IDocument, file: File) {
         const content = new Uint8Array(await file.arrayBuffer());
-        return shapeFactory.converter.convertFromSTEP(document, content);
+        return shapeConverter.convertFromSTEP(document, content);
     }
 
     async export(type: string, nodes: VisualNode[]): Promise<BlobPart[] | undefined> {
@@ -124,15 +124,15 @@ export class DefaultDataExchange implements IDataExchange {
     }
 
     private exportStl(doc: IDocument, shapes: IShape[], binary: boolean): Result<BlobPart> {
-        return doc.application.shapeFactory.converter.convertToSTL(shapes, { binary }) as Result<BlobPart>;
+        return shapeConverter.convertToSTL(shapes, { binary }) as Result<BlobPart>;
     }
 
     private exportStep(doc: IDocument, shapes: IShape[]) {
-        return shapeFactory.converter.convertToSTEP(...shapes);
+        return shapeConverter.convertToSTEP(...shapes);
     }
 
     private exportIges(doc: IDocument, shapes: IShape[]) {
-        return shapeFactory.converter.convertToIGES(...shapes);
+        return shapeConverter.convertToIGES(...shapes);
     }
 
     private exportBrep(document: IDocument, shapes: IShape[]) {
@@ -141,7 +141,7 @@ export class DefaultDataExchange implements IDataExchange {
             return Result.err(comp.error);
         }
 
-        const result = shapeFactory.converter.convertToBrep(comp.value);
+        const result = shapeConverter.convertToBrep(comp.value);
         comp.value.dispose();
         return result;
     }

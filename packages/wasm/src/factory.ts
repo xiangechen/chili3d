@@ -9,7 +9,6 @@ import {
     type IEdge,
     type IFace,
     type IShape,
-    type IShapeConverter,
     type IShapeFactory,
     type IShell,
     type ISolid,
@@ -25,7 +24,6 @@ import {
     type XYZLike,
 } from "@chili3d/core";
 import type { ShapeResult, TopoDS_Shape } from "../lib/chili-wasm";
-import { OccShapeConverter } from "./converter";
 import { OccCurve } from "./curve";
 import { convertFromContinuity } from "./helper";
 import { OccEdge, OccShape } from "./shape";
@@ -74,11 +72,6 @@ function convertShapeResult(
 
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
-    readonly converter: IShapeConverter;
-
-    constructor() {
-        this.converter = new OccShapeConverter();
-    }
 
     edge(curve: ICurve): IEdge {
         if (!(curve instanceof OccCurve)) {

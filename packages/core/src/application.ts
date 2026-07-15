@@ -8,7 +8,7 @@ import type { IPropertyChanged, IStorage, ObservableCollection } from "./foundat
 import type { IPluginManager } from "./plugin";
 import type { Serialized } from "./serialize";
 import type { IService } from "./service";
-import type { IShapeFactory } from "./shape";
+import type { IShapeConverter, IShapeFactory, IShapeProvider } from "./shape";
 import type { IWindow } from "./ui/window";
 import type { IView, IVisualFactory } from "./visual";
 
@@ -16,7 +16,7 @@ export interface IApplication extends IPropertyChanged {
     readonly mainWindow?: IWindow;
     readonly dataExchange: IDataExchange;
     readonly visualFactory: IVisualFactory;
-    readonly shapeFactory: IShapeFactory;
+    readonly shapeProvider: IShapeProvider;
     readonly services: IService[];
     readonly storage: IStorage;
     readonly views: ObservableCollection<IView>;
@@ -50,6 +50,7 @@ export function setCurrentApplication(app: IApplication): void {
 
 declare global {
     var shapeFactory: IShapeFactory;
+    var shapeConverter: IShapeConverter;
     var activeView: IView | undefined;
     var activeDocument: IDocument | undefined;
 }
@@ -57,7 +58,14 @@ declare global {
 Object.defineProperty(globalThis, "shapeFactory", {
     get() {
         const app = getCurrentApplication();
-        return app.shapeFactory;
+        return app.shapeProvider.factory;
+    },
+});
+
+Object.defineProperty(globalThis, "shapeConverter", {
+    get() {
+        const app = getCurrentApplication();
+        return app.shapeProvider.converter;
     },
 });
 

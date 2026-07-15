@@ -12,7 +12,7 @@ import {
     Localize,
     PubSub,
 } from "@chili3d/core";
-import { div, input, label, textarea } from "@chili3d/element";
+import { div, input, label } from "@chili3d/element";
 import style from "./macro.module.css";
 import { runMacro } from "./macroRunner";
 import type { MacroDefinition, MacroStorage } from "./macroStorage";
@@ -23,15 +23,15 @@ const DefaultCode = `// Available variables:
 //   - app.activeView - current active view
 //   - app.documents - all open documents
 //   - app.visualFactory - visual factory
-//   - app.shapeFactory - shape factory
 //   - app.storage - storage interface
+//   - shapeFactory - shape factory
 
 // Example: Create a simple box
 
 // const { Plane, EditableShapeNode } = Chili3dCore;
 // const { document, cameraController } = app.activeView;
 // 
-// const box = app.shapeFactory.box(Plane.XY, 1000, 1000, 1000);
+// const box = shapeFactory.box(Plane.XY, 1000, 1000, 1000);
 // const node = new EditableShapeNode({
 //     document, 
 //     name: "box1",

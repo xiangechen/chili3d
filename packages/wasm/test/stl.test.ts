@@ -2,16 +2,17 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
-import { ShapeFactory } from "../src";
+import { OccShapeConverter, ShapeFactory } from "../src";
 import "./setup";
 
 describe("headless STL export (OCCT)", () => {
     test("exports a box to a valid, non-empty binary STL", () => {
         const factory = new ShapeFactory();
+        const converter = new OccShapeConverter();
         const box = factory.box(Plane.XY, 10, 20, 30);
         expect(box.isOk).toBe(true);
 
-        const stl = factory.converter.convertToSTL([box.value], { binary: true });
+        const stl = converter.convertToSTL([box.value], { binary: true });
         expect(stl.isOk).toBe(true);
 
         const bytes = stl.value;
@@ -23,9 +24,10 @@ describe("headless STL export (OCCT)", () => {
 
     test("ascii export is well-formed", () => {
         const factory = new ShapeFactory();
+        const converter = new OccShapeConverter();
         const box = factory.box(Plane.XY, 10, 20, 30);
 
-        const stl = factory.converter.convertToSTL([box.value], { binary: false });
+        const stl = converter.convertToSTL([box.value], { binary: false });
         expect(stl.isOk).toBe(true);
 
         const text = new TextDecoder().decode(stl.value);

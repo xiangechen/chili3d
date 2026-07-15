@@ -9,7 +9,7 @@ import {
     type IApplication,
     type IDataExchange,
     type IService,
-    type IShapeFactory,
+    type IShapeProvider,
     type IStorage,
     type IVisualFactory,
     type IWindow,
@@ -22,7 +22,7 @@ export class AppBuilder {
     protected readonly _inits: (() => Promise<void>)[] = [];
     protected _storage?: IStorage;
     protected _visualFactory?: IVisualFactory;
-    protected _shapeFactory?: IShapeFactory;
+    protected _shapeProvider?: IShapeProvider;
     protected _window?: IWindow;
 
     constructor() {
@@ -76,7 +76,7 @@ export class AppBuilder {
 
             const wasm = await import("@chili3d/wasm");
             await wasm.initWasm();
-            this._shapeFactory = new wasm.ShapeFactory();
+            this._shapeProvider = new wasm.OccShapeProvider();
         });
         return this;
     }
@@ -149,7 +149,7 @@ export class AppBuilder {
     createApp() {
         return new Application({
             storage: this._storage!,
-            shapeFactory: this._shapeFactory!,
+            shapeProvider: this._shapeProvider!,
             visualFactory: this._visualFactory!,
             services: this.getServices(),
             mainWindow: this._window,
@@ -162,8 +162,8 @@ export class AppBuilder {
     }
 
     private ensureNecessary() {
-        if (this._shapeFactory === undefined) {
-            throw new Error("ShapeFactory not set");
+        if (this._shapeProvider === undefined) {
+            throw new Error("ShapeProvider not set");
         }
         if (this._visualFactory === undefined) {
             throw new Error("VisualFactory not set");

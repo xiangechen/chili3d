@@ -5,11 +5,9 @@ import type { Result } from "../foundation";
 import type { Line, Plane, XYZ, XYZLike } from "../math";
 import type { Continuity, ICurve } from "./curve";
 import type { ICompound, IEdge, IFace, IShape, IShell, ISolid, IVertex, IWire } from "./shape";
-import type { IShapeConverter } from "./shapeConverter";
 
 export interface IShapeFactory {
     readonly kernelName: string;
-    readonly converter: IShapeConverter;
     edge(curve: ICurve): IEdge;
     face(wire: IWire[]): Result<IFace>;
     shell(faces: IFace[]): Result<IShell>;

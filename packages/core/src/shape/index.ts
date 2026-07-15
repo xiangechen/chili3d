@@ -9,5 +9,6 @@ export * from "./meshData";
 export * from "./shape";
 export * from "./shapeConverter";
 export * from "./shapeFactory";
+export * from "./shapeProvider";
 export * from "./shapeType";
 export * from "./surface";
