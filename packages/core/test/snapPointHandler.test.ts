@@ -357,3 +357,152 @@ describe("SnapPointPlaneEventHandler", () => {
         expect(handler.state).toBe("completed");
     });
 });
+
+// ============================================================================
+// PointSnapEventHandler — getPointFromInput
+// ============================================================================
+
+describe("PointSnapEventHandler — getPointFromInput", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should parse absolute coordinates with # prefix", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+        });
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "#10,20,30");
+        expect(result.point!.x).toBe(10);
+        expect(result.point!.y).toBe(20);
+        expect(result.point!.z).toBe(30);
+        expect(result.type).toBe("input");
+    });
+
+    test("should parse relative 2D coordinates from plane", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b011,
+            refPoint: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        const view = createHandlerMockView({ workplane: Plane.XY });
+        const result = handler["getPointFromInput"](view, "10,5");
+        expect(result.point!.x).toBe(10);
+        expect(result.point!.y).toBe(5);
+        expect(result.point!.z).toBe(0);
+    });
+
+    test("should parse relative 3D coordinates from plane", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+            refPoint: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        const view = createHandlerMockView({ workplane: Plane.XY });
+        const result = handler["getPointFromInput"](view, "10,5,20");
+        expect(result.point!.z).toBe(20);
+    });
+
+    test("should calculate point from single distance along snapped direction", () => {
+        // Set up handler with a snapped point
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+            refPoint: () => XYZ.zero,
+        });
+        const view = createHandlerMockView();
+        // Manually set snapped
+        (handler as unknown as { _snaped: { point: XYZ } })._snaped = {
+            point: new XYZ({ x: 10, y: 0, z: 0 }),
+        };
+        const result = handler["getPointFromInput"](view, "20");
+        expect(result.point!.x).toBeCloseTo(20, 5);
+    });
+});
+
+// ============================================================================
+// PointSnapEventHandler — inputError
+// ============================================================================
+
+describe("PointSnapEventHandler — inputError", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should return error for absolute coordinates that are not 3 numbers", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+        });
+        expect(handler["inputError"]("#10,20")).toBe("error.input.threeNumberCanBeInput");
+    });
+
+    test("should return no error for valid absolute 3D coordinates", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+        });
+        expect(handler["inputError"]("#10,20,30")).toBeUndefined();
+    });
+
+    test("should return error for unsupported dimension", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b001, // Only D1
+            refPoint: () => XYZ.zero,
+        });
+        // Input "10,20" is D1D2, but handler only allows D1
+        expect(handler["inputError"]("10,20")).toBe("error.input.unsupportedInputs");
+    });
+
+    test("should return error for NaN input", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111,
+        });
+        expect(handler["inputError"]("abc,def")).toBe("error.input.invalidNumber");
+    });
+
+    test("should return error when no refPoint and input has not 3 numbers", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b111, // Allow D1
+        });
+        // Input "10" is valid D1 dimension, but requiresThreeNumbers triggers because refPoint is undefined
+        expect(handler["inputError"]("10")).toBe("error.input.threeNumberCanBeInput");
+    });
+
+    test("should return error for single number when snapped equals refPoint", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b001,
+            refPoint: () => XYZ.zero,
+        });
+        (handler as unknown as { _snaped: { refPoint: XYZ; point: XYZ } })._snaped = {
+            refPoint: XYZ.zero,
+            point: XYZ.zero,
+        };
+        expect(handler["inputError"]("10")).toBe("error.input.cannotInputANumber");
+    });
+
+    test("should return no error for valid single number with snapped different from refPoint", () => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b001,
+            refPoint: () => XYZ.zero,
+        });
+        (handler as unknown as { _snaped: { refPoint: XYZ; point: XYZ } })._snaped = {
+            refPoint: XYZ.zero,
+            point: new XYZ({ x: 10, y: 0, z: 0 }),
+        };
+        expect(handler["inputError"]("10")).toBeUndefined();
+    });
+});

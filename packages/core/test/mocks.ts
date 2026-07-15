@@ -10,6 +10,7 @@ import type {
     INode,
     IShape,
     IShapeMeshData,
+    ITrimmedCurve,
     IVisualContext,
     IVisualObject,
     OrientedBoundingBox,
@@ -18,9 +19,11 @@ import type {
 } from "../src";
 import {
     type Act,
+    type AsyncController,
     History,
     type IApplication,
     type IDocument,
+    type IEventHandler,
     InternalClassName,
     type IPicker,
     type ISelection,
@@ -34,9 +37,12 @@ import {
     type Serialized,
     ShapeTypes,
     VisualConfig,
+    type VisualNode,
 } from "../src";
+import type { I18nKeys } from "../src/i18n";
 import { Plane, Ray, XY, XYZ } from "../src/math";
 import type { MouseAndDetected } from "../src/snap/snap";
+import type { CursorType, VisualShapeData } from "../src/visual";
 
 // ============================================================================
 // MockShape — IShape mock
@@ -484,4 +490,121 @@ export function createMouseAndDetected(view: IView, overrides?: Partial<MouseAnd
         shapes: [],
         ...overrides,
     };
+}
+
+// ============================================================================
+// MockPicker — IPicker mock for step tests
+// ============================================================================
+
+export interface MockPickerConfig {
+    pickShapeResult?: VisualShapeData[];
+    pickNodeResult?: VisualNode[];
+}
+
+export function createMockPicker(config?: MockPickerConfig): IPicker {
+    return {
+        pickShape: () => Promise.resolve(config?.pickShapeResult ?? []),
+        pickNode: () => Promise.resolve(config?.pickNodeResult ?? []),
+        pickAsync: () => Promise.resolve(),
+    };
+}
+
+// ============================================================================
+// MockEdgeCurve — duck-typed ITrimmedCurve for ObjectSnap feature point tests
+// ============================================================================
+
+export interface MockEdgeCurveConfig {
+    start?: XYZ;
+    end?: XYZ;
+    mid?: XYZ;
+    basisCurve?: Partial<ICurve>;
+    projectResult?: XYZ[];
+    nearestPoint?: { p1: XYZ };
+    isCircle?: boolean;
+    circleCenter?: XYZ;
+    tangentPoints?: XYZ[];
+}
+
+export function createMockEdgeCurve(config?: MockEdgeCurveConfig) {
+    const start = config?.start ?? XYZ.zero;
+    const end = config?.end ?? new XYZ({ x: 10, y: 0, z: 0 });
+    return {
+        startPoint: () => start,
+        endPoint: () => end,
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        length: () => 10,
+        value: (t: number) => new XYZ({ x: t * 10, y: 0, z: 0 }),
+        project: () => config?.projectResult ?? [],
+        nearestExtrema: () => config?.nearestPoint,
+        basisCurve: {
+            center: config?.circleCenter ?? XYZ.zero,
+            radius: 5,
+            ...config?.basisCurve,
+        },
+        isClosed: () => false,
+        period: () => 0,
+        isPeriodic: () => false,
+        continuity: () => 0,
+        isCN: () => false,
+        trim: () => ({}) as ITrimmedCurve,
+        d0: (u: number) => new XYZ({ x: u * 10, y: 0, z: 0 }),
+        d1: () => ({ point: XYZ.zero, vec: XYZ.unitX }),
+        d2: () => ({ point: XYZ.zero, vec1: XYZ.unitX, vec2: XYZ.unitY }),
+        d3: () => ({ point: XYZ.zero, vec1: XYZ.unitX, vec2: XYZ.unitY, vec3: XYZ.unitZ }),
+        dn: () => XYZ.unitX,
+        reverse: () => {},
+        reversed: () => ({}) as ICurve,
+        nearestFromPoint: () => ({ point: XYZ.zero, parameter: 0, distance: 0 }),
+        uniformAbscissaByLength: () => [],
+        uniformAbscissaByCount: () => [],
+        parameter: () => 0,
+        curveType: 0,
+        setTrim: () => {},
+    } as unknown as ITrimmedCurve;
+}
+
+// ============================================================================
+// createMockVisualShapeData — for snap tests that need VisualShapeData with shape type
+// ============================================================================
+
+export interface MockVisualShapeConfig {
+    shapeType?: ShapeType;
+    shapeId?: string;
+    transform?: Matrix4;
+    point?: XYZ;
+    curve?: ITrimmedCurve;
+}
+
+export function createMockVisualShapeData(config?: MockVisualShapeConfig): VisualShapeData {
+    const shapeType = config?.shapeType ?? ShapeTypes.edge;
+    const point = config?.point ?? XYZ.zero;
+    const curve = config?.curve ?? createMockEdgeCurve();
+    const shape = {
+        id: config?.shapeId ?? `mock-shape-${Math.random()}`,
+        shapeType,
+        point: () => point,
+        curve,
+        transformedMul: (t: Matrix4) => {
+            return {
+                shapeType,
+                intersect: () => [],
+                dispose: () => {},
+                curve,
+            };
+        },
+        intersect: () => [],
+        dispose: () => {},
+    } as unknown as IShape & {
+        point(): XYZ;
+        curve: ITrimmedCurve;
+        intersect(other: IShape | unknown): unknown[];
+    };
+    return {
+        shape,
+        owner: { node: { document: {} } } as never,
+        transform: config?.transform ?? Matrix4.identity(),
+        indexes: [],
+        point,
+    } as unknown as VisualShapeData;
 }

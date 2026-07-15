@@ -165,3 +165,179 @@ describe("SnapLengthAtPlaneHandler", () => {
         expect(handler.state).toBe("completed");
     });
 });
+
+// ============================================================================
+// SnapLengthAtAxisHandler — getPointFromInput
+// ============================================================================
+
+describe("SnapLengthAtAxisHandler — getPointFromInput", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should calculate point along positive direction for positive input", () => {
+        const lengthData: LengthAtAxisSnapData = {
+            point: XYZ.zero,
+            direction: XYZ.unitX,
+        };
+        const handler = new SnapLengthAtAxisHandler(document, controller, lengthData);
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "10");
+        expect(result.point!.x).toBe(10);
+        expect(result.point!.y).toBe(0);
+        expect(result.point!.z).toBe(0);
+        expect(result.distance).toBe(10);
+    });
+
+    test("should calculate point with negative distance when snapped is on negative side", () => {
+        const lengthData: LengthAtAxisSnapData = {
+            point: XYZ.zero,
+            direction: XYZ.unitX,
+        };
+        const handler = new SnapLengthAtAxisHandler(document, controller, lengthData);
+        // Set snapped point on negative X side
+        (handler as unknown as { _snaped: { point: XYZ } })._snaped = {
+            point: new XYZ({ x: -1, y: 0, z: 0 }),
+        };
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "10");
+        expect(result.point!.x).toBe(-10);
+        // distance should be the absolute value
+        expect(Math.abs(result.distance!)).toBe(10);
+    });
+});
+
+// ============================================================================
+// SnapLengthAtAxisHandler — inputError
+// ============================================================================
+
+describe("SnapLengthAtAxisHandler — inputError", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should return error for non-numeric input", () => {
+        const handler = new SnapLengthAtAxisHandler(document, controller, {
+            point: XYZ.zero,
+            direction: XYZ.unitX,
+        });
+        expect(handler["inputError"]("abc")).toBe("error.input.invalidNumber");
+    });
+
+    test("should return no error for valid numeric input", () => {
+        const handler = new SnapLengthAtAxisHandler(document, controller, {
+            point: XYZ.zero,
+            direction: XYZ.unitX,
+        });
+        expect(handler["inputError"]("10")).toBeUndefined();
+        expect(handler["inputError"]("-5.5")).toBeUndefined();
+    });
+});
+
+// ============================================================================
+// SnapLengthAtPlaneHandler — getPointFromInput + inputError
+// ============================================================================
+
+describe("SnapLengthAtPlaneHandler — getPointFromInput", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should calculate point from single distance", () => {
+        const lengthData: SnapLengthAtPlaneData = {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        };
+        const handler = new SnapLengthAtPlaneHandler(document, controller, lengthData);
+        (handler as unknown as { _snaped: { point: XYZ } })._snaped = {
+            point: new XYZ({ x: 10, y: 0, z: 0 }),
+        };
+        const view = createHandlerMockView({ workplane: Plane.XY });
+        const result = handler["getPointFromInput"](view, "5");
+        expect(result.point).toBeDefined();
+        expect(result.plane).toBeDefined();
+    });
+
+    test("should calculate point from two coordinates", () => {
+        const lengthData: SnapLengthAtPlaneData = {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        };
+        const handler = new SnapLengthAtPlaneHandler(document, controller, lengthData);
+        const view = createHandlerMockView({ workplane: Plane.XY });
+        const result = handler["getPointFromInput"](view, "10,20");
+        expect(result.point).toBeDefined();
+        expect(result.point!.x).toBe(10);
+        expect(result.point!.y).toBe(20);
+    });
+});
+
+describe("SnapLengthAtPlaneHandler — inputError", () => {
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should return error for non-numeric input", () => {
+        const handler = new SnapLengthAtPlaneHandler(document, controller, {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        expect(handler["inputError"]("abc")).toBe("error.input.invalidNumber");
+    });
+
+    test("should return error for three numbers (unsupported)", () => {
+        const handler = new SnapLengthAtPlaneHandler(document, controller, {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        expect(handler["inputError"]("1,2,3")).toBe("error.input.invalidNumber");
+    });
+
+    test("should return no error for single number", () => {
+        const handler = new SnapLengthAtPlaneHandler(document, controller, {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        expect(handler["inputError"]("10")).toBeUndefined();
+    });
+
+    test("should return no error for two numbers", () => {
+        const handler = new SnapLengthAtPlaneHandler(document, controller, {
+            point: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        expect(handler["inputError"]("10,20")).toBeUndefined();
+    });
+});

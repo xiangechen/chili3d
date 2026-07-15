@@ -111,3 +111,95 @@ describe("AngleSnapEventHandler", () => {
         expect(handler.state).toBe("completed");
     });
 });
+
+// ============================================================================
+// AngleSnapEventHandler — getPointFromInput + inputError
+// ============================================================================
+
+describe("AngleSnapEventHandler — getPointFromInput", () => {
+    const center = () => XYZ.zero;
+    const p1 = XYZ.unitX;
+
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should calculate point at 90 degrees from P1 around center", () => {
+        const snapPointData: PointSnapData = {
+            plane: () => Plane.XY,
+        };
+        const handler = new AngleSnapEventHandler(document, controller, center, p1, snapPointData);
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "90");
+        expect(result.point).toBeDefined();
+        // At 90 degrees, x should be ~0, y should be ~1 (rotated from X unit vector)
+        expect(result.point!.x).toBeCloseTo(0, 5);
+        expect(result.point!.y).toBeCloseTo(1, 5);
+    });
+
+    test("should calculate point at 180 degrees", () => {
+        const snapPointData: PointSnapData = {
+            plane: () => Plane.XY,
+        };
+        const handler = new AngleSnapEventHandler(document, controller, center, p1, snapPointData);
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "180");
+        expect(result.point).toBeDefined();
+        expect(result.point!.x).toBeCloseTo(-1, 5);
+        expect(result.point!.y).toBeCloseTo(0, 5);
+    });
+
+    test("should calculate point at 0 degrees (same as P1)", () => {
+        const snapPointData: PointSnapData = {
+            plane: () => Plane.XY,
+        };
+        const handler = new AngleSnapEventHandler(document, controller, center, p1, snapPointData);
+        const view = createHandlerMockView();
+        const result = handler["getPointFromInput"](view, "0");
+        expect(result.point).toBeDefined();
+        expect(result.point!.x).toBeCloseTo(1, 5);
+        expect(result.point!.y).toBeCloseTo(0, 5);
+    });
+});
+
+describe("AngleSnapEventHandler — inputError", () => {
+    const center = () => XYZ.zero;
+    const p1 = XYZ.unitX;
+
+    let document: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        document = new TestDocument();
+        controller = new AsyncController();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    test("should return error for non-numeric angle input", () => {
+        const snapPointData: PointSnapData = {
+            plane: () => Plane.XY,
+        };
+        const handler = new AngleSnapEventHandler(document, controller, center, p1, snapPointData);
+        expect(handler["inputError"]("abc")).toBe("error.input.invalidNumber");
+    });
+
+    test("should return no error for valid angle input", () => {
+        const snapPointData: PointSnapData = {
+            plane: () => Plane.XY,
+        };
+        const handler = new AngleSnapEventHandler(document, controller, center, p1, snapPointData);
+        expect(handler["inputError"]("45")).toBeUndefined();
+        expect(handler["inputError"]("-30.5")).toBeUndefined();
+    });
+});
