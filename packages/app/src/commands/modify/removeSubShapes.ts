@@ -5,6 +5,7 @@ import {
     command,
     EditableShapeNode,
     MultistepCommand,
+    PubSub,
     SelectShapeStep,
     type ShapeNode,
     type ShapeType,
@@ -23,11 +24,15 @@ export class RemoveSubShapesCommand extends MultistepCommand {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
             const subShapes = this.stepDatas.at(-1)!.shapes.map((x) => x.shape);
             const shape = shapeFactory.removeSubShape(node.shape.value, subShapes);
+            if (!shape.isOk) {
+                PubSub.default.pub("showToast", "error.default:{0}", shape.error);
+                return;
+            }
 
             const model = new EditableShapeNode({
                 document: this.document,
                 name: node.name,
-                shape,
+                shape: shape.value,
                 materialId: node.materialId,
             });
             model.transform = node.transform;

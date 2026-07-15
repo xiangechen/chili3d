@@ -5,21 +5,18 @@
 #include <emscripten/val.h>
 
 #include <BRepAdaptor_Curve.hxx>
-#include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepExtrema_ExtCC.hxx>
 #include <BRepGProp.hxx>
 #include <BRepGProp_Face.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepPrim_Builder.hxx>
 #include <BRepTools.hxx>
-#include <BRepTools_ReShape.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
@@ -34,7 +31,6 @@
 #include <HLRBRep_HLRToShape.hxx>
 #include <IntCurvesFace_Intersector.hxx>
 #include <ShapeAnalysis.hxx>
-#include <ShapeFix_Shape.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
@@ -59,57 +55,58 @@
 #include <BRepClass3d_SolidClassifier.hxx>
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
-#include <ShapeUpgrade_ShellSewing.hxx>
 #include <ShapeFix_ShapeTolerance.hxx>
+#include <ShapeUpgrade_ShellSewing.hxx>
 
 using namespace emscripten;
 
-class Shape
-{
+class Shape {
 public:
-    static size_t ptr(const TopoDS_Shape &shape)
+    static size_t ptr(const TopoDS_Shape& shape)
     {
         return size_t(shape.TShape().get());
     }
 
-    static BoundingBox boundingBox(const TopoDS_Shape &shape, bool useTriangulation)
+    static BoundingBox boundingBox(const TopoDS_Shape& shape, bool useTriangulation)
     {
         Bnd_Box obx;
         BRepBndLib::Add(shape, obx, useTriangulation);
 
-        return BoundingBox{
+        return BoundingBox {
             Vector3::fromPnt(obx.CornerMin()),
-            Vector3::fromPnt(obx.CornerMax())};
+            Vector3::fromPnt(obx.CornerMax())
+        };
     }
 
-    static OrientedBoundingBox orientedBoundingBox(const TopoDS_Shape &shape, bool useTriangulation)
+    static OrientedBoundingBox orientedBoundingBox(const TopoDS_Shape& shape, bool useTriangulation)
     {
         Bnd_OBB obb;
         BRepBndLib::AddOBB(shape, obb, useTriangulation);
 
-        return OrientedBoundingBox{
+        return OrientedBoundingBox {
             Ax3::fromAx3(obb.Position()),
-            Vector3{obb.XHSize(), obb.YHSize(), obb.ZHSize()}};
+            Vector3 { obb.XHSize(), obb.YHSize(), obb.ZHSize() }
+        };
     }
 
-    static TopoDS_Shape clone(const TopoDS_Shape &shape)
+    static TopoDS_Shape clone(const TopoDS_Shape& shape)
     {
         BRepBuilderAPI_Copy copy(shape);
         return copy.Shape();
     }
 
-    static void clean(TopoDS_Shape &shape)
+    static void clean(TopoDS_Shape& shape)
     {
         BRepTools::Clean(shape, true);
     }
 
-    static bool isClosed(const TopoDS_Shape &shape)
+    static bool isClosed(const TopoDS_Shape& shape)
     {
         return BRep_Tool::IsClosed(shape);
     }
 
-    static ShapeArray findAncestor(const TopoDS_Shape &from, const TopoDS_Shape &subShape,
-                                   const TopAbs_ShapeEnum &ancestorType)
+    static ShapeArray findAncestor(const TopoDS_Shape& from, const TopoDS_Shape& subShape,
+        const TopAbs_ShapeEnum& ancestorType)
     {
         NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher> map;
         TopExp::MapShapesAndAncestors(from, subShape.ShapeType(), ancestorType, map);
@@ -119,7 +116,7 @@ public:
         return ShapeArray(val::array(shapes.begin(), shapes.end()));
     }
 
-    static ShapeArray findSubShapes(const TopoDS_Shape &shape, const TopAbs_ShapeEnum &shapeType)
+    static ShapeArray findSubShapes(const TopoDS_Shape& shape, const TopAbs_ShapeEnum& shapeType)
     {
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> indexShape;
         TopExp::MapShapes(shape, shapeType, indexShape);
@@ -127,30 +124,29 @@ public:
         return ShapeArray(val::array(indexShape.cbegin(), indexShape.cend()));
     }
 
-    static ShapeArray getDirectSubShapes(const TopoDS_Shape &shape)
+    static ShapeArray getDirectSubShapes(const TopoDS_Shape& shape)
     {
         val subShapes = val::array();
-        for (TopoDS_Iterator iter(shape); iter.More(); iter.Next())
-        {
+        for (TopoDS_Iterator iter(shape); iter.More(); iter.Next()) {
             subShapes.call<void>("push", iter.Value());
         }
         return ShapeArray(subShapes);
     }
 
-    static TopoDS_Shape sectionSS(const TopoDS_Shape &shape, const TopoDS_Shape &otherShape)
+    static TopoDS_Shape sectionSS(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
     {
         BRepAlgoAPI_Section section(shape, otherShape);
         return section.Shape();
     }
 
-    static TopoDS_Shape sectionSP(const TopoDS_Shape &shape, const Pln &ax3)
+    static TopoDS_Shape sectionSP(const TopoDS_Shape& shape, const Pln& ax3)
     {
         gp_Pln pln = Pln::toPln(ax3);
         BRepAlgoAPI_Section section(shape, pln);
         return section.Shape();
     }
 
-    static TopoDS_Shape splitShapes(const ShapeArray &arguments, const ShapeArray &tools, double tolerance)
+    static TopoDS_Shape splitShapes(const ShapeArray& arguments, const ShapeArray& tools, double tolerance)
     {
         NCollection_List<TopoDS_Shape> argumentsList = shapeArrayToListOfShape(arguments);
         NCollection_List<TopoDS_Shape> toolsList = shapeArrayToListOfShape(tools);
@@ -165,167 +161,37 @@ public:
         return splitter.Shape();
     }
 
-    static std::optional<TopoDS_Shape> removeFeature(const TopoDS_Shape &shape, const ShapeArray &faces)
-    {
-        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
-        BRepAlgoAPI_Defeaturing defea;
-        defea.SetShape(shape);
-        for (auto &face : facesVector)
-        {
-            defea.AddFaceToRemove(face);
-        }
-        defea.SetRunParallel(true);
-        defea.Build();
-        if (!defea.IsDone())
-        {
-            return std::nullopt;
-        }
-        return defea.Shape();
-    }
-
-    static std::optional<TopoDS_Shape> removeFillet(const TopoDS_Shape &shape, const ShapeArray &faces, std::vector<TopoDS_Shape> &shapes)
-    {
-        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
-        BRepAlgoAPI_Defeaturing defea;
-        defea.SetShape(shape);
-        for (auto &face : facesVector)
-        {
-            defea.AddFaceToRemove(face);
-        }
-        defea.SetRunParallel(true);
-        defea.Build();
-        if (!defea.IsDone())
-        {
-            return std::nullopt;
-        }
-
-        TopExp_Explorer explorer;
-        for (explorer.Init(shape, TopAbs_FACE); explorer.More(); explorer.Next())
-        {
-            auto face = TopoDS::Face(explorer.Current());
-            auto list = defea.Generated(face);
-            for (auto &shape : list)
-            {
-                shapes.push_back(shape);
-            }
-        }
-        return defea.Shape();
-    }
-
-    static double extremaDistance(const TopoDS_Shape &shape, const TopoDS_Shape &otherShape)
+    static double extremaDistance(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
     {
         BRepExtrema_DistShapeShape extrema(shape, otherShape);
         return extrema.Value();
     }
 
-    static TopoDS_Compound
-    shapeWires(const TopoDS_Shape &shape)
-    {
-        BRep_Builder builder;
-        TopoDS_Compound compound;
-        builder.MakeCompound(compound);
-
-        TopExp_Explorer explorer;
-        for (explorer.Init(shape, TopAbs_WIRE); explorer.More(); explorer.Next())
-        {
-            builder.Add(compound, TopoDS::Wire(explorer.Current()));
-        }
-
-        return compound;
-    }
-
-    static size_t countShape(const TopoDS_Shape &shape, TopAbs_ShapeEnum shapeType)
+    static size_t countShape(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType)
     {
         size_t size = 0;
         TopExp_Explorer explorer;
-        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next())
-        {
+        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next()) {
             size += 1;
         }
         return size;
     }
 
-    static bool hasOnlyOneSub(const TopoDS_Shape &shape, TopAbs_ShapeEnum shapeType)
-    {
-        size_t size = 0;
-        TopExp_Explorer explorer;
-        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next())
-        {
-            size += 1;
-            if (size > 1)
-            {
-                return false;
-            }
-        }
-        return size == 1;
-    }
-
-    static TopoDS_Shape removeSubShape(TopoDS_Shape &shape, const ShapeArray &subShapes)
-    {
-        std::vector<TopoDS_Shape> subShapesVector = vecFromJSArray<TopoDS_Shape>(subShapes);
-
-        auto source = hasOnlyOneSub(shape, TopAbs_FACE) ? shapeWires(shape) : shape;
-        NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher> mapEF;
-        TopExp::MapShapesAndAncestors(source, TopAbs_EDGE, TopAbs_FACE, mapEF);
-        BRepTools_ReShape reShape;
-        for (auto &subShape : subShapesVector)
-        {
-            reShape.Remove(subShape);
-
-            NCollection_List<TopoDS_Shape> faces;
-            if (mapEF.FindFromKey(subShape, faces))
-            {
-                for (auto &face : faces)
-                {
-                    reShape.Remove(face);
-                }
-            }
-        }
-
-        ShapeFix_Shape fixer(reShape.Apply(source));
-        fixer.Perform();
-
-        return fixer.Shape();
-    }
-
-    static TopoDS_Shape replaceSubShape(const TopoDS_Shape &shape, const TopoDS_Shape &subShape,
-                                        const TopoDS_Shape &newShape)
-    {
-        BRepTools_ReShape reShape;
-        reShape.Replace(subShape, newShape);
-
-        ShapeFix_Shape fixer(reShape.Apply(shape));
-        fixer.Perform();
-
-        return fixer.Shape();
-    }
-
-    static TopoDS_Shape sewing(const TopoDS_Shape &shape1, const TopoDS_Shape &shape2)
-    {
-        BRepBuilderAPI_Sewing sewing;
-        sewing.Add(shape1);
-        sewing.Add(shape2);
-
-        sewing.Perform();
-        return sewing.SewedShape();
-    }
-
-    static TopoDS_Shape shellSewing(const TopoDS_Shape &shape, double tolerance)
+    static TopoDS_Shape shellSewing(const TopoDS_Shape& shape, double tolerance)
     {
         ShapeUpgrade_ShellSewing sewing;
         return sewing.ApplySewing(shape, tolerance);
     }
 
-    static bool check(const TopoDS_Shape &shape)
+    static bool check(const TopoDS_Shape& shape)
     {
         BRepCheck_Analyzer analyzer(shape);
         return analyzer.IsValid();
     }
 
-    static const char *checkStatusName(BRepCheck_Status status)
+    static const char* checkStatusName(BRepCheck_Status status)
     {
-        switch (status)
-        {
+        switch (status) {
         case BRepCheck_NoError:
             return "No Error";
         case BRepCheck_InvalidPointOnCurve:
@@ -405,13 +271,11 @@ public:
         }
     }
 
-    static std::string joinStatusNames(const NCollection_List<BRepCheck_Status> &statusList)
+    static std::string joinStatusNames(const NCollection_List<BRepCheck_Status>& statusList)
     {
         std::string result;
-        for (auto it = statusList.begin(); it != statusList.end(); ++it)
-        {
-            if (!result.empty())
-            {
+        for (auto it = statusList.begin(); it != statusList.end(); ++it) {
+            if (!result.empty()) {
                 result += ", ";
             }
             result += checkStatusName(*it);
@@ -419,18 +283,17 @@ public:
         return result;
     }
 
-    static std::string collectFaceStatus(const BRepCheck_Analyzer &analyzer, const TopoDS_Shape &face)
+    static std::string collectFaceStatus(const BRepCheck_Analyzer& analyzer, const TopoDS_Shape& face)
     {
         std::string statuses;
-        const auto &faceResult = analyzer.Result(face);
-        if (!faceResult.IsNull())
-        {
+        const auto& faceResult = analyzer.Result(face);
+        if (!faceResult.IsNull()) {
             statuses = joinStatusNames(faceResult->Status());
         }
         return statuses;
     }
 
-    static std::vector<FaceCheckResult> checkFaces(const TopoDS_Shape &shape)
+    static std::vector<FaceCheckResult> checkFaces(const TopoDS_Shape& shape)
     {
         BRepCheck_Analyzer analyzer(shape);
 
@@ -438,9 +301,8 @@ public:
         TopExp::MapShapes(shape, TopAbs_FACE, faceMap);
 
         std::vector<FaceCheckResult> results;
-        for (int i = 1; i <= faceMap.Extent(); i++)
-        {
-            const TopoDS_Shape &face = faceMap.FindKey(i);
+        for (int i = 1; i <= faceMap.Extent(); i++) {
+            const TopoDS_Shape& face = faceMap.FindKey(i);
 
             FaceCheckResult result;
             result.index = i - 1;
@@ -453,7 +315,7 @@ public:
     }
 
     static TopoDS_Shape
-    hlr(const TopoDS_Shape &shape, const gp_Pnt &point, const gp_Dir &direction, const gp_Dir &xDirection)
+    hlr(const TopoDS_Shape& shape, const gp_Pnt& point, const gp_Dir& direction, const gp_Dir& xDirection)
     {
         gp_Ax3 ax3(point, direction, xDirection);
         gp_Trsf trsf;
@@ -469,40 +331,38 @@ public:
         return hlrToShape.VCompound();
     }
 
-    static void setTolerance(const TopoDS_Shape &shape, double tolerance)
+    static void setTolerance(const TopoDS_Shape& shape, double tolerance)
     {
         ShapeFix_ShapeTolerance aFixTol;
         aFixTol.SetTolerance(shape, tolerance);
     }
 };
 
-class Vertex
-{
+class Vertex {
 public:
-    static Vector3 point(const TopoDS_Vertex &vertex)
+    static Vector3 point(const TopoDS_Vertex& vertex)
     {
         return Vector3::fromPnt(BRep_Tool::Pnt(vertex));
     }
 };
 
-class Edge
-{
+class Edge {
 public:
-    static TopoDS_Edge fromCurve(const Geom_Curve *curve)
+    static TopoDS_Edge fromCurve(const Geom_Curve* curve)
     {
         Handle(Geom_Curve) handleCurve(curve);
         BRepBuilderAPI_MakeEdge builder(handleCurve);
         return builder.Edge();
     }
 
-    static double curveLength(const TopoDS_Edge &edge)
+    static double curveLength(const TopoDS_Edge& edge)
     {
         GProp_GProps props;
         BRepGProp::LinearProperties(edge, props);
         return props.Mass();
     }
 
-    static Handle(Geom_TrimmedCurve) curve(const TopoDS_Edge &edge)
+    static Handle(Geom_TrimmedCurve) curve(const TopoDS_Edge& edge)
     {
         double start(0.0), end(0.0);
         auto curve = BRep_Tool::Curve(edge, start, end);
@@ -510,7 +370,7 @@ public:
         return trimmedCurve;
     }
 
-    static TopoDS_Edge trim(const TopoDS_Edge &edge, double start, double end)
+    static TopoDS_Edge trim(const TopoDS_Edge& edge, double start, double end)
     {
         double u1(0.0), u2(0.0);
         auto curve = BRep_Tool::Curve(edge, u1, u2);
@@ -518,7 +378,7 @@ public:
         return builder.Edge();
     }
 
-    static TopoDS_Edge offset(const TopoDS_Edge &edge, const gp_Dir &dir, double offset)
+    static TopoDS_Edge offset(const TopoDS_Edge& edge, const gp_Dir& dir, double offset)
     {
         double start(0.0), end(0.0);
         auto curve = BRep_Tool::Curve(edge, start, end);
@@ -528,16 +388,13 @@ public:
         return builder.Edge();
     }
 
-    static PointAndParameterArray intersect(const TopoDS_Edge &edge, const TopoDS_Edge &otherEdge)
+    static PointAndParameterArray intersect(const TopoDS_Edge& edge, const TopoDS_Edge& otherEdge)
     {
         std::vector<PointAndParameter> points;
         BRepExtrema_ExtCC cc(edge, otherEdge);
-        if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel())
-        {
-            for (int i = 1; i <= cc.NbExt(); i++)
-            {
-                if (cc.SquareDistance(i) > Precision::Intersection())
-                {
+        if (cc.IsDone() && cc.NbExt() > 0 && !cc.IsParallel()) {
+            for (int i = 1; i <= cc.NbExt(); i++) {
+                if (cc.SquareDistance(i) > Precision::Intersection()) {
                     continue;
                 }
                 PointAndParameter pointAndParameter = {
@@ -552,155 +409,139 @@ public:
     }
 };
 
-class Wire
-{
+class Wire {
 public:
-    static TopoDS_Shape offset(const TopoDS_Wire &wire, double distance, const GeomAbs_JoinType &joinType)
+    static TopoDS_Shape offset(const TopoDS_Wire& wire, double distance, const GeomAbs_JoinType& joinType)
     {
         BRepOffsetAPI_MakeOffset offsetter(wire, joinType);
         offsetter.Perform(distance);
-        if (offsetter.IsDone())
-        {
+        if (offsetter.IsDone()) {
             return offsetter.Shape();
         }
         return TopoDS_Shape();
     }
 
-    static TopoDS_Face makeFace(const TopoDS_Wire &wire)
+    static TopoDS_Face makeFace(const TopoDS_Wire& wire)
     {
         BRepBuilderAPI_MakeFace face(wire);
         return face.Face();
     }
 
-    static EdgeArray edgeLoop(const TopoDS_Wire &wire)
+    static EdgeArray edgeLoop(const TopoDS_Wire& wire)
     {
         std::vector<TopoDS_Edge> edges;
         BRepTools_WireExplorer explorer(wire);
-        for (; explorer.More(); explorer.Next())
-        {
+        for (; explorer.More(); explorer.Next()) {
             edges.push_back(TopoDS::Edge(explorer.Current()));
         }
         return EdgeArray(val::array(edges));
     }
 };
 
-class Face
-{
+class Face {
 public:
-    static double area(const TopoDS_Face &face)
+    static double area(const TopoDS_Face& face)
     {
         GProp_GProps props;
         BRepGProp::SurfaceProperties(face, props);
         return props.Mass();
     }
 
-    static TopoDS_Shape offset(const TopoDS_Face &face, double distance, const GeomAbs_JoinType &joinType)
+    static TopoDS_Shape offset(const TopoDS_Face& face, double distance, const GeomAbs_JoinType& joinType)
     {
         BRepOffsetAPI_MakeOffset offsetter(face, joinType);
         offsetter.Perform(distance);
-        if (offsetter.IsDone())
-        {
+        if (offsetter.IsDone()) {
             return offsetter.Shape();
         }
         return TopoDS_Shape();
     }
 
-    static Domain curveOnSurface(const TopoDS_Face &face, const TopoDS_Edge &edge)
+    static Domain curveOnSurface(const TopoDS_Face& face, const TopoDS_Edge& edge)
     {
         double start(0.0), end(0.0);
-        if (BRep_Tool::CurveOnSurface(edge, face, start, end).IsNull())
-        {
+        if (BRep_Tool::CurveOnSurface(edge, face, start, end).IsNull()) {
             return Domain();
         }
-        Domain domain = {start, end};
+        Domain domain = { start, end };
         return domain;
     }
 
-    static bool containsPoint(const TopoDS_Face &face, const Vector3 &point, bool containsEdge, double tolerance)
+    static bool containsPoint(const TopoDS_Face& face, const Vector3& point, bool containsEdge, double tolerance)
     {
         gp_Pnt pnt(point.x, point.y, point.z);
 
         auto aPuv = pointToFaceUV(face, pnt, tolerance);
-        if (!aPuv.has_value())
-        {
+        if (!aPuv.has_value()) {
             return false;
         }
 
         BRepClass_FaceClassifier classifier(face, aPuv.value(), tolerance);
         auto state = classifier.State();
-        if (containsEdge && state == TopAbs_ON)
-        {
+        if (containsEdge && state == TopAbs_ON) {
             return true;
         }
         return state == TopAbs_IN;
     }
 
-    static std::optional<Vector3> intersectLine(const TopoDS_Face &face, const Vector3 &point, const Vector3 &direction, double tolerance)
+    static std::optional<Vector3> intersectLine(const TopoDS_Face& face, const Vector3& point, const Vector3& direction, double tolerance)
     {
         gp_Lin line(gp_Pnt(point.x, point.y, point.z), gp_Dir(direction.x, direction.y, direction.z));
 
         IntCurvesFace_Intersector anIntersector(face, tolerance);
         anIntersector.Perform(line, -1e12, 1e12);
-        if (anIntersector.IsDone() && anIntersector.NbPnt() > 0)
-        {
+        if (anIntersector.IsDone() && anIntersector.NbPnt() > 0) {
             return Vector3::fromPnt(anIntersector.Pnt(1));
         }
         return std::nullopt;
     }
 
-    static void normal(const TopoDS_Face &face, double u, double v, gp_Pnt &point, gp_Vec &normal)
+    static void normal(const TopoDS_Face& face, double u, double v, gp_Pnt& point, gp_Vec& normal)
     {
         BRepGProp_Face gpProp(face);
         gpProp.Normal(u, v, point, normal);
     }
 
-    static WireArray wires(const TopoDS_Face &face)
+    static WireArray wires(const TopoDS_Face& face)
     {
         std::vector<TopoDS_Wire> wires;
         TopExp_Explorer explorer;
-        for (explorer.Init(face, TopAbs_WIRE); explorer.More(); explorer.Next())
-        {
+        for (explorer.Init(face, TopAbs_WIRE); explorer.More(); explorer.Next()) {
             wires.push_back(TopoDS::Wire(explorer.Current()));
         }
         return WireArray(val::array(wires));
     }
 
-    static TopoDS_Wire outerWire(const TopoDS_Face &face)
+    static TopoDS_Wire outerWire(const TopoDS_Face& face)
     {
         return BRepTools::OuterWire(face);
     }
 
-    static Handle(Geom_Surface) surface(const TopoDS_Face &face)
+    static Handle(Geom_Surface) surface(const TopoDS_Face& face)
     {
         return BRep_Tool::Surface(face);
     }
 };
 
-class Solid
-{
+class Solid {
 public:
-    static double volume(const TopoDS_Solid &solid)
+    static double volume(const TopoDS_Solid& solid)
     {
         GProp_GProps props;
         BRepGProp::VolumeProperties(solid, props);
         return props.Mass();
     }
 
-    static bool containsPoint(const TopoDS_Shape &shape, const Vector3 &point, bool containsSurface, double tolerance)
+    static bool containsPoint(const TopoDS_Shape& shape, const Vector3& point, bool containsSurface, double tolerance)
     {
         gp_Pnt pnt(point.x, point.y, point.z);
         BRepClass3d_SolidClassifier classifier(shape, pnt, tolerance);
         TopAbs_State state = classifier.State();
-        if (state == TopAbs_IN)
-        {
+        if (state == TopAbs_IN) {
             return true;
-        }
-        else if (state == TopAbs_OUT)
-        {
+        } else if (state == TopAbs_OUT) {
             return false;
-        }
-        else if (state == TopAbs_ON && containsSurface)
-        {
+        } else if (state == TopAbs_ON && containsSurface) {
             return true;
         }
 
@@ -724,14 +565,9 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("sectionSP", &Shape::sectionSP)
         .class_function("isClosed", &Shape::isClosed)
         .class_function("splitShapes", &Shape::splitShapes)
-        .class_function("removeFeature", &Shape::removeFeature)
-        .class_function("removeFillet", &Shape::removeFillet)
-        .class_function("removeSubShape", &Shape::removeSubShape)
-        .class_function("replaceSubShape", &Shape::replaceSubShape)
         .class_function("check", &Shape::check)
         .class_function("checkFaces", &Shape::checkFaces)
         .class_function("hlr", &Shape::hlr)
-        .class_function("sewing", &Shape::sewing)
         .class_function("shellSewing", &Shape::shellSewing)
         .class_function("setTolerance", &Shape::setTolerance);
 

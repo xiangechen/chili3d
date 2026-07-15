@@ -126,11 +126,14 @@ export class ShapeFactory implements IShapeFactory {
             return Result.err("Not OccShape");
         }
         const occFaces = ensureOccShape(faces);
-        const removed = wasm.Shape.removeFeature(shape.shape, occFaces);
-        if (!removed || shape.shape.isEqual(removed)) {
+        const result = wasm.ShapeFactory.removeFeature(shape.shape, occFaces);
+        if (!result.isOk) {
+            return Result.err(result.error);
+        }
+        if (result.shape.isNull() || shape.shape.isEqual(result.shape)) {
             return Result.err("Can not remove feature");
         }
-        return Result.ok(OccShape.wrap(removed));
+        return Result.ok(OccShape.wrap(result.shape));
     }
 
     removeFillet(shape: IShape, faces: IFace[]) {
@@ -138,16 +141,19 @@ export class ShapeFactory implements IShapeFactory {
             return Result.err("Not OccShape");
         }
         const occFaces = ensureOccShape(faces);
-        const edges = new wasm.ShapeVector();
-        const removed = wasm.Shape.removeFillet(shape.shape, occFaces, edges);
-        if (!removed || shape.shape.isEqual(removed)) {
+        const result = wasm.ShapeFactory.removeFillet(shape.shape, occFaces);
+        if (!result.isOk) {
+            return Result.err(result.error);
+        }
+        if (result.shape.isNull() || shape.shape.isEqual(result.shape)) {
             return Result.err("Can not remove fillet");
         }
 
         const newEdges: OccEdge[] = [];
         const visited = new Set();
-        for (let i = 0; i < edges.size(); i++) {
-            const ts = edges.get(i);
+        const edges = result.newEdges;
+        for (let i = 0; i < edges.length; i++) {
+            const ts = edges[i];
             if (
                 !ts ||
                 ts.shapeType() !== wasm.TopAbs_ShapeEnum.TopAbs_EDGE ||
@@ -157,23 +163,30 @@ export class ShapeFactory implements IShapeFactory {
 
             newEdges.push(OccShape.wrap(ts) as OccEdge);
         }
-        edges.delete();
 
         return Result.ok({
-            shape: OccShape.wrap(removed),
+            shape: OccShape.wrap(result.shape),
             newEdges,
         });
     }
 
-    removeSubShape(shape: IShape, subShapes: IShape[]): IShape {
+    removeSubShape(shape: IShape, subShapes: IShape[]): Result<IShape> {
         const occShape = ensureOccShape(shape);
         const occSubShapes = ensureOccShape(subShapes);
-        return OccShape.wrap(wasm.Shape.removeSubShape(occShape[0], occSubShapes));
+        return convertShapeResult(
+            wasm.ShapeFactory.removeSubShape,
+            [occShape[0], occSubShapes],
+            "Remove SubShape Error",
+        );
     }
 
-    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): IShape {
+    replaceSubShape(shape: IShape, subShape: IShape, newSubShape: IShape): Result<IShape> {
         const [occShape, occSubShape, occNewSubShape] = ensureOccShape([shape, subShape, newSubShape]);
-        return OccShape.wrap(wasm.Shape.replaceSubShape(occShape, occSubShape, occNewSubShape));
+        return convertShapeResult(
+            wasm.ShapeFactory.replaceSubShape,
+            [occShape, occSubShape, occNewSubShape],
+            "Replace SubShape Error",
+        );
     }
 
     face(wire: IWire[]): Result<IFace> {
@@ -406,11 +419,7 @@ export class ShapeFactory implements IShapeFactory {
     }
     sewing(shape1: IShape, shape2: IShape): Result<IShape> {
         const [occShape1, occShape2] = ensureOccShape([shape1, shape2]);
-        const result = wasm.Shape.sewing(occShape1, occShape2);
-        if (result.isNull()) {
-            return Result.err("Sewing failed: result is null");
-        }
-        return Result.ok(OccShape.wrap(result));
+        return convertShapeResult(wasm.ShapeFactory.sewing, [occShape1, occShape2], "Sewing Error");
     }
     combine(shapes: IShape[]): Result<ICompound> {
         return convertShapeResult(

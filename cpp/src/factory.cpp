@@ -9,6 +9,7 @@
 #include <BRepAlgoAPI_BooleanOperation.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
@@ -17,6 +18,7 @@
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepFeat_MakePrism.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
@@ -32,6 +34,7 @@
 #include <BRepPrimAPI_MakeRevol.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepProj_Projection.hxx>
+#include <BRepTools_ReShape.hxx>
 #include <Geom_BezierCurve.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeAnalysis_WireOrder.hxx>
@@ -39,7 +42,10 @@
 #include <ShapeFix_Shape.hxx>
 #include <ShapeFix_Solid.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
@@ -50,6 +56,13 @@ struct ShapeResult {
     TopoDS_Shape shape;
     bool isOk;
     std::string error;
+};
+
+struct RemoveFilletResult {
+    TopoDS_Shape shape;
+    bool isOk;
+    std::string error;
+    ShapeArray newEdges;
 };
 
 class ShapeFactory {
@@ -625,6 +638,122 @@ public:
         fixer.Perform();
         return ShapeResult { fixer.Shape(), true, "" };
     }
+
+    static bool hasOnlyOneSub(const TopoDS_Shape& shape, TopAbs_ShapeEnum shapeType)
+    {
+        size_t size = 0;
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, shapeType); explorer.More(); explorer.Next()) {
+            size += 1;
+            if (size > 1) {
+                return false;
+            }
+        }
+        return size == 1;
+    }
+
+    static TopoDS_Compound shapeWires(const TopoDS_Shape& shape)
+    {
+        BRep_Builder builder;
+        TopoDS_Compound compound;
+        builder.MakeCompound(compound);
+
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, TopAbs_WIRE); explorer.More(); explorer.Next()) {
+            builder.Add(compound, TopoDS::Wire(explorer.Current()));
+        }
+
+        return compound;
+    }
+
+    static ShapeResult removeFeature(const TopoDS_Shape& shape, const ShapeArray& faces)
+    {
+        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
+        BRepAlgoAPI_Defeaturing defea;
+        defea.SetShape(shape);
+        for (auto& face : facesVector) {
+            defea.AddFaceToRemove(face);
+        }
+        defea.SetRunParallel(true);
+        defea.Build();
+        if (!defea.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to remove feature" };
+        }
+        return ShapeResult { defea.Shape(), true, "" };
+    }
+
+    static RemoveFilletResult removeFillet(const TopoDS_Shape& shape, const ShapeArray& faces)
+    {
+        std::vector<TopoDS_Shape> facesVector = vecFromJSArray<TopoDS_Shape>(faces);
+        BRepAlgoAPI_Defeaturing defea;
+        defea.SetShape(shape);
+        for (auto& face : facesVector) {
+            defea.AddFaceToRemove(face);
+        }
+        defea.SetRunParallel(true);
+        defea.Build();
+        if (!defea.IsDone()) {
+            return RemoveFilletResult { TopoDS_Shape(), false, "Failed to remove fillet", ShapeArray(val::array()) };
+        }
+
+        val newEdges = val::array();
+        TopExp_Explorer explorer;
+        for (explorer.Init(shape, TopAbs_FACE); explorer.More(); explorer.Next()) {
+            auto face = TopoDS::Face(explorer.Current());
+            auto list = defea.Generated(face);
+            for (auto& s : list) {
+                newEdges.call<void>("push", s);
+            }
+        }
+        return RemoveFilletResult { defea.Shape(), true, "", ShapeArray(newEdges) };
+    }
+
+    static ShapeResult removeSubShape(const TopoDS_Shape& shape, const ShapeArray& subShapes)
+    {
+        std::vector<TopoDS_Shape> subShapesVector = vecFromJSArray<TopoDS_Shape>(subShapes);
+
+        auto source = hasOnlyOneSub(shape, TopAbs_FACE) ? shapeWires(shape) : shape;
+        NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher> mapEF;
+        TopExp::MapShapesAndAncestors(source, TopAbs_EDGE, TopAbs_FACE, mapEF);
+        BRepTools_ReShape reShape;
+        for (auto& subShape : subShapesVector) {
+            reShape.Remove(subShape);
+
+            NCollection_List<TopoDS_Shape> faces;
+            if (mapEF.FindFromKey(subShape, faces)) {
+                for (auto& face : faces) {
+                    reShape.Remove(face);
+                }
+            }
+        }
+
+        ShapeFix_Shape fixer(reShape.Apply(source));
+        fixer.Perform();
+
+        return ShapeResult { fixer.Shape(), true, "" };
+    }
+
+    static ShapeResult replaceSubShape(const TopoDS_Shape& shape, const TopoDS_Shape& subShape,
+        const TopoDS_Shape& newShape)
+    {
+        BRepTools_ReShape reShape;
+        reShape.Replace(subShape, newShape);
+
+        ShapeFix_Shape fixer(reShape.Apply(shape));
+        fixer.Perform();
+
+        return ShapeResult { fixer.Shape(), true, "" };
+    }
+
+    static ShapeResult sewing(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2)
+    {
+        BRepBuilderAPI_Sewing sewing;
+        sewing.Add(shape1);
+        sewing.Add(shape2);
+
+        sewing.Perform();
+        return ShapeResult { sewing.SewedShape(), true, "" };
+    }
 };
 
 EMSCRIPTEN_BINDINGS(ShapeFactory)
@@ -633,6 +762,12 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("shape", &ShapeResult::shape, return_value_policy::reference())
         .property("isOk", &ShapeResult::isOk)
         .property("error", &ShapeResult::error);
+
+    class_<RemoveFilletResult>("RemoveFilletResult")
+        .property("shape", &RemoveFilletResult::shape, return_value_policy::reference())
+        .property("isOk", &RemoveFilletResult::isOk)
+        .property("error", &RemoveFilletResult::error)
+        .property("newEdges", &RemoveFilletResult::newEdges);
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)
@@ -670,5 +805,10 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("fixSmallFace", &ShapeFactory::fixSmallFace)
         .class_function("fixSolid", &ShapeFactory::fixSolid)
         .class_function("loft", &ShapeFactory::loft)
-        .class_function("curveProjection", &ShapeFactory::curveProjection);
+        .class_function("curveProjection", &ShapeFactory::curveProjection)
+        .class_function("removeFeature", &ShapeFactory::removeFeature)
+        .class_function("removeFillet", &ShapeFactory::removeFillet)
+        .class_function("removeSubShape", &ShapeFactory::removeSubShape)
+        .class_function("replaceSubShape", &ShapeFactory::replaceSubShape)
+        .class_function("sewing", &ShapeFactory::sewing);
 }

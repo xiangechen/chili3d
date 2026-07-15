@@ -31,6 +31,14 @@ export interface ShapeResult extends ClassHandle {
   shape: TopoDS_Shape;
 }
 
+export interface RemoveFilletResult extends ClassHandle {
+  isOk: boolean;
+  get error(): string;
+  set error(value: EmbindString);
+  shape: TopoDS_Shape;
+  newEdges: Array<TopoDS_Shape>;
+}
+
 export interface ShapeFactory extends ClassHandle {
 }
 
@@ -598,12 +606,15 @@ interface EmbindModule {
     convertToIges(_0: Array<TopoDS_Shape>): string;
   };
   ShapeResult: {};
+  RemoveFilletResult: {};
   ShapeFactory: {
     makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixShape(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixSmallFace(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixSolid(_0: TopoDS_Shape, _1: number): ShapeResult;
     curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
+    replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): ShapeResult;
+    sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): ShapeResult;
     polygon(_0: Array<Vector3>): ShapeResult;
     bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
     fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
@@ -616,6 +627,9 @@ interface EmbindModule {
     booleanFuse(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     combine(_0: Array<TopoDS_Shape>): ShapeResult;
     loft(_0: Array<TopoDS_Shape>, _1: boolean, _2: boolean, _3: GeomAbs_Shape): ShapeResult;
+    removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): ShapeResult;
+    removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): RemoveFilletResult;
+    removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): ShapeResult;
     wire(_0: Array<TopoDS_Edge>): ShapeResult;
     shell(_0: Array<TopoDS_Face>): ShapeResult;
     face(_0: Array<TopoDS_Wire>): ShapeResult;
@@ -779,19 +793,14 @@ interface EmbindModule {
     clone(_0: TopoDS_Shape): TopoDS_Shape;
     sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
     isClosed(_0: TopoDS_Shape): boolean;
-    replaceSubShape(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopoDS_Shape): TopoDS_Shape;
     check(_0: TopoDS_Shape): boolean;
     hlr(_0: TopoDS_Shape, _1: gp_Pnt, _2: gp_Dir, _3: gp_Dir): TopoDS_Shape;
-    sewing(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
     shellSewing(_0: TopoDS_Shape, _1: number): TopoDS_Shape;
     setTolerance(_0: TopoDS_Shape, _1: number): void;
     findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
     splitShapes(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>, _2: number): TopoDS_Shape;
-    removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape | undefined;
-    removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: ShapeVector): TopoDS_Shape | undefined;
-    removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): TopoDS_Shape;
     boundingBox(_0: TopoDS_Shape, _1: boolean): BoundingBox;
     orientedBoundingBox(_0: TopoDS_Shape, _1: boolean): OrientedBoundingBox;
     sectionSP(_0: TopoDS_Shape, _1: Pln): TopoDS_Shape;
