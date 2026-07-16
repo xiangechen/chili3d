@@ -49,36 +49,45 @@ export function setCurrentApplication(app: IApplication): void {
 }
 
 declare global {
+    var app: IApplication;
     var shapeFactory: IShapeFactory;
     var shapeConverter: IShapeConverter;
     var activeView: IView | undefined;
     var activeDocument: IDocument | undefined;
 }
 
-Object.defineProperty(globalThis, "shapeFactory", {
+Object.defineProperty(globalThis, "app", {
+    configurable: true,
     get() {
         const app = getCurrentApplication();
+        return app;
+    },
+});
+
+Object.defineProperty(globalThis, "shapeFactory", {
+    configurable: true,
+    get() {
         return app.shapeProvider.factory;
     },
 });
 
 Object.defineProperty(globalThis, "shapeConverter", {
+    configurable: true,
     get() {
-        const app = getCurrentApplication();
         return app.shapeProvider.converter;
     },
 });
 
 Object.defineProperty(globalThis, "activeView", {
+    configurable: true,
     get() {
-        const app = getCurrentApplication();
         return app.activeView;
     },
 });
 
 Object.defineProperty(globalThis, "activeDocument", {
+    configurable: true,
     get() {
-        const app = getCurrentApplication();
         return app.activeView?.document;
     },
 });

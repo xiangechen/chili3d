@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type DialogButton, getCurrentApplication, I18n, type I18nKeys } from "@chili3d/core";
+import { type DialogButton, I18n, type I18nKeys } from "@chili3d/core";
 import { button, div } from "@chili3d/element";
 import style from "./dialog.module.css";
 
@@ -16,7 +16,7 @@ const DefaultButtons: DialogButton[] = [
 
 export function showDialog(title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) {
     const dialog = document.createElement("dialog");
-    const host = getCurrentApplication()?.mainWindow ?? document.body;
+    const host = app.mainWindow ?? document.body;
     host.appendChild(dialog);
     renderDialog(dialog, title, content, combineButtons(buttons));
     dialog.showModal();

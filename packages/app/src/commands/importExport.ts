@@ -7,7 +7,6 @@ import {
     Combobox,
     command,
     download,
-    getCurrentApplication,
     I18n,
     type IApplication,
     type ICommand,
@@ -54,7 +53,8 @@ export class Export extends CancelableCommand {
         super();
         const property = PropertyUtils.getProperty(Export.prototype, "format")!;
         property.combobox!.items.clear();
-        property.combobox!.items.push(...getCurrentApplication().dataExchange.exportFormats());
+        // In the constructor, this.application has not been assigned yet, so use the global app.
+        property.combobox!.items.push(...app.dataExchange.exportFormats());
         const index = property.combobox!.items.indexOf(this.format);
         property.combobox!.selectedIndex = index < 0 ? 0 : index;
     }
