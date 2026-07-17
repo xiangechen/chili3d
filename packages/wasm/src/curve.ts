@@ -528,7 +528,7 @@ export class OccBezierCurve extends OccBoundedCurve implements IBezierCurve {
     }
 
     setWeight(index: number, weight: number): void {
-        this.setWeight(index, weight);
+        this.bezier.setWeight(index, weight);
     }
 
     nbPoles(): number {
