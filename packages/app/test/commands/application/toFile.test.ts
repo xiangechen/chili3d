@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { PubSub } from "@chili3d/core";
+import { DOCUMENT_FILE_EXTENSION, PubSub } from "@chili3d/core";
 import { describe, expect, test } from "@rstest/core";
 import { SaveDocumentToFile } from "../../../src/commands/application/toFile";
 import { createMockApplication, createMockDocument } from "../../_helpers";
@@ -22,6 +22,15 @@ describe("SaveDocumentToFile", () => {
         await cmd.execute(app);
     });
 
+    test("should execute without throwing when activeView but no document", async () => {
+        const app = createMockApplication();
+        (app as any).activeView = { document: undefined };
+
+        const cmd = new SaveDocumentToFile();
+        // Should not throw - early return when document is undefined
+        await expect(cmd.execute(app)).resolves.toBeUndefined();
+    });
+
     test("should publish showPermanent event when document exists", async () => {
         let publishedChannel = "";
         const originalPub = PubSub.default.pub;
@@ -40,5 +49,17 @@ describe("SaveDocumentToFile", () => {
         expect(publishedChannel).toBe("showPermanent");
 
         PubSub.default.pub = originalPub;
+    });
+
+    test("should have DOCUMENT_FILE_EXTENSION available", () => {
+        const cmd = new SaveDocumentToFile();
+        expect(cmd).toBeDefined();
+        expect(DOCUMENT_FILE_EXTENSION).toBeDefined();
+        expect(typeof DOCUMENT_FILE_EXTENSION).toBe("string");
+    });
+
+    test("should implement ICommand (has execute method)", () => {
+        const cmd = new SaveDocumentToFile();
+        expect(typeof cmd.execute).toBe("function");
     });
 });

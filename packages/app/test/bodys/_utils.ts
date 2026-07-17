@@ -118,15 +118,13 @@ export function setupShapeFactoryMock(methods: Record<string, (...args: any[]) =
             writable: true,
             configurable: true,
         });
-    } else if (desc.configurable && desc.writable !== false) {
+    } else if (desc.writable === true) {
+        // A real writable data property — direct assignment is enough.
         (globalThis as any).shapeFactory = methods;
-    } else if (desc.configurable) {
-        Object.defineProperty(globalThis, "shapeFactory", {
-            value: methods,
-            writable: true,
-            configurable: true,
-        });
     } else {
+        // Accessor-only getter (with or without a setter). Rather than redefine
+        // the global and lose the app-backed getter, merge the methods into the
+        // underlying factory object so the getter keeps resolving correctly.
         const app = ensureApplicationForShapeFactory();
         if (app.shapeProvider?.factory) {
             Object.assign(app.shapeProvider.factory, methods);

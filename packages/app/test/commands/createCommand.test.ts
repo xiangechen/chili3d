@@ -35,6 +35,41 @@ describe("CreateCommand", () => {
 
         Transaction.execute = originalExecute;
     });
+
+    test("executeMainTask should call modelManager.addNode with geometryNode result", () => {
+        const doc = createMockDocument();
+        let addedNode: unknown;
+
+        const originalExecute = Transaction.execute;
+        Transaction.execute = ((_doc: unknown, _label: string, fn: () => void) => {
+            fn();
+        }) as typeof Transaction.execute;
+
+        doc.modelManager.addNode = (node: unknown) => {
+            addedNode = node;
+        };
+        doc.visual.update = () => {};
+
+        const testNode = { id: "geom-node" } as unknown as GeometryNode;
+
+        const CmdClass = class extends CreateFaceableCommand {
+            protected override geometryNode(): GeometryNode {
+                return testNode;
+            }
+            protected getSteps(): IStep[] {
+                return [];
+            }
+        };
+        (CmdClass.prototype as any).data = { name: "TestCreate" };
+
+        const cmd = new CmdClass();
+        (cmd as any)._application = { activeView: { document: doc } };
+        (cmd as any).executeMainTask();
+
+        expect(addedNode).toBe(testNode);
+
+        Transaction.execute = originalExecute;
+    });
 });
 
 describe("CreateNodeCommand", () => {

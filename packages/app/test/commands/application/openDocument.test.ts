@@ -4,7 +4,7 @@
 import { PubSub } from "@chili3d/core";
 import { describe, expect, test } from "@rstest/core";
 import { OpenDocument } from "../../../src/commands/application/openDocument";
-import { createMockApplication } from "../../_helpers";
+import { createMockApplication, createMockDocument } from "../../_helpers";
 
 describe("OpenDocument", () => {
     test("should have command metadata", () => {
@@ -33,5 +33,19 @@ describe("OpenDocument", () => {
         expect(publishedChannel).toBe("showPermanent");
 
         PubSub.default.pub = originalPub;
+    });
+
+    test("should implement ICommand (has execute method)", () => {
+        const cmd = new OpenDocument();
+        expect(typeof cmd.execute).toBe("function");
+    });
+
+    test("should handle execute with valid application", async () => {
+        const app = createMockApplication();
+        app.activeView = { document: createMockDocument() } as any;
+
+        const cmd = new OpenDocument();
+        // Should not throw
+        await expect(cmd.execute(app)).resolves.toBeUndefined();
     });
 });

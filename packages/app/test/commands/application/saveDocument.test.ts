@@ -28,6 +28,14 @@ describe("SaveDocument", () => {
         await cmd.execute(app);
     });
 
+    test("should execute without throwing when activeView but no document", async () => {
+        const app = createMockApplication();
+        (app as any).activeView = { document: undefined };
+
+        const cmd = new SaveDocument();
+        await expect(cmd.execute(app)).resolves.toBeUndefined();
+    });
+
     test("should publish showPermanent event when document exists", async () => {
         let publishedChannel = "";
         const originalPub = PubSub.default.pub;
@@ -36,6 +44,7 @@ describe("SaveDocument", () => {
         }) as any;
 
         const doc = createMockDocument();
+        doc.save = async () => {};
         const app = createMockApplication();
         app.activeView = { document: doc } as any;
 
@@ -45,5 +54,10 @@ describe("SaveDocument", () => {
         expect(publishedChannel).toBe("showPermanent");
 
         PubSub.default.pub = originalPub;
+    });
+
+    test("should implement ICommand (has execute method)", () => {
+        const cmd = new SaveDocument();
+        expect(typeof cmd.execute).toBe("function");
     });
 });

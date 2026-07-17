@@ -2,9 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import type { CommandKeys, IApplication, IView } from "@chili3d/core";
-import { Config, PubSub } from "@chili3d/core";
+import { PubSub } from "@chili3d/core";
 import { afterEach, beforeEach, describe, expect, test } from "@rstest/core";
-import { HotkeyService, type Keys } from "../../src/services/hotkeyService";
+import { HotkeyService } from "../../src/services/hotkeyService";
 import { createMockApplication } from "../_helpers";
 
 describe("HotkeyService", () => {
@@ -41,7 +41,6 @@ describe("HotkeyService", () => {
         window.addEventListener = originalAddEventListener;
         window.removeEventListener = originalRemoveEventListener;
         PubSub.default.removeAll("executeCommand");
-        Config.instance.removePropertyChanged(() => {});
     });
 
     // ── lifecycle ────────────────────────────────────────────────────
