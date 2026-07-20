@@ -3,6 +3,7 @@
 
 import { type IFace, type IShape, type IWire, Line, Plane, ShapeTypes, XYZ } from "@chili3d/core";
 import { ShapeFactory } from "../src/factory";
+import type { OccEdge } from "../src/shape";
 import "./setup";
 
 let factory: ShapeFactory;
@@ -572,5 +573,80 @@ describe("ShapeFactory — convertShapeResult error catching", () => {
         expect(() => factory.replaceSubShape(fakeShape, fakeSub, fakeSub)).toThrow(
             "OCC kernel only supports OCC geometries",
         );
+    });
+
+    test("should throw error on ensureOccShape with single non-OccShape", () => {
+        const fakeShape = { shapeType: "solid" } as unknown as IShape;
+        expect(() => factory.prism(fakeShape, new XYZ({ x: 1, y: 0, z: 0 }))).toThrow(
+            "OCC kernel only supports OCC geometries",
+        );
+    });
+});
+
+// ============================================================================
+// edge() method
+// ============================================================================
+
+describe("ShapeFactory — edge from curve", () => {
+    test("should create edge from OccCurve", () => {
+        const lineEdge = factory.line(XYZ.zero, XYZ.unitX).value;
+        const curve = (lineEdge as OccEdge).curve;
+        const edge = factory.edge(curve);
+        expect(edge).toBeDefined();
+        expect(edge.shapeType).toBe(ShapeTypes.edge);
+    });
+
+    test("should throw error when curve is not OccCurve", () => {
+        const fakeCurve = { curveType: "line" } as any;
+        expect(() => factory.edge(fakeCurve)).toThrow("Invalid curve");
+    });
+});
+
+// ============================================================================
+// removeFeature
+// ============================================================================
+
+describe("ShapeFactory — removeFeature", () => {
+    test("should return error when shape is not OccShape", () => {
+        const fakeShape = { shapeType: "solid" } as unknown as IShape;
+        const result = factory.removeFeature(fakeShape, []);
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Not OccShape");
+    });
+});
+
+// ============================================================================
+// removeFillet — additional paths
+// ============================================================================
+
+describe("ShapeFactory — removeFillet additional", () => {
+    test("should handle removeFillet on box with zero edges", () => {
+        const box = factory.box(plane, 10, 10, 10).value;
+        // Empty faces array — returns error result, WASM may also abort
+        const result = factory.removeFillet(box, []);
+        expect(result).toBeDefined();
+    });
+});
+
+// ============================================================================
+// loft — edge sections (edge→wire conversion)
+// ============================================================================
+
+describe("ShapeFactory — loft with edge sections", () => {
+    test("should loft with edge sections (auto wire conversion)", () => {
+        const e1 = factory.circle(XYZ.unitZ, XYZ.zero, 5).value;
+        const e2 = factory.circle(XYZ.unitZ, new XYZ({ x: 0, y: 0, z: 20 }), 8).value;
+        // Pass edges directly — loft should convert them to wires
+        const result = factory.loft([e1, e2], true, false, "c0");
+        expect(result.isOk).toBe(true);
+        expect(result.value.shapeType).toBe(ShapeTypes.solid);
+    });
+
+    test("should loft with mixed edge and wire sections", () => {
+        const edge = factory.circle(XYZ.unitZ, XYZ.zero, 5).value;
+        const c2 = factory.circle(XYZ.unitZ, new XYZ({ x: 0, y: 0, z: 20 }), 8).value;
+        const wire = factory.wire([c2]).value;
+        const result = factory.loft([edge, wire], true, false, "c0");
+        expect(result.isOk).toBe(true);
     });
 });

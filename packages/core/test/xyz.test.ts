@@ -15,6 +15,14 @@ describe("XYZ class tests", () => {
             expect(XYZ.fromArray([1, 2, 3])).toEqual(point);
             expect(XYZ.fromArray([1, 2])).toEqual(new XYZ({ x: 1, y: 2, z: 0 }));
             expect(XYZ.fromArray([1, 2, 3, 4])).toEqual(new XYZ({ x: 1, y: 2, z: 3 }));
+            // Single element array triggers ?? 0 for y and z
+            expect(XYZ.fromArray([5])).toEqual(new XYZ({ x: 5, y: 0, z: 0 }));
+        });
+
+        test("should throw on NaN values", () => {
+            expect(() => new XYZ({ x: NaN, y: 0, z: 0 })).toThrow("NaN in XYZ");
+            expect(() => new XYZ({ x: 0, y: NaN, z: 0 })).toThrow("NaN in XYZ");
+            expect(() => new XYZ({ x: 0, y: 0, z: NaN })).toThrow("NaN in XYZ");
         });
 
         test("should have correct static properties", () => {
@@ -257,6 +265,21 @@ describe("XYZ class tests", () => {
 
             const c = new XYZ({ x: 0, y: 1, z: 0 });
             expect(a.isOppositeTo(c)).toBeFalsy();
+        });
+
+        test("isPerpendicularTo returns false for zero vector", () => {
+            expect(XYZ.zero.isPerpendicularTo(XYZ.unitX)).toBeFalsy();
+            expect(XYZ.unitX.isPerpendicularTo(XYZ.zero)).toBeFalsy();
+        });
+
+        test("isParallelTo returns false for zero vector", () => {
+            expect(XYZ.zero.isParallelTo(XYZ.unitX)).toBeFalsy();
+            expect(XYZ.unitX.isParallelTo(XYZ.zero)).toBeFalsy();
+        });
+
+        test("isOppositeTo returns false for zero vector", () => {
+            expect(XYZ.zero.isOppositeTo(XYZ.unitX)).toBeFalsy();
+            expect(XYZ.unitX.isOppositeTo(XYZ.zero)).toBeFalsy();
         });
     });
 

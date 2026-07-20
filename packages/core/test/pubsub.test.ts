@@ -175,4 +175,93 @@ describe("PubSub class", () => {
             expect(called).toBe(true);
         });
     });
+
+    describe("disposed state edge cases", () => {
+        test("should not throw when removing from disposed pubsub", () => {
+            const callback = () => {};
+            pubsub.sub("displayError" as any, callback);
+            pubsub.dispose();
+            expect(() => pubsub.remove("displayError" as any, callback)).not.toThrow();
+        });
+
+        test("should not throw when calling removeAll on disposed pubsub", () => {
+            const callback = () => {};
+            pubsub.sub("displayError" as any, callback);
+            pubsub.dispose();
+            expect(() => pubsub.removeAll("displayError" as any)).not.toThrow();
+        });
+
+        test("should not throw when publishing on disposed pubsub", () => {
+            const callback = () => {};
+            pubsub.sub("displayError" as any, callback);
+            pubsub.dispose();
+            expect(() => pubsub.pub("displayError" as any, "error")).not.toThrow();
+        });
+    });
+
+    describe("remove edge cases", () => {
+        test("should not throw when removing non-existent callback", () => {
+            const cb1 = () => {};
+            pubsub.sub("displayError" as any, cb1);
+            expect(() => pubsub.remove("displayError" as any, () => {})).not.toThrow();
+        });
+
+        test("should not throw when removing from event with no subscribers", () => {
+            expect(() => pubsub.remove("displayError" as any, () => {})).not.toThrow();
+        });
+
+        test("should not throw when removing callback from wrong event", () => {
+            const callback = () => {};
+            pubsub.sub("displayError" as any, callback);
+            expect(() => pubsub.remove("showToast" as any, callback)).not.toThrow();
+        });
+    });
+
+    describe("removeAll edge cases", () => {
+        test("should not throw on event with no subscribers", () => {
+            expect(() => pubsub.removeAll("displayError" as any)).not.toThrow();
+        });
+
+        test("should not throw on same event twice", () => {
+            pubsub.removeAll("displayError" as any);
+            expect(() => pubsub.removeAll("displayError" as any)).not.toThrow();
+        });
+    });
+
+    describe("duplicate subscriptions", () => {
+        test("same callback subscribed twice calls once (Set dedup)", () => {
+            let callCount = 0;
+            const cb = () => callCount++;
+            pubsub.sub("displayError" as any, cb);
+            pubsub.sub("displayError" as any, cb);
+            pubsub.pub("displayError" as any, "error");
+            expect(callCount).toBe(1);
+        });
+
+        test("removing callback removes all Set entries", () => {
+            let callCount = 0;
+            const cb = () => callCount++;
+            pubsub.sub("displayError" as any, cb);
+            pubsub.sub("displayError" as any, cb);
+            pubsub.remove("displayError" as any, cb);
+            pubsub.pub("displayError" as any, "error");
+            expect(callCount).toBe(0);
+        });
+    });
+
+    describe("default instance singleton", () => {
+        test("should be the same reference", () => {
+            expect(PubSub.default).toBe(PubSub.default);
+        });
+
+        test("should be usable independently", () => {
+            let called = false;
+            PubSub.default.sub("displayError" as any, () => {
+                called = true;
+            });
+            PubSub.default.pub("displayError" as any, "test");
+            PubSub.default.removeAll("displayError" as any);
+            expect(called).toBe(true);
+        });
+    });
 });

@@ -190,5 +190,14 @@ describe("BoxNode", () => {
             expect(calledWith[2]).toBe(20);
             expect(calledWith[3]).toBe(30);
         });
+
+        test("should return Result.err when shapeFactory.box fails", () => {
+            setupShapeFactoryMock({
+                box: () => Result.err("box creation failed"),
+            });
+            const node = new BoxNode({ document: doc, plane: defaultPlane(), dx: 10, dy: 20, dz: 30 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

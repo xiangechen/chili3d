@@ -113,5 +113,14 @@ describe("ArcNode", () => {
             expect(calledWith[2]).toBe(start);
             expect(calledWith[3]).toBe(90);
         });
+
+        test("should return Result.err when shapeFactory.arc fails", () => {
+            setupShapeFactoryMock({
+                arc: () => Result.err("arc creation failed"),
+            });
+            const node = new ArcNode({ document: doc, normal, center, start, angle: 90 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

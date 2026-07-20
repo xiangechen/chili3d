@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "@chili3d/core";
-import { Result } from "@chili3d/core";
+import { Result, ShapeTypes, XYZ } from "@chili3d/core";
 import { beforeEach, describe, expect, test } from "@rstest/core";
 import { ExtrudeNode } from "../../src/bodys/extrude";
 import { createMockDocument } from "../_helpers";
@@ -95,6 +95,75 @@ describe("ExtrudeNode", () => {
             node.generateShape();
             expect(calledWith.length).toBe(2);
             expect(calledWith[0]).toBe(section);
+        });
+
+        test("should return Result.err when shapeFactory.prism fails", () => {
+            setupShapeFactoryMock({
+                prism: () => Result.err("prism creation failed"),
+            });
+            const node = new ExtrudeNode({ document: doc, section, length: 10 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
+
+        test("should call shapeFactory.prism for face with planar surface", () => {
+            let calledWith: any[] = [];
+            const faceSectionWithPlanarSurface = {
+                shapeType: ShapeTypes.face,
+                surface: () => ({ isPlanar: () => true }),
+                normal: (_u: number, _v: number) => [null, { normalize: () => XYZ.unitZ }],
+            };
+            setupShapeFactoryMock({
+                prism: (...args: any[]) => {
+                    calledWith = args;
+                    return Result.ok(createMockShape() as any);
+                },
+            });
+            const node = new ExtrudeNode({
+                document: doc,
+                section: faceSectionWithPlanarSurface as any,
+                length: 20,
+            });
+            node.generateShape();
+            expect(calledWith[0]).toBe(faceSectionWithPlanarSurface);
+        });
+
+        test("should call shapeFactory.makeThickSolidBySimple for non-planar face", () => {
+            let calledMethod: string | null = null;
+            let calledArgs: any[] = [];
+            const faceSectionNonPlanar = {
+                shapeType: ShapeTypes.face,
+                surface: () => ({ isPlanar: () => false }),
+                normal: (_u: number, _v: number) => [null, { normalize: () => XYZ.unitZ }],
+            };
+            setupShapeFactoryMock({
+                makeThickSolidBySimple: (...args: any[]) => {
+                    calledMethod = "makeThickSolidBySimple";
+                    calledArgs = args;
+                    return Result.ok(createMockShape() as any);
+                },
+                prism: () => Result.err("should not call prism"),
+            });
+            const node = new ExtrudeNode({ document: doc, section: faceSectionNonPlanar as any, length: 20 });
+            const result = node.generateShape();
+            expect(calledMethod).toBe("makeThickSolidBySimple");
+            expect(calledArgs[0]).toBe(faceSectionNonPlanar);
+            expect(calledArgs[1]).toBe(20);
+            expect(result.isOk).toBe(true);
+        });
+
+        test("should return error when makeThickSolidBySimple fails for non-planar face", () => {
+            const faceSectionNonPlanar = {
+                shapeType: ShapeTypes.face,
+                surface: () => ({ isPlanar: () => false }),
+                normal: (_u: number, _v: number) => [null, { normalize: () => XYZ.unitZ }],
+            };
+            setupShapeFactoryMock({
+                makeThickSolidBySimple: () => Result.err("thick solid failed"),
+            });
+            const node = new ExtrudeNode({ document: doc, section: faceSectionNonPlanar as any, length: 20 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
         });
     });
 });

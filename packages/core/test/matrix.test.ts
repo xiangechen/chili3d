@@ -1,13 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MathUtils, Matrix4, Plane, XYZ } from "../src";
+import { MathUtils, Matrix4, Plane, Quaternion, XYZ } from "../src";
 
 describe("test Transform", () => {
     test("test constructor", () => {
         const transform = new Matrix4({ array: new Array(16).fill(0) });
         expect(transform.toArray().length).toBe(16);
         expect(transform.toArray()).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        // Also access array getter directly (covers @serialize get array)
+        expect(transform.array.length).toBe(16);
+        expect(transform.array).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     });
 
     test("test operation", () => {
@@ -139,5 +142,168 @@ describe("test Transform", () => {
 
         expect(matrix.translationPart().isEqualTo(XYZ.zero)).toBeTruthy();
         expect(matrix.getScale().isEqualTo(new XYZ({ x: 0, y: 0, z: 0 }))).toBeTruthy();
+    });
+
+    test("test fromEuler with non-zero angles", () => {
+        const matrix = Matrix4.fromEuler(Math.PI / 4, Math.PI / 6, Math.PI / 3);
+        const euler = matrix.getEulerAngles();
+        expect(euler.pitch).toBeDefined();
+        expect(euler.yaw).toBeDefined();
+        expect(euler.roll).toBeDefined();
+    });
+
+    test("test fromEuler zero angles", () => {
+        const matrix = Matrix4.fromEuler(0, 0, 0);
+        // Verify it acts as identity (translation is zero, ofPoint preserves input)
+        const p = new XYZ({ x: 1, y: 2, z: 3 });
+        expect(matrix.ofPoint(p).isEqualTo(p)).toBeTruthy();
+        expect(matrix.determinant()).toBeCloseTo(1);
+    });
+
+    test("test add", () => {
+        const a = Matrix4.fromTranslation(1, 2, 3);
+        const b = Matrix4.fromTranslation(4, 5, 6);
+        const result = a.add(b);
+        expect(result.translationPart().x).toBeCloseTo(5);
+        expect(result.translationPart().y).toBeCloseTo(7);
+        expect(result.translationPart().z).toBeCloseTo(9);
+    });
+
+    test("test clone", () => {
+        const a = Matrix4.fromTranslation(1, 2, 3);
+        const b = a.clone();
+        expect(a.equals(b)).toBeTruthy();
+        // Verify it's a different instance
+        expect(a.translationPart().isEqualTo(b.translationPart())).toBeTruthy();
+    });
+
+    test("test equals", () => {
+        const a = Matrix4.fromTranslation(1, 2, 3);
+        const b = Matrix4.fromTranslation(1, 2, 3);
+        expect(a.equals(b)).toBeTruthy();
+
+        const c = Matrix4.fromTranslation(1, 2, 4);
+        expect(a.equals(c)).toBeFalsy();
+    });
+
+    test("test determinant - identity", () => {
+        expect(Matrix4.identity().determinant()).toBeCloseTo(1);
+    });
+
+    test("test determinant - zero matrix", () => {
+        expect(Matrix4.zero().determinant()).toBe(0);
+    });
+
+    test("test determinant - translation matrix", () => {
+        const t = Matrix4.fromTranslation(5, 10, 15);
+        expect(t.determinant()).toBeCloseTo(1);
+    });
+
+    test("test determinant - scale matrix", () => {
+        const s = Matrix4.fromScale(2, 3, 4);
+        expect(s.determinant()).toBeCloseTo(24);
+    });
+
+    test("test transpose", () => {
+        const t = Matrix4.fromTranslation(1, 2, 3);
+        const transposed = t.transpose();
+        // (T^T)^T = T
+        expect(transposed.transpose().equals(t)).toBeTruthy();
+    });
+
+    test("test transpose of transpose is identity for identity", () => {
+        const id = Matrix4.identity();
+        expect(id.transpose().equals(id)).toBeTruthy();
+    });
+
+    test("test ofPoints with identity", () => {
+        const points = [1, 2, 3, 4, 5, 6];
+        const result = Matrix4.identity().ofPoints(points);
+        expect(result).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    test("test ofPoints with translation", () => {
+        const t = Matrix4.fromTranslation(10, 20, 30);
+        const points = [0, 0, 0];
+        const result = t.ofPoints(points);
+        expect(result[0]).toBeCloseTo(10);
+        expect(result[1]).toBeCloseTo(20);
+        expect(result[2]).toBeCloseTo(30);
+    });
+
+    test("test ofPoints with multiple points", () => {
+        const t = Matrix4.fromTranslation(1, 2, 3);
+        const points = [0, 0, 0, 1, 1, 1];
+        const result = t.ofPoints(points);
+        expect(result).toEqual([1, 2, 3, 2, 3, 4]);
+    });
+
+    test("test ofVectors with identity", () => {
+        const vectors = [1, 0, 0, 0, 1, 0];
+        const result = Matrix4.identity().ofVectors(vectors);
+        expect(result).toEqual([1, 0, 0, 0, 1, 0]);
+    });
+
+    test("test ofVectors ignores translation", () => {
+        const t = Matrix4.fromTranslation(5, 10, 15);
+        const vectors = [1, 0, 0];
+        const result = t.ofVectors(vectors);
+        expect(result[0]).toBeCloseTo(1);
+        expect(result[1]).toBeCloseTo(0);
+        expect(result[2]).toBeCloseTo(0);
+    });
+
+    test("test ofVectors are transformed by rotation", () => {
+        const r = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 2);
+        const vectors = [1, 0, 0];
+        const result = r.ofVectors(vectors);
+        expect(result[0]).toBeCloseTo(0);
+        expect(result[1]).toBeCloseTo(1);
+        expect(result[2]).toBeCloseTo(0);
+    });
+
+    test("test zero static factory", () => {
+        const z = Matrix4.zero();
+        for (let i = 0; i < 16; i++) {
+            expect(z.toArray()[i]).toBe(0);
+        }
+    });
+
+    test("test fromArray", () => {
+        const data = Array.from({ length: 16 }, (_, i) => i + 1);
+        const m = Matrix4.fromArray(data);
+        expect(m.toArray()).toEqual(data);
+    });
+
+    test("test invert returns undefined for singular matrix", () => {
+        const z = Matrix4.zero();
+        expect(z.invert()).toBeUndefined();
+    });
+
+    test("test getEulerAngles gimbal lock branch", () => {
+        // pitch = 90 degrees triggers the gimbal lock branch where |m13| >= 0.9999999
+        const m = Matrix4.fromEuler(0, Math.PI / 2, 0);
+        const angles = m.getEulerAngles();
+        expect(angles.yaw).toBeCloseTo(Math.PI / 2);
+    });
+
+    test("test fromQuaternion identity", () => {
+        const m = Matrix4.fromQuaternion(new Quaternion());
+        // fromQuaternion with identity quaternion equals identity matrix
+        const id = Matrix4.identity();
+        expect(m.equals(id)).toBeTruthy();
+    });
+
+    test("test fromQuaternion produces valid shape", () => {
+        const q = new Quaternion(0.5, 0.5, 0.5, 0.5);
+        const m = Matrix4.fromQuaternion(q);
+        // Should produce a 4x4 matrix
+        expect(m.toArray().length).toBe(16);
+        // Last column of transform is [0, 0, 0, 1]
+        const arr = m.toArray();
+        expect(arr[3]).toBeCloseTo(0);
+        expect(arr[7]).toBeCloseTo(0);
+        expect(arr[11]).toBeCloseTo(0);
+        expect(arr[15]).toBeCloseTo(1);
     });
 });

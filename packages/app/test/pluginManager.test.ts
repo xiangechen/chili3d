@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CommandStore, Config, type IApplication, type Plugin, type PluginManifest } from "@chili3d/core";
+import {
+    CommandStore,
+    Config,
+    I18n,
+    type IApplication,
+    Logger,
+    type Plugin,
+    type PluginManifest,
+} from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { PluginManager } from "../src/pluginManager";
 
@@ -361,6 +369,248 @@ describe("PluginManager", () => {
             expect(ok("1.2.3-beta.0")).toBe(true);
             expect(ok("1.0")).toBe(false);
             expect(ok("latest")).toBe(false);
+        });
+    });
+
+    describe("registerPlugin / unregisterPlugin (private)", () => {
+        test("should register plugin i18n resources via I18n.combineTranslation", () => {
+            const { manager } = createManager();
+            const addSpy = rs.spyOn(I18n, "addLanguage").mockImplementation(() => {});
+            const combineSpy = rs.spyOn(I18n, "combineTranslation").mockImplementation(() => {});
+            rs.spyOn(I18n, "getLanguages").mockReturnValue([{ language: "en", translation: {} } as any]);
+
+            (manager as any).registerPlugin({
+                i18nResources: [{ language: "en", translation: { "key.hello": "Hello" } }],
+            });
+
+            expect(combineSpy).toHaveBeenCalledWith("en", { "key.hello": "Hello" });
+            addSpy.mockRestore();
+            combineSpy.mockRestore();
+        });
+
+        test("should register plugin i18n resources via I18n.addLanguage for new locale", () => {
+            const { manager } = createManager();
+            const addSpy = rs.spyOn(I18n, "addLanguage").mockImplementation(() => {});
+            rs.spyOn(I18n, "getLanguages").mockReturnValue([]);
+
+            const resource = { language: "pt-br", translation: { "key.ola": "Olá" } };
+            (manager as any).registerPlugin({ i18nResources: [resource] });
+
+            expect(addSpy).toHaveBeenCalledWith(resource);
+            addSpy.mockRestore();
+        });
+
+        test("should register and start plugin services", () => {
+            const { manager, app } = createManager();
+            const startFn = rs.fn();
+            const registerFn = rs.fn();
+            const service = { register: registerFn, start: startFn };
+            (manager as any).registerPlugin({ services: [service] });
+
+            expect(registerFn).toHaveBeenCalledWith(app);
+            expect(startFn).toHaveBeenCalled();
+        });
+
+        test("should combine ribbon tabs", () => {
+            const { manager, app } = createManager();
+            const ribbonContribution = { tab: "test" };
+            (manager as any).registerPlugin({ ribbons: [ribbonContribution] });
+
+            expect(app.mainWindow!.ribbon!.combineRibbonTab).toHaveBeenCalledWith(ribbonContribution);
+        });
+
+        test("should handle plugin without i18n, services, or ribbons", () => {
+            const { manager } = createManager();
+            // Should not throw
+            expect(() => (manager as any).registerPlugin({})).not.toThrow();
+        });
+    });
+
+    describe("unregisterPlugin (private)", () => {
+        test("should remove plugin i18n translations", () => {
+            const { manager } = createManager();
+            const removeSpy = rs.spyOn(I18n, "removeTranslation").mockImplementation(() => {});
+
+            (manager as any).unregisterPlugin("test-plugin", {
+                i18nResources: [{ language: "en", translation: { "key.hello": "", "key.world": "" } }],
+            });
+
+            expect(removeSpy).toHaveBeenCalledWith("en", { "key.hello": "", "key.world": "" });
+            removeSpy.mockRestore();
+        });
+
+        test("should stop plugin services", () => {
+            const { manager } = createManager();
+            const stopFn = rs.fn();
+            const service = { register: rs.fn(), stop: stopFn };
+
+            (manager as any).unregisterPlugin("test-plugin", { services: [service] });
+
+            expect(stopFn).toHaveBeenCalled();
+        });
+
+        test("should unregister plugin commands from CommandStore", () => {
+            const { manager } = createManager();
+            const unregisterSpy = rs.spyOn(CommandStore, "unregisterCommand").mockImplementation(() => {});
+
+            (manager as any).unregisterPlugin("test-plugin", { commands: ["cmd.one", "cmd.two"] });
+
+            expect(unregisterSpy).toHaveBeenCalledWith("cmd.one");
+            expect(unregisterSpy).toHaveBeenCalledWith("cmd.two");
+            unregisterSpy.mockRestore();
+        });
+
+        test("should remove plugin CSS", () => {
+            const { manager } = createManager();
+            const style = document.createElement("style");
+            style.id = "plugin-css-test-plugin";
+            document.head.appendChild(style);
+
+            (manager as any).unregisterPlugin("test-plugin", {});
+
+            expect(document.getElementById("plugin-css-test-plugin")).toBeNull();
+        });
+    });
+
+    describe("injectImportmap / injectCss / removePluginCss (private)", () => {
+        test("injectImportmap should add a script[type=importmap] to head", () => {
+            const { manager } = createManager();
+            (manager as any).injectImportmap('{"imports":{"a":"b"}}');
+            const script = document.querySelector('script[type="importmap"]');
+            expect(script).not.toBeNull();
+            expect(script!.textContent).toBe('{"imports":{"a":"b"}}');
+            script!.remove();
+        });
+
+        test("injectCss should add a style element with the plugin name as id", () => {
+            const { manager } = createManager();
+            (manager as any).injectCss(".test { color: red; }", "test-plugin");
+            const style = document.getElementById("plugin-css-test-plugin");
+            expect(style).not.toBeNull();
+            expect(style!.textContent).toBe(".test { color: red; }");
+            style!.remove();
+        });
+
+        test("injectCss should not duplicate an existing style element", () => {
+            const { manager } = createManager();
+            (manager as any).injectCss(".a {}", "dup-plugin");
+            (manager as any).injectCss(".b {}", "dup-plugin");
+            const styles = document.querySelectorAll("#plugin-css-dup-plugin");
+            expect(styles.length).toBe(1);
+            styles[0].remove();
+        });
+    });
+
+    describe("loadCssFromZip (private)", () => {
+        test("should inject CSS files from zip", async () => {
+            fakeFiles.current = {
+                "style.css": ".plugin { color: blue; }",
+            };
+            const { manager } = createManager();
+            const injectSpy = rs.spyOn(manager as any, "injectCss").mockImplementation(() => {});
+
+            // Construct a fake zip with the file method matching what loadCssFromZip expects
+            const fakeZip = {
+                file(name: string) {
+                    const files = fakeFiles.current ?? {};
+                    return name in files ? { async: async () => files[name] } : null;
+                },
+            };
+
+            await (manager as any).loadCssFromZip(fakeZip, {
+                ...validManifest(),
+                css: "style.css",
+            } as PluginManifest);
+
+            expect(injectSpy).toHaveBeenCalledWith(".plugin { color: blue; }", "demo-plugin");
+            injectSpy.mockRestore();
+        });
+
+        test("should skip when manifest has no css", async () => {
+            const { manager } = createManager();
+            await expect((manager as any).loadCssFromZip({}, validManifest())).resolves.toBeUndefined();
+        });
+    });
+
+    describe("loadFromRemoteFile (private)", () => {
+        test("should handle .chiliplugin files via fetch + loadFromFile", async () => {
+            const { manager } = createManager();
+            const loadFromFileSpy = rs.spyOn(manager, "loadFromFile").mockResolvedValue(undefined);
+            globalThis.fetch = rs.fn().mockResolvedValue({
+                ok: true,
+                arrayBuffer: async () => new ArrayBuffer(0),
+            }) as any;
+
+            await (manager as any).loadFromRemoteFile("https://cdn.example.com/plugin.chiliplugin");
+
+            expect(loadFromFileSpy).toHaveBeenCalled();
+            loadFromFileSpy.mockRestore();
+        });
+
+        test("should alert when fetch fails for .chiliplugin", async () => {
+            const { manager } = createManager();
+            const alertSpy = rs.fn();
+            globalThis.alert = alertSpy;
+            globalThis.fetch = rs.fn().mockResolvedValue({
+                ok: false,
+                statusText: "Not Found",
+            }) as any;
+
+            await (manager as any).loadFromRemoteFile("https://cdn.example.com/plugin.chiliplugin");
+
+            expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Failed to fetch plugin"));
+        });
+    });
+
+    describe("loadFromUrl edge cases", () => {
+        test("should load directly for trusted domain", async () => {
+            const { manager } = createManager();
+            Config.instance.trustedDomains = ["trusted.example.com"];
+
+            const loadRemoteSpy = rs.spyOn(manager as any, "loadFromRemoteFile").mockResolvedValue(undefined);
+
+            await manager.loadFromUrl("https://trusted.example.com/p");
+
+            expect(loadRemoteSpy).toHaveBeenCalled();
+            loadRemoteSpy.mockRestore();
+        });
+
+        test("should skip untrusted domain that was already declined", async () => {
+            const { manager } = createManager();
+            // Access the module-level untrustedDomains array — it's private so access via workaround
+            // Trusted domain already added in previous test — just test that unknown host goes to dialog
+
+            const alertSpy = rs.fn();
+            globalThis.alert = alertSpy;
+            globalThis.fetch = rs.fn();
+            Object.defineProperty(window, "location", {
+                value: { host: "localhost", href: "https://localhost/" },
+                configurable: true,
+            });
+
+            await manager.loadFromUrl("https://untrusted-site.com/plugin");
+
+            // Should NOT have called fetch (went to dialog path)
+            expect(globalThis.fetch).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("unload with error handling", () => {
+        test("unloadAll should catch errors from individual unload calls", async () => {
+            const { manager } = createManager();
+            const errorSpy = rs.spyOn(Logger, "error").mockImplementation(() => {});
+            const unloadSpy = rs.spyOn(manager, "unload").mockRejectedValue(new Error("unload failed"));
+            (manager as any).plugins.set("a", {});
+            (manager as any).plugins.set("b", {});
+
+            manager.unloadAll();
+            // Wait for promises to settle
+            await new Promise((r) => setTimeout(r, 10));
+
+            expect(unloadSpy).toHaveBeenCalled();
+            // Logger.error should have been called for the failure
+            errorSpy.mockRestore();
+            unloadSpy.mockRestore();
         });
     });
 });

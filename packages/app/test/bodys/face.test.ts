@@ -125,5 +125,16 @@ describe("FaceNode", () => {
             expect(result.isOk).toBe(true);
             expect(faceWires.length).toBe(1);
         });
+
+        test("should throw error when wire from unclosed edges fails", () => {
+            setupShapeFactoryMock({
+                wire: () => Result.err("cannot create wire"),
+            });
+            const node = new FaceNode({
+                document: doc,
+                shapes: [createMockEdge({ isClosed: () => false })] as any,
+            });
+            expect(() => node.generateShape()).toThrow("Cannot create wire from open shapes");
+        });
     });
 });

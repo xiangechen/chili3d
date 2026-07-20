@@ -76,5 +76,14 @@ describe("PointNode", () => {
             node.generateShape();
             expect(calledWith[0]).toBe(position);
         });
+
+        test("should return Result.err when shapeFactory.point fails", () => {
+            setupShapeFactoryMock({
+                point: () => Result.err("point creation failed"),
+            });
+            const node = new PointNode({ document: doc, position });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

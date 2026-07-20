@@ -116,5 +116,14 @@ describe("SphereNode", () => {
             expect(calledWith[0]).toBe(center);
             expect(calledWith[1]).toBe(15);
         });
+
+        test("should return Result.err when shapeFactory.sphere fails", () => {
+            setupShapeFactoryMock({
+                sphere: () => Result.err("sphere creation failed"),
+            });
+            const node = new SphereNode({ document: doc, center, radius: 10 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

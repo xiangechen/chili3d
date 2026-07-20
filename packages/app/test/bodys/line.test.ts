@@ -99,5 +99,14 @@ describe("LineNode", () => {
             expect(calledWith[0]).toBe(start);
             expect(calledWith[1]).toBe(end);
         });
+
+        test("should return Result.err when shapeFactory.line fails", () => {
+            setupShapeFactoryMock({
+                line: () => Result.err("line creation failed"),
+            });
+            const node = new LineNode({ document: doc, start, end });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

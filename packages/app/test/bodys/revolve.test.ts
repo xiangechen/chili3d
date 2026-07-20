@@ -131,5 +131,14 @@ describe("RevolvedNode", () => {
             expect(calledWith[1]).toBe(axis);
             expect(calledWith[2]).toBe(360);
         });
+
+        test("should return Result.err when shapeFactory.revolve fails", () => {
+            setupShapeFactoryMock({
+                revolve: () => Result.err("revolve creation failed"),
+            });
+            const node = new RevolvedNode({ document: doc, profile, axis, angle: 180 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { XYZ } from "@chili3d/core";
+import { Line, XYZ } from "@chili3d/core";
 import {
     OccBezierCurve,
     OccBSplineCurve,
@@ -483,5 +483,44 @@ describe("OccCurve — transform", () => {
         line.transform(translation);
         // After direct transform, the original is modified (transform, not transformed)
         expect(line.location.x).not.toBeCloseTo(origLoc.x);
+    });
+});
+
+// ============================================================================
+// OccBezierCurve — setWeight
+// ============================================================================
+
+describe("OccBezierCurve — setWeight", () => {
+    test("setWeight changes the weight of a pole", () => {
+        const pts = [XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 })];
+        const bezier = basisCurveOfEdge(factory.bezier(pts, [1, 2, 1]).value as OccEdge) as OccBezierCurve;
+        expect(bezier.weight(2)).toBeCloseTo(2);
+        bezier.setWeight(2, 3);
+        expect(bezier.weight(2)).toBeCloseTo(3);
+    });
+
+    test("setWeight on default-weight bezier", () => {
+        const pts = [XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 })];
+        const bezier = basisCurveOfEdge(factory.bezier(pts).value as OccEdge) as OccBezierCurve;
+        expect(bezier.weight(1)).toBeCloseTo(1);
+        bezier.setWeight(1, 2.5);
+        expect(bezier.weight(1)).toBeCloseTo(2.5);
+    });
+});
+
+// ============================================================================
+// OccCurve — nearestExtrema with core Line
+// ============================================================================
+
+describe("OccCurve — nearestExtrema with core.Line", () => {
+    test("nearestExtrema between OccCurve and core Line", () => {
+        const circle = basisCurveOfEdge(factory.circle(XYZ.unitZ, XYZ.zero, 5).value as OccEdge);
+        const coreLine = new Line({ point: new XYZ({ x: 10, y: 0, z: 0 }), direction: XYZ.unitY });
+        const result = circle.nearestExtrema(coreLine);
+        expect(result).toBeDefined();
+        if (result) {
+            expect(typeof result.p1.x).toBe("number");
+            expect(typeof result.p2.x).toBe("number");
+        }
     });
 });

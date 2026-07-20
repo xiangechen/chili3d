@@ -78,5 +78,15 @@ describe("WireNode", () => {
             node.generateShape();
             expect(calledWith).toEqual(edges);
         });
+
+        test("should return Result.err when shapeFactory.wire fails", () => {
+            setupShapeFactoryMock({
+                wire: () => Result.err("wire creation failed"),
+            });
+            const edges: any = [createMockEdge()];
+            const node = new WireNode({ document: doc, edges });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

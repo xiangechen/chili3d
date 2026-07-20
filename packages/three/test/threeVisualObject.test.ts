@@ -6,14 +6,22 @@ import type {
     IShape,
     ISubShape,
     Matrix4,
+    MeshNode,
     ShapeMeshRange,
     ShapeType,
     VisualNode,
 } from "@chili3d/core";
-import { Matrix4 as CoreMatrix4 } from "@chili3d/core";
+import { Matrix4 as CoreMatrix4, Mesh as CoreMesh } from "@chili3d/core";
 import { Mesh, MeshBasicMaterial, type Points } from "three";
 import type { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { GroupVisualObject, ThreeVisualObject } from "../src/threeVisualObject";
+import type { ThreeVisualContext } from "../src/threeVisualContext";
+import {
+    GroupVisualObject,
+    ThreeComponentObject,
+    ThreeMeshObject,
+    ThreeVisualObject,
+} from "../src/threeVisualObject";
+import { createMockVisualContext } from "./mocks";
 
 /**
  * Minimal concrete ThreeVisualObject for testing base class behavior.
@@ -41,9 +49,6 @@ class TestableVisualObject extends ThreeVisualObject {
     }
 }
 
-/**
- * Creates a minimal fake node with Observable-like property change notification.
- */
 function createFakeVisualNode(overrides: Record<string, unknown> = {}): VisualNode {
     const listeners: Array<(prop: string) => void> = [];
     let transform: Matrix4 = CoreMatrix4.identity();
@@ -69,7 +74,6 @@ function createFakeVisualNode(overrides: Record<string, unknown> = {}): VisualNo
             const idx = listeners.indexOf(cb as (prop: string) => void);
             if (idx >= 0) listeners.splice(idx, 1);
         },
-        // Call to simulate property changes
         _notify(prop: string) {
             for (const cb of listeners) cb(prop);
         },
@@ -79,6 +83,122 @@ function createFakeVisualNode(overrides: Record<string, unknown> = {}): VisualNo
 
 function createFakeGroupNode(overrides: Record<string, unknown> = {}): GroupNode {
     return createFakeVisualNode(overrides) as unknown as GroupNode;
+}
+
+function createFakeMeshNode(
+    overrides: {
+        meshType?: "surface" | "linesegments";
+        visible?: boolean;
+        parentVisible?: boolean;
+        materialId?: string | string[];
+    } = {},
+): MeshNode {
+    const meshType = overrides.meshType ?? "surface";
+    const listeners: Array<(prop: string) => void> = [];
+
+    const mesh =
+        meshType === "surface"
+            ? new CoreMesh({
+                  meshType: "surface",
+                  position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+                  normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+                  uv: new Float32Array([0, 0, 1, 0, 0, 1]),
+                  index: new Uint32Array([0, 1, 2]),
+                  color: 0xff0000,
+              })
+            : new CoreMesh({
+                  meshType: "linesegments",
+                  position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                  color: 0x0000ff,
+              });
+
+    return {
+        id: "fake-mesh-node",
+        display: () => "body.meshNode",
+        transform: CoreMatrix4.identity(),
+        visible: overrides.visible ?? true,
+        parentVisible: overrides.parentVisible ?? true,
+        parent: null,
+        document: {} as never,
+        onPropertyChanged(cb: unknown) {
+            listeners.push(cb as (prop: string) => void);
+        },
+        removePropertyChanged(cb: unknown) {
+            const idx = listeners.indexOf(cb as (prop: string) => void);
+            if (idx >= 0) listeners.splice(idx, 1);
+        },
+        _notify(prop: string) {
+            for (const cb of listeners) cb(prop);
+        },
+        mesh,
+        materialId: overrides.materialId ?? "mat-1",
+        boundingBox: () => undefined,
+        name: "test-mesh",
+    } as unknown as MeshNode;
+}
+
+function createFakeComponentNode(overrides: { visible?: boolean; parentVisible?: boolean } = {}) {
+    const listeners: Array<(prop: string) => void> = [];
+    const component = {
+        boundingBox: { min: { x: 0, y: 0, z: 0 }, max: { x: 10, y: 10, z: 10 } },
+        id: "comp-1",
+        nodes: [] as unknown[],
+        mesh: {
+            faceMaterials: ["mat-1"],
+            edge: {
+                lineType: "solid" as const,
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                range: [{ start: 0, count: 2, shape: { id: "e1", shapeType: 1 } }],
+            },
+            face: {
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0]),
+                normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+                uv: new Float32Array([0, 0, 1, 0, 1, 1]),
+                index: new Uint32Array([0, 1, 2]),
+                range: [{ start: 0, count: 3, shape: { id: "f1", shapeType: 2 } }],
+                groups: [],
+                color: 0xff0000,
+            },
+            linesegments: new CoreMesh({
+                meshType: "linesegments",
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                color: 0x0000ff,
+            }),
+            surfaceMaterials: [],
+            surface: new CoreMesh({
+                meshType: "surface",
+                position: new Float32Array([0, 0, 0]),
+                normal: new Float32Array([0, 0, 1]),
+                uv: new Float32Array([0, 0]),
+                index: new Uint32Array([]),
+            }),
+        },
+    };
+
+    return {
+        id: "fake-component-node",
+        display: () => "body.group",
+        transform: CoreMatrix4.identity(),
+        visible: overrides.visible ?? true,
+        parentVisible: overrides.parentVisible ?? true,
+        parent: null,
+        document: {} as never,
+        onPropertyChanged(cb: unknown) {
+            listeners.push(cb as (prop: string) => void);
+        },
+        removePropertyChanged(cb: unknown) {
+            const idx = listeners.indexOf(cb as (prop: string) => void);
+            if (idx >= 0) listeners.splice(idx, 1);
+        },
+        _notify(prop: string) {
+            for (const cb of listeners) cb(prop);
+        },
+        component,
+        componentId: "comp-1",
+        insert: { x: 0, y: 0, z: 0 },
+        name: "test-component",
+        boundingBox: () => component.boundingBox,
+    };
 }
 
 function disposeMeshes(meshes: Mesh[]): void {
@@ -91,6 +211,10 @@ function disposeMeshes(meshes: Mesh[]): void {
         mesh.geometry?.dispose();
     }
 }
+
+// ============================================================================
+// GroupVisualObject
+// ============================================================================
 
 describe("GroupVisualObject", () => {
     const createdMeshes: Mesh[] = [];
@@ -107,9 +231,7 @@ describe("GroupVisualObject", () => {
         expect(gvo.locked).toBe(false);
     });
 
-    test("hidden node creates GroupVisualObject (visible not synced from node)", () => {
-        // GroupVisualObject does not inherit node.visible in its constructor;
-        // it inherits the default true from Object3D
+    test("hidden node creates GroupVisualObject", () => {
         const node = createFakeGroupNode({ visible: false });
         const gvo = new GroupVisualObject(node);
         expect(gvo).toBeDefined();
@@ -141,7 +263,6 @@ describe("GroupVisualObject", () => {
         expect(gvo.locked).toBe(false);
         gvo.locked = true;
         expect(gvo.locked).toBe(true);
-        // Lock material should have been saved
         expect(childMesh.userData["oldMaterial"]).toBeDefined();
 
         gvo.locked = false;
@@ -153,11 +274,11 @@ describe("GroupVisualObject", () => {
         const gvo = new GroupVisualObject(node);
 
         expect(gvo.locked).toBe(false);
-        gvo.locked = false; // No change
+        gvo.locked = false;
         expect(gvo.locked).toBe(false);
 
         gvo.locked = true;
-        gvo.locked = true; // No change
+        gvo.locked = true;
         expect(gvo.locked).toBe(true);
     });
 
@@ -165,7 +286,6 @@ describe("GroupVisualObject", () => {
         const node = createFakeGroupNode();
         const gvo = new GroupVisualObject(node);
         gvo.dispose();
-        // After dispose, notification should not throw
         expect(() =>
             (node as unknown as { _notify: (p: string) => void })._notify("transform"),
         ).not.toThrow();
@@ -175,10 +295,8 @@ describe("GroupVisualObject", () => {
         const node = createFakeGroupNode();
         const gvo = new GroupVisualObject(node);
 
-        // Directly set a new transform on the node and notify
         const newMatrix = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 100, 0, 0, 1]);
 
-        // Override the node transform and trigger notification
         const fakeNode = node as unknown as {
             transform: Matrix4;
             _notify: (p: string) => void;
@@ -194,6 +312,10 @@ describe("GroupVisualObject", () => {
         expect(gvo.transform.toArray()[12]).toBe(100);
     });
 });
+
+// ============================================================================
+// ThreeVisualObject base class
+// ============================================================================
 
 describe("ThreeVisualObject base class", () => {
     const createdMeshes: Mesh[] = [];
@@ -264,9 +386,218 @@ describe("ThreeVisualObject base class", () => {
         const node = createFakeVisualNode();
         const obj = new TestableVisualObject(node);
         obj.dispose();
-        // Notification should not throw after dispose
         expect(() =>
             (node as unknown as { _notify: (p: string) => void })._notify("transform"),
         ).not.toThrow();
+    });
+});
+
+// ============================================================================
+// ThreeMeshObject
+// ============================================================================
+
+describe("ThreeMeshObject", () => {
+    let context: ThreeVisualContext;
+
+    beforeEach(() => {
+        context = createMockVisualContext();
+    });
+
+    test("creates ThreeMeshObject with surface mesh type", () => {
+        const node = createFakeMeshNode({ meshType: "surface" });
+        const obj = new ThreeMeshObject(context, node);
+        expect(obj).toBeDefined();
+        expect(obj.mesh).toBeDefined();
+        expect(obj.visible).toBe(true);
+    });
+
+    test("creates ThreeMeshObject with linesegments mesh type", () => {
+        const node = createFakeMeshNode({ meshType: "linesegments" });
+        const obj = new ThreeMeshObject(context, node);
+        expect(obj).toBeDefined();
+        expect(obj.mesh).toBeDefined();
+    });
+
+    test("wholeVisual returns array with the mesh", () => {
+        const node = createFakeMeshNode();
+        const obj = new ThreeMeshObject(context, node);
+        const visuals = obj.wholeVisual();
+        expect(visuals.length).toBe(1);
+        expect(visuals[0]).toBe(obj.mesh);
+    });
+
+    test("subShapeVisual returns empty array", () => {
+        const node = createFakeMeshNode();
+        const obj = new ThreeMeshObject(context, node);
+        expect(obj.subShapeVisual(1)).toEqual([]);
+    });
+
+    test("getSubShapeAndIndex returns empty result", () => {
+        const node = createFakeMeshNode();
+        const obj = new ThreeMeshObject(context, node);
+        const result = obj.getSubShapeAndIndex("face", 0);
+        expect(result.shape).toBeUndefined();
+        expect(result.subShape).toBeUndefined();
+        expect(result.index).toBe(-1);
+    });
+
+    test("highlight on surface mesh does not throw", () => {
+        const node = createFakeMeshNode({ meshType: "surface" });
+        const obj = new ThreeMeshObject(context, node);
+        expect(() => obj.highlight()).not.toThrow();
+    });
+
+    test("unhighlight restores original material on surface mesh", () => {
+        const node = createFakeMeshNode({ meshType: "surface" });
+        const obj = new ThreeMeshObject(context, node);
+        obj.highlight();
+        expect(() => obj.unhighlight()).not.toThrow();
+    });
+
+    test("highlight on linesegments mesh does not throw", () => {
+        const node = createFakeMeshNode({ meshType: "linesegments" });
+        const obj = new ThreeMeshObject(context, node);
+        expect(() => obj.highlight()).not.toThrow();
+    });
+
+    test("unhighlight on linesegments mesh does not throw", () => {
+        const node = createFakeMeshNode({ meshType: "linesegments" });
+        const obj = new ThreeMeshObject(context, node);
+        obj.highlight();
+        expect(() => obj.unhighlight()).not.toThrow();
+    });
+
+    test("mesh property change triggers recreation", () => {
+        const node = createFakeMeshNode({ meshType: "surface" });
+        new ThreeMeshObject(context, node);
+
+        expect(() => (node as unknown as { _notify: (p: string) => void })._notify("mesh")).not.toThrow();
+    });
+
+    test("materialId change does not throw", () => {
+        const node = createFakeMeshNode({ meshType: "surface", materialId: "mat-1" });
+        new ThreeMeshObject(context, node);
+        expect(() =>
+            (node as unknown as { _notify: (p: string) => void })._notify("materialId"),
+        ).not.toThrow();
+    });
+
+    test("dispose cleans up mesh and handlers", () => {
+        const node = createFakeMeshNode();
+        const obj = new ThreeMeshObject(context, node);
+        expect(() => obj.dispose()).not.toThrow();
+    });
+
+    test("hidden node creates invisible visual", () => {
+        const node = createFakeMeshNode({ visible: false });
+        const obj = new ThreeMeshObject(context, node);
+        expect(obj.visible).toBe(false);
+    });
+});
+
+// ============================================================================
+// ThreeComponentObject
+// ============================================================================
+
+describe("ThreeComponentObject", () => {
+    let context: ThreeVisualContext;
+
+    beforeEach(() => {
+        context = createMockVisualContext();
+    });
+
+    function makeFakeNode() {
+        return createFakeComponentNode() as any;
+    }
+
+    test("creates with visible and locked defaults", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(obj).toBeDefined();
+        expect(obj.visible).toBe(true);
+        expect(obj.locked).toBe(false);
+    });
+
+    test("edges property is defined", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(obj.edges).toBeDefined();
+    });
+
+    test("faces property is defined", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(obj.faces).toBeDefined();
+    });
+
+    test("linesegments property is defined", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(obj.linesegments).toBeDefined();
+    });
+
+    test("surfaces property is defined", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(obj.surfaces).toBeDefined();
+    });
+
+    test("wholeVisual returns non-empty array", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        const visuals = obj.wholeVisual();
+        expect(visuals.length).toBeGreaterThan(0);
+    });
+
+    test("subShapeVisual returns non-empty for whole shape type", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        const shapes = obj.subShapeVisual(1);
+        expect(shapes.length).toBeGreaterThan(0);
+    });
+
+    test("getSubShapeAndIndex finds face by visual index", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        const result = obj.getSubShapeAndIndex("face", 0);
+        expect(result.shape).toBeDefined();
+        expect(result.subShape).toBeDefined();
+        expect(result.index).toBeGreaterThanOrEqual(0);
+    });
+
+    test("getSubShapeAndIndex returns empty for out-of-range visual", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        const result = obj.getSubShapeAndIndex("face", 999);
+        expect(result.shape).toBeUndefined();
+        expect(result.index).toBe(-1);
+    });
+
+    test("boundingBox returns the component bounding box", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        const box = obj.boundingBox();
+        expect(box).toBeDefined();
+        if (box) {
+            expect(box.min.x).toBe(0);
+            expect(box.max.x).toBe(10);
+        }
+    });
+
+    test("highlight creates bounding box and shows it", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(() => obj.highlight()).not.toThrow();
+    });
+
+    test("double highlight does not throw", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        obj.highlight();
+        expect(() => obj.highlight()).not.toThrow();
+    });
+
+    test("unhighlight when not highlighted does not throw", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(() => obj.unhighlight()).not.toThrow();
+    });
+
+    test("unhighlight after highlight does not throw", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        obj.highlight();
+        expect(() => obj.unhighlight()).not.toThrow();
+    });
+
+    test("dispose cleans up meshes", () => {
+        const obj = new ThreeComponentObject(makeFakeNode(), context);
+        expect(() => obj.dispose()).not.toThrow();
     });
 });

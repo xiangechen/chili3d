@@ -122,5 +122,14 @@ describe("ConeNode", () => {
             expect(calledWith[3]).toBe(0); // ConeNode hardcodes 0 as radius2
             expect(calledWith[4]).toBe(12); // dz
         });
+
+        test("should return Result.err when shapeFactory.cone fails", () => {
+            setupShapeFactoryMock({
+                cone: () => Result.err("cone creation failed"),
+            });
+            const node = new ConeNode({ document: doc, normal, center, radius: 5, dz: 12 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

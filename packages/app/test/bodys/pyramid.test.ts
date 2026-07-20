@@ -132,5 +132,15 @@ describe("PyramidNode", () => {
             expect(calledWith[2]).toBe(15);
             expect(calledWith[3]).toBe(20);
         });
+
+        test("should return Result.err when shapeFactory.pyramid fails", () => {
+            setupShapeFactoryMock({
+                pyramid: () => Result.err("pyramid creation failed"),
+            });
+            const plane = defaultPlane();
+            const node = new PyramidNode({ document: doc, plane, dx: 10, dy: 15, dz: 20 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

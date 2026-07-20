@@ -163,5 +163,27 @@ describe("CircleNode", () => {
             expect(result.isOk).toBe(true);
             expect(calledWith[2]).toBe(10);
         });
+
+        test("should return Result.err when shapeFactory.circle fails", () => {
+            setupShapeFactoryMock({
+                circle: () => Result.err("circle creation failed"),
+            });
+            const node = new CircleNode({ document: doc, normal, center, radius: 5 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
+
+        test("should return circle result when circle succeeds but wire fails (isFace=true)", () => {
+            const mockCircle = createMockShape();
+            setupShapeFactoryMock({
+                circle: () => Result.ok(mockCircle),
+                wire: () => Result.err("wire failed"),
+            });
+            const node = new CircleNode({ document: doc, normal, center, radius: 10 });
+            node.isFace = true;
+            const result = node.generateShape();
+            // wire fails → returns original circle result, which is ok
+            expect(result.isOk).toBe(true);
+        });
     });
 });

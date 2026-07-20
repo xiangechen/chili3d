@@ -46,6 +46,56 @@ describe("FuseNode", () => {
         });
     });
 
+    describe("setters", () => {
+        test("setting bottom should update value before generateShape throws", () => {
+            const node = new FuseNode({ document: doc, bottom, top });
+            const newBottom = createMockShape();
+            try {
+                node.bottom = newBottom as any;
+            } catch (_e) {
+                // generateShape throws, but setProperty already stored the value
+            }
+            expect(node.bottom).toBe(newBottom);
+        });
+
+        test("setting top should update value before generateShape throws", () => {
+            const node = new FuseNode({ document: doc, bottom, top });
+            const newTop = createMockShape();
+            try {
+                node.top = newTop as any;
+            } catch (_e) {
+                // generateShape throws, but setProperty already stored the value
+            }
+            expect(node.top).toBe(newTop);
+        });
+    });
+
+    describe("onPropertyChanged", () => {
+        test("should emit on bottom change before generateShape throws", () => {
+            const node = new FuseNode({ document: doc, bottom, top });
+            const events: string[] = [];
+            node.onPropertyChanged((prop: string) => events.push(prop));
+            try {
+                node.bottom = createMockShape() as any;
+            } catch (_e) {
+                // expected
+            }
+            expect(events).toContain("bottom");
+        });
+
+        test("should emit on top change before generateShape throws", () => {
+            const node = new FuseNode({ document: doc, bottom, top });
+            const events: string[] = [];
+            node.onPropertyChanged((prop: string) => events.push(prop));
+            try {
+                node.top = createMockShape() as any;
+            } catch (_e) {
+                // expected
+            }
+            expect(events).toContain("top");
+        });
+    });
+
     describe("generateShape", () => {
         test("should throw Method not implemented", () => {
             const node = new FuseNode({ document: doc, bottom, top });

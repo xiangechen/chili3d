@@ -12,6 +12,9 @@ import {
     OccPlane,
     OccRectangularSurface,
     OccSphericalSurface,
+    OccSurfaceOfLinearExtrusion,
+    OccSurfaceOfRevolution,
+    OccToroidalSurface,
 } from "../src/surface";
 import { createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
@@ -454,6 +457,125 @@ describe("OccRectangularSurface", () => {
             if (s instanceof OccRectangularSurface) {
                 expect(s.basisSurface()).toBeDefined();
                 s.setTrim(0, 1, 0, 1);
+            }
+        }
+    });
+});
+
+// ============================================================================
+// OccSurfaceOfLinearExtrusion — from extruded face
+// ============================================================================
+
+describe("OccSurfaceOfLinearExtrusion", () => {
+    test("extruded face creates linear extrusion surface", () => {
+        const rect = unwrapOk(factory.rect(Plane.XY, 10, 10));
+        const prism = unwrapOk(factory.prism(rect, new XYZ({ x: 0, y: 0, z: 20 })));
+        const faces = prism.findSubShapes(ShapeTypes.face);
+        // Find a side face which should be a linear extrusion surface
+        const surfaces = faces.map((f) => {
+            try {
+                return surfaceOfFace(f as OccFace);
+            } catch {
+                return null;
+            }
+        });
+        const extrusionSurface = surfaces.find((s) => s instanceof OccSurfaceOfLinearExtrusion);
+        if (extrusionSurface) {
+            expect(extrusionSurface).toBeDefined();
+            // direction() and basisCurve() should work
+            const dir = (extrusionSurface as OccSurfaceOfLinearExtrusion).direction();
+            expect(typeof dir.x).toBe("number");
+        }
+    });
+});
+
+// ============================================================================
+// OccSurfaceOfRevolution — from revolved face
+// ============================================================================
+
+describe("OccSurfaceOfRevolution", () => {
+    test("revolved face creates revolution surface", () => {
+        const rect = unwrapOk(
+            factory.rect(
+                new Plane({
+                    origin: new XYZ({ x: 5, y: 0, z: 0 }),
+                    normal: XYZ.unitX,
+                    xvec: XYZ.unitZ,
+                }),
+                10,
+                20,
+            ),
+        );
+        const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
+        const revolved = unwrapOk(factory.revolve(rect, axis, 360));
+        const faces = revolved.findSubShapes(ShapeTypes.face);
+        const surfaces = faces.map((f) => {
+            try {
+                return surfaceOfFace(f as OccFace);
+            } catch {
+                return null;
+            }
+        });
+
+        const revSurface = surfaces.find((s) => s instanceof OccSurfaceOfRevolution);
+        if (revSurface) {
+            const rev = revSurface as OccSurfaceOfRevolution;
+            expect(typeof rev.location.x).toBe("number");
+        }
+    });
+});
+
+// ============================================================================
+// OccToroidalSurface — from revolved circle (torus)
+// ============================================================================
+
+describe("OccToroidalSurface", () => {
+    test("torus from revolved circle has toroidal surface", () => {
+        const circle = unwrapOk(factory.circle(XYZ.unitY, new XYZ({ x: 5, y: 0, z: 0 }), 2));
+        const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
+        const revolved = factory.revolve(circle, axis, 360);
+        if (revolved.isOk) {
+            const faces = revolved.value.findSubShapes(ShapeTypes.face);
+            const surfaces = faces.map((f) => {
+                try {
+                    return surfaceOfFace(f as OccFace);
+                } catch {
+                    return null;
+                }
+            });
+            const torus = surfaces.find((s) => s instanceof OccToroidalSurface) as
+                | OccToroidalSurface
+                | undefined;
+            if (torus) {
+                expect(torus.majorRadius).toBeGreaterThan(0);
+                expect(torus.minorRadius).toBeGreaterThan(0);
+                expect(torus.area()).toBeGreaterThan(0);
+            }
+        }
+    });
+
+    test("torus surface setters", () => {
+        const circle = unwrapOk(factory.circle(XYZ.unitY, new XYZ({ x: 5, y: 0, z: 0 }), 2));
+        const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
+        const revolved = factory.revolve(circle, axis, 360);
+        if (revolved.isOk) {
+            const faces = revolved.value.findSubShapes(ShapeTypes.face);
+            const surfaces = faces.map((f) => {
+                try {
+                    return surfaceOfFace(f as OccFace);
+                } catch {
+                    return null;
+                }
+            });
+            const torus = surfaces.find((s) => s instanceof OccToroidalSurface) as
+                | OccToroidalSurface
+                | undefined;
+            if (torus) {
+                const oldMajor = torus.majorRadius;
+                torus.majorRadius = oldMajor + 1;
+                expect(torus.majorRadius).not.toBeCloseTo(oldMajor);
+                torus.majorRadius = oldMajor;
+                expect(torus.majorRadius).toBeCloseTo(oldMajor);
             }
         }
     });

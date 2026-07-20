@@ -517,7 +517,8 @@ export interface MockEdgeCurveConfig {
     start?: XYZ;
     end?: XYZ;
     mid?: XYZ;
-    basisCurve?: Partial<ICurve>;
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+    basisCurve?: Record<string, unknown>;
     projectResult?: XYZ[];
     nearestPoint?: { p1: XYZ };
     isCircle?: boolean;
@@ -540,6 +541,7 @@ export function createMockEdgeCurve(config?: MockEdgeCurveConfig) {
         basisCurve: {
             center: config?.circleCenter ?? XYZ.zero,
             radius: 5,
+            axis: XYZ.unitZ,
             ...config?.basisCurve,
         },
         isClosed: () => false,

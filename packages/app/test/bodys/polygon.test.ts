@@ -87,6 +87,17 @@ describe("PolygonNode", () => {
             node.points = [new XYZ({ x: 1, y: 1, z: 0 })];
             expect(events).toContain("points");
         });
+
+        test("should emit on isFace change", () => {
+            setupShapeFactoryMock({
+                polygon: () => Result.ok(createMockWireShape()),
+            });
+            const node = new PolygonNode({ document: doc, points });
+            const events: string[] = [];
+            node.onPropertyChanged((prop: string) => events.push(prop));
+            node.isFace = true;
+            expect(events).toContain("isFace");
+        });
     });
 
     describe("generateShape", () => {
@@ -109,6 +120,35 @@ describe("PolygonNode", () => {
             const node = new PolygonNode({ document: doc, points });
             const result = node.generateShape();
             expect(result.isOk).toBe(true);
+        });
+
+        test("should return Result.err when shapeFactory.polygon fails", () => {
+            setupShapeFactoryMock({
+                polygon: () => Result.err("polygon creation failed"),
+            });
+            const node = new PolygonNode({ document: doc, points });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
+
+        test("should call toFace() when isFace is true and polygon succeeds", () => {
+            setupShapeFactoryMock({
+                polygon: () => Result.ok(createMockWireShape()),
+            });
+            const node = new PolygonNode({ document: doc, points });
+            node.isFace = true;
+            const result = node.generateShape();
+            expect(result.isOk).toBe(true);
+        });
+
+        test("should return wire result when polygon fails for isFace mode", () => {
+            setupShapeFactoryMock({
+                polygon: () => Result.err("polygon failed"),
+            });
+            const node = new PolygonNode({ document: doc, points });
+            node.isFace = true;
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
         });
     });
 });

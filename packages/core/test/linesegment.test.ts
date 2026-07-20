@@ -138,4 +138,73 @@ describe("test linesegment", () => {
         const point3D = new XYZ({ x: 1, y: 0, z: 1 });
         expect(segment3D.distanceToPoint(point3D)).toBeCloseTo(1);
     });
+
+    test("test distanceTo where closest point is at the start of both segments", () => {
+        // sN becomes 0 because closest on this is at start, tN clamped to 0
+        const seg1 = new LineSegment({
+            start: new XYZ({ x: 0, y: 0, z: 0 }),
+            end: new XYZ({ x: 1, y: 0, z: 0 }),
+        });
+        const seg2 = new LineSegment({
+            start: new XYZ({ x: 2, y: 1, z: 0 }),
+            end: new XYZ({ x: 2, y: 3, z: 0 }),
+        });
+        const result = seg1.distanceTo(seg2);
+        expect(result.distance).toBeGreaterThan(0);
+        expect(result.sc).toBeGreaterThanOrEqual(0);
+        expect(result.sc).toBeLessThanOrEqual(1);
+        expect(result.tc).toBeGreaterThanOrEqual(0);
+        expect(result.tc).toBeLessThanOrEqual(1);
+    });
+
+    test("test distanceTo with non-parallel, closest at s=1 edge", () => {
+        // Seg1 short, seg2 long: closest point should clamp to end of seg1
+        const seg1 = new LineSegment({
+            start: new XYZ({ x: 0, y: 0, z: 0 }),
+            end: new XYZ({ x: 0.1, y: 0, z: 0 }),
+        });
+        const seg2 = new LineSegment({
+            start: new XYZ({ x: 1, y: 1, z: 0 }),
+            end: new XYZ({ x: -1, y: 1, z: 0 }),
+        });
+        const result = seg1.distanceTo(seg2);
+        expect(result.distance).toBeGreaterThan(0);
+        expect(result.sc).toBeLessThanOrEqual(1);
+        expect(result.tc).toBeGreaterThanOrEqual(0);
+        expect(result.tc).toBeLessThanOrEqual(1);
+    });
+
+    test("test distanceTo with endpoints touching yields zero distance", () => {
+        const seg1 = new LineSegment({
+            start: new XYZ({ x: 0, y: 0, z: 0 }),
+            end: new XYZ({ x: 1, y: 0, z: 0 }),
+        });
+        const seg2 = new LineSegment({
+            start: new XYZ({ x: 1, y: 0, z: 0 }),
+            end: new XYZ({ x: 2, y: 1, z: 0 }),
+        });
+        const result = seg1.distanceTo(seg2);
+        expect(result.distance).toBeCloseTo(0);
+    });
+
+    test("test distanceTo returns valid sc and tc in result", () => {
+        const seg1 = new LineSegment({
+            start: new XYZ({ x: 0, y: 0, z: 0 }),
+            end: new XYZ({ x: 10, y: 0, z: 0 }),
+        });
+        const seg2 = new LineSegment({
+            start: new XYZ({ x: 3, y: 5, z: 0 }),
+            end: new XYZ({ x: 7, y: 5, z: 0 }),
+        });
+        const result = seg1.distanceTo(seg2);
+        // Both sc and tc should be in [0,1]
+        expect(result.sc).toBeGreaterThanOrEqual(0);
+        expect(result.sc).toBeLessThanOrEqual(1);
+        expect(result.tc).toBeGreaterThanOrEqual(0);
+        expect(result.tc).toBeLessThanOrEqual(1);
+        // Closest point on seg1 should lie on the segment
+        const u = seg1.end.sub(seg1.start);
+        const closest = seg1.start.add(u.multiply(result.sc));
+        expect(result.pointOnThis.isEqualTo(closest)).toBeTruthy();
+    });
 });

@@ -105,6 +105,24 @@ describe("EllipseNode", () => {
     });
 
     describe("setters", () => {
+        test("setting center should update value", () => {
+            setupShapeFactoryMock({
+                ellipse: () => Result.ok(createMockShape()),
+                wire: () => Result.ok(createMockShape()),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+            });
+            const newCenter = new XYZ({ x: 5, y: 5, z: 0 });
+            node.center = newCenter;
+            expect(node.center).toBe(newCenter);
+        });
+
         test("setting majorRadius should update value", () => {
             setupShapeFactoryMock({
                 ellipse: () => Result.ok(createMockShape()),
@@ -158,6 +176,25 @@ describe("EllipseNode", () => {
     });
 
     describe("onPropertyChanged", () => {
+        test("should emit on center change", () => {
+            setupShapeFactoryMock({
+                ellipse: () => Result.ok(createMockShape()),
+                wire: () => Result.ok(createMockShape()),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+            });
+            const events: string[] = [];
+            node.onPropertyChanged((prop: string) => events.push(prop));
+            node.center = new XYZ({ x: 1, y: 1, z: 0 });
+            expect(events).toContain("center");
+        });
+
         test("should emit on majorRadius change", () => {
             setupShapeFactoryMock({
                 ellipse: () => Result.ok(createMockShape()),
@@ -195,6 +232,25 @@ describe("EllipseNode", () => {
             node.minorRadius = 88;
             expect(events).toContain("minorRadius");
         });
+
+        test("should emit on isFace change", () => {
+            setupShapeFactoryMock({
+                ellipse: () => Result.ok(createMockShape()),
+                wire: () => Result.ok(createMockWireShape()),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+            });
+            const events: string[] = [];
+            node.onPropertyChanged((prop: string) => events.push(prop));
+            node.isFace = true;
+            expect(events).toContain("isFace");
+        });
     });
 
     describe("generateShape", () => {
@@ -220,6 +276,60 @@ describe("EllipseNode", () => {
             expect(calledWith[2]).toBe(xvec);
             expect(calledWith[3]).toBe(20);
             expect(calledWith[4]).toBe(10);
+        });
+
+        test("should return Result.err when shapeFactory.ellipse fails", () => {
+            setupShapeFactoryMock({
+                ellipse: () => Result.err("ellipse creation failed"),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+            });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
+
+        test("should wire+toFace when isFace is true and ellipse succeeds", () => {
+            setupShapeFactoryMock({
+                ellipse: () => Result.ok(createMockShape()),
+                wire: () => Result.ok(createMockWireShape()),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+                isFace: true,
+            });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(true);
+        });
+
+        test("should return ellipse result when wire creation fails for isFace", () => {
+            const mockEdge = createMockShape();
+            setupShapeFactoryMock({
+                ellipse: () => Result.ok(mockEdge),
+                wire: () => Result.err("wire failed"),
+            });
+            const node = new EllipseNode({
+                document: doc,
+                normal,
+                center,
+                xvec,
+                majorRadius: 20,
+                minorRadius: 10,
+                isFace: true,
+            });
+            const result = node.generateShape();
+            // wire failed, falls back to circle result
+            expect(result.isOk).toBe(true);
         });
     });
 });

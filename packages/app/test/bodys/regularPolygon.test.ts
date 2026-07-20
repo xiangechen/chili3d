@@ -203,5 +203,21 @@ describe("RegularPolygonNode", () => {
             node.generateShape();
             expect(calledPoints.length).toBe(7); // sides + 1
         });
+
+        test("should return Result.err when shapeFactory.polygon fails", () => {
+            setupShapeFactoryMock({
+                polygon: () => Result.err("polygon creation failed"),
+            });
+            const node = new RegularPolygonNode({
+                document: doc,
+                normal,
+                xvec,
+                center,
+                radius: 10,
+                sides: 6,
+            });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

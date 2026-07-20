@@ -122,5 +122,14 @@ describe("CylinderNode", () => {
             expect(calledWith[2]).toBe(5);
             expect(calledWith[3]).toBe(10);
         });
+
+        test("should return Result.err when shapeFactory.cylinder fails", () => {
+            setupShapeFactoryMock({
+                cylinder: () => Result.err("cylinder creation failed"),
+            });
+            const node = new CylinderNode({ document: doc, normal, center, radius: 5, dz: 10 });
+            const result = node.generateShape();
+            expect(result.isOk).toBe(false);
+        });
     });
 });

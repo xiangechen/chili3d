@@ -7,6 +7,9 @@ const configDir = import.meta.dirname;
 
 export default defineConfig({
     exclude: ["**/cpp/**"],
+    coverage: {
+        exclude: ["**/wasm/lib/**"],
+    },
     globals: true,
     testEnvironment: "happy-dom",
     tools: {
