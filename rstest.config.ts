@@ -22,6 +22,13 @@ export default defineConfig({
                     __IS_PRODUCTION__: JSON.stringify(process.env.NODE_ENV === "production"),
                 }),
             ],
+            module: {
+                rules: [
+                    // Mirror rspack.config.ts: load .wasm as an asset URL instead of a
+                    // native webassembly module (which would instantiate at import time).
+                    { test: /\.wasm$/, type: "asset" },
+                ],
+            },
         },
     },
     resolve: {

@@ -25,6 +25,7 @@ web ──> builder ──> app ──> core
 ```
 
 - **`core`** — Everything abstract: shape interfaces, math, document model, reactive data (`Observable`, `Binding`, `PubSub`), `Result<T,E>`, undo, commands, serialization, plugins, services, UI abstractions
+- **`sketch`** — 2D parametric sketch module wrapping the garlic constraint solver (`packages/sketch/lib`, init via `initGarlic()`/`initGarlicSync()`); `SketchSolver` + serializable `SketchNode`
 - **`wasm`** — Concrete `ShapeFactory` → OCCT via Emscripten; exports `initWasm()`
 - **`three`** — Three.js viewport, camera controller, visuals, highlighter, gizmo, mesh export
 - **`element`** — Custom reactive DOM elements (radio groups, expanders, data converters)

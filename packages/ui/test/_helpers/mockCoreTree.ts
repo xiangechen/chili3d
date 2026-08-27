@@ -10,6 +10,18 @@
 
 import { rs } from "@rstest/core";
 
+import type { PubSubRecorder } from "./coreMocks";
+
+const pubSubRecorder = rs.hoisted((): PubSubRecorder => {
+    const { createPubSubRecorder } = require("./coreMocks");
+    return createPubSubRecorder();
+});
+
+/** PubSub publications recorded through the mocked core. */
+export function getPubSubPubs() {
+    return pubSubRecorder.pubs;
+}
+
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
     const { BindingMock, TransactionMock } = rs.hoisted(() => require("./coreMocks"));
@@ -23,6 +35,8 @@ rs.mock("@chili3d/core", () => {
         ...actual,
         Binding: BindingMock,
         Transaction: TransactionMock,
+        // The hoisted `actual` snapshots core mid-initialization, so PubSub must be stubbed.
+        PubSub: pubSubRecorder.stub,
         VisualNode,
         Annotation,
         NodeSelectionHandler,

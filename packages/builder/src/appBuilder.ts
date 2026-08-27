@@ -17,9 +17,11 @@ import {
     Logger,
 } from "@chili3d/core";
 import { DefaultDataExchange } from "./defaultDataExchange";
+import { DefaultRibbon, mergeRibbonProfiles, type RibbonProfileExtra, SketchRibbonProfiles } from "./ribbon";
 
 export class AppBuilder {
     protected readonly _inits: (() => Promise<void>)[] = [];
+    protected readonly _ribbonExtras: RibbonProfileExtra[] = [];
     protected _storage?: IStorage;
     protected _visualFactory?: IVisualFactory;
     protected _shapeProvider?: IShapeProvider;
@@ -81,6 +83,18 @@ export class AppBuilder {
         return this;
     }
 
+    useSketch(): this {
+        this._inits.push(async () => {
+            Logger.info("initializing sketch");
+
+            // pure config, registered synchronously so ordering with useUI does not matter
+            this._ribbonExtras.push(...SketchRibbonProfiles);
+            const sketch = await import("@chili3d/sketch");
+            await sketch.initGarlic();
+        });
+        return this;
+    }
+
     useThree(): this {
         this._inits.push(async () => {
             Logger.info("initializing three");
@@ -103,8 +117,7 @@ export class AppBuilder {
     }
 
     async getRibbonTabs() {
-        const defaultRibbon = await import("./ribbon");
-        return defaultRibbon.DefaultRibbon;
+        return mergeRibbonProfiles(DefaultRibbon, this._ribbonExtras);
     }
 
     async build(): Promise<IApplication> {

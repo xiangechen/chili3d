@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { DefaultRibbon } from "../src/ribbon";
+import { DefaultRibbon, mergeRibbonProfiles, SketchRibbonProfiles } from "../src/ribbon";
 
 describe("DefaultRibbon", () => {
     test("should be a non-empty array of tab profiles", () => {
@@ -33,6 +33,12 @@ describe("DefaultRibbon", () => {
 
     test("second tab should be manager tab", () => {
         expect(DefaultRibbon[1].tabName).toBe("ribbon.tab.manager");
+    });
+
+    test("should not contain any sketch commands without useSketch", () => {
+        const allItems = flattenItems(DefaultRibbon.flatMap((t) => t.groups.flatMap((g) => g.items)));
+        expect(allItems.some((x) => x.startsWith("sketch."))).toBe(false);
+        expect(DefaultRibbon.some((t) => t.tabName === "ribbon.tab.sketch")).toBe(false);
     });
 
     test("model tab should contain draw, modify, converter, boolean groups", () => {
@@ -106,6 +112,64 @@ describe("DefaultRibbon", () => {
                 expect(group.groupName.startsWith("ribbon.group.")).toBe(true);
             }
         }
+    });
+});
+
+describe("SketchRibbonProfiles", () => {
+    test("parametric tab should hold the sketch entry commands", () => {
+        const tab = SketchRibbonProfiles.find((t) => t.tabName === "ribbon.tab.parametric");
+        expect(tab).toBeDefined();
+        expect(tab!.contextual).toBeUndefined();
+        const allItems = flattenItems(tab!.groups.flatMap((g) => g.items));
+        expect(allItems).toEqual(["sketch.create", "sketch.enter"]);
+    });
+
+    test("sketch tab should be contextual and contain sketch, draw, constraint, dimension groups", () => {
+        const sketchTab = SketchRibbonProfiles.find((t) => t.tabName === "ribbon.tab.sketch");
+        expect(sketchTab).toBeDefined();
+        expect(sketchTab!.contextual).toBe(true);
+        const groupNames = sketchTab!.groups.map((g) => g.groupName);
+        expect(groupNames).toContain("ribbon.group.sketch");
+        expect(groupNames).toContain("ribbon.group.draw");
+        expect(groupNames).toContain("ribbon.group.constraint");
+        expect(groupNames).toContain("ribbon.group.dimension");
+        const allItems = flattenItems(sketchTab!.groups.flatMap((g) => g.items));
+        expect(allItems).toContain("sketch.exit");
+        expect(allItems).toContain("sketch.line");
+        expect(allItems).toContain("constraint.coincident");
+        expect(allItems).toContain("dimension.distance");
+        expect(allItems).not.toContain("sketch.create");
+    });
+});
+
+describe("mergeRibbonProfiles", () => {
+    test("should insert the parametric tab before the manager tab and append the sketch tab", () => {
+        const merged = mergeRibbonProfiles(DefaultRibbon, SketchRibbonProfiles);
+        const tabNames = merged.map((t) => t.tabName);
+
+        expect(tabNames).toEqual([
+            "ribbon.tab.model",
+            "ribbon.tab.parametric",
+            "ribbon.tab.manager",
+            "ribbon.tab.sketch",
+        ]);
+    });
+
+    test("should not add sketch commands to the model tab", () => {
+        const merged = mergeRibbonProfiles(DefaultRibbon, SketchRibbonProfiles);
+        const drawGroup = merged
+            .find((t) => t.tabName === "ribbon.tab.model")!
+            .groups.find((g) => g.groupName === "ribbon.group.draw")!;
+
+        expect(flattenItems(drawGroup.items).some((x) => x.startsWith("sketch."))).toBe(false);
+    });
+
+    test("should not mutate the base profiles", () => {
+        mergeRibbonProfiles(DefaultRibbon, SketchRibbonProfiles);
+
+        const allItems = flattenItems(DefaultRibbon.flatMap((t) => t.groups.flatMap((g) => g.items)));
+        expect(allItems.some((x) => x.startsWith("sketch."))).toBe(false);
+        expect(DefaultRibbon.some((t) => t.tabName === "ribbon.tab.sketch")).toBe(false);
     });
 });
 

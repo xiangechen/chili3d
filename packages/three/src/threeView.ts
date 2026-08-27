@@ -224,9 +224,10 @@ export class ThreeView extends Observable implements IView {
 
     private htmlElement(text: string, dispose: () => void, options?: HtmlTextOptions): HTMLElement {
         const className = options?.className || style.htmlText;
-        return div(
+        const noEvent = options?.hideDelete === true && options?.interactive !== true;
+        const element = div(
             {
-                className: options?.hideDelete ? `${className} ${style.noEvent}` : className,
+                className: noEvent ? `${className} ${style.noEvent}` : className,
             },
             span({ textContent: text, style: { color: "inherit" } }),
             options?.hideDelete === true
@@ -240,6 +241,17 @@ export class ThreeView extends Observable implements IView {
                       },
                   }),
         );
+        if (options?.interactive === true) {
+            // keep viewport pointer handlers (drag/select) from seeing badge interactions
+            element.addEventListener("pointerdown", (e) => e.stopPropagation());
+            element.addEventListener("pointerup", (e) => e.stopPropagation());
+            if (options.onClick) element.addEventListener("click", options.onClick);
+            if (options.onDoubleClick) element.addEventListener("dblclick", options.onDoubleClick);
+            if (options.onMouseEnter) element.addEventListener("mouseenter", options.onMouseEnter);
+            if (options.onMouseLeave) element.addEventListener("mouseleave", options.onMouseLeave);
+        }
+        options?.onCreated?.(element);
+        return element;
     }
 
     toImage(): string {
@@ -260,7 +272,9 @@ export class ThreeView extends Observable implements IView {
     }
 
     private animate() {
-        if (this._isClosed) {
+        // stop the loop when the view is closed — or disposed directly, so a
+        // dispose() that bypasses close() cannot leave the rAF loop running
+        if (this._isClosed || this._isDisposed) {
             return;
         }
         requestAnimationFrame(() => {

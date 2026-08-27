@@ -1,0 +1,29 @@
+.badge {
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 1px 6px;
+    color: #7fd4ff;
+    background-color: rgba(20, 24, 32, 0.75);
+    border: 1px solid rgba(127, 212, 255, 0.5);
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.badge:hover {
+    background-color: rgba(60, 90, 120, 0.85);
+    border-color: #7fd4ff;
+}
+
+.selected {
+    color: #33ff33;
+    border-color: #33ff33;
+}
+
+.preview {
+    pointer-events: none;
+    cursor: default;
+    opacity: 0.7;
+}

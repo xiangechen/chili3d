@@ -83,29 +83,7 @@ export class RibbonUI extends HTMLElement {
         super();
         this.className = style.root;
         this.append(this.header(), this.ribbonTabs());
-        app.mainWindow?.ribbon.onPropertyChanged(this.handleRibbonChanged);
     }
-
-    private readonly handleRibbonChanged = (key: keyof Ribbon) => {
-        if (key === "editableTabs") {
-            if (this.dataContent.editableTabs.length > 0) {
-                const groups = this.querySelectorAll(`.${style.groupPanel}`);
-                for (const group of groups) {
-                    const tab = (group as HTMLElement).dataset["tab"] as RibbonTabKeys;
-                    if (this.dataContent.editableTabs.includes(tab)) {
-                        group.classList.remove(style.disabled);
-                    } else {
-                        group.classList.add(style.disabled);
-                    }
-                }
-            } else {
-                const groups = this.querySelectorAll(`.${style.disabled}`);
-                for (const group of groups) {
-                    group.classList.remove(style.disabled);
-                }
-            }
-        }
-    };
 
     private header() {
         return div({ className: style.titleBar }, this.leftPanel(), this.centerPanel(), this.rightPanel());
@@ -147,11 +125,9 @@ export class RibbonUI extends HTMLElement {
                     textContent: new Localize(tab.tabName),
                     style: {
                         display: new Binding(
-                            this.dataContent,
-                            "hiddenTabs",
-                            new DisplayConverter(
-                                (hiddens: RibbonTabKeys[]) => !hiddens.includes(tab.tabName),
-                            ),
+                            tab,
+                            "visible",
+                            new DisplayConverter((visible: boolean) => visible),
                         ),
                     },
                     onclick: () => {

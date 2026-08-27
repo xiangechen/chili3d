@@ -30,6 +30,13 @@ export type HtmlTextOptions = {
     className?: string;
     center?: XYLike;
     onDispose?: () => void;
+    /** Re-enables pointer events (suppresses the noEvent class of hideDelete) and wires DOM handlers. */
+    interactive?: boolean;
+    onClick?: (event: MouseEvent) => void;
+    onDoubleClick?: (event: MouseEvent) => void;
+    onMouseEnter?: (event: MouseEvent) => void;
+    onMouseLeave?: (event: MouseEvent) => void;
+    onCreated?: (element: HTMLElement) => void;
 };
 
 export interface IView extends IPropertyChanged, IDisposable {

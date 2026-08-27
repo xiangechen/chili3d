@@ -132,9 +132,11 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     updateCameraPosionTarget() {
+        const oldValue = this.cameraPosition;
         this._camera.position.copy(this._position);
         this._camera.lookAt(this._target);
         this._camera.updateProjectionMatrix();
+        this.emitPropertyChanged("cameraPosition", oldValue);
     }
 
     setSize(width: number, height: number): void {

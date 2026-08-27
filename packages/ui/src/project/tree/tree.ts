@@ -10,6 +10,7 @@ import {
     type NodeRecord,
     NodeSelectionHandler,
     NodeUtils,
+    PubSub,
     ShapeSelectionHandler,
     ShapeTypes,
     Transaction,
@@ -172,6 +173,7 @@ export class Tree extends HTMLElement {
         item.addEventListener("dragend", this.onDragEnd);
         item.addEventListener("drop", this.onDrop);
         item.addEventListener("click", this.onClick);
+        item.addEventListener("dblclick", this.onDoubleClick);
     }
 
     private removeEvents(item: HTMLElement) {
@@ -181,6 +183,7 @@ export class Tree extends HTMLElement {
         item.removeEventListener("dragend", this.onDragEnd);
         item.removeEventListener("drop", this.onDrop);
         item.removeEventListener("click", this.onClick);
+        item.removeEventListener("dblclick", this.onDoubleClick);
     }
 
     private getTreeItem(item: HTMLElement | null): TreeItem | undefined {
@@ -203,6 +206,14 @@ export class Tree extends HTMLElement {
         }
 
         this.handleLastClickItem(item);
+    };
+
+    /** Lets feature packages react to a node double-click (e.g. sketch editing). */
+    private readonly onDoubleClick = (event: MouseEvent) => {
+        const node = this.getTreeItem(event.target as HTMLElement)?.node;
+        if (node === undefined) return;
+        event.stopPropagation();
+        PubSub.default.pub("nodeDoubleClicked", node);
     };
 
     private handleShiftClick(item: INode) {

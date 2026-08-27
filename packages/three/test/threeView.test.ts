@@ -18,6 +18,7 @@ import {
     XYZ,
 } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
+import { rs } from "@rstest/core";
 import {
     BufferGeometry,
     DirectionalLight,
@@ -802,6 +803,23 @@ describe("ThreeView — disposeInternal", () => {
         view["disposeInternal"]();
         expect(gizmoDisposed).toBe(true);
     });
+
+    test("dispose without close stops the animation loop", () => {
+        const context = createThreeMockVisualContext();
+        const doc = new TestDocument();
+        const view = new TestView(doc, context, { setDom: false });
+        expect(view.isClosed).toBe(false);
+
+        const raf = rs.fn();
+        rs.stubGlobal("requestAnimationFrame", raf);
+        try {
+            view.dispose();
+            (view as any).animate();
+            expect(raf).not.toHaveBeenCalled();
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
 });
 
 // ============================================================================
@@ -818,6 +836,25 @@ describe("ThreeView — htmlText advanced", () => {
         const cssObject = context.cssObjects.children.at(-1) as any;
         expect(cssObject.element.classList.contains("my-custom-class")).toBe(true);
         expect(cssObject.element.querySelector("svg")).toBeNull();
+
+        result.dispose();
+    });
+
+    test("htmlText interactive wires click and dblclick handlers", () => {
+        const { view, context } = createTestView();
+        const events: string[] = [];
+        const result = view.htmlText("Badge", new XYZ({ x: 0, y: 0, z: 0 }), {
+            hideDelete: true,
+            interactive: true,
+            onClick: () => events.push("click"),
+            onDoubleClick: () => events.push("dblclick"),
+        });
+        const cssObject = context.cssObjects.children.at(-1) as any;
+        const element = cssObject.element as HTMLElement;
+
+        element.dispatchEvent(new MouseEvent("click"));
+        element.dispatchEvent(new MouseEvent("dblclick"));
+        expect(events).toEqual(["click", "dblclick"]);
 
         result.dispose();
     });

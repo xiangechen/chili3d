@@ -288,6 +288,7 @@ export class Viewport extends HTMLElement {
             ["pointerout", this.pointerOut],
             ["pointerup", this.pointerUp],
             ["wheel", this.mouseWheel],
+            ["dblclick", this.doubleClick],
         ];
         events.forEach((v) => {
             this.addEventListenerHandler(v[0], v[1]);
@@ -351,6 +352,14 @@ export class Viewport extends HTMLElement {
 
     private readonly mouseWheel = (event: WheelEvent) => {
         this.handleEvent("mouseWheel", event);
+    };
+
+    /** Lets feature packages react to a viewport double-click (e.g. sketch editing). */
+    private readonly doubleClick = (event: MouseEvent) => {
+        const detected = this.view.detectVisual(event.offsetX, event.offsetY);
+        const node = detected.length ? this.view.document.visual.context.getNode(detected[0]) : undefined;
+        if (node === undefined) return;
+        PubSub.default.pub("nodeDoubleClicked", node);
     };
 }
 

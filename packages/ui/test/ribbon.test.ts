@@ -141,8 +141,6 @@ describe("RibbonUI", () => {
             quickCommands: [CMD_QUICK],
             tabs: [tab1, tab2],
             activeTab: tab1,
-            hiddenTabs: [],
-            editableTabs: [],
         } as unknown as Ribbon;
         const app = { views: [], mainWindow: undefined } as unknown as IApplication;
         const ui = new RibbonUI(app, dataContent);

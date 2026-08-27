@@ -47,6 +47,7 @@ import { NodeSelectionHandler, VisualNode } from "@chili3d/core";
 import { Tree } from "../src/project/tree/tree";
 import { TreeGroup } from "../src/project/tree/treeItemGroup";
 import { TreeModel } from "../src/project/tree/treeModel";
+import { getPubSubPubs } from "./_helpers/mockCoreTree";
 
 type PropertyHandler = (property: string, model: unknown) => void;
 
@@ -268,6 +269,17 @@ describe("Tree", () => {
             model1El.click();
 
             expect(fixture.doc.selection.setSelectedNodes).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("double-click", () => {
+        test("should publish nodeDoubleClicked with the document and node", () => {
+            fixture = createFixture();
+            const model1El = fixture.tree.treeItem(fixture.model1 as unknown as INode) as HTMLElement;
+
+            model1El.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+            expect(getPubSubPubs()).toEqual([{ topic: "nodeDoubleClicked", args: [fixture.model1] }]);
         });
     });
 

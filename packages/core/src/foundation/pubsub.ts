@@ -26,6 +26,7 @@ export interface PubSubEventMap {
     editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
     executeCommand: (commandName: CommandKeys) => void;
     modelUpdate: (model: INode) => void;
+    nodeDoubleClicked: (node: INode) => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
     showDialog: (title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) => void;

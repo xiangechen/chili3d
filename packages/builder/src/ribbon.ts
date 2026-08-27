@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { RibbonTabProfile } from "@chili3d/core";
+import type { RibbonTabKeys, RibbonTabProfile } from "@chili3d/core";
 
 export const DefaultRibbon: RibbonTabProfile[] = [
     {
@@ -114,3 +114,94 @@ export const DefaultRibbon: RibbonTabProfile[] = [
         ],
     },
 ];
+
+/** Extras may request insertion before an existing tab instead of appending. */
+export type RibbonProfileExtra = RibbonTabProfile & { before?: RibbonTabKeys };
+
+/**
+ * Ribbon contributions of the sketch module, applied by `AppBuilder.useSketch`.
+ * Without it no sketch command is registered, so these stay out of the ribbon.
+ */
+export const SketchRibbonProfiles: RibbonProfileExtra[] = [
+    {
+        tabName: "ribbon.tab.parametric",
+        before: "ribbon.tab.manager",
+        groups: [
+            {
+                groupName: "ribbon.group.sketch",
+                items: ["sketch.create", "sketch.enter"],
+            },
+        ],
+    },
+    {
+        tabName: "ribbon.tab.sketch",
+        contextual: true,
+        groups: [
+            {
+                groupName: "ribbon.group.sketch",
+                items: ["sketch.exit"],
+            },
+            {
+                groupName: "ribbon.group.draw",
+                items: ["sketch.line", "sketch.circle"],
+            },
+            {
+                groupName: "ribbon.group.constraint",
+                items: ["constraint.coincident", "constraint.horizontal", "constraint.vertical"],
+            },
+            {
+                groupName: "ribbon.group.dimension",
+                items: ["dimension.distance", "dimension.radius"],
+            },
+        ],
+    },
+];
+
+/**
+ * Returns a new profile list with `extras` merged into a copy of `base`: extra
+ * items are prepended to the matching group (contributions land first), unknown
+ * groups are appended, and new tabs are inserted before their `before` tab or
+ * appended. `base` is left untouched.
+ */
+export function mergeRibbonProfiles(
+    base: RibbonTabProfile[],
+    extras: RibbonProfileExtra[],
+): RibbonTabProfile[] {
+    const result = base.map((tab) => ({
+        ...tab,
+        groups: tab.groups.map((group) => ({
+            ...group,
+            items: [...group.items],
+            collapsedItems: group.collapsedItems === undefined ? undefined : [...group.collapsedItems],
+        })),
+    }));
+    for (const extra of extras) {
+        mergeTab(result, extra);
+    }
+    return result;
+}
+
+function mergeTab(result: RibbonTabProfile[], extra: RibbonProfileExtra): void {
+    const tab = result.find((t) => t.tabName === extra.tabName);
+    if (tab === undefined) {
+        const beforeIndex = result.findIndex((t) => t.tabName === extra.before);
+        if (beforeIndex < 0) {
+            result.push(extra);
+        } else {
+            result.splice(beforeIndex, 0, extra);
+        }
+        return;
+    }
+    tab.contextual = tab.contextual || extra.contextual;
+    for (const group of extra.groups) {
+        const existing = tab.groups.find((g) => g.groupName === group.groupName);
+        if (existing === undefined) {
+            tab.groups.push(group);
+        } else {
+            existing.items.unshift(...group.items);
+            if (group.collapsedItems !== undefined) {
+                existing.collapsedItems = [...group.collapsedItems, ...(existing.collapsedItems ?? [])];
+            }
+        }
+    }
+}

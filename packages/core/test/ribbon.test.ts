@@ -157,6 +157,24 @@ describe("RibbonTab", () => {
             expect(tab.tabName).toBe("ribbon.tab.model");
             expect(tab.groups.length).toBe(2);
         });
+
+        test("contextual tab should start hidden", () => {
+            const tab = RibbonTab.fromProfile({
+                tabName: "ribbon.tab.sketch" as any,
+                groups: [],
+                contextual: true,
+            });
+
+            expect(tab.contextual).toBe(true);
+            expect(tab.visible).toBe(false);
+        });
+
+        test("non-contextual tab should be visible by default", () => {
+            const tab = RibbonTab.fromProfile({ tabName: "ribbon.tab.model" as any, groups: [] });
+
+            expect(tab.contextual).toBe(false);
+            expect(tab.visible).toBe(true);
+        });
     });
 });
 
@@ -345,69 +363,53 @@ describe("Ribbon", () => {
         });
     });
 
-    describe("openEditTab and closeEditTab", () => {
-        test("should open edit tab and update state", () => {
-            const editTab = new RibbonTab("ribbon.tab.edit" as any);
-            const ribbon = new Ribbon([], [tab1, editTab]);
+    describe("openTab/closeTab", () => {
+        const contextualTab = () =>
+            RibbonTab.fromProfile({ tabName: "ribbon.tab.sketch" as any, groups: [], contextual: true });
 
-            ribbon.openEditTab();
+        test("should activate the first visible tab", () => {
+            const ribbon = new Ribbon([], [contextualTab(), tab1]);
 
-            expect(ribbon.activeTab.tabName).toBe("ribbon.tab.edit");
-            expect(ribbon.editableTabs).toContain("ribbon.tab.edit");
-            expect(ribbon.hiddenTabs).not.toContain("ribbon.tab.edit");
-        });
-
-        test("should close edit tab and restore previous tab", () => {
-            const editTab = new RibbonTab("ribbon.tab.edit" as any);
-            const ribbon = new Ribbon([], [tab1, tab2, editTab]);
-            ribbon.setActiveTab("ribbon.tab.sketch" as any);
-            expect(ribbon.activeTab).toBe(tab2);
-
-            ribbon.openEditTab();
-            expect(ribbon.activeTab.tabName).toBe("ribbon.tab.edit");
-
-            ribbon.closeEditTab();
-            expect(ribbon.activeTab).toBe(tab2);
-            expect(ribbon.editableTabs).not.toContain("ribbon.tab.edit");
-            expect(ribbon.hiddenTabs).toContain("ribbon.tab.edit");
-        });
-
-        test("should handle multiple open/close cycles", () => {
-            const editTab = new RibbonTab("ribbon.tab.edit" as any);
-            const ribbon = new Ribbon([], [tab1, tab2, editTab]);
-
-            ribbon.openEditTab();
-            ribbon.closeEditTab();
             expect(ribbon.activeTab).toBe(tab1);
-
-            ribbon.setActiveTab("ribbon.tab.sketch" as any);
-            ribbon.openEditTab();
-            ribbon.closeEditTab();
-            expect(ribbon.activeTab).toBe(tab2);
-        });
-    });
-
-    describe("editableTabs and hiddenTabs", () => {
-        test("editableTabs should default to empty array", () => {
-            const ribbon = new Ribbon([], [tab1]);
-            expect(ribbon.editableTabs).toEqual([]);
         });
 
-        test("hiddenTabs should default to edit tab hidden", () => {
-            const ribbon = new Ribbon([], [tab1]);
-            expect(ribbon.hiddenTabs).toEqual(["ribbon.tab.edit"]);
+        test("openTab should reveal and activate a contextual tab", () => {
+            const sketchTab = contextualTab();
+            const ribbon = new Ribbon([], [tab1, sketchTab]);
+
+            ribbon.openTab("ribbon.tab.sketch" as any);
+
+            expect(sketchTab.visible).toBe(true);
+            expect(ribbon.activeTab).toBe(sketchTab);
         });
 
-        test("should set and get editableTabs", () => {
-            const ribbon = new Ribbon([], [tab1]);
-            ribbon.editableTabs = ["ribbon.tab.custom" as any];
-            expect(ribbon.editableTabs).toEqual(["ribbon.tab.custom"]);
+        test("openTab should ignore an unknown tab name", () => {
+            const ribbon = new Ribbon([], [tab1, tab2]);
+
+            ribbon.openTab("ribbon.tab.nonexistent" as any);
+
+            expect(ribbon.activeTab).toBe(tab1);
         });
 
-        test("should set and get hiddenTabs", () => {
-            const ribbon = new Ribbon([], [tab1]);
-            ribbon.hiddenTabs = ["ribbon.tab.custom" as any, "ribbon.tab.edit" as any];
-            expect(ribbon.hiddenTabs).toEqual(["ribbon.tab.custom", "ribbon.tab.edit"]);
+        test("closeTab should hide a contextual tab and restore the previous tab", () => {
+            const sketchTab = contextualTab();
+            const ribbon = new Ribbon([], [tab1, sketchTab]);
+            ribbon.openTab("ribbon.tab.sketch" as any);
+
+            ribbon.closeTab("ribbon.tab.sketch" as any);
+
+            expect(sketchTab.visible).toBe(false);
+            expect(ribbon.activeTab).toBe(tab1);
+        });
+
+        test("closeTab should keep a non-contextual tab visible", () => {
+            const ribbon = new Ribbon([], [tab1, tab2]);
+            ribbon.openTab("ribbon.tab.sketch" as any);
+
+            ribbon.closeTab("ribbon.tab.sketch" as any);
+
+            expect(tab2.visible).toBe(true);
+            expect(ribbon.activeTab).toBe(tab1);
         });
     });
 });

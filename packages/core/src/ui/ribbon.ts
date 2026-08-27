@@ -57,16 +57,27 @@ export class RibbonGroup extends Observable {
 export type RibbonTabProfile = {
     tabName: RibbonTabKeys;
     groups: RibbonGroupProfile[];
+    /** Contextual tabs are hidden until opened with `Ribbon.openTab` (e.g. sketch mode). */
+    contextual?: boolean;
 };
 
 export class RibbonTab extends Observable {
     readonly groups = new ObservableCollection<RibbonGroup>();
+
+    contextual = false;
 
     get tabName(): RibbonTabKeys {
         return this.getPrivateValue("tabName");
     }
     set tabName(value: RibbonTabKeys) {
         this.setProperty("tabName", value);
+    }
+
+    get visible(): boolean {
+        return this.getPrivateValue("visible", true);
+    }
+    set visible(value: boolean) {
+        this.setProperty("visible", value);
     }
 
     constructor(tabName: RibbonTabKeys, ...groups: RibbonGroup[]) {
@@ -76,23 +87,33 @@ export class RibbonTab extends Observable {
     }
 
     static fromProfile(profile: RibbonTabProfile) {
-        return new RibbonTab(
+        const tab = new RibbonTab(
             profile.tabName,
             ...profile.groups.map((group) => RibbonGroup.fromProfile(group)),
         );
+        tab.contextual = profile.contextual === true;
+        tab.setPrivateValue("visible", profile.contextual !== true);
+        return tab;
     }
 }
 
 export class Ribbon extends Observable {
     readonly quickCommands = new ObservableCollection<CommandKeys>();
     readonly tabs = new ObservableCollection<RibbonTab>();
-    private preTab: RibbonTabKeys = "ribbon.tab.model";
+    private preTab?: RibbonTab;
+
+    get activeTab() {
+        return this.getPrivateValue("activeTab");
+    }
+    set activeTab(value: RibbonTab) {
+        this.setProperty("activeTab", value);
+    }
 
     constructor(quickCommands: CommandKeys[], tabs: RibbonTab[]) {
         super();
         this.quickCommands.push(...quickCommands);
         this.tabs.push(...tabs);
-        this.setPrivateValue("activeTab", tabs[0]);
+        this.setPrivateValue("activeTab", tabs.find((x) => x.visible)!);
     }
 
     combineRibbonTab(tabProfile: RibbonTabProfile) {
@@ -123,13 +144,6 @@ export class Ribbon extends Observable {
         group?.items.push(command);
     }
 
-    get activeTab() {
-        return this.getPrivateValue("activeTab");
-    }
-    set activeTab(value: RibbonTab) {
-        this.setProperty("activeTab", value);
-    }
-
     setActiveTab(tabName: RibbonTabKeys) {
         const tab = this.tabs.find((p: RibbonTab) => p.tabName === tabName);
         if (!tab) {
@@ -140,30 +154,20 @@ export class Ribbon extends Observable {
         this.activeTab = tab;
     }
 
-    openEditTab() {
-        this.preTab = this.activeTab.tabName;
-        this.editableTabs = this.editableTabs.concat(["ribbon.tab.edit"]);
-        this.hiddenTabs = this.hiddenTabs.filter((x) => x !== "ribbon.tab.edit");
-        this.setActiveTab("ribbon.tab.edit");
+    openTab(tabName: RibbonTabKeys) {
+        const tab = this.tabs.find((x) => x.tabName === tabName);
+        if (!tab) return;
+
+        this.preTab = this.activeTab;
+        if (!tab.visible) tab.visible = true;
+        this.activeTab = tab;
     }
 
-    closeEditTab() {
-        this.editableTabs = this.editableTabs.filter((x) => x !== "ribbon.tab.edit");
-        this.hiddenTabs = this.hiddenTabs.concat(["ribbon.tab.edit"]);
-        this.setActiveTab(this.preTab);
-    }
+    closeTab(tabName: RibbonTabKeys) {
+        const tab = this.tabs.find((x) => x.tabName === tabName);
+        if (!tab) return;
 
-    get editableTabs(): ReadonlyArray<RibbonTabKeys> {
-        return this.getPrivateValue("editableTabs", []);
-    }
-    set editableTabs(value: RibbonTabKeys[]) {
-        this.setProperty("editableTabs", value);
-    }
-
-    get hiddenTabs(): ReadonlyArray<RibbonTabKeys> {
-        return this.getPrivateValue("hiddenTabs", ["ribbon.tab.edit"]);
-    }
-    set hiddenTabs(value: RibbonTabKeys[]) {
-        this.setProperty("hiddenTabs", value);
+        tab.visible = !tab.contextual;
+        this.activeTab = this.preTab ?? this.tabs.find((x) => x.visible)!;
     }
 }
