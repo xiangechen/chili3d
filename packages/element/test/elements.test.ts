@@ -112,6 +112,12 @@ describe("svg", () => {
         expect(el.classList.contains("my-svg")).toBe(true);
     });
 
+    test("should support multiple space-separated classes", () => {
+        const el = svg({ icon: "icon-test", className: "first second" });
+        expect(el.classList.contains("first")).toBe(true);
+        expect(el.classList.contains("second")).toBe(true);
+    });
+
     test("should set properties on SVG via setProperties", () => {
         // Properties like id are set via setProperties and work with SVG elements
         const el = svg({ icon: "icon-test", className: "cls", id: "svg-icon-1" });

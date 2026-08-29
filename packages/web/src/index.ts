@@ -27,7 +27,7 @@ async function handleApplicaionBuilt(app: IApplication) {
 new AppBuilder()
     .useIndexedDB()
     .useWasmOcc()
-    .useSketch()
+    .useParametric()
     .useThree()
     .useUI()
     .build()

@@ -119,39 +119,23 @@ export const DefaultRibbon: RibbonTabProfile[] = [
 export type RibbonProfileExtra = RibbonTabProfile & { before?: RibbonTabKeys };
 
 /**
- * Ribbon contributions of the sketch module, applied by `AppBuilder.useSketch`.
- * Without it no sketch command is registered, so these stay out of the ribbon.
+ * Ribbon contributions of the parametric module, applied by `AppBuilder.useParametric`.
+ * Feature commands join the parametric tab next to the sketch group.
  */
-export const SketchRibbonProfiles: RibbonProfileExtra[] = [
+export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
     {
         tabName: "ribbon.tab.parametric",
         before: "ribbon.tab.manager",
         groups: [
             {
-                groupName: "ribbon.group.sketch",
-                items: ["sketch.create", "sketch.enter"],
-            },
-        ],
-    },
-    {
-        tabName: "ribbon.tab.sketch",
-        contextual: true,
-        groups: [
-            {
-                groupName: "ribbon.group.sketch",
-                items: ["sketch.exit"],
-            },
-            {
-                groupName: "ribbon.group.draw",
-                items: ["sketch.line", "sketch.circle"],
-            },
-            {
-                groupName: "ribbon.group.constraint",
-                items: ["constraint.coincident", "constraint.horizontal", "constraint.vertical"],
-            },
-            {
-                groupName: "ribbon.group.dimension",
-                items: ["dimension.distance", "dimension.radius"],
+                groupName: "ribbon.group.feature",
+                items: [
+                    "feature.extrude",
+                    "feature.revolve",
+                    ["feature.fillet", "feature.chamfer"],
+                    ["feature.fuse", "feature.cut", "feature.common"],
+                    "feature.variable",
+                ],
             },
         ],
     },

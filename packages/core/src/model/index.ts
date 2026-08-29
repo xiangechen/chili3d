@@ -4,6 +4,7 @@
 export * from "./annotation";
 export * from "./component";
 export * from "./facebaseNode";
+export * from "./featureList";
 export * from "./folderNode";
 export * from "./geometryNode";
 export * from "./groupNode";

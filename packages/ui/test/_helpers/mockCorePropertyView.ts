@@ -43,5 +43,8 @@ rs.mock("@chili3d/core", () => {
                 return "VisualObject";
             }
         },
+        // rs.hoisted(require(...)) may snapshot a partial core module; provide the
+        // real duck-type semantics explicitly so PropertyView's feature list works.
+        isFeatureListNode: (node: unknown) => typeof (node as any)?.featureItems === "function",
     };
 });

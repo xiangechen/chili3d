@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { DefaultRibbon, mergeRibbonProfiles, SketchRibbonProfiles } from "../src/ribbon";
+import { SketchRibbonProfiles } from "@chili3d/parametric";
+import { DefaultRibbon, mergeRibbonProfiles, ParametricRibbonProfiles } from "../src/ribbon";
 
 describe("DefaultRibbon", () => {
     test("should be a non-empty array of tab profiles", () => {
@@ -35,7 +36,7 @@ describe("DefaultRibbon", () => {
         expect(DefaultRibbon[1].tabName).toBe("ribbon.tab.manager");
     });
 
-    test("should not contain any sketch commands without useSketch", () => {
+    test("should not contain any sketch commands without useParametric", () => {
         const allItems = flattenItems(DefaultRibbon.flatMap((t) => t.groups.flatMap((g) => g.items)));
         expect(allItems.some((x) => x.startsWith("sketch."))).toBe(false);
         expect(DefaultRibbon.some((t) => t.tabName === "ribbon.tab.sketch")).toBe(false);
@@ -139,6 +140,40 @@ describe("SketchRibbonProfiles", () => {
         expect(allItems).toContain("constraint.coincident");
         expect(allItems).toContain("dimension.distance");
         expect(allItems).not.toContain("sketch.create");
+    });
+});
+
+describe("ParametricRibbonProfiles", () => {
+    test("should contribute the feature group to the parametric tab", () => {
+        const tab = ParametricRibbonProfiles.find((t) => t.tabName === "ribbon.tab.parametric");
+        expect(tab).toBeDefined();
+        expect(tab!.before).toBe("ribbon.tab.manager");
+        const featureGroup = tab!.groups.find((g) => g.groupName === "ribbon.group.feature");
+        expect(featureGroup).toBeDefined();
+        expect(flattenItems(featureGroup!.items)).toContain("feature.extrude");
+    });
+
+    test("should merge into the sketch module's parametric tab without duplicating it", () => {
+        const merged = mergeRibbonProfiles(DefaultRibbon, [
+            ...SketchRibbonProfiles,
+            ...ParametricRibbonProfiles,
+        ]);
+        const parametricTabs = merged.filter((t) => t.tabName === "ribbon.tab.parametric");
+
+        expect(parametricTabs.length).toBe(1);
+        const allItems = flattenItems(parametricTabs[0].groups.flatMap((g) => g.items));
+        expect(allItems).toEqual([
+            "sketch.create",
+            "sketch.enter",
+            "feature.extrude",
+            "feature.revolve",
+            "feature.fillet",
+            "feature.chamfer",
+            "feature.fuse",
+            "feature.cut",
+            "feature.common",
+            "feature.variable",
+        ]);
     });
 });
 

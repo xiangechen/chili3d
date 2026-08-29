@@ -4,7 +4,7 @@
 // test-utils must load BEFORE the core-mock helper so the real core module is
 // fully cached by the time `rs.mock("@chili3d/core")` registers.
 import { createMockDocument } from "@chili3d/core/test-utils";
-import { describe, expect, test } from "@rstest/core";
+import { describe, expect, rs, test } from "@rstest/core";
 
 // ============================================================
 // Mocks setup — must come before imports of the module under test
@@ -138,6 +138,163 @@ describe("PropertyView", () => {
             handler!(doc, []);
 
             expect(mustQuery(pv, ".pv-panel").childElementCount).toBe(0);
+        });
+
+        test("should render a feature list for feature-list nodes", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                {
+                    id: "f1",
+                    display: "command.feature.extrude",
+                    parameters: [{ key: "length", display: "common.length", value: 5 }],
+                },
+            ];
+            node.setFeatureParameter = () => {};
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+
+            handler!(doc, [node as INode]);
+
+            const list = pv.querySelector("chili-feature-list");
+            expect(list).not.toBeNull();
+            expect(list!.querySelector("svg")).not.toBeNull();
+            expect((list!.querySelector("input") as HTMLInputElement).value).toBe("5");
+        });
+
+        test("should pass expression strings through to setFeatureParameter", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                {
+                    id: "f1",
+                    display: "command.feature.extrude",
+                    parameters: [{ key: "length", display: "common.length", value: 5 }],
+                },
+            ];
+            node.setFeatureParameter = rs.fn();
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+            handler!(doc, [node as INode]);
+
+            const box = pv.querySelector("chili-feature-list input") as HTMLInputElement;
+            expect(box).not.toBeNull();
+            box.value = "width * 2";
+            (box as any)._onkeydown({ key: "Enter", stopPropagation: () => {}, target: box });
+
+            expect(node.setFeatureParameter).toHaveBeenCalledWith("f1", "length", "width * 2");
+        });
+
+        test("should render the feature icon and trimmed number values", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                {
+                    id: "f1",
+                    display: "command.feature.extrude",
+                    icon: "icon-prism",
+                    parameters: [{ key: "length", display: "common.length", value: 480.76124570648494 }],
+                },
+            ];
+            node.setFeatureParameter = () => {};
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+
+            handler!(doc, [node as INode]);
+
+            expect(pv.querySelector('chili-feature-list svg[icon="icon-prism"]')).not.toBeNull();
+            const box = pv.querySelector("chili-feature-list input") as HTMLInputElement;
+            expect(box.value).toBe("480.7612");
+        });
+
+        test("should not render a feature list for ordinary nodes", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+
+            handler!(doc, [new TestNode() as unknown as INode]);
+
+            expect(pv.querySelector("chili-feature-list")).toBeNull();
+        });
+
+        test("should render a reselect button that triggers reselectShapes", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                { id: "f1", display: "command.feature.fillet", reselectable: true, parameters: [] },
+            ];
+            node.setFeatureParameter = () => {};
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+            node.reselectShapes = rs.fn();
+
+            handler!(doc, [node as INode]);
+
+            const button = pv.querySelector('chili-feature-list svg[icon="icon-edit"]') as any;
+            expect(button).not.toBeNull();
+            expect(typeof button._onclick).toBe("function");
+            button._onclick();
+            expect(node.reselectShapes).toHaveBeenCalledWith("f1");
+        });
+
+        test("should render the error message for failed features", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                {
+                    id: "f1",
+                    display: "command.feature.fillet",
+                    error: "Edge not found after rebuild",
+                    parameters: [],
+                },
+            ];
+            node.setFeatureParameter = () => {};
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+
+            handler!(doc, [node as INode]);
+
+            const list = pv.querySelector("chili-feature-list");
+            expect(list).not.toBeNull();
+            expect(list!.textContent).toContain("Edge not found after rebuild");
+        });
+
+        test("should not render a reselect button for non-reselectable features", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const node = new TestNode() as any;
+            node.featureItems = () => [
+                {
+                    id: "f1",
+                    display: "command.feature.extrude",
+                    parameters: [{ key: "length", display: "common.length", value: 5 }],
+                },
+            ];
+            node.setFeatureParameter = () => {};
+            node.removeFeature = () => {};
+            node.onPropertyChanged = () => {};
+            node.removePropertyChanged = () => {};
+
+            handler!(doc, [node as INode]);
+
+            // Only the suppress/move/delete buttons remain — 4 svgs, none with icon-edit
+            expect(pv.querySelectorAll("chili-feature-list svg").length).toBe(4);
         });
     });
 

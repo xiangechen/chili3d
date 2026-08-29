@@ -92,7 +92,8 @@ export function svg(props: HTMLProps<HTMLElement> & { icon: string }) {
     const className = String(props.className);
     delete props.className;
     setProperties(svg, props);
-    svg.classList.add(className);
+    // classList.add rejects tokens containing whitespace, so split multi-class names
+    svg.classList.add(...className.split(" ").filter((x) => x !== ""));
     if (props.title) {
         addTitle(props, svg);
     }

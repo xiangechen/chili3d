@@ -138,6 +138,7 @@ describe("AppBuilder", () => {
         test.each([
             "useIndexedDB",
             "useWasmOcc",
+            "useParametric",
             "useThree",
             "useUI",
         ] as const)("%s should return this and push init function", (method) => {

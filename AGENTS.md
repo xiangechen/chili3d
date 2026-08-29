@@ -22,16 +22,17 @@ Browser-based parametric 3D CAD: OCCT C++ kernel compiled to WebAssembly, render
 web ──> builder ──> app ──> core
                   ──> i18n / three / wasm ──> core
                   ──> ui ──> core + element
+                  ──> parametric ──> core
 ```
 
 - **`core`** — Everything abstract: shape interfaces, math, document model, reactive data (`Observable`, `Binding`, `PubSub`), `Result<T,E>`, undo, commands, serialization, plugins, services, UI abstractions
-- **`sketch`** — 2D parametric sketch module wrapping the garlic constraint solver (`packages/sketch/lib`, init via `initGarlic()`/`initGarlicSync()`); `SketchSolver` + serializable `SketchNode`
+- **`parametric`** — Parametric feature-list bodies (Onshape-style) plus the 2D sketch module (`src/sketch/`): the sketch side wraps the garlic constraint solver (`packages/parametric/lib`, init via `initGarlic()`/`initGarlicSync()`) with `SketchSolver` + serializable `SketchNode`; the body side's `ParametricBodyNode` replays an ordered `featuresJson` list (extrude/revolve from a referenced sketch, fillet/chamfer via edge fingerprints in `features/edgeRef.ts`, boolean against tool nodes, `variable` features defining expression scope) without shape snapshots; per-kind behavior lives in `features/` behind `registerFeature`. Numeric parameters accept expression strings (`features/expression.ts` — safe parser, no `eval`; trig in degrees). Rebuilds reuse a per-feature cache (feature JSON + variable scope + input/refs shape identity) and dispose evicted intermediate shapes; referenced nodes are watched so edits re-evaluate the chain. The property panel renders the list through core's `IFeatureListNode` contract (`core/src/model/featureList.ts`)
 - **`wasm`** — Concrete `ShapeFactory` → OCCT via Emscripten; exports `initWasm()`
 - **`three`** — Three.js viewport, camera controller, visuals, highlighter, gizmo, mesh export
 - **`element`** — Custom reactive DOM elements (radio groups, expanders, data converters)
 - **`ui`** — App chrome: main window, ribbon, property panels, project tree, dialogs, toast, status bar
 - **`app`** — `Application`, body nodes (`bodys/`), command implementations, `CommandService`, `HotkeyService`
-- **`builder`** — `AppBuilder` fluent chain (`.useIndexedDB().useWasmOcc().useThree().useUI().build()`), default ribbon layout
+- **`builder`** — `AppBuilder` fluent chain (`.useIndexedDB().useWasmOcc().useParametric().useThree().useUI().build()`), default ribbon layout; `mergeRibbonProfiles` merges module contributions (`SketchRibbonProfiles` from `@chili3d/parametric`, `ParametricRibbonProfiles`) into `DefaultRibbon`
 - **`i18n`** / **`storage`** / **`web`** — Locale data (en, zh-cn, pt-br) / IndexedDB persistence / entry point (loading screen, `?plugin=`/`?url=`/`?model=` params)
 
 Import via workspace names (`import { ... } from "@chili3d/core"`); one root `tsconfig.json` covers all packages.

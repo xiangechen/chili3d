@@ -132,6 +132,11 @@ class MockExpander extends HTMLElement {
     }
 }
 
+// happy-dom rejects `new` on unregistered HTMLElement subclasses ("Illegal constructor").
+if (typeof customElements !== "undefined" && !customElements.get("chili-mock-expander")) {
+    customElements.define("chili-mock-expander", MockExpander);
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: test mock for collection factory
 function createCollection(opts: any): HTMLElement {
     const container = document.createElement("div");

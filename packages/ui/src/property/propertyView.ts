@@ -5,8 +5,10 @@ import {
     FolderNode,
     GroupNode,
     type IDocument,
+    type IFeatureListNode,
     type INode,
     type IView,
+    isFeatureListNode,
     Localize,
     Node,
     PropertyUtils,
@@ -15,6 +17,7 @@ import {
 } from "@chili3d/core";
 import { div, Expander, label } from "@chili3d/element";
 import { propertyControl } from "./complexPropertyUtils";
+import { FeatureListProperty } from "./featureListProperty";
 import { MatrixProperty } from "./matrixProperty";
 import style from "./propertyView.module.css";
 
@@ -47,6 +50,7 @@ export class PropertyView extends HTMLElement {
         if (nodes.length === 0) return;
         this.addModel(document, nodes);
         this.addGeometry(nodes, document);
+        this.addFeatureList(document, nodes);
     };
 
     private removeProperties() {
@@ -96,6 +100,16 @@ export class PropertyView extends HTMLElement {
             ),
         );
         this.panel.append(parameters);
+    }
+
+    private addFeatureList(document: IDocument, nodes: INode[]) {
+        if (nodes.length !== 1 || !isFeatureListNode(nodes[0])) return;
+
+        const features = new Expander("features.header");
+        features.contenxtPanel.append(
+            new FeatureListProperty(document, nodes[0] as INode & IFeatureListNode),
+        );
+        this.panel.append(features);
     }
 
     private isAllElementsOfTypeFirstElement(arr: any[]): boolean {

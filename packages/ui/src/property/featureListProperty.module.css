@@ -1,0 +1,107 @@
+/* Part of the Chili3d Project, under the AGPL-3.0 License.
+   See LICENSE file in the project root for full license information. */
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.item {
+    background-color: var(--button-secondary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 8px;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease;
+
+    &:hover {
+        border-color: var(--border-hover-color);
+    }
+
+    &.error {
+        border-color: var(--error-color);
+    }
+
+    &.suppressed {
+        opacity: 0.5;
+    }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.name {
+    font-size: 14px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Actions stay out of the way until the row is hovered; an errored row keeps
+   them visible so the repair actions (e.g. re-pick) remain discoverable. */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    visibility: hidden;
+}
+
+.item:hover .actions,
+.item.error .actions {
+    visibility: visible;
+}
+
+.action {
+    width: 14px;
+    height: 14px;
+    padding: 3px;
+    cursor: pointer;
+    opacity: 0.65;
+    border-radius: 4px;
+
+    &:hover {
+        opacity: 1;
+        background-color: var(--button-secondary-hover);
+    }
+
+    &.up {
+        transform: rotate(180deg);
+    }
+}
+
+.errorText {
+    color: var(--error-color);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: 4px;
+    word-break: break-word;
+}
+
+.param {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}

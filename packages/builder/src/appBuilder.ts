@@ -17,7 +17,12 @@ import {
     Logger,
 } from "@chili3d/core";
 import { DefaultDataExchange } from "./defaultDataExchange";
-import { DefaultRibbon, mergeRibbonProfiles, type RibbonProfileExtra, SketchRibbonProfiles } from "./ribbon";
+import {
+    DefaultRibbon,
+    mergeRibbonProfiles,
+    ParametricRibbonProfiles,
+    type RibbonProfileExtra,
+} from "./ribbon";
 
 export class AppBuilder {
     protected readonly _inits: (() => Promise<void>)[] = [];
@@ -83,14 +88,15 @@ export class AppBuilder {
         return this;
     }
 
-    useSketch(): this {
+    useParametric(): this {
         this._inits.push(async () => {
-            Logger.info("initializing sketch");
+            Logger.info("initializing parametric");
 
-            // pure config, registered synchronously so ordering with useUI does not matter
-            this._ribbonExtras.push(...SketchRibbonProfiles);
-            const sketch = await import("@chili3d/sketch");
-            await sketch.initGarlic();
+            // registers sketch/feature commands, the SketchNode/ParametricBodyNode
+            // serializers, and exposes the sketch ribbon contributions
+            const parametric = await import("@chili3d/parametric");
+            await parametric.initGarlic();
+            this._ribbonExtras.push(...parametric.SketchRibbonProfiles, ...ParametricRibbonProfiles);
         });
         return this;
     }
