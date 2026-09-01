@@ -114,6 +114,27 @@ export function trackedIds(featureId: string, inputIds: readonly string[], map: 
     );
 }
 
+/**
+ * Face ids for sweeps (prism/revol): face-history hits keep the input face id; a side
+ * face generated from a profile edge takes that edge's seed — stable across rebuilds
+ * even when the kernel re-enumerates faces (a mirrored profile flips the side-face
+ * order); anything else is feature-scoped.
+ */
+export function trackedFaceIds(
+    featureId: string,
+    inputFaceIds: readonly string[],
+    inputEdgeIds: readonly string[],
+    faceMap: number[],
+    faceEdgeMap?: number[],
+): string[] {
+    return faceMap.map((inputIndex, outputIndex) => {
+        if (inputIndex >= 0 && inputIndex < inputFaceIds.length) return inputFaceIds[inputIndex];
+        const edgeIndex = faceEdgeMap?.[outputIndex] ?? -1;
+        if (edgeIndex >= 0 && edgeIndex < inputEdgeIds.length) return inputEdgeIds[edgeIndex];
+        return `${featureId}:${outputIndex}`;
+    });
+}
+
 /** Per-feature-kind behavior. Implementations live next to their feature file. */
 export interface FeatureHandler<F extends FeatureData = any> {
     /** i18n key shown in the feature list; a function picks the key per feature (e.g. boolean operation). */

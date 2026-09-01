@@ -13,7 +13,8 @@ import {
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { captureFaceRef, resolveFacePlane } from "../../src/sketch/planeRef";
+import { ParametricBodyNode } from "../../src/parametricBodyNode";
+import { captureFaceRef, type PlaneFaceRef, resolveFacePlane } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 function planarFace(point: XYZ, normal: XYZ): IFace {
@@ -81,6 +82,55 @@ describe("resolveFacePlane", () => {
         const ref = { nodeId: "missing", normal: { x: 0, y: 0, z: 1 }, offset: 5 };
 
         expect(resolveFacePlane(doc, ref)).toBeUndefined();
+    });
+
+    describe("faceId on a parametric body", () => {
+        function bodyWithFaces(faceIds: string[], ...faces: IFace[]) {
+            const doc = new TestDocument({ application: createMockApplication() });
+            const body = new ParametricBodyNode({ document: doc });
+            doc.modelManager.addNode(body);
+            const shape = solidWith(...faces);
+            (body as any)._shape = Result.ok(shape);
+            (body as any)._cache = [{ json: "", input: undefined, refs: new Map(), shape, faceIds }];
+            return { doc, body };
+        }
+
+        test("a hit whose normal still matches resolves exactly, not by nearest offset", () => {
+            const { doc, body } = bodyWithFaces(
+                ["f1:0", "f1:1"],
+                planarFace(new XYZ({ x: 0, y: 0, z: 20 }), XYZ.unitZ),
+                planarFace(new XYZ({ x: 0, y: 0, z: 8 }), XYZ.unitZ),
+            );
+            // captured at z=5 from the face that has since moved to z=20; the other
+            // co-directional face at z=8 is closer to the captured offset
+            const ref: PlaneFaceRef = {
+                nodeId: body.id,
+                normal: { x: 0, y: 0, z: 1 },
+                offset: 5,
+                faceId: "f1:0",
+            };
+
+            expect(resolveFacePlane(doc, ref)?.origin.z).toBe(20);
+        });
+
+        test("a hit whose normal mismatched falls back to the fingerprint", () => {
+            const { doc, body } = bodyWithFaces(
+                ["f1:0", "f1:1"],
+                planarFace(new XYZ({ x: 3, y: 0, z: 0 }), XYZ.unitX),
+                planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ),
+            );
+            // the id now indexes a +X face — a rebuild reordered the faces
+            const ref: PlaneFaceRef = {
+                nodeId: body.id,
+                normal: { x: 0, y: 0, z: 1 },
+                offset: 5,
+                faceId: "f1:0",
+            };
+
+            const plane = resolveFacePlane(doc, ref);
+            expect(plane?.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+            expect(plane?.origin.z).toBe(5);
+        });
     });
 });
 

@@ -45,11 +45,13 @@ export function captureFaceRef(nodeId: string, face: IFace): PlaneFaceRef {
 
 /**
  * Re-resolves the sketch plane on the referenced node's current shape. A stored
- * `faceId` hits exactly (the id survives rebuilds via kernel shape history); otherwise
- * the geometric fingerprint applies: among planar faces with the captured normal
- * direction, the one whose offset is closest to the captured offset wins — a parameter
- * edit moves the face rigidly along its normal, so the direction identifies the face
- * and the nearest offset disambiguates co-directional faces. Returns undefined when the
+ * `faceId` hits exactly (the id survives rebuilds via kernel shape history) — but
+ * only when the resolved face's normal still matches the captured one, since
+ * index-scoped ids realign when a rebuild reorders faces; otherwise the geometric
+ * fingerprint applies: among planar faces with the captured normal direction, the
+ * one whose offset is closest to the captured offset wins — a parameter edit moves
+ * the face rigidly along its normal, so the direction identifies the face and the
+ * nearest offset disambiguates co-directional faces. Returns undefined when the
  * node or a matching face no longer exists; callers keep the last plane then.
  */
 export function resolveFacePlane(document: IDocument, ref: PlaneFaceRef): Plane | undefined {
@@ -72,11 +74,23 @@ function matchFace(
     transform: Matrix4,
     ref: PlaneFaceRef,
 ): IFace | undefined {
+    const refNormal = new XYZ(ref.normal);
     if (ref.faceId !== undefined && node instanceof ParametricBodyNode) {
         const index = node.faceIndexById(ref.faceId);
-        if (index !== undefined && faces[index] !== undefined) return faces[index];
+        const face = index === undefined ? undefined : faces[index];
+        // Index-scoped ids (the prism's side/top faces) realign when a rebuild changes
+        // the face enumeration order — e.g. a mirrored profile flips the side-face
+        // order — so a hit is trusted only when the normal still matches; otherwise
+        // the geometric fingerprint below is the better guess.
+        if (face !== undefined && normalMatches(face, transform, refNormal)) return face;
     }
-    return closestFace(faces, transform, new XYZ(ref.normal), ref.offset);
+    return closestFace(faces, transform, refNormal, ref.offset);
+}
+
+function normalMatches(face: IFace, transform: Matrix4, refNormal: XYZ): boolean {
+    if (!face.surface().isPlanar()) return false;
+    const [, normal] = face.normal(0, 0);
+    return transform.ofVector(normal).dot(refNormal) >= 1 - 1e-6;
 }
 
 function closestFace(
@@ -88,9 +102,8 @@ function closestFace(
     let best: IFace | undefined;
     let bestScore = Infinity;
     for (const face of faces) {
-        if (!face.surface().isPlanar()) continue;
-        const [point, normal] = face.normal(0, 0);
-        if (transform.ofVector(normal).dot(refNormal) < 1 - 1e-6) continue;
+        if (!normalMatches(face, transform, refNormal)) continue;
+        const [point] = face.normal(0, 0);
         const score = Math.abs(transform.ofPoint(point).dot(refNormal) - refOffset);
         if (score < bestScore) {
             best = face;

@@ -53,6 +53,7 @@ export interface TrackedShapeResult extends ClassHandle {
   shape: TopoDS_Shape;
   faceMap: IntVector;
   edgeMap: IntVector;
+  faceEdgeMap: IntVector;
 }
 
 export interface ShapeFactory extends ClassHandle {

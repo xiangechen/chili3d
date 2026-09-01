@@ -161,6 +161,26 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIndexById("unknown")).toBeUndefined();
     });
 
+    test("side faces take the generating profile edge's id when the kernel reports it", () => {
+        mocks.prismTracked.mockImplementation((_face: any, _vec: XYZ) =>
+            Result.ok({
+                shape: mocks.prismShape,
+                faceMap: [0, -1, -1, -1, -1, -1],
+                edgeMap: [0, -1, -1, -1],
+                // side faces 1..4 are generated from profile edges 0..3
+                faceEdgeMap: [-1, 0, 1, 2, 3, -1],
+            }),
+        );
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:0:e0`);
+        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:0:e3`);
+        // the top face has no edge origin and stays feature-scoped
+        expect(body.faceIdAt(5)).toBe("f1:5");
+    });
+
     test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },

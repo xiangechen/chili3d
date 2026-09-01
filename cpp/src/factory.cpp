@@ -100,6 +100,9 @@ struct TrackedShapeResult {
     // output face/edge index (TopExp::MapShapes order) -> input index, -1 = new sub-shape
     std::vector<int> faceMap;
     std::vector<int> edgeMap;
+    // output face index -> input edge index for faces Generated from an input edge
+    // (a sweep's side faces), -1 = not edge-generated
+    std::vector<int> faceEdgeMap = {};
 };
 
 // Marks output sub-shapes identical to or derived (Modified/Generated — guarded, some
@@ -154,6 +157,32 @@ static std::vector<int> faceHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS
 static std::vector<int> edgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input, const TopoDS_Shape& output)
 {
     return shapeHistory(algo, input, output, TopAbs_EDGE);
+}
+
+// Maps each output face Generated from an input edge (a prism/revol side face) to that
+// edge's input index, so the caller can seed the side face with the edge's stable id —
+// face enumeration order is not stable across rebuilds, the generating edge is.
+// Faces without an edge origin keep -1.
+static std::vector<int> faceFromEdgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
+    const TopoDS_Shape& output)
+{
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inEdges;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outFaces;
+    TopExp::MapShapes(input, TopAbs_EDGE, inEdges);
+    TopExp::MapShapes(output, TopAbs_FACE, outFaces);
+    std::vector<int> map(outFaces.Extent(), -1);
+    for (int i = 1; i <= inEdges.Extent(); i++) {
+        try {
+            for (const TopoDS_Shape& generated : algo.Generated(inEdges.FindKey(i))) {
+                int outIndex = outFaces.FindIndex(generated);
+                if (outIndex > 0 && map[outIndex - 1] < 0) {
+                    map[outIndex - 1] = i - 1;
+                }
+            }
+        } catch (const Standard_Failure&) {
+        }
+    }
+    return map;
 }
 
 // Compute the plane formed by two edges at their shared vertex from their tangent vectors.
@@ -518,7 +547,7 @@ public:
             return TrackedShapeResult { TopoDS_Shape(), false, "Failed to revolve profile", {}, {} };
         }
         return TrackedShapeResult { revol.Shape(), true, "", faceHistory(revol, profile, revol.Shape()),
-            edgeHistory(revol, profile, revol.Shape()) };
+            edgeHistory(revol, profile, revol.Shape()), faceFromEdgeHistory(revol, profile, revol.Shape()) };
     }
 
     static ShapeResult prism(const TopoDS_Shape& profile, const Vector3& vec)
@@ -539,7 +568,7 @@ public:
             return TrackedShapeResult { TopoDS_Shape(), false, "Failed to create prism", {}, {} };
         }
         return TrackedShapeResult { prism.Shape(), true, "", faceHistory(prism, profile, prism.Shape()),
-            edgeHistory(prism, profile, prism.Shape()) };
+            edgeHistory(prism, profile, prism.Shape()), faceFromEdgeHistory(prism, profile, prism.Shape()) };
     }
 
     static ShapeResult pushPull(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase, const Vector3& vec)
@@ -1592,7 +1621,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("isOk", &TrackedShapeResult::isOk)
         .property("error", &TrackedShapeResult::error)
         .property("faceMap", &TrackedShapeResult::faceMap)
-        .property("edgeMap", &TrackedShapeResult::edgeMap);
+        .property("edgeMap", &TrackedShapeResult::edgeMap)
+        .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap);
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)

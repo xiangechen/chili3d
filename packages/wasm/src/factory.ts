@@ -130,6 +130,7 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
             shape: OccShape.wrap(result.shape),
             faceMap: toIntArray(result.faceMap),
             edgeMap: toIntArray(result.edgeMap),
+            faceEdgeMap: toIntArray(result.faceEdgeMap),
         });
     }
 

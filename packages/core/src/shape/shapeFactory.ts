@@ -26,6 +26,13 @@ export interface TrackedShape {
      * For booleans the input enumerates args edges first, then tools edges.
      */
     edgeMap: number[];
+    /**
+     * output face index (findSubShapes order) -> input edge index for faces generated
+     * from an input edge (a sweep's side faces), -1 = not edge-generated. Lets callers
+     * seed side faces with the generating edge's stable id instead of a fragile
+     * enumeration-order-scoped one. Absent when the kernel predates this map.
+     */
+    faceEdgeMap?: number[];
 }
 
 export interface IShapeFactory {

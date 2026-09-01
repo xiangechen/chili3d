@@ -9,6 +9,7 @@ import {
     type FeatureHandler,
     registerFeature,
     type ShapeTracking,
+    trackedFaceIds,
     trackedIds,
 } from "./feature";
 import { sketchFaces, sketchShapeEach } from "./profileBuilder";
@@ -58,13 +59,24 @@ function extrudeTracked(
         const result = shapeFactory.prismTracked!(face, vec);
         if (!result.isOk) return Result.err(result.error);
         shapes.push(result.value.shape);
-        // Each profile face seeds one id; prism history propagates it to the side/top faces.
-        outputFaceIds.push(...trackedIds(feature.id, [`sketch:${sketch.id}:${index}`], result.value.faceMap));
         // Profile edges seed sketch-scoped ids (the prism's bottom edges are identical
         // to them); edges the sweep history does not cover get feature-scoped ids.
         const edgeSeeds = face
             .findSubShapes(ShapeTypes.edge)
             .map((_, edgeIndex) => `sketch:${sketch.id}:${index}:e${edgeIndex}`);
+        // Each profile face seeds one id; prism history propagates it to the bottom/top
+        // faces. Side faces are generated from profile edges and take that edge's seed,
+        // so a rebuild that re-enumerates faces (e.g. a mirrored profile) cannot
+        // realign them.
+        outputFaceIds.push(
+            ...trackedFaceIds(
+                feature.id,
+                [`sketch:${sketch.id}:${index}`],
+                edgeSeeds,
+                result.value.faceMap,
+                result.value.faceEdgeMap,
+            ),
+        );
         outputEdgeIds.push(...trackedIds(feature.id, edgeSeeds, result.value.edgeMap));
     }
     tracking.outputFaceIds = outputFaceIds;
