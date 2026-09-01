@@ -10,6 +10,7 @@ using namespace emscripten;
 EMSCRIPTEN_BINDINGS(Shared)
 {
     register_vector<TopoDS_Shape>("ShapeVector");
+    register_vector<int>("IntVector");
 
     register_type<Int8Array>("Int8Array");
     register_type<Int16Array>("Int16Array");
@@ -92,5 +93,4 @@ EMSCRIPTEN_BINDINGS(Shared)
         .field("status", &FaceCheckResult::status);
 
     register_vector<FaceCheckResult>("FaceCheckResultVector");
-    
 }

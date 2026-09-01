@@ -42,7 +42,13 @@ abstract class BooleanFeatureCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute feature.${this.operation}`, () => {
             this.body.setFeaturesEmitShapeChanged([
                 ...this.body.features,
-                { id: Id.generate(), type: "boolean", operation: this.operation, toolIds },
+                {
+                    id: Id.generate(),
+                    type: "boolean",
+                    operation: this.operation,
+                    toolIds,
+                    consumeTools: true,
+                },
             ]);
             this.document.visual.update();
         });

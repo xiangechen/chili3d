@@ -24,12 +24,19 @@ export function getPubSubPubs() {
 
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
-    const { BindingMock, TransactionMock } = rs.hoisted(() => require("./coreMocks"));
+    const { BindingMock, TransactionMock, isFeatureListNodeMock } = rs.hoisted(() => require("./coreMocks"));
     class VisualNode {}
     class Annotation {}
     class NodeSelectionHandler {}
     class ShapeSelectionHandler {
         constructor(readonly shapeType: unknown) {}
+    }
+    // Marker class for tree.ts's folder checks: parametric bodies are linked-list
+    // nodes too, but only folders accept drops and become the current node.
+    class FolderNode {
+        static [Symbol.hasInstance](node: { isFolder?: boolean }) {
+            return node?.isFolder === true;
+        }
     }
     return {
         ...actual,
@@ -37,8 +44,10 @@ rs.mock("@chili3d/core", () => {
         Transaction: TransactionMock,
         // The hoisted `actual` snapshots core mid-initialization, so PubSub must be stubbed.
         PubSub: pubSubRecorder.stub,
+        isFeatureListNode: isFeatureListNodeMock,
         VisualNode,
         Annotation,
+        FolderNode,
         NodeSelectionHandler,
         ShapeSelectionHandler,
         NodeUtils: {

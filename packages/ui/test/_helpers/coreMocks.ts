@@ -40,6 +40,23 @@ export const TransactionMock = {
     execute: (_doc: unknown, _desc: string, fn: () => void) => fn(),
 };
 
+/** FolderNode stub: tests opt a node into `instanceof` by linking its prototype. */
+export class FolderNodeMock {}
+
+/** Mirror of core's real guard (the mid-init snapshot can miss function exports). */
+export function isFeatureListNodeMock(node: unknown): boolean {
+    const candidate = node as {
+        featureItems?: unknown;
+        setFeatureParameter?: unknown;
+        removeFeature?: unknown;
+    };
+    return (
+        typeof candidate?.featureItems === "function" &&
+        typeof candidate?.setFeatureParameter === "function" &&
+        typeof candidate?.removeFeature === "function"
+    );
+}
+
 /** No-op PubSub stub. */
 export const PubSubMock = {
     default: {

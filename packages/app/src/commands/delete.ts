@@ -6,6 +6,7 @@ import {
     GetOrSelectNodeStep,
     type INode,
     type IStep,
+    isConsumedTool,
     MultistepCommand,
     PubSub,
     Transaction,
@@ -23,19 +24,27 @@ export class Delete extends MultistepCommand {
             return;
         }
 
+        // Consumed boolean tools belong to the owning body's feature list — deleting
+        // one would leave a dangling tool id behind. Remove the boolean feature instead.
+        const deletable = nodes.filter((x) => !isConsumedTool(x));
+        if (deletable.length < nodes.length) {
+            PubSub.default.pub("showToast", "toast.consumedTool.forbidden");
+        }
+        if (deletable.length === 0) return;
+
         if (
             this.document.modelManager.currentNode &&
-            nodes.includes(this.document.modelManager.currentNode)
+            deletable.includes(this.document.modelManager.currentNode)
         ) {
             this.document.modelManager.currentNode = this.document.modelManager.rootNode;
         }
 
         this.document.selection.clearSelection();
         Transaction.execute(this.document, "delete", () => {
-            nodes.forEach((model) => model.parent?.remove(model));
+            deletable.forEach((model) => model.parent?.remove(model));
         });
         this.document.visual.update();
-        PubSub.default.pub("showToast", "toast.delete{0}Objects", nodes.length);
+        PubSub.default.pub("showToast", "toast.delete{0}Objects", deletable.length);
     }
 
     protected override getSteps(): IStep[] {

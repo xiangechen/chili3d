@@ -60,6 +60,23 @@ class TestNode extends (Node as unknown as new () => object) {
     }
 }
 
+/** Expands every feature row by clicking its header (the row's first child). */
+function expandRows(list: Element) {
+    for (const row of Array.from(list.children)) {
+        (row.firstElementChild as unknown as { _onclick?: () => void })?._onclick?.();
+    }
+}
+
+/** Opens the first row's "⋯" menu and returns it (appended to document.body). */
+function openMoreMenu(pv: PropertyView): HTMLElement {
+    const more = pv.querySelector('chili-feature-list svg[icon="icon-ellipsis-vertical"]');
+    expect(more).not.toBeNull();
+    (more as unknown as { _onclick: (e: MouseEvent) => void })._onclick({
+        stopPropagation: () => {},
+    } as MouseEvent);
+    return document.body.lastElementChild as HTMLElement;
+}
+
 describe("PropertyView", () => {
     beforeEach(() => {
         pubSubRecorder.reset();
@@ -162,6 +179,7 @@ describe("PropertyView", () => {
             const list = pv.querySelector("chili-feature-list");
             expect(list).not.toBeNull();
             expect(list!.querySelector("svg")).not.toBeNull();
+            expandRows(list!);
             expect((list!.querySelector("input") as HTMLInputElement).value).toBe("5");
         });
 
@@ -183,7 +201,9 @@ describe("PropertyView", () => {
             node.removePropertyChanged = () => {};
             handler!(doc, [node as INode]);
 
-            const box = pv.querySelector("chili-feature-list input") as HTMLInputElement;
+            const list = pv.querySelector("chili-feature-list")!;
+            expandRows(list);
+            const box = list.querySelector("input") as HTMLInputElement;
             expect(box).not.toBeNull();
             box.value = "width * 2";
             (box as any)._onkeydown({ key: "Enter", stopPropagation: () => {}, target: box });
@@ -212,7 +232,9 @@ describe("PropertyView", () => {
             handler!(doc, [node as INode]);
 
             expect(pv.querySelector('chili-feature-list svg[icon="icon-prism"]')).not.toBeNull();
-            const box = pv.querySelector("chili-feature-list input") as HTMLInputElement;
+            const list = pv.querySelector("chili-feature-list")!;
+            expandRows(list);
+            const box = list.querySelector("input") as HTMLInputElement;
             expect(box.value).toBe("480.7612");
         });
 
@@ -226,7 +248,7 @@ describe("PropertyView", () => {
             expect(pv.querySelector("chili-feature-list")).toBeNull();
         });
 
-        test("should render a reselect button that triggers reselectShapes", () => {
+        test("should render a reselect menu entry that triggers reselectShapes", () => {
             const pv = new PropertyView({ className: "test-panel" });
             const doc = createMockDocument();
             const handler = pubSubRecorder.handlers.get("showProperties");
@@ -242,11 +264,12 @@ describe("PropertyView", () => {
 
             handler!(doc, [node as INode]);
 
-            const button = pv.querySelector('chili-feature-list svg[icon="icon-edit"]') as any;
-            expect(button).not.toBeNull();
-            expect(typeof button._onclick).toBe("function");
-            button._onclick();
+            const menu = openMoreMenu(pv);
+            const reselectIcon = menu.querySelector('svg[icon="icon-sync-alt"]');
+            expect(reselectIcon).not.toBeNull();
+            (reselectIcon!.parentElement as any)._onclick({ stopPropagation: () => {} });
             expect(node.reselectShapes).toHaveBeenCalledWith("f1");
+            menu.remove();
         });
 
         test("should render the error message for failed features", () => {
@@ -274,7 +297,7 @@ describe("PropertyView", () => {
             expect(list!.textContent).toContain("Edge not found after rebuild");
         });
 
-        test("should not render a reselect button for non-reselectable features", () => {
+        test("should not render a reselect entry for non-reselectable features", () => {
             const pv = new PropertyView({ className: "test-panel" });
             const doc = createMockDocument();
             const handler = pubSubRecorder.handlers.get("showProperties");
@@ -293,8 +316,11 @@ describe("PropertyView", () => {
 
             handler!(doc, [node as INode]);
 
-            // Only the suppress/move/delete buttons remain — 4 svgs, none with icon-edit
-            expect(pv.querySelectorAll("chili-feature-list svg").length).toBe(4);
+            // The menu holds rename/suppress/delete only — no reselect entry.
+            const menu = openMoreMenu(pv);
+            expect(menu.querySelectorAll("div").length).toBe(3);
+            expect(menu.querySelector('svg[icon="icon-sync-alt"]')).toBeNull();
+            menu.remove();
         });
     });
 

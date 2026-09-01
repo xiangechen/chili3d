@@ -7,11 +7,15 @@ import {
     type I18nKeys,
     type IDocument,
     type IEdge,
+    type IEqualityComparer,
     type IFeatureListNode,
     type INode,
+    type INodeLinkedList,
     type INodeVisual,
     type IShape,
     isPropertyChanged,
+    type Matrix4,
+    NodeChildList,
     ParameterShapeNode,
     Result,
     ShapeNode,
@@ -23,8 +27,22 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import { evaluateFeature, type FeatureData, featureHandler } from "./features";
-import { captureEdgeRef, matchEdgeIndexes } from "./features/edgeRef";
-import type { ChamferFeatureData, FilletFeatureData } from "./features/feature";
+import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "./features/edgeRef";
+import { findSketch } from "./features/extrude";
+import type { BooleanFeatureData, ChamferFeatureData, FilletFeatureData } from "./features/feature";
+import type { SketchNode } from "./sketch/sketchNode";
+
+/** Snapshot of one referenced node used for cache invalidation. */
+interface RefSnapshot {
+    readonly shape: Result<IShape> | undefined;
+    /** World transform at capture time — moving a reference must bust the cache too. */
+    readonly transform: Matrix4 | undefined;
+}
+
+function sameTransform(left: Matrix4 | undefined, right: Matrix4 | undefined): boolean {
+    if (left === undefined || right === undefined) return left === right;
+    return left.equals(right);
+}
 
 /** Output of one evaluated feature, reused while the feature and its inputs stay unchanged. */
 interface FeatureCacheEntry {
@@ -32,9 +50,22 @@ interface FeatureCacheEntry {
     readonly json: string;
     /** Input shape identity at evaluation time. */
     readonly input: IShape | undefined;
-    /** Referenced node shapes (e.g. the sketch) at evaluation time, by node id. */
-    readonly refs: ReadonlyMap<string, Result<IShape> | undefined>;
+    /** Referenced node states (e.g. the sketch) at evaluation time, by node id. */
+    readonly refs: ReadonlyMap<string, RefSnapshot>;
     readonly shape: IShape;
+    /**
+     * Stable face/edge ids of `shape` (findSubShapes order), from kernel shape history.
+     * Undefined when any link in the chain could not track (e.g. unsupported kernel).
+     */
+    readonly faceIds?: string[];
+    readonly edgeIds?: string[];
+}
+
+/** Shape plus tracked sub-shape ids produced by evaluating one feature. */
+interface FeatureStepOutput {
+    readonly shape: IShape;
+    readonly faceIds?: string[];
+    readonly edgeIds?: string[];
 }
 
 export interface ParametricBodyNodeOptions {
@@ -51,7 +82,42 @@ export interface ParametricBodyNodeOptions {
  * snapshots — so any upstream change (e.g. sketch edit) re-evaluates the whole chain.
  */
 @serializable()
-export class ParametricBodyNode extends ParameterShapeNode implements IFeatureListNode {
+export class ParametricBodyNode extends ParameterShapeNode implements IFeatureListNode, INodeLinkedList {
+    /**
+     * Consumed boolean tools live under the body (see `syncConsumedTools`). Children
+     * never render in the scene — the tree lists them grayed under the body, where
+     * selecting one still opens its feature list for editing.
+     */
+    private readonly _children: NodeChildList = new NodeChildList(this, () => false);
+
+    get firstChild() {
+        return this._children.firstChild;
+    }
+    get lastChild() {
+        return this._children.lastChild;
+    }
+    size(): number {
+        return this._children.count;
+    }
+    add(...items: INode[]): void {
+        this._children.add(...items);
+    }
+    remove(...items: INode[]): void {
+        this._children.remove(...items);
+    }
+    transfer(...items: INode[]): void {
+        this._children.transfer(...items);
+    }
+    insertBefore(target: INode | undefined, node: INode): void {
+        this._children.insertBefore(target, node);
+    }
+    insertAfter(target: INode | undefined, node: INode): void {
+        this._children.insertAfter(target, node);
+    }
+    move(child: INode, newParent: this, newPreviousSibling?: INode): void {
+        this._children.move(child, newParent, newPreviousSibling);
+    }
+
     override display(): I18nKeys {
         return "body.parametricBody";
     }
@@ -74,6 +140,8 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     private _cache: FeatureCacheEntry[] = [];
     /** Guards against re-entrant evaluation when a watched node generates mid-evaluation. */
     private _evaluating = false;
+    /** False until the first evaluation; see the `shape` getter. */
+    private _evaluated = false;
 
     constructor(options: ParametricBodyNodeOptions) {
         super({ document: options.document, id: options.id });
@@ -84,6 +152,62 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         this.setPropertyEmitShapeChanged("featuresJson", JSON.stringify(features));
     }
 
+    protected override setPropertyEmitShapeChanged<K extends keyof this>(
+        property: K,
+        newValue: this[K],
+        onPropertyChanged?: (property: K, oldValue: this[K]) => void,
+        equals?: IEqualityComparer<this[K]> | undefined,
+    ): boolean {
+        const changed = super.setPropertyEmitShapeChanged(property, newValue, onPropertyChanged, equals);
+        if (changed && property === "featuresJson") this.syncConsumedTools();
+        return changed;
+    }
+
+    /**
+     * Moves consumed boolean tools under this node and releases the rest back next to
+     * it. Idempotent — a rollback preview that only toggles `suppressed` moves nothing.
+     * Skipped while history is disabled: undo/redo restores the recorded moves itself
+     * (and the reselectShapes preview must not move anything).
+     */
+    private syncConsumedTools(): void {
+        if (this.document.history.disabled) return;
+        const desired = new Set(
+            this.features
+                .filter((x): x is BooleanFeatureData => x.type === "boolean" && x.consumeTools !== false)
+                .flatMap((x) => x.toolIds),
+        );
+        let child = this.firstChild;
+        // Released tools land after the previously released one so the tree order
+        // matches the order they had under the body.
+        let anchor: INode = this;
+        while (child !== undefined) {
+            const next = child.nextSibling;
+            if (!desired.has(child.id) && this.parent !== undefined) {
+                this.transfer(child);
+                this.parent.insertAfter(anchor, child);
+                anchor = child;
+            }
+            child = next;
+        }
+        for (const id of desired) {
+            const node = this.document.modelManager.findNode((n) => n.id === id);
+            if (!(node instanceof ShapeNode) || node === this || node.parent === this) continue;
+            if (this.isAncestor(node)) continue;
+            node.parent?.transfer(node);
+            this.add(node);
+        }
+    }
+
+    /** True when `node` is on this node's ancestor chain — moving it here would cycle. */
+    private isAncestor(node: INode): boolean {
+        let ancestor = this.parent;
+        while (ancestor !== undefined) {
+            if (ancestor === node) return true;
+            ancestor = ancestor.parent;
+        }
+        return false;
+    }
+
     featureItems(): readonly FeatureItem[] {
         return this.features.map((feature) => {
             const handler = featureHandler(feature.type);
@@ -91,6 +215,7 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             const icon = handler?.icon;
             return {
                 id: feature.id,
+                name: feature.name,
                 display:
                     typeof display === "function"
                         ? display(feature)
@@ -104,7 +229,24 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         });
     }
 
-    setFeatureParameter(featureId: string, key: string, value: number | string): void {
+    /**
+     * Sketch nodes referenced by extrude/revolve features, in feature order. Boolean
+     * tools never resolve as sketches, so they are excluded — the tree already lists
+     * them as consumed children. One sketch may serve several features (deduped here)
+     * and several bodies, so these are references, never real children.
+     */
+    referencedNodes(): INode[] {
+        const sketches = new Map<string, SketchNode>();
+        for (const feature of this.features) {
+            for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
+                const sketch = findSketch(this.document, id);
+                if (sketch !== undefined) sketches.set(sketch.id, sketch);
+            }
+        }
+        return [...sketches.values()];
+    }
+
+    setFeatureParameter(featureId: string, key: string, value: number | string | boolean): void {
         const features = this.features.map((feature) => {
             if (feature.id !== featureId) return feature;
             return featureHandler(feature.type)?.setParameter(feature, key, value) ?? feature;
@@ -128,6 +270,23 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         this.setFeaturesEmitShapeChanged(features);
     }
 
+    moveFeatureTo(featureId: string, index: number): void {
+        const features = [...this.features];
+        const from = features.findIndex((feature) => feature.id === featureId);
+        if (from < 0) return;
+        const [feature] = features.splice(from, 1);
+        features.splice(Math.max(0, Math.min(index, features.length)), 0, feature);
+        this.setFeaturesEmitShapeChanged(features);
+    }
+
+    /** Renaming does not change geometry — record and notify without a rebuild. */
+    renameFeature(featureId: string, name: string): void {
+        const features = this.features.map((feature) =>
+            feature.id === featureId ? { ...feature, name: name === "" ? undefined : name } : feature,
+        );
+        this.setProperty("featuresJson", JSON.stringify(features));
+    }
+
     removeFeature(featureId: string): void {
         this.setFeaturesEmitShapeChanged(this.features.filter((feature) => feature.id !== featureId));
     }
@@ -148,21 +307,35 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         const feature = this.features[featureIndex];
         if (feature?.type !== "fillet" && feature?.type !== "chamfer") return;
 
+        const edges = await this.pickFeatureEdges(feature, featureIndex);
+        if (edges === undefined) return;
+
+        Transaction.execute(this.document, "reselect edges", () => {
+            const features = this.features.map((x) => (x.id === featureId ? { ...x, edges } : x));
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * The rolled-back pick session of `reselectShapes`; returns undefined when the user
+     * cancels or picks nothing. Property changes auto-record history; the rollback is a
+     * transient preview state, so recording is suppressed for the session and only the
+     * final edge replacement is transacted.
+     */
+    private async pickFeatureEdges(
+        feature: FilletFeatureData | ChamferFeatureData,
+        featureIndex: number,
+    ): Promise<EdgeRef[] | undefined> {
         // Clear the node selection first: a selected node tints every edge, which
         // would drown the pick highlight.
         const selection = this.document.selection;
         selection.clearSelection();
-
         const original = this.features;
-        // Property changes auto-record history; the rollback is a transient preview
-        // state, so suppress recording for the whole pick session and only transact
-        // the final edge replacement.
         const history = this.document.history;
         const historyWasDisabled = history.disabled;
         history.disabled = true;
-
         let cancelled = false;
-        let picked: VisualShapeData[] = [];
         try {
             this.setFeaturesEmitShapeChanged(
                 original.map((x, i) => (i >= featureIndex ? { ...x, suppressed: true } : x)),
@@ -171,24 +344,24 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             this.preselectCurrentEdges(feature);
             const controller = new AsyncController();
             controller.onCancelled(() => (cancelled = true));
-            picked = await this.document.picker.pickShape("prompt.select.edges", controller, {
+            const picked = await this.document.picker.pickShape("prompt.select.edges", controller, {
                 shapeType: ShapeTypes.edge,
                 multi: true,
                 nodeFilter: { allow: (node) => node === this },
             });
+            if (cancelled || picked.length === 0) return undefined;
+            // Capture refs (including the stable edge id) NOW, while the rolled-back
+            // cache still describes the shape the user picked from — after `finally`
+            // restores the feature list, edgeIdAt would index the filleted shape,
+            // whose edge order differs from the pre-feature one.
+            return picked.map((x) =>
+                captureEdgeRef(x.shape as unknown as IEdge, this.edgeIdAt(x.indexes[0])),
+            );
         } finally {
             this.setFeaturesEmitShapeChanged(original);
             history.disabled = historyWasDisabled;
             selection.setSelectedNodes([this], false);
         }
-        if (cancelled || picked.length === 0) return;
-
-        const edges = picked.map((x) => captureEdgeRef(x.shape as unknown as IEdge));
-        Transaction.execute(this.document, "reselect edges", () => {
-            const features = this.features.map((x) => (x.id === featureId ? { ...x, edges } : x));
-            this.setFeaturesEmitShapeChanged(features);
-            this.document.visual.update();
-        });
     }
 
     /** Selects the edges a feature currently references so the pick session starts from them. */
@@ -215,7 +388,48 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         this.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
     }
 
+    /**
+     * The shape is derived state: `featuresJson` (the recorded property) regenerates it
+     * on undo/redo. Recording the shape too would let redo re-apply a stale snapshot
+     * whose wasm shape cache eviction has already disposed (kernel error "null is not
+     * a valid TopoDS_Shape"). The history guard assumes `super.setShape` runs fully
+     * synchronously — keep it that way.
+     */
+    protected override setShape(shape: Result<IShape>) {
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            super.setShape(shape);
+        } finally {
+            history.disabled = disabled;
+        }
+    }
+
+    /**
+     * A persisted failure is not re-evaluated on every read: feature edits and
+     * watched-node changes already re-evaluate eagerly, so the getter retries only
+     * when never evaluated yet, or when a reference that was missing at evaluation
+     * time appears later (document load order) — detected by a growing watch set.
+     */
+    override get shape(): Result<IShape> {
+        if (!this._shape.isOk && (!this._evaluated || this.hasNewReferences())) {
+            this._shape = this.generateShape();
+        }
+        return this._shape;
+    }
+    override set shape(value: Result<IShape>) {
+        this.setShape(value);
+    }
+
+    private hasNewReferences(): boolean {
+        const before = this._watched.size;
+        this.syncWatchedNodes();
+        return this._watched.size > before;
+    }
+
     protected generateShape(): Result<IShape> {
+        this._evaluated = true;
         this.syncWatchedNodes();
         this._featureErrors.clear();
         this._evaluating = true;
@@ -227,6 +441,31 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     }
 
     /**
+     * Stable id of the n-th face (findSubShapes order) of the final shape, or undefined
+     * when face tracking is unavailable. See `FeatureCacheEntry.faceIds`.
+     */
+    faceIdAt(index: number): string | undefined {
+        return this._cache.at(-1)?.faceIds?.[index];
+    }
+
+    /** Face index of a tracked face id in the final shape, or undefined when unknown. */
+    faceIndexById(id: string): number | undefined {
+        const index = this._cache.at(-1)?.faceIds?.indexOf(id) ?? -1;
+        return index < 0 ? undefined : index;
+    }
+
+    /** Stable id of the n-th edge of the final shape, same contract as `faceIdAt`. */
+    edgeIdAt(index: number): string | undefined {
+        return this._cache.at(-1)?.edgeIds?.[index];
+    }
+
+    /** Edge index of a tracked edge id in the final shape, or undefined when unknown. */
+    edgeIndexById(id: string): number | undefined {
+        const index = this._cache.at(-1)?.edgeIds?.indexOf(id) ?? -1;
+        return index < 0 ? undefined : index;
+    }
+
+    /**
      * Replays the feature list, reusing cached per-feature results while the feature
      * data, the variable scope, its input shape, and its referenced node shapes are
      * all unchanged — so editing one feature only re-evaluates from that feature on.
@@ -234,42 +473,84 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
      */
     private evaluateChain(): Result<IShape> {
         let input: IShape | undefined;
+        let faceIds: string[] | undefined;
+        let edgeIds: string[] | undefined;
         const scope = new Map<string, number>();
         const nextCache: FeatureCacheEntry[] = [];
         for (const feature of this.features) {
             if (feature.suppressed) continue;
-            const handler = featureHandler(feature.type);
-            if (handler?.kind === "parameters") {
-                const result =
-                    handler.evaluateParameters?.(feature, scope) ?? Result.err("Not a parameter feature");
-                if (!result.isOk) {
-                    this._featureErrors.set(feature.id, String(result.error));
-                    this.replaceCache(nextCache);
-                    return Result.err(result.error);
-                }
-                continue;
-            }
-            const key = this.cacheKey(feature, scope);
-            const cached = this.validCacheEntry(key, input, nextCache.length);
-            if (cached !== undefined) {
-                nextCache.push(cached);
-                input = cached.shape;
-                continue;
-            }
-            const result = evaluateFeature(feature, { document: this.document, input, scope });
-            if (!result.isOk) {
-                this._featureErrors.set(feature.id, String(result.error));
+            const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
+            if (!step.isOk) {
+                this._featureErrors.set(feature.id, String(step.error));
                 this.replaceCache(nextCache);
-                return result;
+                return Result.err(step.error);
             }
-            nextCache.push({ json: key, input, refs: this.captureRefs(feature), shape: result.value });
-            input = result.value;
+            if (step.value === undefined) continue; // parameter feature: only the scope changed
+            input = step.value.shape;
+            faceIds = step.value.faceIds;
+            edgeIds = step.value.edgeIds;
         }
         this.replaceCache(nextCache);
         // An empty feature list (user removed every feature) is an empty compound, so
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
         if (input === undefined) return shapeFactory.combine([]);
         return Result.ok(input);
+    }
+
+    /**
+     * Evaluates one feature against the current chain state, returning its output (or
+     * undefined for parameter-kind features, which only update `scope`).
+     */
+    private evaluateFeatureStep(
+        feature: FeatureData,
+        scope: Map<string, number>,
+        input: IShape | undefined,
+        faceIds: string[] | undefined,
+        edgeIds: string[] | undefined,
+        nextCache: FeatureCacheEntry[],
+    ): Result<FeatureStepOutput | undefined> {
+        const handler = featureHandler(feature.type);
+        if (handler?.kind === "parameters") {
+            const result =
+                handler.evaluateParameters?.(feature, scope) ?? Result.err("Not a parameter feature");
+            return result.isOk ? Result.ok(undefined) : Result.err(result.error);
+        }
+        const key = this.cacheKey(feature, scope);
+        const cached = this.validCacheEntry(key, input, nextCache.length);
+        if (cached !== undefined) {
+            nextCache.push(cached);
+            return Result.ok({ shape: cached.shape, faceIds: cached.faceIds, edgeIds: cached.edgeIds });
+        }
+        const tracking = {
+            inputFaceIds: faceIds ?? [],
+            outputFaceIds: [] as string[],
+            inputEdgeIds: edgeIds ?? [],
+            outputEdgeIds: [] as string[],
+        };
+        const result = evaluateFeature(feature, {
+            document: this.document,
+            host: this,
+            input,
+            scope,
+            tracking,
+        });
+        if (!result.isOk) return Result.err(result.error);
+        // A handler that cannot track (e.g. the kernel lacks history) leaves the
+        // output empty — ids stay undefined from here on rather than guessing.
+        const output: FeatureStepOutput = {
+            shape: result.value,
+            faceIds: tracking.outputFaceIds.length > 0 ? tracking.outputFaceIds : undefined,
+            edgeIds: tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined,
+        };
+        nextCache.push({
+            json: key,
+            input,
+            refs: this.captureRefs(feature),
+            shape: output.shape,
+            faceIds: output.faceIds,
+            edgeIds: output.edgeIds,
+        });
+        return Result.ok(output);
     }
 
     /** Cache keys include the scope snapshot so a variable change invalidates dependents. */
@@ -286,23 +567,26 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         if (entry === undefined || entry.input !== input || entry.json !== key) {
             return undefined;
         }
-        for (const [id, shape] of entry.refs) {
-            if (this.referencedShape(id) !== shape) return undefined;
+        for (const [id, snapshot] of entry.refs) {
+            const current = this.captureRef(id);
+            if (current.shape !== snapshot.shape) return undefined;
+            if (!sameTransform(current.transform, snapshot.transform)) return undefined;
         }
         return entry;
     }
 
-    private captureRefs(feature: FeatureData): Map<string, Result<IShape> | undefined> {
-        const refs = new Map<string, Result<IShape> | undefined>();
+    private captureRefs(feature: FeatureData): Map<string, RefSnapshot> {
+        const refs = new Map<string, RefSnapshot>();
         for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
-            refs.set(id, this.referencedShape(id));
+            refs.set(id, this.captureRef(id));
         }
         return refs;
     }
 
-    private referencedShape(id: string): Result<IShape> | undefined {
+    private captureRef(id: string): RefSnapshot {
         const node = this.document.modelManager.findNode((n) => n.id === id);
-        return node instanceof ShapeNode ? node.shape : undefined;
+        if (!(node instanceof ShapeNode)) return { shape: undefined, transform: undefined };
+        return { shape: node.shape, transform: node.worldTransform() };
     }
 
     /**
@@ -342,13 +626,15 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     }
 
     // The referenced node assigns its new shape before notifying (setProperty order),
-    // so reacting to "shape" always reads fresh upstream geometry. A failed rebuild
-    // (e.g. the sketch is mid-edit with an open profile) keeps the last good shape
-    // silently — the feature panel shows the error — instead of toasting per change.
+    // so reacting to "shape" always reads fresh upstream geometry. "transform" matters
+    // too: a boolean tool is mapped into this body's local space, so moving it must
+    // re-evaluate. A failed rebuild (e.g. the sketch is mid-edit with an open profile)
+    // keeps the last good shape silently — the feature panel shows the error — instead
+    // of toasting per change.
     private readonly handleWatchedNodeChanged = (property: string) => {
         // Skip while evaluating: a referenced node (e.g. the sketch) may generate its
         // shape lazily mid-evaluation and notify — the in-flight pass reads it fresh.
-        if (property !== "shape" || this._evaluating) return;
+        if ((property !== "shape" && property !== "transform") || this._evaluating) return;
 
         const result = this.generateShape();
         if (result.isOk) {
@@ -363,6 +649,7 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             if (isPropertyChanged(node)) node.removePropertyChanged(this.handleWatchedNodeChanged);
         }
         this._watched.clear();
+        this._children.dispose();
         const current = this._shape.isOk ? this._shape.value : undefined;
         for (const entry of this._cache) {
             if (entry.shape !== current) entry.shape.dispose();

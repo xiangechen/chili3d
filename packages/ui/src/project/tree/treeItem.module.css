@@ -19,3 +19,7 @@
 .parent-hidden {
     opacity: 0.56;
 }
+
+.hidden {
+    display: none;
+}

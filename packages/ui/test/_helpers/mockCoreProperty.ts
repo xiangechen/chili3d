@@ -20,6 +20,7 @@ rs.mock("@chili3d/core", () => {
         TransactionMock,
         ObservableCollectionMock,
         PubSubMock,
+        I18nMock,
     } = rs.hoisted(() => require("./coreMocks"));
     return {
         ...actual,
@@ -29,6 +30,7 @@ rs.mock("@chili3d/core", () => {
         Transaction: TransactionMock,
         ObservableCollection: ObservableCollectionMock,
         PubSub: PubSubMock,
+        I18n: I18nMock,
         isPropertyChanged: () => false,
         XY: class {},
         XYZ: class {},

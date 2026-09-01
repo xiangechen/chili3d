@@ -12,6 +12,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     name: "ti-name",
     icon: "ti-icon",
     "parent-hidden": "ti-parent-hidden",
+    hidden: "ti-hidden",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({
@@ -24,6 +25,7 @@ import "./_helpers/mockCoreBinding";
 // Mock element helpers
 import "./_helpers/mockElement";
 
+import { FolderNode } from "@chili3d/core";
 import { TreeModel } from "../src/project/tree/treeModel";
 
 type PropertyHandler = (property: string, model: unknown) => void;
@@ -113,6 +115,31 @@ describe("TreeModel (TreeItem)", () => {
         test("mainElement should return itself", () => {
             const item = createItem();
             expect(item.mainElement()).toBe(item);
+        });
+
+        test("should hide the visible icon for children of a non-folder parent (consumed tools)", () => {
+            const item = createItem({ parent: new MockNode() });
+            expect(item.visibleIcon.classList.contains("ti-hidden")).toBe(true);
+        });
+
+        test("should show the visible icon for children of a folder", () => {
+            const folder = new MockNode();
+            Object.setPrototypeOf(folder, FolderNode.prototype);
+            const item = createItem({ parent: folder });
+            expect(item.visibleIcon.classList.contains("ti-hidden")).toBe(false);
+        });
+
+        test("refreshVisibleIcon follows parent changes", () => {
+            const item = createItem();
+            expect(item.visibleIcon.classList.contains("ti-hidden")).toBe(false);
+
+            node.parent = new MockNode();
+            item.refreshVisibleIcon();
+            expect(item.visibleIcon.classList.contains("ti-hidden")).toBe(true);
+
+            node.parent = undefined;
+            item.refreshVisibleIcon();
+            expect(item.visibleIcon.classList.contains("ti-hidden")).toBe(false);
         });
     });
 

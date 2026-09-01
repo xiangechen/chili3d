@@ -17,6 +17,17 @@ import type {
     OffsetMode,
 } from "./shape";
 
+export interface TrackedShape {
+    shape: IShape;
+    /** output face index (findSubShapes order) -> input face index, -1 = new face */
+    faceMap: number[];
+    /**
+     * output edge index (findSubShapes order) -> input edge index, -1 = new edge.
+     * For booleans the input enumerates args edges first, then tools edges.
+     */
+    edgeMap: number[];
+}
+
 export interface IShapeFactory {
     readonly kernelName: string;
     edge(curve: ICurve): IEdge;
@@ -73,6 +84,13 @@ export interface IShapeFactory {
     ): Result<IShape>;
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
+    prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
+    revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
+    booleanCommonTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
+    booleanCutTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
+    booleanFuseTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
+    filletTracked?(shape: IShape, edges: number[], radius: number): Result<TrackedShape>;
+    chamferTracked?(shape: IShape, edges: number[], distance: number): Result<TrackedShape>;
     fillet2d(face: IFace, edge1: IEdge, edge2: IEdge, radius: number): Result<IFace>;
     chamfer2d(face: IFace, edge1: IEdge, edge2: IEdge, distance: number): Result<IFace>;
     filletEdge2d(edge1: IEdge, edge2: IEdge, radius: number): Result<IEdge[]>;

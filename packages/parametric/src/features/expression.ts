@@ -22,6 +22,12 @@ const FUNCTIONS: Record<string, (...args: number[]) => number> = {
 
 const CONSTANTS: Record<string, number> = { pi: Math.PI, e: Math.E };
 
+/** Constant names may not be shadowed by variables — the same expression would
+ * otherwise evaluate differently depending on whether a same-named variable exists. */
+export function isConstantName(name: string): boolean {
+    return name in CONSTANTS;
+}
+
 /**
  * Safe arithmetic expression evaluator (no `eval`): `+ - * / %`, parentheses, unary
  * minus, the functions above, `pi`/`e`, and identifiers resolved from `scope`.

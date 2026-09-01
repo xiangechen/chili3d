@@ -9,6 +9,7 @@ import {
     Plane,
     PlaneAngle,
     type PointSnapData,
+    PubSub,
     ShapeTypes,
     type SnapResult,
     type VisualNode,
@@ -374,6 +375,44 @@ describe("ArrayCommand", () => {
         expect(last.x).toBeCloseTo(0, 10);
         expect(last.y).toBeCloseTo(1, 10);
         expect(last.z).toBeCloseTo(3, 10);
+    });
+
+    describe("canExcute consumed-tool guard", () => {
+        test("should reject a consumed boolean tool and show a hint", async () => {
+            const cmd = new ArrayCommand();
+            // A plain-object parent is not a FolderNode → the node reads as a consumed tool.
+            const tool = makeMockModel({ parent: {} as TrackingParent });
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [tool];
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).canExcute();
+
+                expect(ok).toBe(false);
+                expect((cmd as any).models).toEqual([]);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.consumedTool.forbidden");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
+        test("should keep only the free nodes of a mixed selection and show a hint", async () => {
+            const cmd = new ArrayCommand();
+            const free = makeMockModel();
+            const consumed = makeMockModel({ parent: {} as TrackingParent });
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [free, consumed];
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).canExcute();
+
+                expect(ok).toBe(true);
+                expect((cmd as any).models).toEqual([free]);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.consumedTool.forbidden");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
     });
 
     describe("executeMainTask", () => {

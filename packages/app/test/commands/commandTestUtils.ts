@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    FolderNode,
     type IApplication,
     type IDocument,
     type INode,
@@ -240,6 +241,9 @@ export function makeParent(opts: Partial<TrackingParent> = {}): TrackingParent {
         },
         ...opts,
     } as unknown as TrackingParent;
+    // Command-level guards (e.g. isConsumedTool) key off `instanceof FolderNode`:
+    // free nodes live under folders, so mock parents default to folder-like.
+    Object.setPrototypeOf(parent, FolderNode.prototype);
     return parent;
 }
 

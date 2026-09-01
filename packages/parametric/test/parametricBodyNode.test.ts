@@ -2,7 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type INode,
     Matrix4,
+    NodeUtils,
     Plane,
     Result,
     Serializer,
@@ -14,7 +16,14 @@ import {
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { EdgeRef } from "../src/features/edgeRef";
-import type { ExtrudeFeatureData, FeatureData, FilletFeatureData } from "../src/features/feature";
+import type {
+    BooleanFeatureData,
+    ExtrudeFeatureData,
+    FeatureData,
+    FilletFeatureData,
+    RevolveFeatureData,
+} from "../src/features/feature";
+
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { type SketchData, SketchNode } from "../src/sketch";
 
@@ -188,6 +197,40 @@ describe("ParametricBodyNode", () => {
         expect(body.featureItems()[0].error).toBe("Sketch not found");
     });
 
+    test("a persisted failure is not re-evaluated on every shape read", () => {
+        // The circle ref can never match the prism's line edges, so the fillet —
+        // and the whole chain — fails deterministically after the extrude ran.
+        const circleRef: EdgeRef = {
+            kind: "circle",
+            center: { x: 0, y: 0, z: 0 },
+            radius: 1,
+            axis: { x: 0, y: 0, z: 1 },
+        };
+        const body = bodyWith([
+            extrudeFeature(sketch.id),
+            { id: "f2", type: "fillet", radius: 2, edges: [circleRef] },
+        ]);
+
+        expect(body.shape.isOk).toBe(false);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+
+        void body.shape;
+        void body.shape;
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("retries when a missing reference appears later", () => {
+        const body = bodyWith([extrudeFeature("late-sketch")]);
+        expect(body.shape.isOk).toBe(false);
+
+        doc.modelManager.addNode(
+            new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE, id: "late-sketch" }),
+        );
+
+        expect(body.shape.isOk).toBe(true);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
     test("setFeatureParameter updates the length and rebuilds", () => {
         const body = bodyWith([extrudeFeature(sketch.id)]);
         expect(body.shape.isOk).toBe(true);
@@ -315,6 +358,47 @@ describe("ParametricBodyNode", () => {
         expect(body.features.map((f) => f.id)).toEqual(["f1"]);
     });
 
+    test("moveFeatureTo moves a feature to an absolute index", () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const fillet2: FilletFeatureData = { id: "f3", type: "fillet", radius: 1, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet, fillet2]);
+
+        Transaction.execute(doc, "reorder", () => body.moveFeatureTo("f1", 2));
+
+        expect(body.features.map((f) => f.id)).toEqual(["f2", "f3", "f1"]);
+
+        doc.history.undo();
+        expect(body.features.map((f) => f.id)).toEqual(["f1", "f2", "f3"]);
+    });
+
+    test("moveFeatureTo clamps out-of-range indexes", () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+
+        body.moveFeatureTo("f1", 99);
+        expect(body.features.map((f) => f.id)).toEqual(["f2", "f1"]);
+
+        body.moveFeatureTo("f1", -3);
+        expect(body.features.map((f) => f.id)).toEqual(["f1", "f2"]);
+    });
+
+    test("renameFeature sets and clears a custom name without rebuilding", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        const lastGood = body.shape.unchecked();
+
+        Transaction.execute(doc, "rename", () => body.renameFeature("f1", "Main extrude"));
+
+        expect(body.featureItems()[0].name).toBe("Main extrude");
+        expect(body.shape.unchecked()).toBe(lastGood);
+
+        body.renameFeature("f1", "");
+        expect(body.featureItems()[0].name).toBeUndefined();
+
+        doc.history.undo();
+        expect(body.featureItems()[0].name).toBe("Main extrude");
+    });
+
     test("reselectShapes replaces the feature edges", async () => {
         const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
         const body = bodyWith([extrudeFeature(sketch.id), fillet]);
@@ -327,7 +411,9 @@ describe("ParametricBodyNode", () => {
             startPoint: () => ({ x: 5, y: 5, z: 0 }),
             endPoint: () => ({ x: 5, y: 6, z: 0 }),
         };
-        doc.picker.pickShape = rs.fn(() => Promise.resolve([{ shape: pickedEdge } as any])) as any;
+        doc.picker.pickShape = rs.fn(() =>
+            Promise.resolve([{ shape: pickedEdge, indexes: [0] } as any]),
+        ) as any;
         const undoCount = doc.history.undoCount();
 
         await body.reselectShapes("f2");
@@ -335,9 +421,10 @@ describe("ParametricBodyNode", () => {
         expect(body.features[1]).toMatchObject({
             edges: [{ kind: "line", start: { x: 5, y: 5, z: 0 }, end: { x: 5, y: 6, z: 0 } }],
         });
-        // The moved edge no longer matches the rebuilt prism's single edge, so the
-        // row surfaces a repairable error instead of touching the wrong edge.
-        expect(body.featureItems()[1].error).toBe("Edge not found after rebuild");
+        // The rebuilt prism's single edge is the only candidate, so the moved edge
+        // re-matches to it and the fillet applies without an error row.
+        expect(body.featureItems()[1].error).toBeUndefined();
+        expect(mocks.fillet).toHaveBeenCalled();
         // Only the final edge replacement is recorded — the rollback preview is not.
         expect(doc.history.undoCount()).toBe(undoCount + 1);
         doc.history.undo();
@@ -457,5 +544,95 @@ describe("ParametricBodyNode", () => {
 
         expect(mocks.prismShapes[0].dispose).toHaveBeenCalledTimes(1);
         expect(mocks.filletedShape.dispose).not.toHaveBeenCalled();
+    });
+
+    test("a document reload resolves sketch references after the tree is attached", async () => {
+        bodyWith([extrudeFeature(sketch.id, 9)]);
+        const data = doc.modelManager.serialize();
+
+        const reloaded = new TestDocument({ application: createMockApplication() });
+        // Mimic ThreeVisualContext: evaluate the shape of every displayed node as
+        // node-change notifications arrive.
+        reloaded.modelManager.addNodeObserver((records) => {
+            const nodes: INode[] = [];
+            records.forEach((r) => {
+                if (r.action === "add") NodeUtils.nodeOrChildrenAppendToNodes(nodes, r.node);
+            });
+            nodes.forEach((n) => {
+                if (n instanceof ParametricBodyNode) void n.shape;
+            });
+        });
+        await reloaded.modelManager.deserialize(data);
+
+        const body = reloaded.modelManager.findNode(
+            (n) => n instanceof ParametricBodyNode,
+        ) as ParametricBodyNode;
+        expect(body.shape.isOk).toBe(true);
+        expect(body.featureItems()[0].error).toBeUndefined();
+    });
+});
+
+describe("ParametricBodyNode.referencedNodes", () => {
+    let doc: TestDocument;
+    let sketch: SketchNode;
+    let mocks: ReturnType<typeof setupMocks>;
+
+    beforeEach(() => {
+        doc = new TestDocument({ application: createMockApplication() });
+        mocks = setupMocks();
+        sketch = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
+        doc.modelManager.addNode(sketch);
+    });
+
+    afterEach(() => mocks.restore());
+
+    function bodyWith(features: FeatureData[]) {
+        const body = new ParametricBodyNode({ document: doc, features });
+        doc.modelManager.addNode(body);
+        return body;
+    }
+
+    function revolveFeature(sketchId: string): RevolveFeatureData {
+        return {
+            id: "f2",
+            type: "revolve",
+            sketchId,
+            axis: { point: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+            angle: 90,
+        };
+    }
+
+    test("should return the sketch referenced by an extrude feature", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.referencedNodes()).toEqual([sketch]);
+    });
+
+    test("should return sketches of extrude and revolve features in feature order", () => {
+        const second = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
+        doc.modelManager.addNode(second);
+        const body = bodyWith([extrudeFeature(sketch.id), revolveFeature(second.id)]);
+        expect(body.referencedNodes()).toEqual([sketch, second]);
+    });
+
+    test("should dedupe a sketch referenced by multiple features", () => {
+        const body = bodyWith([extrudeFeature(sketch.id), revolveFeature(sketch.id)]);
+        expect(body.referencedNodes()).toEqual([sketch]);
+    });
+
+    test("should exclude boolean tool nodes", () => {
+        const tool = bodyWith([extrudeFeature(sketch.id)]);
+        const booleanFeature: BooleanFeatureData = {
+            id: "f3",
+            type: "boolean",
+            operation: "fuse",
+            toolIds: [tool.id],
+        };
+        const body = bodyWith([extrudeFeature(sketch.id), booleanFeature]);
+        expect(body.referencedNodes()).toEqual([sketch]);
+    });
+
+    test("should exclude references that no longer resolve to a sketch", () => {
+        const body = bodyWith([extrudeFeature("missing-sketch")]);
+        expect(body.referencedNodes()).toEqual([]);
     });
 });

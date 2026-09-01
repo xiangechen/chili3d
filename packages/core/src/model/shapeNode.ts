@@ -40,7 +40,7 @@ export abstract class ShapeNode extends GeometryNode {
     }
 
     protected setShape(shape: Result<IShape>) {
-        if (this._shape.isOk && this._shape.value.isEqual(shape.value)) {
+        if (this._shape.isOk && shape.isOk && this._shape.value.isEqual(shape.value)) {
             return;
         }
 
@@ -177,7 +177,7 @@ export interface ParameterShapeNodeOptions {
 
 export abstract class ParameterShapeNode extends ShapeNode {
     override get shape(): Result<IShape> {
-        if (!this._shape.isOk && this._shape.error === SHAPE_UNDEFINED) {
+        if (!this._shape.isOk) {
             this._shape = this.generateShape();
         }
         return this._shape;

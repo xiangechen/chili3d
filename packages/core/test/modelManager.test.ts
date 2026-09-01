@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, Id, type INode, InternalClassName, type ModelManager, type OnNodeChanged } from "../src";
+import {
+    FolderNode,
+    Id,
+    type INode,
+    InternalClassName,
+    type ModelManager,
+    type NodeRecord,
+    type OnNodeChanged,
+} from "../src";
 import { TestDocument } from "../test-utils";
 
 function newNode(name: string, id?: string): INode {
@@ -308,6 +316,31 @@ describe("ModelManager", () => {
             expect(modelManager.components).toHaveLength(0);
             expect(modelManager.materials).toHaveLength(0);
             expect(modelManager.rootNode).not.toBeNull();
+        });
+
+        test("notifies once with the fully attached root after deserialize", async () => {
+            const rootId = Id.generate();
+            const childId = Id.generate();
+            const data = {
+                components: [],
+                nodes: [
+                    { [InternalClassName]: "FolderNode", name: "root", id: rootId },
+                    { [InternalClassName]: "FolderNode", name: "child", id: childId, parentId: rootId },
+                ],
+                materials: [],
+            };
+            const calls: NodeRecord[][] = [];
+            let childVisibleAtNotify = false;
+            modelManager.addNodeObserver((records) => {
+                calls.push(records);
+                childVisibleAtNotify = modelManager.findNode((n) => n.id === childId) !== undefined;
+            });
+
+            await modelManager.deserialize(data);
+
+            expect(calls.length).toBe(1);
+            expect(calls[0][0].node).toBe(modelManager.rootNode);
+            expect(childVisibleAtNotify).toBe(true);
         });
     });
 

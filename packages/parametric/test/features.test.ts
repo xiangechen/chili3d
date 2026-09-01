@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Line, Plane, Result, type ShapeType, ShapeTypes, Transaction, type XYZ } from "@chili3d/core";
+import {
+    Line,
+    Matrix4,
+    Plane,
+    Result,
+    type ShapeType,
+    ShapeTypes,
+    Transaction,
+    type XYZ,
+} from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { type SketchData, SketchNode } from "../src/sketch";
@@ -66,23 +75,38 @@ function edge(start: XYZ, end: XYZ) {
 
 function setupMocks() {
     const face = { shapeType: ShapeTypes.face, isEqual: () => false };
-    const prismShape = {
+    /** Boolean tools are mapped into the host's local space via `transformedMul`. */
+    const withTransform = <T extends object>(shape: T): T & { transformedMul: (m: Matrix4) => any } =>
+        Object.assign(shape, {
+            transformedMul: rs.fn((matrix: Matrix4) =>
+                withTransform({
+                    shapeType: (shape as any).shapeType,
+                    isEqual: () => false,
+                    dispose: rs.fn(),
+                    findSubShapes: (shape as any).findSubShapes ?? (() => []),
+                    transformedBy: matrix,
+                } as any),
+            ),
+        });
+    const prismShape = withTransform({
         shapeType: ShapeTypes.solid,
         isEqual: () => false,
         dispose: rs.fn(),
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
-    };
+    });
     const revolvedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const filletedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const fusedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const line = rs.fn((start: XYZ, end: XYZ) => Result.ok(edge(start, end)));
     const combine = rs.fn((edges: any[]) =>
-        Result.ok({
-            shapeType: ShapeTypes.compound,
-            isEqual: () => false,
-            dispose: rs.fn(),
-            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
-        }),
+        Result.ok(
+            withTransform({
+                shapeType: ShapeTypes.compound,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            }),
+        ),
     );
     const wire = rs.fn((edges: any[]) =>
         Result.ok({ isClosed: () => edges.length > 1, toFace: () => Result.ok(face) }),
@@ -202,8 +226,15 @@ describe("feature evaluation", () => {
 
     test("an edge ref that matches nothing surfaces as a feature error", () => {
         const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
-        const far: EdgeRef = { kind: "line", start: { x: 9, y: 9, z: 9 }, end: { x: 10, y: 9, z: 9 } };
-        const fillet: FilletFeatureData = { id: "f1", type: "fillet", radius: 2, edges: [far] };
+        // A circle ref against the prism's line-only edges has no candidate of its
+        // type at all — the one case that still fails outright.
+        const circle: EdgeRef = {
+            kind: "circle",
+            center: { x: 9, y: 9, z: 9 },
+            radius: 2,
+            axis: { x: 0, y: 0, z: 1 },
+        };
+        const fillet: FilletFeatureData = { id: "f1", type: "fillet", radius: 2, edges: [circle] };
         const body = bodyWith([extrude, fillet]);
 
         expect(body.shape.isOk).toBe(false);
@@ -275,6 +306,160 @@ describe("feature evaluation", () => {
 
         expect(mocks.prism).not.toHaveBeenCalled();
         expect(mocks.booleanFuse).toHaveBeenCalledTimes(1);
+    });
+
+    // Regression: cutting with an original node and its moved copy produced only one
+    // hole — the boolean ignored tool transforms and reused the cached result.
+    test("boolean maps a moved tool into the host's local space", () => {
+        const toolA = toolSketch();
+        const toolB = toolSketch();
+        toolB.transform = Matrix4.fromTranslation(30, 0, 0);
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const body = bodyWith([extrude, booleanFeature("cut", [toolA.id, toolB.id])]);
+
+        expect(body.shape.isOk).toBe(true);
+        const [, tools] = mocks.booleanCut.mock.calls[0] as unknown as [any[], any[]];
+        expect(tools[0]).toBe(toolA.shape.unchecked());
+        expect(tools[1]).not.toBe(toolB.shape.unchecked());
+        expect(tools[1].transformedBy.equals(Matrix4.fromTranslation(30, 0, 0))).toBe(true);
+        // The transformed copy is intermediate — disposed once the kernel call returns.
+        expect(tools[1].dispose).toHaveBeenCalledTimes(1);
+    });
+
+    test("moving a boolean tool re-evaluates the cut at the new position", () => {
+        const tool = toolSketch();
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const body = bodyWith([extrude, booleanFeature("cut", [tool.id])]);
+        expect(body.shape.isOk).toBe(true);
+        mocks.prism.mockClear();
+        mocks.booleanCut.mockClear();
+
+        tool.transform = Matrix4.fromTranslation(10, 0, 0);
+
+        expect(mocks.prism).not.toHaveBeenCalled();
+        expect(mocks.booleanCut).toHaveBeenCalledTimes(1);
+        const [, tools] = mocks.booleanCut.mock.calls[0] as unknown as [any[], any[]];
+        expect(tools[0].transformedBy.equals(Matrix4.fromTranslation(10, 0, 0))).toBe(true);
+    });
+
+    test("a moved host maps tools relative to its own transform", () => {
+        const tool = toolSketch();
+        tool.transform = Matrix4.fromTranslation(15, 0, 0);
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const body = bodyWith([extrude, booleanFeature("cut", [tool.id])]);
+        body.transform = Matrix4.fromTranslation(5, 0, 0);
+
+        expect(body.shape.isOk).toBe(true);
+        const [, tools] = mocks.booleanCut.mock.calls[0] as unknown as [any[], any[]];
+        expect(tools[0].transformedBy.equals(Matrix4.fromTranslation(10, 0, 0))).toBe(true);
+    });
+
+    describe("consumeTools", () => {
+        function consumeFeature(toolIds: string[], consumeTools = true): BooleanFeatureData {
+            return { id: "b1", type: "boolean", operation: "fuse", toolIds, consumeTools };
+        }
+
+        function bodyWithTool(tool: SketchNode) {
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const body = bodyWith([extrude]);
+            Transaction.execute(doc, "fuse", () =>
+                body.setFeaturesEmitShapeChanged([...body.features, consumeFeature([tool.id])]),
+            );
+            return body;
+        }
+
+        test("moves the tool under the body, hidden from the scene", () => {
+            const tool = toolSketch();
+            const body = bodyWithTool(tool);
+
+            expect(tool.parent).toBe(body);
+            expect(tool.parentVisible).toBe(false);
+            expect(body.shape.isOk).toBe(true);
+            expect(body.featureItems()[1].parameters).toEqual([
+                { key: "consumeTools", display: "features.consumeTools", value: true },
+            ]);
+        });
+
+        test("undo restores the tool position together with the feature, redo re-consumes", () => {
+            const tool = toolSketch();
+            const body = bodyWithTool(tool);
+            expect(doc.history.undoCount()).toBeGreaterThan(0);
+
+            doc.history.undo();
+            expect(tool.parent).toBe(doc.modelManager.rootNode);
+            expect(body.features.map((f) => f.id)).toEqual(["e1"]);
+
+            doc.history.redo();
+            expect(tool.parent).toBe(body);
+            expect(tool.parentVisible).toBe(false);
+            expect(body.features.map((f) => f.id)).toEqual(["e1", "b1"]);
+        });
+
+        test("unchecking consumeTools moves the tool back next to the body", () => {
+            const tool = toolSketch();
+            const body = bodyWithTool(tool);
+
+            Transaction.execute(doc, "edit feature", () =>
+                body.setFeatureParameter("b1", "consumeTools", false),
+            );
+
+            expect(tool.parent).toBe(doc.modelManager.rootNode);
+            expect(tool.parentVisible).toBe(true);
+            expect(tool.previousSibling).toBe(body);
+
+            Transaction.execute(doc, "edit feature", () =>
+                body.setFeatureParameter("b1", "consumeTools", true),
+            );
+            expect(tool.parent).toBe(body);
+        });
+
+        test("releasing multiple tools keeps their original order after the body", () => {
+            const tool1 = toolSketch();
+            const tool2 = toolSketch();
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const body = bodyWith([extrude]);
+            Transaction.execute(doc, "fuse", () =>
+                body.setFeaturesEmitShapeChanged([...body.features, consumeFeature([tool1.id, tool2.id])]),
+            );
+            expect(tool1.parent).toBe(body);
+            expect(tool2.parent).toBe(body);
+
+            Transaction.execute(doc, "edit feature", () =>
+                body.setFeatureParameter("b1", "consumeTools", false),
+            );
+
+            expect(tool1.parent).toBe(doc.modelManager.rootNode);
+            expect(tool2.parent).toBe(doc.modelManager.rootNode);
+            expect(tool1.previousSibling).toBe(body);
+            expect(tool2.previousSibling).toBe(tool1);
+        });
+
+        test("removing the boolean feature releases the tool", () => {
+            const tool = toolSketch();
+            const body = bodyWithTool(tool);
+
+            Transaction.execute(doc, "remove feature", () => body.removeFeature("b1"));
+
+            expect(tool.parent).toBe(doc.modelManager.rootNode);
+            expect(tool.parentVisible).toBe(true);
+        });
+
+        test("serialization round-trips consumed tools under the body", async () => {
+            const tool = toolSketch();
+            bodyWithTool(tool);
+            const data = doc.modelManager.serialize();
+
+            const reloaded = new TestDocument({ application: createMockApplication() });
+            await reloaded.modelManager.deserialize(data);
+
+            const body = reloaded.modelManager.findNode(
+                (n) => n instanceof ParametricBodyNode,
+            ) as ParametricBodyNode;
+            const reloadedTool = reloaded.modelManager.findNode((n) => n.id === tool.id)!;
+            expect(reloadedTool.parent).toBe(body);
+            expect(reloadedTool.parentVisible).toBe(false);
+            expect(body.shape.isOk).toBe(true);
+        });
     });
 
     function variableFeature(name: string, expression: string): VariableFeatureData {
@@ -352,6 +537,14 @@ describe("feature evaluation", () => {
 
         expect(body.shape.isOk).toBe(false);
         expect(body.featureItems()[0].error).toBe("Invalid variable name: 1bad");
+    });
+
+    test("a variable may not shadow a constant", () => {
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: "pi" };
+        const body = bodyWith([variableFeature("pi", "3.2"), extrude]);
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.featureItems()[0].error).toBe("Variable name shadows a constant: pi");
     });
 
     test("a variable-only body yields an empty compound", () => {

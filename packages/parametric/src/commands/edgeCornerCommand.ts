@@ -42,7 +42,9 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     }
 
     protected override executeMainTask(): void {
-        const edges = this.stepDatas[1].shapes.map((data) => captureEdgeRef(data.shape as unknown as IEdge));
+        const edges = this.stepDatas[1].shapes.map((data) =>
+            captureEdgeRef(data.shape as unknown as IEdge, this.body.edgeIdAt(data.indexes[0])),
+        );
         promptNumber("dialog.title.enterValue", this.defaultValue, (value) => {
             Transaction.execute(this.document, `excute ${this.featureType}`, () => {
                 this.body.setFeaturesEmitShapeChanged([...this.body.features, this.feature(value, edges)]);

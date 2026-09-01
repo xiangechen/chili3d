@@ -592,6 +592,23 @@ describe("Application", () => {
             expect(prevented).toBe(true);
         });
 
+        test("handleDragStart should not block drags from draggable elements", () => {
+            const source = document.createElement("div");
+            source.setAttribute("draggable", "true");
+            const child = document.createElement("span");
+            source.appendChild(child);
+
+            const event = new Event("dragstart", { bubbles: true }) as DragEvent;
+            Object.defineProperty(event, "target", { value: child });
+            let prevented = false;
+            event.preventDefault = () => {
+                prevented = true;
+            };
+
+            (sharedApp as any).handleDragStart(event);
+            expect(prevented).toBe(false);
+        });
+
         test("handleDragOver should call stopPropagation and preventDefault", () => {
             const dt = new DataTransfer();
             const event = new DragEvent("dragover", { bubbles: true, cancelable: true });

@@ -20,6 +20,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     name: "ti-name",
     icon: "ti-icon",
     "parent-hidden": "ti-parent-hidden",
+    hidden: "ti-hidden",
 }));
 
 rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
@@ -28,7 +29,9 @@ rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
     row: "tig-row",
     header: "tig-header",
     expanderIcon: "tig-expander",
+    toolExpanderIcon: "tig-tool-expander",
     hide: "tig-hide",
+    reference: "tig-reference",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({
@@ -53,6 +56,7 @@ type PropertyHandler = (property: string, model: unknown) => void;
 
 class MockNode {
     isGroup = false;
+    isFolder = false;
     visible = true;
     parentVisible: boolean | undefined = true;
     parent: MockNode | undefined;
@@ -76,6 +80,24 @@ class MockNode {
 // prototype chain at runtime instead of extending it, because tsc still sees the
 // real VisualNode type (with required constructor args and accessors).
 Object.setPrototypeOf(MockNode.prototype, VisualNode.prototype);
+
+/** A parametric-body-like node: linked list plus the real feature-list contract. */
+class MockBodyNode extends MockNode {
+    refs: MockNode[] = [];
+    featureItems() {
+        return [];
+    }
+    setFeatureParameter() {}
+    removeFeature() {}
+    referencedNodes() {
+        return this.refs;
+    }
+}
+
+function withId(node: MockNode, id: string) {
+    (node as unknown as { id: string }).id = id;
+    return node;
+}
 
 type NodeObserver = (records: NodeRecord[]) => void;
 
@@ -143,8 +165,10 @@ TreeGroup.prototype.appendChild = function <T extends Node>(this: TreeGroup, chi
 function createFixture(): Fixture {
     const root = new MockNode("root");
     root.isGroup = true;
+    root.isFolder = true;
     const groupA = new MockNode("groupA");
     groupA.isGroup = true;
+    groupA.isFolder = true;
     groupA.parent = root;
     const model1 = new MockNode("model1");
     const model2 = new MockNode("model2");
@@ -298,6 +322,55 @@ describe("Tree", () => {
             expect(model1El.classList.contains("tree-current")).toBe(false);
             expect(model2El.classList.contains("tree-current")).toBe(true);
         });
+
+        test("should set a clicked folder as current node", () => {
+            fixture = createFixture();
+            fixture.doc.visual.eventHandler = new (
+                NodeSelectionHandler as unknown as new () => unknown
+            )() as typeof fixture.doc.visual.eventHandler;
+            const groupEl = fixture.tree.treeItem(fixture.groupA as unknown as INode) as HTMLElement;
+
+            groupEl.click();
+
+            expect(fixture.doc.modelManager.currentNode).toBe(fixture.groupA);
+        });
+
+        test("should keep the parent as current node when clicking a non-folder group", () => {
+            fixture = createFixture();
+            fixture.doc.visual.eventHandler = new (
+                NodeSelectionHandler as unknown as new () => unknown
+            )() as typeof fixture.doc.visual.eventHandler;
+            // A parametric body renders as a group (consumed tools) but is not a folder.
+            const body = new MockNode("body");
+            body.isGroup = true;
+            body.parent = fixture.root;
+            fixture.doc.emitNodeChanged([{ node: body, newParent: fixture.root } as unknown as NodeRecord]);
+            const bodyEl = fixture.tree.treeItem(body as unknown as INode) as HTMLElement;
+
+            bodyEl.click();
+
+            expect(fixture.doc.modelManager.currentNode).toBe(fixture.root);
+        });
+
+        test("should climb to the nearest folder when clicking a consumed tool under a body", () => {
+            fixture = createFixture();
+            fixture.doc.visual.eventHandler = new (
+                NodeSelectionHandler as unknown as new () => unknown
+            )() as typeof fixture.doc.visual.eventHandler;
+            const body = new MockNode("body");
+            body.isGroup = true;
+            body.parent = fixture.root;
+            fixture.doc.emitNodeChanged([{ node: body, newParent: fixture.root } as unknown as NodeRecord]);
+            const tool = new MockNode("tool");
+            tool.parent = body;
+            body.firstChild = tool;
+            fixture.doc.emitNodeChanged([{ node: tool, newParent: body } as unknown as NodeRecord]);
+            const toolEl = fixture.tree.treeItem(tool as unknown as INode) as HTMLElement;
+
+            toolEl.click();
+
+            expect(fixture.doc.modelManager.currentNode).toBe(fixture.root);
+        });
     });
 
     describe("drop validation", () => {
@@ -337,5 +410,142 @@ describe("Tree", () => {
             expect(fixture.root.move).not.toHaveBeenCalled();
             expect(fixture.groupA.move).not.toHaveBeenCalled();
         });
+
+        test("should drop next to a non-folder group instead of into it", () => {
+            fixture = createFixture();
+            const body = new MockNode("body");
+            body.isGroup = true;
+            body.parent = fixture.root;
+            fixture.doc.emitNodeChanged([{ node: body, newParent: fixture.root } as unknown as NodeRecord]);
+            const bodyEl = fixture.tree.treeItem(body as unknown as INode)!;
+            const model1El = fixture.tree.treeItem(fixture.model1 as unknown as INode)!;
+
+            fireDrag(model1El, "dragstart");
+            fireDrag(bodyEl, "drop");
+
+            // Sibling insert at the root, not into the body.
+            expect(fixture.groupA.move).toHaveBeenCalledWith(fixture.model1, fixture.root, body);
+        });
+
+        /** A parametric body (linked list, not a folder) holding a consumed tool. */
+        const addConsumedTool = () => {
+            const body = new MockNode("body");
+            body.isGroup = true;
+            body.parent = fixture.root;
+            const tool = new MockNode("tool");
+            tool.parent = body;
+            body.firstChild = tool;
+            fixture.doc.emitNodeChanged([
+                { node: body, newParent: fixture.root } as unknown as NodeRecord,
+                { node: tool, newParent: body } as unknown as NodeRecord,
+            ]);
+            return { body, tool };
+        };
+
+        test("should not drag a consumed tool out of its body", () => {
+            fixture = createFixture();
+            const { tool } = addConsumedTool();
+            const toolEl = fixture.tree.treeItem(tool as unknown as INode)!;
+            const rootEl = fixture.tree.treeItem(fixture.root as unknown as INode)!;
+
+            fireDrag(toolEl, "dragstart");
+            fireDrag(rootEl, "drop");
+
+            expect(fixture.root.move).not.toHaveBeenCalled();
+        });
+
+        test("should not drop onto a row under a non-folder group", () => {
+            fixture = createFixture();
+            const { body, tool } = addConsumedTool();
+            const toolEl = fixture.tree.treeItem(tool as unknown as INode)!;
+            const model1El = fixture.tree.treeItem(fixture.model1 as unknown as INode)!;
+
+            fireDrag(model1El, "dragstart");
+            fireDrag(toolEl, "drop");
+
+            expect(fixture.groupA.move).not.toHaveBeenCalled();
+            expect(body.move).not.toHaveBeenCalled();
+        });
+    });
+});
+
+describe("Tree reference rows", () => {
+    let fixture: Fixture;
+    let originalScrollIntoView: unknown;
+
+    beforeEach(() => {
+        originalScrollIntoView = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = () => {};
+    });
+
+    afterEach(() => {
+        Element.prototype.scrollIntoView = originalScrollIntoView as typeof Element.prototype.scrollIntoView;
+        fixture?.tree.remove();
+        fixture?.tree.dispose();
+        document.body.innerHTML = "";
+    });
+
+    function addBodyWithRefs(refs: MockNode[]) {
+        const body = new MockBodyNode("body");
+        body.isGroup = true;
+        body.parent = fixture.root;
+        body.refs = refs;
+        fixture.doc.emitNodeChanged([{ node: body, newParent: fixture.root } as unknown as NodeRecord]);
+        const bodyEl = fixture.tree.treeItem(body as unknown as INode) as TreeGroup;
+        expect(bodyEl).toBeInstanceOf(TreeGroup);
+        return { body, bodyEl };
+    }
+
+    test("should render a mirror row under the body for each referenced node", () => {
+        fixture = createFixture();
+        const sketch = withId(new MockNode("sketch"), "sketch-1");
+        const { bodyEl } = addBodyWithRefs([sketch]);
+
+        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(1);
+    });
+
+    test("should not register the mirror row in the node map", () => {
+        fixture = createFixture();
+        const sketch = withId(new MockNode("sketch"), "sketch-1");
+        addBodyWithRefs([sketch]);
+
+        expect(fixture.tree.treeItem(sketch as unknown as INode)).toBeUndefined();
+    });
+
+    test("double-clicking a mirror row should publish nodeDoubleClicked with the referenced node", () => {
+        fixture = createFixture();
+        const sketch = withId(new MockNode("sketch"), "sketch-1");
+        const { bodyEl } = addBodyWithRefs([sketch]);
+        const row = bodyEl.querySelector("tree-reference") as HTMLElement;
+        expect(row).not.toBeNull();
+
+        row.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+        expect(getPubSubPubs().at(-1)).toEqual({ topic: "nodeDoubleClicked", args: [sketch] });
+    });
+
+    test("should drop the mirror row when the referenced node is removed", () => {
+        fixture = createFixture();
+        const sketch = withId(new MockNode("sketch"), "sketch-1");
+        const { body, bodyEl } = addBodyWithRefs([sketch]);
+
+        body.refs = [];
+        fixture.doc.emitNodeChanged([{ node: sketch, newParent: undefined } as unknown as NodeRecord]);
+
+        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(0);
+    });
+
+    test("should rebuild mirror rows when the body emits a property change", () => {
+        fixture = createFixture();
+        const sketch = withId(new MockNode("sketch"), "sketch-1");
+        const { body, bodyEl } = addBodyWithRefs([]);
+        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(0);
+
+        body.refs = [sketch];
+        (body as unknown as { handlers: Set<(p: string, m: unknown) => void> }).handlers.forEach((h) =>
+            h("featuresJson", body),
+        );
+
+        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(1);
     });
 });

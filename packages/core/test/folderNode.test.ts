@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, type IDocument } from "../src";
+import { FolderNode, type IDocument, type NodeRecord } from "../src";
 import { createPlainNode, TestDocument } from "../test-utils";
 
 describe("FolderNode", () => {
@@ -64,6 +64,23 @@ describe("FolderNode", () => {
             expect(child2.nextSibling).toBe(child3);
             expect(child3.previousSibling).toBe(child2);
             expect(child3.nextSibling).toBeUndefined();
+        });
+
+        test("batch add records per-item newPrevious matching the actual sibling order", () => {
+            const parent = new FolderNode({ document: doc, name: "parent" });
+            const existing = createPlainNode("existing");
+            parent.add(existing);
+
+            const records: NodeRecord[] = [];
+            doc.modelManager.addNodeObserver((r) => records.push(...r));
+            const child1 = createPlainNode("child1");
+            const child2 = createPlainNode("child2");
+
+            parent.add(child1, child2);
+
+            expect(records.length).toBe(2);
+            expect(records[0].newPrevious).toBe(existing);
+            expect(records[1].newPrevious).toBe(child1);
         });
 
         test("should set parentVisible on children", () => {

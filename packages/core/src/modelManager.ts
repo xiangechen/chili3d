@@ -20,6 +20,7 @@ export type OnNodeChanged = (records: NodeRecord[]) => void;
 
 export class ModelManager extends Observable {
     private readonly _nodeChangedObservers = new Set<OnNodeChanged>();
+    private _deserializing = false;
 
     readonly components: ObservableCollection<Component> = new ObservableCollection();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
@@ -73,6 +74,7 @@ export class ModelManager extends Observable {
     }
 
     notifyNodeChanged(records: NodeRecord[]) {
+        if (this._deserializing) return;
         Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
         this._nodeChangedObservers.forEach((x) => {
             x(records);
@@ -112,8 +114,18 @@ export class ModelManager extends Observable {
             ...data.materials.map((x: Serialized) => Serializer.deserializeObject(this.document, x)),
         );
 
-        const rootNode = await NodeUtils.deserializeNode(this.document, data.nodes);
-        this.rootNode = rootNode!;
+        // Defer node notifications until the new tree replaces rootNode: displaying a
+        // node mid-load can generate shapes that reference other nodes (e.g. a
+        // parametric body referencing a sketch), which findNode cannot reach while
+        // _rootNode is still the old root.
+        this._deserializing = true;
+        try {
+            const rootNode = await NodeUtils.deserializeNode(this.document, data.nodes);
+            this.rootNode = rootNode!;
+        } finally {
+            this._deserializing = false;
+        }
+        this.notifyNodeChanged([{ action: "add", node: this.rootNode }]);
     }
 
     override disposeInternal(): void {

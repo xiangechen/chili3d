@@ -4,6 +4,13 @@
     padding: 2px 4px;
 }
 
+.toolExpanderIcon {
+    width: 9px;
+    height: 9px;
+    padding: 3px 5px;
+    color: var(--foreground-muted-color);
+}
+
 .left16px {
     padding-left: 16px;
 }
@@ -30,4 +37,18 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+}
+
+.reference {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-radius: 2px;
+    padding: 4px;
+    color: var(--foreground-muted-color);
+    font-style: italic;
+}
+
+.reference:hover {
+    background-color: var(--hover-background-color);
 }

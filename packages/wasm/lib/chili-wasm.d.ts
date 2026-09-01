@@ -46,6 +46,15 @@ export interface ShapesResult extends ClassHandle {
   shapes: Array<TopoDS_Shape>;
 }
 
+export interface TrackedShapeResult extends ClassHandle {
+  isOk: boolean;
+  get error(): string;
+  set error(value: EmbindString);
+  shape: TopoDS_Shape;
+  faceMap: IntVector;
+  edgeMap: IntVector;
+}
+
 export interface ShapeFactory extends ClassHandle {
 }
 
@@ -520,6 +529,14 @@ export interface ShapeVector extends ClassHandle, Iterable<TopoDS_Shape> {
   set(_0: number, _1: TopoDS_Shape): boolean;
 }
 
+export interface IntVector extends ClassHandle, Iterable<number> {
+  push_back(_0: number): void;
+  resize(_0: number, _1: number): void;
+  size(): number;
+  get(_0: number): number | undefined;
+  set(_0: number, _1: number): boolean;
+}
+
 export type Domain = {
   start: number,
   end: number
@@ -620,6 +637,7 @@ interface EmbindModule {
   ShapeResult: {};
   RemoveFilletResult: {};
   ShapesResult: {};
+  TrackedShapeResult: {};
   ShapeFactory: {
     makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixShape(_0: TopoDS_Shape, _1: number): ShapeResult;
@@ -634,6 +652,8 @@ interface EmbindModule {
     bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
     fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
     chamfer(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
+    filletTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number): TrackedShapeResult;
+    chamferTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number): TrackedShapeResult;
     sweep(_0: Array<TopoDS_Shape>, _1: TopoDS_Wire, _2: boolean, _3: boolean): ShapeResult;
     makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: GeomAbs_JoinType, _4: BRepOffset_Mode, _5: boolean): ShapeResult;
     simplifyShape(_0: TopoDS_Shape, _1: boolean, _2: boolean, _3: Array<TopoDS_Shape>, _4: number, _5: number): ShapeResult;
@@ -641,6 +661,9 @@ interface EmbindModule {
     booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     booleanFuse(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     combine(_0: Array<TopoDS_Shape>): ShapeResult;
+    booleanCommonTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;
+    booleanCutTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;
+    booleanFuseTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;
     loft(_0: Array<TopoDS_Shape>, _1: boolean, _2: boolean, _3: GeomAbs_Shape): ShapeResult;
     removeFeature(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): ShapeResult;
     removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): RemoveFilletResult;
@@ -664,7 +687,9 @@ interface EmbindModule {
     helix(_0: Vector3, _1: Vector3, _2: Vector3, _3: number, _4: number, _5: number): ShapeResult;
     point(_0: Vector3): ShapeResult;
     line(_0: Vector3, _1: Vector3): ShapeResult;
+    prismTracked(_0: TopoDS_Shape, _1: Vector3): TrackedShapeResult;
     revolve(_0: TopoDS_Shape, _1: Ax1, _2: number): ShapeResult;
+    revolveTracked(_0: TopoDS_Shape, _1: Ax1, _2: number): TrackedShapeResult;
     box(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     pyramid(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     rect(_0: Pln, _1: number, _2: number): ShapeResult;
@@ -865,6 +890,9 @@ interface EmbindModule {
   };
   ShapeVector: {
     new(): ShapeVector;
+  };
+  IntVector: {
+    new(): IntVector;
   };
   FaceCheckResultVector: {
     new(): FaceCheckResultVector;

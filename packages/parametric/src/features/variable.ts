@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IShape, Result } from "@chili3d/core";
-import { evaluateExpression } from "./expression";
+import { evaluateExpression, isConstantName } from "./expression";
 import { type FeatureHandler, registerFeature, type VariableFeatureData } from "./feature";
 
 const NAME_PATTERN = /^[A-Za-z_]\w*$/;
@@ -28,6 +28,8 @@ const variableHandler: FeatureHandler<VariableFeatureData> = {
 
     evaluateParameters(feature, scope): Result<void> {
         if (!NAME_PATTERN.test(feature.name)) return Result.err(`Invalid variable name: ${feature.name}`);
+        if (isConstantName(feature.name))
+            return Result.err(`Variable name shadows a constant: ${feature.name}`);
         const value = evaluateExpression(feature.expression, scope);
         if (!value.isOk) return Result.err(value.error);
         scope.set(feature.name, value.value);

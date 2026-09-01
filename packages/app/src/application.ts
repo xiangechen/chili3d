@@ -110,6 +110,10 @@ export class Application extends Observable implements IApplication {
     };
 
     private readonly handleDragStart = (ev: DragEvent) => {
+        // Internal drags (feature-list reorder, project tree) start from elements
+        // marked draggable — let them proceed; only block the browser's native
+        // drags (selected text, images, links).
+        if ((ev.target as HTMLElement | null)?.closest?.("[draggable='true']")) return;
         ev.preventDefault();
     };
 

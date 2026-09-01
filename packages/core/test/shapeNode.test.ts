@@ -206,6 +206,25 @@ describe("shapeNode", () => {
             expect(shape1).toBe(shape2);
         });
 
+        test("should retry generation after a failure", () => {
+            let calls = 0;
+            const FailingNode = class extends ShapeNodeClasses.ParameterShapeNode {
+                protected generateShape(): Result<IShape> {
+                    calls++;
+                    return calls === 1 ? Result.err("transient") : Result.ok(new MockShape());
+                }
+
+                display(): any {
+                    return "test.parameterShape";
+                }
+            };
+            const failing: any = new FailingNode({ document: doc });
+
+            expect(failing.shape.isOk).toBe(false);
+            expect(failing.shape.isOk).toBe(true);
+            expect(calls).toBe(2);
+        });
+
         test("should set shape when property changes", () => {
             // Should not throw when setting property
             expect(() => {

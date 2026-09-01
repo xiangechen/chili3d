@@ -6,31 +6,70 @@ import { CurveUtils, type IEdge, type IShape, Result, ShapeTypes, type XYZ } fro
 export type Vec3 = { x: number; y: number; z: number };
 
 /**
- * A geometric fingerprint of an edge. Shape indices drift when the upstream shape
- * is rebuilt, so fillet/chamfer features store these instead and re-match edges on
- * the rebuilt input. Exact matches are expected when the upstream is unchanged
- * (OCCT rebuilds deterministically); edits that move geometry (e.g. a parameter
- * change) are matched to the closest unambiguous edge instead — see
- * `matchEdgeIndexes`.
+ * A geometric fingerprint of an edge, plus an optional stable `edgeId` from kernel
+ * shape history (see `ParametricBodyNode.edgeIdAt`). Shape indices drift when the
+ * upstream shape is rebuilt, so fillet/chamfer features store these instead and
+ * re-match edges on the rebuilt input: `edgeId` hits exactly while the id survives,
+ * the fingerprint is the fallback — see `matchEdgeIndexes`. Fingerprints match
+ * exactly when the upstream is unchanged (OCCT rebuilds deterministically); edits
+ * that move geometry (e.g. a parameter change) are matched to the closest
+ * unambiguous edge instead.
  */
 export type EdgeRef =
-    | { kind: "line"; start: Vec3; end: Vec3 }
-    | { kind: "circle"; center: Vec3; radius: number; axis: Vec3 }
-    | { kind: "other"; mid: Vec3; length: number };
+    | { kind: "line"; start: Vec3; end: Vec3; edgeId?: string }
+    | { kind: "circle"; center: Vec3; radius: number; axis: Vec3; edgeId?: string }
+    | { kind: "other"; mid: Vec3; length: number; edgeId?: string };
 
 /** Coordinates below this distance (mm) count as the same edge. */
 const MATCH_TOLERANCE = 1e-4;
 
-export function captureEdgeRef(edge: IEdge): EdgeRef {
+export function captureEdgeRef(edge: IEdge, edgeId?: string): EdgeRef {
     const basis = edge.curve.basisCurve;
     if (CurveUtils.isCircle(basis)) {
-        return { kind: "circle", center: vec3(basis.center), radius: basis.radius, axis: vec3(basis.axis) };
+        return {
+            kind: "circle",
+            center: vec3(basis.center),
+            radius: basis.radius,
+            axis: vec3(basis.axis),
+            edgeId,
+        };
     }
     if (CurveUtils.isLine(basis)) {
-        return { kind: "line", start: vec3(edge.startPoint()), end: vec3(edge.endPoint()) };
+        return { kind: "line", start: vec3(edge.startPoint()), end: vec3(edge.endPoint()), edgeId };
     }
     const midParam = (edge.firstParameter() + edge.lastParameter()) / 2;
-    return { kind: "other", mid: vec3(edge.pointAt(midParam)), length: edge.length() };
+    return { kind: "other", mid: vec3(edge.pointAt(midParam)), length: edge.length(), edgeId };
+}
+
+/**
+ * Like `matchEdgeIndexes`, but refs carrying an `edgeId` that still exists in
+ * `inputEdgeIds` (findSubShapes order of `shape`'s rebuild input) resolve exactly;
+ * the rest fall back to fingerprint matching. An id hit consumes the index, so a
+ * fingerprint cannot steal it (and vice versa — a collision is ambiguous).
+ */
+export function matchEdgeIndexesTracked(
+    shape: IShape,
+    refs: EdgeRef[],
+    inputEdgeIds: readonly string[],
+): Result<number[]> {
+    const resolved = new Set<number>();
+    const remaining: EdgeRef[] = [];
+    for (const ref of refs) {
+        const index = ref.edgeId === undefined ? -1 : inputEdgeIds.indexOf(ref.edgeId);
+        if (index >= 0 && !resolved.has(index)) {
+            resolved.add(index);
+        } else {
+            remaining.push(ref);
+        }
+    }
+    if (remaining.length === 0) return Result.ok([...resolved]);
+    const matched = matchEdgeIndexes(shape, remaining);
+    if (!matched.isOk) return Result.err(matched.error);
+    for (const index of matched.value) {
+        if (resolved.has(index)) return Result.err("Edge match is ambiguous after rebuild");
+        resolved.add(index);
+    }
+    return Result.ok([...resolved]);
 }
 
 /**
@@ -57,14 +96,20 @@ export function matchEdgeIndexes(shape: IShape, refs: EdgeRef[]): Result<number[
         } else if (!isClearWinner(best.score, second?.score)) {
             return Result.err("Edge not found after rebuild");
         }
+        if (indexes.has(best.index)) return Result.err("Edge match is ambiguous after rebuild");
         indexes.add(best.index);
     }
     return Result.ok([...indexes]);
 }
 
-/** A moved edge counts as matched only when the runner-up is at least 50% farther away. */
+/**
+ * A moved edge counts as matched only when the runner-up is at least 50% farther away.
+ * A sole candidate wins by default — unless its score is infinite, which means its
+ * curve type does not match the ref at all.
+ */
 function isClearWinner(bestScore: number, secondScore: number | undefined): boolean {
-    return secondScore !== undefined && secondScore > 1.5 * bestScore + MATCH_TOLERANCE;
+    if (!Number.isFinite(bestScore)) return false;
+    return secondScore === undefined || secondScore > 1.5 * bestScore + MATCH_TOLERANCE;
 }
 
 function bestTwo(edges: IEdge[], ref: EdgeRef) {

@@ -370,5 +370,73 @@ describe("TransformedCommand (via Move)", () => {
                 restore();
             }
         });
+
+        test("should not clone a consumed boolean tool and show a hint", async () => {
+            const cmd = new Move();
+            cmd.isClone = true;
+            // A plain-object parent is not a FolderNode → the node reads as a consumed tool.
+            const bodyParent = { insertAfter: rs.fn() };
+            const { node } = trackingNode(bodyParent);
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [node];
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).canExcute();
+
+                expect(ok).toBe(false);
+                expect((cmd as any).models).toEqual([]);
+                expect(bodyParent.insertAfter).not.toHaveBeenCalled();
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.consumedTool.forbidden");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
+        test("should not move a consumed boolean tool and show a hint", async () => {
+            const cmd = new Move();
+            // Consumed: parent set, not a FolderNode.
+            const { node } = trackingNode({});
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [node];
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).canExcute();
+
+                expect(ok).toBe(false);
+                expect(node.assigned()).toBeUndefined();
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.consumedTool.forbidden");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
+        test("should move only the free nodes of a mixed selection", async () => {
+            const restore = stubTransactionRun();
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const cmd = new Move();
+                const free = trackingNode(makeParent());
+                const consumed = trackingNode({});
+                const { doc } = wireCommand(cmd);
+                (doc.selection as any).getSelectedVisualNodes = () => [free.node, consumed.node];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 5, y: 0, z: 0 }) }),
+                ]);
+
+                expect(await (cmd as any).canExcute()).toBe(true);
+                (cmd as any).executeMainTask();
+
+                const expected = Matrix4.fromTranslation(5, 0, 0);
+                for (let i = 0; i < 16; i++) {
+                    expect(free.node.assigned().array[i]).toBeCloseTo(expected.array[i], 6);
+                }
+                expect(consumed.node.assigned()).toBeUndefined();
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.consumedTool.forbidden");
+            } finally {
+                pubSpy.mockRestore();
+                restore();
+            }
+        });
     });
 });

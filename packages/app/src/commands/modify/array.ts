@@ -15,6 +15,7 @@ import {
     type ICurve,
     type IEdge,
     type IStep,
+    isConsumedTool,
     LengthAtPlaneStep,
     Line,
     MathUtils,
@@ -210,6 +211,15 @@ export class ArrayCommand extends MultistepCommand {
         if (this.positions) return true;
 
         if (!(await this.ensureSelectedModels())) return false;
+
+        // Consumed boolean tools are owned by the body's feature list — arraying one
+        // would clone an unreferenced hidden child. Same guard as TransformedCommand.
+        const freeModels = this.models!.filter((x) => !isConsumedTool(x));
+        if (freeModels.length !== this.models!.length) {
+            PubSub.default.pub("showToast", "toast.consumedTool.forbidden");
+            this.models = freeModels;
+        }
+        if (freeModels.length === 0) return false;
 
         this.collectionPosition();
 

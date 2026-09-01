@@ -12,10 +12,14 @@ import { rs } from "@rstest/core";
 
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
-    const { BindingMock, TransactionMock } = rs.hoisted(() => require("./coreMocks"));
+    const { BindingMock, FolderNodeMock, TransactionMock, isFeatureListNodeMock } = rs.hoisted(() =>
+        require("./coreMocks"),
+    );
     return {
         ...actual,
         Binding: BindingMock,
         Transaction: TransactionMock,
+        FolderNode: FolderNodeMock,
+        isFeatureListNode: isFeatureListNodeMock,
     };
 });

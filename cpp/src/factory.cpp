@@ -16,6 +16,7 @@
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeShape.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
@@ -61,6 +62,7 @@
 #include <ShapeFix_Solid.hxx>
 #include <ShapeFix_Wire.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <Standard_Failure.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
@@ -90,6 +92,69 @@ struct ShapesResult {
     bool isOk;
     std::string error;
 };
+
+struct TrackedShapeResult {
+    TopoDS_Shape shape;
+    bool isOk;
+    std::string error;
+    // output face/edge index (TopExp::MapShapes order) -> input index, -1 = new sub-shape
+    std::vector<int> faceMap;
+    std::vector<int> edgeMap;
+};
+
+// Marks output sub-shapes identical to or derived (Modified/Generated — guarded, some
+// algorithms only implement Generated) from `inShape` with its input index.
+static void mapInputShape(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& inShape, int inIndex,
+    const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& outMap, std::vector<int>& map)
+{
+    auto markDerived = [&](const NCollection_List<TopoDS_Shape>& derived) {
+        for (const TopoDS_Shape& shape : derived) {
+            int outIndex = outMap.FindIndex(shape);
+            if (outIndex > 0 && map[outIndex - 1] < 0) {
+                map[outIndex - 1] = inIndex;
+            }
+        }
+    };
+    int identical = outMap.FindIndex(inShape);
+    if (identical > 0 && map[identical - 1] < 0) {
+        map[identical - 1] = inIndex;
+    }
+    try {
+        markDerived(algo.Modified(inShape));
+    } catch (const Standard_Failure&) {
+    }
+    try {
+        markDerived(algo.Generated(inShape));
+    } catch (const Standard_Failure&) {
+    }
+}
+
+// Maps each output sub-shape of `type` to the input sub-shape it derives from (identity
+// first — some algorithms keep input shapes as-is, e.g. the prism bottom face).
+// Sub-shapes without an input origin keep -1.
+static std::vector<int> shapeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
+    const TopoDS_Shape& output, TopAbs_ShapeEnum type)
+{
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inMap;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outMap;
+    TopExp::MapShapes(input, type, inMap);
+    TopExp::MapShapes(output, type, outMap);
+    std::vector<int> map(outMap.Extent(), -1);
+    for (int i = 1; i <= inMap.Extent(); i++) {
+        mapInputShape(algo, inMap.FindKey(i), i - 1, outMap, map);
+    }
+    return map;
+}
+
+static std::vector<int> faceHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input, const TopoDS_Shape& output)
+{
+    return shapeHistory(algo, input, output, TopAbs_FACE);
+}
+
+static std::vector<int> edgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input, const TopoDS_Shape& output)
+{
+    return shapeHistory(algo, input, output, TopAbs_EDGE);
+}
 
 // Compute the plane formed by two edges at their shared vertex from their tangent vectors.
 static std::optional<gp_Dir> computeNormal(const TopoDS_Edge& edge1, const TopoDS_Edge& edge2, const TopoDS_Vertex& vertex)
@@ -446,6 +511,16 @@ public:
         return ShapeResult { revol.Shape(), true, "" };
     }
 
+    static TrackedShapeResult revolveTracked(const TopoDS_Shape& profile, const Ax1& axis, double rad)
+    {
+        BRepPrimAPI_MakeRevol revol(profile, Ax1::toAx1(axis), rad);
+        if (!revol.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to revolve profile", {}, {} };
+        }
+        return TrackedShapeResult { revol.Shape(), true, "", faceHistory(revol, profile, revol.Shape()),
+            edgeHistory(revol, profile, revol.Shape()) };
+    }
+
     static ShapeResult prism(const TopoDS_Shape& profile, const Vector3& vec)
     {
         gp_Vec vec3 = Vector3::toVec(vec);
@@ -454,6 +529,17 @@ public:
             return ShapeResult { TopoDS_Shape(), false, "Failed to create prism" };
         }
         return ShapeResult { prism.Shape(), true, "" };
+    }
+
+    static TrackedShapeResult prismTracked(const TopoDS_Shape& profile, const Vector3& vec)
+    {
+        gp_Vec vec3 = Vector3::toVec(vec);
+        BRepPrimAPI_MakePrism prism(profile, vec3);
+        if (!prism.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to create prism", {}, {} };
+        }
+        return TrackedShapeResult { prism.Shape(), true, "", faceHistory(prism, profile, prism.Shape()),
+            edgeHistory(prism, profile, prism.Shape()) };
     }
 
     static ShapeResult pushPull(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase, const Vector3& vec)
@@ -1016,16 +1102,77 @@ public:
         return booleanOperate(api, args, tools);
     }
 
-    static ShapeResult combine(const ShapeArray& shapes)
+    static TopoDS_Compound compoundOf(const std::vector<TopoDS_Shape>& shapes)
     {
-        std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(shapes);
         TopoDS_Compound compound;
         BRep_Builder builder;
         builder.MakeCompound(compound);
-        for (auto shape : shapesVec) {
+        for (auto shape : shapes) {
             builder.Add(compound, shape);
         }
-        return ShapeResult { compound, true, "" };
+        return compound;
+    }
+
+    // Unlike booleanOperate, history filling stays enabled — it is the whole point here.
+    // The history input enumerates args then tools, so output indexes >= arg face count
+    // originate from a tool body. `simplify` unifies same-domain faces (as the untracked
+    // fuse path does); OCCT merges the simplification into the operation history.
+    static TrackedShapeResult booleanOperateTracked(BRepAlgoAPI_BooleanOperation& boolOperater,
+        const ShapeArray& args, const ShapeArray& tools, bool simplify)
+    {
+        auto argsList = shapeArrayToListOfShape(args);
+        auto toolsList = shapeArrayToListOfShape(tools);
+
+        boolOperater.SetArguments(argsList);
+        boolOperater.SetTools(toolsList);
+        boolOperater.SetFuzzyValue(1e-6);
+        boolOperater.Build();
+
+        if (!boolOperater.IsDone()) {
+            std::ostringstream oss;
+            boolOperater.DumpErrors(oss);
+            return TrackedShapeResult { TopoDS_Shape(), false, oss.str(), {}, {} };
+        }
+
+        // SimplifyResult runs after Build; it merges the unification into the history.
+        if (simplify) {
+            boolOperater.SimplifyResult(true, true);
+        }
+
+        TopoDS_Compound inputCompound;
+        {
+            std::vector<TopoDS_Shape> inputs = vecFromJSArray<TopoDS_Shape>(args);
+            auto toolVec = vecFromJSArray<TopoDS_Shape>(tools);
+            inputs.insert(inputs.end(), toolVec.begin(), toolVec.end());
+            inputCompound = compoundOf(inputs);
+        }
+        return TrackedShapeResult { boolOperater.Shape(), true, "",
+            faceHistory(boolOperater, inputCompound, boolOperater.Shape()),
+            edgeHistory(boolOperater, inputCompound, boolOperater.Shape()) };
+    }
+
+    static TrackedShapeResult booleanCommonTracked(const ShapeArray& args, const ShapeArray& tools)
+    {
+        BRepAlgoAPI_Common api;
+        return booleanOperateTracked(api, args, tools, false);
+    }
+
+    static TrackedShapeResult booleanCutTracked(const ShapeArray& args, const ShapeArray& tools)
+    {
+        BRepAlgoAPI_Cut api;
+        return booleanOperateTracked(api, args, tools, false);
+    }
+
+    static TrackedShapeResult booleanFuseTracked(const ShapeArray& args, const ShapeArray& tools)
+    {
+        BRepAlgoAPI_Fuse api;
+        return booleanOperateTracked(api, args, tools, true);
+    }
+
+    static ShapeResult combine(const ShapeArray& shapes)
+    {
+        std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(shapes);
+        return ShapeResult { compoundOf(shapesVec), true, "" };
     }
 
     static ShapeResult fillet(const TopoDS_Shape& shape, const NumberArray& edges, double radius)
@@ -1047,6 +1194,26 @@ public:
         return ShapeResult { makeFillet.Shape(), true, "" };
     }
 
+    static TrackedShapeResult filletTracked(const TopoDS_Shape& shape, const NumberArray& edges, double radius)
+    {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
+        BRepFilletAPI_MakeFillet makeFillet(shape);
+        for (auto edge : edgeVec) {
+            makeFillet.Add(radius, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
+        }
+        makeFillet.Build();
+        if (!makeFillet.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to fillet", {}, {} };
+        }
+
+        return TrackedShapeResult { makeFillet.Shape(), true, "", faceHistory(makeFillet, shape, makeFillet.Shape()),
+            edgeHistory(makeFillet, shape, makeFillet.Shape()) };
+    }
+
     static ShapeResult chamfer(const TopoDS_Shape& shape, const NumberArray& edges, double distance)
     {
         std::vector<int> edgeVec = vecFromJSArray<int>(edges);
@@ -1063,6 +1230,26 @@ public:
             return ShapeResult { TopoDS_Shape(), false, "Failed to chamfer" };
         }
         return ShapeResult { makeChamfer.Shape(), true, "" };
+    }
+
+    static TrackedShapeResult chamferTracked(const TopoDS_Shape& shape, const NumberArray& edges, double distance)
+    {
+        std::vector<int> edgeVec = vecFromJSArray<int>(edges);
+
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edgeMap;
+        TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+
+        BRepFilletAPI_MakeChamfer makeChamfer(shape);
+        for (auto edge : edgeVec) {
+            makeChamfer.Add(distance, TopoDS::Edge(edgeMap.FindKey(edge + 1)));
+        }
+        makeChamfer.Build();
+        if (!makeChamfer.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to chamfer", {}, {} };
+        }
+
+        return TrackedShapeResult { makeChamfer.Shape(), true, "", faceHistory(makeChamfer, shape, makeChamfer.Shape()),
+            edgeHistory(makeChamfer, shape, makeChamfer.Shape()) };
     }
 
     static ShapeResult fillet2d(const TopoDS_Face& face, const TopoDS_Edge& edge1, const TopoDS_Edge& edge2, double radius)
@@ -1400,6 +1587,13 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("isOk", &ShapesResult::isOk)
         .property("error", &ShapesResult::error);
 
+    class_<TrackedShapeResult>("TrackedShapeResult")
+        .property("shape", &TrackedShapeResult::shape, return_value_policy::reference())
+        .property("isOk", &TrackedShapeResult::isOk)
+        .property("error", &TrackedShapeResult::error)
+        .property("faceMap", &TrackedShapeResult::faceMap)
+        .property("edgeMap", &TrackedShapeResult::edgeMap);
+
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)
         .class_function("cone", &ShapeFactory::cone)
@@ -1434,6 +1628,13 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("combine", &ShapeFactory::combine)
         .class_function("fillet", &ShapeFactory::fillet)
         .class_function("chamfer", &ShapeFactory::chamfer)
+        .class_function("revolveTracked", &ShapeFactory::revolveTracked)
+        .class_function("prismTracked", &ShapeFactory::prismTracked)
+        .class_function("booleanCommonTracked", &ShapeFactory::booleanCommonTracked)
+        .class_function("booleanCutTracked", &ShapeFactory::booleanCutTracked)
+        .class_function("booleanFuseTracked", &ShapeFactory::booleanFuseTracked)
+        .class_function("filletTracked", &ShapeFactory::filletTracked)
+        .class_function("chamferTracked", &ShapeFactory::chamferTracked)
         .class_function("fillet2d", &ShapeFactory::fillet2d)
         .class_function("chamfer2d", &ShapeFactory::chamfer2d)
         .class_function("filletEdge2d", &ShapeFactory::filletEdge2d)

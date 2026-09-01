@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./annotation";
+export * from "./childList";
 export * from "./component";
 export * from "./facebaseNode";
 export * from "./featureList";

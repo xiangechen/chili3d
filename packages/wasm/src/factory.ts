@@ -22,10 +22,19 @@ import {
     Precision,
     Result,
     ShapeTypes,
+    type TrackedShape,
     type XYZ,
     type XYZLike,
 } from "@chili3d/core";
-import type { ShapeResult, ShapesResult, TopoDS_Edge, TopoDS_Face, TopoDS_Shape } from "../lib/chili-wasm";
+import type {
+    IntVector,
+    ShapeResult,
+    ShapesResult,
+    TopoDS_Edge,
+    TopoDS_Face,
+    TopoDS_Shape,
+    TrackedShapeResult,
+} from "../lib/chili-wasm";
 import { OccCurve } from "./curve";
 import { convertFromContinuity, getJoinType, getOffsetMode } from "./helper";
 import { OccEdge, OccShape } from "./shape";
@@ -101,6 +110,42 @@ function convertShapesResult<P extends unknown[] = unknown[]>(
     return res;
 }
 
+function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
+    factory: (...params: P) => TrackedShapeResult,
+    params: P,
+    errorString: string,
+): Result<TrackedShape, string> {
+    let result: TrackedShapeResult;
+    try {
+        result = factory(...params);
+    } catch (err) {
+        return Result.err(`${errorString}: ${err}`);
+    }
+
+    let res: Result<TrackedShape, string>;
+    if (!result.isOk) {
+        res = Result.err(result.error);
+    } else {
+        res = Result.ok({
+            shape: OccShape.wrap(result.shape),
+            faceMap: toIntArray(result.faceMap),
+            edgeMap: toIntArray(result.edgeMap),
+        });
+    }
+
+    result.delete();
+    return res;
+}
+
+function toIntArray(vector: IntVector): number[] {
+    const array: number[] = [];
+    for (let i = 0; i < vector.size(); i++) {
+        array.push(vector.get(i)!);
+    }
+    vector.delete();
+    return array;
+}
+
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
 
@@ -138,6 +183,44 @@ export class ShapeFactory implements IShapeFactory {
         if (shape instanceof OccShape) {
             return convertShapeResult(
                 wasm.ShapeFactory.chamfer,
+                [shape.shape, edges, distance],
+                "Chamfer Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    filletTracked(shape: IShape, edges: number[], radius: number): Result<TrackedShape> {
+        if (radius < Precision.Distance) {
+            return Result.err("The radius is too small.");
+        }
+
+        if (edges.length === 0) {
+            return Result.err("The edges is empty.");
+        }
+
+        if (shape instanceof OccShape) {
+            return convertTrackedShapeResult(
+                wasm.ShapeFactory.filletTracked,
+                [shape.shape, edges, radius],
+                "Fillet Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    chamferTracked(shape: IShape, edges: number[], distance: number): Result<TrackedShape> {
+        if (distance < Precision.Distance) {
+            return Result.err("The distance is too small.");
+        }
+
+        if (edges.length === 0) {
+            return Result.err("The edges is empty.");
+        }
+
+        if (shape instanceof OccShape) {
+            return convertTrackedShapeResult(
+                wasm.ShapeFactory.chamferTracked,
                 [shape.shape, edges, distance],
                 "Chamfer Error",
             );
@@ -454,6 +537,17 @@ export class ShapeFactory implements IShapeFactory {
         }
         return convertShapeResult(wasm.ShapeFactory.prism, [ensureOccShape(shape)[0], vec], "Prism Error");
     }
+
+    prismTracked(shape: IShape, vec: XYZ): Result<TrackedShape> {
+        if (vec.length() === 0) {
+            return Result.err(`The vector length is 0, the prism cannot be created.`);
+        }
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.prismTracked,
+            [ensureOccShape(shape)[0], vec],
+            "Prism Error",
+        );
+    }
     pushPull(shape: IShape, face: IShape, vec: XYZ): Result<IShape> {
         if (vec.length() === 0) {
             return Result.err(`The vector length is 0, the prism cannot be created.`);
@@ -492,6 +586,21 @@ export class ShapeFactory implements IShapeFactory {
             "Revolve Error",
         );
     }
+
+    revolveTracked(profile: IShape, axis: Line, angle: number): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.revolveTracked,
+            [
+                ensureOccShape(profile)[0],
+                {
+                    location: axis.point,
+                    direction: axis.direction,
+                },
+                MathUtils.degToRad(angle),
+            ],
+            "Revolve Error",
+        );
+    }
     booleanCommon(shape1: IShape[], shape2: IShape[]): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.booleanCommon,
@@ -504,6 +613,30 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.booleanCut,
             [ensureOccShape(shape1), ensureOccShape(shape2)],
             "BooleanCut Error",
+        );
+    }
+
+    booleanCommonTracked(shape1: IShape[], shape2: IShape[]): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.booleanCommonTracked,
+            [ensureOccShape(shape1), ensureOccShape(shape2)],
+            "BooleanCommon Error",
+        );
+    }
+
+    booleanCutTracked(shape1: IShape[], shape2: IShape[]): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.booleanCutTracked,
+            [ensureOccShape(shape1), ensureOccShape(shape2)],
+            "BooleanCut Error",
+        );
+    }
+
+    booleanFuseTracked(shape1: IShape[], shape2: IShape[]): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.booleanFuseTracked,
+            [ensureOccShape(shape1), ensureOccShape(shape2)],
+            "BooleanFuse Error",
         );
     }
     booleanFuse(shape1: IShape[], shape2: IShape[], simplifyShape: boolean): Result<IShape> {

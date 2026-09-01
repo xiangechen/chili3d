@@ -3,6 +3,7 @@
 
 import {
     Annotation,
+    FolderNode,
     type IDocument,
     type INode,
     type INodeLinkedList,
@@ -90,15 +91,34 @@ export class Tree extends HTMLElement {
         records.forEach((record) => {
             const ele = this.nodeMap.get(record.node);
             ele?.remove();
-            if (!ele || !record.newParent) return;
+            if (!ele || !record.newParent) {
+                this.refreshGroupExpander(record.oldParent);
+                // A removed node may be a sketch referenced by a body — drop its mirror rows.
+                if (!record.newParent) this.refreshReferenceRows();
+                return;
+            }
 
             const parent = this.nodeMap.get(record.newParent) || this.createAndMapParent(record.newParent);
             if (parent instanceof TreeGroup) {
                 const pre = record.newPrevious ? this.nodeMap.get(record.newPrevious) : null;
                 parent.insertAfter(ele, pre ?? null);
+                parent.refreshExpander();
             }
+            ele.refreshVisibleIcon();
+            this.refreshGroupExpander(record.oldParent);
         });
     };
+
+    private refreshGroupExpander(parent: INodeLinkedList | undefined) {
+        const group = parent === undefined ? undefined : this.nodeMap.get(parent);
+        if (group instanceof TreeGroup) group.refreshExpander();
+    }
+
+    private refreshReferenceRows() {
+        this.nodeMap.forEach((item) => {
+            if (item instanceof TreeGroup) item.refreshReferences();
+        });
+    }
 
     private createAndMapParent(newParent: INode) {
         const parent = this.createHTMLElement(this.document, newParent);
@@ -262,7 +282,14 @@ export class Tree extends HTMLElement {
     private handleLastClickItem(item: INode | undefined) {
         this.lastClicked = item;
         if (item !== undefined) {
-            this.document.modelManager.currentNode = NodeUtils.isLinkedListNode(item) ? item : item.parent;
+            // Only folders accept new nodes: a parametric body is a linked list too,
+            // but its children are consumed boolean tools hidden from the scene.
+            // Walk up to the nearest folder ancestor when clicking inside such a body.
+            let node: INodeLinkedList | undefined = item instanceof FolderNode ? item : item.parent;
+            while (node !== undefined && !(node instanceof FolderNode)) {
+                node = node.parent;
+            }
+            this.document.modelManager.currentNode = node;
         }
     }
 
@@ -273,7 +300,9 @@ export class Tree extends HTMLElement {
 
     private canDropNode(node: INode) {
         if (this.dragging?.includes(node)) return false;
-        let parent = node.parent;
+        // Rows under a parametric body (consumed tools) accept no drops.
+        if (node.parent !== undefined && !(node.parent instanceof FolderNode)) return false;
+        let parent: INodeLinkedList | undefined = node.parent;
         while (parent !== undefined) {
             if (this.dragging?.includes(parent)) return false;
             parent = parent.parent;
@@ -289,11 +318,14 @@ export class Tree extends HTMLElement {
         const node = this.getTreeItem(event.target as HTMLElement)?.node;
         if (node === undefined || !this.canDropNode(node)) return;
         Transaction.execute(this.document, "move node", () => {
-            const isLinkList = NodeUtils.isLinkedListNode(node);
-            const newParent = isLinkList ? (node as INodeLinkedList) : node.parent;
-            const target = isLinkList ? undefined : node;
+            // Drop INTO folders only — dropping onto a parametric body (also a linked
+            // list, holding hidden consumed tools) inserts as its sibling instead.
+            const isFolder = node instanceof FolderNode;
+            const newParent = isFolder ? (node as INodeLinkedList) : node.parent;
+            if (!(newParent instanceof FolderNode)) return; // never drop into a body
+            const target = isFolder ? undefined : node;
             this.dragging?.forEach((x) => {
-                x.parent?.move(x, newParent!, target);
+                x.parent?.move(x, newParent, target);
             });
             this.dragging = undefined;
         });
@@ -302,9 +334,12 @@ export class Tree extends HTMLElement {
     private readonly onDragStart = (event: DragEvent) => {
         event.stopPropagation();
         const item = this.getTreeItem(event.target as HTMLElement)?.node;
-        this.dragging = NodeUtils.findTopLevelNodes(this.selectedNodes);
+        // Consumed boolean tools (children of a parametric body) stay with the body.
+        const draggable = (x: INode) => x.parent === undefined || x.parent instanceof FolderNode;
+        this.dragging = NodeUtils.findTopLevelNodes(this.selectedNodes).filter(draggable);
         if (
             item &&
+            draggable(item) &&
             !this.dragging.includes(item) &&
             !NodeUtils.containsDescendant(this.selectedNodes, item)
         ) {
@@ -318,14 +353,12 @@ export class Tree extends HTMLElement {
     };
 
     private getDropTargetGroup(element: HTMLElement): TreeGroup | undefined {
-        const item = this.getTreeItem(element);
-        if (!item) return undefined;
-        if (item instanceof TreeGroup) return item;
-        // TreeModel — find parent TreeGroup in DOM
-        let current: HTMLElement | null = item;
+        // Folders only — a parametric body's TreeGroup holds hidden consumed tools
+        // and is not a drop target (the drop lands next to the body instead).
+        let current: HTMLElement | null = this.getTreeItem(element) ?? null;
         while (current) {
+            if (current instanceof TreeGroup && current.node instanceof FolderNode) return current;
             current = current.parentElement;
-            if (current instanceof TreeGroup) return current;
         }
         return undefined;
     }

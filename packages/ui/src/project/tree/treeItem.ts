@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Binding, type IDocument, type INode, Transaction } from "@chili3d/core";
+import { Binding, FolderNode, type IDocument, type INode, Transaction } from "@chili3d/core";
 import { label, setSVGIcon, svg } from "@chili3d/element";
 import style from "./treeItem.module.css";
 
@@ -15,7 +15,7 @@ export abstract class TreeItem extends HTMLElement {
     }
 
     constructor(
-        private document: IDocument,
+        protected document: IDocument,
         node: INode,
     ) {
         super();
@@ -31,6 +31,17 @@ export abstract class TreeItem extends HTMLElement {
             onclick: this.onVisibleIconClick,
         });
         this.setVisibleStyle(node.parentVisible);
+        this.refreshVisibleIcon();
+    }
+
+    /**
+     * Consumed boolean tools (children of a parametric body, not of a folder) never
+     * render in the scene, so their eye icon would toggle a flag with no visual
+     * effect — hide it. Called on construction and after every tree move.
+     */
+    refreshVisibleIcon() {
+        const consumed = this.node.parent !== undefined && !(this.node.parent instanceof FolderNode);
+        this.visibleIcon.classList.toggle(style.hidden, consumed);
     }
 
     connectedCallback(): void {

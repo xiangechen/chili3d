@@ -7,6 +7,7 @@ import {
     ComponentNode,
     type EdgeMeshData,
     GeometryNode,
+    isConsumedTool,
     type Matrix4,
     MeshDataUtils,
     MeshNode,
@@ -63,6 +64,17 @@ export abstract class TransformedCommand extends MultistepCommand {
     protected override async canExcute(): Promise<boolean> {
         if (!(await this.ensureSelectedModels())) return false;
 
+        // Consumed boolean tools are owned by the body's feature list: copying one
+        // would insert an unreferenced hidden child, moving one fights the body's
+        // parametric placement. Filter them out before the preview positions are
+        // computed so the preview matches what executeMainTask will actually touch.
+        const freeModels = this.models!.filter((x) => !isConsumedTool(x));
+        if (freeModels.length !== this.models!.length) {
+            PubSub.default.pub("showToast", "toast.consumedTool.forbidden");
+            this.models = freeModels;
+        }
+        if (freeModels.length === 0) return false;
+
         this.positions = this.models!.flatMap((model) => {
             if (model instanceof MeshNode) {
                 return model.mesh.position ? model.transform.ofPoints(model.mesh.position) : [];
@@ -84,6 +96,7 @@ export abstract class TransformedCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const transform = this.transfrom(this.stepDatas.at(-1)!.point!);
 
+            // `canExcute` already filtered consumed boolean tools out of `models`.
             if (this.isClone) {
                 this.models?.forEach((x) => {
                     const clone = x.clone();
