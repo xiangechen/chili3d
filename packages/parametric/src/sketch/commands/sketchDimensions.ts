@@ -2,13 +2,21 @@
 // See LICENSE file in the project root for full license information.
 
 import { command } from "@chili3d/core";
-import { type DimensionAnchor, segmentOffset } from "../editor/dimensionLayout";
+import {
+    type DimensionAnchor,
+    lineIntersection,
+    pointLineFoot,
+    pointLineSignedDistance,
+    segmentOffset,
+    toDisplayDatum,
+    toStorageDatum,
+} from "../editor/dimensionLayout";
 import type { SketchEditor } from "../editor/sketchEditor";
 import { ConstraintKind, pointRefKey, type SketchConstraintData, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
-@command({ key: "dimension.distance", icon: "icon-measureLength" })
+@command({ key: "dimension.distance", icon: "icon-dDimension" })
 export class DistanceDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const p1 = await editor.pickPoint("prompt.pickSketchPoint");
@@ -51,7 +59,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
     }
 }
 
-@command({ key: "dimension.radius", icon: "icon-circle" })
+@command({ key: "dimension.radius", icon: "icon-dRadius" })
 export class RadiusDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const circleId = await editor.pickEntity("prompt.pickSketchEntity", "circle");
@@ -106,18 +114,20 @@ function commitDimension(
     constraint: Omit<SketchConstraintData, "id">,
     anchor: DimensionAnchor,
     initial: number,
+    options?: { apply?: (id: number, value: number) => void; positiveOnly?: boolean },
 ): void {
     const id = editor.solver.addConstraint(constraint);
     editor.dimensionAnchors.set(id, anchor);
     editor.solve(true);
     editor.promptDatum(
         initial,
-        (value) => editor.solver.setDatum(id, value),
+        (value) => (options?.apply ?? ((cid, v) => editor.solver.setDatum(cid, v)))(id, value),
         () => {
             editor.solver.removeConstraint(id);
             editor.dimensionAnchors.delete(id);
             editor.solve(true);
         },
+        { positiveOnly: options?.positiveOnly },
     );
 }
 
@@ -149,4 +159,151 @@ function normalizeLineRefs(
         if (coincident(start, p2) && coincident(end, p1)) return [end, start];
     }
     return [p1, p2];
+}
+
+@command({ key: "dimension.pointLineDistance", icon: "icon-cPointLineDistance" })
+export class PointLineDistanceCommand extends SketchConstraintCommand {
+    protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        const p = await editor.pickPoint("prompt.pickSketchPoint");
+        if (p === undefined) return;
+        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        if (lineId === undefined) return;
+
+        const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
+        const l2: SketchPointRef = { entityId: lineId, pointIndex: 1 };
+        const uvP = editor.solver.pointOf(p);
+        const uv1 = editor.solver.pointOf(l1);
+        const uv2 = editor.solver.pointOf(l2);
+        const position = await pickWithPreview(editor, () =>
+            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
+                editor.annotations.setDimensionPreview(
+                    uv === undefined
+                        ? undefined
+                        : { kind: "pointLine", p: uvP, l1: uv1, l2: uv2, position: uv },
+                ),
+            ),
+        );
+        if (position === undefined) return;
+
+        // anchor the label perpendicular to the point→foot segment so it follows the geometry
+        const foot = pointLineFoot(uvP, uv1, uv2) ?? uv1;
+        // signed datum (display convention: positive = left of the line direction);
+        // a signed value keeps the point on its current side instead of mirroring it
+        const initial = pointLineSignedDistance(uvP, uv1, uv2);
+        commitDimension(
+            editor,
+            {
+                kind: ConstraintKind.P2LDistance,
+                refs: [p, l1, l2],
+                datum: toStorageDatum(ConstraintKind.P2LDistance, initial),
+            },
+            { kind: "offset", offset: segmentOffset(uvP, foot, position) },
+            initial,
+            {
+                apply: (id, value) =>
+                    editor.solver.setDatum(id, toStorageDatum(ConstraintKind.P2LDistance, value)),
+                positiveOnly: false,
+            },
+        );
+    }
+}
+
+@command({ key: "dimension.angle", icon: "icon-dAngle" })
+export class AngleDimensionCommand extends SketchConstraintCommand {
+    protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        const l1Id = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        if (l1Id === undefined) return;
+        const l2Id = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        if (l2Id === undefined) return;
+
+        const refs: SketchPointRef[] = [
+            { entityId: l1Id, pointIndex: 0 },
+            { entityId: l1Id, pointIndex: 1 },
+            { entityId: l2Id, pointIndex: 0 },
+            { entityId: l2Id, pointIndex: 1 },
+        ];
+        const [a1, a2, b1, b2] = refs.map((r) => editor.solver.pointOf(r));
+        const position = await pickWithPreview(editor, () =>
+            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
+                editor.annotations.setDimensionPreview(
+                    uv === undefined ? undefined : { kind: "angle", a1, a2, b1, b2, position: uv },
+                ),
+            ),
+        );
+        if (position === undefined) return;
+
+        // vertex = line intersection; parallel lines fall back to the centroid so the
+        // label anchor still has a sensible reference point
+        const vertex = lineIntersection(a1, a2, b1, b2) ?? [
+            (a1[0] + a2[0] + b1[0] + b2[0]) / 4,
+            (a1[1] + a2[1] + b1[1] + b2[1]) / 4,
+        ];
+        const d1: [number, number] = [a2[0] - a1[0], a2[1] - a1[1]];
+        const d2: [number, number] = [b2[0] - b1[0], b2[1] - b1[1]];
+        const len1 = Math.hypot(d1[0], d1[1]);
+        const len2 = Math.hypot(d2[0], d2[1]);
+        const cos = len1 < 1e-12 || len2 < 1e-12 ? 1 : (d1[0] * d2[0] + d1[1] * d2[1]) / (len1 * len2);
+        const initialRad = Math.acos(Math.max(-1, Math.min(1, cos)));
+
+        const applyAngle = (id: number, value: number) =>
+            editor.solver.setDatum(id, toStorageDatum(ConstraintKind.Angle, value));
+        commitDimension(
+            editor,
+            { kind: ConstraintKind.Angle, refs, datum: initialRad },
+            { kind: "vector", dx: position[0] - vertex[0], dy: position[1] - vertex[1] },
+            toDisplayDatum(ConstraintKind.Angle, initialRad),
+            { apply: applyAngle },
+        );
+    }
+}
+
+abstract class AxisDistanceCommand extends SketchConstraintCommand {
+    protected abstract readonly axis: "h" | "v";
+
+    protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        if (p1 === undefined) return;
+        const p2 = await editor.pickPoint("prompt.pickSketchPoint");
+        if (p2 === undefined) return;
+
+        const uv1 = editor.solver.pointOf(p1);
+        const uv2 = editor.solver.pointOf(p2);
+        const axis = this.axis;
+        const position = await pickWithPreview(editor, () =>
+            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
+                editor.annotations.setDimensionPreview(
+                    uv === undefined
+                        ? undefined
+                        : { kind: "axisDistance", p1: uv1, p2: uv2, axis, position: uv },
+                ),
+            ),
+        );
+        if (position === undefined) return;
+
+        // offset along the cross axis from the points' midline
+        const base = axis === "h" ? (uv1[1] + uv2[1]) / 2 : (uv1[0] + uv2[0]) / 2;
+        const offset = (axis === "h" ? position[1] : position[0]) - base;
+        const initial = axis === "h" ? uv2[0] - uv1[0] : uv2[1] - uv1[1];
+        commitDimension(
+            editor,
+            {
+                kind: axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance,
+                refs: [p1, p2],
+                datum: initial,
+            },
+            { kind: "offset", offset },
+            initial,
+            { positiveOnly: false },
+        );
+    }
+}
+
+@command({ key: "dimension.horizontalDistance", icon: "icon-dDimensionH" })
+export class HorizontalDistanceCommand extends AxisDistanceCommand {
+    protected readonly axis = "h";
+}
+
+@command({ key: "dimension.verticalDistance", icon: "icon-dDimensionV" })
+export class VerticalDistanceCommand extends AxisDistanceCommand {
+    protected readonly axis = "v";
 }

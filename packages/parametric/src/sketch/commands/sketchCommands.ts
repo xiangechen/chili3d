@@ -55,7 +55,7 @@ async function pickPlane(document: IDocument): Promise<PickedPlane | undefined> 
     return resolvePlane(document, handler.result);
 }
 
-@command({ key: "sketch.create", icon: "icon-edit" })
+@command({ key: "sketch.create", icon: "icon-sketchNew" })
 export class CreateSketch implements ICommand {
     async execute(application: IApplication): Promise<void> {
         const document = application.activeView?.document;
@@ -73,7 +73,7 @@ export class CreateSketch implements ICommand {
     }
 }
 
-@command({ key: "sketch.enter", icon: "icon-edit" })
+@command({ key: "sketch.enter", icon: "icon-sketchEdit" })
 export class EnterSketch implements ICommand {
     async execute(application: IApplication): Promise<void> {
         const document = application.activeView?.document;

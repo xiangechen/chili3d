@@ -17,7 +17,14 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { DistanceDimensionCommand, RadiusDimensionCommand } from "../../src/sketch/commands/sketchDimensions";
+import {
+    AngleDimensionCommand,
+    DistanceDimensionCommand,
+    HorizontalDistanceCommand,
+    PointLineDistanceCommand,
+    RadiusDimensionCommand,
+    VerticalDistanceCommand,
+} from "../../src/sketch/commands/sketchDimensions";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
@@ -324,6 +331,216 @@ describe("dimension commands", () => {
                 { entityId: 2, pointIndex: 1 },
             ]);
             cancelDialog(dialog);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("angle constraint stores radians, displays and edits degrees", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 0, 100);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // line 1 midpoint (world (50,0)), line 2 midpoint (world (0,50)), then a label position
+            const run = new AngleDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 250));
+            await tick();
+            handler.pointerDown(view, pointerEvent(440, 280));
+            await run;
+
+            // the dialog shows degrees; the solver datum is stored in radians
+            expect(dialogInput(dialog).value).toBe("90.00");
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.length).toBe(1);
+            expect(constraints[0].kind).toBe(ConstraintKind.Angle);
+            expect(constraints[0].refs).toEqual([
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+                { entityId: 2, pointIndex: 0 },
+                { entityId: 2, pointIndex: 1 },
+            ]);
+            expect(constraints[0].datum).toBeCloseTo(Math.PI / 2);
+            expect(editor.dimensionAnchors.has(constraints[0].id)).toBe(true);
+            expect(node.data.constraints.length).toBe(0);
+
+            // confirming converts the entered degrees back to radians
+            expect(confirmDialog(dialog, "45")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(Math.PI / 4);
+
+            // re-editing shows the current value in degrees again
+            editor.editDatum(constraints[0].id);
+            expect(dialogInput(dialog).value).toBe("45.00");
+            expect(confirmDialog(dialog, "60")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(Math.PI / 3);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("horizontal distance accepts a negative datum and drives the signed span", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const run = new HorizontalDistanceCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(400, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(500, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(450, 250));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("100.00");
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.length).toBe(1);
+            expect(constraints[0].kind).toBe(ConstraintKind.HorizontalDistance);
+            expect(constraints[0].datum).toBeCloseTo(100);
+            expect(editor.dimensionAnchors.has(constraints[0].id)).toBe(true);
+
+            // signed distances accept negative input (positiveOnly: false)
+            expect(confirmDialog(dialog, "-50")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(-50);
+            editor.solver.solve(true);
+            const [x1] = editor.solver.pointOf({ entityId: 1, pointIndex: 0 });
+            const [x2] = editor.solver.pointOf({ entityId: 1, pointIndex: 1 });
+            expect(x2 - x1).toBeCloseTo(-50);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("vertical distance constraint is created at placement", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 0, 100);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // worldToScreen maps (x, y) -> (x + 400, y + 300): endpoints at (400,300)/(400,400)
+            const run = new VerticalDistanceCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(400, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 400));
+            await tick();
+            handler.pointerDown(view, pointerEvent(450, 250));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("100.00");
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.length).toBe(1);
+            expect(constraints[0].kind).toBe(ConstraintKind.VerticalDistance);
+            expect(constraints[0].datum).toBeCloseTo(100);
+            expect(editor.dimensionAnchors.has(constraints[0].id)).toBe(true);
+            cancelDialog(dialog);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("point-line distance references the point and both line endpoints", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addCircle(50, 30, 10);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // circle center worldToScreen: (50,30) -> screen (450,330); then the line, then a label position
+            const run = new PointLineDistanceCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(450, 330));
+            await tick();
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(470, 280));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("30.00");
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.length).toBe(1);
+            expect(constraints[0].kind).toBe(ConstraintKind.P2LDistance);
+            expect(constraints[0].refs).toEqual([
+                { entityId: 2, pointIndex: 0 },
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+            ]);
+            // the point is left of the line direction: display +30, garlic stores the negation
+            expect(constraints[0].datum).toBeCloseTo(-30);
+            expect(editor.dimensionAnchors.get(constraints[0].id)?.kind).toBe("offset");
+
+            // signed distance (display convention) between the circle center and the line
+            const signedDist = () => {
+                const [px, py] = editor.solver.pointOf({ entityId: 2, pointIndex: 0 });
+                const [x1, y1] = editor.solver.pointOf({ entityId: 1, pointIndex: 0 });
+                const [x2, y2] = editor.solver.pointOf({ entityId: 1, pointIndex: 1 });
+                return ((x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)) / Math.hypot(x2 - x1, y2 - y1);
+            };
+            // accepting the displayed value keeps the point on its side (no mirroring)
+            expect(signedDist()).toBeCloseTo(30);
+
+            expect(confirmDialog(dialog, "20")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(-20);
+            editor.solver.solve(true);
+            expect(signedDist()).toBeCloseTo(20);
+
+            // a negative display value moves the point to the other side
+            expect(confirmDialog(dialog, "-15")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(15);
+            editor.solver.solve(true);
+            expect(signedDist()).toBeCloseTo(-15);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("cancelling the angle dialog rolls the constraint back without a history record", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 0, 100);
+            editor.solve(true);
+            editor.commit();
+            const undosBefore = doc.history.undoCount();
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const run = new AngleDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 250));
+            await tick();
+            handler.pointerDown(view, pointerEvent(440, 280));
+            await run;
+            cancelDialog(dialog);
+
+            expect(editor.solver.toData().constraints.length).toBe(0);
+            expect(editor.dimensionAnchors.size).toBe(0);
+            expect(doc.history.undoCount()).toBe(undosBefore);
             editor.exit();
         } finally {
             restorePub();

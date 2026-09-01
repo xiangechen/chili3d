@@ -125,4 +125,27 @@ describe("applyAutoConstraints", () => {
         expect(Math.hypot(x2 - x1, y2 - y1)).toBeGreaterThan(Precision.Distance);
         solver.dispose();
     });
+
+    test("snaps an arc's start and end but never its center", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addLine(0, 0, 10, 0);
+        solver.solve(true);
+        // center (0.2, 0.1) sits within tolerance of the line start, start near the line end
+        const id = solver.addArc(0.2, 0.1, 10.2, 0.1, 0.2, 8);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: id, pointIndex: 1 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+            },
+        ]);
+        expect(solver.pointOf({ entityId: id, pointIndex: 0 })).toEqual([0.2, 0.1]);
+        expect(solver.pointOf({ entityId: id, pointIndex: 1 })).toEqual([10, 0]);
+        solver.dispose();
+    });
 });

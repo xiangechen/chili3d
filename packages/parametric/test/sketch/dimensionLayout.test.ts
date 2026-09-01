@@ -1,7 +1,21 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { distanceDimension, radiusDimension, segmentOffset } from "../../src/sketch/editor/dimensionLayout";
+import {
+    angleDimension,
+    axisDistanceDimension,
+    distanceDimension,
+    lineIntersection,
+    pointLineDistance,
+    pointLineDistanceDimension,
+    pointLineFoot,
+    pointLineSignedDistance,
+    radiusDimension,
+    segmentOffset,
+    toDisplayDatum,
+    toStorageDatum,
+} from "../../src/sketch/editor/dimensionLayout";
+import { ConstraintKind } from "../../src/sketch/sketchModel";
 
 const PX = 0.5; // world units per pixel
 
@@ -94,5 +108,169 @@ describe("radiusDimension", () => {
         const geometry = radiusDimension([4, 3], 5, 8, 0, PX);
         expect(geometry.textPosition).toEqual([12, 3]);
         expect(geometry.segments[0].slice(0, 2)).toEqual([4, 3]);
+    });
+});
+
+describe("toDisplayDatum / toStorageDatum", () => {
+    test("angles convert between radians and degrees", () => {
+        expect(toDisplayDatum(ConstraintKind.Angle, Math.PI)).toBeCloseTo(180, 9);
+        expect(toStorageDatum(ConstraintKind.Angle, 180)).toBeCloseTo(Math.PI, 9);
+    });
+
+    test("point-line distance flips sign between UI and storage", () => {
+        expect(toDisplayDatum(ConstraintKind.P2LDistance, -30)).toBe(30);
+        expect(toStorageDatum(ConstraintKind.P2LDistance, 30)).toBe(-30);
+        expect(
+            toDisplayDatum(ConstraintKind.P2LDistance, toStorageDatum(ConstraintKind.P2LDistance, 7)),
+        ).toBe(7);
+    });
+
+    test("other kinds pass values through unchanged", () => {
+        expect(toDisplayDatum(ConstraintKind.P2PDistance, 12.5)).toBe(12.5);
+        expect(toStorageDatum(ConstraintKind.P2PDistance, 12.5)).toBe(12.5);
+    });
+
+    test("display and storage conversions round-trip", () => {
+        const stored = toStorageDatum(
+            ConstraintKind.Angle,
+            toDisplayDatum(ConstraintKind.Angle, Math.PI / 3),
+        );
+        expect(stored).toBeCloseTo(Math.PI / 3, 9);
+        expect(
+            toDisplayDatum(ConstraintKind.P2PDistance, toStorageDatum(ConstraintKind.P2PDistance, 7)),
+        ).toBe(7);
+    });
+});
+
+describe("pointLineFoot", () => {
+    test("foot of the perpendicular onto a horizontal line", () => {
+        expect(pointLineFoot([3, 4], [0, 0], [10, 0])).toEqual([3, 0]);
+    });
+
+    test("degenerate line returns undefined", () => {
+        expect(pointLineFoot([3, 4], [1, 1], [1, 1])).toBeUndefined();
+    });
+});
+
+describe("pointLineDistance", () => {
+    test("perpendicular distance to the line", () => {
+        expect(pointLineDistance([3, 4], [0, 0], [10, 0])).toBeCloseTo(4, 9);
+    });
+
+    test("degenerate line yields zero", () => {
+        expect(pointLineDistance([3, 4], [1, 1], [1, 1])).toBe(0);
+    });
+});
+
+describe("pointLineSignedDistance", () => {
+    test("positive left of the line direction, negative right", () => {
+        expect(pointLineSignedDistance([3, 4], [0, 0], [10, 0])).toBeCloseTo(4, 9);
+        expect(pointLineSignedDistance([3, -4], [0, 0], [10, 0])).toBeCloseTo(-4, 9);
+        // reversed line direction flips the sign
+        expect(pointLineSignedDistance([3, 4], [10, 0], [0, 0])).toBeCloseTo(-4, 9);
+    });
+
+    test("degenerate line yields zero", () => {
+        expect(pointLineSignedDistance([3, 4], [1, 1], [1, 1])).toBe(0);
+    });
+});
+
+describe("lineIntersection", () => {
+    test("crossing lines return the intersection point", () => {
+        expect(lineIntersection([0, 0], [10, 10], [0, 10], [10, 0])).toEqual([5, 5]);
+    });
+
+    test("parallel lines return undefined", () => {
+        expect(lineIntersection([0, 0], [10, 0], [0, 5], [10, 5])).toBeUndefined();
+    });
+});
+
+describe("axisDistanceDimension", () => {
+    test("horizontal dimension line at the offset above the midline", () => {
+        const geometry = axisDistanceDimension([0, 0], [10, 4], "h", 20, 1)!;
+        expect(geometry).not.toBeNull();
+
+        // 2 extension lines + 1 dimension line + 2 arrowheads × 2 wings
+        expect(geometry.segments.length).toBe(7);
+
+        // midline y = 2, dimension line horizontal at y = 22 spanning both points
+        expect(geometry.segments[2]).toEqual([0, 22, 10, 22]);
+        expect(geometry.textPosition).toEqual([5, 22]);
+    });
+
+    test("clamps a tiny offset to a minimum on the same side", () => {
+        const geometry = axisDistanceDimension([0, 0], [10, 4], "h", 5, 1)!;
+        expect(geometry.segments[2][1]).toBeCloseTo(16, 9); // midline 2 + MIN_OFFSET_PX 14
+    });
+
+    test("negative offset mirrors below the midline", () => {
+        const geometry = axisDistanceDimension([0, 0], [10, 4], "h", -20, 1)!;
+        expect(geometry.segments[2]).toEqual([0, -18, 10, -18]);
+        expect(geometry.textPosition).toEqual([5, -18]);
+    });
+
+    test("vertical dimension line at the offset from the midline", () => {
+        const geometry = axisDistanceDimension([0, 0], [4, 10], "v", 20, 1)!;
+        // midline x = 2, dimension line vertical at x = 22
+        expect(geometry.segments[2]).toEqual([22, 0, 22, 10]);
+        expect(geometry.textPosition).toEqual([22, 5]);
+    });
+
+    test("returns undefined when the span along the axis is zero", () => {
+        expect(axisDistanceDimension([5, 0], [5, 10], "h", 20, 1)).toBeUndefined();
+    });
+});
+
+describe("pointLineDistanceDimension", () => {
+    test("dimension line parallel to the point→foot direction, shifted by the offset", () => {
+        const geometry = pointLineDistanceDimension([0, 10], [0, 0], [10, 0], 20, 1)!;
+        expect(geometry).not.toBeNull();
+
+        // foot = (0,0), direction p→foot = (0,-1), normal = (1,0)
+        expect(geometry.segments.length).toBe(7);
+        expect(geometry.segments[2]).toEqual([20, 10, 20, 0]);
+        expect(geometry.textPosition).toEqual([20, 5]);
+    });
+
+    test("returns undefined when the point is on the line", () => {
+        expect(pointLineDistanceDimension([5, 0], [0, 0], [10, 0], 20, 1)).toBeUndefined();
+    });
+
+    test("returns undefined for a degenerate line", () => {
+        expect(pointLineDistanceDimension([0, 10], [1, 1], [1, 1], 20, 1)).toBeUndefined();
+    });
+});
+
+describe("angleDimension", () => {
+    test("arc clamped to the minimum radius, label on the sweep bisector", () => {
+        const geometry = angleDimension([0, 0], [1, 0], [0, 1], 10, 1)!;
+        expect(geometry).not.toBeNull();
+
+        // 90° sweep → 8 arc segments + 2 arrowheads × 2 wings
+        expect(geometry.segments.length).toBe(12);
+
+        // label at 45° at distance 24 + 14
+        expect(geometry.textPosition[0]).toBeCloseTo(38 * Math.SQRT1_2, 9);
+        expect(geometry.textPosition[1]).toBeCloseTo(38 * Math.SQRT1_2, 9);
+    });
+
+    test("arc segment endpoints lie on the clamped circle", () => {
+        const geometry = angleDimension([0, 0], [1, 0], [0, 1], 10, 1)!;
+        for (const index of [0, 3, 7]) {
+            const [x1, y1, x2, y2] = geometry.segments[index];
+            expect(Math.hypot(x1, y1)).toBeCloseTo(24, 9);
+            expect(Math.hypot(x2, y2)).toBeCloseTo(24, 9);
+        }
+    });
+
+    test("sweeps the short way for a clockwise angle", () => {
+        const geometry = angleDimension([0, 0], [1, 0], [0, -1], 10, 1)!;
+        expect(geometry.textPosition[0]).toBeCloseTo(38 * Math.SQRT1_2, 9);
+        expect(geometry.textPosition[1]).toBeCloseTo(-38 * Math.SQRT1_2, 9);
+    });
+
+    test("returns undefined for a zero-length direction or zero sweep", () => {
+        expect(angleDimension([0, 0], [0, 0], [0, 1], 10, 1)).toBeUndefined();
+        expect(angleDimension([0, 0], [1, 0], [2, 0], 10, 1)).toBeUndefined();
     });
 });

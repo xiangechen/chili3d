@@ -13,21 +13,30 @@ import {
     Transaction,
     type XYZ,
 } from "@chili3d/core";
-import { type SketchData, type SketchEntityType, type SketchPointRef, worldPerPixel } from "../sketchModel";
+import {
+    ConstraintKind,
+    type SketchData,
+    type SketchEntityType,
+    type SketchPointRef,
+    worldPerPixel,
+} from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
 import { SketchSolver, type SolveOutcome } from "../solver";
-import type { DimensionAnchor } from "./dimensionLayout";
+import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
 import { SketchEventHandler } from "./sketchEventHandler";
 
 export type SketchPickKind = "point" | "entity" | "position";
+
+/** Entity type filter for picks: a single type or a set of acceptable types. */
+export type SketchEntityTypeFilter = SketchEntityType | readonly SketchEntityType[];
 
 /** Live-preview callback fed with the pointer uv on each move; undefined when off-plane. */
 export type SketchPickPreview = (uv: [number, number] | undefined) => void;
 
 interface PickRequest {
     kind: SketchPickKind;
-    entityType?: SketchEntityType;
+    entityType?: SketchEntityTypeFilter;
     preview?: SketchPickPreview;
     resolve: (value: any) => void;
 }
@@ -161,7 +170,7 @@ export class SketchEditor implements IDisposable {
 
     /** The pending pick request, used by the event handler for hover feedback. */
     get activePick():
-        | { kind: SketchPickKind; entityType?: SketchEntityType; preview?: SketchPickPreview }
+        | { kind: SketchPickKind; entityType?: SketchEntityTypeFilter; preview?: SketchPickPreview }
         | undefined {
         return this.pickRequest;
     }
@@ -170,7 +179,7 @@ export class SketchEditor implements IDisposable {
         return this.startPick("point", prompt, undefined, preview);
     }
 
-    pickEntity(prompt: I18nKeys, type?: SketchEntityType): Promise<number | undefined> {
+    pickEntity(prompt: I18nKeys, type?: SketchEntityTypeFilter): Promise<number | undefined> {
         return this.startPick("entity", prompt, type);
     }
 
@@ -279,7 +288,12 @@ export class SketchEditor implements IDisposable {
      * re-solves and commits. Invalid input keeps the dialog open with an error
      * message; cancelling keeps the current value and runs `onCancel`.
      */
-    promptDatum(initial: number, apply: (value: number) => void, onCancel?: () => void): void {
+    promptDatum(
+        initial: number,
+        apply: (value: number) => void,
+        onCancel?: () => void,
+        options?: { positiveOnly?: boolean },
+    ): void {
         const textbox = document.createElement("input");
         textbox.value = initial.toFixed(2);
         textbox.autofocus = true;
@@ -294,7 +308,7 @@ export class SketchEditor implements IDisposable {
                 // shouldClose vetoes closing, so applying there would apply invalid values
                 shouldClose: () => {
                     const value = Number(textbox.value);
-                    if (!Number.isFinite(value) || value <= 0) {
+                    if (!Number.isFinite(value) || (options?.positiveOnly !== false && value <= 0)) {
                         error.textContent = I18n.translate("error.input.invalidNumber") ?? "invalid number";
                         error.style.display = "";
                         return false;
@@ -311,11 +325,62 @@ export class SketchEditor implements IDisposable {
         setTimeout(() => textbox.select());
     }
 
+    /** Two-value variant of `promptDatum` for multi-datum constraints (Fix = X, Y). */
+    promptDatumPair(initial: [number, number], apply: (x: number, y: number) => void): void {
+        const inputX = document.createElement("input");
+        const inputY = document.createElement("input");
+        inputX.value = initial[0].toFixed(2);
+        inputY.value = initial[1].toFixed(2);
+        inputX.autofocus = true;
+        const error = document.createElement("label");
+        error.style.cssText = "color: red; font-size: 11px; display: none;";
+        const content = document.createElement("div");
+        content.append(inputX, inputY, error);
+        PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
+            {
+                content: "common.confirm",
+                shouldClose: () => {
+                    const x = Number(inputX.value);
+                    const y = Number(inputY.value);
+                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                        error.textContent = I18n.translate("error.input.invalidNumber") ?? "invalid number";
+                        error.style.display = "";
+                        return false;
+                    }
+                    apply(x, y);
+                    this.solve(true);
+                    this.commit();
+                    return true;
+                },
+                onclick: () => {},
+            },
+            { content: "common.cancel", onclick: () => {} },
+        ]);
+        setTimeout(() => inputX.select());
+    }
+
     /** Re-opens the datum dialog of an existing dimension constraint (double-click edit). */
     editDatum(constraintId: number): void {
         const constraint = this.solver.toData().constraints.find((x) => x.id === constraintId);
+        if (constraint?.datums !== undefined) {
+            this.promptDatumPair([constraint.datums[0], constraint.datums[1]], (x, y) => {
+                this.solver.setDatum(constraintId, x, 0);
+                this.solver.setDatum(constraintId, y, 1);
+            });
+            return;
+        }
         if (constraint?.datum === undefined) return;
-        this.promptDatum(constraint.datum, (value) => this.solver.setDatum(constraintId, value));
+        // point-line and horizontal/vertical distances are signed; other datums stay positive
+        const signed =
+            constraint.kind === ConstraintKind.P2LDistance ||
+            constraint.kind === ConstraintKind.HorizontalDistance ||
+            constraint.kind === ConstraintKind.VerticalDistance;
+        this.promptDatum(
+            toDisplayDatum(constraint.kind, constraint.datum),
+            (value) => this.solver.setDatum(constraintId, toStorageDatum(constraint.kind, value)),
+            undefined,
+            { positiveOnly: !signed },
+        );
     }
 
     /** Commits and disposes this session; clears the active-editor reference. */
@@ -352,7 +417,7 @@ export class SketchEditor implements IDisposable {
     private startPick<T>(
         kind: SketchPickKind,
         prompt: I18nKeys,
-        entityType?: SketchEntityType,
+        entityType?: SketchEntityTypeFilter,
         preview?: SketchPickPreview,
     ): Promise<T> {
         this.cancelPick();

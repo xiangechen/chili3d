@@ -1,15 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IView, Plane, XYZ } from "@chili3d/core";
+import { type IView, type Plane, Precision, type XYZ } from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
 
 export { ConstraintKind };
 
-export type SketchEntityType = "line" | "circle";
+export type SketchEntityType = "line" | "circle" | "arc";
 
 /**
- * line: params = [x1, y1, x2, y2]; circle: params = [cx, cy, r] — all in sketch (u, v) coordinates.
+ * line: params = [x1, y1, x2, y2]; circle: params = [cx, cy, r];
+ * arc: params = [cx, cy, sx, sy, ex, ey] (center, start, end; radius = ‖s−c‖,
+ * counter-clockwise sweep from start to end) — all in sketch (u, v) coordinates.
  */
 export interface SketchEntityData {
     id: number;
@@ -18,7 +20,8 @@ export interface SketchEntityData {
 }
 
 /**
- * line: pointIndex 0 = start, 1 = end; circle: pointIndex 0 = center.
+ * line: pointIndex 0 = start, 1 = end; circle: pointIndex 0 = center;
+ * arc: pointIndex 0 = center, 1 = start, 2 = end.
  */
 export interface SketchPointRef {
     entityId: number;
@@ -30,6 +33,8 @@ export interface SketchConstraintData {
     kind: ConstraintKind;
     refs: SketchPointRef[];
     datum?: number;
+    /** Datum values for multi-datum kinds (Fix = [x, y]); mutually exclusive with `datum`. */
+    datums?: number[];
 }
 
 /** Where the label of a datum constraint is anchored, relative to its references. */
@@ -70,8 +75,18 @@ export function cloneSketchData(data: SketchData): SketchData {
 }
 
 /**
- * Sketch (u, v) → world: origin + xvec * u + yvec * v.
+ * Start angle and counter-clockwise sweep (normalized to (0, 2π]) of an arc
+ * entity's params [cx, cy, sx, sy, ex, ey]; the end point only fixes the angle,
+ * the radius is always ‖s−c‖.
  */
+export function arcAngles(params: number[]): [number, number] {
+    const [cx, cy, sx, sy, ex, ey] = params;
+    const a0 = Math.atan2(sy - cy, sx - cx);
+    const sweep = (Math.atan2(ey - cy, ex - cx) - a0) % (Math.PI * 2);
+    return [a0, sweep > Precision.Angle ? sweep : sweep + Math.PI * 2];
+}
+
+/** Sketch (u, v) → world: origin + xvec * u + yvec * v. */
 export function toWorld(plane: Plane, u: number, v: number): XYZ {
     return plane.origin.add(plane.xvec.multiply(u)).add(plane.yvec.multiply(v));
 }

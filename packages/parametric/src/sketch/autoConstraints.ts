@@ -2,7 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "@chili3d/core";
-import { ConstraintKind, type SketchConstraintData, type SketchPointRef } from "./sketchModel";
+import {
+    ConstraintKind,
+    type SketchConstraintData,
+    type SketchEntityType,
+    type SketchPointRef,
+} from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
 const DEFAULT_ANGLE_TOLERANCE_DEG = 5;
@@ -12,6 +17,14 @@ export interface AutoConstraintOptions {
     pointTolerance: number;
     /** A line within this angle of an axis gets a Horizontal/Vertical constraint. */
     angleToleranceDeg?: number;
+}
+
+/**
+ * Point refs of an entity that participate in snapping: line endpoints, circle
+ * center, arc start/end (an arc's center is never snapped or snapped onto).
+ */
+function snappablePointIndices(type: SketchEntityType): number[] {
+    return type === "line" ? [0, 1] : type === "arc" ? [1, 2] : [0];
 }
 
 /**
@@ -29,13 +42,10 @@ export function applyAutoConstraints(
     const entity = solver.entities().find((x) => x.id === entityId);
     if (entity === undefined) return added;
 
-    const refs: SketchPointRef[] =
-        entity.type === "line"
-            ? [
-                  { entityId, pointIndex: 0 },
-                  { entityId, pointIndex: 1 },
-              ]
-            : [{ entityId, pointIndex: 0 }];
+    const refs: SketchPointRef[] = snappablePointIndices(entity.type).map((pointIndex) => ({
+        entityId,
+        pointIndex,
+    }));
 
     snapToExistingPoints(solver, refs, options.pointTolerance, added);
     if (entity.type === "line") {
@@ -60,7 +70,7 @@ function snapToExistingPoints(
         .entities()
         .filter((e) => e.id !== refs[0].entityId)
         .flatMap((e) =>
-            (e.type === "line" ? [0, 1] : [0]).map((pointIndex) => ({
+            snappablePointIndices(e.type).map((pointIndex) => ({
                 ref: { entityId: e.id, pointIndex },
                 position: solver.pointOf({ entityId: e.id, pointIndex }),
             })),

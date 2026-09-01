@@ -31,15 +31,28 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["sketch.line", "sketch.circle"],
+                items: ["sketch.line", "sketch.circle", "sketch.arc", "sketch.rectangle"],
             },
             {
                 groupName: "ribbon.group.constraint",
-                items: ["constraint.coincident", "constraint.horizontal", "constraint.vertical"],
+                items: [
+                    "constraint.coincident",
+                    ["constraint.fix", "constraint.horizontal", "constraint.vertical"],
+                    ["constraint.parallel", "constraint.perpendicular", "constraint.equal"],
+                    ["constraint.tangent", "constraint.symmetric", "constraint.midpoint"],
+                    ["constraint.pointOn", "constraint.horizontalAlign", "constraint.verticalAlign"],
+                ],
             },
             {
                 groupName: "ribbon.group.dimension",
-                items: ["dimension.distance", "dimension.radius"],
+                items: [
+                    "dimension.distance",
+                    "dimension.radius",
+                    "dimension.pointLineDistance",
+                    "dimension.angle",
+                    "dimension.horizontalDistance",
+                    "dimension.verticalDistance",
+                ],
             },
         ],
     },

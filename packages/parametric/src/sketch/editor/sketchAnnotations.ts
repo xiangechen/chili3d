@@ -12,13 +12,42 @@ import {
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import {
+    angleDimension,
+    axisDistanceDimension,
     type DimensionAnchor,
     type DimensionGeometry,
     distanceDimension,
+    lineIntersection,
+    pointLineDistanceDimension,
+    pointLineFoot,
+    pointLineSignedDistance,
     radiusDimension,
     segmentOffset,
+    toDisplayDatum,
 } from "./dimensionLayout";
 import style from "./sketchAnnotations.module.css";
+
+/** Badge glyphs for the no-datum symbol constraints. */
+const CONSTRAINT_GLYPHS: Partial<Record<ConstraintKind, string>> = {
+    [ConstraintKind.Parallel]: "∥",
+    [ConstraintKind.Perpendicular]: "⊥",
+    [ConstraintKind.EqualLength]: "=",
+    [ConstraintKind.EqualRadius]: "=",
+    [ConstraintKind.EqualArcRadius]: "=",
+    [ConstraintKind.TangentLineCircle]: "T",
+    [ConstraintKind.TangentCircleCircle]: "T",
+    [ConstraintKind.TangentLineArc]: "T",
+    [ConstraintKind.TangentArcArc]: "T",
+    [ConstraintKind.TangentCircleArc]: "T",
+    [ConstraintKind.PointOnLine]: "⊙",
+    [ConstraintKind.PointOnCircle]: "⊙",
+    [ConstraintKind.PointOnArc]: "⊙",
+    [ConstraintKind.Midpoint]: "M",
+    [ConstraintKind.Symmetric]: "S",
+    [ConstraintKind.HorizontalAlign]: "⬌",
+    [ConstraintKind.VerticalAlign]: "⬍",
+    [ConstraintKind.Fix]: "⚓",
+};
 
 /** Badge center offset from its geometry, in screen pixels. */
 const BADGE_OFFSET_PX = 18;
@@ -53,6 +82,28 @@ export type DimensionPreview =
           readonly kind: "radius";
           readonly center: [number, number];
           readonly radius: number;
+          readonly position: [number, number];
+      }
+    | {
+          readonly kind: "pointLine";
+          readonly p: [number, number];
+          readonly l1: [number, number];
+          readonly l2: [number, number];
+          readonly position: [number, number];
+      }
+    | {
+          readonly kind: "angle";
+          readonly a1: [number, number];
+          readonly a2: [number, number];
+          readonly b1: [number, number];
+          readonly b2: [number, number];
+          readonly position: [number, number];
+      }
+    | {
+          readonly kind: "axisDistance";
+          readonly p1: [number, number];
+          readonly p2: [number, number];
+          readonly axis: "h" | "v";
           readonly position: [number, number];
       };
 
@@ -171,9 +222,14 @@ export class SketchAnnotationManager implements IDisposable {
                     break;
                 case ConstraintKind.P2PDistance:
                 case ConstraintKind.Radius:
+                case ConstraintKind.P2LDistance:
+                case ConstraintKind.Angle:
+                case ConstraintKind.HorizontalDistance:
+                case ConstraintKind.VerticalDistance:
                     this.addDatumDimension(constraint, px, segments);
                     break;
                 default:
+                    this.addSymbolBadge(constraint, px);
                     break;
             }
         }
@@ -186,6 +242,36 @@ export class SketchAnnotationManager implements IDisposable {
         // offset along the segment normal so the badge does not cover the line
         const [u, v] = offsetFromSegment(p1, p2, BADGE_OFFSET_PX * px);
         this.addBadge(constraint.kind === ConstraintKind.Horizontal ? "H" : "V", u, v, constraint);
+    }
+
+    /** Glyph badge for the no-datum symbol constraints (parallel, tangent, fix, ...). */
+    private addSymbolBadge(constraint: SketchConstraintData, px: number): void {
+        const glyph = CONSTRAINT_GLYPHS[constraint.kind];
+        if (glyph === undefined) return;
+        // an arc's structural PointOnArc (all refs on the arc itself) stays invisible —
+        // it is part of the entity, deleting it would break the arc geometry
+        if (
+            constraint.kind === ConstraintKind.PointOnArc &&
+            constraint.refs.every((r) => r.entityId === constraint.refs[0].entityId)
+        ) {
+            return;
+        }
+        if (!this.isConstraintVisible(constraint)) return;
+        const off = BADGE_OFFSET_PX * px * Math.SQRT1_2;
+        const [u, v] = this.refsMidpoint(constraint.refs);
+        this.addBadge(glyph, u + off, v + off, constraint);
+    }
+
+    /** Average of the referenced points — generic badge anchor for multi-point constraints. */
+    private refsMidpoint(refs: readonly SketchPointRef[]): [number, number] {
+        let u = 0;
+        let v = 0;
+        for (const ref of refs) {
+            const [x, y] = this.solver.pointOf(ref);
+            u += x;
+            v += y;
+        }
+        return [u / refs.length, v / refs.length];
     }
 
     private addCoincidentBadge(constraint: SketchConstraintData, px: number, shownGroups: Set<string>): void {
@@ -205,14 +291,72 @@ export class SketchAnnotationManager implements IDisposable {
         px: number,
         segments: DimensionGeometry["segments"],
     ): void {
-        const geometry =
-            constraint.kind === ConstraintKind.P2PDistance
-                ? this.distanceGeometry(constraint, px)
-                : this.radiusGeometry(constraint, px);
+        const geometry = this.dimensionGeometry(constraint, px);
         if (geometry === undefined) return;
         segments.push(...geometry.segments);
         const prefix = constraint.kind === ConstraintKind.Radius ? "R" : "";
-        this.addBadge(`${prefix}${(constraint.datum ?? 0).toFixed(2)}`, ...geometry.textPosition, constraint);
+        const suffix = constraint.kind === ConstraintKind.Angle ? "°" : "";
+        const value = toDisplayDatum(constraint.kind, constraint.datum ?? 0);
+        this.addBadge(
+            `${prefix}${value.toFixed(constraint.kind === ConstraintKind.Angle ? 1 : 2)}${suffix}`,
+            ...geometry.textPosition,
+            constraint,
+        );
+    }
+
+    private dimensionGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
+        const anchor = this.anchors.get(constraint.id);
+        const offset = anchor?.kind === "offset" ? anchor.offset : 0;
+        switch (constraint.kind) {
+            case ConstraintKind.P2PDistance:
+                return distanceDimension(
+                    this.solver.pointOf(constraint.refs[0]),
+                    this.solver.pointOf(constraint.refs[1]),
+                    offset,
+                    px,
+                );
+            case ConstraintKind.Radius:
+                return this.radiusGeometry(constraint, px);
+            case ConstraintKind.HorizontalDistance:
+            case ConstraintKind.VerticalDistance:
+                return axisDistanceDimension(
+                    this.solver.pointOf(constraint.refs[0]),
+                    this.solver.pointOf(constraint.refs[1]),
+                    constraint.kind === ConstraintKind.HorizontalDistance ? "h" : "v",
+                    offset,
+                    px,
+                );
+            case ConstraintKind.P2LDistance:
+                return pointLineDistanceDimension(
+                    this.solver.pointOf(constraint.refs[0]),
+                    this.solver.pointOf(constraint.refs[1]),
+                    this.solver.pointOf(constraint.refs[2]),
+                    offset,
+                    px,
+                );
+            case ConstraintKind.Angle:
+                return this.angleGeometry(constraint, px);
+            default:
+                return undefined;
+        }
+    }
+
+    private angleGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
+        const [a1, a2, b1, b2] = constraint.refs.map((r) => this.solver.pointOf(r));
+        const vertex = lineIntersection(a1, a2, b1, b2) ?? [
+            (a1[0] + a2[0] + b1[0] + b2[0]) / 4,
+            (a1[1] + a2[1] + b1[1] + b2[1]) / 4,
+        ];
+        const anchor = this.anchors.get(constraint.id);
+        // the anchor vector sets the arc radius: label distance shrinks towards the arc
+        const radius = anchor?.kind === "vector" ? Math.hypot(anchor.dx, anchor.dy) * 0.7 : 0;
+        return angleDimension(
+            vertex,
+            [a2[0] - a1[0], a2[1] - a1[1]],
+            [b2[0] - b1[0], b2[1] - b1[1]],
+            radius,
+            px,
+        );
     }
 
     private addPreviewGraphics(px: number, segments: DimensionGeometry["segments"]): void {
@@ -231,16 +375,62 @@ export class SketchAnnotationManager implements IDisposable {
             this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
             return;
         }
-        const [cx, cy] = preview.center;
-        const geometry = radiusDimension(
-            preview.center,
-            preview.radius,
-            preview.position[0] - cx,
-            preview.position[1] - cy,
-            px,
-        );
+        if (preview.kind === "radius") {
+            const [cx, cy] = preview.center;
+            const geometry = radiusDimension(
+                preview.center,
+                preview.radius,
+                preview.position[0] - cx,
+                preview.position[1] - cy,
+                px,
+            );
+            segments.push(...geometry.segments);
+            this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
+            return;
+        }
+        if (preview.kind === "pointLine") {
+            const foot = pointLineFoot(preview.p, preview.l1, preview.l2);
+            if (foot === undefined) return;
+            const offset = segmentOffset(preview.p, foot, preview.position);
+            const geometry = pointLineDistanceDimension(preview.p, preview.l1, preview.l2, offset, px);
+            if (geometry === undefined) return;
+            segments.push(...geometry.segments);
+            this.addPreviewBadge(
+                pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2),
+                geometry.textPosition,
+            );
+            return;
+        }
+        if (preview.kind === "axisDistance") {
+            const base =
+                preview.axis === "h"
+                    ? (preview.p1[1] + preview.p2[1]) / 2
+                    : (preview.p1[0] + preview.p2[0]) / 2;
+            const offset = (preview.axis === "h" ? preview.position[1] : preview.position[0]) - base;
+            const geometry = axisDistanceDimension(preview.p1, preview.p2, preview.axis, offset, px);
+            if (geometry === undefined) return;
+            segments.push(...geometry.segments);
+            const value =
+                preview.axis === "h" ? preview.p2[0] - preview.p1[0] : preview.p2[1] - preview.p1[1];
+            this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+            return;
+        }
+        // angle preview
+        const vertex = lineIntersection(preview.a1, preview.a2, preview.b1, preview.b2) ?? [
+            (preview.a1[0] + preview.a2[0] + preview.b1[0] + preview.b2[0]) / 4,
+            (preview.a1[1] + preview.a2[1] + preview.b1[1] + preview.b2[1]) / 4,
+        ];
+        const d1: [number, number] = [preview.a2[0] - preview.a1[0], preview.a2[1] - preview.a1[1]];
+        const d2: [number, number] = [preview.b2[0] - preview.b1[0], preview.b2[1] - preview.b1[1]];
+        const radius = Math.hypot(preview.position[0] - vertex[0], preview.position[1] - vertex[1]) * 0.7;
+        const geometry = angleDimension(vertex, d1, d2, radius, px);
+        if (geometry === undefined) return;
         segments.push(...geometry.segments);
-        this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
+        const len1 = Math.hypot(d1[0], d1[1]);
+        const len2 = Math.hypot(d2[0], d2[1]);
+        if (len1 < 1e-12 || len2 < 1e-12) return;
+        const cos = Math.max(-1, Math.min(1, (d1[0] * d2[0] + d1[1] * d2[1]) / (len1 * len2)));
+        this.addPreviewBadge(`${((Math.acos(cos) * 180) / Math.PI).toFixed(1)}°`, geometry.textPosition);
     }
 
     dispose(): void {
@@ -278,14 +468,6 @@ export class SketchAnnotationManager implements IDisposable {
             this.selectedConstraints.has(constraint.id) ||
             refs.some((ref) => this.highlightedEntities.has(ref.entityId))
         );
-    }
-
-    private distanceGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
-        const p1 = this.solver.pointOf(constraint.refs[0]);
-        const p2 = this.solver.pointOf(constraint.refs[1]);
-        const anchor = this.anchors.get(constraint.id);
-        const offset = anchor?.kind === "offset" ? anchor.offset : 0;
-        return distanceDimension(p1, p2, offset, px);
     }
 
     private radiusGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
@@ -358,7 +540,7 @@ export class SketchAnnotationManager implements IDisposable {
                 },
                 // datum badges (dimensions) can be edited; symbol badges cannot
                 onDoubleClick:
-                    constraint.datum === undefined
+                    constraint.datum === undefined && constraint.datums === undefined
                         ? undefined
                         : (event) => {
                               event.stopPropagation();

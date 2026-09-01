@@ -6,10 +6,12 @@ import {
     type IEventHandler,
     type IView,
     MeshDataUtils,
+    Precision,
     type ShapeMeshData,
     VisualConfig,
 } from "@chili3d/core";
 import {
+    arcAngles,
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
@@ -18,7 +20,7 @@ import {
     worldPerPixel,
 } from "../sketchModel";
 import { isBadgeEventTarget } from "./sketchAnnotations";
-import type { SketchEditor } from "./sketchEditor";
+import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
 
 const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
@@ -53,7 +55,7 @@ export class SketchEventHandler implements IEventHandler {
         let best: SketchPointRef | undefined;
         let bestDistance = PICK_TOLERANCE_PX;
         for (const entity of solver.entities()) {
-            const pointCount = entity.type === "line" ? 2 : 1;
+            const pointCount = entityPointCount(entity.type);
             for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
                 const [u, v] = solver.pointOf({ entityId: entity.id, pointIndex });
                 const screen = view.worldToScreen(toWorld(plane, u, v));
@@ -67,21 +69,25 @@ export class SketchEventHandler implements IEventHandler {
         return best;
     }
 
-    hitTestEntity(view: IView, event: PointerEvent, type?: SketchEntityType): number | undefined {
+    hitTestEntity(view: IView, event: PointerEvent, type?: SketchEntityTypeFilter): number | undefined {
         const uv = this.pointerToUV(view, event);
         if (uv === undefined) return undefined;
         const tolerance = this.worldTolerance(view, event);
         if (tolerance === undefined) return undefined;
+        const types: readonly SketchEntityType[] | undefined =
+            type === undefined ? undefined : typeof type === "string" ? [type] : type;
 
         const solver = this.editor.solver;
         let best: number | undefined;
         let bestDistance = tolerance;
         for (const entity of solver.entities()) {
-            if (type !== undefined && entity.type !== type) continue;
+            if (types !== undefined && !types.includes(entity.type)) continue;
             const [x1, y1, x2, y2] = entity.params;
             let distance: number;
             if (entity.type === "line") {
                 distance = pointToSegmentDistance(uv[0], uv[1], x1, y1, x2, y2);
+            } else if (entity.type === "arc") {
+                distance = pointToArcDistance(uv[0], uv[1], entity.params);
             } else {
                 distance = Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
             }
@@ -407,23 +413,57 @@ export function sketchEntityMesh(
     if (entity.type === "line") {
         return MeshDataUtils.createEdgeMesh(toWorld(plane, x1, y1), toWorld(plane, x2, y2), color, "solid");
     }
-    return circleEdgeMesh(editor, x1, y1, entity.params[2], color);
+    if (entity.type === "arc") {
+        const [cx, cy, r, a0, sweep] = arcGeometry(entity.params);
+        return arcSegmentMesh(editor, cx, cy, r, a0, a0 + sweep, color);
+    }
+    return arcSegmentMesh(editor, x1, y1, entity.params[2], 0, Math.PI * 2, color);
 }
 
-function circleEdgeMesh(
+function entityPointCount(type: SketchEntityType): number {
+    return type === "line" ? 2 : type === "arc" ? 3 : 1;
+}
+
+/**
+ * Center, radius, start angle and counter-clockwise sweep (normalized to (0, 2π],
+ * matching SketchNode.arcEdge) of an arc entity's params [cx, cy, sx, sy, ex, ey].
+ */
+function arcGeometry(params: number[]): [number, number, number, number, number] {
+    const [cx, cy, sx, sy] = params;
+    const r = Math.hypot(sx - cx, sy - cy);
+    const [a0, sweep] = arcAngles(params);
+    return [cx, cy, r, a0, sweep];
+}
+
+/** uv distance to an arc: radial gap inside the sweep, endpoint gap outside it. */
+function pointToArcDistance(x: number, y: number, params: number[]): number {
+    const [cx, cy, r, a0, sweep] = arcGeometry(params);
+    if (r < Precision.Distance) return Math.hypot(x - cx, y - cy);
+    const angle = (Math.atan2(y - cy, x - cx) - a0 + Math.PI * 4) % (Math.PI * 2);
+    if (angle <= sweep) {
+        return Math.abs(Math.hypot(x - cx, y - cy) - r);
+    }
+    const [, , sx, sy, ex, ey] = params;
+    return Math.min(Math.hypot(x - sx, y - sy), Math.hypot(x - ex, y - ey));
+}
+
+function arcSegmentMesh(
     editor: SketchEditor,
     cx: number,
     cy: number,
     r: number,
+    a0: number,
+    a1: number,
     color: number,
 ): EdgeMeshData {
     const plane = editor.node.plane;
-    const position = new Float32Array(CIRCLE_SEGMENTS * 6);
-    for (let i = 0; i < CIRCLE_SEGMENTS; i++) {
-        const a0 = (i / CIRCLE_SEGMENTS) * Math.PI * 2;
-        const a1 = ((i + 1) / CIRCLE_SEGMENTS) * Math.PI * 2;
-        const p0 = toWorld(plane, cx + r * Math.cos(a0), cy + r * Math.sin(a0));
-        const p1 = toWorld(plane, cx + r * Math.cos(a1), cy + r * Math.sin(a1));
+    const segments = Math.max(2, Math.ceil((CIRCLE_SEGMENTS * (a1 - a0)) / (Math.PI * 2)));
+    const position = new Float32Array(segments * 6);
+    for (let i = 0; i < segments; i++) {
+        const t0 = a0 + ((a1 - a0) * i) / segments;
+        const t1 = a0 + ((a1 - a0) * (i + 1)) / segments;
+        const p0 = toWorld(plane, cx + r * Math.cos(t0), cy + r * Math.sin(t0));
+        const p1 = toWorld(plane, cx + r * Math.cos(t1), cy + r * Math.sin(t1));
         position.set([p0.x, p0.y, p0.z, p1.x, p1.y, p1.z], i * 6);
     }
     return { position, range: [], color, lineType: "solid" };

@@ -10,12 +10,13 @@ import {
     isPropertyChanged,
     ParameterShapeNode,
     type Plane,
+    Precision,
     Result,
     serializable,
     serialize,
 } from "@chili3d/core";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
-import { type SketchData, toWorld } from "./sketchModel";
+import { arcAngles, type SketchData, type SketchEntityData, toWorld } from "./sketchModel";
 
 export interface SketchNodeOptions {
     document: IDocument;
@@ -100,17 +101,7 @@ export class SketchNode extends ParameterShapeNode {
         this.syncPlaneRefWatch();
         const edges: IEdge[] = [];
         for (const entity of this.data.entities) {
-            const edge =
-                entity.type === "line"
-                    ? shapeFactory.line(
-                          toWorld(this.plane, entity.params[0], entity.params[1]),
-                          toWorld(this.plane, entity.params[2], entity.params[3]),
-                      )
-                    : shapeFactory.circle(
-                          this.plane.normal,
-                          toWorld(this.plane, entity.params[0], entity.params[1]),
-                          entity.params[2],
-                      );
+            const edge = this.entityEdge(entity);
             if (!edge.isOk) return edge;
             edges.push(edge.value);
         }
@@ -123,6 +114,36 @@ export class SketchNode extends ParameterShapeNode {
             return Result.ok(edges[0]);
         }
         return shapeFactory.combine(edges);
+    }
+
+    private entityEdge(entity: SketchEntityData): Result<IEdge> {
+        const p = entity.params;
+        switch (entity.type) {
+            case "line":
+                return shapeFactory.line(toWorld(this.plane, p[0], p[1]), toWorld(this.plane, p[2], p[3]));
+            case "circle":
+                return shapeFactory.circle(this.plane.normal, toWorld(this.plane, p[0], p[1]), p[2]);
+            case "arc":
+                return this.arcEdge(p as [number, number, number, number, number, number]);
+        }
+    }
+
+    /** arc params = [cx, cy, sx, sy, ex, ey]; the end point only fixes the sweep angle. */
+    private arcEdge(params: [number, number, number, number, number, number]): Result<IEdge> {
+        const [cx, cy, sx, sy] = params;
+        if (Math.hypot(sx - cx, sy - cy) < Precision.Distance) {
+            return Result.err("Arc radius is too small");
+        }
+        const [, sweep] = arcAngles(params);
+        if (Math.abs(sweep - Math.PI * 2) < Precision.Angle) {
+            return Result.err("Arc sweep angle is too small");
+        }
+        return shapeFactory.arc(
+            this.plane.normal,
+            toWorld(this.plane, cx, cy),
+            toWorld(this.plane, sx, sy),
+            (sweep * 180) / Math.PI,
+        );
     }
 
     /** Watches the node the plane reference points at; unresolved ids are retried next evaluation. */

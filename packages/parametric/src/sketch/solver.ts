@@ -26,10 +26,18 @@ function findRoot(parent: Map<string, string>, key: string): string {
 const PARAM_KIND_COORDINATE = 0;
 const PARAM_KIND_LENGTH = 1;
 
-/** garlic param kinds per entity type: line = 2 points, circle = center + radius. */
+/** garlic param kinds per entity type: line = 2 points, circle = center + radius, arc = 3 points. */
 const ENTITY_PARAM_KINDS: Record<SketchEntityType, number[]> = {
     line: [PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE],
     circle: [PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH],
+    arc: [
+        PARAM_KIND_COORDINATE,
+        PARAM_KIND_COORDINATE,
+        PARAM_KIND_COORDINATE,
+        PARAM_KIND_COORDINATE,
+        PARAM_KIND_COORDINATE,
+        PARAM_KIND_COORDINATE,
+    ],
 };
 
 export interface SolveOutcome {
@@ -42,7 +50,7 @@ interface ConstraintRecord {
     kind: ConstraintKind;
     refs: SketchPointRef[];
     garlicId: number;
-    datumParamId?: number;
+    datumParamIds?: number[];
 }
 
 /**
@@ -75,6 +83,21 @@ export class SketchSolver {
         return this.registerEntity("circle", this.addEntityParams("circle", [cx, cy, r]));
     }
 
+    addArc(cx: number, cy: number, sx: number, sy: number, ex: number, ey: number): number {
+        const id = this.registerEntity("arc", this.addEntityParams("arc", [cx, cy, sx, sy, ex, ey]));
+        // structural constraint (invisible in the UI): keeps the end point on the
+        // circle defined by center + start, so the arc always ends at its end point
+        this.addConstraint({
+            kind: ConstraintKind.PointOnArc,
+            refs: [
+                { entityId: id, pointIndex: 2 },
+                { entityId: id, pointIndex: 0 },
+                { entityId: id, pointIndex: 1 },
+            ],
+        });
+        return id;
+    }
+
     addConstraint(constraint: Omit<SketchConstraintData, "id">): number {
         const id = nextSketchId([...this.constraints.values()]);
         this.addConstraintWithId(id, constraint);
@@ -87,8 +110,8 @@ export class SketchSolver {
             throw new Error(`Unknown sketch constraint: ${id}`);
         }
         this.system.remove_constraint(record.garlicId);
-        if (record.datumParamId !== undefined) {
-            this.system.remove_param(record.datumParamId);
+        for (const datumParamId of record.datumParamIds ?? []) {
+            this.system.remove_param(datumParamId);
         }
         this.constraints.delete(id);
     }
@@ -115,12 +138,12 @@ export class SketchSolver {
         return removedConstraints;
     }
 
-    setDatum(constraintId: number, value: number): void {
-        const record = this.constraints.get(constraintId);
-        if (record?.datumParamId === undefined) {
-            throw new Error(`Constraint ${constraintId} has no datum`);
+    setDatum(constraintId: number, value: number, index = 0): void {
+        const paramId = this.constraints.get(constraintId)?.datumParamIds?.[index];
+        if (paramId === undefined) {
+            throw new Error(`Constraint ${constraintId} has no datum ${index}`);
         }
-        this.system.set_param(record.datumParamId, value);
+        this.system.set_param(paramId, value);
     }
 
     /** Moves a point without solving; used by auto-constraint snapping before a solve. */
@@ -180,9 +203,14 @@ export class SketchSolver {
         if (type === undefined) {
             throw new Error(`Unknown sketch entity: ${entityId}`);
         }
-        return type === "line"
-            ? [this.pointOf({ entityId, pointIndex: 0 }), this.pointOf({ entityId, pointIndex: 1 })]
-            : [this.pointOf({ entityId, pointIndex: 0 })];
+        switch (type) {
+            case "line":
+                return [this.pointOf({ entityId, pointIndex: 0 }), this.pointOf({ entityId, pointIndex: 1 })];
+            case "arc":
+                return [this.pointOf({ entityId, pointIndex: 1 }), this.pointOf({ entityId, pointIndex: 2 })];
+            default:
+                return [this.pointOf({ entityId, pointIndex: 0 })];
+        }
     }
 
     /**
@@ -263,8 +291,13 @@ export class SketchSolver {
                 kind: record.kind,
                 refs: record.refs.map((r) => ({ ...r })),
             };
-            if (record.datumParamId !== undefined) {
-                data.datum = this.system.get_params(new Uint32Array([record.datumParamId]))[0];
+            if (record.datumParamIds !== undefined) {
+                const values = Array.from(this.system.get_params(new Uint32Array(record.datumParamIds)));
+                if (values.length === 1) {
+                    data.datum = values[0];
+                } else {
+                    data.datums = values;
+                }
             }
             return data;
         });
@@ -296,46 +329,168 @@ export class SketchSolver {
     }
 
     private addConstraintWithId(id: number, constraint: Omit<SketchConstraintData, "id">): void {
-        const { params, datumParamId } = this.buildConstraintParams(constraint);
+        const { params, datumParamIds } = this.buildConstraintParams(constraint);
         const garlicId = this.system.add_constraint(constraint.kind, new Uint32Array(params), null, true, 0);
         this.constraints.set(id, {
             id,
             kind: constraint.kind,
             refs: constraint.refs.map((r) => ({ ...r })),
             garlicId,
-            datumParamId,
+            datumParamIds,
         });
     }
 
-    /** garlic param ids for a constraint; datum kinds also create their datum param. */
+    /** garlic param ids for a constraint; datum kinds also create their datum params. */
     private buildConstraintParams(constraint: Omit<SketchConstraintData, "id">): {
         params: number[];
-        datumParamId?: number;
+        datumParamIds?: number[];
     } {
         const { refs } = constraint;
         switch (constraint.kind) {
             case ConstraintKind.P2PCoincident:
             case ConstraintKind.Horizontal:
             case ConstraintKind.Vertical:
+            case ConstraintKind.HorizontalAlign:
+            case ConstraintKind.VerticalAlign:
                 return { params: [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])] };
+            case ConstraintKind.PointOnArc:
+                // p, c, s — refs are [point, center, start] (arc structural: end, center, start)
+                return {
+                    params: [
+                        ...this.pointParamIds(refs[0]),
+                        ...this.arcPointParamIds(refs[1]),
+                        ...this.arcPointParamIds(refs[2]),
+                    ],
+                };
+            case ConstraintKind.PointOnLine:
+            case ConstraintKind.Midpoint:
+                return {
+                    params: [
+                        ...this.pointParamIds(refs[0]),
+                        ...this.linePointParamIds(refs[1]),
+                        ...this.linePointParamIds(refs[2]),
+                    ],
+                };
+            case ConstraintKind.Parallel:
+            case ConstraintKind.Perpendicular:
+            case ConstraintKind.EqualLength:
+                return { params: this.twoLineParams(refs) };
+            case ConstraintKind.Symmetric:
+                return {
+                    params: [
+                        ...this.pointParamIds(refs[0]),
+                        ...this.pointParamIds(refs[1]),
+                        ...this.linePointParamIds(refs[2]),
+                        ...this.linePointParamIds(refs[3]),
+                    ],
+                };
+            case ConstraintKind.EqualRadius:
+                return {
+                    params: [this.radiusParamId(refs[0].entityId), this.radiusParamId(refs[1].entityId)],
+                };
+            case ConstraintKind.PointOnCircle:
+                return {
+                    params: [
+                        ...this.pointParamIds(refs[0]),
+                        ...this.circleCenterParamIds(refs[1]),
+                        this.radiusParamId(refs[1].entityId),
+                    ],
+                };
+            case ConstraintKind.TangentLineCircle:
+                return {
+                    params: [
+                        ...this.linePointParamIds(refs[0]),
+                        ...this.linePointParamIds(refs[1]),
+                        ...this.circleCenterParamIds(refs[2]),
+                        this.radiusParamId(refs[2].entityId),
+                    ],
+                };
+            case ConstraintKind.TangentCircleCircle:
+                return {
+                    params: [
+                        ...this.circleCenterParamIds(refs[0]),
+                        this.radiusParamId(refs[0].entityId),
+                        ...this.circleCenterParamIds(refs[1]),
+                        this.radiusParamId(refs[1].entityId),
+                    ],
+                };
+            case ConstraintKind.EqualArcRadius:
+            case ConstraintKind.TangentArcArc:
+                return {
+                    params: [
+                        ...this.arcPointParamIds(refs[0]),
+                        ...this.arcPointParamIds(refs[1]),
+                        ...this.arcPointParamIds(refs[2]),
+                        ...this.arcPointParamIds(refs[3]),
+                    ],
+                };
+            case ConstraintKind.TangentLineArc:
+                return {
+                    params: [
+                        ...this.linePointParamIds(refs[0]),
+                        ...this.linePointParamIds(refs[1]),
+                        ...this.arcPointParamIds(refs[2]),
+                        ...this.arcPointParamIds(refs[3]),
+                    ],
+                };
+            case ConstraintKind.TangentCircleArc:
+                return {
+                    params: [
+                        ...this.circleCenterParamIds(refs[0]),
+                        this.radiusParamId(refs[0].entityId),
+                        ...this.arcPointParamIds(refs[1]),
+                        ...this.arcPointParamIds(refs[2]),
+                    ],
+                };
             case ConstraintKind.P2PDistance:
-                return this.withDatum(
+                return this.withDatums(
                     [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
-                    constraint.datum ?? this.currentDistance(refs[0], refs[1]),
+                    [constraint.datum ?? this.currentDistance(refs[0], refs[1])],
                 );
             case ConstraintKind.Radius:
-                return this.withDatum(
+                return this.withDatums(
                     [this.radiusParamId(refs[0].entityId)],
-                    constraint.datum ?? this.currentRadius(refs[0].entityId),
+                    [constraint.datum ?? this.currentRadius(refs[0].entityId)],
+                );
+            case ConstraintKind.P2LDistance:
+                return this.withDatums(
+                    [
+                        ...this.pointParamIds(refs[0]),
+                        ...this.linePointParamIds(refs[1]),
+                        ...this.linePointParamIds(refs[2]),
+                    ],
+                    [constraint.datum ?? this.currentP2LDistance(refs)],
+                );
+            case ConstraintKind.Angle:
+                return this.withDatums(this.twoLineParams(refs), [
+                    constraint.datum ?? this.currentAngle(refs),
+                ]);
+            case ConstraintKind.HorizontalDistance:
+            case ConstraintKind.VerticalDistance:
+                return this.withDatums(
+                    [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
+                    [
+                        constraint.datum ??
+                            this.currentSignedDistance(
+                                refs[0],
+                                refs[1],
+                                constraint.kind === ConstraintKind.HorizontalDistance ? 0 : 1,
+                            ),
+                    ],
+                );
+            case ConstraintKind.Fix:
+                return this.withDatums(
+                    [...this.pointParamIds(refs[0])],
+                    constraint.datums ?? [...this.pointOf(refs[0])],
                 );
             default:
                 throw new Error(`Unsupported constraint kind: ${constraint.kind}`);
         }
     }
 
-    private withDatum(params: number[], value: number): { params: number[]; datumParamId: number } {
-        const datumParamId = this.createDatumParam(value);
-        return { params: [...params, datumParamId], datumParamId };
+    private withDatums(params: number[], values: number[]): { params: number[]; datumParamIds: number[] } {
+        const datumParamIds = values.map((value) => this.createDatumParam(value));
+        return { params: [...params, ...datumParamIds], datumParamIds };
     }
 
     private createDatumParam(value: number): number {
@@ -344,9 +499,41 @@ export class SketchSolver {
         );
     }
 
+    /** [l1.p1, l1.p2, l2.p1, l2.p2] param ids for two-line constraints. */
+    private twoLineParams(refs: SketchPointRef[]): number[] {
+        return [
+            ...this.linePointParamIds(refs[0]),
+            ...this.linePointParamIds(refs[1]),
+            ...this.linePointParamIds(refs[2]),
+            ...this.linePointParamIds(refs[3]),
+        ];
+    }
+
+    private typedPointParamIds(ref: SketchPointRef, type: SketchEntityType): [number, number] {
+        if (this.entityTypes.get(ref.entityId) !== type) {
+            throw new Error(`Entity ${ref.entityId} is not a ${type}`);
+        }
+        return this.pointParamIds(ref);
+    }
+
+    private linePointParamIds(ref: SketchPointRef): [number, number] {
+        return this.typedPointParamIds(ref, "line");
+    }
+
+    private circleCenterParamIds(ref: SketchPointRef): [number, number] {
+        return this.typedPointParamIds(ref, "circle");
+    }
+
+    private arcPointParamIds(ref: SketchPointRef): [number, number] {
+        return this.typedPointParamIds(ref, "arc");
+    }
+
     private pointCacheIndices(ref: SketchPointRef): [number, number] {
         const type = this.entityTypes.get(ref.entityId);
         if (type === "line" && (ref.pointIndex === 0 || ref.pointIndex === 1)) {
+            return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+        }
+        if (type === "arc" && ref.pointIndex >= 0 && ref.pointIndex <= 2) {
             return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
         }
         if (type === "circle" && ref.pointIndex === 0) {
@@ -377,6 +564,36 @@ export class SketchSolver {
     /** Radius from the cache; the caller already validated the circle via `radiusParamId`. */
     private currentRadius(entityId: number): number {
         return this.entityCache.get(entityId)![2];
+    }
+
+    /** garlic-signed perpendicular distance (negative of the usual cross-product sign). */
+    private currentP2LDistance(refs: SketchPointRef[]): number {
+        const [px, py] = this.pointOf(refs[0]);
+        const [x1, y1] = this.pointOf(refs[1]);
+        const [x2, y2] = this.pointOf(refs[2]);
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.hypot(dx, dy);
+        if (length < 1e-12) return 0;
+        return (dy * (px - x1) - dx * (py - y1)) / length;
+    }
+
+    /** Unsigned angle (radians) between the directions of the two referenced lines. */
+    private currentAngle(refs: SketchPointRef[]): number {
+        const [x1, y1] = this.pointOf(refs[0]);
+        const [x2, y2] = this.pointOf(refs[1]);
+        const [x3, y3] = this.pointOf(refs[2]);
+        const [x4, y4] = this.pointOf(refs[3]);
+        const d1 = Math.hypot(x2 - x1, y2 - y1);
+        const d2 = Math.hypot(x4 - x3, y4 - y3);
+        if (d1 < 1e-12 || d2 < 1e-12) return 0;
+        const cos = ((x2 - x1) * (x4 - x3) + (y2 - y1) * (y4 - y3)) / (d1 * d2);
+        return Math.acos(Math.max(-1, Math.min(1, cos)));
+    }
+
+    /** Signed axis distance (axis 0: p2.x − p1.x; axis 1: p2.y − p1.y). */
+    private currentSignedDistance(a: SketchPointRef, b: SketchPointRef, axis: 0 | 1): number {
+        return this.pointOf(b)[axis] - this.pointOf(a)[axis];
     }
 
     private refreshCache(): void {

@@ -34,6 +34,7 @@ function setup() {
         value: {
             line: () => Result.ok({ isEqual: () => false }),
             circle: () => Result.ok({ isEqual: () => false }),
+            arc: () => Result.ok({ isEqual: () => false }),
             wire: () => Result.ok({ isEqual: () => false }),
             combine: () => Result.ok({ isEqual: () => false }),
         },
@@ -119,6 +120,32 @@ describe("SketchEditor picking", () => {
             (doc.visual.eventHandler as SketchEventHandler).pointerDown(view, pointerEvent(405, 300));
 
             await expect(promise).resolves.toBe(1);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("pickEntity with a multi-type filter accepts either type but not an arc", async () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addCircle(30, 0, 5);
+            editor.solver.addArc(0, 30, 10, 30, 0, 40);
+            editor.solve(true);
+
+            const promise = editor.pickEntity("prompt.pickSketchEntity", ["line", "circle"]);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            // arc start at uv (10, 30) -> screen (410, 270): filtered out, pick stays active
+            handler.pointerDown(view, pointerEvent(410, 270));
+            expect(editor.isPicking).toBe(true);
+
+            // circle outline at uv (35, 0) -> screen (435, 300): accepted
+            handler.pointerDown(view, pointerEvent(435, 300));
+            await expect(promise).resolves.toBe(2);
+            expect(editor.isPicking).toBe(false);
             editor.exit();
         } finally {
             restoreFactory();

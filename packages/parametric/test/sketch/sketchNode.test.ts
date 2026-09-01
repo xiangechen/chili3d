@@ -109,6 +109,64 @@ describe("SketchNode", () => {
         expect(combine).not.toHaveBeenCalled();
     });
 
+    test("generateShape builds an arc edge with the counter-clockwise sweep angle", () => {
+        const arcShape = fakeShape("arc");
+        const arc = rs.fn((_normal: XYZ, _center: XYZ, _start: XYZ, _angle: number) => Result.ok(arcShape));
+        restoreFactory = mockShapeFactory({ arc, combine: () => Result.ok(fakeShape("compound")) });
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: { entities: [{ id: 1, type: "arc", params: [0, 0, 10, 0, 0, 10] }], constraints: [] },
+        });
+
+        const result = node.generateShape();
+
+        expect(result.isOk).toBe(true);
+        expect(result.unchecked()).toBe(arcShape);
+        expect(arc).toHaveBeenCalledTimes(1);
+        const [normal, center, start, angle] = arc.mock.calls[0] as unknown as [XYZ, XYZ, XYZ, number];
+        expect([normal.x, normal.y, normal.z]).toEqual([0, 0, 1]);
+        expect([center.x, center.y, center.z]).toEqual([0, 0, 5]);
+        expect([start.x, start.y, start.z]).toEqual([10, 0, 5]);
+        expect(angle).toBeCloseTo(90, 6);
+    });
+
+    test("generateShape sweeps the long way when the end is clockwise of the start", () => {
+        const arc = rs.fn((_normal: XYZ, _center: XYZ, _start: XYZ, _angle: number) =>
+            Result.ok(fakeShape("arc")),
+        );
+        restoreFactory = mockShapeFactory({ arc, combine: () => Result.ok(fakeShape("compound")) });
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: { entities: [{ id: 1, type: "arc", params: [0, 0, 10, 0, 0, -10] }], constraints: [] },
+        });
+
+        const result = node.generateShape();
+
+        expect(result.isOk).toBe(true);
+        expect((arc.mock.calls[0] as unknown as [XYZ, XYZ, XYZ, number])[3]).toBeCloseTo(270, 6);
+    });
+
+    test("generateShape rejects an arc with a degenerate radius or sweep", () => {
+        const arc = rs.fn(() => Result.ok(fakeShape("arc")));
+        restoreFactory = mockShapeFactory({ arc, combine: () => Result.ok(fakeShape("compound")) });
+        const tinyRadius = new SketchNode({
+            document: doc,
+            plane,
+            data: { entities: [{ id: 1, type: "arc", params: [0, 0, 0, 0, 1, 1] }], constraints: [] },
+        });
+        const zeroSweep = new SketchNode({
+            document: doc,
+            plane,
+            data: { entities: [{ id: 1, type: "arc", params: [0, 0, 10, 0, 20, 0] }], constraints: [] },
+        });
+
+        expect(tinyRadius.generateShape().error).toBe("Arc radius is too small");
+        expect(zeroSweep.generateShape().error).toBe("Arc sweep angle is too small");
+        expect(arc).not.toHaveBeenCalled();
+    });
+
     test("generateShape returns an empty compound when the sketch has no entities", () => {
         const { combine, compoundShape } = setupFactory();
         const node = new SketchNode({ document: doc, plane });

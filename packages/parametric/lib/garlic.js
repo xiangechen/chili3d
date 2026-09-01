@@ -26,7 +26,7 @@ export const ConstraintKind = Object.freeze({
      */
     PointOnLine: 3, "3": "PointOnLine",
     /**
-     * p1.x, p1.y, p2.x, p2.y（x 为结构零，仍需传入）
+     * p1.x, p1.y, p2.x, p2.y（残差只用 y，x 两列是 Jacobian 结构零，但 params 仍需传齐 4 个）
      */
     Horizontal: 4, "4": "Horizontal",
     /**
@@ -161,7 +161,8 @@ export class WasmSystem {
      * - Some(-1)：显式负分支（Negative / Internal）；
      * - 其他值报错。显式分支走 new_checked 校验：与当前几何矛盾时返回
      *   TangentBranchConflict。显式 Internal 时若 r1 < r2，new_checked
-     *   自动交换两圆/两弧，维持 c1 为外圆（外弧）的内核约定（同 TangentCC::auto）。
+     *   自动交换两圆/两弧（TangentCircleArc 布局不对称无法交换，改为置 flip
+     *   标志），维持 c1 为外圆（外弧）的内核约定（同 TangentCC::auto）。
      *
      * datum 只读契约（同内核 `System::add_constraint` rustdoc）：datum 参数
      * 必须只经 `set_param` 从 JS 侧驱动，不得同时是任何约束的未知量或从动
