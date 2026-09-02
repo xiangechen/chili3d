@@ -11,6 +11,7 @@ import {
 } from "@chili3d/core";
 import type { EdgeRef, Vec3 } from "./edgeRef";
 import type { ParameterValue } from "./expression";
+import type { ProfileRef } from "./profileRef";
 
 export interface FeatureBase {
     readonly id: string;
@@ -32,8 +33,28 @@ export type FeatureData =
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
-    readonly sketchId: string;
+    /** Sketch whose profiles are extruded; undefined when `source` faces are used instead. */
+    readonly sketchId?: string;
+    /**
+     * Planar faces of an existing body to extrude from (press-pull), as profile
+     * fingerprints captured in world coordinates (`profileRef.ts`). When `nodeId` is
+     * the host body itself, the faces are re-matched on the feature's input shape.
+     */
+    readonly source?: { readonly nodeId: string; readonly profiles: ProfileRef[] };
     readonly length: ParameterValue;
+    /** When true, the profiles are extruded by `length` in both directions of the sketch normal. */
+    readonly symmetric?: boolean;
+    /**
+     * How the prism combines with the preceding feature's shape on the host body —
+     * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
+     * geometry; set when the extrude command appends the feature to a target body.
+     */
+    readonly operation?: BooleanOperation;
+    /**
+     * Fingerprints of the sketch profiles to extrude (`profileRef.ts`); undefined or
+     * empty extrudes every closed profile of the sketch.
+     */
+    readonly profiles?: ProfileRef[];
 }
 
 export interface RevolveFeatureData extends FeatureBase {
@@ -100,6 +121,12 @@ export interface ShapeTracking {
     outputFaceIds: string[];
     readonly inputEdgeIds: readonly string[];
     outputEdgeIds: string[];
+    /**
+     * Set by a profile-matching handler to the fingerprints of the faces it actually
+     * matched this run; the body writes them back into the feature (re-anchoring) so
+     * the next edit measures drift from the latest match, not the original pick.
+     */
+    resolvedProfiles?: ProfileRef[];
 }
 
 /**

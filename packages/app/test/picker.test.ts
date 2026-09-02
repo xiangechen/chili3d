@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { I18nKeys, IDocument, IEventHandler, IPicker, IVisual } from "@chili3d/core";
-import { AsyncController, PubSub } from "@chili3d/core";
+import { AsyncController, PubSub, ShapeTypes, VisualStates } from "@chili3d/core";
 import {
     createMockDocument,
     createMockVisualWithDocument as createMockVisual,
@@ -337,6 +337,49 @@ describe("Picker", () => {
             await picker.pickShape("common.ok" as I18nKeys, controller, { canFinish });
 
             expect(handler.canFinish).toBe(canFinish);
+        });
+
+        test("should default to filled-face states when picking faces", async () => {
+            let handler: any;
+            picker.pickAsync = async (...args: any[]) => {
+                handler = args[0];
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, { shapeType: ShapeTypes.face });
+
+            expect(handler.selectedState).toBe(VisualStates.faceSelected);
+            expect(handler.highlightState).toBe(VisualStates.faceHighlight);
+        });
+
+        test("should keep edge states for non-face picks", async () => {
+            let handler: any;
+            picker.pickAsync = async (...args: any[]) => {
+                handler = args[0];
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, { shapeType: ShapeTypes.edge });
+
+            expect(handler.selectedState).toBe(VisualStates.edgeSelected);
+            expect(handler.highlightState).toBe(VisualStates.edgeHighlight);
+        });
+
+        test("should prefer explicitly provided states over the face defaults", async () => {
+            let handler: any;
+            picker.pickAsync = async (...args: any[]) => {
+                handler = args[0];
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, {
+                shapeType: ShapeTypes.face,
+                selectedState: VisualStates.faceTransparent,
+                highlightState: VisualStates.edgeHighlight,
+            });
+
+            expect(handler.selectedState).toBe(VisualStates.faceTransparent);
+            expect(handler.highlightState).toBe(VisualStates.edgeHighlight);
         });
     });
 });

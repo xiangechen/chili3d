@@ -2,62 +2,484 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
+    BoundingBox,
+    Combobox,
     command,
-    GetOrSelectNodeStep,
+    type I18nKeys,
+    type IDocument,
     Id,
+    type IFace,
     type INode,
+    type INodeVisual,
+    type IShape,
+    type ISolid,
     type IStep,
-    type LengthAtAxisSnapData,
-    LengthAtAxisStep,
+    type IView,
+    Matrix4,
     MultistepCommand,
     Precision,
+    property,
+    Result,
+    type ShapeMeshData,
+    ShapeTypes,
+    ShapeTypeUtils,
+    type SnapResult,
     Transaction,
+    type VisualShapeData,
+    VisualStates,
+    XYZ,
 } from "@chili3d/core";
-import { sketchFaces } from "../features/profileBuilder";
+import { fuseProfiles } from "../features/extrude";
+import type { BooleanOperation, ExtrudeFeatureData } from "../features/feature";
+import { allProfiles, sketchProfiles } from "../features/profileBuilder";
+import { captureProfileRef } from "../features/profileRef";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
+import {
+    ARROW_LENGTH,
+    type ExtrudeDragState,
+    ExtrudeDragStep,
+    extrudeArrowSegment,
+    planeOfPickedFace,
+} from "./extrudeDragStep";
+
+/** Blue handle color, distinct from the green highlight/selection tints. */
+const ARROW_COLOR = 0x3b82f6;
+
+/** Lighter blue shown while the pointer hovers the arrow. */
+const ARROW_HOVER_COLOR = 0x93c5fd;
+
+const OPERATION_NEW: I18nKeys = "option.command.operation.new";
+
+/** Maps the command's operation dropdown values to boolean operations; new has none. */
+const EXTRUDE_OPERATIONS: Record<string, BooleanOperation> = {
+    "option.command.operation.join": "fuse",
+    "option.command.operation.cut": "cut",
+    "option.command.operation.intersect": "common",
+};
+
+/**
+ * Resolves the profiles to extrude in one step:
+ * 1. profile faces are already selected → use them (sketch profile faces or planar
+ *    faces of a parametric body; faces of other nodes than the first one's are ignored);
+ * 2. a sketch node is selected → all of its outer profiles, resolved to face picks as
+ *    if the user had selected them (whole sketch when the sketch has no profiles);
+ * 3. otherwise the user picks a face. The filter only allows sketch nodes and
+ *    parametric bodies, and only planar faces. Confirming with nothing selected
+ *    (Enter/Escape) cancels the command.
+ */
+class SelectSketchProfilesStep implements IStep {
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const view = document.application.activeView!;
+        return (
+            SelectSketchProfilesStep.fromSelectedFaces(document, view, controller) ??
+            SelectSketchProfilesStep.fromSelectedSketch(document, view, controller) ??
+            (await SelectSketchProfilesStep.pickFace(document, view, controller))
+        );
+    }
+
+    /**
+     * Pre-selected profile faces — sketch profile faces or planar faces of a parametric
+     * body; faces of other nodes than the first one's are ignored. Undefined when none.
+     */
+    private static fromSelectedFaces(
+        document: IDocument,
+        view: IView,
+        controller: AsyncController,
+    ): SnapResult | undefined {
+        const selectedFaces = document.selection
+            .getSelectedShapes()
+            .filter(
+                (x) =>
+                    ShapeTypeUtils.hasFace(x.shape.shapeType) &&
+                    (x.owner.node instanceof SketchNode ||
+                        (x.owner.node instanceof ParametricBodyNode &&
+                            (x.shape as IFace).surface().isPlanar())),
+            );
+        if (selectedFaces.length === 0) return undefined;
+        const node = selectedFaces[0].owner.node;
+        controller.success();
+        return {
+            view,
+            shapes: selectedFaces.filter((x) => x.owner.node === node),
+            nodes: [node],
+            type: "shape",
+        };
+    }
+
+    /** A pre-selected sketch contributes all its outer profiles (empty: whole sketch). */
+    private static fromSelectedSketch(
+        document: IDocument,
+        view: IView,
+        controller: AsyncController,
+    ): SnapResult | undefined {
+        const selectedSketch = document.selection.getSelectedNodes().find((x) => x instanceof SketchNode);
+        if (selectedSketch === undefined) return undefined;
+        const faces = SelectSketchProfilesStep.sketchProfileFaces(document, selectedSketch);
+        controller.success();
+        // Show the profiles as selected, exactly as if the user had picked them.
+        if (faces.length > 0) {
+            document.selection.setSelectedShapes(faces, VisualStates.faceSelected, false);
+        }
+        return { view, shapes: faces, nodes: [selectedSketch], type: "shape" };
+    }
+
+    /** Interactive pick: planar faces of sketches and parametric bodies only. */
+    private static async pickFace(
+        document: IDocument,
+        view: IView,
+        controller: AsyncController,
+    ): Promise<SnapResult | undefined> {
+        const shapes = await document.picker.pickShape("prompt.select.faces", controller, {
+            shapeType: ShapeTypes.face,
+            shapeFilter: { allow: (shape) => (shape as IFace).surface().isPlanar() },
+            multi: false,
+            nodeFilter: { allow: (node) => SelectSketchProfilesStep.allowNode(node) },
+        });
+        if (shapes.length === 0) return undefined;
+        return { view, shapes, nodes: [shapes[0].owner.node], type: "shape" };
+    }
+
+    /**
+     * Synthesizes the pick data of every outer profile of `sketch`, so a pre-selected
+     * sketch enters the drag step with all profiles selected as if picked manually.
+     * The displayed mesh adds the base shape first (an edge compound without faces) and
+     * then the profiles in `allProfiles` order — outer first — so the leading face
+     * ranges are the outer profiles and each range position is the detection index
+     * (the same index a viewport pick would report).
+     */
+    private static sketchProfileFaces(document: IDocument, sketch: SketchNode): VisualShapeData[] {
+        const profiles = sketchProfiles(sketch);
+        if (!profiles.isOk || profiles.value.outer.length === 0) return [];
+        const owner = document.visual.context.getVisual(sketch) as INodeVisual | undefined;
+        const ranges = sketch.mesh.faces?.range ?? [];
+        if (owner === undefined || ranges.length < allProfiles(profiles.value).length) return [];
+
+        const nodeTransform = owner.worldTransform();
+        const faces: VisualShapeData[] = [];
+        for (let i = 0; i < profiles.value.outer.length; i++) {
+            const range = ranges[i];
+            if (range.shape.shapeType !== ShapeTypes.face) return [];
+            faces.push({
+                shape: range.shape,
+                owner,
+                transform:
+                    range.transform === undefined ? nodeTransform : nodeTransform.multiply(range.transform),
+                point: BoundingBox.center(range.shape.boundingBox()),
+                indexes: [i],
+            });
+        }
+        return faces;
+    }
+
+    /** Limits the interactive pick to sketches and parametric bodies. */
+    private static allowNode(node: INode): boolean {
+        return node instanceof SketchNode || node instanceof ParametricBodyNode;
+    }
+}
 
 @command({ key: "feature.extrude", icon: "icon-prism" })
 export class ExtrudeFeatureCommand extends MultistepCommand {
-    private get sketch(): SketchNode {
-        return this.stepDatas[0].nodes![0] as unknown as SketchNode;
+    @property("option.command.operation", {
+        combobox: Combobox.from([
+            OPERATION_NEW,
+            "option.command.operation.join",
+            "option.command.operation.cut",
+            "option.command.operation.intersect",
+        ] satisfies I18nKeys[]),
+    })
+    get operation(): I18nKeys {
+        return this.getPrivateValue("operation", OPERATION_NEW);
+    }
+    set operation(value: I18nKeys) {
+        this.setProperty("operation", value);
+    }
+
+    @property("option.command.symmetric")
+    get symmetric() {
+        return this.getPrivateValue("symmetric", false);
+    }
+    set symmetric(value: boolean) {
+        this.setProperty("symmetric", value);
+    }
+
+    /** The drag step returns the final face set (it can change while dragging). */
+    private get dragData() {
+        return this.stepDatas[1];
+    }
+
+    private get sourceNode(): SketchNode | ParametricBodyNode {
+        return this.dragData.nodes![0] as unknown as SketchNode | ParametricBodyNode;
+    }
+
+    /** Empty when the whole sketch is extruded. */
+    private get pickedFaces(): IFace[] {
+        return (this.dragData?.shapes ?? []).map((x) => x.shape as unknown as IFace);
     }
 
     protected override getSteps(): IStep[] {
         return [
-            new GetOrSelectNodeStep("prompt.select.sketch", {
-                filter: { allow: (node: INode) => node instanceof SketchNode },
-            }),
-            new LengthAtAxisStep("prompt.pickNextPoint", this.getLengthStepData, true),
+            new SelectSketchProfilesStep(),
+            new ExtrudeDragStep("prompt.dragToExtrude", this.getDragData),
         ];
     }
 
-    private readonly getLengthStepData = (): LengthAtAxisSnapData => {
-        const { origin, normal } = this.sketch.plane;
+    private readonly getDragData = () => {
+        const node = this.stepDatas[0].nodes![0] as unknown as SketchNode | ParametricBodyNode;
+        const faces = this.stepDatas[0].shapes;
+        // A body face extrudes along its own outward plane; a whole/partial sketch
+        // along the sketch plane.
+        const plane = node instanceof SketchNode ? node.plane : planeOfPickedFace(faces[0]);
         return {
-            point: origin,
-            direction: normal,
-            preview: (point) => {
-                if (point === undefined) return [];
-                const dist = point.sub(origin).dot(normal);
-                if (Math.abs(dist) < Precision.Float) return [];
-                const faces = sketchFaces(this.sketch);
-                if (!faces.isOk) return [];
-                return faces.value.map((face) => this.meshCreatedShape("prism", face, normal.multiply(dist)));
-            },
+            node,
+            faces,
+            origin: plane.origin,
+            normal: plane.normal,
+            anchor: faces[0]?.point ?? plane.origin,
+            buildPreview: this.buildPreview,
+            meshArrow: this.meshArrow,
         };
     };
 
+    /**
+     * Meshes the extruded prism as solid faces plus outline edges, previewing the final
+     * body. Multiple profiles go through the same `fuseProfiles` merge as the feature
+     * (touching prisms become one solid), so the preview matches the committed result.
+     * Symmetric extrusion previews both directions.
+     */
+    private readonly buildPreview = (state: ExtrudeDragState): ShapeMeshData[] => {
+        if (Math.abs(state.dist) < Precision.Float) return [];
+        const owned: IFace[] = [];
+        try {
+            const faces = ExtrudeFeatureCommand.previewFaces(state, owned);
+            if (faces === undefined) return [];
+            const vecsOf = this.sweepVectorsOf(state.node, state.normal, state.dist);
+            const merged = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf);
+            if (!merged.isOk) throw merged.error;
+            const { faces: faceMesh, edges } = merged.value.mesh;
+            merged.value.dispose();
+            if (faceMesh === undefined) throw new Error("Failed to mesh the extrude preview");
+            return edges === undefined ? [faceMesh] : [faceMesh, edges];
+        } finally {
+            owned.forEach((x) => x.dispose());
+        }
+    };
+
+    /** Faces to preview: the picked faces in world coordinates, or the whole sketch's outer profiles. */
+    private static previewFaces(state: ExtrudeDragState, owned: IFace[]): IFace[] | undefined {
+        if (state.faces.length > 0) return state.faces.map((x) => ExtrudeFeatureCommand.worldFace(x, owned));
+        if (!(state.node instanceof SketchNode)) return undefined;
+        const profiles = sketchProfiles(state.node);
+        return profiles.isOk ? profiles.value.outer : undefined;
+    }
+
+    /**
+     * Sweep vectors per face: sketch profiles share the drag plane normal; body faces
+     * sweep along their own outward normal, matching the feature's evaluation.
+     * Symmetric extrusion sweeps both directions.
+     */
+    private sweepVectorsOf(node: INode, normal: XYZ, dist: number): (face: IFace) => XYZ[] {
+        const bothWays = (vec: XYZ) => (this.symmetric ? [vec, vec.multiply(-1)] : [vec]);
+        return node instanceof SketchNode
+            ? () => bothWays(normal.multiply(dist))
+            : (face) => bothWays(face.normal(0, 0)[1].multiply(dist));
+    }
+
+    /**
+     * The picked face in world coordinates; identity transforms reuse the raw shape,
+     * transformed copies are pushed to `owned` for the caller to dispose.
+     */
+    private static worldFace(data: VisualShapeData, owned: IFace[]): IFace {
+        const face = data.shape as unknown as IFace;
+        if (data.transform.equals(Matrix4.identity())) return face;
+        const world = face.transformedMul(data.transform) as IFace;
+        owned.push(world);
+        return world;
+    }
+
+    /**
+     * Builds the fused prism shared by the preview and target detection. On a successful
+     * fuse the inputs are disposed inside `fuseProfiles`; a failed combine leaves them
+     * with us.
+     */
+    private static buildPrisms(faces: IFace[], vecsOf: (face: IFace) => XYZ[]): Result<IShape> {
+        const prisms: IShape[] = [];
+        for (const face of faces) {
+            for (const vec of vecsOf(face)) {
+                const prism = shapeFactory.prism(face, vec);
+                if (!prism.isOk) {
+                    prisms.forEach((x) => x.dispose());
+                    return Result.err(prism.error);
+                }
+                prisms.push(prism.value);
+            }
+        }
+        const merged = fuseProfiles(prisms);
+        if (!merged.isOk) prisms.forEach((x) => x.dispose());
+        return merged;
+    }
+
+    /**
+     * Arrow geometry is fixed (cylinder shaft + cone head), so it is meshed once per
+     * direction+color at the origin and cached; each call returns translated copies.
+     */
+    private readonly _arrowCache = new Map<string, ShapeMeshData[]>();
+
+    private readonly meshArrow = (state: ExtrudeDragState): ShapeMeshData[] => {
+        const color = state.arrowHovered ? ARROW_HOVER_COLOR : ARROW_COLOR;
+        const { start, end } = extrudeArrowSegment(state);
+        const dir = end.sub(start).normalize()!;
+        const key = `${dir.x},${dir.y},${dir.z},${color}`;
+        let meshes = this._arrowCache.get(key);
+        if (meshes === undefined) {
+            meshes = this.buildArrow(dir, color);
+            this._arrowCache.set(key, meshes);
+        }
+        const scale = (state.arrowLength ?? ARROW_LENGTH) / ARROW_LENGTH;
+        return meshes.map((mesh) => ({
+            ...mesh,
+            position: ExtrudeFeatureCommand.transform(mesh.position, start, scale),
+        }));
+    };
+
+    /** Solid cylinder shaft + cone head, based at the origin and pointing along `dir`. */
+    private buildArrow(dir: XYZ, color: number): ShapeMeshData[] {
+        const headLength = Math.max(ARROW_LENGTH * 0.45, 8);
+        const shaftLength = ARROW_LENGTH - headLength;
+        const shaft = this.solidMesh(
+            shapeFactory.cylinder(dir, XYZ.zero, headLength * 0.1, shaftLength),
+            color,
+        );
+        const headCenter = dir.multiply(shaftLength);
+        const head = this.solidMesh(
+            shapeFactory.cone(dir, headCenter, headLength * 0.3, 0, headLength),
+            color,
+        );
+        return [shaft, head];
+    }
+
+    private solidMesh(shape: Result<ISolid>, color: number): ShapeMeshData {
+        if (!shape.isOk) throw shape.error;
+
+        const mesh = shape.value.mesh.faces!;
+        mesh.color = color;
+        shape.value.dispose();
+        return mesh;
+    }
+
+    /** Uniformly scales the canonical geometry and translates it to `offset`. */
+    private static transform(data: Float32Array, offset: XYZ, scale: number): Float32Array {
+        const out = new Float32Array(data.length);
+        for (let i = 0; i < data.length; i += 3) {
+            out[i] = data[i] * scale + offset.x;
+            out[i + 1] = data[i + 1] * scale + offset.y;
+            out[i + 2] = data[i + 2] * scale + offset.z;
+        }
+        return out;
+    }
+
     protected override executeMainTask(): void {
-        const { origin, normal } = this.sketch.plane;
-        const length = this.stepDatas[1].point!.sub(origin).dot(normal);
-        const node = new ParametricBodyNode({
-            document: this.document,
-            features: [{ id: Id.generate(), type: "extrude", sketchId: this.sketch.id, length }],
-        });
-        Transaction.execute(this.document, "excute feature.extrude", () => {
-            this.document.modelManager.addNode(node);
-            this.document.visual.update();
-        });
+        const node = this.sourceNode;
+        const plane = this.dragData.plane!;
+        const length = this.dragData.point!.sub(plane.origin).dot(plane.normal);
+
+        // Body-face fingerprints are captured in world coordinates (see the feature's
+        // `source` contract); sketch profiles keep their raw faces.
+        const owned: IFace[] = [];
+        const worldFaces = this.dragData.shapes.map((x) => ExtrudeFeatureCommand.worldFace(x, owned));
+        const feature = this.buildFeature(node, length, worldFaces);
+        try {
+            Transaction.execute(this.document, "excute feature.extrude", () => {
+                this.commitFeature(node, feature, length, plane.normal, worldFaces);
+                if (node instanceof SketchNode) {
+                    // The sketch is consumed by the feature; hide it. Same transaction,
+                    // so undo restores the visibility together with the body.
+                    node.visible = false;
+                }
+                this.document.visual.update();
+            });
+        } finally {
+            owned.forEach((x) => x.dispose());
+        }
+    }
+
+    /** The feature payload of the committed drag. */
+    private buildFeature(
+        node: SketchNode | ParametricBodyNode,
+        length: number,
+        worldFaces: IFace[],
+    ): ExtrudeFeatureData {
+        return {
+            id: Id.generate(),
+            type: "extrude",
+            length,
+            ...(this.symmetric ? { symmetric: true } : {}),
+            ...(node instanceof SketchNode
+                ? {
+                      sketchId: node.id,
+                      ...(this.pickedFaces.length > 0
+                          ? { profiles: this.pickedFaces.map(captureProfileRef) }
+                          : {}),
+                  }
+                : { source: { nodeId: node.id, profiles: worldFaces.map(captureProfileRef) } }),
+        };
+    }
+
+    /**
+     * Join/cut/intersect: the feature is appended to the auto-detected intersecting
+     * body and combines with its shape (Fusion-style); without an intersection (or for
+     * "new") the extrude becomes a standalone body.
+     */
+    private commitFeature(
+        node: SketchNode | ParametricBodyNode,
+        feature: ExtrudeFeatureData,
+        length: number,
+        normal: XYZ,
+        worldFaces: IFace[],
+    ): void {
+        const operation = EXTRUDE_OPERATIONS[this.operation];
+        const target =
+            operation === undefined ? undefined : this.findIntersectingBody(node, length, normal, worldFaces);
+        if (operation !== undefined && target !== undefined) {
+            target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
+        } else {
+            this.document.modelManager.addNode(
+                new ParametricBodyNode({ document: this.document, features: [feature] }),
+            );
+        }
+    }
+
+    /**
+     * The join/cut/intersect target, auto-detected: the first parametric body whose
+     * bounding box intersects the prism's. (Bounds only — a real interference check
+     * would cost a boolean per candidate; overlapping boxes with disjoint geometry just
+     * produce a no-op boolean.)
+     */
+    private findIntersectingBody(
+        node: SketchNode | ParametricBodyNode,
+        length: number,
+        normal: XYZ,
+        worldFaces: IFace[],
+    ): ParametricBodyNode | undefined {
+        let faces = worldFaces;
+        if (node instanceof SketchNode && faces.length === 0) {
+            const profiles = sketchProfiles(node);
+            if (!profiles.isOk) return undefined;
+            faces = profiles.value.outer;
+        }
+        const built = ExtrudeFeatureCommand.buildPrisms(faces, this.sweepVectorsOf(node, normal, length));
+        if (!built.isOk) return undefined;
+        try {
+            const box = built.value.boundingBox();
+            return this.document.modelManager.findNode(
+                (target) =>
+                    target instanceof ParametricBodyNode &&
+                    target.shape.isOk &&
+                    BoundingBox.isIntersect(box, target.shape.value.boundingBox()),
+            ) as ParametricBodyNode | undefined;
+        } finally {
+            built.value.dispose();
+        }
     }
 }

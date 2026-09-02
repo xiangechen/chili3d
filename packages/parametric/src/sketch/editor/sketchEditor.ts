@@ -64,6 +64,8 @@ export class SketchEditor implements IDisposable {
     private readonly savedCamera: SavedCamera;
     private pickRequest?: PickRequest;
     private disposed = false;
+    /** Visibility before the session; a consumed sketch is hidden but editing shows it. */
+    private readonly savedVisible: boolean;
 
     /**
      * At most one sketch is edited at a time (`enter` exits any previous session),
@@ -78,6 +80,8 @@ export class SketchEditor implements IDisposable {
 
     static enter(node: SketchNode): SketchEditor {
         SketchEditor.exit();
+        // Profile faces are normally shown for picking; hide them while editing.
+        node.setShowProfileFaces(false);
         const editor = new SketchEditor(node.document, node);
         SketchEditor.activeEditor = editor;
         node.document.application.mainWindow?.ribbon.openTab("ribbon.tab.sketch");
@@ -113,6 +117,8 @@ export class SketchEditor implements IDisposable {
         this.setCanRotate(false);
         // drop the pre-sketch selection so its highlight doesn't linger in sketch mode
         document.selection.clearSelection();
+        this.savedVisible = node.visible;
+        this.setNodeVisibleSilently(true);
 
         this.annotations = new SketchAnnotationManager(
             view,
@@ -388,8 +394,22 @@ export class SketchEditor implements IDisposable {
         if (this.disposed) return;
         if (SketchEditor.activeEditor === this) SketchEditor.activeEditor = undefined;
         this.commit();
+        this.node.setShowProfileFaces(true);
+        this.setNodeVisibleSilently(this.savedVisible);
         this.node.document.application.mainWindow?.ribbon.closeTab("ribbon.tab.sketch");
         this.dispose();
+    }
+
+    /** Sets the sketch's visibility without recording an undo history record. */
+    private setNodeVisibleSilently(visible: boolean): void {
+        const history = this.node.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            this.node.visible = visible;
+        } finally {
+            history.disabled = disabled;
+        }
     }
 
     dispose(): void {

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     EditableShapeNode,
     type IFace,
     type IShape,
@@ -56,6 +57,32 @@ function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
     };
 }
 
+/** Sketch-side mocks: sampling-capable line edges, edge-carrying wires, plain faces. */
+function sketchShapeMocks() {
+    return {
+        line: rs.fn((start: XYZ, end: XYZ) =>
+            Result.ok({
+                shapeType: ShapeTypes.edge,
+                startPoint: () => start,
+                endPoint: () => end,
+                firstParameter: () => 0,
+                lastParameter: () => 1,
+                pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+            }),
+        ),
+        wire: rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges })),
+        face: rs.fn((_wires: any[]) => Result.ok({ shapeType: ShapeTypes.face })),
+        combine: rs.fn((edges: any[]) =>
+            Result.ok({
+                shapeType: ShapeTypes.compound,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            }),
+        ),
+    };
+}
+
 interface TrackedMocks {
     prismShape: IShape;
     filletedShape: IShape;
@@ -97,11 +124,17 @@ function setupTrackedMocks(
     } as unknown as IShape;
     const mocks = {
         line: rs.fn((start: XYZ, end: XYZ) =>
-            Result.ok({ shapeType: ShapeTypes.edge, startPoint: () => start, endPoint: () => end }),
+            Result.ok({
+                shapeType: ShapeTypes.edge,
+                startPoint: () => start,
+                endPoint: () => end,
+                firstParameter: () => 0,
+                lastParameter: () => 1,
+                pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+            }),
         ),
-        wire: rs.fn((edges: any[]) =>
-            Result.ok({ isClosed: () => edges.length > 1, toFace: () => Result.ok(profileFace) }),
-        ),
+        wire: rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges })),
+        face: rs.fn((_wires: any[]) => Result.ok(profileFace)),
         combine: rs.fn((edges: any[]) =>
             Result.ok({
                 shapeType: ShapeTypes.compound,
@@ -214,23 +247,7 @@ describe("ParametricBodyNode face tracking", () => {
             Result.ok({ shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() }),
         );
         const restore = mockShapeFactory({
-            line: rs.fn((start: XYZ, end: XYZ) =>
-                Result.ok({ shapeType: ShapeTypes.edge, startPoint: () => start, endPoint: () => end }),
-            ),
-            wire: rs.fn((edges: any[]) =>
-                Result.ok({
-                    isClosed: () => edges.length > 1,
-                    toFace: () => Result.ok({ shapeType: ShapeTypes.face }),
-                }),
-            ),
-            combine: rs.fn((edges: any[]) =>
-                Result.ok({
-                    shapeType: ShapeTypes.compound,
-                    isEqual: () => false,
-                    dispose: rs.fn(),
-                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
-                }),
-            ),
+            ...sketchShapeMocks(),
             prism,
         });
         try {
@@ -439,23 +456,7 @@ describe("ParametricBodyNode face tracking", () => {
             }),
         );
         const restore = mockShapeFactory({
-            line: rs.fn((start: XYZ, end: XYZ) =>
-                Result.ok({ shapeType: ShapeTypes.edge, startPoint: () => start, endPoint: () => end }),
-            ),
-            wire: rs.fn((edges: any[]) =>
-                Result.ok({
-                    isClosed: () => edges.length > 1,
-                    toFace: () => Result.ok({ shapeType: ShapeTypes.face }),
-                }),
-            ),
-            combine: rs.fn((edges: any[]) =>
-                Result.ok({
-                    shapeType: ShapeTypes.compound,
-                    isEqual: () => false,
-                    dispose: rs.fn(),
-                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
-                }),
-            ),
+            ...sketchShapeMocks(),
             prism,
             booleanCutTracked,
         });
@@ -472,5 +473,208 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIdAt(1)).toBe(`tool:${tool.id}:0`);
         expect(body.faceIdAt(2)).toBe("f2:2");
         expect(body.edgeIdAt(0)).toBe("f2:0");
+    });
+
+    test("a join extrude tracks ids through the boolean with the chain input", () => {
+        mocks.restore();
+        // Faces 0..5 / edges 0..3 are the chain input's; the tool prism's follow.
+        const booleanFuseTracked = rs.fn((_args: any[], _tools: any[]) =>
+            Result.ok({
+                shape: {
+                    shapeType: ShapeTypes.solid,
+                    isEqual: () => false,
+                    dispose: rs.fn(),
+                    findSubShapes: () => [],
+                },
+                faceMap: [0, 6, 7, -1],
+                edgeMap: [0, 4, -1],
+            }),
+        );
+        mocks = setupTrackedMocks([], { booleanFuseTracked });
+        const body = bodyWith([
+            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f2", type: "extrude", sketchId: sketch.id, length: 2, operation: "fuse" },
+        ]);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(mocks.prismTracked).toHaveBeenCalledTimes(2);
+        expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
+        // Input hits keep the input ids, tool hits take the sweep's sketch-scoped ids,
+        // boolean-born sub-shapes are feature-scoped.
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(2)).toBe("f2:1");
+        expect(body.faceIdAt(3)).toBe("f2:3");
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:0:e0`);
+        expect(body.edgeIdAt(2)).toBe("f2:2");
+    });
+
+    describe("multi-profile fusion", () => {
+        /** Overlaps SQUARE without sharing endpoints, so the loops stay separate groups. */
+        const OVERLAPPING_SQUARE: SketchData["entities"] = [
+            { id: 5, type: "line", params: [0.5, -0.5, 2, -0.5] },
+            { id: 6, type: "line", params: [2, -0.5, 2, 1.5] },
+            { id: 7, type: "line", params: [2, 1.5, 0.5, 1.5] },
+            { id: 8, type: "line", params: [0.5, 1.5, 0.5, -0.5] },
+        ];
+        const DISJOINT_SQUARE: SketchData["entities"] = [
+            { id: 5, type: "line", params: [5, 5, 7, 5] },
+            { id: 6, type: "line", params: [7, 5, 7, 7] },
+            { id: 7, type: "line", params: [7, 7, 5, 7] },
+            { id: 8, type: "line", params: [5, 7, 5, 5] },
+        ];
+
+        function solidWithBox(min: [number, number, number], max: [number, number, number]) {
+            return {
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: () => [],
+                boundingBox: () =>
+                    new BoundingBox(
+                        new XYZ({ x: min[0], y: min[1], z: min[2] }),
+                        new XYZ({ x: max[0], y: max[1], z: max[2] }),
+                    ),
+            } as unknown as IShape;
+        }
+
+        function twoLoopSketch(second: SketchData["entities"]) {
+            const node = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [...SQUARE.entities, ...second], constraints: [] },
+            });
+            doc.modelManager.addNode(node);
+            return node;
+        }
+
+        /** Re-mocks the factory: per-profile prisms with the given boxes, plus the fuse under test. */
+        function setupFusion(booleanFuseTracked: (...args: any[]) => any, touching: boolean) {
+            mocks.restore();
+            const boxes: [[number, number, number], [number, number, number]][] = touching
+                ? [
+                      [
+                          [0, 0, 0],
+                          [1, 1, 5],
+                      ],
+                      [
+                          [0.5, -0.5, 0],
+                          [2, 1.5, 5],
+                      ],
+                  ]
+                : [
+                      [
+                          [0, 0, 0],
+                          [1, 1, 5],
+                      ],
+                      [
+                          [5, 5, 0],
+                          [7, 7, 5],
+                      ],
+                  ];
+            const prismShapes = boxes.map(([min, max]) => solidWithBox(min, max));
+            let call = 0;
+            mocks = setupTrackedMocks([], {
+                booleanFuseTracked,
+                prismTracked: rs.fn(() => {
+                    const shape = prismShapes[call++];
+                    return Result.ok({ shape, faceMap: [0, -1], edgeMap: [0, -1] });
+                }),
+            });
+            return prismShapes;
+        }
+
+        test("touching profiles fuse and the ids map through the fuse history", () => {
+            const fusedShape = {
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: () => [],
+            } as unknown as IShape;
+            // Output faces: 0,1 from profile 0; 2 from profile 1 (input 2); 3 is fuse-born.
+            const booleanFuseTracked = rs.fn((_args: any[], _tools: any[]) =>
+                Result.ok({ shape: fusedShape, faceMap: [0, 1, 2, -1], edgeMap: [0, 2, -1] }),
+            );
+            const prismShapes = setupFusion(booleanFuseTracked, true);
+            const two = twoLoopSketch(OVERLAPPING_SQUARE);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(body.shape.unchecked()).toBe(fusedShape);
+            expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
+            expect(body.faceIdAt(1)).toBe("f1:1");
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+            expect(body.faceIdAt(3)).toBe("f1:3");
+            expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:0:e0`);
+            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:1:e0`);
+            expect(body.edgeIdAt(2)).toBe("f1:2");
+            // The fuse copies the geometry; the intermediate prisms are disposed.
+            expect(prismShapes[0].dispose).toHaveBeenCalled();
+            expect(prismShapes[1].dispose).toHaveBeenCalled();
+        });
+
+        test("disjoint profiles skip the fuse and keep the flat per-profile ids", () => {
+            const booleanFuseTracked = rs.fn();
+            setupFusion(booleanFuseTracked, false);
+            const two = twoLoopSketch(DISJOINT_SQUARE);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(booleanFuseTracked).not.toHaveBeenCalled();
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+        });
+
+        test("a failed fuse falls back to the compound with flat per-profile ids", () => {
+            const booleanFuseTracked = rs.fn(() => Result.err("fuse failed"));
+            setupFusion(booleanFuseTracked, true);
+            const two = twoLoopSketch(OVERLAPPING_SQUARE);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+        });
+
+        test("a symmetric extrude suffixes the mirrored half's ids", () => {
+            mocks.restore();
+            const fusedShape = {
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: () => [],
+            } as unknown as IShape;
+            // The two halves (positive/mirrored) each report faceMap [0, -1] /
+            // edgeMap [0, -1]; the fuse keeps both bottom faces and adds a born face.
+            const booleanFuseTracked = rs.fn((_args: any[], _tools: any[]) =>
+                Result.ok({ shape: fusedShape, faceMap: [0, 1, 2, -1], edgeMap: [0, 2, -1] }),
+            );
+            const halves = [solidWithBox([0, 0, 0], [1, 1, 5]), solidWithBox([0, 0, -5], [1, 1, 0.1])];
+            let call = 0;
+            const prismTracked = rs.fn(() => {
+                const shape = halves[call++];
+                return Result.ok({ shape, faceMap: [0, -1], edgeMap: [0, -1] });
+            });
+            mocks = setupTrackedMocks([], { booleanFuseTracked, prismTracked });
+            const fresh = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
+            doc.modelManager.addNode(fresh);
+            const body = bodyWith([
+                { id: "f1", type: "extrude", sketchId: fresh.id, length: 5, symmetric: true },
+            ]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(prismTracked).toHaveBeenCalledTimes(2);
+            expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
+            expect(body.faceIdAt(0)).toBe(`sketch:${fresh.id}:0`);
+            expect(body.faceIdAt(1)).toBe("f1:1");
+            expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:0:neg`);
+            expect(body.faceIdAt(3)).toBe("f1:3");
+            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:0:e0`);
+            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:0:neg:e0`);
+            expect(body.edgeIdAt(2)).toBe("f1:2");
+        });
     });
 });

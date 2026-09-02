@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, Plane, Result, Serializer, Transaction, XYZ } from "@chili3d/core";
+import {
+    type IDocument,
+    Matrix4,
+    Plane,
+    Result,
+    Serializer,
+    type ShapeType,
+    ShapeTypes,
+    Transaction,
+    XYZ,
+} from "@chili3d/core";
 import { createMockApplication, createMockDocument, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { SketchData } from "../../src/sketch/sketchModel";
@@ -245,5 +255,80 @@ describe("SketchNode", () => {
         expect(restored.plane.normal.z).toBe(1);
         expect(restored.plane.xvec.x).toBe(1);
         expect(restored.data).toEqual(DATA);
+    });
+
+    test("profile faces join the mesh unless showProfileFaces is turned off", () => {
+        const face = {
+            isEqual: () => false,
+            matrix: Matrix4.identity(),
+            mesh: {
+                faces: {
+                    index: new Uint32Array([0, 1, 2]),
+                    normal: new Float32Array(9),
+                    position: new Float32Array(9),
+                    uv: new Float32Array(6),
+                    range: [] as any[],
+                    groups: [],
+                    color: 0,
+                },
+                edges: undefined,
+            },
+        };
+        face.mesh.faces.range = [{ start: 0, count: 3, shape: face }];
+        const edges: any[] = [];
+        const compound = {
+            isEqual: () => false,
+            matrix: Matrix4.identity(),
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            mesh: {
+                edges: {
+                    lineType: "solid",
+                    position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                    range: [] as any[],
+                    color: 0,
+                },
+                faces: undefined,
+            },
+        };
+        restoreFactory = mockShapeFactory({
+            line: (start: XYZ, end: XYZ) => {
+                const e = {
+                    startPoint: () => start,
+                    endPoint: () => end,
+                    firstParameter: () => 0,
+                    lastParameter: () => 1,
+                    pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                    isEqual: () => false,
+                };
+                edges.push(e);
+                return Result.ok(e);
+            },
+            combine: () => Result.ok(compound),
+            wire: (es: any[]) => Result.ok({ isClosed: () => es.length > 1, edges: es }),
+            face: () => Result.ok(face),
+        });
+        const square: SketchData = {
+            entities: [
+                { id: 1, type: "line", params: [0, 0, 1, 0] },
+                { id: 2, type: "line", params: [1, 0, 1, 1] },
+                { id: 3, type: "line", params: [1, 1, 0, 1] },
+                { id: 4, type: "line", params: [0, 1, 0, 0] },
+            ],
+            constraints: [],
+        };
+        const node = new SketchNode({ document: doc, plane, data: square });
+
+        // Profile faces are shown by default so they stay pickable outside sketch editing.
+        expect(node.showProfileFaces).toBe(true);
+        expect(node.mesh.faces).toBeDefined();
+        expect(node.mesh.faces!.range.length).toBe(1);
+        expect(node.mesh.faces!.range[0].shape).toBe(face);
+
+        node.setShowProfileFaces(false);
+        expect(node.mesh.faces).toBeUndefined();
+
+        node.setShowProfileFaces(true);
+        expect(node.mesh.faces).toBeDefined();
+        expect(node.mesh.faces!.range.length).toBe(1);
     });
 });

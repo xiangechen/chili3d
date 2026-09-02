@@ -109,7 +109,12 @@ const TRACKED: Record<BooleanOperation, (factory: IShapeFactory) => TrackedMetho
     fuse: (factory) => factory.booleanFuseTracked?.bind(factory),
 };
 
-type TrackedMethod = (shape1: IShape[], shape2: IShape[]) => Result<TrackedShape>;
+export type TrackedMethod = (shape1: IShape[], shape2: IShape[]) => Result<TrackedShape>;
+
+/** The kernel's history-tracking variant of a boolean operation, when available. */
+export function trackedBoolean(operation: BooleanOperation): TrackedMethod | undefined {
+    return TRACKED[operation](shapeFactory);
+}
 
 function evaluateTracked(
     feature: BooleanFeatureData,

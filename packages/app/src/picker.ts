@@ -38,8 +38,12 @@ export class Picker implements IPicker {
             options?.shapeFilter,
             options?.nodeFilter,
         );
-        handler.selectedState = options?.selectedState ?? VisualStates.edgeSelected;
-        handler.highlightState = options?.highlightState ?? VisualStates.edgeHighlight;
+        // Face picks default to a filled-face tint; edge/vertex picks keep the outline states.
+        const isFacePick = shapeType === ShapeTypes.face;
+        handler.selectedState =
+            options?.selectedState ?? (isFacePick ? VisualStates.faceSelected : VisualStates.edgeSelected);
+        handler.highlightState =
+            options?.highlightState ?? (isFacePick ? VisualStates.faceHighlight : VisualStates.edgeHighlight);
         handler.canFinish = options?.canFinish;
         await this.pickAsync(handler, prompt, controller, multi);
         return this.document.selection.getSelectedShapes();

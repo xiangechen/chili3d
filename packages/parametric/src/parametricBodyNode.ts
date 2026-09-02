@@ -8,6 +8,7 @@ import {
     type IDocument,
     type IEdge,
     type IEqualityComparer,
+    type IFace,
     type IFeatureListNode,
     type INode,
     type INodeLinkedList,
@@ -26,10 +27,17 @@ import {
     type VisualShapeData,
     VisualStates,
 } from "@chili3d/core";
-import { evaluateFeature, type FeatureData, featureHandler } from "./features";
+import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
 import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "./features/edgeRef";
 import { findSketch } from "./features/extrude";
-import type { BooleanFeatureData, ChamferFeatureData, FilletFeatureData } from "./features/feature";
+import type {
+    BooleanFeatureData,
+    ChamferFeatureData,
+    ExtrudeFeatureData,
+    FilletFeatureData,
+} from "./features/feature";
+import { allProfiles, sketchProfiles } from "./features/profileBuilder";
+import { captureProfileRef, matchProfileIndexes, type ProfileRef } from "./features/profileRef";
 import type { SketchNode } from "./sketch/sketchNode";
 
 /** Snapshot of one referenced node used for cache invalidation. */
@@ -66,6 +74,8 @@ interface FeatureStepOutput {
     readonly shape: IShape;
     readonly faceIds?: string[];
     readonly edgeIds?: string[];
+    /** Fingerprints the feature actually matched this run — re-anchored into the feature. */
+    readonly resolvedProfiles?: ProfileRef[];
 }
 
 export interface ParametricBodyNodeOptions {
@@ -292,19 +302,20 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     }
 
     /**
-     * Re-picks the edges of a fillet/chamfer feature and replaces its stored refs.
-     * The list is rolled back to just before this feature for the duration of the
-     * pick: the stored refs were captured from that pre-feature geometry, and the
-     * filleted/chamfered edges no longer exist in the final shape. The rollback is
-     * restored in `finally` and never transacted, so undo stays one step. The
-     * currently referenced edges start out selected (visible, toggleable);
-     * confirming keeps the remaining selection, cancelling keeps the feature
-     * unchanged. The body node is re-selected afterwards so the feature panel
-     * stays open.
+     * Re-picks the shapes a feature references and replaces its stored refs — edges of
+     * a fillet/chamfer, profiles of an extrude. For edge features the list is rolled
+     * back to just before the feature for the duration of the pick: the stored refs
+     * were captured from that pre-feature geometry, and the filleted/chamfered edges
+     * no longer exist in the final shape. The rollback is restored in `finally` and
+     * never transacted, so undo stays one step. The currently referenced shapes start
+     * out selected (visible, toggleable); confirming keeps the remaining selection,
+     * cancelling keeps the feature unchanged. The body node is re-selected afterwards
+     * so the feature panel stays open.
      */
     async reselectShapes(featureId: string): Promise<void> {
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
         const feature = this.features[featureIndex];
+        if (feature?.type === "extrude") return this.reselectProfiles(feature);
         if (feature?.type !== "fillet" && feature?.type !== "chamfer") return;
 
         const edges = await this.pickFeatureEdges(feature, featureIndex);
@@ -315,6 +326,82 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             this.setFeaturesEmitShapeChanged(features);
             this.document.visual.update();
         });
+    }
+
+    /**
+     * Re-picks the profiles of an extrude feature and replaces its stored refs. Unlike
+     * edge features no rollback is needed: the picked faces live on the sketch, whose
+     * shape does not depend on this feature. Confirming with nothing selected clears
+     * `profiles` — back to extruding every profile of the sketch.
+     */
+    private async reselectProfiles(feature: ExtrudeFeatureData): Promise<void> {
+        // Body-face extrudes (`source`) re-match by fingerprint; re-picking is only
+        // supported for sketch profiles.
+        if (feature.sketchId === undefined) return;
+        const sketch = findSketch(this.document, feature.sketchId);
+        if (sketch === undefined) return;
+
+        const profiles = await this.pickFeatureProfiles(feature, sketch);
+        if (profiles === undefined) return;
+
+        Transaction.execute(this.document, "reselect profiles", () => {
+            const features = this.features.map((x) =>
+                x.id === feature.id ? { ...x, profiles: profiles.length > 0 ? profiles : undefined } : x,
+            );
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * The pick session of `reselectProfiles`; returns undefined only when the user
+     * cancels — an empty confirmation means "extrude every profile".
+     */
+    private async pickFeatureProfiles(
+        feature: ExtrudeFeatureData,
+        sketch: SketchNode,
+    ): Promise<ProfileRef[] | undefined> {
+        const selection = this.document.selection;
+        selection.clearSelection();
+        let cancelled = false;
+        try {
+            this.document.visual.update();
+            this.preselectCurrentProfiles(feature, sketch);
+            const controller = new AsyncController();
+            controller.onCancelled(() => (cancelled = true));
+            const picked = await this.document.picker.pickShape("prompt.select.faces", controller, {
+                shapeType: ShapeTypes.face,
+                multi: true,
+                nodeFilter: { allow: (node) => node === sketch },
+            });
+            if (cancelled) return undefined;
+            return picked.map((x) => captureProfileRef(x.shape as unknown as IFace));
+        } finally {
+            selection.setSelectedNodes([this], false);
+        }
+    }
+
+    /** Selects the profiles a feature currently references so the pick session starts from them. */
+    private preselectCurrentProfiles(feature: ExtrudeFeatureData, sketch: SketchNode): void {
+        if (feature.profiles === undefined || feature.profiles.length === 0) return;
+        const profiles = sketchProfiles(sketch);
+        if (!profiles.isOk) return;
+        // A failed match is a common reason to re-pick; then there is nothing to preselect.
+        const indexes = matchProfileIndexes(allProfiles(profiles.value), feature.profiles);
+        if (!indexes.isOk) return;
+        // The profile mesh appends faces in the same outer-then-inner order, so a
+        // matched position indexes into the face ranges directly.
+        const ranges = sketch.mesh.faces?.range;
+        if (ranges === undefined) return;
+        const owner = this.document.visual.context.getVisual(sketch) as INodeVisual | undefined;
+        if (owner === undefined) return;
+        const picked: VisualShapeData[] = indexes.value.map((index) => ({
+            owner,
+            shape: ranges[index].shape,
+            transform: owner.worldTransform(),
+            indexes: [index],
+        }));
+        this.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
     }
 
     /**
@@ -477,6 +564,7 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         let edgeIds: string[] | undefined;
         const scope = new Map<string, number>();
         const nextCache: FeatureCacheEntry[] = [];
+        const resolvedProfiles = new Map<string, ProfileRef[]>();
         for (const feature of this.features) {
             if (feature.suppressed) continue;
             const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
@@ -489,8 +577,12 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             input = step.value.shape;
             faceIds = step.value.faceIds;
             edgeIds = step.value.edgeIds;
+            if (step.value.resolvedProfiles !== undefined) {
+                resolvedProfiles.set(feature.id, step.value.resolvedProfiles);
+            }
         }
         this.replaceCache(nextCache);
+        this.refreshProfileRefs(resolvedProfiles);
         // An empty feature list (user removed every feature) is an empty compound, so
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
         if (input === undefined) return shapeFactory.combine([]);
@@ -521,11 +613,24 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             nextCache.push(cached);
             return Result.ok({ shape: cached.shape, faceIds: cached.faceIds, edgeIds: cached.edgeIds });
         }
-        const tracking = {
+        return this.evaluateAndCache(feature, key, scope, input, faceIds, edgeIds, nextCache);
+    }
+
+    /** Cache-miss path of `evaluateFeatureStep`: evaluates the feature and stores the result. */
+    private evaluateAndCache(
+        feature: FeatureData,
+        key: string,
+        scope: Map<string, number>,
+        input: IShape | undefined,
+        faceIds: string[] | undefined,
+        edgeIds: string[] | undefined,
+        nextCache: FeatureCacheEntry[],
+    ): Result<FeatureStepOutput> {
+        const tracking: ShapeTracking = {
             inputFaceIds: faceIds ?? [],
-            outputFaceIds: [] as string[],
+            outputFaceIds: [],
             inputEdgeIds: edgeIds ?? [],
-            outputEdgeIds: [] as string[],
+            outputEdgeIds: [],
         };
         const result = evaluateFeature(feature, {
             document: this.document,
@@ -541,6 +646,7 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             shape: result.value,
             faceIds: tracking.outputFaceIds.length > 0 ? tracking.outputFaceIds : undefined,
             edgeIds: tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined,
+            resolvedProfiles: tracking.resolvedProfiles,
         };
         nextCache.push({
             json: key,
@@ -578,6 +684,9 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     private captureRefs(feature: FeatureData): Map<string, RefSnapshot> {
         const refs = new Map<string, RefSnapshot>();
         for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
+            // A feature may reference the host itself (e.g. an extrude sourced on one
+            // of its own faces) — the input-identity check already covers that.
+            if (id === this.id) continue;
             refs.set(id, this.captureRef(id));
         }
         return refs;
@@ -603,12 +712,53 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     }
 
     /**
+     * Re-anchors stored profile fingerprints to the geometry matched in the last
+     * evaluation: refs captured at pick time would otherwise measure drift from the
+     * original position on every edit, and the accumulated drift of several moved
+     * profiles can make the match ambiguous. Runs only after a fully successful
+     * chain; the rewrite is derived state (like the shape), so it is neither
+     * transacted nor shape-changing.
+     */
+    private refreshProfileRefs(resolved: ReadonlyMap<string, ProfileRef[]>): void {
+        if (resolved.size === 0) return;
+        let changed = false;
+        const features = this.features.map((feature) => {
+            const refs = resolved.get(feature.id);
+            if (refs === undefined || feature.type !== "extrude") return feature;
+            const next =
+                feature.source === undefined
+                    ? { ...feature, profiles: refs }
+                    : { ...feature, source: { ...feature.source, profiles: refs } };
+            if (JSON.stringify(next) === JSON.stringify(feature)) return feature;
+            changed = true;
+            return next;
+        });
+        if (!changed) return;
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            // setProperty (not the shape-changing variant): the geometry is already
+            // built — this only persists the re-anchored refs.
+            this.setProperty("featuresJson", JSON.stringify(features));
+        } finally {
+            history.disabled = disabled;
+        }
+    }
+
+    /**
      * Watches the current feature references and drops stale ones. Ids that fail to
      * resolve (e.g. a deleted sketch) are retried on the next evaluation, so a
      * restored node is picked up again.
      */
     private syncWatchedNodes(): void {
-        const wanted = new Set(this.features.flatMap((f) => featureHandler(f.type)?.nodeIds(f) ?? []));
+        const wanted = new Set(
+            this.features
+                .flatMap((f) => featureHandler(f.type)?.nodeIds(f) ?? [])
+                // Never watch ourselves — a self-referencing feature (e.g. an extrude
+                // sourced on the body's own face) would re-evaluate on every rebuild.
+                .filter((id) => id !== this.id),
+        );
         for (const [id, node] of this._watched) {
             if (!wanted.has(id)) {
                 if (isPropertyChanged(node)) node.removePropertyChanged(this.handleWatchedNodeChanged);

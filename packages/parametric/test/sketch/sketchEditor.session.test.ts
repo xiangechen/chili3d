@@ -156,6 +156,25 @@ describe("SketchEditor session statics", () => {
         }
     });
 
+    test("editing forces a hidden sketch visible and exit restores the previous visibility", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            node.visible = false; // a consumed sketch
+            const undoCount = doc.history.undoCount();
+
+            const editor = SketchEditor.enter(node);
+            expect(node.visible).toBe(true);
+
+            editor.exit();
+            expect(node.visible).toBe(false);
+            // The visibility round-trip of an edit session stays out of the undo history.
+            expect(doc.history.undoCount()).toBe(undoCount);
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("editor.exit commits node data and restores camera, workplane, handler", () => {
         const { app, doc, view, camera, oldHandler, restoreFactory } = setup();
         try {

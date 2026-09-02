@@ -8,5 +8,6 @@ export * from "./expression";
 export * from "./extrude";
 export * from "./feature";
 export * from "./profileBuilder";
+export * from "./profileRef";
 export * from "./revolve";
 export * from "./variable";

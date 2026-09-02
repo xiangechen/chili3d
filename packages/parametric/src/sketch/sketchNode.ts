@@ -7,7 +7,10 @@ import {
     type IEdge,
     type INode,
     type IShape,
+    type IShapeMeshData,
     isPropertyChanged,
+    Matrix4,
+    MultiShapeMesh,
     ParameterShapeNode,
     type Plane,
     Precision,
@@ -15,6 +18,7 @@ import {
     serializable,
     serialize,
 } from "@chili3d/core";
+import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import { arcAngles, type SketchData, type SketchEntityData, toWorld } from "./sketchModel";
 
@@ -95,6 +99,41 @@ export class SketchNode extends ParameterShapeNode {
 
     setDataEmitShapeChanged(data: SketchData): void {
         this.setPropertyEmitShapeChanged("dataJson", JSON.stringify(data));
+    }
+
+    private _showProfileFaces = true;
+
+    /**
+     * Whether the mesh includes the closed profile faces so they can be hovered and
+     * picked in the viewport (e.g. extrude profile selection). On outside sketch
+     * editing; `SketchEditor` turns it off for the session so the faces don't get in
+     * the way of editing geometry. Not serialized.
+     */
+    get showProfileFaces(): boolean {
+        return this._showProfileFaces;
+    }
+
+    setShowProfileFaces(value: boolean): void {
+        if (this._showProfileFaces === value) return;
+        this._showProfileFaces = value;
+        this._mesh = undefined;
+        // The visual rebuilds its meshes on "shape" changes; the shape itself is untouched.
+        this.emitPropertyChanged("shape", this._shape);
+    }
+
+    protected override createMesh(): IShapeMeshData {
+        if (!this._showProfileFaces || !this.shape.isOk) return super.createMesh();
+        const profiles = sketchProfiles(this);
+        // Outer profiles come with holes applied; inner loops are shown as solid faces
+        // so the hole region stays clickable (it selects the inner profile).
+        const faces = profiles.isOk ? allProfiles(profiles.value) : [];
+        if (faces.length === 0) return super.createMesh();
+        const mesh = new MultiShapeMesh();
+        mesh.addShape(this.shape.value, Matrix4.identity());
+        for (const face of faces) {
+            mesh.addShape(face, Matrix4.identity());
+        }
+        return mesh;
     }
 
     generateShape(): Result<IShape> {

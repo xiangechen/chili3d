@@ -54,6 +54,9 @@ function edge(start: XYZ, end: XYZ) {
         shapeType: ShapeTypes.edge,
         startPoint: () => start,
         endPoint: () => end,
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
         isEqual: () => false,
     };
 }
@@ -72,7 +75,6 @@ function subEdge() {
 }
 
 function setupMocks() {
-    const face = { shapeType: ShapeTypes.face, isEqual: () => false };
     const filletSub = subEdge();
     const filletedShape = {
         shapeType: ShapeTypes.solid,
@@ -90,8 +92,14 @@ function setupMocks() {
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
         }),
     );
-    const wire = rs.fn((edges: any[]) =>
-        Result.ok({ isClosed: () => edges.length > 1, toFace: () => Result.ok(face) }),
+    const wire = rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges }));
+    const face = rs.fn((wires: any[]) =>
+        Result.ok({
+            shapeType: ShapeTypes.face,
+            isEqual: () => false,
+            findSubShapes: (type: ShapeType) =>
+                type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+        }),
     );
     // A rebuild produces fresh shape objects, like the real OCCT factory does.
     const prismShapes: any[] = [];
@@ -108,8 +116,8 @@ function setupMocks() {
         return Result.ok(shape);
     });
     const fillet = rs.fn((_shape: any, _indexes: number[], _radius: number) => Result.ok(filletedShape));
-    const restore = mockShapeFactory({ line, combine, wire, prism, fillet });
-    return { line, combine, wire, prism, fillet, prismShapes, filletedShape, restore };
+    const restore = mockShapeFactory({ line, combine, wire, face, prism, fillet });
+    return { line, combine, wire, face, prism, fillet, prismShapes, filletedShape, restore };
 }
 
 function extrudeFeature(sketchId: string, length = 5): ExtrudeFeatureData {
@@ -288,7 +296,10 @@ describe("ParametricBodyNode", () => {
         expect(items[0].display).toBe("command.feature.extrude");
         expect(items[0].icon).toBe("icon-prism");
         expect(items[0].error).toBeUndefined();
-        expect(items[0].parameters).toEqual([{ key: "length", display: "common.length", value: 7 }]);
+        expect(items[0].parameters).toEqual([
+            { key: "length", display: "common.length", value: 7 },
+            { key: "symmetric", display: "option.command.symmetric", value: false },
+        ]);
     });
 
     test("Serializer round-trips the feature list", () => {
@@ -479,13 +490,68 @@ describe("ParametricBodyNode", () => {
     });
 
     test("reselectShapes ignores features without shape references", async () => {
-        const body = bodyWith([extrudeFeature(sketch.id)]);
+        const body = bodyWith([{ id: "v1", type: "variable", name: "a", expression: "1" }]);
         const pickShape = rs.fn(() => Promise.resolve([]));
         doc.picker.pickShape = pickShape as any;
 
-        await body.reselectShapes("f1");
+        await body.reselectShapes("v1");
 
         expect(pickShape).not.toHaveBeenCalled();
+    });
+
+    test("reselectShapes replaces the extrude profiles", async () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        mockSelection();
+        const pickedFace = {
+            shapeType: ShapeTypes.face,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
+        };
+        doc.picker.pickShape = rs.fn(() =>
+            Promise.resolve([{ shape: pickedFace, indexes: [0] } as any]),
+        ) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f1");
+
+        // The sketch's profile faces stay shown; the pick no longer toggles them.
+        expect(sketch.showProfileFaces).toBe(true);
+        expect(body.features[0]).toMatchObject({
+            profiles: [{ edges: [{ kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } }] }],
+        });
+        expect(doc.history.undoCount()).toBe(undoCount + 1);
+    });
+    test("reselectShapes with an empty pick clears the extrude profiles", async () => {
+        const extrude: ExtrudeFeatureData = {
+            ...extrudeFeature(sketch.id),
+            profiles: [{ edges: [EDGE_REF] }],
+        };
+        const body = bodyWith([extrude]);
+        mockSelection();
+        doc.picker.pickShape = rs.fn(() => Promise.resolve([])) as any;
+
+        await body.reselectShapes("f1");
+
+        expect((body.features[0] as ExtrudeFeatureData).profiles).toBeUndefined();
+    });
+
+    test("reselectShapes cancel keeps the extrude profiles unchanged", async () => {
+        const extrude: ExtrudeFeatureData = {
+            ...extrudeFeature(sketch.id),
+            profiles: [{ edges: [EDGE_REF] }],
+        };
+        const body = bodyWith([extrude]);
+        mockSelection();
+        doc.picker.pickShape = rs.fn((_prompt: any, controller: any) => {
+            controller.cancel();
+            return Promise.resolve([]);
+        }) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f1");
+
+        expect(body.features[0]).toMatchObject({ profiles: [{ edges: [EDGE_REF] }] });
+        expect(doc.history.undoCount()).toBe(undoCount);
+        expect(sketch.showProfileFaces).toBe(true);
     });
 
     test("editing a later feature reuses cached prefix results", () => {

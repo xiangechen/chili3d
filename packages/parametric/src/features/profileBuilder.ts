@@ -1,48 +1,150 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IShape, Precision, Result, ShapeTypes } from "@chili3d/core";
+import {
+    type IEdge,
+    type IFace,
+    type IShape,
+    type IWire,
+    type Plane,
+    Precision,
+    Result,
+    ShapeTypes,
+} from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
+import { matchProfileIndexes, type ProfileRef } from "./profileRef";
+
+/** Samples per edge when approximating a loop as a polygon for the containment test. */
+const LOOP_SAMPLES = 16;
+
+export interface SketchProfileSet {
+    /**
+     * Default profiles: loops at even nesting depth, each built with its direct child
+     * loops as holes (`shapeFactory.face([outer, ...holes])`).
+     */
+    readonly outer: IFace[];
+    /** Hole loops as solid faces — selectable as profiles, but not extruded by default. */
+    readonly inner: IFace[];
+}
+
+/** A loop approximated as a 2D polygon in sketch-plane coordinates. */
+type Polygon = [number, number][];
 
 /**
- * Closed planar profiles of a sketch as faces — one face per connected closed loop.
- * Sketch entities are combined into a compound (they may be disjoint), so edges are
- * first grouped by endpoint connectivity; the wire factory chains each group in place.
+ * Extrudable profiles of a sketch as faces. Sketch entities are combined into a
+ * compound (they may be disjoint), so edges are first grouped by endpoint
+ * connectivity; the wire factory chains each group in place. Nested loops follow
+ * even-odd semantics: an inner loop becomes a hole of the containing profile instead
+ * of an independent face — unless explicitly selected, see `resolveProfiles`.
  */
-export function sketchFaces(sketch: SketchNode): Result<IFace[]> {
+export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
     const shape = sketch.shape;
     if (!shape.isOk) return Result.err(shape.error);
 
     const edges = collectEdges(shape.value);
     if (edges.length === 0) return Result.err("Sketch has no entities");
 
-    const faces: IFace[] = [];
-    for (const group of groupConnected(edges)) {
+    const loops = buildWires(groupConnected(edges), sketch.plane);
+    if (!loops.isOk) return Result.err(loops.error);
+    const { wires, polygons } = loops.value;
+
+    // containedIn[i][j] = loop j contains loop i; depth = number of containing loops.
+    const containedIn = polygons.map((poly, i) =>
+        polygons.map((other, j) => i !== j && loopContains(other, poly)),
+    );
+    const depth = containedIn.map((row) => row.filter(Boolean).length);
+    return buildFaces(wires, containedIn, depth);
+}
+
+/** Chains each connected edge group into a closed wire and samples it as a polygon. */
+function buildWires(groups: IEdge[][], plane: Plane): Result<{ wires: IWire[]; polygons: Polygon[] }> {
+    const wires: IWire[] = [];
+    const polygons: Polygon[] = [];
+    for (const group of groups) {
         const wire = shapeFactory.wire(group);
         if (!wire.isOk) return Result.err(wire.error);
         if (!wire.value.isClosed()) return Result.err("Sketch profile is not closed");
-        const face = wire.value.toFace();
-        if (!face.isOk) return Result.err(face.error);
-        faces.push(face.value);
+        wires.push(wire.value);
+        polygons.push(sampleLoop(group, plane));
     }
-    return Result.ok(faces);
+    return Result.ok({ wires, polygons });
+}
+
+/** Even-depth loops become profiles with their direct child loops as holes; odd-depth loops stay solid faces. */
+function buildFaces(wires: IWire[], containedIn: boolean[][], depth: number[]): Result<SketchProfileSet> {
+    const outer: IFace[] = [];
+    const inner: IFace[] = [];
+    for (const [index, wire] of wires.entries()) {
+        const isHole = depth[index] % 2 === 1;
+        const holeWires = isHole
+            ? []
+            : wires.filter((_, j) => depth[j] === depth[index] + 1 && containedIn[j][index]);
+        const face = shapeFactory.face([wire, ...holeWires]);
+        if (!face.isOk) return Result.err(face.error);
+        (isHole ? inner : outer).push(face.value);
+    }
+    return Result.ok({ outer, inner });
+}
+
+export interface ResolvedProfile {
+    readonly face: IFace;
+    /** Position in the combined `[...outer, ...inner]` list — keeps sketch-scoped seed ids stable. */
+    readonly index: number;
 }
 
 /**
- * Applies a profile operation to every closed face of the sketch and combines the
- * results — shared by profile features (extrude, revolve).
+ * The profiles a feature should operate on: every outer profile (holes applied) when
+ * `profiles` is undefined/empty, otherwise the profiles the stored refs re-match to
+ * (see `matchProfileIndexes`) — an explicitly selected inner loop extrudes as a solid.
  */
-export function sketchShapeEach(sketch: SketchNode, op: (face: IFace) => Result<IShape>): Result<IShape> {
-    const faces = sketchFaces(sketch);
-    if (!faces.isOk) return Result.err(faces.error);
-
-    const shapes: IShape[] = [];
-    for (const face of faces.value) {
-        const shape = op(face);
-        if (!shape.isOk) return Result.err(shape.error);
-        shapes.push(shape.value);
+export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Result<ResolvedProfile[]> {
+    const profileSet = sketchProfiles(sketch);
+    if (!profileSet.isOk) return Result.err(profileSet.error);
+    if (profiles === undefined || profiles.length === 0) {
+        return Result.ok(profileSet.value.outer.map((face, index) => ({ face, index })));
     }
-    return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
+    const all = [...profileSet.value.outer, ...profileSet.value.inner];
+    const indexes = matchProfileIndexes(all, profiles);
+    if (!indexes.isOk) return Result.err(indexes.error);
+    return Result.ok(indexes.value.map((index) => ({ face: all[index], index })));
+}
+
+/** All selectable profiles — outer (with holes) first, then inner loops; matches the sketch's profile mesh order. */
+export function allProfiles(profileSet: SketchProfileSet): IFace[] {
+    return [...profileSet.outer, ...profileSet.inner];
+}
+
+/** Approximates a loop as a 2D polygon in sketch-plane coordinates. */
+function sampleLoop(edges: IEdge[], plane: Plane): Polygon {
+    const points: Polygon = [];
+    for (const edge of edges) {
+        const start = edge.firstParameter();
+        const end = edge.lastParameter();
+        for (let i = 0; i < LOOP_SAMPLES; i++) {
+            const point = edge.pointAt(start + ((end - start) * i) / LOOP_SAMPLES);
+            const vec = point.sub(plane.origin);
+            points.push([vec.dot(plane.xvec), vec.dot(plane.yvec)]);
+        }
+    }
+    return points;
+}
+
+/** Majority vote: most of the inner loop's sampled points lie inside the outer polygon. */
+function loopContains(outer: Polygon, inner: Polygon): boolean {
+    const insideCount = inner.filter((point) => pointInPolygon(point, outer)).length;
+    return insideCount > inner.length / 2;
+}
+
+function pointInPolygon([x, y]: [number, number], polygon: [number, number][]): boolean {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const [xi, yi] = polygon[i];
+        const [xj, yj] = polygon[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+            inside = !inside;
+        }
+    }
+    return inside;
 }
 
 function collectEdges(shape: IShape): IEdge[] {

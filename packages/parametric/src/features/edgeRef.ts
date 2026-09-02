@@ -21,7 +21,7 @@ export type EdgeRef =
     | { kind: "other"; mid: Vec3; length: number; edgeId?: string };
 
 /** Coordinates below this distance (mm) count as the same edge. */
-const MATCH_TOLERANCE = 1e-4;
+export const MATCH_TOLERANCE = 1e-4;
 
 export function captureEdgeRef(edge: IEdge, edgeId?: string): EdgeRef {
     const basis = edge.curve.basisCurve;
@@ -125,6 +125,19 @@ function bestTwo(edges: IEdge[], ref: EdgeRef) {
         }
     }
     return [best, second] as const;
+}
+
+/**
+ * Best (lowest) score of `ref` against `edges` — Infinity when no edge's curve type
+ * matches at all. Unlike `matchEdgeIndexes` this never accepts a "sole candidate":
+ * callers comparing several candidate shapes need comparable scores, not a winner.
+ */
+export function bestEdgeScore(edges: IEdge[], ref: EdgeRef): number {
+    let best = Infinity;
+    for (const edge of edges) {
+        best = Math.min(best, refScore(ref, edge));
+    }
+    return best;
 }
 
 function refScore(ref: EdgeRef, edge: IEdge): number {

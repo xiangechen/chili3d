@@ -14,7 +14,10 @@ export function createMockView(overrides?: Partial<IView>): IView {
     const document = new TestDocument();
     return {
         document,
-        cameraController: {} as never,
+        cameraController: {
+            onPropertyChanged: () => {},
+            removePropertyChanged: () => {},
+        } as never,
         isClosed: false,
         width: 800,
         height: 600,

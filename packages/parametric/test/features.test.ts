@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     Line,
     Matrix4,
     Plane,
@@ -9,7 +10,7 @@ import {
     type ShapeType,
     ShapeTypes,
     Transaction,
-    type XYZ,
+    XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
@@ -26,6 +27,9 @@ import type {
     RevolveFeatureData,
     VariableFeatureData,
 } from "../src/features/feature";
+import { featureHandler } from "../src/features/feature";
+import { allProfiles, sketchProfiles } from "../src/features/profileBuilder";
+import { captureProfileRef, type ProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 
 function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
@@ -67,14 +71,17 @@ function subEdge() {
 function edge(start: XYZ, end: XYZ) {
     return {
         shapeType: ShapeTypes.edge,
+        curve: { basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } } },
         startPoint: () => start,
         endPoint: () => end,
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
         isEqual: () => false,
     };
 }
 
 function setupMocks() {
-    const face = { shapeType: ShapeTypes.face, isEqual: () => false };
     /** Boolean tools are mapped into the host's local space via `transformedMul`. */
     const withTransform = <T extends object>(shape: T): T & { transformedMul: (m: Matrix4) => any } =>
         Object.assign(shape, {
@@ -88,16 +95,29 @@ function setupMocks() {
                 } as any),
             ),
         });
-    const prismShape = withTransform({
-        shapeType: ShapeTypes.solid,
-        isEqual: () => false,
-        dispose: rs.fn(),
-        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
-    });
+    const prismShapes: any[] = [];
     const revolvedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const filletedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const fusedShape = { shapeType: ShapeTypes.solid, isEqual: () => false, dispose: rs.fn() };
     const line = rs.fn((start: XYZ, end: XYZ) => Result.ok(edge(start, end)));
+    /** Full-circle edge: closed, so start and end coincide on the circumference. */
+    const circle = rs.fn((normal: XYZ, center: XYZ, radius: number) =>
+        Result.ok({
+            shapeType: ShapeTypes.edge,
+            curve: { basisCurve: { center, radius, axis: normal } },
+            startPoint: () => center.add(new XYZ({ x: radius, y: 0, z: 0 })),
+            endPoint: () => center.add(new XYZ({ x: radius, y: 0, z: 0 })),
+            firstParameter: () => 0,
+            lastParameter: () => Math.PI * 2,
+            pointAt: (t: number) =>
+                new XYZ({
+                    x: center.x + radius * Math.cos(t),
+                    y: center.y + radius * Math.sin(t),
+                    z: center.z,
+                }),
+            isEqual: () => false,
+        }),
+    );
     const combine = rs.fn((edges: any[]) =>
         Result.ok(
             withTransform({
@@ -108,10 +128,32 @@ function setupMocks() {
             }),
         ),
     );
-    const wire = rs.fn((edges: any[]) =>
-        Result.ok({ isClosed: () => edges.length > 1, toFace: () => Result.ok(face) }),
+    /** The wire keeps its loop edges; the face exposes the boundary edges of all its wires. */
+    const wire = rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges }));
+    const face = rs.fn((wires: any[]) =>
+        Result.ok({
+            shapeType: ShapeTypes.face,
+            isEqual: () => false,
+            findSubShapes: (type: ShapeType) =>
+                type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+        }),
     );
-    const prism = rs.fn((_face: any, _vec: XYZ) => Result.ok(prismShape));
+    /** Each prism gets a bounding box computed from its profile, so fusion tests are truthful. */
+    const prism = rs.fn((profileFace: any, _vec: XYZ) => {
+        const points = (profileFace.findSubShapes(ShapeTypes.edge) as any[]).flatMap((e) => [
+            e.startPoint(),
+            e.endPoint(),
+        ]);
+        const shape = withTransform({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: rs.fn(),
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
+            boundingBox: () => BoundingBox.fromPoints(points),
+        });
+        prismShapes.push(shape);
+        return Result.ok(shape);
+    });
     const revolve = rs.fn((_face: any, _axis: Line, _angle: number) => Result.ok(revolvedShape));
     const fillet = rs.fn((_shape: any, _indexes: number[], _radius: number) => Result.ok(filletedShape));
     const chamfer = rs.fn((_shape: any, _indexes: number[], _distance: number) => Result.ok(filletedShape));
@@ -120,8 +162,10 @@ function setupMocks() {
     const booleanCommon = rs.fn((_s1: any[], _s2: any[]) => Result.ok(fusedShape));
     const restore = mockShapeFactory({
         line,
+        circle,
         combine,
         wire,
+        face,
         prism,
         revolve,
         fillet,
@@ -132,6 +176,7 @@ function setupMocks() {
     });
     return {
         line,
+        circle,
         combine,
         wire,
         prism,
@@ -141,7 +186,12 @@ function setupMocks() {
         booleanFuse,
         booleanCut,
         booleanCommon,
-        prismShape,
+        face,
+        prismShapes,
+        /** The shape of the most recent prism call. */
+        get prismShape() {
+            return prismShapes.at(-1);
+        },
         revolvedShape,
         filletedShape,
         fusedShape,
@@ -553,5 +603,477 @@ describe("feature evaluation", () => {
         expect(body.shape.isOk).toBe(true);
         expect(mocks.combine).toHaveBeenCalledTimes(1);
         expect((mocks.combine.mock.calls[0] as unknown as [any[]])[0]).toEqual([]);
+    });
+
+    describe("extrude profiles", () => {
+        const SECOND_SQUARE: SketchData["entities"] = [
+            { id: 5, type: "line", params: [5, 5, 7, 5] },
+            { id: 6, type: "line", params: [7, 5, 7, 7] },
+            { id: 7, type: "line", params: [7, 7, 5, 7] },
+            { id: 8, type: "line", params: [5, 7, 5, 5] },
+        ];
+
+        const SECOND_PROFILE: ProfileRef = {
+            edges: [
+                { kind: "line", start: { x: 5, y: 5, z: 0 }, end: { x: 7, y: 5, z: 0 } },
+                { kind: "line", start: { x: 7, y: 5, z: 0 }, end: { x: 7, y: 7, z: 0 } },
+                { kind: "line", start: { x: 7, y: 7, z: 0 }, end: { x: 5, y: 7, z: 0 } },
+                { kind: "line", start: { x: 5, y: 7, z: 0 }, end: { x: 5, y: 5, z: 0 } },
+            ],
+        };
+
+        function twoLoopSketch() {
+            const node = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [...SQUARE.entities, ...SECOND_SQUARE], constraints: [] },
+            });
+            doc.modelManager.addNode(node);
+            return node;
+        }
+
+        /** Overlaps SQUARE without sharing endpoints, so the loops stay separate groups. */
+        const OVERLAPPING_SQUARE: SketchData["entities"] = [
+            { id: 5, type: "line", params: [0.5, -0.5, 2, -0.5] },
+            { id: 6, type: "line", params: [2, -0.5, 2, 1.5] },
+            { id: 7, type: "line", params: [2, 1.5, 0.5, 1.5] },
+            { id: 8, type: "line", params: [0.5, 1.5, 0.5, -0.5] },
+        ];
+
+        function overlappingLoopSketch() {
+            const node = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [...SQUARE.entities, ...OVERLAPPING_SQUARE], constraints: [] },
+            });
+            doc.modelManager.addNode(node);
+            return node;
+        }
+
+        test("extrudes only the referenced profiles", () => {
+            const two = twoLoopSketch();
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: two.id,
+                length: 5,
+                profiles: [SECOND_PROFILE],
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(1);
+            const face = (mocks.prism.mock.calls[0] as unknown as [any])[0];
+            const starts = face.findSubShapes(ShapeTypes.edge).map((e: any) => e.startPoint().x);
+            expect(starts.every((x: number) => x >= 5)).toBe(true);
+        });
+
+        test("without profiles every loop is extruded", () => {
+            const two = twoLoopSketch();
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: two.id, length: 5 };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(2);
+            // Disjoint profiles skip the boolean and stay a compound.
+            expect(mocks.booleanFuse).not.toHaveBeenCalled();
+            expect(body.shape.unchecked()!.shapeType).toBe(ShapeTypes.compound);
+        });
+
+        test("touching profiles are fused into one solid", () => {
+            const overlapping = overlappingLoopSketch();
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: overlapping.id,
+                length: 5,
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(body.shape.unchecked()).toBe(mocks.fusedShape);
+            expect(mocks.booleanFuse).toHaveBeenCalledTimes(1);
+            const [args, tools, simplify] = mocks.booleanFuse.mock.calls[0] as unknown as [
+                any[],
+                any[],
+                boolean,
+            ];
+            expect(args).toEqual([mocks.prismShapes[0]]);
+            expect(tools).toEqual([mocks.prismShapes[1]]);
+            expect(simplify).toBe(true);
+            // The fuse copies the geometry; the intermediate prisms are disposed.
+            expect(mocks.prismShapes[0].dispose).toHaveBeenCalled();
+            expect(mocks.prismShapes[1].dispose).toHaveBeenCalled();
+        });
+
+        test("falls back to a compound when fusing touching profiles fails", () => {
+            const overlapping = overlappingLoopSketch();
+            mocks.booleanFuse.mockReturnValue(Result.err("fuse failed") as any);
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: overlapping.id,
+                length: 5,
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(body.shape.unchecked()!.shapeType).toBe(ShapeTypes.compound);
+            // The prisms are still owned by the compound — not disposed.
+            expect(mocks.prismShapes[0].dispose).not.toHaveBeenCalled();
+        });
+
+        test("a nested loop is hollowed out of the outer profile by default", () => {
+            const nested = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: {
+                    entities: [
+                        { id: 1, type: "line", params: [0, 0, 10, 0] },
+                        { id: 2, type: "line", params: [10, 0, 10, 10] },
+                        { id: 3, type: "line", params: [10, 10, 0, 10] },
+                        { id: 4, type: "line", params: [0, 10, 0, 0] },
+                        { id: 5, type: "line", params: [2, 2, 3, 2] },
+                        { id: 6, type: "line", params: [3, 2, 3, 3] },
+                        { id: 7, type: "line", params: [3, 3, 2, 3] },
+                        { id: 8, type: "line", params: [2, 3, 2, 2] },
+                    ],
+                    constraints: [],
+                },
+            });
+            doc.modelManager.addNode(nested);
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: nested.id, length: 5 };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            // Only the outer profile is extruded; its face carries the hole wire.
+            expect(mocks.prism).toHaveBeenCalledTimes(1);
+            const outerCall = mocks.face.mock.calls.find((c) => (c[0] as any[]).length === 2);
+            expect(outerCall).toBeDefined();
+        });
+
+        test("moving a circle profile re-matches and the extrude follows", () => {
+            // Full-circle wires close with a single edge.
+            mocks.wire.mockImplementation(((edges: any[]) =>
+                Result.ok({ isClosed: () => true, edges })) as any);
+            const circleData = (cx: number): SketchData => ({
+                entities: [
+                    { id: 1, type: "circle", params: [cx, 0, 1] },
+                    { id: 2, type: "circle", params: [5, 0, 1] },
+                    { id: 3, type: "circle", params: [10, 0, 1] },
+                ],
+                constraints: [],
+            });
+            const three = new SketchNode({ document: doc, plane: Plane.XY, data: circleData(0) });
+            doc.modelManager.addNode(three);
+
+            // Capture the refs exactly as the extrude command does at pick time.
+            const profileSet = sketchProfiles(three);
+            expect(profileSet.isOk).toBe(true);
+            const profiles = allProfiles(profileSet.value).map((face) => captureProfileRef(face));
+            expect(profiles.length).toBe(3);
+            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, length: 5, profiles }]);
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(3);
+
+            // Move the first circle; the body must re-evaluate with the moved profile.
+            three.setDataEmitShapeChanged(circleData(2));
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(6);
+            const centers = mocks.prism.mock.calls
+                .slice(3)
+                .map((c) => (c[0] as any).findSubShapes(ShapeTypes.edge)[0].curve.basisCurve.center.x)
+                .sort((a, b) => a - b);
+            expect(centers).toEqual([2, 5, 10]);
+        });
+
+        test("consecutive moves of two profiles re-anchor the refs and still follow", () => {
+            mocks.wire.mockImplementation(((edges: any[]) =>
+                Result.ok({ isClosed: () => true, edges })) as any);
+            const circleData = (c1: number, c2: number): SketchData => ({
+                entities: [
+                    { id: 1, type: "circle", params: [c1, 0, 1] },
+                    { id: 2, type: "circle", params: [c2, 0, 1] },
+                    { id: 3, type: "circle", params: [60, 0, 1] },
+                ],
+                constraints: [],
+            });
+            const three = new SketchNode({ document: doc, plane: Plane.XY, data: circleData(0, 30) });
+            doc.modelManager.addNode(three);
+
+            const profileSet = sketchProfiles(three);
+            expect(profileSet.isOk).toBe(true);
+            const profiles = allProfiles(profileSet.value).map((face) => captureProfileRef(face));
+            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, length: 5, profiles }]);
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(3);
+
+            // Move the first circle, then drag the second one next to it. Against
+            // the original pick-time refs BOTH would read as moved (drift 15 and 10)
+            // and compete ambiguously between the two close faces; re-anchored refs
+            // keep the first circle's exact hit, so the second claims the leftover.
+            three.setDataEmitShapeChanged(circleData(15, 30));
+            expect(body.shape.isOk).toBe(true);
+            three.setDataEmitShapeChanged(circleData(15, 20));
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(9);
+            const centers = mocks.prism.mock.calls
+                .slice(6)
+                .map((c) => (c[0] as any).findSubShapes(ShapeTypes.edge)[0].curve.basisCurve.center.x)
+                .sort((a, b) => a - b);
+            expect(centers).toEqual([15, 20, 60]);
+
+            // The stored refs were re-anchored to the geometry matched last.
+            const stored = (body.features[0] as ExtrudeFeatureData).profiles!;
+            const storedCenters = stored
+                .map((ref) => (ref.edges[0] as { center: { x: number } }).center.x)
+                .sort((a, b) => a - b);
+            expect(storedCenters).toEqual([15, 20, 60]);
+        });
+
+        test("a lost profile surfaces as a feature error", () => {
+            // No remaining loop has the ref's edge count, so there is no candidate.
+            // (A sole same-count loop would be adopted as moved geometry, like EdgeRef.)
+            const triangleProfile: ProfileRef = {
+                edges: [
+                    { kind: "line", start: { x: 5, y: 5, z: 0 }, end: { x: 7, y: 5, z: 0 } },
+                    { kind: "line", start: { x: 7, y: 5, z: 0 }, end: { x: 6, y: 7, z: 0 } },
+                    { kind: "line", start: { x: 6, y: 7, z: 0 }, end: { x: 5, y: 5, z: 0 } },
+                ],
+            };
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 5,
+                profiles: [triangleProfile],
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(false);
+            expect(body.featureItems()[0].error).toBe("Sketch profile not found after rebuild");
+        });
+
+        test("symmetric extrudes both directions and fuses the halves", () => {
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 5,
+                symmetric: true,
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(2);
+            const vecs = mocks.prism.mock.calls.map((c) => c[1] as XYZ);
+            expect(vecs[0].z).toBeCloseTo(5);
+            expect(vecs[1].z).toBeCloseTo(-5);
+            // The two halves touch at the sketch plane, so they fuse into one solid.
+            expect(mocks.booleanFuse).toHaveBeenCalledTimes(1);
+            expect(body.shape.unchecked()).toBe(mocks.fusedShape);
+        });
+    });
+
+    describe("extrude operation", () => {
+        test("join fuses the prism with the preceding feature's shape", () => {
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const join: ExtrudeFeatureData = {
+                id: "e2",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 3,
+                operation: "fuse",
+            };
+            const body = bodyWith([first, join]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.booleanFuse).toHaveBeenCalledTimes(1);
+            const [args, tools] = mocks.booleanFuse.mock.calls[0] as unknown as [any[], any[]];
+            expect(args).toEqual([mocks.prismShapes[0]]);
+            expect(tools).toEqual([mocks.prismShapes[1]]);
+            // The second prism is an intermediate of the boolean — it is disposed.
+            expect(mocks.prismShapes[1].dispose).toHaveBeenCalled();
+            expect(body.shape.unchecked()).toBe(mocks.fusedShape);
+        });
+
+        test("cut removes the prism from the preceding feature's shape", () => {
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const cut: ExtrudeFeatureData = {
+                id: "e2",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 3,
+                operation: "cut",
+            };
+            const body = bodyWith([first, cut]);
+
+            expect(body.shape.isOk).toBe(true);
+            // The host body is the cut target: input minus the new prism, not the reverse.
+            const [args, tools] = mocks.booleanCut.mock.calls[0] as unknown as [any[], any[]];
+            expect(args).toEqual([mocks.prismShapes[0]]);
+            expect(tools).toEqual([mocks.prismShapes[1]]);
+        });
+
+        test("an operation without a preceding feature surfaces as an error", () => {
+            const join: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 5,
+                operation: "fuse",
+            };
+            const body = bodyWith([join]);
+
+            expect(body.shape.isOk).toBe(false);
+            expect(body.featureItems()[0].error).toBe(
+                "Extrude join/cut/intersect requires a preceding feature",
+            );
+        });
+    });
+
+    describe("extrude from body faces (press-pull)", () => {
+        /** Planar top face of the mocked unit prism at height `z`, with boundary edges. */
+        function topFace(z: number) {
+            const edges = [
+                edge(new XYZ({ x: 0, y: 0, z }), new XYZ({ x: 1, y: 0, z })),
+                edge(new XYZ({ x: 1, y: 0, z }), new XYZ({ x: 1, y: 1, z })),
+                edge(new XYZ({ x: 1, y: 1, z }), new XYZ({ x: 0, y: 1, z })),
+                edge(new XYZ({ x: 0, y: 1, z }), new XYZ({ x: 0, y: 0, z })),
+            ];
+            return {
+                shapeType: ShapeTypes.face,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                normal: () => [new XYZ({ x: 0, y: 0, z }), XYZ.unitZ] as [XYZ, XYZ],
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            };
+        }
+
+        /** Makes every prism expose `face`, so a host-sourced feature finds it on its input. */
+        function prismWithTopFace(face: any) {
+            mocks.prism.mockImplementation(((profileFace: any, _vec: XYZ) => {
+                const points = (profileFace.findSubShapes(ShapeTypes.edge) as any[]).flatMap((e) => [
+                    e.startPoint(),
+                    e.endPoint(),
+                ]);
+                const shape = {
+                    shapeType: ShapeTypes.solid,
+                    isEqual: () => false,
+                    dispose: rs.fn(),
+                    findSubShapes: (type: ShapeType) =>
+                        type === ShapeTypes.face ? [face] : type === ShapeTypes.edge ? [subEdge()] : [],
+                    boundingBox: () => BoundingBox.fromPoints(points),
+                };
+                mocks.prismShapes.push(shape);
+                return Result.ok(shape);
+            }) as any);
+        }
+
+        test("a standalone body extrudes another body's face along its outward normal", () => {
+            const sourceBody = bodyWith([{ id: "e0", type: "extrude", sketchId: sketch.id, length: 2 }]);
+            const face = topFace(2);
+            sourceBody.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+                type === ShapeTypes.face ? [face] : []) as any;
+            const feature: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: sourceBody.id, profiles: [captureProfileRef(face as any)] },
+                length: 5,
+            };
+            const body = bodyWith([feature]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(2);
+            const [profile, vec] = mocks.prism.mock.calls[1] as unknown as [any, XYZ];
+            expect(profile).toBe(face);
+            expect(vec.z).toBeCloseTo(5);
+            expect(body.shape.unchecked()).toBe(mocks.prismShape);
+        });
+
+        test("a face of the host body itself resolves against the feature's input", () => {
+            const face = topFace(2);
+            prismWithTopFace(face);
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 2 };
+            const pressPull: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: "host", profiles: [captureProfileRef(face as any)] },
+                length: 5,
+            };
+            const body = new ParametricBodyNode({ document: doc, id: "host", features: [first, pressPull] });
+            doc.modelManager.addNode(body);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(2);
+            const [profile, vec] = mocks.prism.mock.calls[1] as unknown as [any, XYZ];
+            expect(profile).toBe(face);
+            expect(vec.z).toBeCloseTo(5);
+            // The body must not watch itself — that would re-evaluate on every rebuild.
+            expect((body as any)._watched.has("host")).toBe(false);
+        });
+
+        test("cut on the host's own face subtracts from the preceding feature", () => {
+            const face = topFace(2);
+            prismWithTopFace(face);
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 2 };
+            const cut: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: "host", profiles: [captureProfileRef(face as any)] },
+                length: 5,
+                operation: "cut",
+            };
+            const body = new ParametricBodyNode({ document: doc, id: "host", features: [first, cut] });
+            doc.modelManager.addNode(body);
+
+            expect(body.shape.isOk).toBe(true);
+            const [args, tools] = mocks.booleanCut.mock.calls[0] as unknown as [any[], any[]];
+            expect(args).toEqual([mocks.prismShapes[0]]);
+            expect(tools).toEqual([mocks.prismShapes[1]]);
+            expect(body.shape.unchecked()).toBe(mocks.fusedShape);
+        });
+
+        test("a self-sourced first feature surfaces as an error", () => {
+            const feature: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: "host", profiles: [captureProfileRef(topFace(2) as any)] },
+                length: 5,
+            };
+            const body = new ParametricBodyNode({ document: doc, id: "host", features: [feature] });
+            doc.modelManager.addNode(body);
+
+            expect(body.shape.isOk).toBe(false);
+            expect(body.featureItems()[0].error).toBe("Extrude source face requires a preceding feature");
+        });
+
+        test("a missing source body surfaces as an error", () => {
+            const feature: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: "missing", profiles: [captureProfileRef(topFace(2) as any)] },
+                length: 5,
+            };
+            const body = bodyWith([feature]);
+
+            expect(body.shape.isOk).toBe(false);
+            expect(body.featureItems()[0].error).toBe("Extrude source body not found");
+        });
+
+        test("nodeIds reference the sketch or the source node", () => {
+            const handler = featureHandler("extrude")!;
+            expect(handler.nodeIds({ id: "x", type: "extrude", sketchId: "s1", length: 1 })).toEqual(["s1"]);
+            expect(
+                handler.nodeIds({
+                    id: "x",
+                    type: "extrude",
+                    source: { nodeId: "b1", profiles: [] },
+                    length: 1,
+                }),
+            ).toEqual(["b1"]);
+        });
     });
 });

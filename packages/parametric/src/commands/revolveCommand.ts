@@ -50,6 +50,9 @@ export class RevolveFeatureCommand extends MultistepCommand {
             });
             Transaction.execute(this.document, "excute feature.revolve", () => {
                 this.document.modelManager.addNode(node);
+                // The sketch is consumed by the feature; hide it. Same transaction, so
+                // undo restores the visibility together with the body.
+                sketch.visible = false;
                 this.document.visual.update();
             });
         });

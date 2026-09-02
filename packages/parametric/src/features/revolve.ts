@@ -13,7 +13,7 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
-import { sketchFaces, sketchShapeEach } from "./profileBuilder";
+import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 
 const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     display: "command.feature.revolve",
@@ -35,11 +35,19 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
             point: new XYZ(feature.axis.point),
             direction: new XYZ(feature.axis.direction),
         });
+        const profiles = resolveProfiles(sketch);
+        if (!profiles.isOk) return Result.err(profiles.error);
         const tracking = context.tracking;
         if (tracking === undefined || shapeFactory.revolveTracked === undefined) {
-            return sketchShapeEach(sketch, (face) => shapeFactory.revolve(face, axis, angle.value));
+            const shapes: IShape[] = [];
+            for (const { face } of profiles.value) {
+                const shape = shapeFactory.revolve(face, axis, angle.value);
+                if (!shape.isOk) return Result.err(shape.error);
+                shapes.push(shape.value);
+            }
+            return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
         }
-        return revolveTracked(feature, sketch, axis, angle.value, tracking);
+        return revolveTracked(feature, sketch, axis, angle.value, profiles.value, tracking);
     },
 };
 
@@ -48,14 +56,13 @@ function revolveTracked(
     sketch: SketchNode,
     axis: Line,
     angle: number,
+    profiles: ResolvedProfile[],
     tracking: ShapeTracking,
 ): Result<IShape> {
-    const faces = sketchFaces(sketch);
-    if (!faces.isOk) return Result.err(faces.error);
     const shapes: IShape[] = [];
     const outputFaceIds: string[] = [];
     const outputEdgeIds: string[] = [];
-    for (const [index, face] of faces.value.entries()) {
+    for (const { face, index } of profiles) {
         const result = shapeFactory.revolveTracked!(face, axis, angle);
         if (!result.isOk) return Result.err(result.error);
         shapes.push(result.value.shape);
