@@ -1,25 +1,51 @@
 .badge {
+    /* annotation accent — the theme primary, shared with the 3D dimension graphics
+       (DIMENSION_COLOR in sketchAnnotations.ts) and adapting to light/dark themes */
+    --badge-accent: var(--primary-color);
+    /* matches VisualConfig.selectedEdgeColor, the 3D selection/hover highlight */
+    --badge-selected: #33ff33;
     font-family: monospace;
     font-size: 12px;
     line-height: 1.4;
     padding: 1px 6px;
-    color: #00e5ff;
-    background-color: rgba(20, 24, 32, 0.75);
-    border: 1px solid rgba(0, 229, 255, 0.4);
+    color: var(--badge-accent);
+    background-color: color-mix(in srgb, var(--panel-background-color) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--badge-accent) 45%, transparent);
     border-radius: 8px;
+    box-shadow: var(--panel-shadow);
     white-space: nowrap;
     pointer-events: auto;
     cursor: pointer;
 }
 
-.badge:hover {
-    background-color: rgba(30, 60, 70, 0.85);
-    border-color: #00e5ff;
+:root[theme="light"] .badge {
+    --badge-selected: #1f9e2c;
 }
 
-.selected {
-    color: #33ff33;
-    border-color: #33ff33;
+.badge:hover {
+    background-color: color-mix(in srgb, var(--badge-accent) 16%, var(--panel-background-color));
+    border-color: var(--badge-accent);
+}
+
+.selected,
+.badge.selected:hover {
+    color: var(--badge-selected);
+    background-color: color-mix(in srgb, var(--badge-selected) 12%, var(--panel-background-color));
+    border-color: var(--badge-selected);
+}
+
+/* symbol badges show the toolbar constraint icon instead of text */
+.symbol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 5px;
+
+    svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+    }
 }
 
 /* datum dimension labels can be dragged to reposition the dimension */

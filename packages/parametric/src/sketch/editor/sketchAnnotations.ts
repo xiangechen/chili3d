@@ -1,9 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { EdgeMeshData, IDisposable, IView } from "@chili3d/core";
+import {
+    type CommandKeys,
+    CommandStore,
+    type EdgeMeshData,
+    type IDisposable,
+    type IView,
+} from "@chili3d/core";
 import {
     ConstraintKind,
+    isDatumEntityId,
     pointRefKey,
     type SketchConstraintData,
     type SketchPointRef,
@@ -28,27 +35,45 @@ import {
 } from "./dimensionLayout";
 import style from "./sketchAnnotations.module.css";
 
-/** Badge glyphs for the no-datum symbol constraints. */
-const CONSTRAINT_GLYPHS: Partial<Record<ConstraintKind, string>> = {
-    [ConstraintKind.Parallel]: "∥",
-    [ConstraintKind.Perpendicular]: "⊥",
-    [ConstraintKind.EqualLength]: "=",
-    [ConstraintKind.EqualRadius]: "=",
-    [ConstraintKind.EqualArcRadius]: "=",
-    [ConstraintKind.TangentLineCircle]: "T",
-    [ConstraintKind.TangentCircleCircle]: "T",
-    [ConstraintKind.TangentLineArc]: "T",
-    [ConstraintKind.TangentArcArc]: "T",
-    [ConstraintKind.TangentCircleArc]: "T",
-    [ConstraintKind.PointOnLine]: "⊙",
-    [ConstraintKind.PointOnCircle]: "⊙",
-    [ConstraintKind.PointOnArc]: "⊙",
-    [ConstraintKind.Midpoint]: "M",
-    [ConstraintKind.Symmetric]: "S",
-    [ConstraintKind.HorizontalAlign]: "⬌",
-    [ConstraintKind.VerticalAlign]: "⬍",
-    [ConstraintKind.Fix]: "⚓",
+/**
+ * Badge content for the no-datum symbol constraints. `command` identifies the
+ * constraint command whose decorator icon the badge renders; `label` is only a
+ * fallback shown when that icon is unavailable (commands unregistered in unit
+ * tests, or a non-string icon kind) — in the app the badge always shows the icon.
+ */
+const CONSTRAINT_BADGES: Partial<Record<ConstraintKind, { label: string; command: CommandKeys }>> = {
+    [ConstraintKind.Horizontal]: { label: "H", command: "constraint.horizontal" },
+    [ConstraintKind.Vertical]: { label: "V", command: "constraint.vertical" },
+    [ConstraintKind.P2PCoincident]: { label: "◇", command: "constraint.coincident" },
+    [ConstraintKind.Parallel]: { label: "∥", command: "constraint.parallel" },
+    [ConstraintKind.Perpendicular]: { label: "⊥", command: "constraint.perpendicular" },
+    [ConstraintKind.EqualLength]: { label: "=", command: "constraint.equal" },
+    [ConstraintKind.EqualRadius]: { label: "=", command: "constraint.equal" },
+    [ConstraintKind.EqualArcRadius]: { label: "=", command: "constraint.equal" },
+    [ConstraintKind.TangentLineCircle]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleCircle]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentLineArc]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentArcArc]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleArc]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.PointOnLine]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnCircle]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnArc]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.Midpoint]: { label: "M", command: "constraint.midpoint" },
+    [ConstraintKind.Symmetric]: { label: "S", command: "constraint.symmetric" },
+    [ConstraintKind.HorizontalAlign]: { label: "⬌", command: "constraint.horizontalAlign" },
+    [ConstraintKind.VerticalAlign]: { label: "⬍", command: "constraint.verticalAlign" },
+    [ConstraintKind.Fix]: { label: "⚓", command: "constraint.fix" },
 };
+
+type BadgeSymbol = { label: string; icon?: string };
+
+/** Badge content for a constraint kind; the icon comes from the command's `@command` decorator. */
+function badgeSymbol(kind: ConstraintKind): BadgeSymbol | undefined {
+    const entry = CONSTRAINT_BADGES[kind];
+    if (entry === undefined) return undefined;
+    const icon = CommandStore.getComandData(entry.command)?.icon;
+    return { label: entry.label, icon: typeof icon === "string" ? icon : undefined };
+}
 
 /** Badge center offset from its geometry, in screen pixels. */
 const BADGE_OFFSET_PX = 18;
@@ -56,8 +81,11 @@ const BADGE_OFFSET_PX = 18;
 const BADGE_REACH_PX = 30;
 /** Pointer travel (screen px) before a badge press becomes a label drag. */
 const LABEL_DRAG_THRESHOLD_PX = 4;
-/** Cyan for dimension graphics — green is reserved for hover/selection highlights. */
-const DIMENSION_COLOR = 0x00e5ff;
+/**
+ * Blue for dimension graphics — matches the dark-theme `--primary-color` (#4a9eff)
+ * behind the badges' `--badge-accent`; green is reserved for hover/selection highlights.
+ */
+const DIMENSION_COLOR = 0x4a9eff;
 
 /**
  * True when a pointer event target is (or is inside) an annotation badge.
@@ -113,7 +141,7 @@ export type DimensionPreview =
       };
 
 /**
- * Renders constraint symbols (H / V / ◇) and datum dimensions (extension lines,
+ * Renders constraint symbols (toolbar constraint icons) and datum dimensions (extension lines,
  * arrows, value text) anchored to sketch geometry. Recreated wholesale on each
  * refresh — sketches are small, so this stays simple. Dimension graphics use
  * pixel-relative sizes, so the camera controller is subscribed to re-render on zoom.
@@ -122,8 +150,10 @@ export type DimensionPreview =
  * they are suppressed entirely while a pick is active so they cannot occlude the
  * geometry being picked. Datum dimensions stay visible. Symbol badges are offset a
  * screen-constant distance from their geometry so they never cover the clickable
- * line/point; the event handler keeps the entity hover alive while the cursor
- * crosses the gap to a badge (`isNearVisibleBadge`). Badges are interactive: hovering
+ * line/point; multi-entity constraints (parallel, tangent, ...) get one badge per
+ * referenced entity, so each badge stays next to — and reachable from — its own
+ * geometry however far apart the entities are. The event handler keeps the entity
+ * hover alive while the cursor crosses the gap to a badge (`isNearVisibleBadge`). Badges are interactive: hovering
  * one highlights its referenced entities, clicking a symbol badge selects it,
  * selected constraints can be deleted, and double-clicking a datum badge re-opens
  * its value input. Datum badges are repositioned by dragging: either press-drag-release,
@@ -281,13 +311,19 @@ export class SketchAnnotationManager implements IDisposable {
         const p2 = this.solver.pointOf(constraint.refs[1]);
         // offset along the segment normal so the badge does not cover the line
         const [u, v] = offsetFromSegment(p1, p2, BADGE_OFFSET_PX * px);
-        this.addBadge(constraint.kind === ConstraintKind.Horizontal ? "H" : "V", u, v, constraint);
+        const symbol = badgeSymbol(constraint.kind);
+        this.addBadge(symbol?.label ?? "", u, v, constraint, constraint.refs, false, symbol?.icon);
     }
 
-    /** Glyph badge for the no-datum symbol constraints (parallel, tangent, fix, ...). */
+    /**
+     * Symbol badges for the no-datum constraints (parallel, tangent, fix, ...) —
+     * one badge per referenced entity (or constrained point), each anchored next to
+     * its own geometry so it stays visible-reachable no matter how far apart the
+     * constrained entities are.
+     */
     private addSymbolBadge(constraint: SketchConstraintData, px: number): void {
-        const glyph = CONSTRAINT_GLYPHS[constraint.kind];
-        if (glyph === undefined) return;
+        const symbol = badgeSymbol(constraint.kind);
+        if (symbol === undefined) return;
         // an arc's structural PointOnArc (all refs on the arc itself) stays invisible —
         // it is part of the entity, deleting it would break the arc geometry
         if (
@@ -297,9 +333,85 @@ export class SketchAnnotationManager implements IDisposable {
             return;
         }
         if (!this.isConstraintVisible(constraint)) return;
-        const off = BADGE_OFFSET_PX * px * Math.SQRT1_2;
-        const [u, v] = this.refsMidpoint(constraint.refs);
-        this.addBadge(glyph, u + off, v + off, constraint);
+        const anchors = this.symbolAnchors(constraint, px).filter(
+            // drop duplicates (e.g. a symmetric constraint on the same point twice)
+            (anchor, i, all) =>
+                all.findIndex((b) => Math.hypot(anchor[0] - b[0], anchor[1] - b[1]) < 1e-9) === i,
+        );
+        for (const [u, v] of anchors) {
+            this.addBadge(symbol.label, u, v, constraint, constraint.refs, false, symbol.icon);
+        }
+    }
+
+    /** Per-entity (or per-point) badge anchors of a symbol constraint. */
+    private symbolAnchors(constraint: SketchConstraintData, px: number): [number, number][] {
+        switch (constraint.kind) {
+            case ConstraintKind.PointOnLine:
+            case ConstraintKind.PointOnCircle:
+            case ConstraintKind.PointOnArc:
+            case ConstraintKind.Midpoint:
+            case ConstraintKind.Fix:
+                // the constraint is about this one point
+                return [pointBadgeAnchor(this.solver.pointOf(constraint.refs[0]), px)];
+            case ConstraintKind.HorizontalAlign:
+            case ConstraintKind.VerticalAlign:
+                return constraint.refs.map((ref) => pointBadgeAnchor(this.solver.pointOf(ref), px));
+            case ConstraintKind.Symmetric:
+                // the point pair carries the constraint; the symmetry axis is context
+                return constraint.refs
+                    .slice(0, 2)
+                    .map((ref) => pointBadgeAnchor(this.solver.pointOf(ref), px));
+            default: {
+                const hint = this.refsMidpoint(constraint.refs);
+                const entityIds = [...new Set(constraint.refs.map((r) => r.entityId))];
+                return entityIds
+                    .map((id) => this.entityBadgeAnchor(id, px, hint))
+                    .filter((anchor) => anchor !== undefined);
+            }
+        }
+    }
+
+    /**
+     * Anchor beside an entity's own geometry: normal offset from a line's midpoint;
+     * radial offset from a circle (facing away from the constraint's other party, so
+     * tangent/equal partners do not stack) or from an arc's mid-sweep direction.
+     * Datum axes are unit stubs at the origin, so the anchor sits beside the
+     * projection of the constraint midpoint onto the axis instead.
+     */
+    private entityBadgeAnchor(
+        entityId: number,
+        px: number,
+        hint: [number, number],
+    ): [number, number] | undefined {
+        const entity = this.solver.entity(entityId);
+        if (entity === undefined) return undefined;
+        const off = BADGE_OFFSET_PX * px;
+        if (entity.type === "line") {
+            const p1: [number, number] = [entity.params[0], entity.params[1]];
+            const p2: [number, number] = [entity.params[2], entity.params[3]];
+            return isDatumEntityId(entityId)
+                ? projectBeside(p1, p2, hint, off)
+                : offsetFromSegment(p1, p2, off);
+        }
+        const [cx, cy] = entity.params;
+        const radius =
+            entity.type === "circle"
+                ? entity.params[2]
+                : Math.hypot(entity.params[2] - cx, entity.params[3] - cy);
+        let direction: [number, number] | undefined;
+        if (entity.type === "arc") {
+            // mid-sweep direction keeps the badge next to the visible arc stroke
+            const mx = (entity.params[2] + entity.params[4]) / 2 - cx;
+            const my = (entity.params[3] + entity.params[5]) / 2 - cy;
+            const length = Math.hypot(mx, my);
+            if (length > 1e-9) direction = [mx / length, my / length];
+        }
+        if (direction === undefined) {
+            const [du, dv] = [cx - hint[0], cy - hint[1]];
+            const length = Math.hypot(du, dv);
+            direction = length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [du / length, dv / length];
+        }
+        return [cx + direction[0] * (radius + off), cy + direction[1] * (radius + off)];
     }
 
     /** Average of the referenced points — generic badge anchor for multi-point constraints. */
@@ -323,7 +435,8 @@ export class SketchAnnotationManager implements IDisposable {
         const [u, v] = this.solver.pointOf(group[0]);
         // diagonal offset so the badge does not cover the shared point
         const off = BADGE_OFFSET_PX * px * Math.SQRT1_2;
-        this.addBadge("◇", u + off, v + off, constraint, group);
+        const symbol = badgeSymbol(ConstraintKind.P2PCoincident);
+        this.addBadge(symbol?.label ?? "", u + off, v + off, constraint, group, false, symbol?.icon);
     }
 
     private addDatumDimension(
@@ -554,6 +667,7 @@ export class SketchAnnotationManager implements IDisposable {
         constraint: SketchConstraintData,
         refs: readonly SketchPointRef[] = constraint.refs,
         draggable = false,
+        icon?: string,
     ): void {
         const id = constraint.id;
         const entityIds = [...new Set(refs.map((r) => r.entityId))];
@@ -568,6 +682,10 @@ export class SketchAnnotationManager implements IDisposable {
                     list.push(element);
                     this.badgeElements.set(id, list);
                     element.classList.toggle(style.selected, this.selectedConstraints.has(id));
+                    if (icon !== undefined) {
+                        element.classList.add(style.symbol);
+                        element.replaceChildren(badgeIcon(icon));
+                    }
                     if (draggable) {
                         element.classList.add(style.draggable);
                         element.addEventListener("pointerdown", (e) => this.beginLabelDrag(id, e));
@@ -785,6 +903,53 @@ export class SketchAnnotationManager implements IDisposable {
             this.meshId = undefined;
         }
     }
+}
+
+/** SVG element referencing the toolbar iconfont symbol (sized/colored via CSS). */
+function badgeIcon(name: string): SVGSVGElement {
+    const ns = "http://www.w3.org/2000/svg";
+    const use = document.createElementNS(ns, "use");
+    use.setAttribute("href", `#${name}`);
+    use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${name}`);
+    const icon = document.createElementNS(ns, "svg");
+    icon.append(use);
+    return icon;
+}
+
+/** Diagonal offset from a point so the badge does not cover it. */
+function pointBadgeAnchor([u, v]: [number, number], px: number): [number, number] {
+    const off = BADGE_OFFSET_PX * px * Math.SQRT1_2;
+    return [u + off, v + off];
+}
+
+/**
+ * Anchor beside the projection of `hint` onto segment ab, offset towards `hint` —
+ * used for datum axes, whose segment stub at the origin says nothing about where
+ * the constrained geometry is.
+ */
+function projectBeside(
+    a: [number, number],
+    b: [number, number],
+    hint: [number, number],
+    offset: number,
+): [number, number] {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const length2 = dx * dx + dy * dy;
+    const t = length2 < 1e-12 ? 0 : ((hint[0] - a[0]) * dx + (hint[1] - a[1]) * dy) / length2;
+    const proj: [number, number] = [a[0] + t * dx, a[1] + t * dy];
+    const su = hint[0] - proj[0];
+    const sv = hint[1] - proj[1];
+    const side = Math.hypot(su, sv);
+    let nu: number;
+    let nv: number;
+    if (side < 1e-9) {
+        const length = Math.hypot(dx, dy);
+        [nu, nv] = length < 1e-9 ? [0, 1] : [-dy / length, dx / length];
+    } else {
+        [nu, nv] = [su / side, sv / side];
+    }
+    return [proj[0] + nu * offset, proj[1] + nv * offset];
 }
 
 function offsetFromSegment(a: [number, number], b: [number, number], offset: number): [number, number] {

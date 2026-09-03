@@ -9,6 +9,8 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+// side effect: registers the constraint commands so their decorator icons resolve
+import "../../src/sketch/commands/sketchConstraints";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
@@ -160,6 +162,75 @@ describe("SketchAnnotations visibility", () => {
             handler.pointerDown(view, pointerEvent(400, 300));
             expect(htmlTexts).toContain("H");
             handler.pointerUp(view, pointerEvent(400, 300));
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a multi-entity constraint shows one badge next to each entity", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const badges: { text: string; u: number; v: number }[] = [];
+            (view as any).htmlText = rs.fn((text: string, point: XYZ) => {
+                badges.push({ text, u: point.x, v: point.y });
+                return { dispose: rs.fn() };
+            });
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const l1 = editor.solver.addLine(0, 0, 10, 0);
+            const l2 = editor.solver.addLine(0, 50, 10, 50);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Parallel,
+                refs: [
+                    { entityId: l1, pointIndex: 0 },
+                    { entityId: l1, pointIndex: 1 },
+                    { entityId: l2, pointIndex: 0 },
+                    { entityId: l2, pointIndex: 1 },
+                ],
+            });
+            editor.solve(true);
+            expect(badges.filter((b) => b.text === "∥").length).toBe(0);
+
+            // hover line 1: one badge per line, not a single one midway in empty space
+            (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
+            const shown = badges.filter((b) => b.text === "∥");
+            expect(shown.length).toBe(2);
+            // px = 1 in the mock view, so the badge offset is 18 world units
+            const vs = shown.map((b) => b.v).sort((a, b) => a - b);
+            expect(vs[0]).toBeCloseTo(18, 5);
+            expect(vs[1]).toBeCloseTo(68, 5);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("symbol badges render the icon from the command decorator", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const elements: HTMLElement[] = [];
+            (view as any).htmlText = rs.fn((_text: string, _point: XYZ, options?: any) => {
+                const element = document.createElement("div");
+                options?.onCreated?.(element);
+                elements.push(element);
+                return { dispose: rs.fn() };
+            });
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+            });
+            editor.solve(true);
+
+            (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
+            const iconHrefs = elements.map((el) => el.querySelector("use")?.getAttribute("href"));
+            expect(iconHrefs).toContain("#icon-cHorizontal");
             editor.exit();
         } finally {
             restoreFactory();
