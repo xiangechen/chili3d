@@ -336,6 +336,15 @@ export class ThreeVisualContext implements IVisualContext {
         shape.visible = visible;
     }
 
+    setNodeOnTop(nodes: INode[], onTop: boolean): void {
+        nodes.forEach((node) => {
+            const visual = this._NodeVisualMap.get(node);
+            if (visual instanceof ThreeGeometry) {
+                visual.setRenderOnTop(onTop);
+            }
+        });
+    }
+
     moveNode(node: INode, oldParent: INode): void {
         if (oldParent === node.parent) return;
 

@@ -20,6 +20,8 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     private _state: SnapState = "idle";
 
     facePreviewOpion: MeshOption = { meshOpacity: 1 };
+    /** Mesh option for the snapped-point marker; undefined keeps the default depth-tested rendering. */
+    tempPointOption?: MeshOption;
     isEnabled: boolean = true;
 
     constructor(
@@ -197,7 +199,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
                 VisualConfig.temporaryVertexSize,
                 VisualConfig.temporaryVertexColor,
             );
-            this._tempPoint = this.document.visual.context.displayMesh([data]);
+            this._tempPoint = this.document.visual.context.displayMesh([data], this.tempPointOption);
         }
 
         this._tempShapes = this.data

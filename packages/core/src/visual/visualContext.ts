@@ -26,6 +26,8 @@ export interface IVisualContext extends IDisposable {
     getNode(visual: IVisualObject): INode | undefined;
     redrawNode(nodes: INode[]): void;
     setVisible(node: INode, visible: boolean): void;
+    /** Renders the nodes above everything else (no depth test) — e.g. the sketch being edited. */
+    setNodeOnTop(nodes: INode[], onTop: boolean): void;
     visuals(): IVisualObject[];
     displayMesh(datas: ShapeMeshData[], meshOption?: MeshOption): number;
     setMeshColor(id: number, color: number): void;

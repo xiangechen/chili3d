@@ -238,6 +238,68 @@ describe("ThreeGeometry", () => {
         });
     });
 
+    describe("setRenderOnTop", () => {
+        test("swaps to depth-test-free transparent clones with top render order", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            geo.setRenderOnTop(true);
+
+            const edgeMaterial = geo.edges()!.material;
+            expect(edgeMaterial).not.toBe(defaultEdgeMaterial);
+            expect((edgeMaterial as any).depthTest).toBe(false);
+            expect((edgeMaterial as any).depthWrite).toBe(false);
+            // body materials are always transparent and render after opaque objects;
+            // on-top materials must be transparent too, or bodies still overdraw them
+            expect((edgeMaterial as any).transparent).toBe(true);
+            expect(geo.edges()!.renderOrder).toBe(999);
+            expect((geo.vertexs()!.material as any).depthTest).toBe(false);
+            // the shared default materials stay untouched
+            expect(defaultEdgeMaterial.depthTest).toBe(true);
+            expect(defaultEdgeMaterial.transparent).toBe(false);
+        });
+
+        test("meshes rebuilt while on top keep the on-top material", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            geo.setRenderOnTop(true);
+
+            node._notify("shape");
+
+            expect((geo.edges()!.material as any).depthTest).toBe(false);
+            expect(geo.edges()!.renderOrder).toBe(999);
+        });
+
+        test("temporary materials and their removal keep the on-top state", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            geo.setRenderOnTop(true);
+
+            const tempEdgeMat = { isLineMaterial: true } as any;
+            geo.setEdgesMateiralTemperary(tempEdgeMat);
+            expect(geo.edges()!.material).toBe(tempEdgeMat);
+
+            geo.removeTemperaryMaterial();
+            const restored = geo.edges()!.material;
+            expect(restored).not.toBe(defaultEdgeMaterial);
+            expect((restored as any).depthTest).toBe(false);
+            expect((restored as any).transparent).toBe(true);
+            expect(geo.edges()!.renderOrder).toBe(999);
+        });
+
+        test("restores default materials and render order when turned off", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            const faceMaterial = geo.faces()!.material;
+            geo.setRenderOnTop(true);
+            geo.setRenderOnTop(false);
+
+            expect(geo.edges()!.material).toBe(defaultEdgeMaterial);
+            expect(geo.edges()!.renderOrder).toBe(0);
+            expect(geo.faces()!.material).toBe(faceMaterial);
+            expect(geo.faces()!.renderOrder).toBe(0);
+        });
+    });
+
     describe("dispose", () => {
         test("dispose removes all sub-meshes", () => {
             const node = createTestGeometryNode();

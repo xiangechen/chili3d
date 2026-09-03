@@ -1,16 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type IStep, type PointSnapData, PointStep, type XYZ } from "@chili3d/core";
+import { command, type IStep, type PointSnapData, type XYZ } from "@chili3d/core";
 import { toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
+import { SketchPointStep } from "./sketchPointStep";
 
 @command({ key: "sketch.circle", icon: "icon-circle" })
 export class SketchCircleCommand extends SketchMultistepCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("prompt.pickCircleCenter"),
-            new PointStep("prompt.pickRadius", this.getRadiusData),
+            new SketchPointStep("prompt.pickCircleCenter"),
+            new SketchPointStep("prompt.pickRadius", this.getRadiusData),
         ];
     }
 

@@ -133,6 +133,7 @@ export function createMockVisualContext(
         getNode,
         redrawNode: () => {},
         setVisible: () => {},
+        setNodeOnTop: () => {},
         visuals: () => [],
         displayMesh: () => 0,
         setMeshColor: () => {},

@@ -59,25 +59,28 @@ export class SketchEventHandler implements IEventHandler {
         if (view === undefined) return;
         const half = this.datumHalfLength();
         const plane = this.editor.node.plane;
-        this.datumDisplayId = view.document.visual.context.displayMesh([
-            MeshDataUtils.createEdgeMesh(
-                toWorld(plane, -half, 0),
-                toWorld(plane, half, 0),
-                DATUM_X_AXIS_COLOR,
-                "dash",
-            ),
-            MeshDataUtils.createEdgeMesh(
-                toWorld(plane, 0, -half),
-                toWorld(plane, 0, half),
-                DATUM_Y_AXIS_COLOR,
-                "dash",
-            ),
-            MeshDataUtils.createVertexMesh(
-                toWorld(plane, 0, 0),
-                VisualConfig.editVertexSize,
-                DATUM_X_AXIS_COLOR,
-            ),
-        ]);
+        this.datumDisplayId = view.document.visual.context.displayMesh(
+            [
+                MeshDataUtils.createEdgeMesh(
+                    toWorld(plane, -half, 0),
+                    toWorld(plane, half, 0),
+                    DATUM_X_AXIS_COLOR,
+                    "dash",
+                ),
+                MeshDataUtils.createEdgeMesh(
+                    toWorld(plane, 0, -half),
+                    toWorld(plane, 0, half),
+                    DATUM_Y_AXIS_COLOR,
+                    "dash",
+                ),
+                MeshDataUtils.createVertexMesh(
+                    toWorld(plane, 0, 0),
+                    VisualConfig.editVertexSize,
+                    DATUM_X_AXIS_COLOR,
+                ),
+            ],
+            { onTop: true },
+        );
     }
 
     /** Half-length of the drawn axis lines: 1.5× the sketch extent, at least 100, and always spanning the visible viewport. */
@@ -346,7 +349,7 @@ export class SketchEventHandler implements IEventHandler {
                 }
             }
             if (meshes.length > 0) {
-                this.constraintMeshId = view.document.visual.context.displayMesh(meshes);
+                this.constraintMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
             }
         }
         view.update();
@@ -391,7 +394,7 @@ export class SketchEventHandler implements IEventHandler {
         }
         this.clearHover(view);
         if (mesh !== undefined) {
-            this.hoverMeshId = view.document.visual.context.displayMesh([mesh]);
+            this.hoverMeshId = view.document.visual.context.displayMesh([mesh], { onTop: true });
             this.hoverKey = key;
         }
         this.syncAnnotationHighlights();
@@ -472,7 +475,7 @@ export class SketchEventHandler implements IEventHandler {
             .entities()
             .filter((entity) => this.selectedEntities.has(entity.id))
             .map((entity) => sketchEntityMesh(this.editor, entity, VisualConfig.selectedEdgeColor));
-        this.selectionMeshId = view.document.visual.context.displayMesh(meshes);
+        this.selectionMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
         this.syncAnnotationHighlights();
         view.update();
     }
@@ -509,7 +512,9 @@ export class SketchEventHandler implements IEventHandler {
 
     private updateDragPreview(view: IView): void {
         this.clearDragPreview(view);
-        this.dragPreviewId = view.document.visual.context.displayMesh(sketchEntityMeshes(this.editor));
+        this.dragPreviewId = view.document.visual.context.displayMesh(sketchEntityMeshes(this.editor), {
+            onTop: true,
+        });
     }
 
     private clearDragPreview(view: IView): void {

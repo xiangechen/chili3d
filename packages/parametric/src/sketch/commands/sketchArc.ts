@@ -1,26 +1,19 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    command,
-    type IStep,
-    type PointSnapData,
-    PointStep,
-    Precision,
-    PubSub,
-    type XYZ,
-} from "@chili3d/core";
+import { command, type IStep, type PointSnapData, Precision, PubSub, type XYZ } from "@chili3d/core";
 import { arcAngles, toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
+import { SketchPointStep } from "./sketchPointStep";
 
 /** Three-point arc: center → start (radius + start angle) → end (counter-clockwise sweep). */
 @command({ key: "sketch.arc", icon: "icon-arc" })
 export class SketchArcCommand extends SketchMultistepCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("prompt.pickCircleCenter"),
-            new PointStep("prompt.pickFistPoint", this.getStartData),
-            new PointStep("prompt.pickArcEnd", this.getEndData),
+            new SketchPointStep("prompt.pickCircleCenter"),
+            new SketchPointStep("prompt.pickFistPoint", this.getStartData),
+            new SketchPointStep("prompt.pickArcEnd", this.getEndData),
         ];
     }
 

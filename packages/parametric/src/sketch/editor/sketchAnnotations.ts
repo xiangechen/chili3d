@@ -274,7 +274,9 @@ export class SketchAnnotationManager implements IDisposable {
         this.addPreviewGraphics(px, segments);
 
         if (segments.length > 0) {
-            this.meshId = this.view.document.visual.context.displayMesh([this.toEdgeMesh(segments)]);
+            this.meshId = this.view.document.visual.context.displayMesh([this.toEdgeMesh(segments)], {
+                onTop: true,
+            });
         }
         this.view.update();
     }

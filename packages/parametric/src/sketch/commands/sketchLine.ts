@@ -1,16 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type IStep, type PointSnapData, PointStep, type XYZ } from "@chili3d/core";
+import { command, type IStep, type PointSnapData, type XYZ } from "@chili3d/core";
 import { toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
+import { SketchPointStep } from "./sketchPointStep";
 
 @command({ key: "sketch.line", icon: "icon-line" })
 export class SketchLineCommand extends SketchMultistepCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("prompt.pickFistPoint"),
-            new PointStep("prompt.pickNextPoint", this.getSecondPointData),
+            new SketchPointStep("prompt.pickFistPoint"),
+            new SketchPointStep("prompt.pickNextPoint", this.getSecondPointData),
         ];
     }
 

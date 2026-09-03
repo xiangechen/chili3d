@@ -121,6 +121,8 @@ export class SketchEditor implements IDisposable {
         document.selection.clearSelection();
         this.savedVisible = node.visible;
         this.setNodeVisibleSilently(true);
+        // keep the sketch visible through occluding geometry for the session
+        document.visual.context.setNodeOnTop([node], true);
 
         this.annotations = new SketchAnnotationManager(
             view,
@@ -428,6 +430,7 @@ export class SketchEditor implements IDisposable {
         if (this.disposed) return;
         this.disposed = true;
         this.cancelPick();
+        this.document.visual.context.setNodeOnTop([this.node], false);
         this.node.removePropertyChanged(this.onNodeDataChanged);
         this.eventHandler.dispose();
         this.document.visual.eventHandler = this.savedHandler;

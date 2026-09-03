@@ -9,6 +9,7 @@ import {
     DoubleSide,
     Float32BufferAttribute,
     LineBasicMaterial,
+    type Material,
     Mesh,
     MeshLambertMaterial,
     Points,
@@ -18,7 +19,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 
-const TopRenderOrder = 999;
+export const TopRenderOrder = 999;
 
 export class ThreeGeometryFactory {
     static createVertexGeometry(data: VertexMeshData, meshOption?: MeshOption) {
@@ -64,7 +65,20 @@ export class ThreeGeometryFactory {
         if (meshOption?.onTop) {
             material.depthTest = false;
             material.depthWrite = false;
+            // body face materials are always transparent (threeHelper), so they render in
+            // the transparent pass after all opaque objects; on-top materials must join
+            // that pass for renderOrder to lift them above occluding bodies
+            material.transparent = true;
         }
+    }
+
+    /** Depth-test-free clone of an existing material, for rendering an object above everything else. */
+    static createOnTopMaterial(material: Material): Material {
+        const cloned = material.clone();
+        cloned.depthTest = false;
+        cloned.depthWrite = false;
+        cloned.transparent = true;
+        return cloned;
     }
 
     static createFaceGeometry(data: FaceMeshData, meshOption?: MeshOption) {

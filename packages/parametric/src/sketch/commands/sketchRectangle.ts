@@ -1,25 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    command,
-    type IStep,
-    type PointSnapData,
-    PointStep,
-    Precision,
-    PubSub,
-    type XYZ,
-} from "@chili3d/core";
+import { command, type IStep, type PointSnapData, Precision, PubSub, type XYZ } from "@chili3d/core";
 import { ConstraintKind, toUV, toWorld } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
+import { SketchPointStep } from "./sketchPointStep";
 
 /** Axis-aligned rectangle from two diagonal corners: 4 lines + coincident/H/V constraints. */
 @command({ key: "sketch.rectangle", icon: "icon-rect" })
 export class SketchRectangleCommand extends SketchMultistepCommand {
     getSteps(): IStep[] {
         return [
-            new PointStep("prompt.pickFistPoint"),
-            new PointStep("prompt.pickNextPoint", this.getCornerData),
+            new SketchPointStep("prompt.pickFistPoint"),
+            new SketchPointStep("prompt.pickNextPoint", this.getCornerData),
         ];
     }
 

@@ -36,6 +36,7 @@ interface TestContext {
         fitContent: ReturnType<typeof rs.fn>;
     };
     clearSelection: ReturnType<typeof rs.fn>;
+    setNodeOnTop: ReturnType<typeof rs.fn>;
     oldHandler: unknown;
     restoreFactory: () => void;
 }
@@ -71,9 +72,11 @@ function setup(): TestContext {
     };
     const app = createMockApplication();
     const clearSelection = rs.fn();
+    const setNodeOnTop = rs.fn();
     const doc = new TestDocument({ application: app, selection: { clearSelection } as any });
     doc.visual = createMockVisualWithDocument(doc, {
         viewHandler: { canRotate: true } as any,
+        context: { setNodeOnTop },
     }) as any;
     const view = createMockView({
         document: doc,
@@ -86,6 +89,7 @@ function setup(): TestContext {
         view,
         camera,
         clearSelection,
+        setNodeOnTop,
         oldHandler: doc.visual.eventHandler,
         restoreFactory: mockShapeFactory(),
     };
@@ -170,6 +174,21 @@ describe("SketchEditor session statics", () => {
             expect(node.visible).toBe(false);
             // The visibility round-trip of an edit session stays out of the undo history.
             expect(doc.history.undoCount()).toBe(undoCount);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("editing renders the sketch on top and exit restores normal rendering", () => {
+        const { doc, setNodeOnTop, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+
+            const editor = SketchEditor.enter(node);
+            expect(setNodeOnTop).toHaveBeenCalledWith([node], true);
+
+            editor.exit();
+            expect(setNodeOnTop).toHaveBeenLastCalledWith([node], false);
         } finally {
             restoreFactory();
         }
