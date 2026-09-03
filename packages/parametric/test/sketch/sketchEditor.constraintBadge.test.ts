@@ -43,12 +43,15 @@ function setup() {
         (text: string, position: { x: number; y: number; z: number }, options: any) => {
             const element = document.createElement("div");
             if (options?.className) element.className = options.className;
+            // attach like the real CSS2DRenderer so event propagation reaches window
+            document.body.appendChild(element);
             const badge: MockBadge = { text, position, options, element, disposed: false };
             badges.push(badge);
             options?.onCreated?.(element);
             return {
                 dispose: rs.fn(() => {
                     badge.disposed = true;
+                    element.remove();
                 }),
             };
         },
@@ -431,6 +434,208 @@ describe("SketchEditor constraint badge interaction", () => {
             editor.exit();
         } finally {
             restoreFactory();
+        }
+    });
+});
+
+describe("SketchEditor dimension label dragging", () => {
+    // happy-dom rects are zero-origin, so client coordinates map straight to
+    // view offsets; the mock view maps offset (x, y) -> uv (x - 400, 300 - y)
+    const press = (badge: MockBadge, x: number, y: number) =>
+        badge.element.dispatchEvent(new MouseEvent("pointerdown", { clientX: x, clientY: y, button: 0 }));
+    const move = (x: number, y: number) =>
+        window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y }));
+    const release = (x: number, y: number) =>
+        window.dispatchEvent(new MouseEvent("pointerup", { clientX: x, clientY: y }));
+
+    function setupDistanceDimension() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(0, 0, 100, 0);
+        editor.solver.addConstraint({
+            kind: ConstraintKind.P2PDistance,
+            refs: [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+            ],
+            datum: 100,
+        });
+        editor.dimensionAnchors.set(1, { kind: "offset", offset: 30 });
+        editor.solve(true);
+        (ctx.view as any).dom = document.createElement("div");
+        return { ...ctx, node, editor };
+    }
+
+    test("dragging a distance label updates the offset anchor and commits on release", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const badge = lastBadge(badges, "100.00");
+            press(badge, 450, 250);
+            expect(editor.annotations.isLabelDragging).toBe(false);
+
+            // offset (450, 200) -> uv (50, 100): 100 above the segment
+            move(450, 200);
+            expect(editor.annotations.isLabelDragging).toBe(true);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+
+            release(450, 200);
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("clicking a dimension label picks it up, a viewport click drops it at the new position", () => {
+        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            const badge = lastBadge(badges, "100.00");
+            press(badge, 450, 250);
+            release(450, 250);
+            // picked up: the label now follows the cursor, anchor not yet touched
+            expect(editor.annotations.isLabelDragging).toBe(true);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 30 });
+
+            // offset (450, 200) -> uv (50, 100): 100 above the segment
+            move(450, 200);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+
+            handler.pointerDown(view, pointerEvent(450, 200));
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("clicking the label itself also drops it", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            move(450, 200);
+            // the refresh rebuilt the badge under the cursor; pressing it drops the label
+            press(lastBadge(badges, "100.00"), 450, 200);
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("Escape cancels the placement and restores the previous anchor", () => {
+        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            move(450, 200);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+
+            handler.keyDown(view, new KeyboardEvent("keydown", { key: "Escape" }));
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 30 });
+            // cancelled: nothing was committed
+            expect(node.data.anchors).toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("Delete while a label follows the cursor deletes the dimension and ends the placement", () => {
+        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            expect(editor.annotations.isLabelDragging).toBe(true);
+
+            handler.keyDown(view, new KeyboardEvent("keydown", { key: "Delete" }));
+            expect(editor.solver.toData().constraints).toEqual([]);
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            // the deletion was committed
+            expect(node.data.constraints).toEqual([]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("release landing on the badge still completes the drag (the badge swallows pointerup)", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            press(lastBadge(badges, "100.00"), 450, 250);
+            move(450, 200);
+            // the refresh rebuilt the badge under the cursor; threeView's interactive
+            // badges stopPropagation pointerdown/up, and since the label follows the
+            // cursor the release usually lands on it
+            const badge = lastBadge(badges, "100.00");
+            badge.element.addEventListener("pointerup", (e) => e.stopPropagation());
+            badge.element.dispatchEvent(
+                new MouseEvent("pointerup", { clientX: 450, clientY: 200, bubbles: true }),
+            );
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("pick-up released on the badge, then clicking the label again drops it", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const badge = lastBadge(badges, "100.00");
+            badge.element.addEventListener("pointerup", (e) => e.stopPropagation());
+            press(badge, 450, 250);
+            // the swallowed release must still switch to the follow-the-cursor mode
+            badge.element.dispatchEvent(
+                new MouseEvent("pointerup", { clientX: 450, clientY: 250, bubbles: true }),
+            );
+            expect(editor.annotations.isLabelDragging).toBe(true);
+
+            move(450, 200);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+
+            // the refresh rebuilt the badge under the cursor; pressing it drops the label
+            press(lastBadge(badges, "100.00"), 450, 200);
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("dragging a radius label re-anchors it as a vector from the center", () => {
+        const ctx = setup();
+        try {
+            const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addCircle(20, 10, 30);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: 1, pointIndex: 0 }],
+                datum: 30,
+            });
+            editor.solve(true);
+            (ctx.view as any).dom = document.createElement("div");
+
+            const badge = lastBadge(ctx.badges, "R30.00");
+            press(badge, 400, 300);
+            // offset (520, 300) -> uv (120, 0): vector (100, -10) from the center (20, 10)
+            move(520, 300);
+            release(520, 300);
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "vector", dx: 100, dy: -10 });
+            editor.exit();
+        } finally {
+            ctx.restoreFactory();
         }
     });
 });

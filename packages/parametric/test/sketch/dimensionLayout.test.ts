@@ -68,6 +68,15 @@ describe("distanceDimension", () => {
         expect(geometry.segments[2][1]).toBe(-10);
     });
 
+    test("negative offset keeps the extension lines on the same side — no crossing", () => {
+        const geometry = distanceDimension([0, 0], [10, 0], -10, PX)!;
+        for (const index of [0, 1]) {
+            const [, ey1, , ey2] = geometry.segments[index];
+            expect(ey1).toBeCloseTo(-1.5, 9); // gap starts below the point
+            expect(ey2).toBeLessThan(-10); // overshoots the dimension line below
+        }
+    });
+
     test("returns undefined for a degenerate segment or zero pixel size", () => {
         expect(distanceDimension([1, 1], [1, 1], 4, PX)).toBeUndefined();
         expect(distanceDimension([0, 0], [10, 0], 4, 0)).toBeUndefined();
@@ -112,9 +121,11 @@ describe("radiusDimension", () => {
 });
 
 describe("toDisplayDatum / toStorageDatum", () => {
-    test("angles convert between radians and degrees", () => {
+    test("angles convert between radians and degrees, displaying the magnitude", () => {
         expect(toDisplayDatum(ConstraintKind.Angle, Math.PI)).toBeCloseTo(180, 9);
         expect(toStorageDatum(ConstraintKind.Angle, 180)).toBeCloseTo(Math.PI, 9);
+        // the stored sweep is signed (sign = side); the UI shows its magnitude
+        expect(toDisplayDatum(ConstraintKind.Angle, -Math.PI / 4)).toBeCloseTo(45, 9);
     });
 
     test("point-line distance flips sign between UI and storage", () => {
@@ -234,6 +245,18 @@ describe("pointLineDistanceDimension", () => {
 
     test("returns undefined when the point is on the line", () => {
         expect(pointLineDistanceDimension([5, 0], [0, 0], [10, 0], 20, 1)).toBeUndefined();
+    });
+
+    test("negative offset keeps the extension lines on the same side — no crossing", () => {
+        // foot = (0,0), direction p→foot = (0,-1), normal = (1,0); offset -20 puts
+        // the dimension line at x = -20
+        const geometry = pointLineDistanceDimension([0, 10], [0, 0], [10, 0], -20, 1)!;
+        expect(geometry.segments[2]).toEqual([-20, 10, -20, 0]);
+        for (const index of [0, 1]) {
+            const segment = geometry.segments[index];
+            expect(segment[0]).toBeCloseTo(-3, 9); // gap starts left of the point/foot
+            expect(segment[2]).toBeLessThan(-20); // overshoots the dimension line
+        }
     });
 
     test("returns undefined for a degenerate line", () => {

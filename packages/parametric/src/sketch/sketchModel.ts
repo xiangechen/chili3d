@@ -65,6 +65,49 @@ export function nextSketchId(items: ReadonlyArray<{ id: number }>): number {
     return items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
 }
 
+/**
+ * Reserved entity ids for the sketch datum: the origin point and the X/Y axis
+ * lines. Real entity ids start at 1 (`nextSketchId`), so negatives never clash.
+ * Datum entities live only in the solver — never serialized as entities, never
+ * rendered as sketch geometry — but constraints may reference them and are
+ * serialized as ordinary `SketchConstraintData`.
+ */
+export const SKETCH_ORIGIN_ID = -1;
+export const SKETCH_X_AXIS_ID = -2;
+export const SKETCH_Y_AXIS_ID = -3;
+
+export function isDatumEntityId(id: number): boolean {
+    return id === SKETCH_ORIGIN_ID || id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID;
+}
+
+/** Point ref of the sketch origin (0, 0). */
+export function originRef(): SketchPointRef {
+    return { entityId: SKETCH_ORIGIN_ID, pointIndex: 0 };
+}
+
+/** The two point refs addressing a datum axis as a line (pointIndex 0/1). */
+export function axisLineRefs(axisId: number): [SketchPointRef, SketchPointRef] {
+    return [
+        { entityId: axisId, pointIndex: 0 },
+        { entityId: axisId, pointIndex: 1 },
+    ];
+}
+
+/** Fixed (u, v) coordinates of a datum point ref. */
+export function datumPoint(ref: SketchPointRef): [number, number] {
+    if (ref.entityId === SKETCH_ORIGIN_ID) return [0, 0];
+    if (ref.entityId === SKETCH_X_AXIS_ID) return ref.pointIndex === 0 ? [0, 0] : [1, 0];
+    if (ref.entityId === SKETCH_Y_AXIS_ID) return ref.pointIndex === 0 ? [0, 0] : [0, 1];
+    throw new Error(`Not a datum entity: ${ref.entityId}`);
+}
+
+/** Synthetic entity data of a datum axis line, for meshes and type checks. */
+export function datumEntityData(id: number): SketchEntityData {
+    if (id === SKETCH_X_AXIS_ID) return { id, type: "line", params: [0, 0, 1, 0] };
+    if (id === SKETCH_Y_AXIS_ID) return { id, type: "line", params: [0, 0, 0, 1] };
+    throw new Error(`Not a datum axis: ${id}`);
+}
+
 /** Stable string key of a point ref, for grouping/dedup. */
 export function pointRefKey(ref: SketchPointRef): string {
     return `${ref.entityId}:${ref.pointIndex}`;

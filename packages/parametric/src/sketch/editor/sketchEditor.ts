@@ -37,6 +37,8 @@ export type SketchPickPreview = (uv: [number, number] | undefined) => void;
 interface PickRequest {
     kind: SketchPickKind;
     entityType?: SketchEntityTypeFilter;
+    /** Entity picks only: also allow picking the datum X/Y axes. */
+    datum?: boolean;
     preview?: SketchPickPreview;
     resolve: (value: any) => void;
 }
@@ -126,6 +128,7 @@ export class SketchEditor implements IDisposable {
             this.dimensionAnchors,
             (ids) => this.eventHandler.highlightConstraintEntities(ids),
             (id) => this.editDatum(id),
+            () => this.commit(),
         );
         node.onPropertyChanged(this.onNodeDataChanged);
         this.solve(true);
@@ -176,21 +179,30 @@ export class SketchEditor implements IDisposable {
 
     /** The pending pick request, used by the event handler for hover feedback. */
     get activePick():
-        | { kind: SketchPickKind; entityType?: SketchEntityTypeFilter; preview?: SketchPickPreview }
+        | {
+              kind: SketchPickKind;
+              entityType?: SketchEntityTypeFilter;
+              datum?: boolean;
+              preview?: SketchPickPreview;
+          }
         | undefined {
         return this.pickRequest;
     }
 
     pickPoint(prompt: I18nKeys, preview?: SketchPickPreview): Promise<SketchPointRef | undefined> {
-        return this.startPick("point", prompt, undefined, preview);
+        return this.startPick("point", prompt, undefined, undefined, preview);
     }
 
-    pickEntity(prompt: I18nKeys, type?: SketchEntityTypeFilter): Promise<number | undefined> {
-        return this.startPick("entity", prompt, type);
+    pickEntity(
+        prompt: I18nKeys,
+        type?: SketchEntityTypeFilter,
+        options?: { datum?: boolean },
+    ): Promise<number | undefined> {
+        return this.startPick("entity", prompt, type, options?.datum);
     }
 
     pickPosition(prompt: I18nKeys, preview?: SketchPickPreview): Promise<[number, number] | undefined> {
-        return this.startPick("position", prompt, undefined, preview);
+        return this.startPick("position", prompt, undefined, undefined, preview);
     }
 
     cancelPick(): void {
@@ -217,7 +229,7 @@ export class SketchEditor implements IDisposable {
         if (request.kind === "point") {
             value = this.eventHandler.hitTestPoint(view, event);
         } else if (request.kind === "entity") {
-            value = this.eventHandler.hitTestEntity(view, event, request.entityType);
+            value = this.eventHandler.hitTestEntity(view, event, request.entityType, request.datum ?? false);
         } else {
             value = this.eventHandler.pointerToUV(view, event);
         }
@@ -438,12 +450,13 @@ export class SketchEditor implements IDisposable {
         kind: SketchPickKind,
         prompt: I18nKeys,
         entityType?: SketchEntityTypeFilter,
+        datum?: boolean,
         preview?: SketchPickPreview,
     ): Promise<T> {
         this.cancelPick();
         PubSub.default.pub("statusBarTip", prompt);
         return new Promise<T>((resolve) => {
-            this.pickRequest = { kind, entityType, preview, resolve };
+            this.pickRequest = { kind, entityType, datum, preview, resolve };
             this.annotations.suppressConstraintSymbols = true;
         });
     }

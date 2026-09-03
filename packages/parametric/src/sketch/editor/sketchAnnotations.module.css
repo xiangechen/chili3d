@@ -3,9 +3,9 @@
     font-size: 12px;
     line-height: 1.4;
     padding: 1px 6px;
-    color: #7fd4ff;
+    color: #00e5ff;
     background-color: rgba(20, 24, 32, 0.75);
-    border: 1px solid rgba(127, 212, 255, 0.5);
+    border: 1px solid rgba(0, 229, 255, 0.4);
     border-radius: 8px;
     white-space: nowrap;
     pointer-events: auto;
@@ -13,13 +13,23 @@
 }
 
 .badge:hover {
-    background-color: rgba(60, 90, 120, 0.85);
-    border-color: #7fd4ff;
+    background-color: rgba(30, 60, 70, 0.85);
+    border-color: #00e5ff;
 }
 
 .selected {
     color: #33ff33;
     border-color: #33ff33;
+}
+
+/* datum dimension labels can be dragged to reposition the dimension */
+.draggable {
+    cursor: grab;
+    touch-action: none;
+}
+
+.draggable:active {
+    cursor: grabbing;
 }
 
 .preview {

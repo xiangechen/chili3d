@@ -12,6 +12,10 @@ import {
 } from "@chili3d/core";
 import {
     arcAngles,
+    isDatumEntityId,
+    originRef,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
@@ -24,6 +28,8 @@ import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
 
 const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
+const DATUM_X_AXIS_COLOR = 0xcc5555;
+const DATUM_Y_AXIS_COLOR = 0x55aa55;
 
 /**
  * Viewport event handler active while a sketch is being edited:
@@ -41,8 +47,61 @@ export class SketchEventHandler implements IEventHandler {
     private readonly selectedEntities = new Set<number>();
     private selectionMeshId?: number;
     private constraintMeshId?: number;
+    private datumDisplayId?: number;
 
-    constructor(private readonly editor: SketchEditor) {}
+    constructor(private readonly editor: SketchEditor) {
+        this.showDatum();
+    }
+
+    /** Session-persistent origin marker and dashed X/Y axis lines. */
+    private showDatum(): void {
+        const view = this.editor.document.application.activeView;
+        if (view === undefined) return;
+        const half = this.datumHalfLength();
+        const plane = this.editor.node.plane;
+        this.datumDisplayId = view.document.visual.context.displayMesh([
+            MeshDataUtils.createEdgeMesh(
+                toWorld(plane, -half, 0),
+                toWorld(plane, half, 0),
+                DATUM_X_AXIS_COLOR,
+                "dash",
+            ),
+            MeshDataUtils.createEdgeMesh(
+                toWorld(plane, 0, -half),
+                toWorld(plane, 0, half),
+                DATUM_Y_AXIS_COLOR,
+                "dash",
+            ),
+            MeshDataUtils.createVertexMesh(
+                toWorld(plane, 0, 0),
+                VisualConfig.editVertexSize,
+                DATUM_X_AXIS_COLOR,
+            ),
+        ]);
+    }
+
+    /** Half-length of the drawn axis lines: 1.5× the sketch extent, at least 100, and always spanning the visible viewport. */
+    private datumHalfLength(): number {
+        let extent = 0;
+        for (const entity of this.editor.solver.entities()) {
+            const p = entity.params;
+            if (entity.type === "circle") {
+                extent = Math.max(extent, Math.abs(p[0]) + p[2], Math.abs(p[1]) + p[2]);
+            } else {
+                for (let i = 0; i + 1 < p.length; i += 2) {
+                    extent = Math.max(extent, Math.abs(p[i]), Math.abs(p[i + 1]));
+                }
+            }
+        }
+        // axes read as infinite construction lines when they reach past the viewport
+        const view = this.editor.document.application.activeView;
+        let visible = 0;
+        if (view !== undefined) {
+            const px = worldPerPixel(view, this.editor.node.plane, view.width / 2, view.height / 2);
+            visible = px === undefined ? 0 : (px * Math.hypot(view.width, view.height)) / 2;
+        }
+        return Math.max(100, extent * 1.5, visible);
+    }
 
     pointerToUV(view: IView, event: PointerEvent): [number, number] | undefined {
         const point = this.editor.node.plane.intersectRay(view.rayAt(event.offsetX, event.offsetY));
@@ -66,10 +125,21 @@ export class SketchEventHandler implements IEventHandler {
                 }
             }
         }
+        // the origin is always a pickable datum point; real points win ties
+        const originScreen = view.worldToScreen(toWorld(plane, 0, 0));
+        const originDistance = Math.hypot(originScreen.x - event.offsetX, originScreen.y - event.offsetY);
+        if (originDistance < bestDistance) {
+            best = originRef();
+        }
         return best;
     }
 
-    hitTestEntity(view: IView, event: PointerEvent, type?: SketchEntityTypeFilter): number | undefined {
+    hitTestEntity(
+        view: IView,
+        event: PointerEvent,
+        type?: SketchEntityTypeFilter,
+        datum = false,
+    ): number | undefined {
         const uv = this.pointerToUV(view, event);
         if (uv === undefined) return undefined;
         const tolerance = this.worldTolerance(view, event);
@@ -77,30 +147,32 @@ export class SketchEventHandler implements IEventHandler {
         const types: readonly SketchEntityType[] | undefined =
             type === undefined ? undefined : typeof type === "string" ? [type] : type;
 
-        const solver = this.editor.solver;
         let best: number | undefined;
         let bestDistance = tolerance;
-        for (const entity of solver.entities()) {
-            if (types !== undefined && !types.includes(entity.type)) continue;
-            const [x1, y1, x2, y2] = entity.params;
-            let distance: number;
-            if (entity.type === "line") {
-                distance = pointToSegmentDistance(uv[0], uv[1], x1, y1, x2, y2);
-            } else if (entity.type === "arc") {
-                distance = pointToArcDistance(uv[0], uv[1], entity.params);
-            } else {
-                distance = Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
-            }
+        const consider = (id: number, distance: number) => {
             if (distance < bestDistance) {
                 bestDistance = distance;
-                best = entity.id;
+                best = id;
             }
+        };
+        for (const entity of this.editor.solver.entities()) {
+            if (types !== undefined && !types.includes(entity.type)) continue;
+            consider(entity.id, entityDistance(uv, entity));
+        }
+        // datum axes are infinite lines, pickable only when the pick opts in;
+        // checked last so real geometry wins ties (e.g. a line lying on an axis)
+        if (datum && (types === undefined || types.includes("line"))) {
+            consider(SKETCH_X_AXIS_ID, Math.abs(uv[1]));
+            consider(SKETCH_Y_AXIS_ID, Math.abs(uv[0]));
         }
         return best;
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
         if (!this.isEnabled) return;
+        // a dimension label drag is tracked on window by the annotation manager;
+        // the viewport must not run its hover/drag logic alongside it
+        if (this.editor.annotations.isLabelDragging) return;
         // events over an annotation badge carry badge-relative offsets; ignoring
         // them keeps the hover alive instead of clearing it with garbage uv
         if (isBadgeEventTarget(event.target)) return;
@@ -122,6 +194,11 @@ export class SketchEventHandler implements IEventHandler {
 
     pointerDown(view: IView, event: PointerEvent): void {
         if (!this.isEnabled) return;
+        // a click while a dimension label follows the cursor drops it here
+        if (this.editor.annotations.isLabelDragging) {
+            this.editor.annotations.endLabelDrag(true);
+            return;
+        }
         // pick handling first: a right-click must be able to cancel an active pick
         if (this.editor.handlePickPointerDown(view, event)) {
             // the pick consumed the click; drop the pre-click hover highlight and
@@ -134,7 +211,8 @@ export class SketchEventHandler implements IEventHandler {
         if (event.button !== 0) return;
 
         const ref = this.hitTestPoint(view, event);
-        if (ref !== undefined) {
+        // the datum origin is pickable for constraints but never draggable
+        if (ref !== undefined && !isDatumEntityId(ref.entityId)) {
             this.beginPointDrag(view, ref);
             return;
         }
@@ -192,9 +270,11 @@ export class SketchEventHandler implements IEventHandler {
         this.handleDelete(view, event);
     }
 
-    /** Escape peels off one layer at a time: pick, constraint selection, entity selection, session. */
+    /** Escape peels off one layer at a time: label placement, pick, constraint selection, entity selection, session. */
     private handleEscape(view: IView): void {
-        if (this.editor.isPicking) {
+        if (this.editor.annotations.isLabelDragging) {
+            this.editor.annotations.cancelLabelDrag();
+        } else if (this.editor.isPicking) {
             this.editor.cancelPick();
         } else if (this.editor.annotations.selectedConstraintIds.length > 0) {
             this.editor.annotations.clearConstraintSelection();
@@ -211,6 +291,12 @@ export class SketchEventHandler implements IEventHandler {
         // leaving the editor drawing into an invisible orphan
         event.stopImmediatePropagation();
         if (this.editor.isPicking || this.draggingRef !== undefined) return;
+        // a label being placed follows the cursor — it is the delete target
+        const draggingLabel = this.editor.annotations.draggingLabelId;
+        if (draggingLabel !== undefined) {
+            this.editor.deleteConstraints([draggingLabel]);
+            return;
+        }
         const hoveredConstraint = this.editor.annotations.hoveredConstraintId;
         if (hoveredConstraint !== undefined) {
             this.editor.deleteConstraints([hoveredConstraint]);
@@ -222,7 +308,10 @@ export class SketchEventHandler implements IEventHandler {
             return;
         }
         const hovered = this.hoveredEntityId();
-        const ids = hovered !== undefined ? [hovered] : [...this.selectedEntities];
+        const ids = (hovered !== undefined ? [hovered] : [...this.selectedEntities]).filter(
+            // the datum can be hovered through the origin point but never deleted
+            (id) => !isDatumEntityId(id),
+        );
         if (ids.length === 0) return;
         this.clearHover(view);
         this.clearSelection(view);
@@ -243,6 +332,19 @@ export class SketchEventHandler implements IEventHandler {
                 .entities()
                 .filter((entity) => entityIds.includes(entity.id))
                 .map((entity) => sketchEntityMesh(this.editor, entity));
+            for (const id of entityIds) {
+                if (id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID) {
+                    meshes.push(this.datumAxisMesh(id, VisualConfig.highlightEdgeColor));
+                } else if (isDatumEntityId(id)) {
+                    meshes.push(
+                        MeshDataUtils.createVertexMesh(
+                            toWorld(this.editor.node.plane, 0, 0),
+                            VisualConfig.editVertexSize,
+                            VisualConfig.highlightEdgeColor,
+                        ),
+                    );
+                }
+            }
             if (meshes.length > 0) {
                 this.constraintMeshId = view.document.visual.context.displayMesh(meshes);
             }
@@ -265,6 +367,10 @@ export class SketchEventHandler implements IEventHandler {
             this.clearDragPreview(view);
             this.clearSelectionHighlight(view);
             this.clearConstraintHighlight(view);
+            if (this.datumDisplayId !== undefined) {
+                view.document.visual.context.removeMesh(this.datumDisplayId);
+                this.datumDisplayId = undefined;
+            }
         }
         this.selectedEntities.clear();
         this.draggingRef = undefined;
@@ -310,13 +416,28 @@ export class SketchEventHandler implements IEventHandler {
         }
 
         if (pick === undefined || pick.kind === "entity") {
-            const entityId = this.hitTestEntity(view, event, pick?.entityType);
+            const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
+            if (entityId !== undefined && isDatumEntityId(entityId)) {
+                return {
+                    key: `entity:${entityId}`,
+                    mesh: this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor),
+                };
+            }
             const entity = entityId === undefined ? undefined : this.editor.solver.entity(entityId);
             if (entity !== undefined) {
                 return { key: `entity:${entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
             }
         }
         return {};
+    }
+
+    /** Full-length dashed axis line used for datum hover/constraint highlight. */
+    private datumAxisMesh(axisId: number, color: number): ShapeMeshData {
+        const half = this.datumHalfLength();
+        const plane = this.editor.node.plane;
+        return axisId === SKETCH_X_AXIS_ID
+            ? MeshDataUtils.createEdgeMesh(toWorld(plane, -half, 0), toWorld(plane, half, 0), color, "dash")
+            : MeshDataUtils.createEdgeMesh(toWorld(plane, 0, -half), toWorld(plane, 0, half), color, "dash");
     }
 
     /**
@@ -467,6 +588,14 @@ function arcSegmentMesh(
         position.set([p0.x, p0.y, p0.z, p1.x, p1.y, p1.z], i * 6);
     }
     return { position, range: [], color, lineType: "solid" };
+}
+
+/** uv distance to an entity's curve: segment, arc sweep, or circle circumference. */
+function entityDistance(uv: [number, number], entity: SketchEntityData): number {
+    const [x1, y1, x2, y2] = entity.params;
+    if (entity.type === "line") return pointToSegmentDistance(uv[0], uv[1], x1, y1, x2, y2);
+    if (entity.type === "arc") return pointToArcDistance(uv[0], uv[1], entity.params);
+    return Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
 }
 
 function pointToSegmentDistance(

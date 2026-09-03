@@ -2,7 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
-import { ConstraintKind, type SketchPointRef } from "../../src/sketch/sketchModel";
+import {
+    axisLineRefs,
+    ConstraintKind,
+    originRef,
+    SKETCH_ORIGIN_ID,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
+    type SketchPointRef,
+} from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
@@ -1001,6 +1009,260 @@ describe("SketchSolver", () => {
                     ],
                 }),
             ).toThrow(/is not a circle/);
+            solver.dispose();
+        });
+    });
+
+    describe("datum (origin and axes)", () => {
+        test("seeding keeps an empty sketch at zero dofs and out of entities()/toData()", () => {
+            const solver = new SketchSolver(Plane.XY);
+            expect(solver.dofs()).toBe(0);
+            expect(solver.entities()).toEqual([]);
+            const data = solver.toData();
+            expect(data.entities).toEqual([]);
+            expect(data.constraints).toEqual([]);
+            solver.dispose();
+        });
+
+        test("datum refs resolve to fixed coordinates", () => {
+            const solver = new SketchSolver(Plane.XY);
+            expect(solver.pointOf(originRef())).toEqual([0, 0]);
+            expect(solver.pointOf({ entityId: SKETCH_X_AXIS_ID, pointIndex: 1 })).toEqual([1, 0]);
+            expect(solver.pointOf({ entityId: SKETCH_Y_AXIS_ID, pointIndex: 1 })).toEqual([0, 1]);
+            expect(solver.entity(SKETCH_X_AXIS_ID)).toEqual({
+                id: SKETCH_X_AXIS_ID,
+                type: "line",
+                params: [0, 0, 1, 0],
+            });
+            expect(solver.entity(SKETCH_ORIGIN_ID)).toBeUndefined();
+            solver.dispose();
+        });
+
+        test("coincident with the origin pulls the point to (0, 0)", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(5, 5, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: line, pointIndex: 0 }, originRef()],
+            });
+            const outcome = solver.solve(true);
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            const [u, v] = solver.pointOf({ entityId: line, pointIndex: 0 });
+            expect(u).toBeCloseTo(0, 6);
+            expect(v).toBeCloseTo(0, 6);
+            solver.dispose();
+        });
+
+        test("pointOnLine with a datum axis pulls the point onto the axis", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(5, 5, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [{ entityId: line, pointIndex: 0 }, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+            });
+            const outcome = solver.solve(true);
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            const [, v] = solver.pointOf({ entityId: line, pointIndex: 0 });
+            expect(v).toBeCloseTo(0, 6);
+            solver.dispose();
+        });
+
+        test("symmetric about the Y axis mirrors the two points", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(2, 3, 6, 3);
+            solver.addConstraint({
+                kind: ConstraintKind.Symmetric,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                    ...axisLineRefs(SKETCH_Y_AXIS_ID),
+                ],
+            });
+            const outcome = solver.solve(true);
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            const [x1, y1] = solver.pointOf({ entityId: line, pointIndex: 0 });
+            const [x2, y2] = solver.pointOf({ entityId: line, pointIndex: 1 });
+            expect(x1).toBeCloseTo(-x2, 6);
+            expect(y1).toBeCloseTo(y2, 6);
+            solver.dispose();
+        });
+
+        test("horizontal distance from the origin measures the signed x coordinate", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(7, 3, 20, 5);
+            solver.addConstraint({
+                kind: ConstraintKind.HorizontalDistance,
+                refs: [originRef(), { entityId: line, pointIndex: 0 }],
+            });
+            const outcome = solver.solve(true);
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            const data = solver.toData();
+            expect(data.constraints[0].datum).toBeCloseTo(7, 6);
+            solver.dispose();
+        });
+
+        test("datum constraints survive a toData/loadData round trip", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(5, 5, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: line, pointIndex: 0 }, originRef()],
+            });
+            solver.solve(true);
+
+            const restored = new SketchSolver(Plane.XY, solver.toData());
+            try {
+                const [u, v] = restored.pointOf({ entityId: line, pointIndex: 0 });
+                expect(u).toBeCloseTo(0, 6);
+                expect(v).toBeCloseTo(0, 6);
+                expect(restored.toData().constraints[0].refs).toEqual([
+                    { entityId: line, pointIndex: 0 },
+                    originRef(),
+                ]);
+            } finally {
+                restored.dispose();
+                solver.dispose();
+            }
+        });
+
+        test("datum refs never join a coincident group or a drag", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(5, 5, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: line, pointIndex: 0 }, originRef()],
+            });
+            solver.solve(true);
+
+            expect(solver.coincidentGroup({ entityId: line, pointIndex: 0 })).toEqual([
+                { entityId: line, pointIndex: 0 },
+            ]);
+
+            // dragging the point snaps it back to the origin on the final solve
+            solver.beginDrag([{ entityId: line, pointIndex: 0 }]);
+            solver.dragTo({ entityId: line, pointIndex: 0 }, 8, 4);
+            const outcome = solver.endDrag();
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            const [u, v] = solver.pointOf({ entityId: line, pointIndex: 0 });
+            expect(u).toBeCloseTo(0, 6);
+            expect(v).toBeCloseTo(0, 6);
+            // and the origin itself never moved
+            expect(solver.pointOf(originRef())).toEqual([0, 0]);
+            solver.dispose();
+        });
+
+        test("the datum cannot be moved or removed", () => {
+            const solver = new SketchSolver(Plane.XY);
+            expect(() => solver.setPointPosition(originRef(), 1, 1)).toThrow(/datum/);
+            expect(() => solver.removeEntity(SKETCH_ORIGIN_ID)).toThrow(/datum/);
+            expect(() => solver.removeEntity(SKETCH_X_AXIS_ID)).toThrow(/datum/);
+            solver.dispose();
+        });
+    });
+
+    describe("drag projection and incidence repair", () => {
+        test("dragTo slides an axis-constrained point along the axis", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(10, 5, 60, 5);
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [{ entityId: line, pointIndex: 1 }, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+            });
+            solver.solve(true);
+
+            const ref = { entityId: line, pointIndex: 1 };
+            solver.beginDrag([ref]);
+            solver.dragTo(ref, -500, 42);
+            const [u, v] = solver.pointOf(ref);
+            expect(u).toBeCloseTo(-500, 6);
+            expect(v).toBeCloseTo(0, 6);
+            const outcome = solver.endDrag();
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            expect(solver.pointOf(ref)[1]).toBeCloseTo(0, 6);
+            solver.dispose();
+        });
+
+        test("large drag jumps never leave a constrained point off its axis", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(10, 5, 60, 5);
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [{ entityId: line, pointIndex: 1 }, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+            });
+            solver.solve(true);
+
+            const ref = { entityId: line, pointIndex: 1 };
+            solver.beginDrag([ref]);
+            // fast mouse flicks: far-left jumps with large vertical noise
+            for (const [u, v] of [
+                [-800, 300],
+                [-2000, -750],
+                [-80109, 5],
+                [-40, 12],
+            ] as const) {
+                const outcome = solver.dragTo(ref, u, v);
+                expect(outcome.result.startsWith("Ok")).toBe(true);
+                expect(solver.pointOf(ref)[1]).toBeCloseTo(0, 6);
+            }
+            const outcome = solver.endDrag();
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            expect(solver.pointOf(ref)[1]).toBeCloseTo(0, 6);
+            solver.dispose();
+        });
+
+        test("a fine solve heals a point left far off its incidence line", () => {
+            // a sketch saved mid-drift: the point is far off the axis it is pinned to
+            const solver = new SketchSolver(Plane.XY, {
+                entities: [{ id: 1, type: "line", params: [-1050, 0, -1000, 5] }],
+                constraints: [
+                    {
+                        id: 1,
+                        kind: ConstraintKind.PointOnLine,
+                        refs: [{ entityId: 1, pointIndex: 1 }, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+                    },
+                ],
+            });
+            try {
+                const [u, v] = solver.pointOf({ entityId: 1, pointIndex: 1 });
+                // 沿线方向是自由自由度，求解器的信赖域首步允许 x 有微小漂移；
+                // v 的精度下限受 PointOnLine 的 s² 行缩放制约：远端 L≈10³ 时
+                // 物理残差地板 ≈ tol_r·L² ≈ 1e-4（与 INCIDENCE_TOLERANCE 同量级）
+                expect(Math.abs(u + 1000)).toBeLessThan(0.05);
+                expect(v).toBeCloseTo(0, 4);
+                expect(solver.solve(true).result.startsWith("Ok")).toBe(true);
+            } finally {
+                solver.dispose();
+            }
+        });
+
+        test("a far drag keeps a point on its fully pinned circle", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const circle = solver.addCircle(0, 0, 10);
+            const line = solver.addLine(10, 0, 20, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: circle, pointIndex: 0 }],
+                datum: 10,
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: circle, pointIndex: 0 }, originRef()],
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnCircle,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: circle, pointIndex: 0 },
+                ],
+            });
+            solver.solve(true);
+
+            const ref = { entityId: line, pointIndex: 0 };
+            solver.beginDrag([ref]);
+            solver.dragTo(ref, -400, 300);
+            const outcome = solver.endDrag();
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            expect(Math.hypot(...solver.pointOf(ref))).toBeCloseTo(10, 6);
             solver.dispose();
         });
     });

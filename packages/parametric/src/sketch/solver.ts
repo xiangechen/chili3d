@@ -6,8 +6,14 @@ import type { WasmSystem } from "../../lib/garlic";
 import { newGarlicSystem } from "./garlic";
 import {
     ConstraintKind,
+    datumEntityData,
+    datumPoint,
+    isDatumEntityId,
     nextSketchId,
     pointRefKey,
+    SKETCH_ORIGIN_ID,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
@@ -25,6 +31,22 @@ function findRoot(parent: Map<string, string>, key: string): string {
 
 const PARAM_KIND_COORDINATE = 0;
 const PARAM_KIND_LENGTH = 1;
+
+/** Residual beyond which a fine solve's incidence violation is repaired by projection. */
+const INCIDENCE_TOLERANCE = 1e-4;
+
+function projectOntoCircle(
+    center: [number, number],
+    radius: number,
+    u: number,
+    v: number,
+): [number, number] | undefined {
+    const dx = u - center[0];
+    const dy = v - center[1];
+    const distance = Math.hypot(dx, dy);
+    if (distance < 1e-12) return undefined;
+    return [center[0] + (dx / distance) * radius, center[1] + (dy / distance) * radius];
+}
 
 /** garlic param kinds per entity type: line = 2 points, circle = center + radius, arc = 3 points. */
 const ENTITY_PARAM_KINDS: Record<SketchEntityType, number[]> = {
@@ -64,12 +86,17 @@ export class SketchSolver {
     private readonly entityTypes = new Map<number, SketchEntityType>();
     private readonly entityParams = new Map<number, number[]>();
     private readonly constraints = new Map<number, ConstraintRecord>();
+    /** garlic param ids of the datum entities (origin, X/Y axes), keyed by reserved id. */
+    private readonly datumParams = new Map<number, number[]>();
+    /** Internal constraints pinning the datum (never serialized, shown or removable). */
+    private structuralConstraintIds: number[] = [];
     private entityCache = new Map<number, number[]>();
     private draggedParamIds: number[] = [];
 
     constructor(plane: Plane, data?: SketchData) {
         this.plane = plane;
         this.system = newGarlicSystem();
+        this.seedDatum();
         if (data !== undefined) {
             this.loadData(data);
         }
@@ -118,6 +145,9 @@ export class SketchSolver {
 
     /** Removes the entity and every constraint referencing it; returns removed constraint ids. */
     removeEntity(id: number): number[] {
+        if (isDatumEntityId(id)) {
+            throw new Error("The sketch datum cannot be removed");
+        }
         const paramIds = this.entityParams.get(id);
         if (paramIds === undefined) {
             throw new Error(`Unknown sketch entity: ${id}`);
@@ -148,6 +178,9 @@ export class SketchSolver {
 
     /** Moves a point without solving; used by auto-constraint snapping before a solve. */
     setPointPosition(ref: SketchPointRef, u: number, v: number): void {
+        if (isDatumEntityId(ref.entityId)) {
+            throw new Error("The sketch datum cannot be moved");
+        }
         const [xId, yId] = this.pointParamIds(ref);
         this.system.set_param(xId, u);
         this.system.set_param(yId, v);
@@ -165,12 +198,115 @@ export class SketchSolver {
     }
 
     solve(fine: boolean): SolveOutcome {
-        const report = this.system.solve(fine);
+        this.syncAngleDatumSide();
+        let report = this.system.solve(fine);
         this.refreshCache();
+        // A fine solve can silently stall when the geometry starts far off its
+        // constraints (e.g. a sketch saved mid-drift): snap any point left off its
+        // incidence geometry back onto it and re-solve once to heal the state.
+        if (fine && this.repairIncidenceResiduals()) {
+            report = this.system.solve(true);
+            this.refreshCache();
+        }
         return {
             result: typeof report === "string" ? report : String(report?.result),
             dofs: this.system.dofs(),
         };
+    }
+
+    /**
+     * Snaps every point whose incidence constraint (point on line/circle/arc) is
+     * violated beyond tolerance back onto its geometry. Returns whether anything moved.
+     */
+    private repairIncidenceResiduals(): boolean {
+        let repaired = false;
+        for (const record of this.constraints.values()) {
+            const ref = record.refs[0];
+            if (ref === undefined || isDatumEntityId(ref.entityId)) continue;
+            const [u, v] = this.pointOf(ref);
+            const projected = this.projectedIncidence(record, u, v);
+            if (projected === undefined) continue;
+            if (Math.hypot(projected[0] - u, projected[1] - v) <= INCIDENCE_TOLERANCE) continue;
+            this.setPointPosition(ref, projected[0], projected[1]);
+            repaired = true;
+        }
+        return repaired;
+    }
+
+    /** Projects (u, v) onto the line an incidence constraint pins any point of the dragged group to. */
+    private projectOntoIncidence(groupKeys: Set<string>, u: number, v: number): [number, number] {
+        let point: [number, number] = [u, v];
+        for (const record of this.constraints.values()) {
+            // lines only: circles/arcs stay loose during a coarse drag (the fine
+            // solve re-asserts them on pointer-up)
+            if (record.kind !== ConstraintKind.PointOnLine) continue;
+            if (!groupKeys.has(pointRefKey(record.refs[0]))) continue;
+            // self-incidence (the target geometry rides along with the dragged
+            // group) has no fixed manifold to project onto
+            if (record.refs.slice(1).some((r) => groupKeys.has(pointRefKey(r)))) continue;
+            const projected = this.projectedIncidence(record, point[0], point[1]);
+            if (projected !== undefined) point = projected;
+        }
+        return point;
+    }
+
+    /** Nearest position on the geometry an incidence constraint pins its point to. */
+    private projectedIncidence(record: ConstraintRecord, u: number, v: number): [number, number] | undefined {
+        switch (record.kind) {
+            case ConstraintKind.PointOnLine: {
+                const [x1, y1] = this.pointOf(record.refs[1]);
+                const [x2, y2] = this.pointOf(record.refs[2]);
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const lengthSq = dx * dx + dy * dy;
+                if (lengthSq < 1e-12) return undefined;
+                const t = ((u - x1) * dx + (v - y1) * dy) / lengthSq;
+                return [x1 + t * dx, y1 + t * dy];
+            }
+            case ConstraintKind.PointOnCircle: {
+                const radius = this.currentRadius(record.refs[1].entityId);
+                return projectOntoCircle(this.pointOf(record.refs[1]), radius, u, v);
+            }
+            case ConstraintKind.PointOnArc: {
+                const center = this.pointOf(record.refs[1]);
+                const start = this.pointOf(record.refs[2]);
+                const radius = Math.hypot(start[0] - center[0], start[1] - center[1]);
+                return projectOntoCircle(center, radius, u, v);
+            }
+            default:
+                return undefined;
+        }
+    }
+
+    /**
+     * Angle datums are signed: the sign records which side of the first line the
+     * second line sits on (the UI edits only the magnitude). Sync the sign with
+     * the current geometry before solving, so an edit never flips a line across
+     * its reference — and legacy unsigned datums adopt the loaded geometry's side.
+     */
+    private syncAngleDatumSide(): void {
+        for (const [id, record] of this.constraints) {
+            if (record.kind !== ConstraintKind.Angle || record.datumParamIds === undefined) continue;
+            const sweep = this.currentSweep(record.refs);
+            // ambiguous at 0°/180° — leave the datum sign alone
+            if (Math.abs(sweep) < 1e-9 || Math.abs(Math.PI - Math.abs(sweep)) < 1e-9) continue;
+            const datum = Number(this.system.get_params(new Uint32Array(record.datumParamIds))[0]);
+            if (datum !== 0 && sweep * datum < 0) this.setDatum(id, -datum);
+        }
+    }
+
+    /** Signed sweep (radians) from the first line's direction to the second's. */
+    private currentSweep(refs: readonly SketchPointRef[]): number {
+        const [x1, y1] = this.pointOf(refs[0]);
+        const [x2, y2] = this.pointOf(refs[1]);
+        const [x3, y3] = this.pointOf(refs[2]);
+        const [x4, y4] = this.pointOf(refs[3]);
+        const d1x = x2 - x1;
+        const d1y = y2 - y1;
+        const d2x = x4 - x3;
+        const d2y = y4 - y3;
+        if (Math.hypot(d1x, d1y) < 1e-12 || Math.hypot(d2x, d2y) < 1e-12) return 0;
+        return Math.atan2(d1x * d2y - d1y * d2x, d1x * d2x + d1y * d2y);
     }
 
     dofs(): number {
@@ -185,14 +321,16 @@ export class SketchSolver {
         }));
     }
 
-    /** Current data of one entity, or undefined when unknown. */
+    /** Current data of one entity, or undefined when unknown. Datum axes answer synthetic line data. */
     entity(id: number): SketchEntityData | undefined {
+        if (id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID) return datumEntityData(id);
         const type = this.entityTypes.get(id);
         const params = this.entityCache.get(id);
         return type === undefined || params === undefined ? undefined : { id, type, params: [...params] };
     }
 
     pointOf(ref: SketchPointRef): [number, number] {
+        if (isDatumEntityId(ref.entityId)) return datumPoint(ref);
         const [x, y] = this.pointCacheIndices(ref);
         const params = this.entityCache.get(ref.entityId)!;
         return [params[x], params[y]];
@@ -216,7 +354,8 @@ export class SketchSolver {
     /**
      * All point refs coincident-linked to `ref` (including `ref` itself).
      * Coincident constraints merge points conceptually; garlic keeps separate params,
-     * so drag operations must move the whole group.
+     * so drag operations must move the whole group. Datum refs never join a group —
+     * the datum must not be dragged.
      */
     coincidentGroup(ref: SketchPointRef): SketchPointRef[] {
         const parent = this.coincidentParentMap();
@@ -229,6 +368,7 @@ export class SketchSolver {
         for (const record of this.constraints.values()) {
             if (record.kind !== ConstraintKind.P2PCoincident) continue;
             for (const r of record.refs) {
+                if (isDatumEntityId(r.entityId)) continue;
                 if (
                     findRoot(parent, pointRefKey(r)) === root &&
                     !group.some((g) => pointRefKey(g) === pointRefKey(r))
@@ -240,11 +380,12 @@ export class SketchSolver {
         return group;
     }
 
-    /** Union-find parent map over all coincident-linked point refs. */
+    /** Union-find parent map over all coincident-linked point refs (datum refs excluded). */
     private coincidentParentMap(): Map<string, string> {
         const parent = new Map<string, string>();
         for (const record of this.constraints.values()) {
             if (record.kind !== ConstraintKind.P2PCoincident || record.refs.length !== 2) continue;
+            if (record.refs.some((r) => isDatumEntityId(r.entityId))) continue;
             const a = pointRefKey(record.refs[0]);
             const b = pointRefKey(record.refs[1]);
             if (!parent.has(a)) parent.set(a, a);
@@ -258,6 +399,7 @@ export class SketchSolver {
         const paramIds = new Set<number>();
         for (const ref of refs) {
             for (const r of this.coincidentGroup(ref)) {
+                if (isDatumEntityId(r.entityId)) continue;
                 for (const id of this.pointParamIds(r)) {
                     paramIds.add(id);
                 }
@@ -268,10 +410,17 @@ export class SketchSolver {
     }
 
     dragTo(ref: SketchPointRef, u: number, v: number): SolveOutcome {
-        for (const r of this.coincidentGroup(ref)) {
+        const group = this.coincidentGroup(ref).filter((r) => !isDatumEntityId(r.entityId));
+        const groupKeys = new Set(group.map(pointRefKey));
+        // A point pinned onto a line slides along it instead of following the raw
+        // cursor: garlic's coarse solve does not converge from far off-manifold
+        // positions, which would leave the point drifting off its constraint and
+        // eventually surface as a bogus "Conflicting" report.
+        const [pu, pv] = this.projectOntoIncidence(groupKeys, u, v);
+        for (const r of group) {
             const [xId, yId] = this.pointParamIds(r);
-            this.system.set_param(xId, u);
-            this.system.set_param(yId, v);
+            this.system.set_param(xId, pu);
+            this.system.set_param(yId, pv);
         }
         return this.solve(false);
     }
@@ -317,7 +466,40 @@ export class SketchSolver {
         this.constraints.clear();
         this.entityCache.clear();
         this.draggedParamIds = [];
+        this.seedDatum();
         this.loadData(data);
+    }
+
+    /**
+     * Creates the datum entities (origin at (0,0), X axis (0,0)-(1,0), Y axis
+     * (0,0)-(0,1)) as garlic params under reserved negative ids, each point pinned
+     * by an internal Fix constraint. Net dofs contribution is zero; the structural
+     * constraints stay out of `this.constraints`, so they are never serialized,
+     * annotated or removable.
+     */
+    private seedDatum(): void {
+        this.datumParams.clear();
+        this.structuralConstraintIds = [];
+        const seed = (entityId: number, coords: number[]) => {
+            const kinds = new Uint8Array(coords.length).fill(PARAM_KIND_COORDINATE);
+            const ids = Array.from(this.system.add_params(kinds, new Float64Array(coords)));
+            this.datumParams.set(entityId, ids);
+            for (let i = 0; i < ids.length; i += 2) {
+                const x0 = this.createDatumParam(coords[i]);
+                const y0 = this.createDatumParam(coords[i + 1]);
+                const garlicId = this.system.add_constraint(
+                    ConstraintKind.Fix,
+                    new Uint32Array([ids[i], ids[i + 1], x0, y0]),
+                    null,
+                    true,
+                    0,
+                );
+                this.structuralConstraintIds.push(garlicId);
+            }
+        };
+        seed(SKETCH_ORIGIN_ID, [0, 0]);
+        seed(SKETCH_X_AXIS_ID, [0, 0, 1, 0]);
+        seed(SKETCH_Y_AXIS_ID, [0, 0, 0, 1]);
     }
 
     private registerEntity(type: SketchEntityType, paramIds: number[], id?: number): number {
@@ -510,6 +692,13 @@ export class SketchSolver {
     }
 
     private typedPointParamIds(ref: SketchPointRef, type: SketchEntityType): [number, number] {
+        // datum axes pass as lines; the origin is a bare point and never matches here
+        if (isDatumEntityId(ref.entityId)) {
+            if (type === "line" && ref.entityId !== SKETCH_ORIGIN_ID) {
+                return this.pointParamIds(ref);
+            }
+            throw new Error(`Datum entity ${ref.entityId} is not a ${type}`);
+        }
         if (this.entityTypes.get(ref.entityId) !== type) {
             throw new Error(`Entity ${ref.entityId} is not a ${type}`);
         }
@@ -543,6 +732,10 @@ export class SketchSolver {
     }
 
     private pointParamIds(ref: SketchPointRef): [number, number] {
+        const datum = this.datumParams.get(ref.entityId);
+        if (datum !== undefined) {
+            return [datum[ref.pointIndex * 2], datum[ref.pointIndex * 2 + 1]];
+        }
         const [x, y] = this.pointCacheIndices(ref);
         const params = this.entityParams.get(ref.entityId)!;
         return [params[x], params[y]];
@@ -578,17 +771,9 @@ export class SketchSolver {
         return (dy * (px - x1) - dx * (py - y1)) / length;
     }
 
-    /** Unsigned angle (radians) between the directions of the two referenced lines. */
+    /** Angle magnitude (radians) between the directions of the two referenced lines. */
     private currentAngle(refs: SketchPointRef[]): number {
-        const [x1, y1] = this.pointOf(refs[0]);
-        const [x2, y2] = this.pointOf(refs[1]);
-        const [x3, y3] = this.pointOf(refs[2]);
-        const [x4, y4] = this.pointOf(refs[3]);
-        const d1 = Math.hypot(x2 - x1, y2 - y1);
-        const d2 = Math.hypot(x4 - x3, y4 - y3);
-        if (d1 < 1e-12 || d2 < 1e-12) return 0;
-        const cos = ((x2 - x1) * (x4 - x3) + (y2 - y1) * (y4 - y3)) / (d1 * d2);
-        return Math.acos(Math.max(-1, Math.min(1, cos)));
+        return Math.abs(this.currentSweep(refs));
     }
 
     /** Signed axis distance (axis 0: p2.x − p1.x; axis 1: p2.y − p1.y). */

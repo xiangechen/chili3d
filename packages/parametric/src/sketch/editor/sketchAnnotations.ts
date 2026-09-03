@@ -1,12 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type EdgeMeshData, type IDisposable, type IView, VisualConfig } from "@chili3d/core";
+import type { EdgeMeshData, IDisposable, IView } from "@chili3d/core";
 import {
     ConstraintKind,
     pointRefKey,
     type SketchConstraintData,
     type SketchPointRef,
+    toUV,
     toWorld,
     worldPerPixel,
 } from "../sketchModel";
@@ -53,6 +54,10 @@ const CONSTRAINT_GLYPHS: Partial<Record<ConstraintKind, string>> = {
 const BADGE_OFFSET_PX = 18;
 /** How close the cursor must stay to a visible badge for the entity hover to survive. */
 const BADGE_REACH_PX = 30;
+/** Pointer travel (screen px) before a badge press becomes a label drag. */
+const LABEL_DRAG_THRESHOLD_PX = 4;
+/** Cyan for dimension graphics — green is reserved for hover/selection highlights. */
+const DIMENSION_COLOR = 0x00e5ff;
 
 /**
  * True when a pointer event target is (or is inside) an annotation badge.
@@ -119,8 +124,12 @@ export type DimensionPreview =
  * screen-constant distance from their geometry so they never cover the clickable
  * line/point; the event handler keeps the entity hover alive while the cursor
  * crosses the gap to a badge (`isNearVisibleBadge`). Badges are interactive: hovering
- * one highlights its referenced entities, clicking selects it, selected constraints
- * can be deleted, and double-clicking a datum badge re-opens its value input.
+ * one highlights its referenced entities, clicking a symbol badge selects it,
+ * selected constraints can be deleted, and double-clicking a datum badge re-opens
+ * its value input. Datum badges are repositioned by dragging: either press-drag-release,
+ * or click to pick the label up (it then follows the cursor) and click again —
+ * on the canvas or on the label itself — to drop it; Escape cancels, restoring the
+ * previous anchor. The new anchor is committed (undoable) on drop.
  */
 export class SketchAnnotationManager implements IDisposable {
     private items: IDisposable[] = [];
@@ -134,6 +143,21 @@ export class SketchAnnotationManager implements IDisposable {
     private rebuilding = false;
     private suppressSymbols = false;
     private dimensionPreview?: DimensionPreview;
+    /**
+     * Active datum label drag. `held` tracks the mouse button: a press-drag
+     * commits on release; a click without movement releases the button with
+     * `held = false`, leaving the label following the cursor until the next
+     * click drops it. `original` restores the anchor on cancel.
+     */
+    private labelDrag?: {
+        readonly id: number;
+        readonly startX: number;
+        readonly startY: number;
+        readonly original?: DimensionAnchor;
+        held: boolean;
+        moved: boolean;
+    };
+    private dragCleanup?: () => void;
     private readonly onCameraChanged = () => this.refresh();
 
     constructor(
@@ -142,9 +166,20 @@ export class SketchAnnotationManager implements IDisposable {
         private readonly anchors: Map<number, DimensionAnchor>,
         private readonly onHighlightEntities: (entityIds: number[]) => void = () => {},
         private readonly onEditDatum: (constraintId: number) => void = () => {},
+        private readonly onAnchorDragEnd: (constraintId: number) => void = () => {},
     ) {
         // optional call: mock camera controllers in unit tests may lack the event API
         view.cameraController.onPropertyChanged?.(this.onCameraChanged);
+    }
+
+    /** True while a datum label is being dragged or follows the cursor for placement. */
+    get isLabelDragging(): boolean {
+        return this.labelDrag !== undefined && (this.labelDrag.moved || !this.labelDrag.held);
+    }
+
+    /** Constraint id whose label is being dragged/placed, if any. */
+    get draggingLabelId(): number | undefined {
+        return this.labelDrag?.id;
     }
 
     get hoveredConstraintId(): number | undefined {
@@ -180,6 +215,11 @@ export class SketchAnnotationManager implements IDisposable {
         let changed = false;
         let hoverCleared = false;
         for (const id of constraintIds) {
+            if (this.labelDrag?.id === id) {
+                // the delete flow re-renders via solve — just drop the drag session
+                this.labelDrag = undefined;
+                this.dragCleanup?.();
+            }
             if (this.hoveredConstraint === id) {
                 this.hoveredConstraint = undefined;
                 hoverCleared = true;
@@ -301,6 +341,8 @@ export class SketchAnnotationManager implements IDisposable {
             `${prefix}${value.toFixed(constraint.kind === ConstraintKind.Angle ? 1 : 2)}${suffix}`,
             ...geometry.textPosition,
             constraint,
+            constraint.refs,
+            true,
         );
     }
 
@@ -436,6 +478,7 @@ export class SketchAnnotationManager implements IDisposable {
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
+        this.dragCleanup?.();
         this.view.cameraController.removePropertyChanged?.(this.onCameraChanged);
         this.disposeItems();
     }
@@ -491,7 +534,7 @@ export class SketchAnnotationManager implements IDisposable {
             const p2 = toWorld(this.solver.plane, x2, y2);
             position.set([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z], i * 6);
         });
-        return { position, range: [], color: VisualConfig.highlightEdgeColor, lineType: "solid" };
+        return { position, range: [], color: DIMENSION_COLOR, lineType: "solid" };
     }
 
     /** Preview badge: not interactive — the position pick click must reach the viewport. */
@@ -510,6 +553,7 @@ export class SketchAnnotationManager implements IDisposable {
         v: number,
         constraint: SketchConstraintData,
         refs: readonly SketchPointRef[] = constraint.refs,
+        draggable = false,
     ): void {
         const id = constraint.id;
         const entityIds = [...new Set(refs.map((r) => r.entityId))];
@@ -524,6 +568,10 @@ export class SketchAnnotationManager implements IDisposable {
                     list.push(element);
                     this.badgeElements.set(id, list);
                     element.classList.toggle(style.selected, this.selectedConstraints.has(id));
+                    if (draggable) {
+                        element.classList.add(style.draggable);
+                        element.addEventListener("pointerdown", (e) => this.beginLabelDrag(id, e));
+                    }
                 },
                 onMouseEnter: () => {
                     this.hoveredConstraint = id;
@@ -534,10 +582,6 @@ export class SketchAnnotationManager implements IDisposable {
                     this.hoveredConstraint = undefined;
                     this.onHighlightEntities([]);
                 },
-                onClick: (event) => {
-                    event.stopPropagation();
-                    this.toggleSelection(id, event.shiftKey);
-                },
                 // datum badges (dimensions) can be edited; symbol badges cannot
                 onDoubleClick:
                     constraint.datum === undefined && constraint.datums === undefined
@@ -546,6 +590,14 @@ export class SketchAnnotationManager implements IDisposable {
                               event.stopPropagation();
                               this.onEditDatum(id);
                           },
+                // a click on a draggable datum badge picks its label up for
+                // placement instead of toggling the constraint selection
+                onClick: draggable
+                    ? undefined
+                    : (event) => {
+                          event.stopPropagation();
+                          this.toggleSelection(id, event.shiftKey);
+                      },
             }),
         );
     }
@@ -563,6 +615,142 @@ export class SketchAnnotationManager implements IDisposable {
                 anchor.entityIds.includes(entityId) &&
                 Math.hypot(anchor.u - uv[0], anchor.v - uv[1]) < tolerance,
         );
+    }
+
+    /**
+     * Repositions a datum label by dragging its badge. Both gestures are supported:
+     * press-drag-release, and click-move-click (a press released without travel picks
+     * the label up; it then follows the cursor and the next click — anywhere, even on
+     * the label itself — drops it). The anchor is recomputed from the pointer on every
+     * move; the refresh rebuilds the badge mid-drag, so the session listens on window.
+     * The window listeners use the capture phase: interactive badges stopPropagation
+     * pointerdown/up (threeView), and since the label follows the cursor the release
+     * usually lands on the badge — a bubble-phase listener would never see it and the
+     * drag would stick.
+     */
+    private beginLabelDrag(constraintId: number, event: PointerEvent): void {
+        if (event.button !== 0 || this.disposed) return;
+        event.preventDefault();
+        if (this.labelDrag !== undefined) {
+            // a click while the label follows the cursor drops it in place
+            this.endLabelDrag(true);
+            return;
+        }
+        this.labelDrag = {
+            id: constraintId,
+            startX: event.clientX,
+            startY: event.clientY,
+            original: this.anchors.get(constraintId),
+            held: true,
+            moved: false,
+        };
+        const onMove = (e: PointerEvent) => this.moveLabelDrag(e.clientX, e.clientY);
+        const onUp = () => this.releaseLabelDrag();
+        this.dragCleanup = () => {
+            window.removeEventListener("pointermove", onMove, true);
+            window.removeEventListener("pointerup", onUp, true);
+            this.dragCleanup = undefined;
+        };
+        window.addEventListener("pointermove", onMove, true);
+        window.addEventListener("pointerup", onUp, true);
+    }
+
+    private moveLabelDrag(clientX: number, clientY: number): void {
+        const drag = this.labelDrag;
+        if (drag === undefined) return;
+        if (!drag.moved) {
+            if (Math.hypot(clientX - drag.startX, clientY - drag.startY) < LABEL_DRAG_THRESHOLD_PX) return;
+            drag.moved = true;
+        }
+        const uv = this.clientToUV(clientX, clientY);
+        if (uv === undefined) return;
+        const constraint = this.solver.toData().constraints.find((c) => c.id === drag.id);
+        if (constraint === undefined) return;
+        const anchor = this.anchorAtPosition(constraint, uv);
+        if (anchor === undefined) return;
+        this.anchors.set(drag.id, anchor);
+        this.refresh();
+    }
+
+    private releaseLabelDrag(): void {
+        const drag = this.labelDrag;
+        if (drag === undefined || !drag.held) return;
+        if (drag.moved) {
+            // press-drag-release commits where the button went up
+            this.endLabelDrag(true);
+        } else {
+            // a plain click picks the label up: it follows the cursor until the next click
+            drag.held = false;
+        }
+    }
+
+    /** Ends the label drag; `commit` keeps the new position, otherwise the anchor is restored. */
+    endLabelDrag(commit: boolean): void {
+        const drag = this.labelDrag;
+        if (drag === undefined) return;
+        this.labelDrag = undefined;
+        this.dragCleanup?.();
+        // never travelled: a plain click or the first half of a double-click — nothing changed
+        if (!drag.moved) return;
+        if (!commit) {
+            if (drag.original === undefined) this.anchors.delete(drag.id);
+            else this.anchors.set(drag.id, drag.original);
+            this.refresh();
+            return;
+        }
+        this.onAnchorDragEnd(drag.id);
+    }
+
+    /** Cancels the label drag (Escape), restoring the anchor from before the drag. */
+    cancelLabelDrag(): void {
+        this.endLabelDrag(false);
+    }
+
+    /** Sketch-plane uv under a client (page) position; undefined off-plane or without a dom. */
+    private clientToUV(clientX: number, clientY: number): [number, number] | undefined {
+        const dom = this.view.dom;
+        if (dom === undefined) return undefined;
+        const rect = dom.getBoundingClientRect();
+        const point = this.solver.plane.intersectRay(
+            this.view.rayAt(clientX - rect.left, clientY - rect.top),
+        );
+        return point === undefined ? undefined : toUV(this.solver.plane, point);
+    }
+
+    /** Anchor that places the label at `uv` — the inverse of the per-kind layout. */
+    private anchorAtPosition(
+        constraint: SketchConstraintData,
+        uv: [number, number],
+    ): DimensionAnchor | undefined {
+        const points = constraint.refs.map((r) => this.solver.pointOf(r));
+        switch (constraint.kind) {
+            case ConstraintKind.P2PDistance:
+                return { kind: "offset", offset: segmentOffset(points[0], points[1], uv) };
+            case ConstraintKind.HorizontalDistance:
+                return { kind: "offset", offset: uv[1] - (points[0][1] + points[1][1]) / 2 };
+            case ConstraintKind.VerticalDistance:
+                return { kind: "offset", offset: uv[0] - (points[0][0] + points[1][0]) / 2 };
+            case ConstraintKind.P2LDistance: {
+                const foot = pointLineFoot(points[0], points[1], points[2]);
+                return foot === undefined
+                    ? undefined
+                    : { kind: "offset", offset: segmentOffset(points[0], foot, uv) };
+            }
+            case ConstraintKind.Radius: {
+                const entity = this.solver.entity(constraint.refs[0].entityId);
+                if (entity === undefined) return undefined;
+                return { kind: "vector", dx: uv[0] - entity.params[0], dy: uv[1] - entity.params[1] };
+            }
+            case ConstraintKind.Angle: {
+                const vertex = lineIntersection(points[0], points[1], points[2], points[3]) ?? [
+                    (points[0][0] + points[1][0] + points[2][0] + points[3][0]) / 4,
+                    (points[0][1] + points[1][1] + points[2][1] + points[3][1]) / 4,
+                ];
+                return { kind: "vector", dx: uv[0] - vertex[0], dy: uv[1] - vertex[1] };
+            }
+            default:
+                return undefined;
+        }
     }
 
     private toggleSelection(id: number, additive: boolean): void {

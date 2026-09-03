@@ -101,9 +101,9 @@ abstract class TwoLineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Parallel | ConstraintKind.Perpendicular;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const l1 = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        const l1 = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (l1 === undefined) return;
-        const l2 = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        const l2 = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (l2 === undefined) return;
         addAndCommit(editor, this.kind, [...lineRefs(l1), ...lineRefs(l2)]);
     }
@@ -218,13 +218,13 @@ export class TangentConstraintCommand extends SketchConstraintCommand {
     }
 }
 
-/** Picks a point and an entity, constraining the point onto the entity. */
+/** Picks a point and an entity (or a datum axis), constraining the point onto it. */
 @command({ key: "constraint.pointOn", icon: "icon-cPointOn" })
 export class PointOnConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const p = await editor.pickPoint("prompt.pickSketchPoint");
         if (p === undefined) return;
-        const entityId = await editor.pickEntity("prompt.pickSketchEntity");
+        const entityId = await editor.pickEntity("prompt.pickSketchEntity", undefined, { datum: true });
         if (entityId === undefined) return;
         const type = editor.solver.entity(entityId)?.type;
         if (type === "line") {
@@ -248,7 +248,7 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
     }
 }
 
-/** Two points symmetric about a picked line. */
+/** Two points symmetric about a picked line or datum axis. */
 @command({ key: "constraint.symmetric", icon: "icon-cSymmetric" })
 export class SymmetricConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
@@ -256,7 +256,7 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
         if (p1 === undefined) return;
         const p2 = await editor.pickPoint("prompt.pickSketchPoint");
         if (p2 === undefined) return;
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (lineId === undefined) return;
         addAndCommit(editor, ConstraintKind.Symmetric, [p1, p2, ...lineRefs(lineId)]);
     }

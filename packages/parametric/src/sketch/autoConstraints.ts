@@ -4,6 +4,7 @@
 import { Precision } from "@chili3d/core";
 import {
     ConstraintKind,
+    originRef,
     type SketchConstraintData,
     type SketchEntityType,
     type SketchPointRef,
@@ -29,7 +30,8 @@ function snappablePointIndices(type: SketchEntityType): number[] {
 
 /**
  * Applies automatic constraints to a freshly created entity:
- * - endpoints/center near an existing point are snapped onto it and coincident-linked;
+ * - endpoints/center near the origin or an existing point are snapped onto it
+ *   and coincident-linked;
  * - near-horizontal / near-vertical lines get a Horizontal / Vertical constraint.
  * Returns the added constraints. Call `solve` afterwards.
  */
@@ -59,6 +61,11 @@ export function applyAutoConstraints(
     return added;
 }
 
+interface SnapCandidate {
+    ref: SketchPointRef;
+    position: [number, number];
+}
+
 function snapToExistingPoints(
     solver: SketchSolver,
     refs: SketchPointRef[],
@@ -66,44 +73,63 @@ function snapToExistingPoints(
     added: Omit<SketchConstraintData, "id">[],
 ): void {
     if (tolerance <= 0) return;
-    const candidates = solver
-        .entities()
-        .filter((e) => e.id !== refs[0].entityId)
-        .flatMap((e) =>
-            snappablePointIndices(e.type).map((pointIndex) => ({
-                ref: { entityId: e.id, pointIndex },
-                position: solver.pointOf({ entityId: e.id, pointIndex }),
-            })),
-        );
-    if (candidates.length === 0) return;
+    const candidates = snapCandidates(solver, refs[0].entityId);
 
     for (const ref of refs) {
-        const [u, v] = solver.pointOf(ref);
-        let nearest: (typeof candidates)[number] | undefined;
-        let nearestDistance = tolerance;
-        for (const candidate of candidates) {
-            const distance = Math.hypot(candidate.position[0] - u, candidate.position[1] - v);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = candidate;
-            }
-        }
-        if (nearest === undefined) continue;
-
-        // never collapse a line onto a single point
-        if (refs.length === 2) {
-            const other = refs.find((r) => r.pointIndex !== ref.pointIndex)!;
-            const [ou, ov] = solver.pointOf(other);
-            if (Math.hypot(nearest.position[0] - ou, nearest.position[1] - ov) < Precision.Distance) {
-                continue;
-            }
-        }
+        const nearest = nearestCandidate(candidates, solver.pointOf(ref), tolerance);
+        if (nearest === undefined || collapsesOntoSibling(solver, refs, ref, nearest.position)) continue;
 
         solver.setPointPosition(ref, nearest.position[0], nearest.position[1]);
         const constraint = { kind: ConstraintKind.P2PCoincident, refs: [ref, nearest.ref] };
         solver.addConstraint(constraint);
         added.push(constraint);
     }
+}
+
+/** Snap targets: every snappable point of the other entities, plus the origin (last, so a real point wins ties). */
+function snapCandidates(solver: SketchSolver, excludeEntityId: number): SnapCandidate[] {
+    const candidates: SnapCandidate[] = solver
+        .entities()
+        .filter((e) => e.id !== excludeEntityId)
+        .flatMap((e) =>
+            snappablePointIndices(e.type).map((pointIndex) => {
+                const ref = { entityId: e.id, pointIndex };
+                return { ref, position: solver.pointOf(ref) };
+            }),
+        );
+    candidates.push({ ref: originRef(), position: [0, 0] });
+    return candidates;
+}
+
+/** Closest candidate within `tolerance` of the position, undefined when none qualifies. */
+function nearestCandidate(
+    candidates: SnapCandidate[],
+    [u, v]: [number, number],
+    tolerance: number,
+): SnapCandidate | undefined {
+    let nearest: SnapCandidate | undefined;
+    let nearestDistance = tolerance;
+    for (const candidate of candidates) {
+        const distance = Math.hypot(candidate.position[0] - u, candidate.position[1] - v);
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearest = candidate;
+        }
+    }
+    return nearest;
+}
+
+/** Snapping an endpoint onto its sibling endpoint's spot would collapse the line/arc to a point. */
+function collapsesOntoSibling(
+    solver: SketchSolver,
+    refs: SketchPointRef[],
+    ref: SketchPointRef,
+    target: [number, number],
+): boolean {
+    if (refs.length !== 2) return false;
+    const other = refs.find((r) => r.pointIndex !== ref.pointIndex)!;
+    const [ou, ov] = solver.pointOf(other);
+    return Math.hypot(target[0] - ou, target[1] - ov) < Precision.Distance;
 }
 
 function alignToAxis(

@@ -3,7 +3,7 @@
 
 import { Plane, Precision } from "@chili3d/core";
 import { applyAutoConstraints } from "../../src/sketch/autoConstraints";
-import { ConstraintKind } from "../../src/sketch/sketchModel";
+import { ConstraintKind, originRef } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
@@ -146,6 +146,45 @@ describe("applyAutoConstraints", () => {
         ]);
         expect(solver.pointOf({ entityId: id, pointIndex: 0 })).toEqual([0.2, 0.1]);
         expect(solver.pointOf({ entityId: id, pointIndex: 1 })).toEqual([10, 0]);
+        solver.dispose();
+    });
+});
+
+describe("origin snapping", () => {
+    test("snaps an endpoint near the origin onto it and adds coincident", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const id = solver.addLine(0.2, 0.1, 20, 5);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: id, pointIndex: 0 }, originRef()],
+            },
+        ]);
+        expect(solver.pointOf({ entityId: id, pointIndex: 0 })).toEqual([0, 0]);
+        solver.dispose();
+    });
+
+    test("a real point at the origin wins over the datum on a tie", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addLine(0, 0, 10, 0);
+        solver.solve(true);
+        const id = solver.addLine(20, 5, 0.1, 0.1);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: id, pointIndex: 1 },
+                    { entityId: 1, pointIndex: 0 },
+                ],
+            },
+        ]);
         solver.dispose();
     });
 });

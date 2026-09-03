@@ -4,6 +4,7 @@
 import { type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import {
+    CoincidentConstraintCommand,
     EqualConstraintCommand,
     FixConstraintCommand,
     HorizontalAlignConstraintCommand,
@@ -16,7 +17,14 @@ import {
     VerticalAlignConstraintCommand,
 } from "../../src/sketch/commands/sketchConstraints";
 import { SketchEditor, type SketchEntityTypeFilter } from "../../src/sketch/editor/sketchEditor";
-import { ConstraintKind, type SketchPointRef } from "../../src/sketch/sketchModel";
+import {
+    axisLineRefs,
+    ConstraintKind,
+    originRef,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
+    type SketchPointRef,
+} from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
@@ -443,6 +451,81 @@ describe("geometry sanity", () => {
                 return Math.hypot(params[2] - params[0], params[3] - params[1]);
             };
             expect(length(l1)).toBeCloseTo(length(l2), 6);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+});
+
+describe("datum picks (origin and axes)", () => {
+    test("coincident accepts the origin as a picked point", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(5, 5, 10, 0);
+            editor.pointQueue.push(ref(line, 0), originRef());
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            const found = constraintsOf(editor, ConstraintKind.P2PCoincident);
+            expect(found.length).toBe(1);
+            expect(found[0].refs).toEqual([ref(line, 0), originRef()]);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("pointOn accepts a datum axis and constrains the point onto it", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(5, 5, 10, 0);
+            editor.pointQueue.push(ref(line, 0));
+            editor.entityQueue.push(SKETCH_X_AXIS_ID);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            const found = constraintsOf(editor, ConstraintKind.PointOnLine);
+            expect(found.length).toBe(1);
+            expect(found[0].refs).toEqual([ref(line, 0), ...axisLineRefs(SKETCH_X_AXIS_ID)]);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("symmetric accepts a datum axis as the mirror line", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(2, 3, 6, 3);
+            editor.pointQueue.push(ref(line, 0), ref(line, 1));
+            editor.entityQueue.push(SKETCH_Y_AXIS_ID);
+
+            await runCommand(new SymmetricConstraintCommand(), editor);
+
+            const found = constraintsOf(editor, ConstraintKind.Symmetric);
+            expect(found.length).toBe(1);
+            expect(found[0].refs).toEqual([ref(line, 0), ref(line, 1), ...axisLineRefs(SKETCH_Y_AXIS_ID)]);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("parallel accepts a datum axis and solves the line horizontal", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 5, 10, 8);
+            editor.entityQueue.push(line, SKETCH_X_AXIS_ID);
+
+            await runCommand(new ParallelConstraintCommand(), editor);
+
+            const found = constraintsOf(editor, ConstraintKind.Parallel);
+            expect(found.length).toBe(1);
+            expect(found[0].refs).toEqual([ref(line, 0), ref(line, 1), ...axisLineRefs(SKETCH_X_AXIS_ID)]);
+            // the fake editor's solve is a no-op mock — solve for real
+            editor.solver.solve(true);
+            const [y1, y2] = [editor.solver.pointOf(ref(line, 0))[1], editor.solver.pointOf(ref(line, 1))[1]];
+            expect(y2).toBeCloseTo(y1, 6);
         } finally {
             editor.solver.dispose();
         }

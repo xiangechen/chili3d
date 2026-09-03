@@ -12,17 +12,22 @@ export type { DimensionAnchor } from "../sketchModel";
 import { ConstraintKind } from "../sketchModel";
 
 /**
- * Datum value shown in the UI: angles display in degrees, point-line distances
- * flip sign (UI: positive = left of the line direction; garlic stores the
- * negated signed distance), everything else as stored.
+ * Datum value shown in the UI: angles store the signed sweep (the sign picks the
+ * side of the first line) and display its magnitude in degrees, point-line
+ * distances flip sign (UI: positive = left of the line direction; garlic stores
+ * the negated signed distance), everything else as stored.
  */
 export function toDisplayDatum(kind: ConstraintKind, value: number): number {
-    if (kind === ConstraintKind.Angle) return (value * 180) / Math.PI;
+    if (kind === ConstraintKind.Angle) return (Math.abs(value) * 180) / Math.PI;
     if (kind === ConstraintKind.P2LDistance) return -value;
     return value;
 }
 
-/** Datum value for the solver: inverse of `toDisplayDatum`. */
+/**
+ * Datum value for the solver: inverse of `toDisplayDatum`. For angles this yields
+ * the magnitude in radians — the solver re-attaches the side sign before solving
+ * (`SketchSolver.syncAngleDatumSide`).
+ */
 export function toStorageDatum(kind: ConstraintKind, value: number): number {
     if (kind === ConstraintKind.Angle) return (value * Math.PI) / 180;
     if (kind === ConstraintKind.P2LDistance) return -value;
@@ -77,7 +82,9 @@ export function distanceDimension(
 
     const a = at(p1, off);
     const b = at(p2, off);
-    const gap = EXTENSION_GAP_PX * px;
+    // gap and overshoot follow the offset side, otherwise the extension line
+    // starts on the far side of the geometry and crosses it
+    const gap = sign * EXTENSION_GAP_PX * px;
     const overshoot = off + sign * EXTENSION_OVERSHOOT_PX * px;
 
     const segments: DimensionGeometry["segments"] = [
@@ -193,7 +200,9 @@ export function pointLineDistanceDimension(
     const off = sign * Math.max(Math.abs(offset), MIN_OFFSET_PX * px);
     const a = addDir(p, normal, off);
     const b = addDir(foot, normal, off);
-    const gap = EXTENSION_GAP_PX * px;
+    // gap and overshoot follow the offset side, otherwise the extension line
+    // starts on the far side of the geometry and crosses it
+    const gap = sign * EXTENSION_GAP_PX * px;
     const overshoot = off + sign * EXTENSION_OVERSHOOT_PX * px;
 
     return {

@@ -11,6 +11,7 @@ import {
 import { rs } from "@rstest/core";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
+import { SKETCH_ORIGIN_ID, SKETCH_X_AXIS_ID, SKETCH_Y_AXIS_ID } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -183,6 +184,8 @@ describe("SketchEditor picking", () => {
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
+            // entering the session draws the datum origin/axes mesh; ignore it here
+            displayMesh.mockClear();
             editor.solver.addLine(0, 0, 10, 0);
             editor.solve(true);
 
@@ -216,6 +219,8 @@ describe("SketchEditor picking", () => {
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
+            // entering the session draws the datum origin/axes mesh; ignore it here
+            displayMesh.mockClear();
             editor.solver.addLine(0, 0, 10, 0);
             editor.solve(true);
 
@@ -241,12 +246,100 @@ describe("SketchEditor picking", () => {
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
+            // entering the session draws the datum origin/axes mesh; ignore it here
+            displayMesh.mockClear();
             editor.solver.addLine(0, 0, 10, 0);
             editor.solve(true);
 
             expect(editor.isPicking).toBe(false);
             (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
             expect(displayMesh).toHaveBeenCalledTimes(1);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("datum picking (origin and axes)", () => {
+    test("hitTestPoint hits the origin datum when no real point is nearer", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // screen (402, 299) -> near world (0, 0); the sketch is empty
+            expect(handler.hitTestPoint(view, pointerEvent(402, 299))).toEqual({
+                entityId: SKETCH_ORIGIN_ID,
+                pointIndex: 0,
+            });
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("hitTestPoint prefers a real point over the origin on a tie", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // exactly on the line start (0, 0), which sits on the origin
+            expect(handler.hitTestPoint(view, pointerEvent(400, 300))).toEqual({
+                entityId: 1,
+                pointIndex: 0,
+            });
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("hitTestEntity hits the datum axes only when the pick opts in", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(100, 100, 200, 100);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // screen (450, 300) -> uv (50, 0): on the X axis, far from the line
+            expect(handler.hitTestEntity(view, pointerEvent(450, 300), "line")).toBeUndefined();
+            expect(handler.hitTestEntity(view, pointerEvent(450, 300), "line", true)).toBe(SKETCH_X_AXIS_ID);
+            // a circle filter excludes the axes even with datum enabled
+            expect(handler.hitTestEntity(view, pointerEvent(450, 300), "circle", true)).toBeUndefined();
+            // screen (400, 250) -> uv (0, 50): on the Y axis
+            expect(handler.hitTestEntity(view, pointerEvent(400, 250), "line", true)).toBe(SKETCH_Y_AXIS_ID);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("clicking the origin datum does not start a drag", () => {
+        const { doc, view, restoreFactory } = setup();
+        const displayMesh = rs.fn(() => 1);
+        (doc.visual.context as any).displayMesh = displayMesh;
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            // entering the session draws the datum origin/axes mesh; ignore it here
+            displayMesh.mockClear();
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            handler.pointerDown(view, pointerEvent(400, 300));
+            handler.pointerMove(view, pointerEvent(500, 350));
+            handler.pointerUp(view, pointerEvent(500, 350));
+
+            // no drag preview was created and the sketch is still empty
+            expect(displayMesh).not.toHaveBeenCalled();
+            expect(editor.solver.entities()).toEqual([]);
             editor.exit();
         } finally {
             restoreFactory();

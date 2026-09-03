@@ -166,7 +166,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const p = await editor.pickPoint("prompt.pickSketchPoint");
         if (p === undefined) return;
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (lineId === undefined) return;
 
         const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
@@ -211,9 +211,10 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
 @command({ key: "dimension.angle", icon: "icon-dAngle" })
 export class AngleDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const l1Id = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        // datum: true — angles against the X/Y axes are a common reference
+        const l1Id = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (l1Id === undefined) return;
-        const l2Id = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        const l2Id = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
         if (l2Id === undefined) return;
 
         const refs: SketchPointRef[] = [
@@ -240,10 +241,10 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
         ];
         const d1: [number, number] = [a2[0] - a1[0], a2[1] - a1[1]];
         const d2: [number, number] = [b2[0] - b1[0], b2[1] - b1[1]];
-        const len1 = Math.hypot(d1[0], d1[1]);
-        const len2 = Math.hypot(d2[0], d2[1]);
-        const cos = len1 < 1e-12 || len2 < 1e-12 ? 1 : (d1[0] * d2[0] + d1[1] * d2[1]) / (len1 * len2);
-        const initialRad = Math.acos(Math.max(-1, Math.min(1, cos)));
+        // signed sweep from d1 to d2: the sign records which side of the first
+        // line the second line sits on, so later magnitude edits keep the angle
+        // in place instead of flipping the line across its reference
+        const initialRad = Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
 
         const applyAngle = (id: number, value: number) =>
             editor.solver.setDatum(id, toStorageDatum(ConstraintKind.Angle, value));

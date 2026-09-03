@@ -27,7 +27,7 @@ import {
 } from "../../src/sketch/commands/sketchDimensions";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
-import { ConstraintKind } from "../../src/sketch/sketchModel";
+import { ConstraintKind, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -541,6 +541,99 @@ describe("dimension commands", () => {
             expect(editor.solver.toData().constraints.length).toBe(0);
             expect(editor.dimensionAnchors.size).toBe(0);
             expect(doc.history.undoCount()).toBe(undosBefore);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("angle dimension accepts the datum X axis as a reference", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(10, 20, 60, 80);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // line midpoint uv (35, 50) -> screen (435, 250); the X axis sits at v = 0
+            const run = new AngleDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(435, 250));
+            await tick();
+            handler.pointerDown(view, pointerEvent(500, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(450, 280));
+            await run;
+
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.length).toBe(1);
+            expect(constraints[0].kind).toBe(ConstraintKind.Angle);
+            expect(constraints[0].refs).toEqual([
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+                { entityId: SKETCH_X_AXIS_ID, pointIndex: 0 },
+                { entityId: SKETCH_X_AXIS_ID, pointIndex: 1 },
+            ]);
+            // direction (50, 60) against the X axis: the signed sweep from the
+            // line to the axis is -atan2(60, 50) — the sign records the side
+            expect(constraints[0].datum).toBeCloseTo(-Math.atan2(60, 50));
+            expect(editor.dimensionAnchors.has(constraints[0].id)).toBe(true);
+            cancelDialog(dialog);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("editing an angle below the reference line keeps it on that side", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 0, -100); // points down: sweep -90° from line 1
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [{ entityId: 1, pointIndex: 0 }],
+                datums: [0, 0],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 2, pointIndex: 0 },
+                ],
+            });
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // line 1 at (450, 300); line 2 midpoint uv (0, -50) -> screen (400, 350)
+            const run = new AngleDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 350));
+            await tick();
+            handler.pointerDown(view, pointerEvent(450, 330));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("90.00");
+            expect(confirmDialog(dialog, "45")).toBe(true);
+
+            // the line rotates to -45° on the SAME side instead of flipping to +45°
+            // (which would read as 135° from the side the user is looking at)
+            const [x1, y1] = editor.solver.pointOf({ entityId: 2, pointIndex: 0 });
+            const [x2, y2] = editor.solver.pointOf({ entityId: 2, pointIndex: 1 });
+            expect(Math.atan2(y2 - y1, x2 - x1)).toBeCloseTo(-Math.PI / 4, 6);
+            expect(editor.solver.toData().constraints.at(-1)?.datum).toBeCloseTo(-Math.PI / 4);
             editor.exit();
         } finally {
             restorePub();
