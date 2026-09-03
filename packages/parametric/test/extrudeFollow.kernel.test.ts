@@ -162,7 +162,8 @@ test("an extrude follows two circles dragged close together in consecutive edits
     expect(body.shape.isOk).toBe(true);
     const undoCount = doc.history.undoCount();
 
-    // Drag the first circle to x=15, then the second next to it (x=20). Against
+    // Drag the first circle to x=15, then the second next to it (x=25, tangent —
+    // overlapping circles would cross and fall under the crossing-regions path). Against
     // the original pick-time refs both read as moved and compete ambiguously;
     // the refs must re-anchor after each successful rebuild ("Sketch profile
     // match is ambiguous after rebuild" was the user-reported failure).
@@ -176,7 +177,7 @@ test("an extrude follows two circles dragged close together in consecutive edits
 
     editor = SketchEditor.enter(sketch);
     editor.solver.beginDrag([{ entityId: 2, pointIndex: 0 }]);
-    editor.solver.dragTo({ entityId: 2, pointIndex: 0 }, 20, 0);
+    editor.solver.dragTo({ entityId: 2, pointIndex: 0 }, 25, 0);
     editor.solver.endDrag();
     editor.commit();
     editor.exit();
@@ -190,7 +191,7 @@ test("an extrude follows two circles dragged close together in consecutive edits
     // The stored refs re-anchored to the last matched geometry...
     const stored = (body.features[0] as { profiles: { edges: { center: { x: number } }[] }[] }).profiles;
     const centers = stored.map((ref) => ref.edges[0].center.x).sort((a, b) => a - b);
-    expect(centers).toEqual([15, 20, 60]);
+    expect(centers).toEqual([15, 25, 60]);
     // ...without polluting the undo history: only the two editor commits record.
     expect(doc.history.undoCount()).toBe(undoCount + 2);
 });

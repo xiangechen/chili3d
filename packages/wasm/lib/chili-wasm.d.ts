@@ -694,6 +694,7 @@ interface EmbindModule {
     box(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     pyramid(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     rect(_0: Pln, _1: number, _2: number): ShapeResult;
+    facesFromEdges(_0: Array<TopoDS_Edge>, _1: Pln): ShapeResult;
   };
   Curve: {
     curveLength(_0: Geom_Curve | null): number;

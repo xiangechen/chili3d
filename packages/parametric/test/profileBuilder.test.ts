@@ -30,7 +30,20 @@ function edge(x1: number, y1: number, x2: number, y2: number): IEdge {
         firstParameter: () => 0,
         lastParameter: () => 1,
         pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+        intersect: (other: IEdge) => segmentIntersect(start, end, other.startPoint(), other.endPoint()),
     } as unknown as IEdge;
+}
+
+/** 2D segment-segment intersection of p1p2 with p3p4, as `IEdge.intersect` results. */
+function segmentIntersect(p1: XYZ, p2: XYZ, p3: XYZ, p4: XYZ): { parameter: number; point: XYZ }[] {
+    const d = { x: p2.x - p1.x, y: p2.y - p1.y };
+    const e = { x: p4.x - p3.x, y: p4.y - p3.y };
+    const denom = d.x * e.y - d.y * e.x;
+    if (Math.abs(denom) < 1e-12) return []; // parallel
+    const t = ((p3.x - p1.x) * e.y - (p3.y - p1.y) * e.x) / denom;
+    const u = ((p3.x - p1.x) * d.y - (p3.y - p1.y) * d.x) / denom;
+    if (t < 0 || t > 1 || u < 0 || u > 1) return [];
+    return [{ parameter: t, point: new XYZ({ x: p1.x + t * d.x, y: p1.y + t * d.y, z: 0 }) }];
 }
 
 function square(x1: number, y1: number, x2: number, y2: number): IEdge[] {
@@ -209,6 +222,71 @@ describe("sketchProfiles", () => {
     });
 });
 
+describe("sketchProfiles with crossing edges", () => {
+    function setupCrossing(faces: IFace[] | string) {
+        const wire = rs.fn((edges: IEdge[]) => Result.ok({ isClosed: () => true, edges }));
+        const face = rs.fn((wires: { edges: IEdge[] }[]) =>
+            Result.ok({
+                shapeType: ShapeTypes.face,
+                findSubShapes: (type: ShapeType) =>
+                    type === ShapeTypes.edge ? wires.flatMap((w) => w.edges) : [],
+            }),
+        );
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            typeof faces === "string" ? Result.err(faces) : Result.ok(faces),
+        );
+        const restore = mockShapeFactory({ wire, face, facesFromEdges });
+        return { wire, facesFromEdges, restore };
+    }
+
+    test("two overlapping squares without shared endpoints yield the kernel's regions", () => {
+        const regions = [faceOf([]), faceOf([]), faceOf([])];
+        const { wire, facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const result = sketchProfiles(sketchWith(edges));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(regions);
+            expect(result.unchecked()!.inner.length).toBe(0);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            const call = facesFromEdges.mock.calls[0] as unknown as [IEdge[], Plane];
+            expect(call[0]).toEqual(edges);
+            expect(call[1]).toBe(Plane.XY);
+            // The connectivity grouping path must be bypassed entirely.
+            expect(wire).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    test("endpoint-touching loops keep the connectivity path", () => {
+        const { wire, facesFromEdges, restore } = setupCrossing([]);
+        try {
+            const result = sketchProfiles(sketchWith(squareEdges()));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer.length).toBe(1);
+            expect(wire).toHaveBeenCalledTimes(1);
+            expect(facesFromEdges).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    test("propagates facesFromEdges errors", () => {
+        const { restore } = setupCrossing("faces failed");
+        try {
+            const result = sketchProfiles(sketchWith([...square(0, 0, 2, 2), ...square(1, 1, 3, 3)]));
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("faces failed");
+        } finally {
+            restore();
+        }
+    });
+});
+
 describe("resolveProfiles", () => {
     const OUTER = square(0, 0, 10, 10);
     const HOLE = square(2, 2, 3, 3);
@@ -223,6 +301,8 @@ describe("resolveProfiles", () => {
             lastParameter: () => Math.PI * 2,
             pointAt: (t: number) =>
                 new XYZ({ x: cx + radius * Math.cos(t), y: cy + radius * Math.sin(t), z: 0 }),
+            // The test circles never intersect anything; a real kernel would return [] too.
+            intersect: () => [],
         } as unknown as IEdge;
     }
 

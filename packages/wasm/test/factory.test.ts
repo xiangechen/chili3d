@@ -419,6 +419,70 @@ describe("ShapeFactory — faces, shells & solids", () => {
         });
     });
 
+    describe("facesFromEdges", () => {
+        function rectEdges(x1: number, y1: number, x2: number, y2: number): IEdge[] {
+            return [
+                unwrapOk(factory.line(new XYZ({ x: x1, y: y1, z: 0 }), new XYZ({ x: x2, y: y1, z: 0 }))),
+                unwrapOk(factory.line(new XYZ({ x: x2, y: y1, z: 0 }), new XYZ({ x: x2, y: y2, z: 0 }))),
+                unwrapOk(factory.line(new XYZ({ x: x2, y: y2, z: 0 }), new XYZ({ x: x1, y: y2, z: 0 }))),
+                unwrapOk(factory.line(new XYZ({ x: x1, y: y2, z: 0 }), new XYZ({ x: x1, y: y1, z: 0 }))),
+            ];
+        }
+
+        test("two overlapping rectangles without shared endpoints produce three regions", () => {
+            const edges = [...rectEdges(0, 0, 4, 4), ...rectEdges(2, 2, 6, 6)];
+            const result = factory.facesFromEdges(edges, plane);
+            expect(result.isOk).toBe(true);
+            expect(result.value.length).toBe(3);
+            expect(result.value.every((f) => f.shapeType === ShapeTypes.face)).toBe(true);
+            // Regions: A-only 4*4-2*2, overlap 2*2, B-only.
+            const areas = result.value.map((f) => f.area()).sort((a, b) => a - b);
+            expect(areas[0]).toBeCloseTo(4, 5);
+            expect(areas[1]).toBeCloseTo(12, 5);
+            expect(areas[2]).toBeCloseTo(12, 5);
+        });
+
+        test("a line crossing a circle splits the disk into two faces", () => {
+            const circle = unwrapOk(factory.circle(XYZ.unitZ, XYZ.zero, 5));
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: -10, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const result = factory.facesFromEdges([circle, line], plane);
+            expect(result.isOk).toBe(true);
+            expect(result.value.length).toBe(2);
+            for (const face of result.value) {
+                expect(face.area()).toBeCloseTo((Math.PI * 25) / 2, 4);
+            }
+        });
+
+        test("disjoint closed rectangles produce one face each", () => {
+            const edges = [...rectEdges(0, 0, 2, 2), ...rectEdges(10, 10, 12, 12)];
+            const result = factory.facesFromEdges(edges, plane);
+            expect(result.isOk).toBe(true);
+            expect(result.value.length).toBe(2);
+            for (const face of result.value) {
+                expect(face.area()).toBeCloseTo(4, 5);
+            }
+        });
+
+        test("an open polyline encloses no region", () => {
+            const edges = [
+                unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }))),
+                unwrapOk(factory.line(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 }))),
+                unwrapOk(factory.line(new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 0, y: 10, z: 0 }))),
+            ];
+            const result = factory.facesFromEdges(edges, plane);
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("No bounded regions found");
+        });
+
+        test("should return error when edges are empty", () => {
+            const result = factory.facesFromEdges([], plane);
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("The edges are empty.");
+        });
+    });
+
     describe("shell", () => {
         test("should create a shell from faces", () => {
             // Create 6 faces of a cube

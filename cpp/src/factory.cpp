@@ -6,11 +6,14 @@
 
 #include "shared.hpp"
 #include "utils.hpp"
+#include <BOPAlgo_BuilderFace.hxx>
+#include <BOPAlgo_Splitter.hxx>
 #include <BRepAlgoAPI_BooleanOperation.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Defeaturing.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
 #include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
@@ -26,6 +29,7 @@
 #include <BRepFeat_MakePrism.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRepGProp.hxx>
 #include <BRepLib.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
 #include <BRepOffsetAPI_MakePipeShell.hxx>
@@ -43,9 +47,11 @@
 #include <BRepTools_ReShape.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <Bnd_Box.hxx>
 #include <ChFi2d_Builder.hxx>
 #include <ChFi2d_ChamferAPI.hxx>
 #include <ChFi2d_FilletAPI.hxx>
+#include <GProp_GProps.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_BezierCurve.hxx>
@@ -54,6 +60,7 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <HelixBRep_BuilderHelix.hxx>
 #include <NCollection_Array1.hxx>
+#include <Precision.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeFix_Face.hxx>
 #include <ShapeFix_FixSmallFace.hxx>
@@ -68,6 +75,8 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
+#include <algorithm>
+#include <cmath>
 #include <deque>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
@@ -357,6 +366,77 @@ static std::string mapBuildWireError(const BRepBuilderAPI_WireError& error)
         return "Done";
     }
 };
+
+// Helpers for ShapeFactory::facesFromEdges (FreeCAD's FaceMakerBuildFace recipe).
+
+// Splits `edges` at their mutual intersections.
+static ShapeResult splitAtIntersections(const NCollection_List<TopoDS_Shape>& edges)
+{
+    BOPAlgo_Splitter splitter;
+    splitter.SetArguments(edges);
+    splitter.SetRunParallel(true);
+    splitter.SetNonDestructive(true);
+    splitter.Perform();
+    if (splitter.HasErrors()) {
+        return ShapeResult { TopoDS_Shape(), false, "Failed to split edges at intersections" };
+    }
+    return ShapeResult { splitter.Shape(), true, "" };
+}
+
+// Builds a base face dwarfing the split edges so BuilderFace can tell bounded regions from
+// the unbounded exterior (FORWARD orientation required). `faceEdges` receives every edge in
+// both orientations — so every region boundary is found — with pcurves on the base face.
+static TopoDS_Face baseFaceForRegions(const TopoDS_Shape& splitEdges, const gp_Pln& pln,
+    NCollection_List<TopoDS_Shape>& faceEdges, double& extent)
+{
+    Bnd_Box geomBox;
+    for (TopExp_Explorer explorer(splitEdges, TopAbs_EDGE); explorer.More(); explorer.Next()) {
+        const TopoDS_Edge& edge = TopoDS::Edge(explorer.Current());
+        BRepBndLib::Add(edge, geomBox);
+        faceEdges.Append(edge.Oriented(TopAbs_FORWARD));
+        faceEdges.Append(edge.Oriented(TopAbs_REVERSED));
+    }
+    extent = std::max(1.0e8, 10.0 * std::sqrt(geomBox.SquareExtent()));
+    TopoDS_Face baseFace = BRepBuilderAPI_MakeFace(pln, -extent, extent, -extent, extent).Face();
+    baseFace.Orientation(TopAbs_FORWARD);
+    BRepLib::BuildPCurveForEdgesOnPlane(faceEdges, baseFace);
+    return baseFace;
+}
+
+// Recovers every minimal bounded area covered by `faceEdges` on `baseFace`.
+static ShapeResult boundedAreas(const TopoDS_Face& baseFace, const NCollection_List<TopoDS_Shape>& faceEdges,
+    double extent)
+{
+    // AvoidInternalShapes keeps dangling edges from becoming internal wires.
+    BOPAlgo_BuilderFace faceBuilder;
+    faceBuilder.SetFace(baseFace);
+    faceBuilder.SetShapes(faceEdges);
+    faceBuilder.SetAvoidInternalShapes(true);
+    faceBuilder.Perform();
+    if (faceBuilder.HasErrors()) {
+        return ShapeResult { TopoDS_Shape(), false, "Failed to build faces from edges" };
+    }
+
+    const double outerThreshold = extent * extent;
+    BRep_Builder builder;
+    TopoDS_Compound result;
+    builder.MakeCompound(result);
+    int faceCount = 0;
+    for (const TopoDS_Shape& area : faceBuilder.Areas()) {
+        Bnd_Box box;
+        BRepBndLib::Add(area, box);
+        GProp_GProps props;
+        BRepGProp::SurfaceProperties(area, props);
+        if (box.SquareExtent() <= outerThreshold && props.Mass() >= Precision::Confusion()) {
+            builder.Add(result, area);
+            faceCount++;
+        }
+    }
+    if (faceCount == 0) {
+        return ShapeResult { TopoDS_Shape(), false, "No bounded regions found" };
+    }
+    return ShapeResult { result, true, "" };
+}
 
 class ShapeFactory {
 public:
@@ -890,6 +970,31 @@ public:
         faceFix.Perform();
 
         return ShapeResult { faceFix.Face(), true, "" };
+    }
+
+    // Finds the minimal bounded planar regions of `edges` on `plane` (FreeCAD's
+    // FaceMakerBuildFace recipe). Used for sketch profiles of crossing curves, which
+    // endpoint connectivity alone misses.
+    static ShapeResult facesFromEdges(const EdgeArray& edges, const Pln& plane)
+    {
+        std::vector<TopoDS_Edge> edgesVec = vecFromJSArray<TopoDS_Edge>(edges);
+        if (edgesVec.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, "No edges provided" };
+        }
+
+        NCollection_List<TopoDS_Shape> arguments;
+        for (const auto& edge : edgesVec) {
+            arguments.Append(edge);
+        }
+        ShapeResult split = splitAtIntersections(arguments);
+        if (!split.isOk) {
+            return split;
+        }
+
+        NCollection_List<TopoDS_Shape> faceEdges;
+        double extent;
+        TopoDS_Face baseFace = baseFaceForRegions(split.shape, Pln::toPln(plane), faceEdges, extent);
+        return boundedAreas(baseFace, faceEdges, extent);
     }
 
     static ShapeResult shell(const FaceArray& faces)
@@ -1647,6 +1752,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("wire", &ShapeFactory::wire)
         .class_function("face", &ShapeFactory::face)
         .class_function("faceFromSurface", &ShapeFactory::faceFromSurface)
+        .class_function("facesFromEdges", &ShapeFactory::facesFromEdges)
         .class_function("shell", &ShapeFactory::shell)
         .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)

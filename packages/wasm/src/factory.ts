@@ -382,6 +382,33 @@ export class ShapeFactory implements IShapeFactory {
             "FaceFromSurface Error",
         ) as Result<IFace>;
     }
+    facesFromEdges(edges: IEdge[], plane: Plane): Result<IFace[]> {
+        if (edges.length === 0) {
+            return Result.err("The edges are empty.");
+        }
+        const occEdges = ensureOccShape(edges);
+        let result: ShapeResult;
+        try {
+            result = wasm.ShapeFactory.facesFromEdges(occEdges, {
+                location: plane.origin,
+                direction: plane.normal,
+                xDirection: plane.xvec,
+            });
+        } catch (err) {
+            return Result.err(`FacesFromEdges Error: ${err}`);
+        }
+
+        let res: Result<IFace[], string>;
+        if (!result.isOk) {
+            res = Result.err(result.error);
+        } else {
+            // The kernel packs the bounded regions into a compound; explode it.
+            const compound = OccShape.wrap(result.shape);
+            res = Result.ok(compound.findSubShapes(ShapeTypes.face) as IFace[]);
+        }
+        result.delete();
+        return res;
+    }
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge> {
         return convertShapeResult(
             wasm.ShapeFactory.bezier,

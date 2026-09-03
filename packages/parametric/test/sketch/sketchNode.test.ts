@@ -298,6 +298,7 @@ describe("SketchNode", () => {
                     firstParameter: () => 0,
                     lastParameter: () => 1,
                     pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                    intersect: () => [],
                     isEqual: () => false,
                 };
                 edges.push(e);

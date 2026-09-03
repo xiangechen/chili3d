@@ -10,6 +10,7 @@ import {
     Precision,
     Result,
     ShapeTypes,
+    type XYZ,
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { matchProfileIndexes, type ProfileRef } from "./profileRef";
@@ -36,6 +37,11 @@ type Polygon = [number, number][];
  * connectivity; the wire factory chains each group in place. Nested loops follow
  * even-odd semantics: an inner loop becomes a hole of the containing profile instead
  * of an independent face — unless explicitly selected, see `resolveProfiles`.
+ *
+ * When edges cross mid-span (no shared endpoints at the crossing), grouping cannot see
+ * the extra regions, so the whole sketch goes through `shapeFactory.facesFromEdges`,
+ * which splits the edges at their intersections and returns every minimal bounded
+ * region as a profile (even-odd no longer applies on that path).
  */
 export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
     const shape = sketch.shape;
@@ -43,6 +49,12 @@ export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
 
     const edges = collectEdges(shape.value);
     if (edges.length === 0) return Result.err("Sketch has no entities");
+
+    if (hasMidSpanCrossing(edges)) {
+        const faces = shapeFactory.facesFromEdges(edges, sketch.plane);
+        if (!faces.isOk) return Result.err(faces.error);
+        return Result.ok({ outer: faces.value, inner: [] });
+    }
 
     const loops = buildWires(groupConnected(edges), sketch.plane);
     if (!loops.isOk) return Result.err(loops.error);
@@ -150,6 +162,32 @@ function pointInPolygon([x, y]: [number, number], polygon: [number, number][]): 
 function collectEdges(shape: IShape): IEdge[] {
     if (shape.shapeType === ShapeTypes.edge) return [shape as IEdge];
     return shape.findSubShapes(ShapeTypes.edge) as IEdge[];
+}
+
+/** True when any edge pair intersects away from both edges' endpoints. */
+function hasMidSpanCrossing(edges: IEdge[]): boolean {
+    for (let i = 0; i < edges.length; i++) {
+        for (let j = i + 1; j < edges.length; j++) {
+            if (crossesMidSpan(edges[i], edges[j])) return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * An intersection point counts as a crossing only when it is interior to both edges —
+ * points near an endpoint (vertex contacts, T-junctions) are left to the connectivity
+ * grouping path, which already handles them.
+ */
+function crossesMidSpan(a: IEdge, b: IEdge): boolean {
+    return a.intersect(b).some(({ point }) => !nearEndpoint(a, point) && !nearEndpoint(b, point));
+}
+
+function nearEndpoint(edge: IEdge, point: XYZ): boolean {
+    return (
+        point.distanceTo(edge.startPoint()) < Precision.Distance ||
+        point.distanceTo(edge.endPoint()) < Precision.Distance
+    );
 }
 
 function groupConnected(edges: IEdge[]): IEdge[][] {

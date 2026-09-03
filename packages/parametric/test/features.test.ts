@@ -77,6 +77,7 @@ function edge(start: XYZ, end: XYZ) {
         firstParameter: () => 0,
         lastParameter: () => 1,
         pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+        intersect: () => [],
         isEqual: () => false,
     };
 }
@@ -115,6 +116,7 @@ function setupMocks() {
                     y: center.y + radius * Math.sin(t),
                     z: center.z,
                 }),
+            intersect: () => [],
             isEqual: () => false,
         }),
     );

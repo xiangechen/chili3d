@@ -57,6 +57,7 @@ function edge(start: XYZ, end: XYZ) {
         firstParameter: () => 0,
         lastParameter: () => 1,
         pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+        intersect: () => [],
         isEqual: () => false,
     };
 }

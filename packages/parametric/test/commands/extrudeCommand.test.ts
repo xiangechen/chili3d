@@ -122,6 +122,7 @@ describe("ExtrudeFeatureCommand profile step", () => {
                     firstParameter: () => 0,
                     lastParameter: () => 1,
                     pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                    intersect: () => [],
                     isEqual: () => false,
                 }),
             combine: (edges: any[]) =>
@@ -406,6 +407,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
                     firstParameter: () => 0,
                     lastParameter: () => 1,
                     pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                    intersect: () => [],
                     isEqual: () => false,
                 }),
             combine: (edges: any[]) =>
@@ -534,6 +536,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
                     firstParameter: () => 0,
                     lastParameter: () => 1,
                     pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                    intersect: () => [],
                     isEqual: () => false,
                 }),
             combine: (edges: any[]) =>

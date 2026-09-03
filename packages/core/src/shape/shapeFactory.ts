@@ -40,6 +40,13 @@ export interface IShapeFactory {
     edge(curve: ICurve): IEdge;
     face(wire: IWire[]): Result<IFace>;
     faceFromSurface(wires: IWire[], sourceFace: IFace): Result<IFace>;
+    /**
+     * Minimal bounded planar regions enclosed by `edges` on `plane`: the edges are split
+     * at mutual intersections first, so crossing curves (e.g. overlapping sketch
+     * rectangles without shared endpoints) yield every bounded region — unlike `face`,
+     * which only chains endpoint-connected wires. Dangling edges produce no region.
+     */
+    facesFromEdges(edges: IEdge[], plane: Plane): Result<IFace[]>;
     shell(faces: IFace[]): Result<IShell>;
     solid(shells: IShell[]): Result<ISolid>;
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
