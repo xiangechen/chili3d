@@ -68,16 +68,26 @@ function faceOf(edges: IEdge[]): IFace {
     return {
         shapeType: ShapeTypes.face,
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        outerWire: () => ({
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        }),
     } as unknown as IFace;
 }
 
 /** wire() keeps its edges; face() exposes the boundary edges of all its wires. */
 function setup(closed = true) {
-    const wire = rs.fn((edges: IEdge[]) => Result.ok({ isClosed: () => closed, edges }));
+    const wire = rs.fn((edges: IEdge[]) =>
+        Result.ok({
+            isClosed: () => closed,
+            edges,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        }),
+    );
     const face = rs.fn((wires: { edges: IEdge[] }[]) =>
         Result.ok({
             shapeType: ShapeTypes.face,
             wires,
+            outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w) => w.edges) : [],
         }),

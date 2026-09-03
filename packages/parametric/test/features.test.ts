@@ -131,11 +131,18 @@ function setupMocks() {
         ),
     );
     /** The wire keeps its loop edges; the face exposes the boundary edges of all its wires. */
-    const wire = rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges }));
+    const wire = rs.fn((edges: any[]) =>
+        Result.ok({
+            isClosed: () => edges.length > 1,
+            edges,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        }),
+    );
     const face = rs.fn((wires: any[]) =>
         Result.ok({
             shapeType: ShapeTypes.face,
             isEqual: () => false,
+            outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
         }),
@@ -757,7 +764,11 @@ describe("feature evaluation", () => {
         test("moving a circle profile re-matches and the extrude follows", () => {
             // Full-circle wires close with a single edge.
             mocks.wire.mockImplementation(((edges: any[]) =>
-                Result.ok({ isClosed: () => true, edges })) as any);
+                Result.ok({
+                    isClosed: () => true,
+                    edges,
+                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                })) as any);
             const circleData = (cx: number): SketchData => ({
                 entities: [
                     { id: 1, type: "circle", params: [cx, 0, 1] },
@@ -792,7 +803,11 @@ describe("feature evaluation", () => {
 
         test("consecutive moves of two profiles re-anchor the refs and still follow", () => {
             mocks.wire.mockImplementation(((edges: any[]) =>
-                Result.ok({ isClosed: () => true, edges })) as any);
+                Result.ok({
+                    isClosed: () => true,
+                    edges,
+                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                })) as any);
             const circleData = (c1: number, c2: number): SketchData => ({
                 entities: [
                     { id: 1, type: "circle", params: [c1, 0, 1] },
@@ -951,6 +966,9 @@ describe("feature evaluation", () => {
                 dispose: rs.fn(),
                 normal: () => [new XYZ({ x: 0, y: 0, z }), XYZ.unitZ] as [XYZ, XYZ],
                 findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                outerWire: () => ({
+                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                }),
             };
         }
 

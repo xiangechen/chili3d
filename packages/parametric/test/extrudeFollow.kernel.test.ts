@@ -210,6 +210,11 @@ function rectWithCircle(cx: number): SketchData {
     };
 }
 
+/** Rectangle 40x40 without inner loops. */
+function rectOnly(): SketchData {
+    return { entities: rectWithCircle(0).entities.slice(0, 4), constraints: [] };
+}
+
 /** Centers of the profile circles (radius > 2 excludes the fillet cross-section arcs). */
 function circleCenters(shape: IShape): { x: number; y: number; z: number }[] {
     return (shape.findSubShapes(ShapeTypes.edge) as IEdge[])
@@ -292,4 +297,61 @@ test.each([
     for (const center of centers) {
         expect(center.x).toBeCloseTo(0, 1);
     }
+});
+
+test("an extrude survives a circle drawn inside its profile, then the circle join-extrudes", () => {
+    const doc = new TestDocument({ application: createMockApplication() });
+    doc.visual = createMockVisualWithDocument(doc) as any;
+    const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: rectOnly() });
+    doc.modelManager.addNode(sketch);
+
+    // Extrude the rectangle first, as picked in the viewport.
+    const rectFaces = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    expect(rectFaces.length).toBe(1);
+    const body = new ParametricBodyNode({
+        document: doc,
+        features: [
+            {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 20,
+                profiles: [captureProfileRef(rectFaces[0].shape as unknown as IFace)],
+            },
+        ],
+    });
+    doc.modelManager.addNode(body);
+    expect(body.shape.isOk).toBe(true);
+
+    // Draw a circle inside the rectangle: it becomes a hole of the rectangle profile,
+    // so the rebuilt profile face has more edges than the stored ref. The match must
+    // survive (previously "Sketch profile not found after rebuild").
+    sketch.setDataEmitShapeChanged(rectWithCircle(10));
+    expect(body.featureItems()[0].error).toBeUndefined();
+    expect(body.shape.isOk).toBe(true);
+
+    // Join-extrude the circle, as the command does in join mode.
+    const faces = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    expect(faces.length).toBe(2);
+    const circleFace = faces.find(
+        (x) => (x.shape as unknown as IFace).findSubShapes(ShapeTypes.edge).length === 1,
+    );
+    expect(circleFace).toBeDefined();
+    body.setFeaturesEmitShapeChanged([
+        ...body.features,
+        {
+            id: "e2",
+            type: "extrude",
+            sketchId: sketch.id,
+            length: 10,
+            operation: "fuse",
+            profiles: [captureProfileRef(circleFace!.shape as unknown as IFace)],
+        },
+    ]);
+
+    expect(body.featureItems().map((x) => x.error)).toEqual([undefined, undefined]);
+    expect(body.shape.isOk).toBe(true);
+    // The joined cylinder's top circle at z=10 proves the fuse really happened.
+    const centers = circleCenters(body.shape.unchecked()!);
+    expect(centers.some((c) => Math.abs(c.z - 10) < 1e-6)).toBe(true);
 });

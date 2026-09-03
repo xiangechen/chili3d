@@ -627,6 +627,9 @@ describe("ExtrudeFeatureCommand consumption", () => {
             dispose: rs.fn(),
             normal: () => [new XYZ({ x: 0, y: 0, z: 2 }), XYZ.unitZ],
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            outerWire: () => ({
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            }),
         };
         const bodyShape = {
             shapeType: ShapeTypes.solid,

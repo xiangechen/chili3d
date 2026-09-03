@@ -6,18 +6,25 @@ import { bestEdgeScore, captureEdgeRef, type EdgeRef, MATCH_TOLERANCE } from "./
 
 /**
  * A geometric fingerprint of a sketch profile (one closed loop): the fingerprints of
- * its boundary edges. Sketch faces have no kernel-stable ids (they are derived by
- * `sketchProfiles`, not stored), so the edge fingerprints are the only identity — like
- * `EdgeRef`, they match exactly while the sketch is unchanged and re-match by
- * proximity after edits. See `matchProfileIndexes`.
+ * its outer-boundary edges. Sketch faces have no kernel-stable ids (they are derived
+ * by `sketchProfiles`, not stored), so the edge fingerprints are the only identity —
+ * like `EdgeRef`, they match exactly while the sketch is unchanged and re-match by
+ * proximity after edits. Only the outer wire is fingerprinted: a loop drawn inside
+ * the profile later becomes a hole of its face (even-odd semantics), which must not
+ * change the profile's identity. See `matchProfileIndexes`.
  */
 export interface ProfileRef {
     readonly edges: EdgeRef[];
 }
 
 export function captureProfileRef(face: IFace): ProfileRef {
-    const edges = (face.findSubShapes(ShapeTypes.edge) as IEdge[]).map((edge) => captureEdgeRef(edge));
+    const edges = boundaryEdges(face).map((edge) => captureEdgeRef(edge));
     return { edges };
+}
+
+/** Edges of the face's outer wire — the profile's identity; hole wires are incidental. */
+function boundaryEdges(face: IFace): IEdge[] {
+    return face.outerWire().findSubShapes(ShapeTypes.edge) as IEdge[];
 }
 
 /**
@@ -93,7 +100,7 @@ function clearestRemainingFace(faces: IFace[], ref: ProfileRef, taken: Set<numbe
 
 /** Sum of the ref's per-edge `bestEdgeScore`s; Infinity when the edge count differs. */
 function profileScore(face: IFace, ref: ProfileRef): number {
-    const edges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const edges = boundaryEdges(face);
     if (edges.length !== ref.edges.length) return Infinity;
     let score = 0;
     for (const edgeRef of ref.edges) {

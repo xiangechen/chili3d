@@ -93,11 +93,18 @@ function setupMocks() {
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
         }),
     );
-    const wire = rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges }));
+    const wire = rs.fn((edges: any[]) =>
+        Result.ok({
+            isClosed: () => edges.length > 1,
+            edges,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        }),
+    );
     const face = rs.fn((wires: any[]) =>
         Result.ok({
             shapeType: ShapeTypes.face,
             isEqual: () => false,
+            outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
         }),
@@ -506,6 +513,9 @@ describe("ParametricBodyNode", () => {
         const pickedFace = {
             shapeType: ShapeTypes.face,
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
+            outerWire: () => ({
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
+            }),
         };
         doc.picker.pickShape = rs.fn(() =>
             Promise.resolve([{ shape: pickedFace, indexes: [0] } as any]),

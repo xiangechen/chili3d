@@ -13,10 +13,14 @@ function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
     } as unknown as IEdge;
 }
 
-function faceOf(edges: IEdge[]): IFace {
+function faceOf(edges: IEdge[], holes: IEdge[] = []): IFace {
     return {
         shapeType: ShapeTypes.face,
-        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [...edges, ...holes] : []),
+        outerWire: () => ({
+            shapeType: ShapeTypes.wire,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+        }),
     } as unknown as IFace;
 }
 
@@ -50,6 +54,23 @@ describe("captureProfileRef", () => {
             end: { x: 1, y: 0, z: 0 },
             edgeId: undefined,
         });
+    });
+
+    test("fingerprints only the outer boundary, ignoring holes", () => {
+        const ref = captureProfileRef(faceOf(SQUARE_A, [circleEdge(0.5, 0.5, 0.2)]));
+
+        expect(ref.edges.length).toBe(4);
+    });
+
+    test("re-matches a profile that gained a hole after the ref was captured", () => {
+        // Regression: a loop drawn inside the profile becomes a hole of its face
+        // (even-odd semantics); the extra hole edges must not break the match.
+        const ref = captureProfileRef(faceOf(SQUARE_A));
+        const rebuilt = [faceOf([...SQUARE_A], [circleEdge(0.5, 0.5, 0.2)])];
+
+        const result = matchProfileIndexes(rebuilt, [ref]);
+
+        expect(result).toMatchObject({ isOk: true, value: [0] });
     });
 });
 
