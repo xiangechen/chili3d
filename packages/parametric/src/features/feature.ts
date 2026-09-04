@@ -60,10 +60,25 @@ export interface ExtrudeFeatureData extends FeatureBase {
 export interface RevolveFeatureData extends FeatureBase {
     readonly type: "revolve";
     readonly sketchId: string;
-    /** Rotation axis in world space. */
+    /**
+     * Rotation axis in world space — a snapshot taken at creation time. When
+     * `axisSource` is set it is re-derived from the referenced edge on every rebuild
+     * and this only serves as a fallback (e.g. the source node was deleted).
+     */
     readonly axis: { point: Vec3; direction: Vec3 };
+    /**
+     * The axis as a reference: a line-edge fingerprint (`edgeRef.ts`) on another node,
+     * re-matched against that node's current shape when it changes — moving the picked
+     * axis line moves the revolve, like the axis reference in mainstream parametric CAD.
+     */
+    readonly axisSource?: { readonly nodeId: string; readonly edge: EdgeRef };
     /** In degrees. */
     readonly angle: ParameterValue;
+    /**
+     * Fingerprints of the sketch profiles to revolve (`profileRef.ts`); undefined or
+     * empty revolves every closed profile of the sketch.
+     */
+    readonly profiles?: ProfileRef[];
 }
 
 export interface FilletFeatureData extends FeatureBase {

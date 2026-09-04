@@ -192,6 +192,37 @@ describe("sketchProfiles", () => {
         }
     });
 
+    test("ignores a dangling open chain next to a closed loop", () => {
+        const restore = mockShapeFactory({
+            // closed ⇔ the group chains back onto itself (the lone line does not)
+            wire: rs.fn((edges: IEdge[]) =>
+                Result.ok({
+                    isClosed: () => edges.length > 1,
+                    edges,
+                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                }),
+            ),
+            face: rs.fn((wires: { edges: IEdge[] }[]) =>
+                Result.ok({
+                    shapeType: ShapeTypes.face,
+                    wires,
+                    outerWire: () => wires[0],
+                    findSubShapes: (type: ShapeType) =>
+                        type === ShapeTypes.edge ? wires.flatMap((w) => w.edges) : [],
+                }),
+            ),
+        });
+        try {
+            const danglingLine = edge(5, 5, 8, 8);
+            const result = sketchProfiles(sketchWith([...squareEdges(), danglingLine]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer.length).toBe(1);
+        } finally {
+            restore();
+        }
+    });
+
     test("fails when the sketch has no entities", () => {
         const { restore } = setup();
         try {

@@ -68,17 +68,22 @@ export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
     return buildFaces(wires, containedIn, depth);
 }
 
-/** Chains each connected edge group into a closed wire and samples it as a polygon. */
+/**
+ * Chains each connected edge group into a closed wire and samples it as a polygon.
+ * Open groups (dangling chains) cannot form profiles and are skipped; only a sketch
+ * without any closed loop fails.
+ */
 function buildWires(groups: IEdge[][], plane: Plane): Result<{ wires: IWire[]; polygons: Polygon[] }> {
     const wires: IWire[] = [];
     const polygons: Polygon[] = [];
     for (const group of groups) {
         const wire = shapeFactory.wire(group);
         if (!wire.isOk) return Result.err(wire.error);
-        if (!wire.value.isClosed()) return Result.err("Sketch profile is not closed");
+        if (!wire.value.isClosed()) continue;
         wires.push(wire.value);
         polygons.push(sampleLoop(group, plane));
     }
+    if (wires.length === 0) return Result.err("Sketch profile is not closed");
     return Result.ok({ wires, polygons });
 }
 

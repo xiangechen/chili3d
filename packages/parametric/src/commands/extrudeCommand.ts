@@ -68,14 +68,21 @@ const EXTRUDE_OPERATIONS: Record<string, BooleanOperation> = {
  * 3. otherwise the user picks a face. The filter only allows sketch nodes and
  *    parametric bodies, and only planar faces. Confirming with nothing selected
  *    (Enter/Escape) cancels the command.
+ *
+ * `allowNode` overrides which nodes profiles can come from (revolve: sketches only).
  */
-class SelectSketchProfilesStep implements IStep {
+export class SelectSketchProfilesStep implements IStep {
+    constructor(
+        private readonly allowNode: (node: INode) => boolean = (node) =>
+            node instanceof SketchNode || node instanceof ParametricBodyNode,
+    ) {}
+
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const view = document.application.activeView!;
         return (
-            SelectSketchProfilesStep.fromSelectedFaces(document, view, controller) ??
-            SelectSketchProfilesStep.fromSelectedSketch(document, view, controller) ??
-            (await SelectSketchProfilesStep.pickFace(document, view, controller))
+            this.fromSelectedFaces(document, view, controller) ??
+            this.fromSelectedSketch(document, view, controller) ??
+            (await this.pickFace(document, view, controller))
         );
     }
 
@@ -83,7 +90,7 @@ class SelectSketchProfilesStep implements IStep {
      * Pre-selected profile faces — sketch profile faces or planar faces of a parametric
      * body; faces of other nodes than the first one's are ignored. Undefined when none.
      */
-    private static fromSelectedFaces(
+    private fromSelectedFaces(
         document: IDocument,
         view: IView,
         controller: AsyncController,
@@ -93,9 +100,9 @@ class SelectSketchProfilesStep implements IStep {
             .filter(
                 (x) =>
                     ShapeTypeUtils.hasFace(x.shape.shapeType) &&
-                    (x.owner.node instanceof SketchNode ||
-                        (x.owner.node instanceof ParametricBodyNode &&
-                            (x.shape as IFace).surface().isPlanar())),
+                    this.allowNode(x.owner.node) &&
+                    (!(x.owner.node instanceof ParametricBodyNode) ||
+                        (x.shape as IFace).surface().isPlanar()),
             );
         if (selectedFaces.length === 0) return undefined;
         const node = selectedFaces[0].owner.node;
@@ -109,12 +116,14 @@ class SelectSketchProfilesStep implements IStep {
     }
 
     /** A pre-selected sketch contributes all its outer profiles (empty: whole sketch). */
-    private static fromSelectedSketch(
+    private fromSelectedSketch(
         document: IDocument,
         view: IView,
         controller: AsyncController,
     ): SnapResult | undefined {
-        const selectedSketch = document.selection.getSelectedNodes().find((x) => x instanceof SketchNode);
+        const selectedSketch = document.selection
+            .getSelectedNodes()
+            .find((x): x is SketchNode => x instanceof SketchNode && this.allowNode(x));
         if (selectedSketch === undefined) return undefined;
         const faces = SelectSketchProfilesStep.sketchProfileFaces(document, selectedSketch);
         controller.success();
@@ -125,8 +134,8 @@ class SelectSketchProfilesStep implements IStep {
         return { view, shapes: faces, nodes: [selectedSketch], type: "shape" };
     }
 
-    /** Interactive pick: planar faces of sketches and parametric bodies only. */
-    private static async pickFace(
+    /** Interactive pick: planar faces of allowed nodes only. */
+    private async pickFace(
         document: IDocument,
         view: IView,
         controller: AsyncController,
@@ -135,7 +144,7 @@ class SelectSketchProfilesStep implements IStep {
             shapeType: ShapeTypes.face,
             shapeFilter: { allow: (shape) => (shape as IFace).surface().isPlanar() },
             multi: false,
-            nodeFilter: { allow: (node) => SelectSketchProfilesStep.allowNode(node) },
+            nodeFilter: { allow: this.allowNode },
         });
         if (shapes.length === 0) return undefined;
         return { view, shapes, nodes: [shapes[0].owner.node], type: "shape" };
@@ -171,11 +180,6 @@ class SelectSketchProfilesStep implements IStep {
             });
         }
         return faces;
-    }
-
-    /** Limits the interactive pick to sketches and parametric bodies. */
-    private static allowNode(node: INode): boolean {
-        return node instanceof SketchNode || node instanceof ParametricBodyNode;
     }
 }
 

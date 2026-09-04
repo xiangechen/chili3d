@@ -16,7 +16,7 @@ import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { type SketchData, SketchNode } from "../src/sketch";
 import "../src/features"; // registers all feature handlers
-import type { EdgeRef } from "../src/features/edgeRef";
+import { captureEdgeRef, type EdgeRef } from "../src/features/edgeRef";
 import type {
     BooleanFeatureData,
     BooleanOperation,
@@ -69,7 +69,7 @@ function subEdge() {
 }
 
 function edge(start: XYZ, end: XYZ) {
-    return {
+    const self: any = {
         shapeType: ShapeTypes.edge,
         curve: { basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } } },
         startPoint: () => start,
@@ -79,7 +79,9 @@ function edge(start: XYZ, end: XYZ) {
         pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
         intersect: () => [],
         isEqual: () => false,
+        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [self] : []),
     };
+    return self;
 }
 
 function setupMocks() {
@@ -246,6 +248,60 @@ describe("feature evaluation", () => {
         expect([axis.point.x, axis.point.y, axis.point.z]).toEqual([0, 0, 0]);
         expect([axis.direction.x, axis.direction.y, axis.direction.z]).toEqual([0, 1, 0]);
         expect(angle).toBe(270);
+    });
+
+    test("revolve axis follows the referenced edge when the axis sketch changes", () => {
+        const axisSketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [{ id: 1, type: "line", params: [0, 0, 0, 10] }], constraints: [] },
+        });
+        doc.modelManager.addNode(axisSketch);
+        const axisShape = axisSketch.shape.unchecked() as any;
+        const axisEdge =
+            axisShape.shapeType === ShapeTypes.edge ? axisShape : axisShape.findSubShapes(ShapeTypes.edge)[0];
+        const feature: RevolveFeatureData = {
+            id: "r2",
+            type: "revolve",
+            sketchId: sketch.id,
+            axis: AXIS,
+            axisSource: { nodeId: axisSketch.id, edge: captureEdgeRef(axisEdge) },
+            angle: 90,
+        };
+        const body = bodyWith([feature]);
+
+        expect(body.shape.isOk).toBe(true);
+        const [, axisBefore] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
+        expect([axisBefore.point.x, axisBefore.point.y, axisBefore.point.z]).toEqual([0, 0, 0]);
+        expect([axisBefore.direction.x, axisBefore.direction.y, axisBefore.direction.z]).toEqual([0, 1, 0]);
+
+        // Moving the referenced axis line re-evaluates the body with the moved axis.
+        axisSketch.setDataEmitShapeChanged({
+            entities: [{ id: 1, type: "line", params: [100, 0, 100, 10] }],
+            constraints: [],
+        });
+
+        expect(body.shape.isOk).toBe(true);
+        const [, axisAfter] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
+        expect([axisAfter.point.x, axisAfter.point.y, axisAfter.point.z]).toEqual([100, 0, 0]);
+        expect([axisAfter.direction.x, axisAfter.direction.y, axisAfter.direction.z]).toEqual([0, 1, 0]);
+    });
+
+    test("revolve falls back to the snapshot axis when the axis source is gone", () => {
+        const feature: RevolveFeatureData = {
+            id: "r3",
+            type: "revolve",
+            sketchId: sketch.id,
+            axis: AXIS,
+            axisSource: { nodeId: "deleted-node", edge: EDGE_REF },
+            angle: 90,
+        };
+        const body = bodyWith([feature]);
+
+        expect(body.shape.isOk).toBe(true);
+        const [, axis] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
+        expect([axis.point.x, axis.point.y, axis.point.z]).toEqual([0, 0, 0]);
+        expect([axis.direction.x, axis.direction.y, axis.direction.z]).toEqual([0, 1, 0]);
     });
 
     test("fillet re-matches edge refs against the rebuilt input", () => {
