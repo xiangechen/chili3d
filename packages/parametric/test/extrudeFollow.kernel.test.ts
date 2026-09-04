@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+    BoundingBox,
     type ICameraController,
     type ICircle,
     type IEdge,
@@ -196,6 +197,59 @@ test("an extrude follows two circles dragged close together in consecutive edits
     expect(doc.history.undoCount()).toBe(undoCount + 2);
 });
 
+/** Rectangle 40x20 plus a vertical line on x=20 spanning y1..y2. */
+function rectWithVerticalLine(y1: number, y2: number): SketchData {
+    return {
+        entities: [
+            { id: 1, type: "line", params: [0, 0, 40, 0] },
+            { id: 2, type: "line", params: [40, 0, 40, 20] },
+            { id: 3, type: "line", params: [40, 20, 0, 20] },
+            { id: 4, type: "line", params: [0, 20, 0, 0] },
+            { id: 5, type: "line", params: [20, y1, 20, y2] },
+        ],
+        constraints: [],
+    };
+}
+
+test("an extrude of a crossing region survives the crossing line leaving the rectangle", () => {
+    const doc = new TestDocument({ application: createMockApplication() });
+    doc.visual = createMockVisualWithDocument(doc) as any;
+    // The line crosses the bottom edge and dangles inside the rectangle: the crossing
+    // path yields one region whose boundary has 5 segments (the bottom edge is split).
+    const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: rectWithVerticalLine(10, -5) });
+    doc.modelManager.addNode(sketch);
+    const faceRanges = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    expect(faceRanges.length).toBe(1);
+
+    const body = new ParametricBodyNode({
+        document: doc,
+        features: [
+            {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                length: 10,
+                profiles: faceRanges.map((x) => captureProfileRef(x.shape as unknown as IFace)),
+            },
+        ],
+    });
+    doc.modelManager.addNode(body);
+    expect(body.shape.isOk).toBe(true);
+
+    // Drag the line out of the rectangle: the crossing is gone, so the rebuilt profile
+    // is the connectivity-path loop with a 4-edge boundary. The stored ref's 5-edge
+    // fingerprint cannot apply — only the region fingerprint (center/area) re-matches.
+    sketch.setDataEmitShapeChanged(rectWithVerticalLine(-15, -5));
+
+    expect(body.featureItems()[0].error).toBeUndefined();
+    expect(body.shape.isOk).toBe(true);
+    const box = body.shape.unchecked()!.boundingBox();
+    expect(box.min.x).toBeCloseTo(0, 1);
+    expect(box.max.x).toBeCloseTo(40, 1);
+    expect(box.max.y).toBeCloseTo(20, 1);
+    expect(box.max.z).toBeCloseTo(10, 1);
+});
+
 /** Rectangle 40x40 with an off-center circle (radius 5) inside. */
 function rectWithCircle(cx: number): SketchData {
     return {
@@ -354,4 +408,81 @@ test("an extrude survives a circle drawn inside its profile, then the circle joi
     // The joined cylinder's top circle at z=10 proves the fuse really happened.
     const centers = circleCenters(body.shape.unchecked()!);
     expect(centers.some((c) => Math.abs(c.z - 10) < 1e-6)).toBe(true);
+});
+
+/**
+ * Two overlapping rectangles plus a horizontal line crossing both. Entities 1-4: rect A
+ * (0,0)-(40,30); 5-8: rect B (20,10)-(50,35); 9: the crossing line. `lineY` shifts the
+ * line's far endpoint, `corner` moves B's bottom-left corner — both keep every crossing.
+ */
+function twoRectsWithCrossingLine(lineY: number, corner: [number, number]): SketchData {
+    return {
+        entities: [
+            { id: 1, type: "line", params: [0, 0, 40, 0] },
+            { id: 2, type: "line", params: [40, 0, 40, 30] },
+            { id: 3, type: "line", params: [40, 30, 0, 30] },
+            { id: 4, type: "line", params: [0, 30, 0, 0] },
+            { id: 5, type: "line", params: [corner[0], corner[1], 50, 10] },
+            { id: 6, type: "line", params: [50, 10, 50, 35] },
+            { id: 7, type: "line", params: [50, 35, corner[0], 35] },
+            { id: 8, type: "line", params: [corner[0], 35, corner[0], corner[1]] },
+            { id: 9, type: "line", params: [-5, 15, 55, lineY] },
+        ],
+        constraints: [],
+    };
+}
+
+test("an extrude of a minimal crossing region survives dragging the crossing line and a rectangle corner", () => {
+    const doc = new TestDocument({ application: createMockApplication() });
+    doc.visual = createMockVisualWithDocument(doc) as any;
+    const sketch = new SketchNode({
+        document: doc,
+        plane: Plane.XY,
+        data: twoRectsWithCrossingLine(15, [20, 10]),
+    });
+    doc.modelManager.addNode(sketch);
+
+    // Pick the minimal region [20,40]x[10,15]: bounded by segments of entities 2 (A
+    // right), 5 (B bottom), 8 (B left) and 9 (the line). Neighboring regions own
+    // complementary segments of the same entities, so their geometric fingerprints
+    // are near-identical — the entity-id set is the identity that survives the drag.
+    const faceRanges = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    const picked = faceRanges.find((x) => {
+        const center = BoundingBox.center((x.shape as unknown as IFace).boundingBox());
+        return Math.abs(center.x - 30) < 1e-6 && Math.abs(center.y - 12.5) < 1e-6;
+    });
+    expect(picked).toBeDefined();
+    const ref = captureProfileRef(picked!.shape as unknown as IFace);
+    // Verifies the edge-index → entity-id correspondence AND that the mesh range's
+    // sub-shape wrapper resolves to the registered region face.
+    expect(ref.entities).toEqual([2, 5, 8, 9]);
+
+    const body = new ParametricBodyNode({
+        document: doc,
+        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, length: 10, profiles: [ref] }],
+    });
+    doc.modelManager.addNode(body);
+    expect(body.shape.isOk).toBe(true);
+
+    // Drag the line's endpoint and B's bottom-left corner, staying crossing. The
+    // region re-splits its boundary, but its entity set is unchanged. (Without the
+    // entity-set identity this exact edit fails: the rebuilt regions compete as
+    // "Sketch profile match is ambiguous after rebuild".)
+    sketch.setDataEmitShapeChanged(twoRectsWithCrossingLine(19, [5, 12]));
+
+    expect(body.featureItems()[0].error).toBeUndefined();
+    expect(body.shape.isOk).toBe(true);
+    // The rebuilt prism still spans the picked region — between B's moved left side
+    // (x=5) and A's right side (x=40), from B's bottom edge (y≈10.4 at x=40) up to
+    // the slanted line (y=18 at x=40). A wrong-region match would extrude a neighbor.
+    const box = body.shape.unchecked()!.boundingBox();
+    expect(box.min.x).toBeCloseTo(5, 1);
+    expect(box.max.x).toBeCloseTo(40, 1);
+    expect(box.min.y).toBeCloseTo(10.4, 1);
+    expect(box.max.y).toBeCloseTo(18, 1);
+    expect(box.max.z).toBeCloseTo(10, 1);
+
+    // The re-anchored ref keeps the same entity set.
+    const stored = (body.features[0] as { profiles: { entities?: number[] }[] }).profiles;
+    expect(stored[0].entities).toEqual([2, 5, 8, 9]);
 });

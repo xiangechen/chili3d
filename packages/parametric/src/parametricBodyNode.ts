@@ -3,6 +3,7 @@
 
 import {
     AsyncController,
+    debounce,
     type FeatureItem,
     type I18nKeys,
     type IDocument,
@@ -15,7 +16,7 @@ import {
     type INodeVisual,
     type IShape,
     isPropertyChanged,
-    type Matrix4,
+    Matrix4,
     NodeChildList,
     ParameterShapeNode,
     Result,
@@ -36,7 +37,7 @@ import type {
     ExtrudeFeatureData,
     FilletFeatureData,
 } from "./features/feature";
-import { allProfiles, sketchProfiles } from "./features/profileBuilder";
+import { allProfiles, profileEntitiesOf, sketchProfiles } from "./features/profileBuilder";
 import { captureProfileRef, matchProfileIndexes, type ProfileRef } from "./features/profileRef";
 import type { SketchNode } from "./sketch/sketchNode";
 
@@ -308,9 +309,10 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
      * were captured from that pre-feature geometry, and the filleted/chamfered edges
      * no longer exist in the final shape. The rollback is restored in `finally` and
      * never transacted, so undo stays one step. The currently referenced shapes start
-     * out selected (visible, toggleable); confirming keeps the remaining selection,
-     * cancelling keeps the feature unchanged. The body node is re-selected afterwards
-     * so the feature panel stays open.
+     * out selected (visible, toggleable); selection changes preview the rebuilt result
+     * live, confirming keeps the remaining selection, cancelling keeps the feature
+     * unchanged. The body node is re-selected afterwards so the feature panel stays
+     * open.
      */
     async reselectShapes(featureId: string): Promise<void> {
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
@@ -331,8 +333,9 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     /**
      * Re-picks the profiles of an extrude feature and replaces its stored refs. Unlike
      * edge features no rollback is needed: the picked faces live on the sketch, whose
-     * shape does not depend on this feature. Confirming with nothing selected clears
-     * `profiles` — back to extruding every profile of the sketch.
+     * shape does not depend on this feature. Selection changes preview the rebuilt body
+     * live. Confirming with nothing selected clears `profiles` — back to extruding
+     * every profile of the sketch.
      */
     private async reselectProfiles(feature: ExtrudeFeatureData): Promise<void> {
         // Body-face extrudes (`source`) re-match by fingerprint; re-picking is only
@@ -355,7 +358,10 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
 
     /**
      * The pick session of `reselectProfiles`; returns undefined only when the user
-     * cancels — an empty confirmation means "extrude every profile".
+     * cancels — an empty confirmation means "extrude every profile". Every selection
+     * change rebuilds the body with the currently selected faces (history disabled),
+     * so the result previews live; the original list is restored in `finally` and
+     * only the confirmed replacement is transacted.
      */
     private async pickFeatureProfiles(
         feature: ExtrudeFeatureData,
@@ -363,10 +369,16 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
     ): Promise<ProfileRef[] | undefined> {
         const selection = this.document.selection;
         selection.clearSelection();
+        const original = this.features;
+        const history = this.document.history;
+        const historyWasDisabled = history.disabled;
+        history.disabled = true;
         let cancelled = false;
+        const preview = (selected: VisualShapeData[]) => this.previewProfiles(feature, sketch, selected);
         try {
             this.document.visual.update();
             this.preselectCurrentProfiles(feature, sketch);
+            selection.onShapeChanged.sub(preview);
             const controller = new AsyncController();
             controller.onCancelled(() => (cancelled = true));
             const picked = await this.document.picker.pickShape("prompt.select.faces", controller, {
@@ -377,8 +389,30 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             if (cancelled) return undefined;
             return picked.map((x) => captureProfileRef(x.shape as unknown as IFace));
         } finally {
+            selection.onShapeChanged.remove(preview);
+            this.setFeaturesEmitShapeChanged(original);
+            history.disabled = historyWasDisabled;
             selection.setSelectedNodes([this], false);
         }
+    }
+
+    /**
+     * Live preview while re-picking: rebuilds with the selected faces as the feature's
+     * profiles. An empty selection previews the whole sketch, matching what an empty
+     * confirmation commits.
+     */
+    private previewProfiles(
+        feature: ExtrudeFeatureData,
+        sketch: SketchNode,
+        selected: VisualShapeData[],
+    ): void {
+        const faces = selected.filter((x) => x.owner.node === sketch);
+        const profiles =
+            faces.length > 0 ? faces.map((x) => captureProfileRef(x.shape as unknown as IFace)) : undefined;
+        this.setFeaturesEmitShapeChanged(
+            this.features.map((x) => (x.id === feature.id ? { ...x, profiles } : x)),
+        );
+        this.document.visual.update();
     }
 
     /** Selects the profiles a feature currently references so the pick session starts from them. */
@@ -387,7 +421,11 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         const profiles = sketchProfiles(sketch);
         if (!profiles.isOk) return;
         // A failed match is a common reason to re-pick; then there is nothing to preselect.
-        const indexes = matchProfileIndexes(allProfiles(profiles.value), feature.profiles);
+        const indexes = matchProfileIndexes(
+            allProfiles(profiles.value),
+            feature.profiles,
+            profileEntitiesOf(profiles.value),
+        );
         if (!indexes.isOk) return;
         // The profile mesh appends faces in the same outer-then-inner order, so a
         // matched position indexes into the face ranges directly.
@@ -401,14 +439,17 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
             transform: owner.worldTransform(),
             indexes: [index],
         }));
-        this.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
+        this.document.selection.setSelectedShapes(picked, VisualStates.faceSelected, false);
     }
 
     /**
      * The rolled-back pick session of `reselectShapes`; returns undefined when the user
      * cancels or picks nothing. Property changes auto-record history; the rollback is a
      * transient preview state, so recording is suppressed for the session and only the
-     * final edge replacement is transacted.
+     * final edge replacement is transacted. Selection changes preview the full chain
+     * with the newly picked edges as a temporary mesh; the body keeps the rolled-back
+     * shape pickable, with its faces made transparent for the session so they do not
+     * fight the preview (like the shell command's target body).
      */
     private async pickFeatureEdges(
         feature: FilletFeatureData | ChamferFeatureData,
@@ -423,11 +464,23 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
         const historyWasDisabled = history.disabled;
         history.disabled = true;
         let cancelled = false;
+        let active = true;
+        const preview = debounce((selected: VisualShapeData[]) => {
+            if (active) this.previewEdgeSelection(original, feature, featureIndex, selected);
+        }, 20);
+        const owner = this.document.visual.context.getVisual(this);
+        const shapeType = this.shape.isOk ? this.shape.value.shapeType : undefined;
         try {
             this.setFeaturesEmitShapeChanged(
                 original.map((x, i) => (i >= featureIndex ? { ...x, suppressed: true } : x)),
             );
             this.document.visual.update();
+            if (owner !== undefined && shapeType !== undefined) {
+                this.document.visual.highlighter.addState(owner, VisualStates.faceTransparent, shapeType);
+            }
+            // Subscribed before the preselect, so the session opens with the preview
+            // of the current edges already shown.
+            selection.onShapeChanged.sub(preview);
             this.preselectCurrentEdges(feature);
             const controller = new AsyncController();
             controller.onCancelled(() => (cancelled = true));
@@ -445,10 +498,98 @@ export class ParametricBodyNode extends ParameterShapeNode implements IFeatureLi
                 captureEdgeRef(x.shape as unknown as IEdge, this.edgeIdAt(x.indexes[0])),
             );
         } finally {
+            active = false;
+            selection.onShapeChanged.remove(preview);
+            this.clearEdgePreview();
+            if (owner !== undefined && shapeType !== undefined) {
+                this.document.visual.highlighter.removeState(owner, VisualStates.faceTransparent, shapeType);
+            }
             this.setFeaturesEmitShapeChanged(original);
             history.disabled = historyWasDisabled;
             selection.setSelectedNodes([this], false);
         }
+    }
+
+    /** Temporary mesh of the edge-reselect preview, shown over the rolled-back shape. */
+    private _edgePreview: number | undefined;
+
+    private clearEdgePreview(): void {
+        if (this._edgePreview === undefined) return;
+        this.document.visual.context.removeMesh(this._edgePreview);
+        this._edgePreview = undefined;
+    }
+
+    /**
+     * Live preview while re-picking edges: applies the selected edges to the feature
+     * and displays the fully evaluated chain as a temporary opaque mesh (temp meshes
+     * are not pickable, so the session is unaffected; the body's own faces are made
+     * transparent for the session, so they do not fight this mesh). The rolled-back
+     * cache is still current, so the captured refs match what the confirm path stores.
+     */
+    private previewEdgeSelection(
+        original: FeatureData[],
+        feature: FilletFeatureData | ChamferFeatureData,
+        featureIndex: number,
+        selected: VisualShapeData[],
+    ): void {
+        this.clearEdgePreview();
+        const edges = selected
+            .filter((x) => x.owner.node === this && x.shape.shapeType === ShapeTypes.edge)
+            .map((x) => captureEdgeRef(x.shape as unknown as IEdge, this.edgeIdAt(x.indexes[0])));
+        if (edges.length > 0) {
+            const preview = original.map((x, i) => (i === featureIndex ? { ...x, edges } : x));
+            const shape = this.evaluateChainSnapshot(preview);
+            if (shape.isOk) {
+                // The temp mesh renders in world space; the chain evaluates locally.
+                let previewShape = shape.value;
+                const transform = this.worldTransform();
+                if (!transform.equals(Matrix4.identity())) {
+                    previewShape = shape.value.transformedMul(transform);
+                }
+                try {
+                    const { faces, edges: edgeMesh } = previewShape.mesh;
+                    const datas = [faces, edgeMesh].filter((x) => x !== undefined);
+                    if (datas.length > 0) {
+                        this._edgePreview = this.document.visual.context.displayMesh(datas);
+                    }
+                } finally {
+                    previewShape.dispose();
+                    if (previewShape !== shape.value) shape.value.dispose();
+                }
+            }
+        }
+        this.document.visual.update();
+    }
+
+    /**
+     * Evaluates a feature list without touching the node's state (cache, errors, shape)
+     * and without id tracking — edge refs fall back to fingerprint matching. Shapes
+     * superseded by a later feature are disposed; the caller owns the returned shape.
+     */
+    private evaluateChainSnapshot(features: FeatureData[]): Result<IShape> {
+        let input: IShape | undefined;
+        const scope = new Map<string, number>();
+        for (const feature of features) {
+            if (feature.suppressed) continue;
+            const handler = featureHandler(feature.type);
+            if (handler?.kind === "parameters") {
+                const result =
+                    handler.evaluateParameters?.(feature, scope) ?? Result.err("Not a parameter feature");
+                if (!result.isOk) {
+                    input?.dispose();
+                    return Result.err(result.error);
+                }
+                continue;
+            }
+            const result = evaluateFeature(feature, { document: this.document, host: this, input, scope });
+            if (!result.isOk) {
+                input?.dispose();
+                return Result.err(result.error);
+            }
+            if (result.value !== input) input?.dispose();
+            input = result.value;
+        }
+        return input === undefined ? shapeFactory.combine([]) : Result.ok(input);
     }
 
     /** Selects the edges a feature currently references so the pick session starts from them. */

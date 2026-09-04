@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
     type INode,
     Matrix4,
     NodeUtils,
@@ -10,7 +11,9 @@ import {
     Serializer,
     type ShapeType,
     ShapeTypes,
+    Signal,
     Transaction,
+    VisualStates,
     type XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
@@ -107,6 +110,8 @@ function setupMocks() {
             outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         }),
     );
     // A rebuild produces fresh shape objects, like the real OCCT factory does.
@@ -157,6 +162,7 @@ describe("ParametricBodyNode", () => {
             clearSelection: rs.fn(),
             setSelectedShapes: rs.fn(),
             setSelectedNodes: rs.fn(),
+            onShapeChanged: new Signal<(selected: any[]) => void>(),
         };
         doc.selection = selection as any;
         return selection;
@@ -457,6 +463,9 @@ describe("ParametricBodyNode", () => {
         const selection = mockSelection();
         const owner = { worldTransform: () => Matrix4.identity() };
         doc.visual.context.getVisual = () => owner as any;
+        const addState = rs.fn();
+        const removeState = rs.fn();
+        (doc.visual as any).highlighter = { addState, removeState } as any;
         doc.picker.pickShape = rs.fn(() => Promise.resolve([])) as any;
         // Node additions are already on the history; the pick session must not add more.
         const undoCount = doc.history.undoCount();
@@ -470,6 +479,10 @@ describe("ParametricBodyNode", () => {
         expect(call[0][0].owner).toBe(owner);
         expect(call[0][0].indexes).toEqual([0]);
         expect(call[2]).toBe(false);
+        // The body's faces are transparent for the session (so they do not fight the
+        // preview mesh) and restored afterwards.
+        expect(addState).toHaveBeenCalledWith(owner, VisualStates.faceTransparent, ShapeTypes.solid);
+        expect(removeState).toHaveBeenCalledWith(owner, VisualStates.faceTransparent, ShapeTypes.solid);
         // After the pick the body node is selected again so the feature panel reopens.
         expect(selection.setSelectedNodes).toHaveBeenCalledWith([body], false);
         expect(doc.history.undoCount()).toBe(undoCount);
@@ -497,6 +510,105 @@ describe("ParametricBodyNode", () => {
         expect(doc.history.undoCount()).toBe(undoCount);
     });
 
+    test("reselectShapes previews the rebuilt body live while picking edges", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        const selection = mockSelection();
+        const displayMesh = rs.fn((_datas: any, _option: any) => 42);
+        const removeMesh = rs.fn();
+        doc.visual.context.displayMesh = displayMesh as any;
+        doc.visual.context.removeMesh = removeMesh as any;
+        // The picked edge matches the rolled-back prism's only sub-edge, so the
+        // preview chain evaluates successfully.
+        const pickedEdge = {
+            shapeType: ShapeTypes.edge,
+            curve: { basisCurve: { direction: { x: 1, y: 0, z: 0 } } },
+            startPoint: () => ({ x: 0, y: 0, z: 0 }),
+            endPoint: () => ({ x: 1, y: 0, z: 0 }),
+        };
+        const owner = { node: body, worldTransform: () => Matrix4.identity() };
+        doc.picker.pickShape = rs.fn(async () => {
+            selection.onShapeChanged.emit([{ shape: pickedEdge, owner, indexes: [0] } as any]);
+            // Let the debounced preview run before the session ends.
+            await new Promise((resolve) => setTimeout(resolve, 40));
+            return [{ shape: pickedEdge, owner, indexes: [0] } as any];
+        }) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f2");
+
+        // The preview showed the full chain with the picked edges as an opaque temp
+        // mesh (the body's own faces are transparent for the session), cleaned up
+        // when the session ended ...
+        expect(displayMesh).toHaveBeenCalledTimes(1);
+        expect(displayMesh.mock.calls[0][1]).toBeUndefined();
+        expect(removeMesh).toHaveBeenCalledWith(42);
+        // ... and the body's own list stayed rolled back for the whole session —
+        // the committed edges equal the stored ones, so no history was recorded.
+        expect(body.features).toMatchObject([{ id: "f1" }, { id: "f2", edges: [EDGE_REF] }]);
+        expect(doc.history.undoCount()).toBe(undoCount);
+    });
+
+    test("reselectShapes shows the edge preview from the start", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        const selection = mockSelection();
+        const owner = { node: body, worldTransform: () => Matrix4.identity() };
+        doc.visual.context.getVisual = () => owner as any;
+        (doc.visual as any).highlighter = { addState: rs.fn(), removeState: rs.fn() } as any;
+        const displayMesh = rs.fn((_datas: any) => 42);
+        const removeMesh = rs.fn();
+        doc.visual.context.displayMesh = displayMesh as any;
+        doc.visual.context.removeMesh = removeMesh as any;
+        // The real selection manager emits on every setSelectedShapes, so the
+        // preselection at session start triggers the preview without user input.
+        selection.setSelectedShapes = rs.fn((shapes: any[]) => selection.onShapeChanged.emit(shapes));
+        doc.picker.pickShape = rs.fn(async () => {
+            // Let the debounced preview run before the session ends.
+            await new Promise((resolve) => setTimeout(resolve, 40));
+            return [];
+        }) as any;
+
+        await body.reselectShapes("f2");
+
+        expect(displayMesh).toHaveBeenCalledTimes(1);
+        expect(removeMesh).toHaveBeenCalledWith(42);
+    });
+
+    test("reselectShapes edge preview failure shows no temp mesh", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        const selection = mockSelection();
+        const displayMesh = rs.fn((_datas: any, _option: any) => 42);
+        doc.visual.context.displayMesh = displayMesh as any;
+        // A circle ref never matches the rolled-back prism's line edge — the
+        // preview chain fails.
+        const oddEdge = {
+            shapeType: ShapeTypes.edge,
+            curve: { basisCurve: { center: { x: 9, y: 9, z: 0 }, radius: 3, axis: { x: 0, y: 0, z: 1 } } },
+            startPoint: () => ({ x: 9, y: 9, z: 0 }),
+            endPoint: () => ({ x: 9, y: 10, z: 0 }),
+        };
+        const owner = { node: body, worldTransform: () => Matrix4.identity() };
+        doc.picker.pickShape = rs.fn(async (_prompt: any, controller: any) => {
+            selection.onShapeChanged.emit([{ shape: oddEdge, owner, indexes: [0] } as any]);
+            await new Promise((resolve) => setTimeout(resolve, 40));
+            controller.cancel();
+            return [];
+        }) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f2");
+
+        expect(displayMesh).not.toHaveBeenCalled();
+        expect(body.features).toMatchObject([{ id: "f1" }, { id: "f2", edges: [EDGE_REF] }]);
+        expect(body.shape.isOk).toBe(true);
+        expect(doc.history.undoCount()).toBe(undoCount);
+    });
+
     test("reselectShapes ignores features without shape references", async () => {
         const body = bodyWith([{ id: "v1", type: "variable", name: "a", expression: "1" }]);
         const pickShape = rs.fn(() => Promise.resolve([]));
@@ -516,6 +628,8 @@ describe("ParametricBodyNode", () => {
             outerWire: () => ({
                 findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [subEdge()] : []),
             }),
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         };
         doc.picker.pickShape = rs.fn(() =>
             Promise.resolve([{ shape: pickedFace, indexes: [0] } as any]),
@@ -531,6 +645,88 @@ describe("ParametricBodyNode", () => {
         });
         expect(doc.history.undoCount()).toBe(undoCount + 1);
     });
+    test("reselectShapes previews the rebuilt body live while picking profiles", async () => {
+        const extrude: ExtrudeFeatureData = {
+            ...extrudeFeature(sketch.id),
+            profiles: [{ edges: [EDGE_REF] }],
+        };
+        const body = bodyWith([extrude]);
+        const selection = mockSelection();
+        const movedEdge = {
+            ...subEdge(),
+            startPoint: () => ({ x: 1, y: 0, z: 0 }) as XYZ,
+            endPoint: () => ({ x: 1, y: 1, z: 0 }) as XYZ,
+        };
+        const pickedFace = {
+            shapeType: ShapeTypes.face,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [movedEdge] : []),
+            outerWire: () => ({
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [movedEdge] : []),
+            }),
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
+        };
+        const owner = { node: sketch, worldTransform: () => Matrix4.identity() };
+        const picked = [{ shape: pickedFace, owner, indexes: [0] } as any];
+        const expectedProfiles = [
+            { edges: [{ kind: "line", start: { x: 1, y: 0, z: 0 }, end: { x: 1, y: 1, z: 0 } }] },
+        ];
+        let featuresWhilePicking: unknown;
+        doc.picker.pickShape = rs.fn(() => {
+            selection.onShapeChanged.emit(picked);
+            featuresWhilePicking = body.features;
+            return Promise.resolve(picked);
+        }) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f1");
+
+        // The selection change rebuilt the body with the new profiles mid-pick ...
+        expect(featuresWhilePicking).toMatchObject([{ id: "f1", profiles: expectedProfiles }]);
+        // ... and confirming commits the same refs without recording the preview.
+        expect(body.features[0]).toMatchObject({ profiles: expectedProfiles });
+        expect(doc.history.undoCount()).toBe(undoCount + 1);
+    });
+
+    test("reselectShapes cancel restores the body after a live preview", async () => {
+        const extrude: ExtrudeFeatureData = {
+            ...extrudeFeature(sketch.id),
+            profiles: [{ edges: [EDGE_REF] }],
+        };
+        const body = bodyWith([extrude]);
+        const selection = mockSelection();
+        const movedEdge = {
+            ...subEdge(),
+            startPoint: () => ({ x: 1, y: 0, z: 0 }) as XYZ,
+            endPoint: () => ({ x: 1, y: 1, z: 0 }) as XYZ,
+        };
+        const pickedFace = {
+            shapeType: ShapeTypes.face,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [movedEdge] : []),
+            outerWire: () => ({
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [movedEdge] : []),
+            }),
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
+        };
+        const owner = { node: sketch, worldTransform: () => Matrix4.identity() };
+        let featuresWhilePicking: unknown;
+        doc.picker.pickShape = rs.fn((_prompt: any, controller: any) => {
+            selection.onShapeChanged.emit([{ shape: pickedFace, owner, indexes: [0] } as any]);
+            featuresWhilePicking = body.features;
+            controller.cancel();
+            return Promise.resolve([]);
+        }) as any;
+        const undoCount = doc.history.undoCount();
+
+        await body.reselectShapes("f1");
+
+        // The preview changed the profiles mid-pick, and cancelling restored them.
+        expect(featuresWhilePicking).not.toMatchObject({ profiles: [{ edges: [EDGE_REF] }] });
+        expect(body.features[0]).toMatchObject({ profiles: [{ edges: [EDGE_REF] }] });
+        expect(doc.history.undoCount()).toBe(undoCount);
+    });
+
     test("reselectShapes with an empty pick clears the extrude profiles", async () => {
         const extrude: ExtrudeFeatureData = {
             ...extrudeFeature(sketch.id),

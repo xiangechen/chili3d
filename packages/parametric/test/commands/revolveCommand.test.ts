@@ -59,6 +59,7 @@ function mockShapeFactory() {
                     shapeType: ShapeTypes.face,
                     matrix: Matrix4.identity(),
                     boundingBox: () => new BoundingBox({ x: 5, y: 0, z: 0 }, { x: 15, y: 10, z: 0 }),
+                    area: () => 0,
                     isEqual: () => false,
                     dispose: () => {},
                     findSubShapes: (type: ShapeType) =>
@@ -120,6 +121,8 @@ function profileFaceData(sketch: SketchNode) {
         shape: {
             shapeType: ShapeTypes.face,
             outerWire: () => ({ findSubShapes: () => edges }),
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         },
         owner: { node: sketch },
         transform: Matrix4.identity(),

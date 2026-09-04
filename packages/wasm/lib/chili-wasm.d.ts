@@ -46,6 +46,15 @@ export interface ShapesResult extends ClassHandle {
   shapes: Array<TopoDS_Shape>;
 }
 
+export interface RegionsResult extends ClassHandle {
+  isOk: boolean;
+  get error(): string;
+  set error(value: EmbindString);
+  sourceCounts: IntVector;
+  sourceIds: IntVector;
+  faces: Array<TopoDS_Shape>;
+}
+
 export interface TrackedShapeResult extends ClassHandle {
   isOk: boolean;
   get error(): string;
@@ -638,6 +647,7 @@ interface EmbindModule {
   ShapeResult: {};
   RemoveFilletResult: {};
   ShapesResult: {};
+  RegionsResult: {};
   TrackedShapeResult: {};
   ShapeFactory: {
     makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
@@ -694,7 +704,7 @@ interface EmbindModule {
     box(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     pyramid(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     rect(_0: Pln, _1: number, _2: number): ShapeResult;
-    facesFromEdges(_0: Array<TopoDS_Edge>, _1: Pln): ShapeResult;
+    facesFromEdges(_0: Array<TopoDS_Edge>, _1: Pln): RegionsResult;
   };
   Curve: {
     curveLength(_0: Geom_Curve | null): number;

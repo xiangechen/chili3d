@@ -433,13 +433,22 @@ describe("ShapeFactory — faces, shells & solids", () => {
             const edges = [...rectEdges(0, 0, 4, 4), ...rectEdges(2, 2, 6, 6)];
             const result = factory.facesFromEdges(edges, plane);
             expect(result.isOk).toBe(true);
-            expect(result.value.length).toBe(3);
-            expect(result.value.every((f) => f.shapeType === ShapeTypes.face)).toBe(true);
+            const { faces, sources } = result.value;
+            expect(faces.length).toBe(3);
+            expect(sources.length).toBe(3);
+            expect(faces.every((f) => f.shapeType === ShapeTypes.face)).toBe(true);
             // Regions: A-only 4*4-2*2, overlap 2*2, B-only.
-            const areas = result.value.map((f) => f.area()).sort((a, b) => a - b);
+            const areas = faces.map((f) => f.area()).sort((a, b) => a - b);
             expect(areas[0]).toBeCloseTo(4, 5);
             expect(areas[1]).toBeCloseTo(12, 5);
             expect(areas[2]).toBeCloseTo(12, 5);
+            // The overlap region [2,4]x[2,4] is bounded by A's right/top edges (1, 2)
+            // and B's bottom/left edges (4, 7); the L-shaped outer regions are also
+            // bounded by the inner corner segments of the other rectangle.
+            const bySources = new Map(sources.map((set, i) => [set.join(","), faces[i].area()]));
+            expect(bySources.get("0,1,2,3,4,7")).toBeCloseTo(12, 5);
+            expect(bySources.get("1,2,4,7")).toBeCloseTo(4, 5);
+            expect(bySources.get("1,2,4,5,6,7")).toBeCloseTo(12, 5);
         });
 
         test("a line crossing a circle splits the disk into two faces", () => {
@@ -449,20 +458,31 @@ describe("ShapeFactory — faces, shells & solids", () => {
             );
             const result = factory.facesFromEdges([circle, line], plane);
             expect(result.isOk).toBe(true);
-            expect(result.value.length).toBe(2);
-            for (const face of result.value) {
+            const { faces, sources } = result.value;
+            expect(faces.length).toBe(2);
+            for (const face of faces) {
                 expect(face.area()).toBeCloseTo((Math.PI * 25) / 2, 4);
             }
+            // Both half-disks are bounded by the circle and the line.
+            expect(sources).toEqual([
+                [0, 1],
+                [0, 1],
+            ]);
         });
 
         test("disjoint closed rectangles produce one face each", () => {
             const edges = [...rectEdges(0, 0, 2, 2), ...rectEdges(10, 10, 12, 12)];
             const result = factory.facesFromEdges(edges, plane);
             expect(result.isOk).toBe(true);
-            expect(result.value.length).toBe(2);
-            for (const face of result.value) {
+            const { faces, sources } = result.value;
+            expect(faces.length).toBe(2);
+            for (const face of faces) {
                 expect(face.area()).toBeCloseTo(4, 5);
             }
+            expect(sources).toEqual([
+                [0, 1, 2, 3],
+                [4, 5, 6, 7],
+            ]);
         });
 
         test("an open polyline encloses no region", () => {

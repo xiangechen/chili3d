@@ -11,6 +11,7 @@ import {
     Serializer,
     type ShapeType,
     ShapeTypes,
+    Signal,
     Transaction,
     XYZ,
 } from "@chili3d/core";
@@ -361,6 +362,7 @@ describe("ParametricBodyNode face tracking", () => {
             clearSelection: rs.fn(),
             setSelectedShapes: rs.fn(),
             setSelectedNodes: rs.fn(),
+            onShapeChanged: new Signal<(selected: any[]) => void>(),
         } as any;
         const pickedEdge = {
             shapeType: ShapeTypes.edge,

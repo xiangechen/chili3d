@@ -1,8 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type ShapeType, ShapeTypes, type XYZ } from "@chili3d/core";
-import { captureProfileRef, matchProfileIndexes, type ProfileRef } from "../src/features/profileRef";
+import { BoundingBox, type IEdge, type IFace, type ShapeType, ShapeTypes, type XYZ } from "@chili3d/core";
+import {
+    captureProfileRef,
+    matchProfileIndexes,
+    type ProfileRef,
+    registerProfileEntities,
+} from "../src/features/profileRef";
 
 function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
     return {
@@ -13,7 +18,7 @@ function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
     } as unknown as IEdge;
 }
 
-function faceOf(edges: IEdge[], holes: IEdge[] = []): IFace {
+function faceOf(edges: IEdge[], holes: IEdge[] = [], box?: BoundingBox, area?: number): IFace {
     return {
         shapeType: ShapeTypes.face,
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [...edges, ...holes] : []),
@@ -21,7 +26,15 @@ function faceOf(edges: IEdge[], holes: IEdge[] = []): IFace {
             shapeType: ShapeTypes.wire,
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
         }),
+        // Zero defaults disable the region-similarity fallback in matching.
+        boundingBox: () => box ?? BoundingBox.zero,
+        area: () => area ?? 0,
     } as unknown as IFace;
+}
+
+/** Bounding box spanning the given 2D corners, at z=0. */
+function boxOf(x1: number, y1: number, x2: number, y2: number): BoundingBox {
+    return new BoundingBox({ x: x1, y: y1, z: 0 }, { x: x2, y: y2, z: 0 });
 }
 
 function circleEdge(cx: number, cy: number, radius: number): IEdge {
@@ -104,7 +117,8 @@ describe("matchProfileIndexes", () => {
         expect(result).toMatchObject({ isOk: true, value: [1] });
     });
 
-    test("fails when no face has the ref's edge count", () => {
+    test("fails when no face has the ref's edge count and the ref has no usable region fingerprint", () => {
+        // The mock faces carry area 0, which disables the region-similarity fallback.
         const ref = captureProfileRef(faceOf(SQUARE_B));
 
         const result = matchProfileIndexes([faceOf(SQUARE_B.slice(0, 3))], [ref]);
@@ -172,6 +186,182 @@ describe("matchProfileIndexes", () => {
         const ref = captureProfileRef(faceOf(SQUARE_B));
 
         const result = matchProfileIndexes([faceOf([...SQUARE_A]), faceOf(movedB)], [ref]);
+
+        expect(result).toMatchObject({ isOk: true, value: [1] });
+    });
+});
+
+describe("region-similarity fallback (crossing sketches)", () => {
+    /** SQUARE_B with its bottom edge split in two — a 5-edge boundary of the same region. */
+    const RESPLIT_B = [
+        lineEdge(5, 5, 6, 5),
+        lineEdge(6, 5, 7, 5),
+        lineEdge(7, 5, 7, 7),
+        lineEdge(7, 7, 5, 7),
+        lineEdge(5, 7, 5, 5),
+    ];
+
+    test("records the region fingerprint (bbox center and area)", () => {
+        const ref = captureProfileRef(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4));
+
+        expect(ref.center).toEqual({ x: 6, y: 6, z: 0 });
+        expect(ref.area).toBe(4);
+    });
+
+    test("re-matches a region whose boundary re-split into a different edge count", () => {
+        // A crossing sketch re-splits the region boundary on rebuild, so the per-edge
+        // fingerprints no longer apply; the region identity must carry the match.
+        const ref = captureProfileRef(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4));
+        const faces = [
+            faceOf(RESPLIT_B, [], boxOf(5, 5, 7, 7), 4),
+            faceOf(squareAt(20, 20).concat(lineEdge(21, 20, 21, 21)), [], boxOf(20, 20, 22, 22), 4),
+        ];
+
+        const result = matchProfileIndexes(faces, [ref]);
+
+        expect(result).toMatchObject({ isOk: true, value: [0] });
+    });
+
+    test("rejects a candidate changed beyond the region's characteristic size", () => {
+        // area 4 → 16: drift 6 exceeds twice the characteristic length (2·2).
+        const ref = captureProfileRef(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4));
+
+        const result = matchProfileIndexes([faceOf(RESPLIT_B, [], boxOf(5, 5, 9, 9), 16)], [ref]);
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile not found after rebuild");
+    });
+
+    test("reports ambiguity between two equally similar re-split regions", () => {
+        const ref = captureProfileRef(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4));
+        const faces = [
+            faceOf(RESPLIT_B, [], boxOf(5, 5, 7, 7), 4),
+            faceOf([...RESPLIT_B], [], boxOf(5, 5, 7, 7), 4),
+        ];
+
+        const result = matchProfileIndexes(faces, [ref]);
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile match is ambiguous after rebuild");
+    });
+
+    test("a legacy ref without center/area keeps the strict edge-count behavior", () => {
+        const {
+            center: _center,
+            area: _area,
+            ...legacy
+        } = captureProfileRef(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4));
+
+        const result = matchProfileIndexes([faceOf(RESPLIT_B, [], boxOf(5, 5, 7, 7), 4)], [legacy]);
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile not found after rebuild");
+    });
+});
+
+describe("entity-set matching (crossing sketches)", () => {
+    /** SQUARE_B with its bottom edge split in two — a 5-edge boundary of the same region. */
+    const RESPLIT_B = [
+        lineEdge(5, 5, 6, 5),
+        lineEdge(6, 5, 7, 5),
+        lineEdge(7, 5, 7, 7),
+        lineEdge(7, 7, 5, 7),
+        lineEdge(5, 7, 5, 5),
+    ];
+
+    function refWithEntities(face: IFace, entities: number[]): ProfileRef {
+        return { ...captureProfileRef(face), entities };
+    }
+
+    test("attaches registered entity ids at capture time", () => {
+        const face = faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4);
+        registerProfileEntities(face, [2, 3, 4]);
+
+        expect(captureProfileRef(face).entities).toEqual([2, 3, 4]);
+    });
+
+    test("attaches entity ids through a sub-shape parent chain", () => {
+        // Viewport picks hand captureProfileRef the mesh range's sub-shape wrapper,
+        // not the registered region face itself.
+        const face = faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4);
+        registerProfileEntities(face, [7]);
+        const subShape = { ...faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4), parent: face } as unknown as IFace;
+
+        expect(captureProfileRef(subShape).entities).toEqual([7]);
+    });
+
+    test("entity sets disambiguate regions with identical boundary geometry", () => {
+        // Adjacent minimal regions share complementary segments of the same entities,
+        // so their geometric fingerprints can be identical; the entity sets separate them.
+        const faceA = faceOf([...SQUARE_A], [], boxOf(0, 0, 1, 1), 1);
+        const faceB = faceOf([...SQUARE_A], [], boxOf(0, 0, 1, 1), 1);
+        const refs = [refWithEntities(faceA, [3, 4]), refWithEntities(faceB, [1, 2])];
+
+        const result = matchProfileIndexes([faceA, faceB], refs, [
+            [1, 2],
+            [3, 4],
+        ]);
+
+        expect(result).toMatchObject({ isOk: true, value: [1, 0] });
+    });
+
+    test("tiebreaks regions of the same entity set by the region fingerprint", () => {
+        // Two crossing circles produce three lens regions, all bounded by the same two
+        // entities; after a move the closest region fingerprint wins.
+        const faces = [
+            faceOf([circleEdge(0, 0, 5)], [], boxOf(-5, -1, 0, 1), 3),
+            faceOf([circleEdge(0, 0, 5)], [], boxOf(1, -2, 4, 2), 8),
+            faceOf([circleEdge(0, 0, 5)], [], boxOf(10, -1, 14, 1), 3),
+        ];
+        const ref = refWithEntities(faceOf([circleEdge(5, 0, 5)], [], boxOf(9.5, -1, 13.5, 1), 3), [1, 2]);
+
+        const result = matchProfileIndexes(
+            faces,
+            [ref],
+            [
+                [1, 2],
+                [1, 2],
+                [1, 2],
+            ],
+        );
+
+        expect(result).toMatchObject({ isOk: true, value: [2] });
+    });
+
+    test("reports ambiguity between same-set regions with equal region fingerprints", () => {
+        const ref = refWithEntities(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4), [1, 2]);
+        const faces = [
+            faceOf(RESPLIT_B, [], boxOf(5, 5, 7, 7), 4),
+            faceOf([...RESPLIT_B], [], boxOf(5, 5, 7, 7), 4),
+        ];
+
+        const result = matchProfileIndexes(
+            faces,
+            [ref],
+            [
+                [1, 2],
+                [1, 2],
+            ],
+        );
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile match is ambiguous after rebuild");
+    });
+
+    test("falls back to geometric matching when no candidate carries the entity set", () => {
+        // The crossing is gone: the connectivity path rebuilt the sketch, so no face
+        // carries an entity set — the region fingerprint re-matches as before.
+        const ref = refWithEntities(faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4), [1, 2, 3, 4, 5]);
+
+        const result = matchProfileIndexes([faceOf(RESPLIT_B, [], boxOf(5, 5, 7, 7), 4)], [ref], [undefined]);
+
+        expect(result).toMatchObject({ isOk: true, value: [0] });
+    });
+
+    test("a legacy ref without entities keeps geometric matching when candidates carry sets", () => {
+        const ref = captureProfileRef(faceOf(SQUARE_B));
+
+        const result = matchProfileIndexes([faceOf([...SQUARE_A]), faceOf([...SQUARE_B])], [ref], [[9], [8]]);
 
         expect(result).toMatchObject({ isOk: true, value: [1] });
     });

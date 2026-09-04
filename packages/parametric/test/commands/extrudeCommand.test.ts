@@ -424,6 +424,8 @@ describe("ExtrudeFeatureCommand consumption", () => {
                     isEqual: () => false,
                     findSubShapes: (type: ShapeType) =>
                         type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+                    area: () => 0,
+                    boundingBox: () => BoundingBox.zero,
                 }),
             prism: () => {
                 const box = boxAt(prismCalls++);
@@ -553,6 +555,8 @@ describe("ExtrudeFeatureCommand consumption", () => {
                     isEqual: () => false,
                     findSubShapes: (type: ShapeType) =>
                         type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+                    area: () => 0,
+                    boundingBox: () => BoundingBox.zero,
                 }),
             prism: () =>
                 Result.ok({
@@ -630,6 +634,8 @@ describe("ExtrudeFeatureCommand consumption", () => {
             outerWire: () => ({
                 findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
             }),
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         };
         const bodyShape = {
             shapeType: ShapeTypes.solid,

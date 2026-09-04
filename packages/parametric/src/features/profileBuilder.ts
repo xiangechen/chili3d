@@ -13,7 +13,7 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
-import { matchProfileIndexes, type ProfileRef } from "./profileRef";
+import { matchProfileIndexes, type ProfileRef, registerProfileEntities } from "./profileRef";
 
 /** Samples per edge when approximating a loop as a polygon for the containment test. */
 const LOOP_SAMPLES = 16;
@@ -26,6 +26,13 @@ export interface SketchProfileSet {
     readonly outer: IFace[];
     /** Hole loops as solid faces — selectable as profiles, but not extruded by default. */
     readonly inner: IFace[];
+    /**
+     * Crossing path only (undefined on the connectivity path): the sorted ids of the
+     * sketch entities bounding each `outer` profile — the region's primary identity
+     * for `ProfileRef.entities` (geometric fingerprints cannot tell adjacent regions
+     * apart, they share segments of the same entities).
+     */
+    readonly outerEntities?: number[][];
 }
 
 /** A loop approximated as a 2D polygon in sketch-plane coordinates. */
@@ -51,9 +58,19 @@ export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
     if (edges.length === 0) return Result.err("Sketch has no entities");
 
     if (hasMidSpanCrossing(edges)) {
-        const faces = shapeFactory.facesFromEdges(edges, sketch.plane);
-        if (!faces.isOk) return Result.err(faces.error);
-        return Result.ok({ outer: faces.value, inner: [] });
+        const regions = shapeFactory.facesFromEdges(edges, sketch.plane);
+        if (!regions.isOk) return Result.err(regions.error);
+        const { faces, sources } = regions.value;
+        // Input edge i is entity i of the sketch (generateShape combines one edge per
+        // entity in `data.entities` order) — map the kernel's source indexes to the
+        // entity ids, which survive endpoint drags and re-splits.
+        const outerEntities = sources.map((set) =>
+            set.map((index) => sketch.data.entities[index].id).sort((a, b) => a - b),
+        );
+        for (const [index, face] of faces.entries()) {
+            registerProfileEntities(face, outerEntities[index]);
+        }
+        return Result.ok({ outer: faces, inner: [], outerEntities });
     }
 
     const loops = buildWires(groupConnected(edges), sketch.plane);
@@ -120,8 +137,8 @@ export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Re
     if (profiles === undefined || profiles.length === 0) {
         return Result.ok(profileSet.value.outer.map((face, index) => ({ face, index })));
     }
-    const all = [...profileSet.value.outer, ...profileSet.value.inner];
-    const indexes = matchProfileIndexes(all, profiles);
+    const all = allProfiles(profileSet.value);
+    const indexes = matchProfileIndexes(all, profiles, profileEntitiesOf(profileSet.value));
     if (!indexes.isOk) return Result.err(indexes.error);
     return Result.ok(indexes.value.map((index) => ({ face: all[index], index })));
 }
@@ -129,6 +146,15 @@ export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Re
 /** All selectable profiles — outer (with holes) first, then inner loops; matches the sketch's profile mesh order. */
 export function allProfiles(profileSet: SketchProfileSet): IFace[] {
     return [...profileSet.outer, ...profileSet.inner];
+}
+
+/**
+ * The entity-id sets parallel to `allProfiles` (undefined entries for inner profiles —
+ * empty on the crossing path anyway), or undefined on the connectivity path.
+ */
+export function profileEntitiesOf(profileSet: SketchProfileSet): (number[] | undefined)[] | undefined {
+    if (profileSet.outerEntities === undefined) return undefined;
+    return [...profileSet.outerEntities, ...profileSet.inner.map(() => undefined)];
 }
 
 /** Approximates a loop as a 2D polygon in sketch-plane coordinates. */

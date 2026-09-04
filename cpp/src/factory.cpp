@@ -60,6 +60,7 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <HelixBRep_BuilderHelix.hxx>
 #include <NCollection_Array1.hxx>
+#include <NCollection_IndexedMap.hxx>
 #include <Precision.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeFix_Face.hxx>
@@ -72,6 +73,7 @@
 #include <Standard_Failure.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
@@ -80,6 +82,7 @@
 #include <deque>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
+#include <set>
 
 using namespace emscripten;
 
@@ -98,6 +101,16 @@ struct RemoveFilletResult {
 
 struct ShapesResult {
     ShapeArray shapes;
+    bool isOk;
+    std::string error;
+};
+
+// Minimal bounded regions with per-region source identity: region k is bounded by
+// segments of the input edges sourceIds[sum(counts<k) .. +counts[k]] (sorted, unique).
+struct RegionsResult {
+    ShapeArray faces;
+    std::vector<int> sourceCounts;
+    std::vector<int> sourceIds;
     bool isOk;
     std::string error;
 };
@@ -369,8 +382,30 @@ static std::string mapBuildWireError(const BRepBuilderAPI_WireError& error)
 
 // Helpers for ShapeFactory::facesFromEdges (FreeCAD's FaceMakerBuildFace recipe).
 
-// Splits `edges` at their mutual intersections.
-static ShapeResult splitAtIntersections(const NCollection_List<TopoDS_Shape>& edges)
+// The split edges plus a map from each split segment to its input edge index.
+struct SplitEdgesResult {
+    TopoDS_Shape shape;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> segments;
+    std::vector<int> segmentSources;
+    bool isOk;
+    std::string error;
+};
+
+// Adds both orientations of `segment` to the map (lookups ignore orientation, but be
+// explicit), extending the parallel source array only on real insertions — the map
+// dedupes shapes that are IsSame.
+static void addSegment(SplitEdgesResult& result, const TopoDS_Shape& segment, int inputIndex)
+{
+    const int added = result.segments.Add(segment.Oriented(TopAbs_FORWARD));
+    result.segments.Add(segment.Oriented(TopAbs_REVERSED));
+    if (added == result.segments.Extent()) {
+        result.segmentSources.push_back(inputIndex);
+    }
+}
+
+// Splits `edges` at their mutual intersections, recording which input edge each split
+// segment comes from (an unmodified edge maps to itself).
+static SplitEdgesResult splitAtIntersections(const NCollection_List<TopoDS_Shape>& edges)
 {
     BOPAlgo_Splitter splitter;
     splitter.SetArguments(edges);
@@ -378,9 +413,23 @@ static ShapeResult splitAtIntersections(const NCollection_List<TopoDS_Shape>& ed
     splitter.SetNonDestructive(true);
     splitter.Perform();
     if (splitter.HasErrors()) {
-        return ShapeResult { TopoDS_Shape(), false, "Failed to split edges at intersections" };
+        return SplitEdgesResult { TopoDS_Shape(), {}, {}, false, "Failed to split edges at intersections" };
     }
-    return ShapeResult { splitter.Shape(), true, "" };
+
+    SplitEdgesResult result { splitter.Shape(), {}, {}, true, "" };
+    int inputIndex = 0;
+    for (const TopoDS_Shape& edge : edges) {
+        const NCollection_List<TopoDS_Shape>& modified = splitter.Modified(edge);
+        if (modified.IsEmpty()) {
+            addSegment(result, edge, inputIndex);
+        } else {
+            for (const TopoDS_Shape& segment : modified) {
+                addSegment(result, segment, inputIndex);
+            }
+        }
+        inputIndex++;
+    }
+    return result;
 }
 
 // Builds a base face dwarfing the split edges so BuilderFace can tell bounded regions from
@@ -403,9 +452,11 @@ static TopoDS_Face baseFaceForRegions(const TopoDS_Shape& splitEdges, const gp_P
     return baseFace;
 }
 
-// Recovers every minimal bounded area covered by `faceEdges` on `baseFace`.
-static ShapeResult boundedAreas(const TopoDS_Face& baseFace, const NCollection_List<TopoDS_Shape>& faceEdges,
-    double extent)
+// Recovers every minimal bounded area covered by `faceEdges` on `baseFace`, with the
+// sorted unique input edge indexes bounding each region (see SplitEdgesResult).
+static RegionsResult boundedAreas(const TopoDS_Face& baseFace, const NCollection_List<TopoDS_Shape>& faceEdges,
+    double extent, const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& segments,
+    const std::vector<int>& segmentSources)
 {
     // AvoidInternalShapes keeps dangling edges from becoming internal wires.
     BOPAlgo_BuilderFace faceBuilder;
@@ -414,28 +465,36 @@ static ShapeResult boundedAreas(const TopoDS_Face& baseFace, const NCollection_L
     faceBuilder.SetAvoidInternalShapes(true);
     faceBuilder.Perform();
     if (faceBuilder.HasErrors()) {
-        return ShapeResult { TopoDS_Shape(), false, "Failed to build faces from edges" };
+        return RegionsResult { ShapeArray(val::array()), {}, {}, false, "Failed to build faces from edges" };
     }
 
     const double outerThreshold = extent * extent;
-    BRep_Builder builder;
-    TopoDS_Compound result;
-    builder.MakeCompound(result);
-    int faceCount = 0;
+    val faces = val::array();
+    std::vector<int> sourceCounts;
+    std::vector<int> sourceIds;
     for (const TopoDS_Shape& area : faceBuilder.Areas()) {
         Bnd_Box box;
         BRepBndLib::Add(area, box);
         GProp_GProps props;
         BRepGProp::SurfaceProperties(area, props);
-        if (box.SquareExtent() <= outerThreshold && props.Mass() >= Precision::Confusion()) {
-            builder.Add(result, area);
-            faceCount++;
+        if (box.SquareExtent() > outerThreshold || props.Mass() < Precision::Confusion()) {
+            continue;
         }
+        faces.call<void>("push", area);
+        std::set<int> sources;
+        for (TopExp_Explorer explorer(area, TopAbs_EDGE); explorer.More(); explorer.Next()) {
+            const int index = segments.FindIndex(explorer.Current());
+            if (index > 0) {
+                sources.insert(segmentSources[index - 1]);
+            }
+        }
+        sourceCounts.push_back(static_cast<int>(sources.size()));
+        sourceIds.insert(sourceIds.end(), sources.begin(), sources.end());
     }
-    if (faceCount == 0) {
-        return ShapeResult { TopoDS_Shape(), false, "No bounded regions found" };
+    if (sourceCounts.empty()) {
+        return RegionsResult { ShapeArray(val::array()), {}, {}, false, "No bounded regions found" };
     }
-    return ShapeResult { result, true, "" };
+    return RegionsResult { ShapeArray(faces), sourceCounts, sourceIds, true, "" };
 }
 
 class ShapeFactory {
@@ -973,28 +1032,29 @@ public:
     }
 
     // Finds the minimal bounded planar regions of `edges` on `plane` (FreeCAD's
-    // FaceMakerBuildFace recipe). Used for sketch profiles of crossing curves, which
-    // endpoint connectivity alone misses.
-    static ShapeResult facesFromEdges(const EdgeArray& edges, const Pln& plane)
+    // FaceMakerBuildFace recipe), with the sorted unique input edge indexes bounding
+    // each region. Used for sketch profiles of crossing curves, which endpoint
+    // connectivity alone misses.
+    static RegionsResult facesFromEdges(const EdgeArray& edges, const Pln& plane)
     {
         std::vector<TopoDS_Edge> edgesVec = vecFromJSArray<TopoDS_Edge>(edges);
         if (edgesVec.empty()) {
-            return ShapeResult { TopoDS_Shape(), false, "No edges provided" };
+            return RegionsResult { ShapeArray(val::array()), {}, {}, false, "No edges provided" };
         }
 
         NCollection_List<TopoDS_Shape> arguments;
         for (const auto& edge : edgesVec) {
             arguments.Append(edge);
         }
-        ShapeResult split = splitAtIntersections(arguments);
+        SplitEdgesResult split = splitAtIntersections(arguments);
         if (!split.isOk) {
-            return split;
+            return RegionsResult { ShapeArray(val::array()), {}, {}, false, split.error };
         }
 
         NCollection_List<TopoDS_Shape> faceEdges;
         double extent;
         TopoDS_Face baseFace = baseFaceForRegions(split.shape, Pln::toPln(plane), faceEdges, extent);
-        return boundedAreas(baseFace, faceEdges, extent);
+        return boundedAreas(baseFace, faceEdges, extent, split.segments, split.segmentSources);
     }
 
     static ShapeResult shell(const FaceArray& faces)
@@ -1720,6 +1780,13 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("shapes", &ShapesResult::shapes)
         .property("isOk", &ShapesResult::isOk)
         .property("error", &ShapesResult::error);
+
+    class_<RegionsResult>("RegionsResult")
+        .property("faces", &RegionsResult::faces)
+        .property("sourceCounts", &RegionsResult::sourceCounts)
+        .property("sourceIds", &RegionsResult::sourceIds)
+        .property("isOk", &RegionsResult::isOk)
+        .property("error", &RegionsResult::error);
 
     class_<TrackedShapeResult>("TrackedShapeResult")
         .property("shape", &TrackedShapeResult::shape, return_value_policy::reference())

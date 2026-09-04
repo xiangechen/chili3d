@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, Plane, Result, type ShapeType, ShapeTypes, XYZ } from "@chili3d/core";
+import {
+    BoundingBox,
+    type IEdge,
+    type IFace,
+    Plane,
+    Result,
+    type ShapeType,
+    ShapeTypes,
+    XYZ,
+} from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { allProfiles, resolveProfiles, sketchProfiles } from "../src/features/profileBuilder";
 import { captureProfileRef } from "../src/features/profileRef";
@@ -61,7 +70,13 @@ function sketchWith(edges: IEdge[]): SketchNode {
         shapeType: ShapeTypes.compound,
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
     };
-    return { shape: Result.ok(compound), plane: Plane.XY } as unknown as SketchNode;
+    return {
+        shape: Result.ok(compound),
+        plane: Plane.XY,
+        // generateShape pushes one edge per entity in `data.entities` order, so the
+        // collected edge index corresponds to the entity index.
+        data: { entities: edges.map((_, index) => ({ id: index + 1, type: "line", params: [] })) },
+    } as unknown as SketchNode;
 }
 
 function faceOf(edges: IEdge[]): IFace {
@@ -71,6 +86,9 @@ function faceOf(edges: IEdge[]): IFace {
         outerWire: () => ({
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
         }),
+        // Zero region fingerprint: disables the region-similarity fallback in matching.
+        area: () => 0,
+        boundingBox: () => BoundingBox.zero,
     } as unknown as IFace;
 }
 
@@ -90,6 +108,8 @@ function setup(closed = true) {
             outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w) => w.edges) : [],
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         }),
     );
     const restore = mockShapeFactory({ wire, face });
@@ -274,11 +294,43 @@ describe("sketchProfiles with crossing edges", () => {
             }),
         );
         const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
-            typeof faces === "string" ? Result.err(faces) : Result.ok(faces),
+            typeof faces === "string"
+                ? Result.err(faces)
+                : Result.ok({ faces, sources: faces.map(() => [] as number[]) }),
         );
         const restore = mockShapeFactory({ wire, face, facesFromEdges });
         return { wire, facesFromEdges, restore };
     }
+
+    test("the crossing path maps the kernel's source edge indexes to entity ids", () => {
+        const regions = [faceOf([]), faceOf([])];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({
+                faces: regions,
+                sources: [
+                    [4, 0],
+                    [1, 7],
+                ],
+            }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        try {
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const result = sketchProfiles(sketchWith(edges));
+
+            expect(result.isOk).toBe(true);
+            // Edge index i is entity id i+1 (mock order); sets come back sorted by id.
+            expect(result.unchecked()!.outerEntities).toEqual([
+                [1, 5],
+                [2, 8],
+            ]);
+            // Registered on the returned faces, so captureProfileRef picks them up.
+            expect(captureProfileRef(regions[0]).entities).toEqual([1, 5]);
+            expect(captureProfileRef(regions[1]).entities).toEqual([2, 8]);
+        } finally {
+            restore();
+        }
+    });
 
     test("two overlapping squares without shared endpoints yield the kernel's regions", () => {
         const regions = [faceOf([]), faceOf([]), faceOf([])];

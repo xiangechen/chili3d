@@ -147,6 +147,8 @@ function setupMocks() {
             outerWire: () => wires[0],
             findSubShapes: (type: ShapeType) =>
                 type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+            area: () => 0,
+            boundingBox: () => BoundingBox.zero,
         }),
     );
     /** Each prism gets a bounding box computed from its profile, so fusion tests are truthful. */
@@ -1025,6 +1027,8 @@ describe("feature evaluation", () => {
                 outerWire: () => ({
                     findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
                 }),
+                area: () => 0,
+                boundingBox: () => BoundingBox.zero,
             };
         }
 

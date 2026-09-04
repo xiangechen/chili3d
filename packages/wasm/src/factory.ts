@@ -28,6 +28,7 @@ import {
 } from "@chili3d/core";
 import type {
     IntVector,
+    RegionsResult,
     ShapeResult,
     ShapesResult,
     TopoDS_Edge,
@@ -382,12 +383,12 @@ export class ShapeFactory implements IShapeFactory {
             "FaceFromSurface Error",
         ) as Result<IFace>;
     }
-    facesFromEdges(edges: IEdge[], plane: Plane): Result<IFace[]> {
+    facesFromEdges(edges: IEdge[], plane: Plane): Result<{ faces: IFace[]; sources: number[][] }> {
         if (edges.length === 0) {
             return Result.err("The edges are empty.");
         }
         const occEdges = ensureOccShape(edges);
-        let result: ShapeResult;
+        let result: RegionsResult;
         try {
             result = wasm.ShapeFactory.facesFromEdges(occEdges, {
                 location: plane.origin,
@@ -398,13 +399,24 @@ export class ShapeFactory implements IShapeFactory {
             return Result.err(`FacesFromEdges Error: ${err}`);
         }
 
-        let res: Result<IFace[], string>;
+        let res: Result<{ faces: IFace[]; sources: number[][] }, string>;
         if (!result.isOk) {
             res = Result.err(result.error);
         } else {
-            // The kernel packs the bounded regions into a compound; explode it.
-            const compound = OccShape.wrap(result.shape);
-            res = Result.ok(compound.findSubShapes(ShapeTypes.face) as IFace[]);
+            const faces: IFace[] = [];
+            for (let i = 0; i < result.faces.length; i++) {
+                faces.push(OccShape.wrap(result.faces[i]) as IFace);
+            }
+            // sourceIds is flattened: region k owns sourceIds[sum(counts<k) .. +counts[k]].
+            const counts = toIntArray(result.sourceCounts);
+            const ids = toIntArray(result.sourceIds);
+            const sources: number[][] = [];
+            let offset = 0;
+            for (const count of counts) {
+                sources.push(ids.slice(offset, offset + count));
+                offset += count;
+            }
+            res = Result.ok({ faces, sources });
         }
         result.delete();
         return res;

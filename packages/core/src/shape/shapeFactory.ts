@@ -45,8 +45,9 @@ export interface IShapeFactory {
      * at mutual intersections first, so crossing curves (e.g. overlapping sketch
      * rectangles without shared endpoints) yield every bounded region — unlike `face`,
      * which only chains endpoint-connected wires. Dangling edges produce no region.
+     * `sources[k]` is the sorted unique indexes of the input edges bounding `faces[k]`.
      */
-    facesFromEdges(edges: IEdge[], plane: Plane): Result<IFace[]>;
+    facesFromEdges(edges: IEdge[], plane: Plane): Result<{ faces: IFace[]; sources: number[][] }>;
     shell(faces: IFace[]): Result<IShell>;
     solid(shells: IShell[]): Result<ISolid>;
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
