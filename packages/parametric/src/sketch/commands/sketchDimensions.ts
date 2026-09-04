@@ -12,7 +12,13 @@ import {
     toStorageDatum,
 } from "../editor/dimensionLayout";
 import type { SketchEditor } from "../editor/sketchEditor";
-import { ConstraintKind, pointRefKey, type SketchConstraintData, type SketchPointRef } from "../sketchModel";
+import {
+    ConstraintKind,
+    entityRadius,
+    pointRefKey,
+    type SketchConstraintData,
+    type SketchPointRef,
+} from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
@@ -62,32 +68,31 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
 @command({ key: "dimension.radius", icon: "icon-dRadius" })
 export class RadiusDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const circleId = await editor.pickEntity("prompt.pickSketchEntity", "circle");
-        if (circleId === undefined) return;
+        const entityId = await editor.pickEntity("prompt.pickSketchEntity", ["circle", "arc"]);
+        if (entityId === undefined) return;
 
-        const circle = editor.solver.entity(circleId)!;
-        const center: [number, number] = [circle.params[0], circle.params[1]];
+        const entity = editor.solver.entity(entityId)!;
+        const center: [number, number] = [entity.params[0], entity.params[1]];
+        const radius = entityRadius(entity);
         const position = await pickWithPreview(editor, () =>
             editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
                 editor.annotations.setDimensionPreview(
-                    uv === undefined
-                        ? undefined
-                        : { kind: "radius", center, radius: circle.params[2], position: uv },
+                    uv === undefined ? undefined : { kind: "radius", center, radius, position: uv },
                 ),
             ),
         );
         if (position === undefined) return;
 
-        // anchor the label as a vector from the center so it follows the circle
+        // anchor the label as a vector from the center so it follows the geometry
         commitDimension(
             editor,
             {
                 kind: ConstraintKind.Radius,
-                refs: [{ entityId: circleId, pointIndex: 0 }],
-                datum: circle.params[2],
+                refs: [{ entityId, pointIndex: 0 }],
+                datum: radius,
             },
             { kind: "vector", dx: position[0] - center[0], dy: position[1] - center[1] },
-            circle.params[2],
+            radius,
         );
     }
 }

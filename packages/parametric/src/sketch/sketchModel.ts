@@ -129,6 +129,15 @@ export function arcAngles(params: number[]): [number, number] {
     return [a0, sweep > Precision.Angle ? sweep : sweep + Math.PI * 2];
 }
 
+/** Radius of a circle (params[2]) or arc (‖start−center‖) entity. */
+export function entityRadius(entity: SketchEntityData): number {
+    if (entity.type === "circle") return entity.params[2];
+    if (entity.type === "arc") {
+        return Math.hypot(entity.params[2] - entity.params[0], entity.params[3] - entity.params[1]);
+    }
+    throw new Error(`Entity ${entity.id} has no radius`);
+}
+
 /** Sketch (u, v) → world: origin + xvec * u + yvec * v. */
 export function toWorld(plane: Plane, u: number, v: number): XYZ {
     return plane.origin.add(plane.xvec.multiply(u)).add(plane.yvec.multiply(v));

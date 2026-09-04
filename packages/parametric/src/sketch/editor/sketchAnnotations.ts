@@ -10,6 +10,7 @@ import {
 } from "@chili3d/core";
 import {
     ConstraintKind,
+    entityRadius,
     isDatumEntityId,
     pointRefKey,
     type SketchConstraintData,
@@ -631,10 +632,11 @@ export class SketchAnnotationManager implements IDisposable {
     private radiusGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
         const entity = this.solver.entity(constraint.refs[0].entityId);
         if (entity === undefined) return undefined;
-        const [cx, cy, radius] = entity.params;
+        const center: [number, number] = [entity.params[0], entity.params[1]];
+        const radius = entityRadius(entity);
         const anchor = this.anchors.get(constraint.id);
         const [dx, dy] = anchor?.kind === "vector" ? [anchor.dx, anchor.dy] : [radius, radius];
-        return radiusDimension([cx, cy], radius, dx, dy, px);
+        return radiusDimension(center, radius, dx, dy, px);
     }
 
     /** World units per screen pixel at the view center (falls back to 1). */

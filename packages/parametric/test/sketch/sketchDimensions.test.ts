@@ -74,6 +74,7 @@ function setup() {
         value: {
             line: () => Result.ok({ isEqual: () => false }),
             circle: () => Result.ok({ isEqual: () => false }),
+            arc: () => Result.ok({ isEqual: () => false }),
             wire: () => Result.ok({ isEqual: () => false }),
             combine: () => Result.ok({ isEqual: () => false }),
         },
@@ -231,6 +232,43 @@ describe("dimension commands", () => {
 
             expect(confirmDialog(dialog, "45")).toBe(true);
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(45);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("radius dimension also applies to arcs", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const arc = editor.solver.addArc(0, 0, 30, 0, 0, 30);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const run = new RadiusDimensionCommand().execute(app);
+            // arc rim at world (30, 0) -> screen (430, 300)
+            handler.pointerDown(view, pointerEvent(430, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(500, 250));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("30.00");
+            // addArc adds a structural PointOnArc; the radius dimension is the other one
+            const constraints = editor.solver.toData().constraints;
+            const radiusConstraint = constraints.find((c) => c.kind === ConstraintKind.Radius);
+            expect(radiusConstraint).toBeDefined();
+            expect(radiusConstraint!.datum).toBeCloseTo(30);
+            expect(editor.dimensionAnchors.has(radiusConstraint!.id)).toBe(true);
+
+            expect(confirmDialog(dialog, "45")).toBe(true);
+            expect(
+                editor.solver.toData().constraints.find((c) => c.id === radiusConstraint!.id)!.datum,
+            ).toBeCloseTo(45);
+            const params = editor.solver.entity(arc)!.params;
+            expect(Math.hypot(params[2] - params[0], params[3] - params[1])).toBeCloseTo(45);
             editor.exit();
         } finally {
             restorePub();

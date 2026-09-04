@@ -150,6 +150,29 @@ describe("SketchSolver", () => {
             expect(solver.entities().find((e) => e.id === circle)!.params[2]).toBeCloseTo(12, 6);
         });
 
+        test("radius datum drives arc radius", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const arc = solver.addArc(0, 0, 5, 0, 0, 5);
+            const id = solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: arc, pointIndex: 0 }],
+                datum: 8,
+            });
+            solver.solve(true);
+            expect(arcRadius(solver, arc)).toBeCloseTo(8, 6);
+
+            solver.setDatum(id, 12);
+            solver.solve(true);
+            expect(arcRadius(solver, arc)).toBeCloseTo(12, 6);
+
+            // the datum survives serialization into a fresh solver
+            const data = solver.toData();
+            expect(data.constraints.find((c) => c.id === id)!.datum).toBeCloseTo(12, 6);
+            const restored = new SketchSolver(Plane.XY, data);
+            restored.solve(true);
+            expect(arcRadius(restored, arc)).toBeCloseTo(12, 6);
+        });
+
         test("removeConstraint frees the driven dofs", () => {
             const solver = new SketchSolver(Plane.XY);
             const line = solver.addLine(0, 0, 10, 0);

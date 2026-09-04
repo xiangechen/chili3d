@@ -511,8 +511,14 @@ export class SketchSolver {
     }
 
     private addConstraintWithId(id: number, constraint: Omit<SketchConstraintData, "id">): void {
-        const { params, datumParamIds } = this.buildConstraintParams(constraint);
-        const garlicId = this.system.add_constraint(constraint.kind, new Uint32Array(params), null, true, 0);
+        const { params, datumParamIds, garlicKind } = this.buildConstraintParams(constraint);
+        const garlicId = this.system.add_constraint(
+            garlicKind ?? constraint.kind,
+            new Uint32Array(params),
+            null,
+            true,
+            0,
+        );
         this.constraints.set(id, {
             id,
             kind: constraint.kind,
@@ -526,6 +532,8 @@ export class SketchSolver {
     private buildConstraintParams(constraint: Omit<SketchConstraintData, "id">): {
         params: number[];
         datumParamIds?: number[];
+        /** garlic kind when it differs from the sketch-level kind (arc radius → P2PDistance). */
+        garlicKind?: ConstraintKind;
     } {
         const { refs } = constraint;
         switch (constraint.kind) {
@@ -629,11 +637,23 @@ export class SketchSolver {
                     [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
                     [constraint.datum ?? this.currentDistance(refs[0], refs[1])],
                 );
-            case ConstraintKind.Radius:
+            case ConstraintKind.Radius: {
+                if (this.entityTypes.get(refs[0].entityId) === "arc") {
+                    // arcs have no radius param — drive ‖start−center‖ as a point distance
+                    const start: SketchPointRef = { entityId: refs[0].entityId, pointIndex: 1 };
+                    return {
+                        garlicKind: ConstraintKind.P2PDistance,
+                        ...this.withDatums(
+                            [...this.arcPointParamIds(refs[0]), ...this.arcPointParamIds(start)],
+                            [constraint.datum ?? this.currentRadius(refs[0].entityId)],
+                        ),
+                    };
+                }
                 return this.withDatums(
                     [this.radiusParamId(refs[0].entityId)],
                     [constraint.datum ?? this.currentRadius(refs[0].entityId)],
                 );
+            }
             case ConstraintKind.P2LDistance:
                 return this.withDatums(
                     [
@@ -754,9 +774,13 @@ export class SketchSolver {
         return Math.hypot(bx - ax, by - ay);
     }
 
-    /** Radius from the cache; the caller already validated the circle via `radiusParamId`. */
+    /** Radius from the cache: params[2] for circles, ‖start−center‖ for arcs. */
     private currentRadius(entityId: number): number {
-        return this.entityCache.get(entityId)![2];
+        const params = this.entityCache.get(entityId)!;
+        if (this.entityTypes.get(entityId) === "arc") {
+            return Math.hypot(params[2] - params[0], params[3] - params[1]);
+        }
+        return params[2];
     }
 
     /** garlic-signed perpendicular distance (negative of the usual cross-product sign). */
