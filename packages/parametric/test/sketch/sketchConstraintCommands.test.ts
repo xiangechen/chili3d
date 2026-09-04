@@ -51,7 +51,7 @@ type FakeEditor = ReturnType<typeof fakeEditor>;
 async function runCommand(command: ICommand, editor: FakeEditor): Promise<void> {
     const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
     try {
-        await command.execute({} as any);
+        await command.execute({ activeView: { document: {} } } as any);
     } finally {
         getActive.mockRestore();
     }

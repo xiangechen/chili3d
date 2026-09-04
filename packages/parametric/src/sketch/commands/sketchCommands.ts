@@ -3,6 +3,7 @@
 
 import {
     AsyncController,
+    CancelableCommand,
     command,
     type IApplication,
     type ICommand,
@@ -44,9 +45,8 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
     return { plane, planeRef };
 }
 
-async function pickPlane(document: IDocument): Promise<PickedPlane | undefined> {
+async function pickPlane(document: IDocument, controller: AsyncController): Promise<PickedPlane | undefined> {
     document.selection.clearSelection();
-    const controller = new AsyncController();
     const handler = new PlanePickHandler(document, controller);
     await document.picker.pickAsync(handler, "prompt.select.plane", controller, false, "select.default");
     controller.dispose();
@@ -56,14 +56,17 @@ async function pickPlane(document: IDocument): Promise<PickedPlane | undefined> 
 }
 
 @command({ key: "sketch.create", icon: "icon-sketchNew" })
-export class CreateSketch implements ICommand {
-    async execute(application: IApplication): Promise<void> {
-        const document = application.activeView?.document;
+export class CreateSketch extends CancelableCommand {
+    async executeAsync(): Promise<void> {
+        SketchEditor.exit();
+
+        const document = this.application.activeView?.document;
         if (document === undefined) {
             PubSub.default.pub("displayError", "No active view");
             return;
         }
-        const picked = await pickPlane(document);
+        this.controller = new AsyncController();
+        const picked = await pickPlane(document, this.controller);
         if (picked === undefined) return;
         const node = new SketchNode({ document, plane: picked.plane, planeRef: picked.planeRef });
         Transaction.execute(document, "create sketch", () => {
@@ -74,24 +77,26 @@ export class CreateSketch implements ICommand {
 }
 
 @command({ key: "sketch.enter", icon: "icon-sketchEdit" })
-export class EnterSketch implements ICommand {
-    async execute(application: IApplication): Promise<void> {
-        const document = application.activeView?.document;
+export class EnterSketch extends CancelableCommand {
+    async executeAsync(): Promise<void> {
+        SketchEditor.exit();
+
+        const document = this.application.activeView?.document;
         if (document === undefined) {
             PubSub.default.pub("displayError", "No active view");
             return;
         }
-        const node = await pickSketch(document);
+        this.controller = new AsyncController();
+        const node = await pickSketch(document, this.controller);
         if (node !== undefined) SketchEditor.enter(node);
     }
 }
 
 /** The selected sketch, or an interactive pick when nothing suitable is selected. */
-async function pickSketch(document: IDocument): Promise<SketchNode | undefined> {
+async function pickSketch(document: IDocument, controller: AsyncController): Promise<SketchNode | undefined> {
     const selected = document.selection.getSelectedNodes().find((n) => n instanceof SketchNode);
     if (selected !== undefined) return selected as SketchNode;
 
-    const controller = new AsyncController();
     const picked = await document.picker.pickNode("prompt.select.sketch", controller, {
         nodeFilter: { allow: (node) => node instanceof SketchNode },
     });

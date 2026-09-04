@@ -4,6 +4,7 @@
 import {
     type CommandKeys,
     CommandStore,
+    debounce,
     type EdgeMeshData,
     type IDisposable,
     type IView,
@@ -189,7 +190,7 @@ export class SketchAnnotationManager implements IDisposable {
         moved: boolean;
     };
     private dragCleanup?: () => void;
-    private readonly onCameraChanged = () => this.refresh();
+    private readonly onCameraChanged = debounce(() => this.refresh(), 20);
 
     constructor(
         private readonly view: IView,

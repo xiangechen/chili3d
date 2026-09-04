@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command } from "@chili3d/core";
+import { AsyncController, command } from "@chili3d/core";
 import {
     type DimensionAnchor,
     lineIntersection,
@@ -25,26 +25,35 @@ import { SketchConstraintCommand } from "./sketchConstraints";
 @command({ key: "dimension.distance", icon: "icon-dDimension" })
 export class DistanceDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
 
         // rubber-band line from the first point to the cursor while picking the second
         const uv1 = editor.solver.pointOf(p1);
+        this.controller = new AsyncController();
         const p2 = await pickWithPreview(editor, () =>
-            editor.pickPoint("prompt.pickSketchPoint", (uv) =>
-                editor.annotations.setDimensionPreview(
-                    uv === undefined ? undefined : { kind: "segment", p1: uv1, p2: uv },
-                ),
+            editor.pickPoint(
+                "prompt.pickSketchPoint",
+                (uv) =>
+                    editor.annotations.setDimensionPreview(
+                        uv === undefined ? undefined : { kind: "segment", p1: uv1, p2: uv },
+                    ),
+                this.controller,
             ),
         );
         if (p2 === undefined) return;
 
         const uv2 = editor.solver.pointOf(p2);
+        this.controller = new AsyncController();
         const position = await pickWithPreview(editor, () =>
-            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
-                editor.annotations.setDimensionPreview(
-                    uv === undefined ? undefined : { kind: "distance", p1: uv1, p2: uv2, position: uv },
-                ),
+            editor.pickPosition(
+                "prompt.pickDimensionPosition",
+                (uv) =>
+                    editor.annotations.setDimensionPreview(
+                        uv === undefined ? undefined : { kind: "distance", p1: uv1, p2: uv2, position: uv },
+                    ),
+                this.controller,
             ),
         );
         if (position === undefined) return;
@@ -68,17 +77,27 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
 @command({ key: "dimension.radius", icon: "icon-dRadius" })
 export class RadiusDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const entityId = await editor.pickEntity("prompt.pickSketchEntity", ["circle", "arc"]);
+        this.controller = new AsyncController();
+        const entityId = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            ["circle", "arc"],
+            undefined,
+            this.controller,
+        );
         if (entityId === undefined) return;
 
         const entity = editor.solver.entity(entityId)!;
         const center: [number, number] = [entity.params[0], entity.params[1]];
         const radius = entityRadius(entity);
+        this.controller = new AsyncController();
         const position = await pickWithPreview(editor, () =>
-            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
-                editor.annotations.setDimensionPreview(
-                    uv === undefined ? undefined : { kind: "radius", center, radius, position: uv },
-                ),
+            editor.pickPosition(
+                "prompt.pickDimensionPosition",
+                (uv) =>
+                    editor.annotations.setDimensionPreview(
+                        uv === undefined ? undefined : { kind: "radius", center, radius, position: uv },
+                    ),
+                this.controller,
             ),
         );
         if (position === undefined) return;
@@ -169,9 +188,16 @@ function normalizeLineRefs(
 @command({ key: "dimension.pointLineDistance", icon: "icon-cPointLineDistance" })
 export class PointLineDistanceCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        this.controller = new AsyncController();
+        const lineId = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (lineId === undefined) return;
 
         const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
@@ -179,13 +205,17 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
         const uvP = editor.solver.pointOf(p);
         const uv1 = editor.solver.pointOf(l1);
         const uv2 = editor.solver.pointOf(l2);
+        this.controller = new AsyncController();
         const position = await pickWithPreview(editor, () =>
-            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
-                editor.annotations.setDimensionPreview(
-                    uv === undefined
-                        ? undefined
-                        : { kind: "pointLine", p: uvP, l1: uv1, l2: uv2, position: uv },
-                ),
+            editor.pickPosition(
+                "prompt.pickDimensionPosition",
+                (uv) =>
+                    editor.annotations.setDimensionPreview(
+                        uv === undefined
+                            ? undefined
+                            : { kind: "pointLine", p: uvP, l1: uv1, l2: uv2, position: uv },
+                    ),
+                this.controller,
             ),
         );
         if (position === undefined) return;
@@ -216,10 +246,22 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
 @command({ key: "dimension.angle", icon: "icon-dAngle" })
 export class AngleDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        this.controller = new AsyncController();
         // datum: true — angles against the X/Y axes are a common reference
-        const l1Id = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        const l1Id = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (l1Id === undefined) return;
-        const l2Id = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        this.controller = new AsyncController();
+        const l2Id = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (l2Id === undefined) return;
 
         const refs: SketchPointRef[] = [
@@ -267,21 +309,27 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
     protected abstract readonly axis: "h" | "v";
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        const p2 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
 
         const uv1 = editor.solver.pointOf(p1);
         const uv2 = editor.solver.pointOf(p2);
         const axis = this.axis;
+        this.controller = new AsyncController();
         const position = await pickWithPreview(editor, () =>
-            editor.pickPosition("prompt.pickDimensionPosition", (uv) =>
-                editor.annotations.setDimensionPreview(
-                    uv === undefined
-                        ? undefined
-                        : { kind: "axisDistance", p1: uv1, p2: uv2, axis, position: uv },
-                ),
+            editor.pickPosition(
+                "prompt.pickDimensionPosition",
+                (uv) =>
+                    editor.annotations.setDimensionPreview(
+                        uv === undefined
+                            ? undefined
+                            : { kind: "axisDistance", p1: uv1, p2: uv2, axis, position: uv },
+                    ),
+                this.controller,
             ),
         );
         if (position === undefined) return;

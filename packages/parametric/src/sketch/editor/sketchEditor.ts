@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
     type CameraType,
     I18n,
     type I18nKeys,
@@ -102,17 +103,17 @@ export class SketchEditor implements IDisposable {
         this.solver = new SketchSolver(node.plane, data);
         this.loadAnchors(data);
 
-        const view = this.view;
-        const controller = view.cameraController;
+        this.view = this.document.application.activeView!;
+        const controller = this.view.cameraController;
         this.savedCamera = {
             position: controller.cameraPosition,
             target: controller.cameraTarget,
             up: controller.cameraUp,
             type: controller.cameraType,
         };
-        this.savedWorkplane = view.workplane;
+        this.savedWorkplane = this.view.workplane;
         this.savedHandler = document.visual.eventHandler;
-        this.lockCameraOntoPlane(view);
+        this.lockCameraOntoPlane(this.view);
 
         this.eventHandler = new SketchEventHandler(this);
         document.visual.eventHandler = this.eventHandler;
@@ -125,7 +126,7 @@ export class SketchEditor implements IDisposable {
         document.visual.context.setNodeOnTop([node], true);
 
         this.annotations = new SketchAnnotationManager(
-            view,
+            this.view,
             this.solver,
             this.dimensionAnchors,
             (ids) => this.eventHandler.highlightConstraintEntities(ids),
@@ -134,7 +135,14 @@ export class SketchEditor implements IDisposable {
         );
         node.onPropertyChanged(this.onNodeDataChanged);
         this.solve(true);
+        PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
     }
+
+    private readonly onActiveViewChanged = (view: IView | undefined) => {
+        if (view === undefined || this.document !== view.document) {
+            this.exit();
+        }
+    };
 
     /** Loads saved datum anchors; constraint ids are stable, stale ones are dropped. */
     private loadAnchors(data: SketchData): void {
@@ -167,13 +175,7 @@ export class SketchEditor implements IDisposable {
         view.workplane = plane;
     }
 
-    get view(): IView {
-        const view = this.document.application.activeView;
-        if (view === undefined) {
-            throw new Error("Sketch editing requires an active view");
-        }
-        return view;
-    }
+    readonly view: IView;
 
     get isPicking(): boolean {
         return this.pickRequest !== undefined;
@@ -191,20 +193,29 @@ export class SketchEditor implements IDisposable {
         return this.pickRequest;
     }
 
-    pickPoint(prompt: I18nKeys, preview?: SketchPickPreview): Promise<SketchPointRef | undefined> {
-        return this.startPick("point", prompt, undefined, undefined, preview);
+    pickPoint(
+        prompt: I18nKeys,
+        preview?: SketchPickPreview,
+        controller?: AsyncController,
+    ): Promise<SketchPointRef | undefined> {
+        return this.startPick("point", prompt, undefined, undefined, preview, controller);
     }
 
     pickEntity(
         prompt: I18nKeys,
         type?: SketchEntityTypeFilter,
         options?: { datum?: boolean },
+        controller?: AsyncController,
     ): Promise<number | undefined> {
-        return this.startPick("entity", prompt, type, options?.datum);
+        return this.startPick("entity", prompt, type, options?.datum, undefined, controller);
     }
 
-    pickPosition(prompt: I18nKeys, preview?: SketchPickPreview): Promise<[number, number] | undefined> {
-        return this.startPick("position", prompt, undefined, undefined, preview);
+    pickPosition(
+        prompt: I18nKeys,
+        preview?: SketchPickPreview,
+        controller?: AsyncController,
+    ): Promise<[number, number] | undefined> {
+        return this.startPick("position", prompt, undefined, undefined, preview, controller);
     }
 
     cancelPick(): void {
@@ -433,20 +444,20 @@ export class SketchEditor implements IDisposable {
         this.document.visual.context.setNodeOnTop([this.node], false);
         this.node.removePropertyChanged(this.onNodeDataChanged);
         this.eventHandler.dispose();
+        this.annotations.dispose();
         this.document.visual.eventHandler = this.savedHandler;
-        const view = this.document.application.activeView;
-        if (view !== undefined) {
-            view.workplane = this.savedWorkplane;
-            const controller = view.cameraController;
+        if (!this.view.isClosed) {
+            this.view.workplane = this.savedWorkplane;
+            const controller = this.view.cameraController;
             if (this.savedCamera.position && this.savedCamera.target && this.savedCamera.up) {
                 controller.lookAt(this.savedCamera.position, this.savedCamera.target, this.savedCamera.up);
             }
             controller.cameraType = this.savedCamera.type;
         }
         this.setCanRotate(true);
-        this.annotations.dispose();
         this.solver.dispose();
         PubSub.default.pub("clearStatusBarTip");
+        PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
     }
 
     private startPick<T>(
@@ -455,11 +466,13 @@ export class SketchEditor implements IDisposable {
         entityType?: SketchEntityTypeFilter,
         datum?: boolean,
         preview?: SketchPickPreview,
+        controller?: AsyncController,
     ): Promise<T> {
         this.cancelPick();
         PubSub.default.pub("statusBarTip", prompt);
         return new Promise<T>((resolve) => {
             this.pickRequest = { kind, entityType, datum, preview, resolve };
+            this.eventHandler.setController(this.view, controller);
             this.annotations.suppressConstraintSymbols = true;
         });
     }

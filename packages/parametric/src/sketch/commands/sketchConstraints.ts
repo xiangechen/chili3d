@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type IApplication, type ICommand, PubSub } from "@chili3d/core";
+import {
+    AsyncController,
+    CancelableCommand,
+    command,
+    type IApplication,
+    type ICommand,
+    PubSub,
+} from "@chili3d/core";
 import { SketchEditor } from "../editor/sketchEditor";
 import { ConstraintKind, pointRefKey, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
@@ -14,8 +21,8 @@ function editorOrError(): SketchEditor | undefined {
     return editor;
 }
 
-export abstract class SketchConstraintCommand implements ICommand {
-    async execute(_application: IApplication): Promise<void> {
+export abstract class SketchConstraintCommand extends CancelableCommand {
+    async executeAsync(): Promise<void> {
         const editor = editorOrError();
         if (editor === undefined) return;
         await this.executeWithEditor(editor);
@@ -59,9 +66,11 @@ function addAndCommit(
 @command({ key: "constraint.coincident", icon: "icon-cCoincident" })
 export class CoincidentConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        const p2 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
         editor.solver.addConstraint({ kind: ConstraintKind.P2PCoincident, refs: [p1, p2] });
         editor.solve(true);
@@ -73,7 +82,8 @@ abstract class LineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Horizontal | ConstraintKind.Vertical;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        this.controller = new AsyncController();
+        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
         if (lineId === undefined) return;
         editor.solver.addConstraint({
             kind: this.kind,
@@ -101,9 +111,21 @@ abstract class TwoLineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Parallel | ConstraintKind.Perpendicular;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const l1 = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        this.controller = new AsyncController();
+        const l1 = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (l1 === undefined) return;
-        const l2 = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        this.controller = new AsyncController();
+        const l2 = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (l2 === undefined) return;
         addAndCommit(editor, this.kind, [...lineRefs(l1), ...lineRefs(l2)]);
     }
@@ -123,9 +145,11 @@ abstract class TwoPointConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.HorizontalAlign | ConstraintKind.VerticalAlign;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        const p2 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
         addAndCommit(editor, this.kind, [p1, p2]);
     }
@@ -145,9 +169,11 @@ export class VerticalAlignConstraintCommand extends TwoPointConstraintCommand {
 @command({ key: "constraint.equal", icon: "icon-cEqual" })
 export class EqualConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const e1 = await editor.pickEntity("prompt.pickSketchEntity");
+        this.controller = new AsyncController();
+        const e1 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e1 === undefined) return;
-        const e2 = await editor.pickEntity("prompt.pickSketchEntity");
+        this.controller = new AsyncController();
+        const e2 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e2 === undefined) return;
         if (e1 === e2) {
             PubSub.default.pub("displayError", "Pick two different entities");
@@ -179,9 +205,11 @@ export class EqualConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.tangent", icon: "icon-cTangent" })
 export class TangentConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const e1 = await editor.pickEntity("prompt.pickSketchEntity");
+        this.controller = new AsyncController();
+        const e1 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e1 === undefined) return;
-        const e2 = await editor.pickEntity("prompt.pickSketchEntity");
+        this.controller = new AsyncController();
+        const e2 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e2 === undefined) return;
         if (e1 === e2) {
             PubSub.default.pub("displayError", "Pick two different entities");
@@ -222,9 +250,16 @@ export class TangentConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.pointOn", icon: "icon-cPointOn" })
 export class PointOnConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
-        const entityId = await editor.pickEntity("prompt.pickSketchEntity", undefined, { datum: true });
+        this.controller = new AsyncController();
+        const entityId = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            undefined,
+            { datum: true },
+            this.controller,
+        );
         if (entityId === undefined) return;
         const type = editor.solver.entity(entityId)?.type;
         if (type === "line") {
@@ -240,9 +275,11 @@ export class PointOnConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.midpoint", icon: "icon-cMid" })
 export class MidpointConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line");
+        this.controller = new AsyncController();
+        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
         if (lineId === undefined) return;
         addAndCommit(editor, ConstraintKind.Midpoint, [p, ...lineRefs(lineId)]);
     }
@@ -252,11 +289,19 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.symmetric", icon: "icon-cSymmetric" })
 export class SymmetricConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p1 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        const p2 = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", { datum: true });
+        this.controller = new AsyncController();
+        const lineId = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
         if (lineId === undefined) return;
         addAndCommit(editor, ConstraintKind.Symmetric, [p1, p2, ...lineRefs(lineId)]);
     }
@@ -266,7 +311,8 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.fix", icon: "icon-cFix" })
 export class FixConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const p = await editor.pickPoint("prompt.pickSketchPoint");
+        this.controller = new AsyncController();
+        const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
         addAndCommit(editor, ConstraintKind.Fix, [p], { datums: [...editor.solver.pointOf(p)] });
     }

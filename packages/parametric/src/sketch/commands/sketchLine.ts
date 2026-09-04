@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, type IStep, type PointSnapData, type XYZ } from "@chili3d/core";
+import { command, Dimensions, type IStep, type PointSnapData, type XYZ } from "@chili3d/core";
 import { toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
@@ -24,6 +24,7 @@ export class SketchLineCommand extends SketchMultistepCommand {
 
     private readonly getSecondPointData = (): PointSnapData => ({
         refPoint: () => this.stepDatas[0].point!,
+        dimension: Dimensions.D1D2,
         preview: this.linePreview,
     });
 

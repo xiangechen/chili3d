@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
     type EdgeMeshData,
     type IEventHandler,
     type IView,
@@ -48,9 +49,18 @@ export class SketchEventHandler implements IEventHandler {
     private selectionMeshId?: number;
     private constraintMeshId?: number;
     private datumDisplayId?: number;
+    private controller?: AsyncController;
 
     constructor(private readonly editor: SketchEditor) {
         this.showDatum();
+    }
+
+    setController(view: IView, controller: AsyncController | undefined) {
+        if (this.controller === controller) {
+            return;
+        }
+        controller?.onCancelled((r) => this.handleEscape(view));
+        this.controller = controller;
     }
 
     /** Session-persistent origin marker and dashed X/Y axis lines. */
@@ -364,8 +374,8 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     dispose(): void {
-        const view = this.editor.document.application.activeView;
-        if (view !== undefined) {
+        const view = this.editor.view;
+        if (!view.isClosed) {
             this.clearHover(view);
             this.clearDragPreview(view);
             this.clearSelectionHighlight(view);

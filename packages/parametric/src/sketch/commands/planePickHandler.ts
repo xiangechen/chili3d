@@ -17,9 +17,9 @@ import {
 } from "@chili3d/core";
 
 const DATUM_PLANES = [Plane.XY, Plane.YZ, Plane.ZX];
-const DATUM_SIZE = 100;
+const DATUM_SIZE = 150;
 const DATUM_GAP = 50;
-const DATUM_COLOR = 0x808080;
+const DATUM_COLOR = 0x707070;
 const DATUM_HIGHLIGHT_COLOR = 0x4a9eff;
 
 export type PlanePickResult = { kind: "face"; data: VisualShapeData } | { kind: "datum"; plane: Plane };
