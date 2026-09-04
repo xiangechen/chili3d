@@ -12,7 +12,7 @@ import {
     ShapeTypes,
     type TrackedShape,
 } from "@chili3d/core";
-import { ParametricBodyNode } from "../parametricBodyNode";
+import { isBodyTrackingNode } from "./bodyTracking";
 import {
     type BooleanFeatureData,
     type BooleanOperation,
@@ -181,13 +181,13 @@ function mapBooleanIds(
         const range = ranges.find((x) => inputIndex >= x.start && inputIndex < x.start + x.count);
         if (range === undefined) return `${feature.id}:${outputIndex}`;
         const local = inputIndex - range.start;
-        const toolId =
-            range.node instanceof ParametricBodyNode
-                ? type === ShapeTypes.face
-                    ? range.node.faceIdAt(local)
-                    : range.node.edgeIdAt(local)
-                : undefined;
-        return `tool:${range.node.id}:${toolId ?? local}`;
+        const node = range.node;
+        const toolId = isBodyTrackingNode(node)
+            ? type === ShapeTypes.face
+                ? node.faceIdAt(local)
+                : node.edgeIdAt(local)
+            : undefined;
+        return `tool:${node.id}:${toolId ?? local}`;
     });
 }
 

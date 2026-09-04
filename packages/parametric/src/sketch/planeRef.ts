@@ -11,8 +11,8 @@ import {
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
+import { isBodyTrackingNode } from "../features/bodyTracking";
 import type { Vec3 } from "../features/edgeRef";
-import { ParametricBodyNode } from "../parametricBodyNode";
 
 /**
  * Identifies the planar face a sketch plane was captured from, in a rebuild-tolerant
@@ -75,7 +75,7 @@ function matchFace(
     ref: PlaneFaceRef,
 ): IFace | undefined {
     const refNormal = new XYZ(ref.normal);
-    if (ref.faceId !== undefined && node instanceof ParametricBodyNode) {
+    if (ref.faceId !== undefined && isBodyTrackingNode(node)) {
         const index = node.faceIndexById(ref.faceId);
         const face = index === undefined ? undefined : faces[index];
         // Index-scoped ids (the prism's side/top faces) realign when a rebuild changes

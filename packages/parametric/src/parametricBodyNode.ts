@@ -29,6 +29,7 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
+import type { IBodyTrackingNode } from "./features/bodyTracking";
 import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "./features/edgeRef";
 import { findSketch } from "./features/extrude";
 import type {
@@ -93,7 +94,10 @@ export interface ParametricBodyNodeOptions {
  * snapshots — so any upstream change (e.g. sketch edit) re-evaluates the whole chain.
  */
 @serializable()
-export class ParametricBodyNode extends ParameterShapeNode implements IFeatureListNode, INodeLinkedList {
+export class ParametricBodyNode
+    extends ParameterShapeNode
+    implements IFeatureListNode, INodeLinkedList, IBodyTrackingNode
+{
     /**
      * Consumed boolean tools live under the body (see `syncConsumedTools`). Children
      * never render in the scene — the tree lists them grayed under the body, where
