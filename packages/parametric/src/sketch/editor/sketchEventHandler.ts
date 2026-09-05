@@ -4,6 +4,7 @@
 import {
     type AsyncController,
     type EdgeMeshData,
+    type IDisposable,
     type IEventHandler,
     type IView,
     MeshDataUtils,
@@ -11,8 +12,10 @@ import {
     type ShapeMeshData,
     VisualConfig,
 } from "@chili3d/core";
+import { applyDragAutoConstraints, type DragSnap, dragSnapPosition } from "../autoConstraints";
 import {
     arcAngles,
+    ConstraintKind,
     isDatumEntityId,
     originRef,
     SKETCH_X_AXIS_ID,
@@ -24,13 +27,16 @@ import {
     toWorld,
     worldPerPixel,
 } from "../sketchModel";
-import { isBadgeEventTarget } from "./sketchAnnotations";
+import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
+import style from "./sketchAnnotations.module.css";
 import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
 
 const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
 const DATUM_X_AXIS_COLOR = 0xcc5555;
 const DATUM_Y_AXIS_COLOR = 0x55aa55;
+/** Live-snap target accent — distinct from the green hover/selection and blue dimensions. */
+const SNAP_HIGHLIGHT_COLOR = 0xff9800;
 
 /**
  * Viewport event handler active while a sketch is being edited:
@@ -49,6 +55,8 @@ export class SketchEventHandler implements IEventHandler {
     private selectionMeshId?: number;
     private constraintMeshId?: number;
     private datumDisplayId?: number;
+    private snapTargetMeshId?: number;
+    private snapHintItem?: IDisposable;
     private controller?: AsyncController;
 
     constructor(private readonly editor: SketchEditor) {
@@ -192,8 +200,14 @@ export class SketchEventHandler implements IEventHandler {
         if (this.draggingRef !== undefined) {
             const uv = this.pointerToUV(view, event);
             if (uv !== undefined) {
-                this.editor.solver.dragTo(this.draggingRef, uv[0], uv[1]);
+                const tolerance = this.editor.screenTolerance();
+                const { position, snap } = dragSnapPosition(this.editor.solver, this.draggingRef, uv, {
+                    pointTolerance: tolerance,
+                    lineTolerance: tolerance,
+                });
+                this.editor.solver.dragTo(this.draggingRef, position[0], position[1]);
                 this.updateDragPreview(view);
+                this.showSnapFeedback(view, snap);
                 this.editor.annotations.refresh();
             }
             return;
@@ -266,9 +280,18 @@ export class SketchEventHandler implements IEventHandler {
 
     pointerUp(view: IView, _event: PointerEvent): void {
         if (this.draggingRef === undefined) return;
+        const ref = this.draggingRef;
         this.draggingRef = undefined;
         this.clearDragPreview(view);
+        this.clearSnapFeedback();
         this.editor.solver.endDrag();
+        // the drag is over: add an auto-constraint now, only if the point still
+        // satisfies a snap condition
+        const tolerance = this.editor.screenTolerance();
+        applyDragAutoConstraints(this.editor.solver, ref, {
+            pointTolerance: tolerance,
+            lineTolerance: tolerance,
+        });
         this.syncAnnotationHighlights();
         this.editor.commit();
         this.editor.solve(true);
@@ -375,6 +398,7 @@ export class SketchEventHandler implements IEventHandler {
 
     dispose(): void {
         const view = this.editor.view;
+        this.clearSnapFeedback();
         if (!view.isClosed) {
             this.clearHover(view);
             this.clearDragPreview(view);
@@ -533,6 +557,62 @@ export class SketchEventHandler implements IEventHandler {
             this.dragPreviewId = undefined;
         }
     }
+
+    /** Highlights the live snap target and shows a floating hint while a drag is snapping onto it. */
+    private showSnapFeedback(view: IView, snap: DragSnap | undefined): void {
+        this.clearSnapFeedback();
+        if (snap === undefined) return;
+        this.snapTargetMeshId = this.displaySnapTarget(view, snap);
+        this.snapHintItem = this.displaySnapHint(view, snap);
+    }
+
+    /** Displays the highlighted snap target (a point marker or a line/axis highlight); returns its mesh id. */
+    private displaySnapTarget(view: IView, snap: DragSnap): number | undefined {
+        const plane = this.editor.node.plane;
+        const mesh =
+            snap.kind === "point"
+                ? MeshDataUtils.createVertexMesh(
+                      toWorld(plane, snap.position[0], snap.position[1]),
+                      VisualConfig.editVertexSize,
+                      SNAP_HIGHLIGHT_COLOR,
+                  )
+                : this.snapLineHighlight(snap.lineRefs[0].entityId, SNAP_HIGHLIGHT_COLOR);
+        return mesh === undefined
+            ? undefined
+            : view.document.visual.context.displayMesh([mesh], { onTop: true });
+    }
+
+    /** Highlight mesh for a line/axis snap target, or undefined. */
+    private snapLineHighlight(targetId: number, color: number): ShapeMeshData | undefined {
+        if (targetId === SKETCH_X_AXIS_ID || targetId === SKETCH_Y_AXIS_ID) {
+            return this.datumAxisMesh(targetId, color);
+        }
+        const entity = this.editor.solver.entity(targetId);
+        return entity === undefined ? undefined : sketchEntityMesh(this.editor, entity, color);
+    }
+
+    /** Displays the floating hint (constraint icon) beside the snap position. */
+    private displaySnapHint(view: IView, snap: DragSnap): IDisposable {
+        const plane = this.editor.node.plane;
+        const symbol = snapHintSymbol(snap);
+        const px = worldPerPixel(view, plane, view.width / 2, view.height / 2) ?? 1;
+        const off = 18 * px * Math.SQRT1_2;
+        return view.htmlText(symbol.label, toWorld(plane, snap.position[0] + off, snap.position[1] + off), {
+            hideDelete: true,
+            className: `${style.badge} ${style.preview}`,
+            onCreated: (element) => applyConstraintIcon(element, symbol),
+        });
+    }
+
+    private clearSnapFeedback(): void {
+        const view = this.editor.view;
+        if (this.snapTargetMeshId !== undefined && !view.isClosed) {
+            view.document.visual.context.removeMesh(this.snapTargetMeshId);
+        }
+        this.snapTargetMeshId = undefined;
+        this.snapHintItem?.dispose();
+        this.snapHintItem = undefined;
+    }
 }
 
 export function sketchEntityMeshes(editor: SketchEditor): ShapeMeshData[] {
@@ -558,6 +638,12 @@ export function sketchEntityMesh(
 
 function entityPointCount(type: SketchEntityType): number {
     return type === "line" ? 2 : type === "arc" ? 3 : 1;
+}
+
+/** Icon (and fallback label) for the constraint a snap release would add. */
+function snapHintSymbol(snap: DragSnap): BadgeSymbol {
+    const kind = snap.kind === "point" ? ConstraintKind.P2PCoincident : ConstraintKind.PointOnLine;
+    return badgeSymbol(kind) ?? { label: snap.kind === "point" ? "◇" : "⊙" };
 }
 
 /**

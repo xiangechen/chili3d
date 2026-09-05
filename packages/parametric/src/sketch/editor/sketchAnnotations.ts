@@ -67,10 +67,10 @@ const CONSTRAINT_BADGES: Partial<Record<ConstraintKind, { label: string; command
     [ConstraintKind.Fix]: { label: "⚓", command: "constraint.fix" },
 };
 
-type BadgeSymbol = { label: string; icon?: string };
+export type BadgeSymbol = { label: string; icon?: string };
 
 /** Badge content for a constraint kind; the icon comes from the command's `@command` decorator. */
-function badgeSymbol(kind: ConstraintKind): BadgeSymbol | undefined {
+export function badgeSymbol(kind: ConstraintKind): BadgeSymbol | undefined {
     const entry = CONSTRAINT_BADGES[kind];
     if (entry === undefined) return undefined;
     const icon = CommandStore.getComandData(entry.command)?.icon;
@@ -911,7 +911,7 @@ export class SketchAnnotationManager implements IDisposable {
 }
 
 /** SVG element referencing the toolbar iconfont symbol (sized/colored via CSS). */
-function badgeIcon(name: string): SVGSVGElement {
+export function badgeIcon(name: string): SVGSVGElement {
     const ns = "http://www.w3.org/2000/svg";
     const use = document.createElementNS(ns, "use");
     use.setAttribute("href", `#${name}`);
@@ -919,6 +919,16 @@ function badgeIcon(name: string): SVGSVGElement {
     const icon = document.createElementNS(ns, "svg");
     icon.append(use);
     return icon;
+}
+
+/** Applies the constraint icon of `symbol` to a badge element, falling back to its label. */
+export function applyConstraintIcon(element: HTMLElement, symbol: BadgeSymbol): void {
+    if (symbol.icon !== undefined) {
+        element.classList.add(style.symbol);
+        element.replaceChildren(badgeIcon(symbol.icon));
+    } else {
+        element.textContent = symbol.label;
+    }
 }
 
 /** Diagonal offset from a point so the badge does not cover it. */

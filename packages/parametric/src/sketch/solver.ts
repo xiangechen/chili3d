@@ -197,6 +197,21 @@ export class SketchSolver {
             .map((c) => c.kind);
     }
 
+    /** Kinds of constraints currently applied to a specific point ref. */
+    constraintKindsOnPoint(ref: SketchPointRef): ConstraintKind[] {
+        return [...this.constraints.values()]
+            .filter((c) => c.refs.some((r) => pointRefKey(r) === pointRefKey(ref)))
+            .map((c) => c.kind);
+    }
+
+    /** Whether an identical constraint (same kind and refs, order-insensitive) already exists. */
+    hasConstraint(kind: ConstraintKind, refs: SketchPointRef[]): boolean {
+        const key = refs.map(pointRefKey).sort().join("|");
+        return [...this.constraints.values()].some(
+            (c) => c.kind === kind && c.refs.map(pointRefKey).sort().join("|") === key,
+        );
+    }
+
     solve(fine: boolean): SolveOutcome {
         this.syncAngleDatumSide();
         let report = this.system.solve(fine);
