@@ -335,6 +335,12 @@ export class ExtrudeDragHandler implements IEventHandler {
     /** Confirms the extrude once a non-zero depth exists; a zero depth is a no-op. */
     private confirm() {
         if (Math.abs(this.state.dist) >= Precision.Float) {
+            // The button/Enter has no pointer event to provide the view, so fall back to
+            // the active view; without it the step returns undefined and the command
+            // closes as if cancelled (e.g. confirming a cached depth without dragging).
+            if (this.commitView === undefined) {
+                this.commitView = this.document.application.activeView;
+            }
             this.controller.success();
         }
     }

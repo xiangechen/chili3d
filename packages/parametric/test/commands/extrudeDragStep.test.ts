@@ -118,6 +118,24 @@ describe("ExtrudeDragHandler", () => {
         handler.dispose();
     });
 
+    test("confirming a non-zero depth without dragging commits against the active view", () => {
+        const view = createHandlerMockView({ document: doc });
+        doc.application.activeView = view;
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const data = dragData();
+        data.depth = 7;
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+
+        confirmControl.success();
+        expect(controller.result?.status).toBe("success");
+        // The button has no pointer event; the step falls back to the active view so it
+        // can return a result instead of silently cancelling.
+        expect(handler.commitView).toBe(view);
+        pub.mockRestore();
+        handler.dispose();
+    });
+
     test("the arrow starts at the command's depth so it matches the depth input", () => {
         const data = dragData();
         data.depth = 7;
