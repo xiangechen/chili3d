@@ -70,6 +70,19 @@ function sketchShapeMocks() {
                 lastParameter: () => 1,
                 pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
                 intersect: () => [],
+                boundingBox: () =>
+                    new BoundingBox(
+                        {
+                            x: Math.min(start.x, end.x),
+                            y: Math.min(start.y, end.y),
+                            z: Math.min(start.z, end.z),
+                        },
+                        {
+                            x: Math.max(start.x, end.x),
+                            y: Math.max(start.y, end.y),
+                            z: Math.max(start.z, end.z),
+                        },
+                    ),
             }),
         ),
         wire: rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges })),
@@ -134,6 +147,19 @@ function setupTrackedMocks(
                 lastParameter: () => 1,
                 pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
                 intersect: () => [],
+                boundingBox: () =>
+                    new BoundingBox(
+                        {
+                            x: Math.min(start.x, end.x),
+                            y: Math.min(start.y, end.y),
+                            z: Math.min(start.z, end.z),
+                        },
+                        {
+                            x: Math.max(start.x, end.x),
+                            y: Math.max(start.y, end.y),
+                            z: Math.max(start.z, end.z),
+                        },
+                    ),
             }),
         ),
         wire: rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges })),

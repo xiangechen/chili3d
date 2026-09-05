@@ -40,6 +40,11 @@ function edge(x1: number, y1: number, x2: number, y2: number): IEdge {
         lastParameter: () => 1,
         pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
         intersect: (other: IEdge) => segmentIntersect(start, end, other.startPoint(), other.endPoint()),
+        boundingBox: () =>
+            new BoundingBox(
+                new XYZ({ x: Math.min(x1, x2), y: Math.min(y1, y2), z: 0 }),
+                new XYZ({ x: Math.max(x1, x2), y: Math.max(y1, y2), z: 0 }),
+            ),
     } as unknown as IEdge;
 }
 
@@ -385,6 +390,25 @@ describe("sketchProfiles with crossing edges", () => {
         }
     });
 
+    test("a divider ending mid-span on the rectangle's edges goes through the kernel", () => {
+        const regions = [faceOf([]), faceOf([])];
+        const { wire, facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            // The divider's two endpoints land on the rectangle's top/bottom edges (a
+            // T-junction, not a crossing) — the rectangle must split into two regions.
+            const rect = square(0, 0, 10, 10);
+            const divider = edge(5, 0, 5, 10);
+            const result = sketchProfiles(sketchWith([...rect, divider]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(regions);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            expect(wire).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
     test("propagates facesFromEdges errors", () => {
         const { restore } = setupCrossing("faces failed");
         try {
@@ -414,6 +438,11 @@ describe("resolveProfiles", () => {
                 new XYZ({ x: cx + radius * Math.cos(t), y: cy + radius * Math.sin(t), z: 0 }),
             // The test circles never intersect anything; a real kernel would return [] too.
             intersect: () => [],
+            boundingBox: () =>
+                new BoundingBox(
+                    new XYZ({ x: cx - radius, y: cy - radius, z: 0 }),
+                    new XYZ({ x: cx + radius, y: cy + radius, z: 0 }),
+                ),
         } as unknown as IEdge;
     }
 
@@ -505,6 +534,134 @@ describe("resolveProfiles", () => {
 
             expect(result.isOk).toBe(false);
             expect(result.error).toBe("Sketch profile not found after rebuild");
+        } finally {
+            restore();
+        }
+    });
+});
+
+describe("profile topology defects", () => {
+    /** A circle edge whose seam (start/end point) sits at `phase` radians from +X. */
+    function circleEdgeSeamed(cx: number, cy: number, radius: number, phase: number): IEdge {
+        const at = (angle: number) =>
+            new XYZ({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle), z: 0 });
+        return {
+            shapeType: ShapeTypes.edge,
+            curve: { basisCurve: { center: { x: cx, y: cy, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } } },
+            startPoint: () => at(phase),
+            endPoint: () => at(phase),
+            firstParameter: () => 0,
+            lastParameter: () => Math.PI * 2,
+            pointAt: (t: number) => at(phase + t),
+            // Concentric circles never intersect; a real kernel would return [] too.
+            intersect: () => [],
+            boundingBox: () =>
+                new BoundingBox(
+                    new XYZ({ x: cx - radius, y: cy - radius, z: 0 }),
+                    new XYZ({ x: cx + radius, y: cy + radius, z: 0 }),
+                ),
+        } as unknown as IEdge;
+    }
+
+    test("two loops sharing only a vertex stay two distinct profiles", () => {
+        const a = square(0, 0, 1, 1);
+        const b = square(1, 1, 2, 2);
+        const faces = [faceOf(a), faceOf(b)];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({
+                faces,
+                sources: [
+                    [0, 1, 2, 3],
+                    [4, 5, 6, 7],
+                ],
+            }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        try {
+            // Two squares that touch only at the corner (1,1). They share a vertex, so
+            // endpoint connectivity would merge them into one connected group; the branch
+            // vertex must instead route them through the kernel, which returns the two
+            // loops as separate regions.
+            const result = sketchProfiles(sketchWith([...a, ...b]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(faces);
+            expect(result.unchecked()!.inner.length).toBe(0);
+        } finally {
+            restore();
+        }
+    });
+
+    test("a concentric hole just inside the boundary is not dropped by the chord approximation", () => {
+        const { restore } = setup();
+        try {
+            // The outer circle is sampled as an inscribed 16-gon (apothem ≈ 9.808 at
+            // radius 10). The inner circle of radius 9.9 is fully inside the true circle,
+            // but its seam is offset by π/16 so one of its samples lands between the
+            // 16-gon's vertices at radius 9.9 > 9.808 — the chord approximation flips
+            // loopContains to false and turns the hole into a separate solid profile.
+            const outer = circleEdgeSeamed(0, 0, 10, 0);
+            const inner = circleEdgeSeamed(0, 0, 9.9, Math.PI / 16);
+            const result = sketchProfiles(sketchWith([outer, inner]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer.length).toBe(1);
+            expect(result.unchecked()!.inner.length).toBe(1);
+        } finally {
+            restore();
+        }
+    });
+
+    test("a profile's seed index is stable when an unrelated loop is appended", () => {
+        const { restore } = setup();
+        try {
+            const a = square(0, 0, 2, 2);
+            const b = square(20, 20, 22, 22);
+            const c = square(40, 40, 42, 42);
+
+            const refB = captureProfileRef(faceOf(b));
+            const before = resolveProfiles(sketchWith([...a, ...b]), [refB]).unchecked()![0].index;
+
+            // Adding an unrelated loop after b shifts b's positional index (the sketch-
+            // scoped seed id `sketch:<id>:<index>`), breaking downstream edge tracking.
+            const refB2 = captureProfileRef(faceOf(b));
+            const after = resolveProfiles(sketchWith([...a, ...b, ...c]), [refB2]).unchecked()![0].index;
+
+            expect(after).toBe(before);
+        } finally {
+            restore();
+        }
+    });
+
+    test("disjoint loops never call the kernel intersection", () => {
+        const intersect = rs.fn((_other: IEdge) => [] as { parameter: number; point: XYZ }[]);
+        const circle = (cx: number, radius: number): IEdge => {
+            const at = (angle: number) =>
+                new XYZ({ x: cx + radius * Math.cos(angle), y: radius * Math.sin(angle), z: 0 });
+            return {
+                shapeType: ShapeTypes.edge,
+                curve: { basisCurve: { center: { x: cx, y: 0, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } } },
+                startPoint: () => at(0),
+                endPoint: () => at(0),
+                firstParameter: () => 0,
+                lastParameter: () => Math.PI * 2,
+                pointAt: (t: number) => at(t),
+                intersect,
+                boundingBox: () =>
+                    new BoundingBox(
+                        new XYZ({ x: cx - radius, y: -radius, z: 0 }),
+                        new XYZ({ x: cx + radius, y: radius, z: 0 }),
+                    ),
+            } as unknown as IEdge;
+        };
+        const { restore } = setup();
+        try {
+            const result = sketchProfiles(sketchWith([circle(0, 5), circle(30, 5)]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer.length).toBe(2);
+            // Disjoint bounding boxes are filtered before the kernel intersection runs.
+            expect(intersect).not.toHaveBeenCalled();
         } finally {
             restore();
         }
