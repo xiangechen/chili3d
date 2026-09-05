@@ -157,25 +157,54 @@ export function profileEntitiesOf(profileSet: SketchProfileSet): (number[] | und
     return [...profileSet.outerEntities, ...profileSet.inner.map(() => undefined)];
 }
 
-/** Approximates a loop as a 2D polygon in sketch-plane coordinates. */
+/**
+ * Approximates a loop as a 2D polygon in sketch-plane coordinates. The edges are
+ * walked in chain order — each edge starts where the previous one ended — so the
+ * sampled points trace the loop boundary. Sampling the raw group order instead would
+ * jump between non-adjacent edges and corrupt the containment test with spurious chords.
+ */
 function sampleLoop(edges: IEdge[], plane: Plane): Polygon {
     const points: Polygon = [];
-    for (const edge of edges) {
-        const start = edge.firstParameter();
-        const end = edge.lastParameter();
-        for (let i = 0; i < LOOP_SAMPLES; i++) {
-            const point = edge.pointAt(start + ((end - start) * i) / LOOP_SAMPLES);
-            const vec = point.sub(plane.origin);
-            points.push([vec.dot(plane.xvec), vec.dot(plane.yvec)]);
-        }
+    if (edges.length === 0) return points;
+
+    const remaining = edges.slice();
+    let edge = remaining.shift()!;
+    appendEdgeSamples(edge, edge.startPoint(), points, plane);
+    let head = edge.endPoint();
+
+    while (remaining.length > 0) {
+        const index = remaining.findIndex(
+            (candidate) => coincides(head, candidate.startPoint()) || coincides(head, candidate.endPoint()),
+        );
+        if (index === -1) break;
+        edge = remaining.splice(index, 1)[0];
+        const next = coincides(head, edge.startPoint()) ? edge.endPoint() : edge.startPoint();
+        appendEdgeSamples(edge, head, points, plane);
+        head = next;
     }
     return points;
 }
 
-/** Majority vote: most of the inner loop's sampled points lie inside the outer polygon. */
+/** Samples `edge` starting from its `from` endpoint, in sketch-plane coordinates. */
+function appendEdgeSamples(edge: IEdge, from: XYZ, points: Polygon, plane: Plane): void {
+    const reversed = !coincides(from, edge.startPoint());
+    const start = reversed ? edge.lastParameter() : edge.firstParameter();
+    const end = reversed ? edge.firstParameter() : edge.lastParameter();
+    for (let i = 0; i < LOOP_SAMPLES; i++) {
+        const point = edge.pointAt(start + ((end - start) * i) / LOOP_SAMPLES);
+        const vec = point.sub(plane.origin);
+        points.push([vec.dot(plane.xvec), vec.dot(plane.yvec)]);
+    }
+}
+
+/**
+ * True when the inner loop is fully enclosed by the outer polygon. The connectivity
+ * path only sees non-crossing loops — disjoint or properly nested — so a loop is a
+ * hole of another only when every sampled point lies inside it. A bare majority would
+ * misread a partially-overlapping loop (an overlap near 50%) as a nesting.
+ */
 function loopContains(outer: Polygon, inner: Polygon): boolean {
-    const insideCount = inner.filter((point) => pointInPolygon(point, outer)).length;
-    return insideCount > inner.length / 2;
+    return inner.every((point) => pointInPolygon(point, outer));
 }
 
 function pointInPolygon([x, y]: [number, number], polygon: [number, number][]): boolean {

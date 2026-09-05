@@ -131,6 +131,24 @@ describe("resolveFacePlane", () => {
             expect(plane?.normal.isEqualTo(XYZ.unitZ)).toBe(true);
             expect(plane?.origin.z).toBe(5);
         });
+
+        test("a hit whose normal rotated is tracked by its id when no fingerprint matches", () => {
+            const { doc, body } = bodyWithFaces(
+                ["f1:0"],
+                planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitX),
+            );
+            // captured when the face was +Z; it has since rotated to +X (a side face
+            // tilting when a crossing diagonal moves), and no face now carries the
+            // captured +Z normal — only the stable id identifies it.
+            const ref: PlaneFaceRef = {
+                nodeId: body.id,
+                normal: { x: 0, y: 0, z: 1 },
+                offset: 5,
+                faceId: "f1:0",
+            };
+
+            expect(resolveFacePlane(doc, ref)?.normal.isEqualTo(XYZ.unitX)).toBe(true);
+        });
     });
 });
 

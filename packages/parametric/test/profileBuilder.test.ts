@@ -166,6 +166,24 @@ describe("sketchProfiles", () => {
         }
     });
 
+    test("a hole straddling the grouping diagonal is still a hole", () => {
+        const { restore } = setup();
+        try {
+            // The outer square's edges are sampled in grouping order, not loop order,
+            // so the containment polygon picks up a diagonal chord (0,0)-(10,10). A hole
+            // centred on that chord is then misclassified as an independent solid profile.
+            const result = sketchProfiles(
+                sketchWith([...square(0, 0, 10, 10), ...square(4.5, 4.5, 5.5, 5.5)]),
+            );
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer.length).toBe(1);
+            expect(result.unchecked()!.inner.length).toBe(1);
+        } finally {
+            restore();
+        }
+    });
+
     test("a loop inside a hole is an island profile of its own", () => {
         const { restore } = setup();
         try {

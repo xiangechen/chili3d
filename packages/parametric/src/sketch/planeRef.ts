@@ -75,16 +75,20 @@ function matchFace(
     ref: PlaneFaceRef,
 ): IFace | undefined {
     const refNormal = new XYZ(ref.normal);
+    let byId: IFace | undefined;
     if (ref.faceId !== undefined && isBodyTrackingNode(node)) {
         const index = node.faceIndexById(ref.faceId);
-        const face = index === undefined ? undefined : faces[index];
-        // Index-scoped ids (the prism's side/top faces) realign when a rebuild changes
-        // the face enumeration order — e.g. a mirrored profile flips the side-face
-        // order — so a hit is trusted only when the normal still matches; otherwise
-        // the geometric fingerprint below is the better guess.
-        if (face !== undefined && normalMatches(face, transform, refNormal)) return face;
+        byId = index === undefined ? undefined : faces[index];
+        // An exact hit trusts the id only while the face's normal still matches — a
+        // rigid move along the normal (an extrude length edit) keeps both.
+        if (byId !== undefined && normalMatches(byId, transform, refNormal)) return byId;
     }
-    return closestFace(faces, transform, refNormal, ref.offset);
+    // The normal no longer matches. Either the id realigned (a rebuild reordered the
+    // faces — then the face carrying the captured normal is the right one), or the face
+    // itself rotated in place (a side face tilting when a crossing diagonal moves —
+    // then no face matches the captured normal and the id is the only signal left).
+    // Prefer the geometric hit when one exists, else trust the id.
+    return closestFace(faces, transform, refNormal, ref.offset) ?? byId;
 }
 
 function normalMatches(face: IFace, transform: Matrix4, refNormal: XYZ): boolean {
