@@ -41,9 +41,15 @@ export interface ExtrudeFeatureData extends FeatureBase {
      * the host body itself, the faces are re-matched on the feature's input shape.
      */
     readonly source?: { readonly nodeId: string; readonly profiles: ProfileRef[] };
-    readonly length: ParameterValue;
-    /** When true, the profiles are extruded by `length` in both directions of the sketch normal. */
+    readonly depth: ParameterValue;
+    /** When true, the profiles are extruded by `depth` in both directions of the sketch normal. */
     readonly symmetric?: boolean;
+    /**
+     * Distance the extrusion starts away from the profile plane, along the extrude
+     * normal (positive moves the start in the normal direction). Zero keeps the start
+     * on the profile plane.
+     */
+    readonly startOffset?: ParameterValue;
     /**
      * How the prism combines with the preceding feature's shape on the host body —
      * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone

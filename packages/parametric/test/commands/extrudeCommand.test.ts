@@ -307,7 +307,8 @@ describe("ExtrudeFeatureCommand consumption", () => {
 
             const meshes = (cmd as any).buildPreview(state);
 
-            expect(meshes).toEqual([faceMesh, edgeMesh]);
+            expect(meshes.meshes).toEqual([faceMesh, edgeMesh]);
+            expect(meshes.onTop).toBe(false);
             expect(prismFn).toHaveBeenCalledWith(face, new XYZ({ x: 0, y: 0, z: 5 }));
             expect(prism.dispose).toHaveBeenCalled();
         } finally {
@@ -352,7 +353,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
             expect(prismA.dispose).toHaveBeenCalled();
             expect(prismB.dispose).toHaveBeenCalled();
             expect(fused.dispose).toHaveBeenCalled();
-            expect(meshes).toEqual([fusedMesh]);
+            expect(meshes.meshes).toEqual([fusedMesh]);
         } finally {
             restoreFactory();
         }
@@ -392,7 +393,61 @@ describe("ExtrudeFeatureCommand consumption", () => {
             expect(prismFn).toHaveBeenCalledTimes(2);
             expect((prismFn.mock.calls[0][1] as XYZ).z).toBeCloseTo(5);
             expect((prismFn.mock.calls[1][1] as XYZ).z).toBeCloseTo(-5);
-            expect(meshes).toEqual([fusedMesh]);
+            expect(meshes.meshes).toEqual([fusedMesh]);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a join operation previews the boolean result against the target body", () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const touchingBox = () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 });
+        const prism = { dispose: rs.fn(), boundingBox: touchingBox };
+        const booleanResult = { dispose: rs.fn(), mesh: { faces: faceMesh, edges: undefined } };
+        const fuseFn = rs.fn(() => Result.ok(booleanResult));
+        const restoreFactory = mockShapeFactory({
+            prism: rs.fn(() => Result.ok(prism)),
+            booleanFuse: fuseFn,
+        });
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const target = new ParametricBodyNode({ document: doc, features: [] });
+            (target as any)._shape = Result.ok({
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                boundingBox: touchingBox,
+            });
+            doc.modelManager.addNode(target);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.operation = "option.command.operation.join";
+            const state = {
+                dist: 5,
+                normal: XYZ.unitZ,
+                faces: [{ shape: { shapeType: ShapeTypes.face }, transform: Matrix4.identity() }],
+                node: new SketchNode({
+                    document: doc,
+                    plane: Plane.XY,
+                    data: { entities: [], constraints: [] },
+                }),
+            };
+
+            const preview = (cmd as any).buildPreview(state);
+
+            expect(fuseFn).toHaveBeenCalledTimes(1);
+            expect(preview.onTop).toBe(true);
+            expect(preview.meshes).toEqual([faceMesh]);
+            expect(prism.dispose).toHaveBeenCalled();
+            expect(booleanResult.dispose).toHaveBeenCalled();
         } finally {
             restoreFactory();
         }
@@ -484,13 +539,14 @@ describe("ExtrudeFeatureCommand consumption", () => {
         doc.modelManager.addNode(targetSketch);
         const target = new ParametricBodyNode({
             document: doc,
-            features: [{ id: "t1", type: "extrude", sketchId: targetSketch.id, length: 2 }],
+            features: [{ id: "t1", type: "extrude", sketchId: targetSketch.id, depth: 2 }],
         });
         doc.modelManager.addNode(target);
 
         const cmd = new ExtrudeFeatureCommand();
         (cmd as any)._application = app;
         cmd.operation = "option.command.operation.join";
+        cmd.depth = 5;
         (cmd as any).stepDatas = [
             { shapes: [], nodes: [sketch], type: "shape" },
             {
@@ -518,7 +574,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
             expect(target.features[1]).toMatchObject({
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 5,
+                depth: 5,
                 operation: "fuse",
             });
             expect(sketch.visible).toBe(false);
@@ -624,6 +680,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
 
             const cmd = new ExtrudeFeatureCommand();
             (cmd as any)._application = app;
+            cmd.depth = 5;
             (cmd as any).stepDatas = [
                 { shapes: [], nodes: [sketch], type: "shape" },
                 {
@@ -710,6 +767,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
         } as any;
         const cmd = new ExtrudeFeatureCommand();
         (cmd as any)._application = app;
+        cmd.depth = 7;
         (cmd as any).stepDatas = [
             { shapes: [picked], nodes: [body], type: "shape" },
             {
@@ -734,12 +792,28 @@ describe("ExtrudeFeatureCommand consumption", () => {
             expect(created).not.toBeUndefined();
             const feature = created.features[0] as ExtrudeFeatureData;
             expect(feature.sketchId).toBeUndefined();
-            expect(feature.length).toBe(7);
+            expect(feature.depth).toBe(7);
             expect(feature.source?.nodeId).toBe(body.id);
             expect(feature.source?.profiles.length).toBe(1);
             // The source body is not consumed — only sketches are hidden.
             expect(body.visible).toBe(true);
             expect(created.shape.isOk).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a start offset is recorded on the committed feature", () => {
+        const { restoreFactory, doc, body, cmd } = bodyFaceScenario();
+        try {
+            cmd.startOffset = 3;
+
+            (cmd as any).executeMainTask();
+
+            const created = doc.modelManager.findNode(
+                (node) => node instanceof ParametricBodyNode && node !== body,
+            ) as ParametricBodyNode;
+            expect((created.features[0] as ExtrudeFeatureData).startOffset).toBe(3);
         } finally {
             restoreFactory();
         }

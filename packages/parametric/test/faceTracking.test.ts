@@ -212,7 +212,7 @@ describe("ParametricBodyNode face tracking", () => {
     }
 
     test("extrude seeds the profile face id and scopes new faces to the feature", () => {
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
         expect(mocks.prismTracked).toHaveBeenCalledTimes(1);
@@ -233,7 +233,7 @@ describe("ParametricBodyNode face tracking", () => {
                 faceEdgeMap: [-1, 0, 1, 2, 3, -1],
             }),
         );
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
@@ -245,7 +245,7 @@ describe("ParametricBodyNode face tracking", () => {
 
     test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
         ]);
 
@@ -258,7 +258,7 @@ describe("ParametricBodyNode face tracking", () => {
 
     test("editing a later feature keeps the cached prefix ids", () => {
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
         ]);
         expect(body.shape.isOk).toBe(true);
@@ -280,7 +280,7 @@ describe("ParametricBodyNode face tracking", () => {
             prism,
         });
         try {
-            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
             expect(body.shape.isOk).toBe(true);
             expect(prism).toHaveBeenCalledTimes(1);
@@ -296,7 +296,7 @@ describe("ParametricBodyNode face tracking", () => {
         const faceB = planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ);
         mocks.restore();
         mocks = setupTrackedMocks([faceA, faceB]);
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
         expect(body.shape.isOk).toBe(true);
 
         // faceIdAt(1) is "f1:1" — geometrically offset 5 would match faceA (index 0),
@@ -310,7 +310,7 @@ describe("ParametricBodyNode face tracking", () => {
         const faceB = planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ);
         mocks.restore();
         mocks = setupTrackedMocks([faceA, faceB]);
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
         expect(body.shape.isOk).toBe(true);
 
         const ref = { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "gone:0" };
@@ -318,7 +318,7 @@ describe("ParametricBodyNode face tracking", () => {
     });
 
     test("Serializer round-trips the plane reference with its face id", () => {
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
         expect(body.shape.isOk).toBe(true);
         const sketchOnBody = new SketchNode({
             document: doc,
@@ -339,7 +339,7 @@ describe("ParametricBodyNode face tracking", () => {
     });
 
     test("extrude seeds sketch-scoped edge ids", () => {
-        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, length: 5 }]);
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
@@ -350,7 +350,7 @@ describe("ParametricBodyNode face tracking", () => {
 
     test("fillet propagates edge ids and adds a feature-scoped id for the new edge", () => {
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
         ]);
 
@@ -380,7 +380,7 @@ describe("ParametricBodyNode face tracking", () => {
         );
         mocks = setupTrackedMocks([], { filletTracked: permutedFilletTracked });
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
         ]);
         expect(body.shape.isOk).toBe(true);
@@ -437,7 +437,7 @@ describe("ParametricBodyNode face tracking", () => {
         );
         mocks = setupTrackedMocks([], { booleanCutTracked });
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "boolean", operation: "cut", toolIds: [tool.id] },
         ]);
 
@@ -492,7 +492,7 @@ describe("ParametricBodyNode face tracking", () => {
         });
         mocks = { ...mocks, restore };
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "boolean", operation: "cut", toolIds: [tool.id] },
         ]);
 
@@ -522,8 +522,8 @@ describe("ParametricBodyNode face tracking", () => {
         );
         mocks = setupTrackedMocks([], { booleanFuseTracked });
         const body = bodyWith([
-            { id: "f1", type: "extrude", sketchId: sketch.id, length: 5 },
-            { id: "f2", type: "extrude", sketchId: sketch.id, length: 2, operation: "fuse" },
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 2, operation: "fuse" },
         ]);
 
         expect(body.shape.isOk).toBe(true);
@@ -628,7 +628,7 @@ describe("ParametricBodyNode face tracking", () => {
             );
             const prismShapes = setupFusion(booleanFuseTracked, true);
             const two = twoLoopSketch(OVERLAPPING_SQUARE);
-            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, depth: 5 }]);
 
             expect(body.shape.isOk).toBe(true);
             expect(body.shape.unchecked()).toBe(fusedShape);
@@ -649,7 +649,7 @@ describe("ParametricBodyNode face tracking", () => {
             const booleanFuseTracked = rs.fn();
             setupFusion(booleanFuseTracked, false);
             const two = twoLoopSketch(DISJOINT_SQUARE);
-            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, depth: 5 }]);
 
             expect(body.shape.isOk).toBe(true);
             expect(booleanFuseTracked).not.toHaveBeenCalled();
@@ -661,7 +661,7 @@ describe("ParametricBodyNode face tracking", () => {
             const booleanFuseTracked = rs.fn(() => Result.err("fuse failed"));
             setupFusion(booleanFuseTracked, true);
             const two = twoLoopSketch(OVERLAPPING_SQUARE);
-            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, length: 5 }]);
+            const body = bodyWith([{ id: "f1", type: "extrude", sketchId: two.id, depth: 5 }]);
 
             expect(body.shape.isOk).toBe(true);
             expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
@@ -692,7 +692,7 @@ describe("ParametricBodyNode face tracking", () => {
             const fresh = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
             doc.modelManager.addNode(fresh);
             const body = bodyWith([
-                { id: "f1", type: "extrude", sketchId: fresh.id, length: 5, symmetric: true },
+                { id: "f1", type: "extrude", sketchId: fresh.id, depth: 5, symmetric: true },
             ]);
 
             expect(body.shape.isOk).toBe(true);

@@ -67,7 +67,7 @@ test("an extrude of three picked circles follows when one circle moves", () => {
 
     const body = new ParametricBodyNode({
         document: doc,
-        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, length: 10, profiles }],
+        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, depth: 10, profiles }],
     });
     doc.modelManager.addNode(body);
     expect(body.shape.isOk).toBe(true);
@@ -107,7 +107,7 @@ test("an extrude follows a circle dragged in the sketch editor", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 10,
+                depth: 10,
                 profiles: faceRanges.map((x) => captureProfileRef(x.shape as unknown as IFace)),
             },
         ],
@@ -154,7 +154,7 @@ test("an extrude follows two circles dragged close together in consecutive edits
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 10,
+                depth: 10,
                 profiles: faceRanges.map((x) => captureProfileRef(x.shape as unknown as IFace)),
             },
         ],
@@ -228,7 +228,7 @@ test("an extrude of a crossing region survives the crossing line leaving the rec
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 10,
+                depth: 10,
                 profiles: faceRanges.map((x) => captureProfileRef(x.shape as unknown as IFace)),
             },
         ],
@@ -299,14 +299,14 @@ test.each([
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 20,
+                depth: 20,
                 profiles: [captureProfileRef(faceRanges[0].shape as unknown as IFace)],
             },
             {
                 id: "e2",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 10,
+                depth: 10,
                 operation: "fuse",
                 symmetric,
                 profiles: [captureProfileRef(faceRanges[1].shape as unknown as IFace)],
@@ -369,7 +369,7 @@ test("an extrude survives a circle drawn inside its profile, then the circle joi
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 20,
+                depth: 20,
                 profiles: [captureProfileRef(rectFaces[0].shape as unknown as IFace)],
             },
         ],
@@ -397,7 +397,7 @@ test("an extrude survives a circle drawn inside its profile, then the circle joi
             id: "e2",
             type: "extrude",
             sketchId: sketch.id,
-            length: 10,
+            depth: 10,
             operation: "fuse",
             profiles: [captureProfileRef(circleFace!.shape as unknown as IFace)],
         },
@@ -459,7 +459,7 @@ test("an extrude of a minimal crossing region survives dragging the crossing lin
 
     const body = new ParametricBodyNode({
         document: doc,
-        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, length: 10, profiles: [ref] }],
+        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, depth: 10, profiles: [ref] }],
     });
     doc.modelManager.addNode(body);
     expect(body.shape.isOk).toBe(true);

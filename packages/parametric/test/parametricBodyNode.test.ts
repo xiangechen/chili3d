@@ -138,8 +138,8 @@ function setupMocks() {
     return { line, combine, wire, face, prism, fillet, prismShapes, filletedShape, restore };
 }
 
-function extrudeFeature(sketchId: string, length = 5): ExtrudeFeatureData {
-    return { id: "f1", type: "extrude", sketchId, length };
+function extrudeFeature(sketchId: string, depth = 5): ExtrudeFeatureData {
+    return { id: "f1", type: "extrude", sketchId, depth };
 }
 
 describe("ParametricBodyNode", () => {
@@ -258,26 +258,26 @@ describe("ParametricBodyNode", () => {
         expect(mocks.prism).toHaveBeenCalledTimes(1);
     });
 
-    test("setFeatureParameter updates the length and rebuilds", () => {
+    test("setFeatureParameter updates the depth and rebuilds", () => {
         const body = bodyWith([extrudeFeature(sketch.id)]);
         expect(body.shape.isOk).toBe(true);
         mocks.prism.mockClear();
 
-        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "length", 12));
+        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "depth", 12));
 
         const vec = (mocks.prism.mock.calls[0] as unknown as [any, XYZ])[1];
         expect(vec.z).toBe(12);
-        expect(body.features[0]).toMatchObject({ length: 12 });
+        expect(body.features[0]).toMatchObject({ depth: 12 });
     });
 
     test("feature edits undo and redo as one step", () => {
         const body = bodyWith([extrudeFeature(sketch.id, 5)]);
 
-        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "length", 12));
+        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "depth", 12));
         doc.history.undo();
-        expect(body.features[0]).toMatchObject({ length: 5 });
+        expect(body.features[0]).toMatchObject({ depth: 5 });
         doc.history.redo();
-        expect(body.features[0]).toMatchObject({ length: 12 });
+        expect(body.features[0]).toMatchObject({ depth: 12 });
     });
 
     test("removeFeature with no features left yields an empty compound", () => {
@@ -316,7 +316,8 @@ describe("ParametricBodyNode", () => {
         expect(items[0].icon).toBe("icon-prism");
         expect(items[0].error).toBeUndefined();
         expect(items[0].parameters).toEqual([
-            { key: "length", display: "common.length", value: 7 },
+            { key: "depth", display: "option.command.depth", value: 7 },
+            { key: "startOffset", display: "option.command.startOffset", value: 0 },
             { key: "symmetric", display: "option.command.symmetric", value: false },
         ]);
     });
@@ -818,7 +819,7 @@ describe("ParametricBodyNode", () => {
         const body = bodyWith([extrudeFeature(sketch.id), fillet]);
         expect(body.shape.isOk).toBe(true);
 
-        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "length", 12));
+        Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f1", "depth", 12));
 
         expect(mocks.prismShapes[0].dispose).toHaveBeenCalledTimes(1);
         expect(mocks.filletedShape.dispose).not.toHaveBeenCalled();

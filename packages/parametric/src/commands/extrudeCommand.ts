@@ -38,8 +38,10 @@ import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
 import {
     ARROW_LENGTH,
+    type ExtrudeDragHandler,
     type ExtrudeDragState,
     ExtrudeDragStep,
+    type ExtrudePreview,
     extrudeArrowSegment,
     planeOfPickedFace,
 } from "./extrudeDragStep";
@@ -198,6 +200,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
     set operation(value: I18nKeys) {
         this.setProperty("operation", value);
+        this._dragHandler?.refresh();
     }
 
     @property("option.command.symmetric")
@@ -206,7 +209,29 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
     set symmetric(value: boolean) {
         this.setProperty("symmetric", value);
+        this._dragHandler?.refresh();
     }
+
+    @property("option.command.startOffset")
+    get startOffset(): number {
+        return this.getPrivateValue("startOffset", 0);
+    }
+    set startOffset(value: number) {
+        this.setProperty("startOffset", value);
+        this._dragHandler?.setStartOffset(value);
+    }
+
+    @property("option.command.depth")
+    get depth(): number {
+        return this.getPrivateValue("depth", 0);
+    }
+    set depth(value: number) {
+        this.setProperty("depth", value);
+        if (this._dragHandler && !this._syncingFromDrag) this._dragHandler.setDepth(value);
+    }
+
+    private _dragHandler: ExtrudeDragHandler | undefined;
+    private _syncingFromDrag = false;
 
     /** The drag step returns the final face set (it can change while dragging). */
     private get dragData() {
@@ -241,8 +266,21 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             origin: plane.origin,
             normal: plane.normal,
             anchor: faces[0]?.point ?? plane.origin,
+            depth: this.depth,
+            startOffset: this.startOffset,
             buildPreview: this.buildPreview,
             meshArrow: this.meshArrow,
+            onReady: (handler: ExtrudeDragHandler) => {
+                this._dragHandler = handler;
+            },
+            onDone: () => {
+                this._dragHandler = undefined;
+            },
+            onDist: (dist: number) => {
+                this._syncingFromDrag = true;
+                this.depth = dist;
+                this._syncingFromDrag = false;
+            },
         };
     };
 
@@ -250,25 +288,73 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      * Meshes the extruded prism as solid faces plus outline edges, previewing the final
      * body. Multiple profiles go through the same `fuseProfiles` merge as the feature
      * (touching prisms become one solid), so the preview matches the committed result.
-     * Symmetric extrusion previews both directions.
+     * Symmetric extrusion previews both directions. A join/cut/intersect operation
+     * previews the boolean result against the intersecting target body (rendered on top).
      */
-    private readonly buildPreview = (state: ExtrudeDragState): ShapeMeshData[] => {
-        if (Math.abs(state.dist) < Precision.Float) return [];
+    private readonly buildPreview = (state: ExtrudeDragState): ExtrudePreview => {
+        if (Math.abs(state.dist) < Precision.Float) return { meshes: [] };
         const owned: IFace[] = [];
         try {
             const faces = ExtrudeFeatureCommand.previewFaces(state, owned);
-            if (faces === undefined) return [];
+            if (faces === undefined) return { meshes: [] };
             const vecsOf = this.sweepVectorsOf(state.node, state.normal, state.dist);
-            const merged = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf);
+            const offsetOf = this.offsetVectorOf(state.node, state.normal);
+            const merged = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf, offsetOf);
             if (!merged.isOk) throw merged.error;
-            const { faces: faceMesh, edges } = merged.value.mesh;
-            merged.value.dispose();
+            const preview = this.applyOperationPreview(merged.value);
+            const { faces: faceMesh, edges } = preview.shape.mesh;
+            preview.shape.dispose();
             if (faceMesh === undefined) throw new Error("Failed to mesh the extrude preview");
-            return edges === undefined ? [faceMesh] : [faceMesh, edges];
+            return {
+                meshes: edges === undefined ? [faceMesh] : [faceMesh, edges],
+                onTop: preview.onTop,
+            };
         } finally {
             owned.forEach((x) => x.dispose());
         }
     };
+
+    /**
+     * Applies the operation's boolean to the preview prism: join/cut/intersect against
+     * the intersecting target body (the result renders on top of it); "new", or no
+     * intersecting target, keeps the prism. The returned shape is owned by the caller.
+     */
+    private applyOperationPreview(prism: IShape): { shape: IShape; onTop: boolean } {
+        const operation = EXTRUDE_OPERATIONS[this.operation];
+        if (operation === undefined) return { shape: prism, onTop: false };
+        const target = this.findIntersectingNode(prism.boundingBox());
+        if (target === undefined) return { shape: prism, onTop: false };
+        const result = this.booleanPreview(operation, target, prism);
+        if (!result.isOk) return { shape: prism, onTop: false };
+        prism.dispose();
+        return { shape: result.value, onTop: true };
+    }
+
+    /** The boolean of the preview prism against the target body's current shape. */
+    private booleanPreview(
+        operation: BooleanOperation,
+        target: ParametricBodyNode,
+        prism: IShape,
+    ): Result<IShape> {
+        switch (operation) {
+            case "cut":
+                return shapeFactory.booleanCut([target.shape.value], [prism]);
+            case "common":
+                return shapeFactory.booleanCommon([target.shape.value], [prism]);
+            default:
+                return shapeFactory.booleanFuse([target.shape.value], [prism], true);
+        }
+    }
+
+    /** The first parametric body whose bounding box intersects `box` (bounds-only check). */
+    private findIntersectingNode(box: BoundingBox): ParametricBodyNode | undefined {
+        return this.document.modelManager.findNode(
+            (target) =>
+                target instanceof ParametricBodyNode &&
+                target.shape.isOk &&
+                BoundingBox.isIntersect(box, target.shape.value.boundingBox()),
+        ) as ParametricBodyNode | undefined;
+    }
 
     /** Faces to preview: the picked faces in world coordinates, or the whole sketch's outer profiles. */
     private static previewFaces(state: ExtrudeDragState, owned: IFace[]): IFace[] | undefined {
@@ -291,6 +377,16 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
 
     /**
+     * Start-offset vector per face: sketch profiles share the drag plane normal;
+     * body faces offset along their own outward normal, matching `sweepVectorsOf`.
+     */
+    private offsetVectorOf(node: INode, normal: XYZ): (face: IFace) => XYZ {
+        return node instanceof SketchNode
+            ? () => normal.multiply(this.startOffset)
+            : (face) => face.normal(0, 0)[1].multiply(this.startOffset);
+    }
+
+    /**
      * The picked face in world coordinates; identity transforms reuse the raw shape,
      * transformed copies are pushed to `owned` for the caller to dispose.
      */
@@ -307,21 +403,39 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      * fuse the inputs are disposed inside `fuseProfiles`; a failed combine leaves them
      * with us.
      */
-    private static buildPrisms(faces: IFace[], vecsOf: (face: IFace) => XYZ[]): Result<IShape> {
+    private static buildPrisms(
+        faces: IFace[],
+        vecsOf: (face: IFace) => XYZ[],
+        offsetOf: (face: IFace) => XYZ,
+    ): Result<IShape> {
         const prisms: IShape[] = [];
-        for (const face of faces) {
-            for (const vec of vecsOf(face)) {
-                const prism = shapeFactory.prism(face, vec);
-                if (!prism.isOk) {
-                    prisms.forEach((x) => x.dispose());
-                    return Result.err(prism.error);
+        const owned: IFace[] = [];
+        try {
+            for (const face of faces) {
+                const sweptFace = ExtrudeFeatureCommand.translateFace(face, offsetOf(face), owned);
+                for (const vec of vecsOf(face)) {
+                    const prism = shapeFactory.prism(sweptFace, vec);
+                    if (!prism.isOk) {
+                        prisms.forEach((x) => x.dispose());
+                        return Result.err(prism.error);
+                    }
+                    prisms.push(prism.value);
                 }
-                prisms.push(prism.value);
             }
+        } finally {
+            owned.forEach((x) => x.dispose());
         }
         const merged = fuseProfiles(prisms);
         if (!merged.isOk) prisms.forEach((x) => x.dispose());
         return merged;
+    }
+
+    /** Translates `face` along `vec` for a start offset; a zero offset returns the face unchanged. */
+    private static translateFace(face: IFace, vec: XYZ, owned: IFace[]): IFace {
+        if (vec.length() < Precision.Float) return face;
+        const translated = face.transformedMul(Matrix4.fromTranslation(vec.x, vec.y, vec.z)) as IFace;
+        owned.push(translated);
+        return translated;
     }
 
     /**
@@ -386,16 +500,16 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     protected override executeMainTask(): void {
         const node = this.sourceNode;
         const plane = this.dragData.plane!;
-        const length = this.dragData.point!.sub(plane.origin).dot(plane.normal);
+        const depth = this.depth;
 
         // Body-face fingerprints are captured in world coordinates (see the feature's
         // `source` contract); sketch profiles keep their raw faces.
         const owned: IFace[] = [];
         const worldFaces = this.dragData.shapes.map((x) => ExtrudeFeatureCommand.worldFace(x, owned));
-        const feature = this.buildFeature(node, length, worldFaces);
+        const feature = this.buildFeature(node, depth, worldFaces);
         try {
             Transaction.execute(this.document, "excute feature.extrude", () => {
-                this.commitFeature(node, feature, length, plane.normal, worldFaces);
+                this.commitFeature(node, feature, depth, plane.normal, worldFaces);
                 if (node instanceof SketchNode) {
                     // The sketch is consumed by the feature; hide it. Same transaction,
                     // so undo restores the visibility together with the body.
@@ -411,14 +525,15 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     /** The feature payload of the committed drag. */
     private buildFeature(
         node: SketchNode | ParametricBodyNode,
-        length: number,
+        depth: number,
         worldFaces: IFace[],
     ): ExtrudeFeatureData {
         return {
             id: Id.generate(),
             type: "extrude",
-            length,
+            depth,
             ...(this.symmetric ? { symmetric: true } : {}),
+            ...(this.startOffset !== 0 ? { startOffset: this.startOffset } : {}),
             ...(node instanceof SketchNode
                 ? {
                       sketchId: node.id,
@@ -438,13 +553,13 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     private commitFeature(
         node: SketchNode | ParametricBodyNode,
         feature: ExtrudeFeatureData,
-        length: number,
+        depth: number,
         normal: XYZ,
         worldFaces: IFace[],
     ): void {
         const operation = EXTRUDE_OPERATIONS[this.operation];
         const target =
-            operation === undefined ? undefined : this.findIntersectingBody(node, length, normal, worldFaces);
+            operation === undefined ? undefined : this.findIntersectingBody(node, depth, normal, worldFaces);
         if (operation !== undefined && target !== undefined) {
             target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
         } else {
@@ -462,7 +577,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      */
     private findIntersectingBody(
         node: SketchNode | ParametricBodyNode,
-        length: number,
+        depth: number,
         normal: XYZ,
         worldFaces: IFace[],
     ): ParametricBodyNode | undefined {
@@ -472,16 +587,14 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             if (!profiles.isOk) return undefined;
             faces = profiles.value.outer;
         }
-        const built = ExtrudeFeatureCommand.buildPrisms(faces, this.sweepVectorsOf(node, normal, length));
+        const built = ExtrudeFeatureCommand.buildPrisms(
+            faces,
+            this.sweepVectorsOf(node, normal, depth),
+            this.offsetVectorOf(node, normal),
+        );
         if (!built.isOk) return undefined;
         try {
-            const box = built.value.boundingBox();
-            return this.document.modelManager.findNode(
-                (target) =>
-                    target instanceof ParametricBodyNode &&
-                    target.shape.isOk &&
-                    BoundingBox.isIntersect(box, target.shape.value.boundingBox()),
-            ) as ParametricBodyNode | undefined;
+            return this.findIntersectingNode(built.value.boundingBox());
         } finally {
             built.value.dispose();
         }

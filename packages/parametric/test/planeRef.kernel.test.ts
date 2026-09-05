@@ -57,7 +57,7 @@ function setup() {
     doc.modelManager.addNode(sketch1);
     const body = new ParametricBodyNode({
         document: doc,
-        features: [{ id: "f1", type: "extrude", sketchId: sketch1.id, length: 10 }],
+        features: [{ id: "f1", type: "extrude", sketchId: sketch1.id, depth: 10 }],
     });
     doc.modelManager.addNode(body);
     return { doc, sketch1, body };

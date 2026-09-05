@@ -27,6 +27,7 @@ import {
     type ExtrudeDragData,
     ExtrudeDragHandler,
     ExtrudeDragStep,
+    extrudeArrowSegment,
 } from "../../src/commands/extrudeDragStep";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchNode } from "../../src/sketch/sketchNode";
@@ -65,7 +66,7 @@ describe("ExtrudeDragHandler", () => {
             origin: XYZ.zero,
             normal: XYZ.unitZ,
             anchor: new XYZ({ x: 1, y: 1, z: 0 }),
-            buildPreview: rs.fn((_state: any) => [fakeMesh()]),
+            buildPreview: rs.fn((_state: any) => ({ meshes: [fakeMesh()] })),
             meshArrow: rs.fn((_state: any) => [fakeMesh()]),
         };
     }
@@ -79,10 +80,16 @@ describe("ExtrudeDragHandler", () => {
         });
     }
 
-    test("dragging starts without a jump and commits the projected distance on release", () => {
+    test("shows the confirm control from the start and confirms a non-zero drag", () => {
         const data = dragData();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         const handler = new ExtrudeDragHandler(doc, controller, data);
         const view = dragView();
+
+        // The confirm/cancel buttons show as soon as the step starts.
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+        expect(confirmControl).toBeDefined();
+        expect(controller.result).toBeUndefined();
 
         handler.pointerDown(view, createPointerEvent({ offsetX: 100, offsetY: 200 }));
         // crossing the drag threshold grabs the current projection: no jump
@@ -91,9 +98,42 @@ describe("ExtrudeDragHandler", () => {
         handler.pointerMove(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
         handler.pointerUp(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
 
-        expect(controller.result?.status).toBe("success");
+        // The release does not commit; confirming (the button) does.
+        expect(controller.result).toBeUndefined();
         expect(handler.state.dist).toBeCloseTo(7);
+        confirmControl.success();
+        expect(controller.result?.status).toBe("success");
         expect(data.buildPreview).toHaveBeenCalled();
+        pub.mockRestore();
+    });
+
+    test("confirming at zero depth is a no-op", () => {
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+
+        confirmControl.success();
+        expect(controller.result).toBeUndefined(); // zero depth: confirm does nothing
+        pub.mockRestore();
+        handler.dispose();
+    });
+
+    test("the arrow starts at the command's depth so it matches the depth input", () => {
+        const data = dragData();
+        data.depth = 7;
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+        expect(handler.state.dist).toBe(7);
+        handler.dispose();
+    });
+
+    test("the arrow base includes the start offset", () => {
+        const { start } = extrudeArrowSegment({
+            anchor: new XYZ({ x: 1, y: 1, z: 0 }),
+            normal: XYZ.unitZ,
+            dist: 5,
+            startOffset: 3,
+        } as any);
+        expect(start.z).toBeCloseTo(8); // anchor.z(0) + dist(5) + startOffset(3)
     });
 
     test("a press-release without moving does not commit", () => {
@@ -121,7 +161,7 @@ describe("ExtrudeDragHandler", () => {
         handler.pointerUp(view, createPointerEvent({ offsetX: 401, offsetY }));
     }
 
-    test("clicking the arrow starts click-move mode and the second click commits", () => {
+    test("clicking the arrow starts click-move mode and the second click enters the confirm state", () => {
         const handler = new ExtrudeDragHandler(doc, controller, dragData());
         const view = twoClickView();
 
@@ -133,7 +173,7 @@ describe("ExtrudeDragHandler", () => {
         expect(handler.state.dist).toBeCloseTo(20); // (300-240) - (300-260), no jump on entry
 
         clickArrow(handler, view, 240);
-        expect(controller.result?.status).toBe("success");
+        expect(controller.result).toBeUndefined(); // awaiting confirmation
         expect(handler.state.dist).toBeCloseTo(20);
     });
 
@@ -312,7 +352,7 @@ describe("ExtrudeDragHandler", () => {
         ]);
     });
 
-    test("numeric input commits the exact value and rejects non-numbers", () => {
+    test("numeric input enters the confirm state with the exact value and rejects non-numbers", () => {
         const handler = new ExtrudeDragHandler(doc, controller, dragData());
         const view = dragView();
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
@@ -327,7 +367,7 @@ describe("ExtrudeDragHandler", () => {
 
             const ok = callback("25");
             expect(ok.isOk).toBe(true);
-            expect(controller.result?.status).toBe("success");
+            expect(controller.result).toBeUndefined(); // awaiting confirmation
             expect(handler.state.dist).toBe(25);
         } finally {
             pub.mockRestore();
@@ -411,7 +451,7 @@ describe("ExtrudeDragStep", () => {
             origin: XYZ.zero,
             normal: XYZ.unitZ,
             anchor: XYZ.zero,
-            buildPreview: () => [fakeMesh()],
+            buildPreview: () => ({ meshes: [fakeMesh()] }),
             meshArrow: () => [fakeMesh()],
         }));
 
@@ -426,6 +466,8 @@ describe("ExtrudeDragStep", () => {
         captured!.pointerMove(view, createPointerEvent({ offsetX: 113, offsetY: 200 }));
         captured!.pointerMove(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
         captured!.pointerUp(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
+        // The drag now enters the confirm state; confirm to finish the step.
+        controller.success();
 
         const result = await promise;
         expect(result).toBeDefined();
@@ -463,7 +505,7 @@ describe("ExtrudeDragStep", () => {
             origin: XYZ.zero,
             normal: XYZ.unitZ,
             anchor: XYZ.zero,
-            buildPreview: () => [],
+            buildPreview: () => ({ meshes: [] }),
             meshArrow: () => [fakeMesh()],
         }));
 

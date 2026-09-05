@@ -39,13 +39,14 @@ export const ARROW_LENGTH = 40;
 const ARROW_LENGTH_PX = 80;
 
 /**
- * The arrow's shaft segment in world space: base sits at the current extrude depth
- * (anchor + normal * dist) and the arrow keeps a fixed length, pointing in the drag
- * direction. Shared by the handler's hit test and the command's rendering.
+ * The arrow's shaft segment in world space: base sits at the extrude's end face
+ * (anchor + normal * (dist + startOffset)) and the arrow keeps a fixed length,
+ * pointing in the drag direction. Shared by the handler's hit test and the command's
+ * rendering.
  */
 export function extrudeArrowSegment(state: ExtrudeDragState): { start: XYZ; end: XYZ } {
     const dir = state.dist < -Precision.Float ? state.normal.multiply(-1) : state.normal;
-    const start = state.anchor.add(state.normal.multiply(state.dist));
+    const start = state.anchor.add(state.normal.multiply(state.dist + state.startOffset));
     return { start, end: start.add(dir.multiply(state.arrowLength ?? ARROW_LENGTH)) };
 }
 
@@ -62,10 +63,18 @@ export interface ExtrudeDragState {
     normal: XYZ;
     anchor: XYZ;
     dist: number;
+    /** Bottom offset of the extrude along `normal` (startOffset). */
+    startOffset: number;
     /** True while the pointer hovers the arrow; the command renders it highlighted. */
     arrowHovered: boolean;
     /** World-space arrow length, adapted by the handler so the arrow is zoom-independent. */
     arrowLength?: number;
+}
+
+export interface ExtrudePreview {
+    meshes: ShapeMeshData[];
+    /** True when the preview is a boolean result, rendered on top of the target body. */
+    onTop?: boolean;
 }
 
 export interface ExtrudeDragData {
@@ -75,8 +84,18 @@ export interface ExtrudeDragData {
     origin: XYZ;
     normal: XYZ;
     anchor: XYZ;
-    buildPreview(state: ExtrudeDragState): ShapeMeshData[];
+    /** The command's current signed depth, so the arrow starts in sync with its input. */
+    depth?: number;
+    /** The command's current start offset, so the arrow starts at the extruded end face. */
+    startOffset?: number;
+    buildPreview(state: ExtrudeDragState): ExtrudePreview;
     meshArrow(state: ExtrudeDragState): ShapeMeshData[];
+    /** The handler registers itself so the command can push option/depth changes back. */
+    onReady?(handler: ExtrudeDragHandler): void;
+    /** The handler reports its cleanup so the command can drop the reference. */
+    onDone?(): void;
+    /** The handler reports the signed depth so the command syncs its depth input. */
+    onDist?(dist: number): void;
 }
 
 /** Outward plane of a picked solid face, in world coordinates. */
@@ -88,14 +107,13 @@ export function planeOfPickedFace(face: VisualShapeData): Plane {
 }
 
 /**
- * Push-pull step: shows a draggable arrow at the picked point. Two gestures commit:
- * drag the arrow with the left button held (release commits), or click the arrow and
- * then click a second point (classic click-move-click) — both project the mouse ray
- * onto the extrude normal for the extrude length. A plain click on another profile
- * face (sketch profile or planar solid face) switches the target (Shift toggles faces
- * of the current node).
- * Typing a number enters an exact length. Escape exits the click-move mode first,
- * then cancels; Enter/Space cancels directly.
+ * Push-pull step: shows a draggable arrow plus the confirm/cancel buttons from the
+ * start. Two gestures set the depth: drag the arrow with the left button held, or
+ * click the arrow and then click a second point (classic click-move-click) — both
+ * project the mouse ray onto the extrude normal. A plain click on another profile face
+ * (sketch profile or planar solid face) switches the target (Shift toggles faces of
+ * the current node). Typing a number enters an exact length. Confirm (button/Enter)
+ * commits once a non-zero depth exists; Escape cancels (exiting click-move mode first).
  */
 export class ExtrudeDragStep implements IStep {
     constructor(
@@ -166,7 +184,8 @@ export class ExtrudeDragHandler implements IEventHandler {
             origin: data.origin,
             normal: data.normal,
             anchor: data.anchor,
-            dist: 0,
+            dist: data.depth ?? 0,
+            startOffset: data.startOffset ?? 0,
             arrowHovered: false,
         };
         // The initial anchor is the first face's pick point (see the command's getDragData).
@@ -178,6 +197,8 @@ export class ExtrudeDragHandler implements IEventHandler {
             this.trackCamera(document.application.activeView);
         }
         this.refreshTempShapes(document.application.activeView);
+        this.publishConfirmControl();
+        data.onReady?.(this);
     }
 
     pointerMove(view: IView, event: PointerEvent): void {
@@ -222,7 +243,6 @@ export class ExtrudeDragHandler implements IEventHandler {
 
         if (wasDragging && Math.abs(this.state.dist) >= Precision.Float) {
             this.commitView = view;
-            this.controller.success();
             return;
         }
         // A plain click on the arrow starts the click-move-click gesture; Shift keeps
@@ -239,7 +259,6 @@ export class ExtrudeDragHandler implements IEventHandler {
         this._awaitingClick = false;
         if (Math.abs(this.state.dist) >= Precision.Float) {
             this.commitView = view;
-            this.controller.success();
         } else {
             // Second click landed at (near) zero depth: just leave the move mode.
             this.setArrowHover(view, false);
@@ -269,10 +288,10 @@ export class ExtrudeDragHandler implements IEventHandler {
             }
             this.controller.cancel();
         } else if (event.key === "Enter" || event.key === " ") {
-            // should cancel when enter or space keydown, and should not trigger HotKeyService
+            // Enter/Space confirms the pending extrude (and must not trigger HotKeyService).
             event.preventDefault();
             event.stopImmediatePropagation();
-            this.controller.cancel();
+            this.confirm();
         } else {
             this.handleNumericInput(view, event);
         }
@@ -280,6 +299,44 @@ export class ExtrudeDragHandler implements IEventHandler {
 
     dispose(): void {
         this.cleanup();
+    }
+
+    /** The command pushes a new depth (from the options-tab input) into the drag state. */
+    setDepth(dist: number): void {
+        if (Math.abs(this.state.dist - dist) < Precision.Float) return;
+        this.state.dist = dist;
+        this.refreshTempShapes();
+    }
+
+    /** The command pushes a new start offset; the arrow base must follow the end face. */
+    setStartOffset(value: number): void {
+        if (Math.abs(this.state.startOffset - value) < Precision.Float) return;
+        this.state.startOffset = value;
+        this.refreshTempShapes();
+    }
+
+    /** The command asks for a preview rebuild after an option changed (operation/symmetric). */
+    refresh(): void {
+        this.refreshTempShapes();
+    }
+
+    /**
+     * Shows the confirm/cancel buttons for the whole drag step (not just after a
+     * release). The confirm button guards against a zero depth so it cannot commit an
+     * empty extrude before the user has dragged.
+     */
+    private publishConfirmControl() {
+        PubSub.default.pub("showSelectionControl", {
+            success: () => this.confirm(),
+            cancel: () => this.controller.cancel(),
+        } as unknown as AsyncController);
+    }
+
+    /** Confirms the extrude once a non-zero depth exists; a zero depth is a no-op. */
+    private confirm() {
+        if (Math.abs(this.state.dist) >= Precision.Float) {
+            this.controller.success();
+        }
     }
 
     /** Enters click-move-click mode: grabs the current projection so the depth does not jump. */
@@ -294,6 +351,7 @@ export class ExtrudeDragHandler implements IEventHandler {
     private exitMoveMode(view: IView) {
         this._awaitingClick = false;
         this.state.dist = 0;
+        this.data.onDist?.(0);
         this.setArrowHover(view, false);
         this.refreshTempShapes(view);
         PubSub.default.pub("clearFloatTip");
@@ -302,8 +360,8 @@ export class ExtrudeDragHandler implements IEventHandler {
 
     private updateDrag(view: IView, event: PointerEvent) {
         this.state.dist = this.projectDist(view, event) - this._grabOffset;
+        this.data.onDist?.(this.state.dist);
         this.refreshTempShapes(view);
-        PubSub.default.pub("showFloatTip", { level: "info", msg: this.state.dist.toFixed(2) });
         view.document.visual.update();
     }
 
@@ -327,6 +385,7 @@ export class ExtrudeDragHandler implements IEventHandler {
         }
 
         this.state.dist = 0;
+        this.data.onDist?.(0);
         // Refresh the arrow before syncing the selection: a throwing selection
         // subscriber must not leave the arrow at the stale position.
         this.refreshTempShapes(view);
@@ -455,8 +514,8 @@ export class ExtrudeDragHandler implements IEventHandler {
 
             const value = Number(text);
             this.state.dist = this.state.dist < -Precision.Float ? -value : value;
+            this.data.onDist?.(this.state.dist);
             this.commitView = view;
-            this.controller.success();
             return Result.ok(text);
         });
     }
@@ -468,8 +527,14 @@ export class ExtrudeDragHandler implements IEventHandler {
         }
         this._previewIds = [];
         if (Math.abs(this.state.dist) >= Precision.Float) {
-            for (const mesh of this.data.buildPreview(this.state)) {
-                this._previewIds.push(this.document.visual.context.displayMesh([mesh], { meshOpacity: 1 }));
+            const preview = this.data.buildPreview(this.state);
+            for (const mesh of preview.meshes) {
+                this._previewIds.push(
+                    this.document.visual.context.displayMesh([mesh], {
+                        meshOpacity: 1,
+                        onTop: preview.onTop,
+                    }),
+                );
             }
         }
         this.document.visual.update();
@@ -537,8 +602,9 @@ export class ExtrudeDragHandler implements IEventHandler {
         this._cameraView = undefined;
         this.removeTempShapes();
         this.clearHover();
-        PubSub.default.pub("clearFloatTip");
         PubSub.default.pub("clearInput");
+        PubSub.default.pub("clearSelectionControl");
+        this.data.onDone?.();
         this.document.visual.update();
     }
 

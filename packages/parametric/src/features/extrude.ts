@@ -7,6 +7,7 @@ import {
     type IFace,
     type IShape,
     Matrix4,
+    Precision,
     Result,
     ShapeNode,
     ShapeTypes,
@@ -42,7 +43,8 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
         [feature.sketchId, feature.source?.nodeId].filter((x): x is string => x !== undefined),
 
     parameters: (feature) => [
-        { key: "length", display: "common.length", value: feature.length },
+        { key: "depth", display: "option.command.depth", value: feature.depth },
+        { key: "startOffset", display: "option.command.startOffset", value: feature.startOffset ?? 0 },
         { key: "symmetric", display: "option.command.symmetric", value: feature.symmetric ?? false },
     ],
 
@@ -52,21 +54,23 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
             : { ...feature, [key]: value },
 
     evaluate(feature, context): Result<IShape> {
-        const length = resolveNumber(feature.length, context.scope);
-        if (!length.isOk) return Result.err(length.error);
+        const depth = resolveNumber(feature.depth, context.scope);
+        if (!depth.isOk) return Result.err(depth.error);
+        const startOffset = resolveNumber(feature.startOffset ?? 0, context.scope);
+        if (!startOffset.isOk) return Result.err(startOffset.error);
 
         // Join/cut/intersect from sketch profiles prefers the tracked path, so
         // downstream edge refs keep stable ids through the boolean.
         if (feature.operation !== undefined && feature.source === undefined) {
-            const tracked = extrudeOperationTracked(feature, context, length.value);
+            const tracked = extrudeOperationTracked(feature, context, depth.value, startOffset.value);
             if (tracked !== undefined) return tracked;
         }
 
         const source = feature.source;
         const built =
             source === undefined
-                ? extrudeFromSketch(feature, context, length.value)
-                : extrudeFromSourceFaces({ ...feature, source }, context, length.value);
+                ? extrudeFromSketch(feature, context, depth.value, startOffset.value)
+                : extrudeFromSourceFaces({ ...feature, source }, context, depth.value, startOffset.value);
         if (!built.isOk || feature.operation === undefined) return built;
         if (context.input === undefined) {
             built.value.dispose();
@@ -92,13 +96,15 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
 function extrudeFromSketch(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-    length: number,
+    depth: number,
+    startOffset: number,
 ): Result<IShape> {
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
     const { sketch, profiles } = resolved.value;
-    const vec = sketch.plane.normal.multiply(length);
+    const vec = sketch.plane.normal.multiply(depth);
     const vecs = feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
+    const offsetVec = sketch.plane.normal.multiply(startOffset);
 
     // An operation with unavailable tracking falls back to the plain path — downstream
     // edge fingerprints then re-match geometrically after a rebuild.
@@ -107,8 +113,8 @@ function extrudeFromSketch(
         context.tracking === undefined ||
         shapeFactory.prismTracked === undefined;
     return plain
-        ? extrudePlain(profiles, vecs)
-        : extrudeTracked(feature, sketch, vecs, profiles, context.tracking!);
+        ? extrudePlain(profiles, vecs, offsetVec)
+        : extrudeTracked(feature, sketch, vecs, profiles, context.tracking!, offsetVec);
 }
 
 /**
@@ -142,7 +148,8 @@ function resolveSketchProfiles(
 function extrudeFromSourceFaces(
     feature: ExtrudeFeatureData & { source: NonNullable<ExtrudeFeatureData["source"]> },
     context: FeatureContext,
-    length: number,
+    depth: number,
+    startOffset: number,
 ): Result<IShape> {
     const resolved = resolveSourceFaces(feature.source, context);
     if (!resolved.isOk) return Result.err(resolved.error);
@@ -160,9 +167,10 @@ function extrudeFromSourceFaces(
         return sweepFaces(
             indexes.value.map((index) => worldFaces[index]),
             (face) => {
-                const vec = face.normal(0, 0)[1].multiply(length);
+                const vec = face.normal(0, 0)[1].multiply(depth);
                 return feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
             },
+            (face) => face.normal(0, 0)[1].multiply(startOffset),
         );
     } finally {
         owned.forEach((x) => x.dispose());
@@ -202,27 +210,50 @@ function resolveSourceFaces(
 }
 
 /** Sweeps every profile along each direction and merges touching prisms (see `fuseProfiles`). */
-function extrudePlain(profiles: ResolvedProfile[], vecs: XYZ[]): Result<IShape> {
+function extrudePlain(profiles: ResolvedProfile[], vecs: XYZ[], offsetVec: XYZ): Result<IShape> {
     return sweepFaces(
         profiles.map(({ face }) => face),
         () => vecs,
+        () => offsetVec,
     );
 }
 
 /** Sweeps each face along its own vectors (`vecsOf`) and merges touching prisms. */
-function sweepFaces(faces: IFace[], vecsOf: (face: IFace) => XYZ[]): Result<IShape> {
+function sweepFaces(
+    faces: IFace[],
+    vecsOf: (face: IFace) => XYZ[],
+    offsetOf: (face: IFace) => XYZ,
+): Result<IShape> {
     const shapes: IShape[] = [];
-    for (const face of faces) {
-        for (const vec of vecsOf(face)) {
-            const shape = shapeFactory.prism(face, vec);
-            if (!shape.isOk) {
-                shapes.forEach((x) => x.dispose());
-                return Result.err(shape.error);
+    const owned: IFace[] = [];
+    try {
+        for (const face of faces) {
+            const sweptFace = translateFace(face, offsetOf(face), owned);
+            for (const vec of vecsOf(face)) {
+                const shape = shapeFactory.prism(sweptFace, vec);
+                if (!shape.isOk) {
+                    shapes.forEach((x) => x.dispose());
+                    return Result.err(shape.error);
+                }
+                shapes.push(shape.value);
             }
-            shapes.push(shape.value);
         }
+    } finally {
+        owned.forEach((x) => x.dispose());
     }
     return fuseProfiles(shapes);
+}
+
+/**
+ * Translates `face` along `vec` to apply a start offset; a near-zero offset returns
+ * the face unchanged. Translated copies are pushed to `owned` for the caller to
+ * dispose after the kernel has read them eagerly.
+ */
+function translateFace(face: IFace, vec: XYZ, owned: IFace[]): IFace {
+    if (vec.length() < Precision.Float) return face;
+    const translated = face.transformedMul(Matrix4.fromTranslation(vec.x, vec.y, vec.z)) as IFace;
+    owned.push(translated);
+    return translated;
 }
 
 /**
@@ -257,8 +288,9 @@ function extrudeTracked(
     vecs: XYZ[],
     profiles: ResolvedProfile[],
     tracking: ShapeTracking,
+    offsetVec: XYZ,
 ): Result<IShape> {
-    const swept = sweepProfiles(feature, sketch, vecs, profiles);
+    const swept = sweepProfiles(feature, sketch, vecs, profiles, offsetVec);
     if (!swept.isOk) return Result.err(swept.error);
     tracking.outputFaceIds = swept.value.faceIds;
     tracking.outputEdgeIds = swept.value.edgeIds;
@@ -275,13 +307,21 @@ function sweepProfiles(
     sketch: SketchNode,
     vecs: XYZ[],
     profiles: ResolvedProfile[],
+    offsetVec: XYZ,
 ): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
     const shapes: IShape[] = [];
     const faceIds: string[][] = [];
     const edgeIds: string[][] = [];
     for (const profile of profiles) {
         for (const [direction, vec] of vecs.entries()) {
-            const swept = sweepProfileTracked(feature, sketch, vec, profile, direction === 0 ? "" : ":neg");
+            const swept = sweepProfileTracked(
+                feature,
+                sketch,
+                vec,
+                profile,
+                offsetVec,
+                direction === 0 ? "" : ":neg",
+            );
             if (!swept.isOk) return Result.err(swept.error);
             shapes.push(swept.value.shape);
             faceIds.push(swept.value.faceIds);
@@ -316,7 +356,8 @@ function sweepProfiles(
 function extrudeOperationTracked(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-    length: number,
+    depth: number,
+    startOffset: number,
 ): Result<IShape> | undefined {
     const tracking = context.tracking;
     const tracked = trackedBoolean(feature.operation!);
@@ -329,9 +370,10 @@ function extrudeOperationTracked(
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
 
-    const vec = resolved.value.sketch.plane.normal.multiply(length);
+    const vec = resolved.value.sketch.plane.normal.multiply(depth);
     const vecs = feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
-    const tool = sweepProfiles(feature, resolved.value.sketch, vecs, resolved.value.profiles);
+    const offsetVec = resolved.value.sketch.plane.normal.multiply(startOffset);
+    const tool = sweepProfiles(feature, resolved.value.sketch, vecs, resolved.value.profiles, offsetVec);
     if (!tool.isOk) return Result.err(tool.error);
     try {
         const result = tracked([context.input], [tool.value.shape]);
@@ -409,24 +451,29 @@ function sweepProfileTracked(
     sketch: SketchNode,
     vec: XYZ,
     profile: ResolvedProfile,
+    offsetVec: XYZ,
     seedSuffix = "",
 ): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
-    const result = shapeFactory.prismTracked!(profile.face, vec);
-    if (!result.isOk) return Result.err(result.error);
-    const seed = `sketch:${sketch.id}:${profile.index}${seedSuffix}`;
-    const edgeSeeds = profile.face
-        .findSubShapes(ShapeTypes.edge)
-        .map((_, edgeIndex) => `${seed}:e${edgeIndex}`);
-    const featureId = `${feature.id}${seedSuffix}`;
-    const faceIds = trackedFaceIds(
-        featureId,
-        [seed],
-        edgeSeeds,
-        result.value.faceMap,
-        result.value.faceEdgeMap,
-    );
-    const edgeIds = trackedIds(featureId, edgeSeeds, result.value.edgeMap);
-    return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
+    const owned: IFace[] = [];
+    try {
+        const face = translateFace(profile.face, offsetVec, owned);
+        const result = shapeFactory.prismTracked!(face, vec);
+        if (!result.isOk) return Result.err(result.error);
+        const seed = `sketch:${sketch.id}:${profile.index}${seedSuffix}`;
+        const edgeSeeds = face.findSubShapes(ShapeTypes.edge).map((_, edgeIndex) => `${seed}:e${edgeIndex}`);
+        const featureId = `${feature.id}${seedSuffix}`;
+        const faceIds = trackedFaceIds(
+            featureId,
+            [seed],
+            edgeSeeds,
+            result.value.faceMap,
+            result.value.faceEdgeMap,
+        );
+        const edgeIds = trackedIds(featureId, edgeSeeds, result.value.edgeMap);
+        return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
+    } finally {
+        owned.forEach((x) => x.dispose());
+    }
 }
 
 /**

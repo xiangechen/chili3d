@@ -317,7 +317,7 @@ describe("feature evaluation", () => {
     });
 
     test("fillet re-matches edge refs against the rebuilt input", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const fillet: FilletFeatureData = { id: "f1", type: "fillet", radius: 2, edges: [EDGE_REF] };
         const body = bodyWith([extrude, fillet]);
 
@@ -331,7 +331,7 @@ describe("feature evaluation", () => {
     });
 
     test("chamfer passes matched indexes and distance to the factory", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const chamfer: ChamferFeatureData = { id: "c1", type: "chamfer", distance: 1, edges: [EDGE_REF] };
         const body = bodyWith([extrude, chamfer]);
 
@@ -352,7 +352,7 @@ describe("feature evaluation", () => {
     });
 
     test("an edge ref that matches nothing surfaces as a feature error", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         // A circle ref against the prism's line-only edges has no candidate of its
         // type at all — the one case that still fails outright.
         const circle: EdgeRef = {
@@ -386,7 +386,7 @@ describe("feature evaluation", () => {
         { operation: "common" as const, mock: "booleanCommon" as const, display: "command.feature.common" },
     ])("$operation applies the input and tool shapes to the factory", ({ operation, mock, display }) => {
         const tool = toolSketch();
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature(operation, [tool.id])]);
 
         expect(body.shape.isOk).toBe(true);
@@ -405,7 +405,7 @@ describe("feature evaluation", () => {
     });
 
     test("boolean fails when a tool node is missing", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature("cut", ["no-such-node"])]);
 
         expect(body.shape.isOk).toBe(false);
@@ -415,7 +415,7 @@ describe("feature evaluation", () => {
 
     test("a tool change re-evaluates the boolean but keeps the cached prefix", () => {
         const tool = toolSketch();
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature("fuse", [tool.id])]);
         expect(body.shape.isOk).toBe(true);
         mocks.prism.mockClear();
@@ -441,7 +441,7 @@ describe("feature evaluation", () => {
         const toolA = toolSketch();
         const toolB = toolSketch();
         toolB.transform = Matrix4.fromTranslation(30, 0, 0);
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature("cut", [toolA.id, toolB.id])]);
 
         expect(body.shape.isOk).toBe(true);
@@ -455,7 +455,7 @@ describe("feature evaluation", () => {
 
     test("moving a boolean tool re-evaluates the cut at the new position", () => {
         const tool = toolSketch();
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature("cut", [tool.id])]);
         expect(body.shape.isOk).toBe(true);
         mocks.prism.mockClear();
@@ -472,7 +472,7 @@ describe("feature evaluation", () => {
     test("a moved host maps tools relative to its own transform", () => {
         const tool = toolSketch();
         tool.transform = Matrix4.fromTranslation(15, 0, 0);
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([extrude, booleanFeature("cut", [tool.id])]);
         body.transform = Matrix4.fromTranslation(5, 0, 0);
 
@@ -487,7 +487,7 @@ describe("feature evaluation", () => {
         }
 
         function bodyWithTool(tool: SketchNode) {
-            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
             const body = bodyWith([extrude]);
             Transaction.execute(doc, "fuse", () =>
                 body.setFeaturesEmitShapeChanged([...body.features, consumeFeature([tool.id])]),
@@ -543,7 +543,7 @@ describe("feature evaluation", () => {
         test("releasing multiple tools keeps their original order after the body", () => {
             const tool1 = toolSketch();
             const tool2 = toolSketch();
-            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
             const body = bodyWith([extrude]);
             Transaction.execute(doc, "fuse", () =>
                 body.setFeaturesEmitShapeChanged([...body.features, consumeFeature([tool1.id, tool2.id])]),
@@ -598,7 +598,7 @@ describe("feature evaluation", () => {
             id: "e1",
             type: "extrude",
             sketchId: sketch.id,
-            length: "width * 2",
+            depth: "width * 2",
         };
         const body = bodyWith([variableFeature("width", "10"), extrude]);
 
@@ -631,7 +631,7 @@ describe("feature evaluation", () => {
             id: "e1",
             type: "extrude",
             sketchId: sketch.id,
-            length: "width",
+            depth: "width",
         };
         const body = bodyWith([variableFeature("width", "10"), extrude]);
         expect(body.shape.isOk).toBe(true);
@@ -649,7 +649,7 @@ describe("feature evaluation", () => {
             id: "e1",
             type: "extrude",
             sketchId: sketch.id,
-            length: "nope",
+            depth: "nope",
         };
         const body = bodyWith([extrude]);
 
@@ -659,7 +659,7 @@ describe("feature evaluation", () => {
     });
 
     test("an invalid variable name surfaces as a feature error", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
         const body = bodyWith([variableFeature("1bad", "10"), extrude]);
 
         expect(body.shape.isOk).toBe(false);
@@ -667,7 +667,7 @@ describe("feature evaluation", () => {
     });
 
     test("a variable may not shadow a constant", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: "pi" };
+        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: "pi" };
         const body = bodyWith([variableFeature("pi", "3.2"), extrude]);
 
         expect(body.shape.isOk).toBe(false);
@@ -733,7 +733,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: two.id,
-                length: 5,
+                depth: 5,
                 profiles: [SECOND_PROFILE],
             };
             const body = bodyWith([extrude]);
@@ -747,7 +747,7 @@ describe("feature evaluation", () => {
 
         test("without profiles every loop is extruded", () => {
             const two = twoLoopSketch();
-            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: two.id, length: 5 };
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: two.id, depth: 5 };
             const body = bodyWith([extrude]);
 
             expect(body.shape.isOk).toBe(true);
@@ -763,7 +763,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: overlapping.id,
-                length: 5,
+                depth: 5,
             };
             const body = bodyWith([extrude]);
 
@@ -790,7 +790,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: overlapping.id,
-                length: 5,
+                depth: 5,
             };
             const body = bodyWith([extrude]);
 
@@ -819,7 +819,7 @@ describe("feature evaluation", () => {
                 },
             });
             doc.modelManager.addNode(nested);
-            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: nested.id, length: 5 };
+            const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: nested.id, depth: 5 };
             const body = bodyWith([extrude]);
 
             expect(body.shape.isOk).toBe(true);
@@ -853,7 +853,7 @@ describe("feature evaluation", () => {
             expect(profileSet.isOk).toBe(true);
             const profiles = allProfiles(profileSet.value).map((face) => captureProfileRef(face));
             expect(profiles.length).toBe(3);
-            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, length: 5, profiles }]);
+            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, depth: 5, profiles }]);
             expect(body.shape.isOk).toBe(true);
             expect(mocks.prism).toHaveBeenCalledTimes(3);
 
@@ -890,7 +890,7 @@ describe("feature evaluation", () => {
             const profileSet = sketchProfiles(three);
             expect(profileSet.isOk).toBe(true);
             const profiles = allProfiles(profileSet.value).map((face) => captureProfileRef(face));
-            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, length: 5, profiles }]);
+            const body = bodyWith([{ id: "e1", type: "extrude", sketchId: three.id, depth: 5, profiles }]);
             expect(body.shape.isOk).toBe(true);
             expect(mocks.prism).toHaveBeenCalledTimes(3);
 
@@ -932,7 +932,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 5,
+                depth: 5,
                 profiles: [triangleProfile],
             };
             const body = bodyWith([extrude]);
@@ -946,7 +946,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 5,
+                depth: 5,
                 symmetric: true,
             };
             const body = bodyWith([extrude]);
@@ -960,16 +960,59 @@ describe("feature evaluation", () => {
             expect(mocks.booleanFuse).toHaveBeenCalledTimes(1);
             expect(body.shape.unchecked()).toBe(mocks.fusedShape);
         });
+
+        test("a start offset translates the profile along the normal before sweeping", () => {
+            const translatedFace = {
+                shapeType: ShapeTypes.face,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: () => [],
+            };
+            const transformedMul = rs.fn((_matrix: Matrix4) => translatedFace);
+            mocks.face.mockImplementation(((wires: any[]) =>
+                Result.ok({
+                    shapeType: ShapeTypes.face,
+                    isEqual: () => false,
+                    outerWire: () => wires[0],
+                    findSubShapes: (type: ShapeType) =>
+                        type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+                    area: () => 0,
+                    boundingBox: () => BoundingBox.zero,
+                    transformedMul,
+                })) as any);
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                depth: 5,
+                startOffset: 3,
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(transformedMul).toHaveBeenCalledTimes(1);
+            const t = (transformedMul.mock.calls[0][0] as Matrix4).translationPart();
+            expect([t.x, t.y, t.z]).toEqual([0, 0, 3]);
+            // The prism sweeps the translated face along the full depth.
+            expect(mocks.prism).toHaveBeenCalledTimes(1);
+            expect((mocks.prism.mock.calls[0] as unknown as [any, XYZ])[0]).toBe(translatedFace);
+            expect((mocks.prism.mock.calls[0] as unknown as [any, XYZ])[1].z).toBeCloseTo(5);
+            expect(body.featureItems()[0].parameters).toContainEqual({
+                key: "startOffset",
+                display: "option.command.startOffset",
+                value: 3,
+            });
+        });
     });
 
     describe("extrude operation", () => {
         test("join fuses the prism with the preceding feature's shape", () => {
-            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
             const join: ExtrudeFeatureData = {
                 id: "e2",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 3,
+                depth: 3,
                 operation: "fuse",
             };
             const body = bodyWith([first, join]);
@@ -985,12 +1028,12 @@ describe("feature evaluation", () => {
         });
 
         test("cut removes the prism from the preceding feature's shape", () => {
-            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 5 };
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
             const cut: ExtrudeFeatureData = {
                 id: "e2",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 3,
+                depth: 3,
                 operation: "cut",
             };
             const body = bodyWith([first, cut]);
@@ -1007,7 +1050,7 @@ describe("feature evaluation", () => {
                 id: "e1",
                 type: "extrude",
                 sketchId: sketch.id,
-                length: 5,
+                depth: 5,
                 operation: "fuse",
             };
             const body = bodyWith([join]);
@@ -1063,7 +1106,7 @@ describe("feature evaluation", () => {
         }
 
         test("a standalone body extrudes another body's face along its outward normal", () => {
-            const sourceBody = bodyWith([{ id: "e0", type: "extrude", sketchId: sketch.id, length: 2 }]);
+            const sourceBody = bodyWith([{ id: "e0", type: "extrude", sketchId: sketch.id, depth: 2 }]);
             const face = topFace(2);
             sourceBody.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
                 type === ShapeTypes.face ? [face] : []) as any;
@@ -1071,7 +1114,7 @@ describe("feature evaluation", () => {
                 id: "p1",
                 type: "extrude",
                 source: { nodeId: sourceBody.id, profiles: [captureProfileRef(face as any)] },
-                length: 5,
+                depth: 5,
             };
             const body = bodyWith([feature]);
 
@@ -1086,12 +1129,12 @@ describe("feature evaluation", () => {
         test("a face of the host body itself resolves against the feature's input", () => {
             const face = topFace(2);
             prismWithTopFace(face);
-            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 2 };
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 2 };
             const pressPull: ExtrudeFeatureData = {
                 id: "p1",
                 type: "extrude",
                 source: { nodeId: "host", profiles: [captureProfileRef(face as any)] },
-                length: 5,
+                depth: 5,
             };
             const body = new ParametricBodyNode({ document: doc, id: "host", features: [first, pressPull] });
             doc.modelManager.addNode(body);
@@ -1108,12 +1151,12 @@ describe("feature evaluation", () => {
         test("cut on the host's own face subtracts from the preceding feature", () => {
             const face = topFace(2);
             prismWithTopFace(face);
-            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, length: 2 };
+            const first: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 2 };
             const cut: ExtrudeFeatureData = {
                 id: "p1",
                 type: "extrude",
                 source: { nodeId: "host", profiles: [captureProfileRef(face as any)] },
-                length: 5,
+                depth: 5,
                 operation: "cut",
             };
             const body = new ParametricBodyNode({ document: doc, id: "host", features: [first, cut] });
@@ -1131,7 +1174,7 @@ describe("feature evaluation", () => {
                 id: "p1",
                 type: "extrude",
                 source: { nodeId: "host", profiles: [captureProfileRef(topFace(2) as any)] },
-                length: 5,
+                depth: 5,
             };
             const body = new ParametricBodyNode({ document: doc, id: "host", features: [feature] });
             doc.modelManager.addNode(body);
@@ -1145,7 +1188,7 @@ describe("feature evaluation", () => {
                 id: "p1",
                 type: "extrude",
                 source: { nodeId: "missing", profiles: [captureProfileRef(topFace(2) as any)] },
-                length: 5,
+                depth: 5,
             };
             const body = bodyWith([feature]);
 
@@ -1155,13 +1198,13 @@ describe("feature evaluation", () => {
 
         test("nodeIds reference the sketch or the source node", () => {
             const handler = featureHandler("extrude")!;
-            expect(handler.nodeIds({ id: "x", type: "extrude", sketchId: "s1", length: 1 })).toEqual(["s1"]);
+            expect(handler.nodeIds({ id: "x", type: "extrude", sketchId: "s1", depth: 1 })).toEqual(["s1"]);
             expect(
                 handler.nodeIds({
                     id: "x",
                     type: "extrude",
                     source: { nodeId: "b1", profiles: [] },
-                    length: 1,
+                    depth: 1,
                 }),
             ).toEqual(["b1"]);
         });
