@@ -5,6 +5,7 @@ import { Plane, Precision } from "@chili3d/core";
 import {
     applyAutoConstraints,
     applyDragAutoConstraints,
+    applyPointAutoConstraints,
     dragSnapPosition,
     snapPosition,
 } from "../../src/sketch/autoConstraints";
@@ -564,6 +565,73 @@ describe("snapPosition", () => {
 
         expect(position).toEqual([5, 5]);
         expect(snap).toBeUndefined();
+        solver.dispose();
+    });
+});
+
+describe("applyPointAutoConstraints", () => {
+    /** Builds an axis-aligned rectangle from four coincident-linked lines. */
+    function addRectangle(solver: SketchSolver, x1: number, y1: number, x2: number, y2: number): number[] {
+        const top = solver.addLine(x1, y2, x2, y2);
+        const right = solver.addLine(x2, y2, x2, y1);
+        const bottom = solver.addLine(x2, y1, x1, y1);
+        const left = solver.addLine(x1, y1, x1, y2);
+        for (const [from, to] of [
+            [top, right],
+            [right, bottom],
+            [bottom, left],
+            [left, top],
+        ] as const) {
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: from, pointIndex: 1 },
+                    { entityId: to, pointIndex: 0 },
+                ],
+            });
+        }
+        return [top, right, bottom, left];
+    }
+
+    test("snaps a corner onto the origin while ignoring the shape's own edges", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const [top, right, bottom, left] = addRectangle(solver, 0.2, 0.1, 10, 5);
+        solver.solve(true);
+
+        const added = applyPointAutoConstraints(
+            solver,
+            [
+                { entityId: left, pointIndex: 0 },
+                { entityId: top, pointIndex: 1 },
+            ],
+            [top, right, bottom, left],
+            { pointTolerance: 0.5 },
+        );
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [{ entityId: left, pointIndex: 0 }, originRef()],
+            },
+        ]);
+        expect(solver.pointOf({ entityId: left, pointIndex: 0 })).toEqual([0, 0]);
+        solver.dispose();
+    });
+
+    test("does not snap a far corner onto its own edges", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const [top, right, bottom, left] = addRectangle(solver, 0, 0, 20, 10);
+        solver.solve(true);
+
+        const added = applyPointAutoConstraints(
+            solver,
+            [{ entityId: top, pointIndex: 1 }],
+            [top, right, bottom, left],
+            { pointTolerance: 0.5, lineTolerance: 0.5 },
+        );
+
+        expect(added).toEqual([]);
         solver.dispose();
     });
 });

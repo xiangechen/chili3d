@@ -10,6 +10,7 @@ import {
     PubSub,
     type XYZ,
 } from "@chili3d/core";
+import { applyPointAutoConstraints } from "../autoConstraints";
 import { ConstraintKind, toUV, toWorld } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
@@ -67,6 +68,17 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
                 ],
             });
         }
+        // Snap the two picked corners onto the origin/points/lines/axes; the shape's
+        // own four edges are excluded so the corners never snap onto each other.
+        applyPointAutoConstraints(
+            solver,
+            [
+                { entityId: left, pointIndex: 0 },
+                { entityId: top, pointIndex: 1 },
+            ],
+            [top, right, bottom, left],
+            { pointTolerance: this.editor.screenTolerance() },
+        );
         this.editor.solve(true);
         this.editor.commit();
     }

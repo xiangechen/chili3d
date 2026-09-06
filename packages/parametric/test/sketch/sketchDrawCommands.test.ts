@@ -6,7 +6,7 @@ import { rs } from "@rstest/core";
 import { SketchArcCommand } from "../../src/sketch/commands/sketchArc";
 import { SketchRectangleCommand } from "../../src/sketch/commands/sketchRectangle";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
-import { ConstraintKind } from "../../src/sketch/sketchModel";
+import { ConstraintKind, originRef } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
@@ -98,6 +98,23 @@ describe("SketchRectangleCommand", () => {
         expect(kinds.filter((k) => k === ConstraintKind.Vertical).length).toBe(2);
         expect(editor.solve).toHaveBeenCalledWith(true);
         expect(editor.commit).toHaveBeenCalledTimes(1);
+        editor.solver.dispose();
+    });
+
+    test("snaps the first corner onto the origin when it is near it", () => {
+        const editor = fakeEditor();
+        editor.screenTolerance = () => 0.5;
+        runCommand(new SketchRectangleCommand(), editor, [
+            [0.2, 0.1],
+            [10, 5],
+        ]);
+
+        expect(editor.solver.toData().constraints).toContainEqual({
+            id: expect.any(Number),
+            kind: ConstraintKind.P2PCoincident,
+            refs: [{ entityId: 4, pointIndex: 0 }, originRef()],
+        });
+        expect(editor.solver.pointOf({ entityId: 4, pointIndex: 0 })).toEqual([0, 0]);
         editor.solver.dispose();
     });
 
