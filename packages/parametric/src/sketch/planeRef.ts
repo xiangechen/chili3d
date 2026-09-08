@@ -33,8 +33,31 @@ export interface PlaneFaceRef {
  */
 export function planeOfFace(face: IFace): Plane {
     const [point, normal] = face.normal(0, 0);
-    const xvec = normal.isParallelTo(XYZ.unitZ) ? XYZ.unitX : XYZ.unitZ.cross(normal).normalize()!;
-    return new Plane({ origin: point, normal, xvec });
+    return new Plane({ origin: point, normal, xvec: worldAxisXVec(normal) });
+}
+
+/**
+ * Sketch-plane variant of `planeOfFace`: the origin is the world origin projected
+ * onto the face, so a sketch's origin and axes coincide with the world axes instead
+ * of the face's arbitrary (0, 0) parameter point. The axes still follow the face as
+ * it moves, re-projecting the world origin onto the re-matched face.
+ */
+export function sketchPlaneOfFace(face: IFace): Plane {
+    const [point, normal] = face.normal(0, 0);
+    const n = normal.normalize()!;
+    return new Plane({ origin: n.multiply(n.dot(point)), normal: n, xvec: worldAxisXVec(n) });
+}
+
+/**
+ * X axis of a sketch-plane frame whose Y axis points "up": world +Z projected onto
+ * the face (falling back to +Y for a horizontal face, where Z is the normal), with
+ * X completing the right-handed frame as Y × normal. This keeps a sketch upright in
+ * the viewport regardless of the face's tilt.
+ */
+function worldAxisXVec(normal: XYZ): XYZ {
+    const n = normal.normalize()!;
+    const yvec = Math.abs(n.z) > 1 - 1e-6 ? XYZ.unitY : XYZ.unitZ.sub(n.multiply(n.z)).normalize()!;
+    return yvec.cross(n);
 }
 
 /** The face must already be in world coordinates. */
@@ -63,7 +86,7 @@ export function resolveFacePlane(document: IDocument, ref: PlaneFaceRef): Plane 
     const face = matchFace(node, faces, transform, ref);
     if (face === undefined) return undefined;
     const worldFace = face.transformedMul(transform) as IFace;
-    const plane = planeOfFace(worldFace);
+    const plane = sketchPlaneOfFace(worldFace);
     worldFace.dispose();
     return plane;
 }

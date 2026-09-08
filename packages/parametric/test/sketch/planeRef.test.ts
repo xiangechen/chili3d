@@ -14,7 +14,7 @@ import {
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
-import { captureFaceRef, type PlaneFaceRef, resolveFacePlane } from "../../src/sketch/planeRef";
+import { captureFaceRef, type PlaneFaceRef, planeOfFace, resolveFacePlane } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 function planarFace(point: XYZ, normal: XYZ): IFace {
@@ -43,6 +43,16 @@ function setup(shape: IShape) {
     doc.modelManager.addNode(source);
     return { doc, source };
 }
+
+describe("planeOfFace", () => {
+    test("keeps the face's (0, 0) parameter point as the origin (the press-pull anchor)", () => {
+        const plane = planeOfFace(planarFace(new XYZ({ x: 1, y: 2, z: 5 }), XYZ.unitZ));
+
+        expect(plane.origin.isEqualTo(new XYZ({ x: 1, y: 2, z: 5 }))).toBe(true);
+        expect(plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+        expect(plane.xvec.isEqualTo(XYZ.unitX)).toBe(true);
+    });
+});
 
 describe("resolveFacePlane", () => {
     test("re-resolves the face moved by a rebuild", () => {

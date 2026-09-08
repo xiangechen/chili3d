@@ -14,9 +14,22 @@ import {
     ShapeTypes,
     type VisualShapeData,
     VisualStates,
+    XYZ,
 } from "@chili3d/core";
 
+/** Sketch planes returned on a datum pick, oriented Z-up (see `sketchPlaneOfFace`). */
 const DATUM_PLANES = [Plane.XY, Plane.YZ, Plane.ZX];
+
+/**
+ * Display frames for the datum quads: each quad stays in the positive quadrant so the
+ * three pick quads stay symmetric around the origin. This is decoupled from the sketch
+ * plane orientation — `Plane.ZX` is Z-up (xvec = −X) but its quad still shows in +X+Z.
+ */
+const DATUM_DISPLAY_PLANES = [
+    Plane.XY,
+    Plane.YZ,
+    new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ }),
+];
 const DATUM_SIZE = 150;
 const DATUM_GAP = 50;
 const DATUM_COLOR = 0x707070;
@@ -58,7 +71,7 @@ export class PlanePickHandler extends ShapeSelectionHandler {
         });
         this.highlightState = VisualStates.faceHighlight;
         const context = document.visual.context;
-        for (const plane of DATUM_PLANES) {
+        for (const plane of DATUM_DISPLAY_PLANES) {
             this._datumMeshIds.push(context.displayMesh([datumQuad(plane)], { meshOpacity: 0.25 }));
         }
     }
@@ -77,7 +90,7 @@ export class PlanePickHandler extends ShapeSelectionHandler {
     }
 
     private detectDatum(ray: Ray): number {
-        return DATUM_PLANES.findIndex((plane) => {
+        return DATUM_DISPLAY_PLANES.findIndex((plane) => {
             const hit = plane.intersectRay(ray);
             if (hit === undefined) return false;
             const vec = hit.sub(plane.origin);

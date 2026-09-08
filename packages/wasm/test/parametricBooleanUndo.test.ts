@@ -35,7 +35,7 @@ function makeBody(doc: TestDocument, name: string) {
     doc.modelManager.addNode(sketch);
     const body = new ParametricBodyNode({
         document: doc,
-        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, length: 5 } as never],
+        features: [{ id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 } as never],
     });
     body.setPrivateValue("name", name);
     doc.modelManager.addNode(body);

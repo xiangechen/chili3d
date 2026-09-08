@@ -18,7 +18,7 @@ export interface PlaneOptions {
 export class Plane {
     static readonly XY: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitZ, xvec: XYZ.unitX });
     static readonly YZ: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY });
-    static readonly ZX: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ });
+    static readonly ZX: Plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitNX });
 
     @serialize()
     readonly origin: XYZ;

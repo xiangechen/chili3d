@@ -22,27 +22,64 @@ import { rs } from "@rstest/core";
 import { PlanePickHandler } from "../../src/sketch/commands/planePickHandler";
 import { EnterSketch } from "../../src/sketch/commands/sketchCommands";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
-import { planeOfFace } from "../../src/sketch/planeRef";
+import { sketchPlaneOfFace } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 function faceWithNormal(point: XYZ, normal: XYZ): IFace {
     return { normal: () => [point, normal] } as unknown as IFace;
 }
 
-describe("planeOfFace", () => {
-    test("a Z-facing face yields an XY-parallel plane at the face point", () => {
-        const plane = planeOfFace(faceWithNormal(new XYZ({ x: 1, y: 2, z: 5 }), XYZ.unitZ));
+describe("sketchPlaneOfFace", () => {
+    test("anchors the origin at the world origin projected onto the face", () => {
+        const plane = sketchPlaneOfFace(faceWithNormal(new XYZ({ x: 1, y: 2, z: 5 }), XYZ.unitZ));
 
-        expect(plane.origin.isEqualTo(new XYZ({ x: 1, y: 2, z: 5 }))).toBe(true);
+        expect(plane.origin.isEqualTo(new XYZ({ x: 0, y: 0, z: 5 }))).toBe(true);
         expect(plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+        // horizontal face: up = world Y, X = Y × Z = X
         expect(plane.xvec.isEqualTo(XYZ.unitX)).toBe(true);
+        expect(plane.yvec.isEqualTo(XYZ.unitY)).toBe(true);
     });
 
-    test("a non-Z normal takes Z cross normal as the x direction", () => {
-        const plane = planeOfFace(faceWithNormal(XYZ.zero, XYZ.unitX));
+    test("keeps world Z as the up axis on a vertical face", () => {
+        const plane = sketchPlaneOfFace(faceWithNormal(XYZ.zero, XYZ.unitX));
 
         expect(plane.normal.isEqualTo(XYZ.unitX)).toBe(true);
+        expect(plane.yvec.isEqualTo(XYZ.unitZ)).toBe(true);
         expect(plane.xvec.isEqualTo(XYZ.unitY)).toBe(true);
+    });
+
+    test("keeps world Z as up when the face tilts within the XY plane", () => {
+        // normal (1, 1, 0) still leaves world Z in-plane, so up stays Z
+        const plane = sketchPlaneOfFace(faceWithNormal(XYZ.zero, new XYZ({ x: 1, y: 1, z: 0 })));
+
+        expect(plane.yvec.isEqualTo(XYZ.unitZ)).toBe(true);
+        expect(plane.xvec.isPerpendicularTo(plane.yvec)).toBe(true);
+        expect(plane.xvec.isPerpendicularTo(plane.normal)).toBe(true);
+    });
+
+    test("projects world Z onto the plane when it is not fully in-plane", () => {
+        const plane = sketchPlaneOfFace(faceWithNormal(XYZ.zero, new XYZ({ x: 1, y: 1, z: 1 })));
+
+        expect(plane.yvec.isPerpendicularTo(plane.normal)).toBe(true);
+        expect(plane.yvec.z).toBeGreaterThan(0);
+        expect(plane.xvec.isPerpendicularTo(plane.yvec)).toBe(true);
+        expect(plane.xvec.isPerpendicularTo(plane.normal)).toBe(true);
+    });
+
+    test("matches the ZX datum plane orientation on a +Y face", () => {
+        const plane = sketchPlaneOfFace(faceWithNormal(XYZ.zero, XYZ.unitY));
+
+        expect(plane.xvec.isEqualTo(Plane.ZX.xvec)).toBe(true);
+        expect(plane.yvec.isEqualTo(Plane.ZX.yvec)).toBe(true);
+    });
+
+    test("projects the world origin onto a tilted face", () => {
+        // face on x + y = 2; the world origin projects onto (1, 1, 0)
+        const plane = sketchPlaneOfFace(
+            faceWithNormal(new XYZ({ x: 1, y: 1, z: 0 }), new XYZ({ x: 1, y: 1, z: 0 })),
+        );
+
+        expect(plane.origin.isEqualTo(new XYZ({ x: 1, y: 1, z: 0 }))).toBe(true);
     });
 });
 
@@ -85,6 +122,21 @@ describe("PlanePickHandler", () => {
         click(handler, view);
 
         expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY });
+        expect(isCompleted()).toBe(true);
+    });
+
+    test("the ZX quad sits in the positive quadrant and resolves to the Z-up plane", () => {
+        // ray hits +X+Z (the quad's display quadrant) on the Y = 0 plane
+        const hitZX = () =>
+            new Ray({
+                point: new XYZ({ x: 100, y: 100, z: 100 }),
+                direction: new XYZ({ x: 0, y: -1, z: 0 }),
+            });
+        const { handler, view, isCompleted } = setup(hitZX);
+
+        click(handler, view);
+
+        expect(handler.result).toEqual({ kind: "datum", plane: Plane.ZX });
         expect(isCompleted()).toBe(true);
     });
 

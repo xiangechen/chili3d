@@ -15,7 +15,7 @@ import {
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import { SketchEditor } from "../editor/sketchEditor";
-import { captureFaceRef, type PlaneFaceRef, planeOfFace } from "../planeRef";
+import { captureFaceRef, type PlaneFaceRef, sketchPlaneOfFace } from "../planeRef";
 import { SketchNode } from "../sketchNode";
 import { PlanePickHandler, type PlanePickResult } from "./planePickHandler";
 
@@ -29,7 +29,7 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
     if (result === undefined) return undefined;
     if (result.kind === "datum") return { plane: result.plane };
     const face = result.data.shape.transformedMul(result.data.transform) as IFace;
-    const plane = planeOfFace(face);
+    const plane = sketchPlaneOfFace(face);
     const owner = document.visual.context.getNode(result.data.owner);
     let planeRef: PlaneFaceRef | undefined;
     if (owner !== undefined) {
