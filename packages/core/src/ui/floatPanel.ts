@@ -12,5 +12,6 @@ export interface FloatPanelOptions {
     minHeight?: number;
     x?: number;
     y?: number;
+    actions?: HTMLElement[];
     onClose?: () => void;
 }

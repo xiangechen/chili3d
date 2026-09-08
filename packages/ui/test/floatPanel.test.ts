@@ -16,6 +16,7 @@ rs.mock("../src/floatPanel.module.css", () => ({
     root: "fp-root",
     header: "fp-header",
     title: "fp-title",
+    actions: "fp-actions",
     closeButton: "fp-close",
     content: "fp-content",
     resizeHandle: "fp-resize",
@@ -154,6 +155,43 @@ describe("FloatPanel", () => {
             const header = panel.querySelector('[class*="header"]');
             const closeBtn = header?.querySelector('[class*="close"]');
             expect(closeBtn).not.toBeNull();
+        });
+
+        test("should host action buttons in the header between title and close", () => {
+            const action = document.createElement("button");
+            action.id = "my-action";
+            const panel = new FloatPanel({
+                title: "Test" as I18nKeys,
+                content: document.createElement("div"),
+                actions: [action],
+            });
+            const header = panel.querySelector('[class*="header"]');
+            const hosted = header?.querySelector("#my-action");
+            expect(hosted).not.toBeNull();
+            expect(hosted?.parentElement?.className).toContain("fp-actions");
+        });
+
+        test("should render an empty actions container when no actions given", () => {
+            const panel = new FloatPanel({
+                title: "Test" as I18nKeys,
+                content: document.createElement("div"),
+            });
+            const actions = panel.querySelector('[class*="fp-actions"]');
+            expect(actions).not.toBeNull();
+            expect(actions?.childElementCount).toBe(0);
+        });
+
+        test("should not start dragging when an action button is pressed", () => {
+            const action = document.createElement("button");
+            const panel = new FloatPanel({
+                title: "Test" as I18nKeys,
+                content: document.createElement("div"),
+                actions: [action],
+            });
+            action.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            action.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 50, clientY: 50 }));
+            expect(panel.style.left).toBe("20px");
+            expect(panel.style.top).toBe("20px");
         });
     });
 

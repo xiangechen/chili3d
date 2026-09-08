@@ -4,6 +4,7 @@
     "description": "",
     "main": "src/index.ts",
     "devDependencies": {
+        "@chili3d/ai": "*",
         "@chili3d/core": "*",
         "@chili3d/element": "*"
     }

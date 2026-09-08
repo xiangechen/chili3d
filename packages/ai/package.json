@@ -1,0 +1,15 @@
+{
+    "name": "@chili3d/ai",
+    "version": "0.7.0",
+    "description": "In-app AI chat assistant for Chili3D (zero-relay, browser-direct)",
+    "main": "src/index.ts",
+    "devDependencies": {
+        "@chili3d/core": "*",
+        "@chili3d/element": "*"
+    },
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.124.0",
+        "marked": "^18.0.12",
+        "openai": "^7.10.0"
+    }
+}

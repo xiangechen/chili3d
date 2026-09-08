@@ -38,8 +38,8 @@ export class FloatPanel extends HTMLElement {
         const content = div({ className: style.content }, options.content);
         this.append(this.header, content, this.resizeHandle);
 
-        this.header.addEventListener("mousedown", this.onHeaderMouseDown);
-        this.resizeHandle.addEventListener("mousedown", this.onResizeHandleMouseDown);
+        this.header.addEventListener("pointerdown", this.onHeaderPointerDown);
+        this.resizeHandle.addEventListener("pointerdown", this.onResizeHandlePointerDown);
 
         // Intercept keyboard events to prevent bubbling to window and triggering global shortcuts
         this.tabIndex = -1;
@@ -50,6 +50,7 @@ export class FloatPanel extends HTMLElement {
         return div(
             { className: style.header },
             div({ className: style.title }, label({ textContent: new Localize(options.title) })),
+            div({ className: style.actions }, ...(options.actions ?? [])),
             div(
                 {
                     className: style.closeButton,
@@ -69,8 +70,9 @@ export class FloatPanel extends HTMLElement {
         );
     }
 
-    private onHeaderMouseDown = (e: MouseEvent): void => {
-        if ((e.target as HTMLElement).classList.contains(style.closeButton)) {
+    private onHeaderPointerDown = (e: PointerEvent): void => {
+        const target = e.target as HTMLElement;
+        if (target.closest("button") || target.closest(`.${style.closeButton}`)) {
             return;
         }
 
@@ -82,12 +84,13 @@ export class FloatPanel extends HTMLElement {
         this.initialLeft = rect.left;
         this.initialTop = rect.top;
 
-        document.addEventListener("mousemove", this.onDrag);
-        document.addEventListener("mouseup", this.onDragEnd);
+        document.addEventListener("pointermove", this.onDrag);
+        document.addEventListener("pointerup", this.onDragEnd);
+        document.addEventListener("pointercancel", this.onDragEnd);
         e.preventDefault();
     };
 
-    private onDrag = (e: MouseEvent): void => {
+    private onDrag = (e: PointerEvent): void => {
         if (!this.isDragging) return;
 
         const dx = e.clientX - this.dragStartX;
@@ -98,11 +101,12 @@ export class FloatPanel extends HTMLElement {
 
     private onDragEnd = (): void => {
         this.isDragging = false;
-        document.removeEventListener("mousemove", this.onDrag);
-        document.removeEventListener("mouseup", this.onDragEnd);
+        document.removeEventListener("pointermove", this.onDrag);
+        document.removeEventListener("pointerup", this.onDragEnd);
+        document.removeEventListener("pointercancel", this.onDragEnd);
     };
 
-    private onResizeHandleMouseDown = (e: MouseEvent): void => {
+    private onResizeHandlePointerDown = (e: PointerEvent): void => {
         this.isResizing = true;
         this.dragStartX = e.clientX;
         this.dragStartY = e.clientY;
@@ -111,13 +115,14 @@ export class FloatPanel extends HTMLElement {
         this.initialWidth = rect.width;
         this.initialHeight = rect.height;
 
-        document.addEventListener("mousemove", this.onResize);
-        document.addEventListener("mouseup", this.onResizeEnd);
+        document.addEventListener("pointermove", this.onResize);
+        document.addEventListener("pointerup", this.onResizeEnd);
+        document.addEventListener("pointercancel", this.onResizeEnd);
         e.preventDefault();
         e.stopPropagation();
     };
 
-    private onResize = (e: MouseEvent): void => {
+    private onResize = (e: PointerEvent): void => {
         if (!this.isResizing) return;
 
         const dx = e.clientX - this.dragStartX;
@@ -131,8 +136,9 @@ export class FloatPanel extends HTMLElement {
 
     private onResizeEnd = (): void => {
         this.isResizing = false;
-        document.removeEventListener("mousemove", this.onResize);
-        document.removeEventListener("mouseup", this.onResizeEnd);
+        document.removeEventListener("pointermove", this.onResize);
+        document.removeEventListener("pointerup", this.onResizeEnd);
+        document.removeEventListener("pointercancel", this.onResizeEnd);
     };
 
     private handleKeyEvent = (e: KeyboardEvent): void => {
@@ -141,12 +147,14 @@ export class FloatPanel extends HTMLElement {
 
     dispose(): void {
         this.removeEventListener("keydown", this.handleKeyEvent);
-        this.header.removeEventListener("mousedown", this.onHeaderMouseDown);
-        this.resizeHandle.removeEventListener("mousedown", this.onResizeHandleMouseDown);
-        document.removeEventListener("mousemove", this.onDrag);
-        document.removeEventListener("mouseup", this.onDragEnd);
-        document.removeEventListener("mousemove", this.onResize);
-        document.removeEventListener("mouseup", this.onResizeEnd);
+        this.header.removeEventListener("pointerdown", this.onHeaderPointerDown);
+        this.resizeHandle.removeEventListener("pointerdown", this.onResizeHandlePointerDown);
+        document.removeEventListener("pointermove", this.onDrag);
+        document.removeEventListener("pointerup", this.onDragEnd);
+        document.removeEventListener("pointercancel", this.onDragEnd);
+        document.removeEventListener("pointermove", this.onResize);
+        document.removeEventListener("pointerup", this.onResizeEnd);
+        document.removeEventListener("pointercancel", this.onResizeEnd);
     }
 }
 

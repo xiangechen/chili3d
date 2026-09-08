@@ -41,6 +41,36 @@
             position: relative;
         }
     }
+
+    & .rightPanel {
+        display: flex;
+        flex-direction: column;
+        flex: 0 0 auto;
+        width: 320px;
+        min-width: 220px;
+        max-width: 60%;
+        border-left: 1px solid var(--border-color);
+        background-color: var(--background-color);
+        overflow: hidden;
+        position: relative;
+    }
+}
+
+.chatResizer {
+    width: 6px;
+    cursor: ew-resize;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 10;
+    touch-action: none;
+    background: var(--resizer-gradient);
+    transition: background 0.2s;
+}
+
+.chatResizer:hover {
+    background: var(--resizer-gradient-hover);
 }
 
 .sidebarResizer {
@@ -51,6 +81,7 @@
     right: 0;
     bottom: 0;
     z-index: 10;
+    touch-action: none;
     background: var(--resizer-gradient);
     transition: background 0.2s;
 }
@@ -68,9 +99,10 @@
     .content {
         flex-direction: column-reverse;
         min-height: 0;
+        position: relative;
 
         & .viewportContainer {
-            height: 100px;
+            height: auto;
             width: 100%;
         }
 
@@ -79,5 +111,19 @@
             flex: 1 1 auto;
             width: 100%;
         }
+
+        & .rightPanel {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            width: auto;
+            min-width: 0;
+            max-width: none;
+            border-left: none;
+        }
+    }
+
+    .chatResizer {
+        display: none;
     }
 }
