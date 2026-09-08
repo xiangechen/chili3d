@@ -855,6 +855,7 @@ interface EmbindModule {
     hlr(_0: TopoDS_Shape, _1: gp_Pnt, _2: gp_Dir, _3: gp_Dir): TopoDS_Shape;
     shellSewing(_0: TopoDS_Shape, _1: number): TopoDS_Shape;
     setTolerance(_0: TopoDS_Shape, _1: number): void;
+    volume(_0: TopoDS_Solid): number;
     findAncestor(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     findSubShapes(_0: TopoDS_Shape, _1: TopAbs_ShapeEnum): Array<TopoDS_Shape>;
     getDirectSubShapes(_0: TopoDS_Shape): Array<TopoDS_Shape>;
@@ -897,7 +898,6 @@ interface EmbindModule {
     intersectLine(_0: TopoDS_Face, _1: Vector3, _2: Vector3, _3: number): Vector3 | undefined;
   };
   Solid: {
-    volume(_0: TopoDS_Solid): number;
     containsPoint(_0: TopoDS_Shape, _1: Vector3, _2: boolean, _3: number): boolean;
   };
   ShapeVector: {

@@ -34,6 +34,9 @@ export class TestEdge implements IEdge {
         readonly end: XYZ,
     ) {}
 
+    volume(): number {
+        return 0;
+    }
     setTolerance(tolerance: number): void {}
     hasContinuity(face1: IFace, face2: IFace): boolean {
         throw new Error("Method not implemented.");

@@ -29,6 +29,9 @@ export class MockShape implements IShape {
     readonly shapeType: ShapeType;
     private _id: string;
     matrix: Matrix4;
+    volume(): number {
+        return 0;
+    }
 
     constructor(overrides?: { shapeType?: ShapeType; id?: string; matrix?: Matrix4 }) {
         this.shapeType = overrides?.shapeType ?? ShapeTypes.compound;

@@ -348,6 +348,13 @@ public:
         ShapeFix_ShapeTolerance aFixTol;
         aFixTol.SetTolerance(shape, tolerance);
     }
+
+    static double volume(const TopoDS_Solid& solid)
+    {
+        GProp_GProps props;
+        BRepGProp::VolumeProperties(solid, props);
+        return props.Mass();
+    }
 };
 
 class Vertex {
@@ -601,13 +608,6 @@ public:
 
 class Solid {
 public:
-    static double volume(const TopoDS_Solid& solid)
-    {
-        GProp_GProps props;
-        BRepGProp::VolumeProperties(solid, props);
-        return props.Mass();
-    }
-
     static bool containsPoint(const TopoDS_Shape& shape, const Vector3& point, bool containsSurface, double tolerance)
     {
         gp_Pnt pnt(point.x, point.y, point.z);
@@ -646,7 +646,8 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("checkFaces", &Shape::checkFaces)
         .class_function("hlr", &Shape::hlr)
         .class_function("shellSewing", &Shape::shellSewing)
-        .class_function("setTolerance", &Shape::setTolerance);
+        .class_function("setTolerance", &Shape::setTolerance)
+        .class_function("volume", &Shape::volume);
 
     class_<Vertex>("Vertex").class_function("point", &Vertex::point);
 
@@ -680,6 +681,5 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("containsPoint", &Face::containsPoint);
 
     class_<Solid>("Solid")
-        .class_function("volume", &Solid::volume)
         .class_function("containsPoint", &Solid::containsPoint);
 }

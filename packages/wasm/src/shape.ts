@@ -291,6 +291,10 @@ export class OccShape implements IShape {
         return subShape.map((x) => OccShape.wrap(x));
     }
 
+    volume(): number {
+        return wasm.Shape.volume(this.shape);
+    }
+
     section(shape: IShape | Plane): IShape {
         if (shape instanceof OccShape) {
             const section = wasm.Shape.sectionSS(this.shape, shape.shape);
@@ -677,10 +681,6 @@ export class OccSolid extends OccShape implements ISolid {
     constructor(options: OccSolidOptions) {
         super(options);
         this.solid = options.shape;
-    }
-
-    volume(): number {
-        return wasm.Solid.volume(this.solid);
     }
 
     containsPoint(point: XYZLike, containsSurface: boolean, tolerance: number): boolean {

@@ -34,6 +34,9 @@ class TestPanelFace implements ISubShape {
     readonly shapeType = ShapeTypes.face;
     readonly index = 0;
     matrix: Matrix4 = Matrix4.identity();
+    volume(): number {
+        return 0;
+    }
 
     constructor(
         readonly id: string,
@@ -144,6 +147,9 @@ class TestPanel implements IShape {
     readonly shapeType = ShapeTypes.solid;
     readonly face: TestPanelFace;
     matrix: Matrix4 = Matrix4.identity();
+    volume(): number {
+        return 0;
+    }
 
     constructor(
         readonly id: string,

@@ -122,12 +122,12 @@ test("should fuse a box with its mirror copy across a box face", () => {
     const fused = fuse.shape;
     expect(fused.isNull()).toBe(false);
 
-    expect(wasm.Solid.volume(wasm.TopoDS.solid(mirrored))).toBeCloseTo(1, 6);
+    expect(wasm.Shape.volume(wasm.TopoDS.solid(mirrored))).toBeCloseTo(1, 6);
 
     // two unit boxes sharing one face fuse into a single solid of volume 2 spanning x in [0, 2]
     const solids = wasm.Shape.findSubShapes(fused, wasm.TopAbs_ShapeEnum.TopAbs_SOLID);
     expect(solids.length).toBe(1);
-    expect(wasm.Solid.volume(wasm.TopoDS.solid(solids[0]))).toBeCloseTo(2, 6);
+    expect(wasm.Shape.volume(wasm.TopoDS.solid(solids[0]))).toBeCloseTo(2, 6);
     expect(wasm.Solid.containsPoint(fused, { x: 1.5, y: 0.5, z: 0.5 }, false, 1e-7)).toBe(true);
     expect(wasm.Solid.containsPoint(fused, { x: 2.5, y: 0.5, z: 0.5 }, false, 1e-7)).toBe(false);
 });

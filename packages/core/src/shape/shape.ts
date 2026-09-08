@@ -51,6 +51,7 @@ export interface IShape extends IDisposable {
     fixSolid(tolerance: number): IShape;
     shellSewing(tolerance: number): IShape;
     setTolerance(tolerance: number): void;
+    volume(): number;
 }
 
 export interface ISubShape extends IShape {
@@ -113,7 +114,6 @@ export interface IFace extends IShape {
 export interface IShell extends IShape {}
 
 export interface ISolid extends IShape {
-    volume(): number;
     containsPoint(point: XYZLike, containsSurface: boolean, tolerance: number): boolean;
 }
 
