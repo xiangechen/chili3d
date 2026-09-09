@@ -3,9 +3,9 @@
 
 import type { LLMConfig } from "../settings";
 import { AnthropicProvider } from "./anthropic";
-import { OpenAICompatProvider } from "./openaiCompat";
+import { CompletionsProvider } from "./completions";
 import { ResponsesProvider } from "./responses";
-import type { ChatMessage, ImagePart, LLMProvider, Tool, ToolCall } from "./types";
+import type { ChatMessage, ImagePart, LLMProvider, ThinkingBlock, Tool, ToolCall } from "./types";
 
 export interface ChatCallbacks {
     onTextDelta(text: string): void;
@@ -32,41 +32,48 @@ type ToolOutput = { toolCallId: string; name: string; content: string; images?: 
 export function createProvider(config: LLMConfig): LLMProvider {
     if (config.provider === "anthropic") return new AnthropicProvider(config);
     if (config.provider === "responses") return new ResponsesProvider(config);
-    return new OpenAICompatProvider(config);
+    return new CompletionsProvider(config);
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
     const provider = opts.provider ?? createProvider(opts.config);
     let producedText = false;
 
-    for (let iteration = 0; ; iteration++) {
-        if (opts.signal?.aborted) break;
-        const { text, toolCalls } = await streamTurn(provider, opts);
+    try {
+        for (let iteration = 0; ; iteration++) {
+            if (opts.signal?.aborted) break;
+            const { text, toolCalls, thinking } = await streamTurn(provider, opts);
 
-        opts.messages.push({
-            role: "assistant",
-            content: text,
-            toolCalls: toolCalls.length ? toolCalls : undefined,
-        });
-        if (text) producedText = true;
-        if (toolCalls.length === 0) break;
+            opts.messages.push({
+                role: "assistant",
+                content: text,
+                toolCalls: toolCalls.length ? toolCalls : undefined,
+                thinking: thinking.length ? thinking : undefined,
+            });
+            if (text) producedText = true;
+            if (toolCalls.length === 0) break;
 
-        const results = await runToolCalls(opts, toolCalls);
-        opts.messages.push(
-            ...results.map((r) => ({
-                role: "tool" as const,
-                toolCallId: r.toolCallId,
-                name: r.name,
-                content: r.content,
-                images: r.images,
-            })),
-        );
+            const results = await runToolCalls(opts, toolCalls);
+            opts.messages.push(
+                ...results.map((r) => ({
+                    role: "tool" as const,
+                    toolCallId: r.toolCallId,
+                    name: r.name,
+                    content: r.content,
+                    images: r.images,
+                })),
+            );
 
-        if (opts.signal?.aborted) break;
-        if (iteration + 1 >= MAX_AGENT_ITERATIONS) {
-            if (!producedText) opts.callbacks.onTextDelta(STEP_LIMIT_NOTICE);
-            break;
+            if (opts.signal?.aborted) break;
+            if (iteration + 1 >= MAX_AGENT_ITERATIONS) {
+                if (!producedText) opts.callbacks.onTextDelta(STEP_LIMIT_NOTICE);
+                break;
+            }
         }
+    } catch (err) {
+        // The SDKs surface user cancellation as an AbortError mid-stream; treat it as a clean stop.
+        if (opts.signal?.aborted) return;
+        throw err;
     }
 }
 
@@ -74,9 +81,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 async function streamTurn(
     provider: LLMProvider,
     opts: RunAgentOptions,
-): Promise<{ text: string; toolCalls: ToolCall[] }> {
+): Promise<{ text: string; toolCalls: ToolCall[]; thinking: ThinkingBlock[] }> {
     let text = "";
     const toolCalls: ToolCall[] = [];
+    const thinking: ThinkingBlock[] = [];
     for await (const ev of provider.streamChat({
         model: opts.config.model,
         system: opts.system,
@@ -89,9 +97,11 @@ async function streamTurn(
             opts.callbacks.onTextDelta(ev.text);
         } else if (ev.type === "tool_call") {
             toolCalls.push({ id: ev.id, name: ev.name, arguments: ev.arguments });
+        } else if (ev.type === "thinking") {
+            thinking.push(ev.block);
         }
     }
-    return { text, toolCalls };
+    return { text, toolCalls, thinking };
 }
 
 // Runs tool calls sequentially: ref-chained ops (run_box -> run_fillet) depend on

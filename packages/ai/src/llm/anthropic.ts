@@ -15,12 +15,22 @@ import type {
 
 type RawStreamEvent = { type: string; index?: number; content_block?: any; delta?: any };
 
+export interface StreamState {
+    toolBuf: ToolCallBuffer;
+    thinkingBuf: Map<number, { thinking: string; signature: string }>;
+    stopReason?: string;
+}
+
 export class AnthropicProvider implements LLMProvider {
     readonly id = "anthropic";
     private readonly client: Anthropic;
 
     constructor(config: LLMConfig) {
-        this.client = new Anthropic({ apiKey: config.apiKey, dangerouslyAllowBrowser: true });
+        this.client = new Anthropic({
+            apiKey: config.apiKey,
+            baseURL: (config.baseURL ?? "https://api.anthropic.com").replace(/\/+$/, ""),
+            dangerouslyAllowBrowser: true,
+        });
     }
 
     async *streamChat(opts: StreamChatOptions): AsyncIterable<StreamEvent> {
@@ -37,43 +47,69 @@ export class AnthropicProvider implements LLMProvider {
             { signal: opts.signal },
         );
 
-        const toolBuf: ToolCallBuffer = new Map();
+        const state: StreamState = { toolBuf: new Map(), thinkingBuf: new Map() };
         for await (const raw of stream) {
-            yield* convertEvent(raw as RawStreamEvent, toolBuf);
+            yield* convertEvent(raw as RawStreamEvent, state);
         }
     }
 }
 
-function* convertEvent(e: RawStreamEvent, toolBuf: ToolCallBuffer): Iterable<StreamEvent> {
+export function* convertEvent(e: RawStreamEvent, state: StreamState): Iterable<StreamEvent> {
     if (e.type === "content_block_start") {
-        bufferToolUseStart(e, toolBuf);
+        yield* bufferBlockStart(e, state);
     } else if (e.type === "content_block_delta") {
-        const event = convertDelta(e, toolBuf);
+        const event = convertDelta(e, state);
         if (event) yield event;
     } else if (e.type === "content_block_stop") {
-        const tb = toolBuf.get(e.index!);
-        if (tb) {
-            yield { type: "tool_call", id: tb.id, name: tb.name, arguments: tb.args };
-            toolBuf.delete(e.index!);
-        }
+        const event = finishBlock(e.index!, state);
+        if (event) yield event;
+    } else if (e.type === "message_delta") {
+        // The real stop reason (end_turn / tool_use / max_tokens) only appears here.
+        if (e.delta?.stop_reason) state.stopReason = e.delta.stop_reason;
     } else if (e.type === "message_stop") {
-        yield { type: "done", stopReason: "end_turn" };
+        yield { type: "done", stopReason: state.stopReason ?? "end_turn" };
     }
 }
 
-function bufferToolUseStart(e: RawStreamEvent, toolBuf: ToolCallBuffer): void {
-    if (e.content_block?.type === "tool_use") {
-        toolBuf.set(e.index!, { id: e.content_block.id, name: e.content_block.name, args: "" });
+function* bufferBlockStart(e: RawStreamEvent, state: StreamState): Iterable<StreamEvent> {
+    const block = e.content_block;
+    if (block?.type === "tool_use") {
+        state.toolBuf.set(e.index!, { id: block.id, name: block.name, args: "" });
+    } else if (block?.type === "thinking") {
+        state.thinkingBuf.set(e.index!, { thinking: block.thinking ?? "", signature: "" });
+    } else if (block?.type === "redacted_thinking") {
+        yield { type: "thinking", block: { type: "redacted_thinking", data: block.data } };
     }
 }
 
-function convertDelta(e: RawStreamEvent, toolBuf: ToolCallBuffer): StreamEvent | undefined {
+function convertDelta(e: RawStreamEvent, state: StreamState): StreamEvent | undefined {
     if (e.delta?.type === "text_delta") {
         return { type: "text", text: e.delta.text };
     }
     if (e.delta?.type === "input_json_delta") {
-        const tb = toolBuf.get(e.index!);
+        const tb = state.toolBuf.get(e.index!);
         if (tb) tb.args += e.delta.partial_json;
+    } else if (e.delta?.type === "thinking_delta") {
+        const tb = state.thinkingBuf.get(e.index!);
+        if (tb) tb.thinking += e.delta.thinking;
+    } else if (e.delta?.type === "signature_delta") {
+        const tb = state.thinkingBuf.get(e.index!);
+        if (tb) tb.signature += e.delta.signature;
+    }
+    return undefined;
+}
+
+function finishBlock(index: number, state: StreamState): StreamEvent | undefined {
+    const thinking = state.thinkingBuf.get(index);
+    if (thinking) {
+        state.thinkingBuf.delete(index);
+        return { type: "thinking", block: { type: "thinking", ...thinking } };
+    }
+    const tb = state.toolBuf.get(index);
+    if (tb) {
+        state.toolBuf.delete(index);
+        // A parameterless tool may stream no input_json_delta at all; "" is not valid JSON.
+        return { type: "tool_call", id: tb.id, name: tb.name, arguments: tb.args || "{}" };
     }
     return undefined;
 }
@@ -82,7 +118,7 @@ function toTool(t: Tool): any {
     return { name: t.name, description: t.description, input_schema: t.parameters };
 }
 
-function toMessages(messages: ChatMessage[]): MessageParam[] {
+export function toMessages(messages: ChatMessage[]): MessageParam[] {
     const out: MessageParam[] = [];
     for (const m of messages) {
         if (m.role === "user") {
@@ -105,10 +141,11 @@ function toUserMessage(m: ChatMessage & { role: "user" }): MessageParam {
 }
 
 function toAssistantMessage(m: ChatMessage & { role: "assistant" }): MessageParam | undefined {
-    const content: unknown[] = [];
+    // Thinking blocks must be replayed first and unmodified while thinking is enabled.
+    const content: unknown[] = [...(m.thinking ?? [])];
     if (m.content) content.push({ type: "text", text: m.content });
     for (const tc of m.toolCalls ?? []) {
-        content.push({ type: "tool_use", id: tc.id, name: tc.name, input: JSON.parse(tc.arguments) });
+        content.push({ type: "tool_use", id: tc.id, name: tc.name, input: JSON.parse(tc.arguments || "{}") });
     }
     // The API rejects an assistant message with empty content.
     if (content.length === 0) return undefined;
@@ -130,11 +167,11 @@ function appendToolResult(out: MessageParam[], m: ChatMessage & { role: "tool" }
 }
 
 function imageContent(text: string, images: ImagePart[]): unknown[] {
-    return [
-        ...images.map((img) => ({
-            type: "image",
-            source: { type: "base64", media_type: img.mediaType, data: img.data },
-        })),
-        { type: "text", text },
-    ];
+    const content: unknown[] = images.map((img) => ({
+        type: "image",
+        source: { type: "base64", media_type: img.mediaType, data: img.data },
+    }));
+    // Empty text blocks are rejected by the API.
+    if (text) content.push({ type: "text", text });
+    return content;
 }

@@ -22,6 +22,14 @@ export interface ImagePart {
     data: string; // base64, without the data URL prefix
 }
 
+/**
+ * An extended-thinking block, captured verbatim (signature included) so it can be replayed
+ * to the API. Anthropic requires thinking blocks to be passed back unmodified during tool use.
+ */
+export type ThinkingBlock =
+    | { type: "thinking"; thinking: string; signature: string }
+    | { type: "redacted_thinking"; data: string };
+
 /** A tool result that can carry images (e.g. a viewport screenshot) back to the model. */
 export interface ToolResult {
     content: string;
@@ -30,11 +38,12 @@ export interface ToolResult {
 
 export type ChatMessage =
     | { role: "user"; content: string; images?: ImagePart[] }
-    | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
+    | { role: "assistant"; content: string; toolCalls?: ToolCall[]; thinking?: ThinkingBlock[] }
     | { role: "tool"; toolCallId: string; name: string; content: string; images?: ImagePart[] };
 
 export type StreamEvent =
     | { type: "text"; text: string }
+    | { type: "thinking"; block: ThinkingBlock }
     | { type: "tool_call"; id: string; name: string; arguments: string }
     | { type: "done"; stopReason: string };
 

@@ -8,6 +8,20 @@ async function* fakeStream(events: StreamEvent[]): AsyncIterable<StreamEvent> {
     for (const e of events) yield e;
 }
 
+/** An async iterable that runs `before` then fails on first pull, like an SDK abort mid-stream. */
+function failingStream(before: () => void, message: string): AsyncIterable<StreamEvent> {
+    return {
+        [Symbol.asyncIterator]() {
+            return {
+                next: () => {
+                    before();
+                    return Promise.reject(new Error(message));
+                },
+            };
+        },
+    };
+}
+
 describe("runAgent", () => {
     test("runs tool calls and accumulates normalized messages", async () => {
         const handlerCalls: unknown[] = [];
@@ -162,5 +176,70 @@ describe("runAgent", () => {
             content: "recovered",
             toolCalls: undefined,
         });
+    });
+
+    test("stores thinking blocks on the assistant message", async () => {
+        const block = { type: "thinking" as const, thinking: "hmm", signature: "sig" };
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                yield { type: "thinking", block };
+                yield { type: "text", text: "answer" };
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+        const messages: ChatMessage[] = [];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: "sys",
+            messages,
+            tools: [],
+            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            provider,
+        });
+
+        expect(messages).toEqual([
+            { role: "assistant", content: "answer", toolCalls: undefined, thinking: [block] },
+        ]);
+    });
+
+    test("treats an abort error from the provider as a clean stop", async () => {
+        const controller = new AbortController();
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: () => failingStream(() => controller.abort(), "The operation was aborted"),
+        };
+        const messages: ChatMessage[] = [];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: "sys",
+            messages,
+            tools: [],
+            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            provider,
+            signal: controller.signal,
+        });
+
+        expect(messages).toEqual([]);
+    });
+
+    test("rethrows provider errors when not aborted", async () => {
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: () => failingStream(() => {}, "boom"),
+        };
+
+        await expect(
+            runAgent({
+                config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+                system: "sys",
+                messages: [],
+                tools: [],
+                callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+                provider,
+            }),
+        ).rejects.toThrow("boom");
     });
 });

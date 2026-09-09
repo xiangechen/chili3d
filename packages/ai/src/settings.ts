@@ -4,7 +4,7 @@
 import { ObjectStorage } from "@chili3d/core";
 
 export interface LLMConfig {
-    provider: "anthropic" | "openai-compatible" | "responses";
+    provider: "anthropic" | "completions" | "responses";
     baseURL?: string;
     apiKey: string;
     model: string;
@@ -26,12 +26,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
         id: "anthropic",
         label: "Anthropic API",
         provider: "anthropic",
+        baseURL: "https://api.anthropic.com",
         defaultModel: DEFAULT_ANTHROPIC_MODEL,
     },
     {
         id: "openai",
-        label: "OpenAI API",
-        provider: "openai-compatible",
+        label: "Completions API",
+        provider: "completions",
         baseURL: "https://api.openai.com/v1",
         defaultModel: DEFAULT_OPENAI_MODEL,
     },
